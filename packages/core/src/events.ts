@@ -7,7 +7,7 @@ import { randomBytes } from '@noble/hashes/utils.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { canonicalBytes } from './canonical.js';
 import { CAPABILITIES, type Capability } from './envelope.js';
-import { type Hash, hashBytes, hashCanonical, isHash } from './hash.js';
+import { type Hash, hashBytes, hashCanonical, hashText, isHash } from './hash.js';
 import { type Address, type Signature, isAddress, isSignature, recoverSigner, signObject } from './keys.js';
 import type { Return } from './schema.js';
 
@@ -16,6 +16,8 @@ export type CoreEventType = (typeof CORE_EVENT_TYPES)[number];
 export const DECLINE_REASONS = ['cannot', 'unclear', 'refuse', 'duplicate', 'no_time'] as const;
 export type DeclineReason = (typeof DECLINE_REASONS)[number];
 export const NONCE_RE = /^[0-9a-f]{32}$/;
+/** The pseudo-problem under which a resolver keeps identity events (name, delegate, revoke, rotate): a log of their own. */
+export const IDENTITY_LOG: Hash = hashText('quilt:identity');
 
 /** The client's declaration on a claim, a reveal and a run: the model that did the work, the client, and what it can do. */
 export interface By {

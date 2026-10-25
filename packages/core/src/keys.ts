@@ -20,6 +20,15 @@ export const ETH_PATH = "m/44'/60'/0'/0/0";
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const SIG_RE = /^0x[0-9a-f]{130}$/;
 
+/** A secret key as sixty-four hex characters, for the key file; and back. */
+export function secretToHex(secret: Uint8Array): string {
+  return bytesToHex(secret);
+}
+
+export function secretFromHex(hex: string): Uint8Array {
+  return hexToBytes(hex.trim().replace(/^0x/, ''));
+}
+
 export function randomSecretKey(): Uint8Array {
   return secp256k1.utils.randomSecretKey();
 }

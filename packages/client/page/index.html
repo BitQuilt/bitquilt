@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quilt</title>
+<style>
+  :root { --bg: #faf7f2; --ink: #1c1a17; --muted: #6b655c; --line: #e3ddd2; --open: #e9e4da; --flight: #d8d0f0; --sealed: #c7c0e8; --verify: #f3d9a4; --disputed: #f0b48a; --prov: #b7dcb0; --acc: #5aa66a; --unreach: #bdb6ab; --locked: #efece6; --unknown: #f6c7c7; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #17161a; --ink: #ece7df; --muted: #a39d93; --line: #2b2930; --open: #2e2c33; --locked: #222026; --flight: #3b3360; --sealed: #4a4278; } }
+  body { margin: 0; font: 16px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-weight: 600; font-size: 28px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  form.row { display: flex; gap: 8px; margin-bottom: 16px; }
+  input, textarea, button, select { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  input[type=search] { flex: 1; }
+  button { cursor: pointer; }
+  button.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 10px 0; }
+  .card h3 { margin: 0 0 4px; font-size: 17px; }
+  .meta { color: var(--muted); font-size: 14px; }
+  .map { display: flex; flex-wrap: wrap; gap: 3px; margin: 8px 0; }
+  .sq { width: 14px; height: 14px; border-radius: 3px; background: var(--open); }
+  .sq.in_flight { background: var(--flight); } .sq.sealed { background: var(--sealed); } .sq.needs_verify { background: var(--verify); }
+  .sq.disputed { background: var(--disputed); } .sq.accepted_provisional { background: var(--prov); } .sq.accepted { background: var(--acc); }
+  .sq.unreachable { background: var(--unreach); } .sq.locked { background: var(--locked); } .sq.unknown { background: var(--unknown); }
+  pre { white-space: pre-wrap; word-break: break-word; font-size: 13px; background: var(--locked); padding: 10px; border-radius: 8px; }
+  nav { display: flex; gap: 14px; margin-bottom: 18px; font-size: 15px; }
+  nav a { color: var(--muted); text-decoration: none; cursor: pointer; } nav a.on { color: var(--ink); font-weight: 600; }
+  section { display: none; } section.on { display: block; }
+  .field { margin: 8px 0; } .field label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+  .field input, .field textarea { width: 100%; box-sizing: border-box; }
+  .quiet { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Quilt</h1>
+  <p class="sub">A torrent where the pieces are made, not copied.</p>
+  <nav>
+    <a data-tab="search" class="on">Search</a><a data-tab="problem">Problem</a><a data-tab="publish">Publish</a><a data-tab="library">Library</a><a data-tab="me">Me</a>
+  </nav>
+
+  <section id="search" class="on">
+    <form class="row" id="searchForm"><input type="search" id="q" placeholder="citations, ai-safety, a slug, a hash, a quilt: link" autocomplete="off"><button class="primary" type="submit">Search</button></form>
+    <div id="results"></div>
+  </section>
+
+  <section id="problem">
+    <div id="problemView" class="quiet">Open a problem from search, a link, or your library.</div>
+    <div id="pieceView"></div>
+  </section>
+
+  <section id="publish">
+    <div class="field"><label for="pattern">The pattern, as JSON: title, done_when, slug, pieces, data rows, topics</label><textarea id="pattern" rows="14"></textarea></div>
+    <button class="primary" id="publishBtn">Publish, signed with this key</button>
+    <pre id="publishOut" class="quiet"></pre>
+  </section>
+
+  <section id="library"><div id="libraryView"></div></section>
+
+  <section id="me"><pre id="meView"></pre><button id="flushBtn">Post what waits in the queue</button></section>
+</main>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  var api = function (path, opts) { return fetch(path, opts).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; }); }); };
+  var show = function (tab) {
+    document.querySelectorAll('nav a').forEach(function (a) { a.classList.toggle('on', a.dataset.tab === tab); });
+    document.querySelectorAll('section').forEach(function (s) { s.classList.toggle('on', s.id === tab); });
+  };
+  document.querySelectorAll('nav a').forEach(function (a) { a.addEventListener('click', function () { show(a.dataset.tab); if (a.dataset.tab === 'library') library(); if (a.dataset.tab === 'me') me(); }); });
+
+  var mapOf = function (pieces) {
+    var m = el('div', 'map');
+    pieces.forEach(function (p) { var s = el('div', 'sq ' + p.state); s.title = p.name + ': ' + p.state.replace('_', ' ') + ' (' + p.verifier + ')'; m.appendChild(s); });
+    return m;
+  };
+  var countsOf = function (counts) { return Object.keys(counts).map(function (k) { return counts[k] + ' ' + k.replace('_', ' '); }).join(', '); };
+
+  var currentProblem = null;
+  var openProblem = function (link) {
+    show('problem');
+    $('problemView').textContent = 'Resolving…';
+    $('pieceView').textContent = '';
+    api('/api/open?link=' + encodeURIComponent(link)).then(function (p) {
+      currentProblem = p.problem;
+      var v = $('problemView'); v.textContent = ''; v.className = '';
+      v.appendChild(el('h3', null, p.title));
+      v.appendChild(el('div', 'meta', 'Published by ' + p.owner + (p.tracker ? ' · answered by ' + p.tracker : ' · from the cache')));
+      v.appendChild(el('p', null, 'Done when: ' + p.done_when));
+      v.appendChild(mapOf(p.pieces));
+      var counts = {}; p.pieces.forEach(function (x) { counts[x.state] = (counts[x.state] || 0) + 1; });
+      v.appendChild(el('div', 'meta', p.pieces.length + ' pieces: ' + countsOf(counts) + (p.complete ? ' · complete' : '')));
+      var b = el('button', 'primary', 'Hand me a piece'); b.addEventListener('click', function () { takePiece(p.problem); }); v.appendChild(b);
+      v.appendChild(el('h3', null, 'Accepted so far'));
+      v.appendChild(el('pre', null, p.accepted));
+      v.appendChild(el('pre', 'quiet', p.summary));
+    }).catch(function (e) { $('problemView').textContent = e.message; });
+  };
+
+  var takePiece = function (problem) {
+    var pv = $('pieceView'); pv.textContent = 'Asking for the rarest piece…';
+    api('/api/next?problem=' + encodeURIComponent(problem)).then(function (pk) {
+      pv.textContent = '';
+      var c = el('div', 'card');
+      c.appendChild(el('h3', null, pk.name + ' · ' + (pk.posted.queued ? 'claim queued' : 'claimed')));
+      c.appendChild(el('div', 'meta', 'The author, ' + pk.author + ', wrote:'));
+      c.appendChild(el('pre', null, pk.brief));
+      var form = el('form');
+      var fields = pk.schema ? Object.keys(pk.schema.properties) : ['patch'];
+      fields.forEach(function (name) {
+        var def = pk.schema ? pk.schema.properties[name] : { type: 'string' };
+        var f = el('div', 'field'); var label = el('label', null, name + (pk.agree.indexOf(name) >= 0 ? ' (agreement is on this)' : ' (evidence)')); label.htmlFor = 'f_' + name; f.appendChild(label);
+        var input;
+        if (def.enum) { input = el('select'); def.enum.forEach(function (o) { var op = el('option', null, o); op.value = o; input.appendChild(op); }); }
+        else if (def.type === 'boolean') { input = el('select'); ['true', 'false'].forEach(function (o) { var op = el('option', null, o); op.value = o; input.appendChild(op); }); }
+        else if (def.type === 'number' || def.type === 'integer') { input = el('input'); input.type = 'number'; }
+        else { input = el('textarea'); input.rows = name === 'patch' ? 8 : 3; }
+        input.id = 'f_' + name; input.dataset.kind = def.enum ? 'enum' : (def.type || 'string'); f.appendChild(input); form.appendChild(f);
+      });
+      var submit = el('button', 'primary', 'Hand it back, signed'); submit.type = 'submit'; form.appendChild(submit);
+      var out = el('pre', 'quiet', ''); form.appendChild(out);
+      form.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var ret = {};
+        fields.forEach(function (name) { var i = $('f_' + name); var kind = i.dataset.kind; var v = i.value; if (kind === 'number' || kind === 'integer') v = Number(v); if (kind === 'boolean') v = v === 'true'; ret[name] = v; });
+        out.textContent = 'Signing and posting…';
+        api('/api/return', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ problem: pk.problem, piece: pk.piece, return: ret }) })
+          .then(function (r) { out.textContent = 'Commit ' + (r.commit.queued ? 'queued' : 'posted') + '; reveal ' + (r.reveal.queued ? 'queued' : 'posted') + '.'; openProblem(pk.problem); })
+          .catch(function (e) { out.textContent = e.message; });
+      });
+      c.appendChild(form); pv.appendChild(c);
+    }).catch(function (e) { pv.textContent = e.message; });
+  };
+
+  $('searchForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var q = $('q').value.trim();
+    if (/^(quilt:|https?:\/\/|sha256:)/.test(q)) { openProblem(q); return; }
+    var r = $('results'); r.textContent = 'Searching…';
+    api('/api/search?q=' + encodeURIComponent(q)).then(function (j) {
+      r.textContent = '';
+      if (!j.problems.length) { r.appendChild(el('p', 'quiet', 'Nothing matched on the trackers this client knows.')); return; }
+      j.problems.forEach(function (p) {
+        var c = el('div', 'card');
+        var h = el('h3', null, p.title); c.appendChild(h);
+        c.appendChild(el('div', 'meta', p.slug + ' · by ' + p.owner + (p.topics.length ? ' · ' + p.topics.join(', ') : '') + ' · at ' + p.tracker));
+        c.appendChild(el('div', 'meta', p.pieces + ' pieces: ' + countsOf(p.counts)));
+        var b = el('button', null, 'Open'); b.addEventListener('click', function () { openProblem(p.problem); }); c.appendChild(b);
+        r.appendChild(c);
+      });
+    }).catch(function (e) { r.textContent = e.message; });
+  });
+
+  $('publishBtn').addEventListener('click', function () {
+    var out = $('publishOut'); out.textContent = 'Signing and publishing…';
+    var pattern;
+    try { pattern = JSON.parse($('pattern').value); } catch (e) { out.textContent = 'The pattern is not JSON: ' + e.message; return; }
+    api('/api/publish', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(pattern) })
+      .then(function (r) { out.textContent = 'Published ' + r.hash + '\nLink: ' + r.link + '\nCarried by: ' + (r.posted.join(', ') || 'nobody yet') + (r.refused.length ? '\nRefused: ' + r.refused.join('; ') : ''); openProblem(r.hash); })
+      .catch(function (e) { out.textContent = e.message; });
+  });
+
+  var library = function () {
+    api('/api/library').then(function (lib) {
+      var v = $('libraryView'); v.textContent = '';
+      var hashes = Object.keys(lib.problems);
+      if (!hashes.length) { v.appendChild(el('p', 'quiet', 'Nothing yet. Problems you open, publish or work appear here.')); return; }
+      hashes.forEach(function (h) {
+        var p = lib.problems[h]; var c = el('div', 'card');
+        c.appendChild(el('h3', null, p.title)); c.appendChild(el('div', 'meta', p.slug + ' · last ' + p.last + ' · ' + p.trackers.join(', ')));
+        var b = el('button', null, 'Open'); b.addEventListener('click', function () { openProblem(h); }); c.appendChild(b); v.appendChild(c);
+      });
+      var pieces = Object.keys(lib.pieces);
+      if (pieces.length) { v.appendChild(el('h3', null, 'Pieces')); pieces.forEach(function (ph) { var x = lib.pieces[ph]; v.appendChild(el('div', 'meta', x.name + ' · ' + x.what + ' · ' + x.when)); }); }
+    });
+  };
+  var me = function () { api('/api/me').then(function (m) { $('meView').textContent = JSON.stringify(m, null, 2); }); };
+  $('flushBtn').addEventListener('click', function () { api('/api/flush', { method: 'POST' }).then(me); });
+  me();
+})();
+</script>
+</body>
+</html>
