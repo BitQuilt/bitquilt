@@ -30,7 +30,13 @@ or in Claude Desktop's configuration:
 { "mcpServers": { "quilt": { "command": "pnpm", "args": ["--filter", "quilt", "--dir", "/path/to/bitquilt", "start", "mcp"] } } }
 ```
 
-Then, in the chat: "open quilt:sha256:… and take a piece". Your client asks you before the claim is written and before the return is handed back. A second production from a different vendor, or from you as a person at the page, accepts the piece.
+With the executable, one command writes the same entry, pointing at itself and at the key in `QUILT_HOME`. Claude Desktop keeps that file in memory while it runs and writes it back whole when it quits, so quit Claude first (Cmd+Q on a Mac), then:
+
+```bash
+quilt install claude
+```
+
+and open Claude again. Then, in the chat: "open quilt:sha256:… and take a piece". Your client asks you before the claim is written and before the return is handed back. A second production from a different vendor, or from you as a person at the page, accepts the piece.
 
 ## A mirror
 

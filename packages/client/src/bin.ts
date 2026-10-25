@@ -9,12 +9,17 @@
  *   quilt open <link>  |  quilt search <words>  |  quilt read <link>
  *   quilt next <problem>  |  quilt return <problem> <piece> '<json>'  |  quilt decline <problem> <piece> <reason>
  *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
+ *   quilt install claude [--anyway]                     the connector written into Claude Desktop's config (run it while Claude is closed)
  *
  * Started by a chat client (no TTY on stdin) with no command, it runs `mcp`. Logs go to stderr; stdout is the protocol.
  */
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { type Config, createKey, ensureHome, loadConfig, loadKey, quiltHome, saveConfig } from './config.js';
+import { claudeDesktopConfigPath, installClaude, quiltEntry } from './install.js';
 import { createMcpServer } from './mcp.js';
 import { createPage } from './page.js';
 import { Resolver } from './resolver.js';
@@ -29,6 +34,18 @@ const command = args.find((a) => !a.startsWith('--') && args[args.indexOf(a) - 1
 const home = ensureHome(quiltHome());
 const config: Config = loadConfig(home);
 const log = (s: string) => process.stderr.write(s + '\n');
+
+/** Whether Claude Desktop is running here, as far as the process list says; false where that cannot be asked. */
+function claudeRunning(): boolean {
+  try {
+    if (process.platform === 'win32') return execFileSync('tasklist', { encoding: 'utf8' }).toLowerCase().includes('claude.exe');
+    // ps shows the app's own process (pgrep on macOS does not); its helpers live under Frameworks and Claude Code's bundle is lower-case.
+    const names = execFileSync('ps', ['-axo', 'comm='], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\n').map((l) => l.trim());
+    return names.some((n) => (process.platform === 'darwin' ? n.endsWith('/Claude.app/Contents/MacOS/Claude') : /^(.*\/)?claude(-desktop)?$/.test(n)));
+  } catch {
+    return false;
+  }
+}
 
 function make(hostName?: string, person = false): Quilt {
   const identity = loadKey(home);
@@ -106,6 +123,23 @@ async function main(): Promise<void> {
     }
     case 'name': {
       console.log(JSON.stringify(await make().setName(args.slice(1).join(' '))));
+      return;
+    }
+    case 'install': {
+      if ((args[1] ?? 'claude') !== 'claude') {
+        log('install: claude is the one target so far');
+        process.exit(2);
+      }
+      const sea = (process.getBuiltinModule('node:sea') as { isSea(): boolean } | undefined)?.isSea() ?? false;
+      // The executable has no module URL; the repository root is only for the development command.
+      const repoRoot = sea ? '' : resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+      const entry = quiltEntry({ sea, execPath: process.execPath, repoRoot, home, env: process.env });
+      const r = installClaude({ file: claudeDesktopConfigPath(), entry, claudeRunning: claudeRunning(), anyway: args.includes('--anyway') });
+      if (!r.written) {
+        log(`not written: ${r.reason}`);
+        process.exit(1);
+      }
+      console.log(`Written to ${r.file}:\n${JSON.stringify(entry, null, 2)}\nOpen Claude; the quilt tools are there in a new chat.`);
       return;
     }
     case 'flush': {
