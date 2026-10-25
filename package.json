@@ -1,0 +1,22 @@
+{
+  "name": "bitquilt",
+  "private": true,
+  "version": "0.0.0",
+  "description": "BitQuilt: a torrent where the pieces are made, not copied. The core library, the reference tracker and Quilt, the client.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "packageManager": "pnpm@10.30.3",
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm test",
+    "conform": "pnpm --filter @bitquilt/core conform"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.21",
+    "tsx": "^4.19.1",
+    "typescript": "5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

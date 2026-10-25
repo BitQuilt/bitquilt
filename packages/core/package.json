@@ -1,0 +1,22 @@
+{
+  "name": "@bitquilt/core",
+  "version": "0.1.0",
+  "description": "The BitQuilt core, version 1: canonical forms, keys and signatures, the envelope and piece hashes, events, the reducer and next, with the conformance fixtures.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+  },
+  "files": ["dist", "fixtures", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "conform": "tsx src/conformance.ts fixtures"
+  },
+  "dependencies": {
+    "@noble/curves": "^2.0.1",
+    "@noble/hashes": "^2.0.1",
+    "@scure/bip32": "^2.0.0",
+    "@scure/bip39": "^2.0.0"
+  }
+}
