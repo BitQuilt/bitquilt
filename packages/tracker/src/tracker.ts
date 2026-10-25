@@ -12,6 +12,7 @@ import {
 } from '@bitquilt/core';
 import { createHash } from 'node:crypto';
 import { type Layer, type ProblemLayer, CHALLENGE_EVENTS, EXTENSION, GROUND_MAX, MAJORITY, PANEL, SEED, challengeBodyProblems, challengeLayer, verdictBodyProblems } from './challenge.js';
+import { RECIPROCITY, SEEDING, offerOrder, seedBodyProblems, seedInfo, watchExclusions } from './seeding.js';
 import type { Store } from './store.js';
 
 export const IDENTITY: Hash = IDENTITY_LOG;
@@ -134,6 +135,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     const counts: Record<string, number> = {};
     for (const v of pl.pieces) counts[v.state] = (counts[v.state] ?? 0) + 1;
     const head = store.head(hash);
+    const seed = seedInfo(inputFor(hash)!, pl.fold, layered.now);
     return {
       problem: hash,
       title: s.envelope.problem.title,
@@ -148,6 +150,8 @@ export function createTracker(options: TrackerOptions): Tracker {
       head: head ? { seq: head.seq, hash: head.hash, short: `${head.hash.slice(0, 8)}:${head.hash.slice(8, 16)}` } : null,
       versions: s.chain.length,
       challenges: pl.challenges.length,
+      seeders: seed.seeders.size,
+      last_seeded: seed.last_seeded,
     };
   }
 
@@ -220,6 +224,10 @@ export function createTracker(options: TrackerOptions): Tracker {
       const state = reduceProblem(under);
       if (!state) throw new Refusal(404, 'no such problem here');
       if (CHALLENGE_EVENTS.has(type)) checkChallengeEvent(event, under);
+      if (type === 'seed') {
+        const sp = seedBodyProblems(event.body);
+        if (sp.length) throw new Refusal(400, sp[0]!);
+      }
       if (PIECE_EVENTS.has(type)) {
         const view = event.piece ? state.byHash.get(event.piece) : undefined;
         if (!view) throw new Refusal(400, 'names a piece this problem does not have');
@@ -313,13 +321,42 @@ export function createTracker(options: TrackerOptions): Tracker {
     const state = pl.fold;
     const at = now();
     const client: Client = { can: can as Capability[], model };
-    const pick = next(state, key, client, at, { exclude: store.heldByOthers(hash, key, at) });
+    // QX-4: a watch piece goes to the seeders first, and a seeder is handed it before anything else.
+    const input = inputFor(hash)!;
+    const exclude = store.heldByOthers(hash, key, at);
+    for (const h of watchExclusions(pl, input, key, seedInfo(input, state, at).seeders, at)) exclude.add(h);
+    const pick = next(state, key, client, at, { exclude });
     if (!pick) {
       json(res, 200, { piece: null });
       return;
     }
     store.hold(hash, pick.piece.hash, key, new Date(Date.parse(at) + HOLD_SECONDS * 1000).toISOString());
     json(res, 200, { piece: pick.piece.hash, name: pick.piece.name, state: pick.state, brief: pick.brief, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h, verifier: pick.piece.verifier, workspace: pick.piece.workspace ?? null, check: pick.piece.check ?? null });
+  }
+
+  /** QX-5: the problems here with a piece for the key, in the order they are offered; the first is held as assisted next holds. */
+  function offer(res: ServerResponse, query: URLSearchParams): void {
+    const key = query.get('key');
+    if (!isAddress(key)) throw new Refusal(400, 'key: an address with its checksum');
+    const can = (query.get('can') ?? '').split(',').filter(Boolean);
+    if (!can.every((c) => (CAPABILITIES as readonly string[]).includes(c))) throw new Refusal(400, `can: from ${CAPABILITIES.join(', ')}`);
+    const model = query.get('model') ?? 'unknown/unknown';
+    const at = now();
+    const layered = layer();
+    const inputs = new Map<Hash, ReduceInput>();
+    for (const h of layered.problems.keys()) {
+      const input = inputFor(h);
+      if (input) inputs.set(h, input);
+    }
+    const count = store.nextOfferCount(key);
+    const list = offerOrder(layered, inputs, key, { can: can as Capability[], model }, at, count, (h, pl, input) => {
+      const exclude = store.heldByOthers(h, key, at);
+      for (const x of watchExclusions(pl, input, key, seedInfo(input, pl.fold, at).seeders, at)) exclude.add(x);
+      return exclude;
+    });
+    const first = list[0];
+    if (first) store.hold(first.problem, first.pick.piece.hash, key, new Date(Date.parse(at) + HOLD_SECONDS * 1000).toISOString());
+    json(res, 200, { offer: count, offers: list.map((o) => ({ problem: o.problem, title: o.title, slug: o.slug, owner: o.owner, reason: o.reason, piece: o.pick.piece.hash, name: o.pick.piece.name, state: o.pick.state, verifier: o.pick.piece.verifier, requires: o.pick.requires, lease_h: o.pick.lease_h })) });
   }
 
   function index(query: URLSearchParams) {
@@ -353,11 +390,15 @@ export function createTracker(options: TrackerOptions): Tracker {
         return;
       }
       if (path === '/.well-known/quilt' && method === 'GET') {
-        json(res, 200, { quilt: 1, tracker: options.name ?? url, url, peers: options.peers ?? [], limits, stamp: { name: stampNeeded }, sortition: SEED, challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX }, chain: 'QX-11', identity: IDENTITY, hosted: options.extra !== undefined, routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/k/events', '/b/<hash>', '/n/<owner>/<slug>', '/search'] });
+        json(res, 200, { quilt: 1, tracker: options.name ?? url, url, peers: options.peers ?? [], limits, stamp: { name: stampNeeded }, sortition: SEED, challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX }, chain: 'QX-11', seeding: SEEDING, reciprocity: RECIPROCITY, identity: IDENTITY, hosted: options.extra !== undefined, routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/k/events', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer'] });
         return;
       }
       if (path === '/' && method === 'GET') {
         json(res, 200, { quilt: 1, tracker: url, problems: index(u.searchParams) });
+        return;
+      }
+      if (path === '/offer' && method === 'GET') {
+        offer(res, u.searchParams);
         return;
       }
       if (path === '/search' && method === 'GET') {
@@ -411,7 +452,7 @@ export function createTracker(options: TrackerOptions): Tracker {
         if (sub === 'scrape') {
           const lines = store.receipts(hash);
           const chain = verifyChain(lines, hash);
-          json(res, 200, { ...summary(hash), chain_ok: chain.ok, seeders: 0 });
+          json(res, 200, { ...summary(hash), chain_ok: chain.ok });
           return;
         }
         if (sub === 'next') {

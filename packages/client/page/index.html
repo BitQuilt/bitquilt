@@ -43,6 +43,7 @@
 
   <section id="search" class="on">
     <form class="row" id="searchForm"><input type="search" id="q" placeholder="citations, ai-safety, a slug, a hash, a quilt: link" autocomplete="off"><button class="primary" type="submit">Search</button></form>
+    <p class="row"><button id="anyBtn">Hand me something to do</button></p>
     <div id="results"></div>
   </section>
 
@@ -95,6 +96,8 @@
       var counts = {}; p.pieces.forEach(function (x) { counts[x.state] = (counts[x.state] || 0) + 1; });
       v.appendChild(el('div', 'meta', p.pieces.length + ' pieces: ' + countsOf(counts) + (p.complete ? ' · complete' : '')));
       var b = el('button', 'primary', 'Hand me a piece'); b.addEventListener('click', function () { takePiece(p.problem); }); v.appendChild(b);
+      v.appendChild(el('div', 'meta', (p.seeders || 0) + (p.seeders === 1 ? ' seeder' : ' seeders') + (p.last_seeded ? ' · last seeded ' + String(p.last_seeded).slice(0, 10) : '')));
+      var sb = el('button', null, p.seeding ? 'Stop keeping this problem' : 'Keep this problem'); sb.addEventListener('click', function () { sb.disabled = true; api('/api/seed', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ problem: p.problem, on: !p.seeding }) }).then(function () { openProblem(p.problem); }).catch(function (e) { sb.disabled = false; sb.textContent = e.message; }); }); v.appendChild(sb);
       v.appendChild(el('h3', null, 'Accepted so far'));
       v.appendChild(el('pre', null, p.accepted));
       v.appendChild(el('pre', 'quiet', p.summary));
@@ -102,9 +105,10 @@
   };
 
   var takePiece = function (problem) {
-    var pv = $('pieceView'); pv.textContent = 'Asking for the rarest piece…';
+    var pv = $('pieceView'); pv.textContent = problem ? 'Asking for the rarest piece…' : 'Asking the standing list, then the trackers, for something to do…';
     api('/api/next?problem=' + encodeURIComponent(problem)).then(function (pk) {
       pv.textContent = '';
+      if (!problem) { currentProblem = pk.problem; var pvw = $('problemView'); pvw.textContent = 'From problem ' + pk.problem + '. Its map is in your library.'; pvw.className = 'quiet'; }
       var c = el('div', 'card');
       c.appendChild(el('h3', null, pk.name + ' · ' + (pk.posted.queued ? 'claim queued' : 'claimed')));
       c.appendChild(el('div', 'meta', 'The author, ' + pk.author + ', wrote:'));
@@ -178,6 +182,7 @@
       if (pieces.length) { v.appendChild(el('h3', null, 'Pieces')); pieces.forEach(function (ph) { var x = lib.pieces[ph]; v.appendChild(el('div', 'meta', x.name + ' · ' + x.what + ' · ' + x.when)); }); }
     });
   };
+  $('anyBtn').addEventListener('click', function () { show('problem'); takePiece(''); });
   var me = function () { api('/api/me').then(function (m) { $('meView').textContent = JSON.stringify(m, null, 2); }); };
   $('flushBtn').addEventListener('click', function () { api('/api/flush', { method: 'POST' }).then(me); });
   me();

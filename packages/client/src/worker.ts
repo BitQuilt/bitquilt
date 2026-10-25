@@ -59,6 +59,8 @@ export interface Pattern {
 interface Library {
   problems: Record<string, { title: string; slug: string; trackers: string[]; first: string; last: string }>;
   pieces: Record<string, { problem: Hash; name: string; when: string; what: string }>;
+  /** The standing list (QX-4): the problems this key seeds, by the time it said so. */
+  seeding: Record<string, string>;
 }
 
 export class Quilt {
@@ -69,7 +71,8 @@ export class Quilt {
   constructor(readonly config: Config, readonly identity: Identity | null, readonly resolver: Resolver, hostName?: string) {
     this.hostName = hostName;
     this.libraryFile = join(resolver.home, 'library.json');
-    this.library = existsSync(this.libraryFile) ? (JSON.parse(readFileSync(this.libraryFile, 'utf8')) as Library) : { problems: {}, pieces: {} };
+    this.library = existsSync(this.libraryFile) ? (JSON.parse(readFileSync(this.libraryFile, 'utf8')) as Library) : { problems: {}, pieces: {}, seeding: {} };
+    if (!this.library.seeding) this.library.seeding = {};
   }
 
   model(): string {
@@ -156,6 +159,7 @@ export class Quilt {
 
   /** The rarest piece for this key: the tracker's assisted next when one answers and names a piece, else computed here from the map; then a claim. */
   async next(input: string): Promise<{ hash: Hash; pick: Pick; posted: { at: string | null; queued: boolean; error?: string }; author: string }> {
+    if (!input.trim()) return this.offered();
     const id = this.needKey();
     const { hash, state, tracker } = await this.open(input);
     const trackers = tracker ? [tracker, ...this.config.trackers] : this.config.trackers;
@@ -183,6 +187,47 @@ export class Quilt {
     this.save();
     const owner = state.names.get(state.envelope.problem.owner as `0x${string}`)?.name ?? state.envelope.problem.owner;
     return { hash, pick, posted, author: owner };
+  }
+
+  /** Something to do when no problem is named: the standing list first (QX-4), then each tracker's offer in its order (QX-5). */
+  async offered(): Promise<{ hash: Hash; pick: Pick; posted: { at: string | null; queued: boolean; error?: string }; author: string }> {
+    const id = this.needKey();
+    for (const p of Object.keys(this.library.seeding)) {
+      try {
+        return await this.next(p);
+      } catch {
+        /* nothing there for this key right now */
+      }
+    }
+    for (const t of this.config.trackers) {
+      let offers: { problem: Hash }[] = [];
+      try {
+        const r = await fetch(`${t}offer?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}`, { signal: AbortSignal.timeout(8000) });
+        if (r.ok) offers = ((await r.json()) as { offers: { problem: Hash }[] }).offers;
+      } catch {
+        /* a tracker that does not answer is skipped */
+      }
+      for (const o of offers) {
+        try {
+          return await this.next(`${t}p/${o.problem}`);
+        } catch {
+          /* the next offer */
+        }
+      }
+    }
+    throw new Error('nothing to do for this key on any tracker right now');
+  }
+
+  /** Keeping a problem (QX-4): a seed event on its log, and the problem in this client's standing list. */
+  async seed(problem: Hash, on: boolean): Promise<{ at: string | null; queued: boolean; error?: string }> {
+    const id = this.needKey();
+    const e = this.sign({ quilt: 1, type: 'seed', problem, key: id.address, ts: new Date().toISOString(), body: { on } });
+    const r = await this.resolver.post(e, problem, this.trackersFor(problem));
+    if (r.error && !r.queued) throw new Error(`the tracker refused the seed: ${r.error}`);
+    if (on) this.library.seeding[problem] = e.ts;
+    else delete this.library.seeding[problem];
+    this.save();
+    return r;
   }
 
   /** The piece said as text: the brief as the author's quoted words, the schema, what it requires, the lease. */

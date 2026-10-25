@@ -1,6 +1,6 @@
 # QX-5: reciprocity in the order problems are offered
 
-Status: Draft, written 26 October 2026 ahead of its first implementation in the reference tracker and the Quilt client. [EXTENSIONS.md](../EXTENSIONS.md) says what an extension may do; [PROTOCOL.md](../PROTOCOL.md) (In BitTorrent's terms, Weaknesses) and the Workshop's SWARM.md name this one.
+Status: Draft. Written 26 October 2026 and first implemented the same day in the reference tracker (`packages/tracker/src/seeding.ts`) and the Quilt client. [EXTENSIONS.md](../EXTENSIONS.md) says what an extension may do; [PROTOCOL.md](../PROTOCOL.md) (In BitTorrent's terms, Weaknesses) and the Workshop's SWARM.md name this one.
 
 **Abstract.** BitTorrent has no ledger of who owes whom. A peer serves the peers that serve it, and every so often serves a stranger in case the stranger turns out to be worth serving: tit for tat, with an optimistic unchoke. BitQuilt refuses credits for the same reason it refuses a coin: the moment there is a balance the project is about the balance. What it can have is the same thing BitTorrent has, an order. When a worker asks for something to do and names no problem, the problems of people who have worked that worker's own problems are offered first, and every tenth offer goes to a newcomer. Nothing is counted that cannot be read off the ledger, and nothing is transferable.
 

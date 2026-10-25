@@ -7,7 +7,8 @@
  *   quilt mcp                                             the MCP server over stdio, with the page on localhost (what a chat client starts)
  *   quilt serve [--port 3978]                             the page and the node alone
  *   quilt open <link>  |  quilt search <words>  |  quilt read <link>
- *   quilt next <problem>  |  quilt return <problem> <piece> '<json>'  |  quilt decline <problem> <piece> <reason>
+ *   quilt next [problem]  |  quilt return <problem> <piece> '<json>'  |  quilt decline <problem> <piece> <reason>
+ *   quilt seed <problem> on|off                          keep a problem: a seed event on its log, and the problem in the standing list
  *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
  *   quilt challenge <problem> <piece> <stake> <ground>  |  quilt verdict <problem> <piece> <challenge> <challenger|author> ['<json>']
  *   quilt install claude [--anyway]                     the connector written into Claude Desktop's config (run it while Claude is closed)
@@ -107,6 +108,10 @@ async function main(): Promise<void> {
       const { hash, pick, posted, author } = await quilt.next(args[1] ?? '');
       console.log(quilt.pieceText(hash, pick, author));
       console.log(posted.queued ? 'Claim queued.' : `Claim posted to ${posted.at}.`);
+      return;
+    }
+    case 'seed': {
+      console.log(JSON.stringify(await make().seed(args[1] as `sha256:${string}`, (args[2] ?? 'on') !== 'off')));
       return;
     }
     case 'return': {
