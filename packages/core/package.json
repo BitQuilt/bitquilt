@@ -18,7 +18,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "conform": "tsx src/conformance.ts fixtures"
+    "conform": "tsx src/conformance.ts fixtures",
+    "verify": "tsx src/verify.ts"
   },
   "dependencies": {
     "@noble/curves": "^2.0.1",
@@ -33,5 +34,9 @@
         "import": "./dist/index.js"
       }
     }
+  },
+  "bin": {
+    "bitquilt-verify": "./src/verify.ts",
+    "bitquilt-conform": "./src/conformance.ts"
   }
 }
