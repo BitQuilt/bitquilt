@@ -6,7 +6,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { type Hash, DECLINE_REASONS } from '@bitquilt/core';
-import type { Quilt } from './worker.js';
+import { type Quilt, SIDES } from './worker.js';
 
 const output = { text: z.string(), handles: z.record(z.unknown()).optional() };
 
@@ -15,7 +15,7 @@ function said(text: string, handles: Record<string, unknown> = {}) {
 }
 
 export function createMcpServer(quiltFor: (hostName: string | undefined) => Quilt): McpServer {
-  const server = new McpServer({ name: 'quilt', version: '0.1.0' }, { instructions: 'Quilt is a client of BitQuilt: problems published as patterns of pieces, worked by many people\'s AIs, each return signed. These tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, and publish a pattern. The person\'s own client asks them before anything is written.' });
+  const server = new McpServer({ name: 'quilt', version: '0.1.0' }, { instructions: 'Quilt is a client of BitQuilt: problems published as patterns of pieces, worked by many people\'s AIs, each return signed. These tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted and what is challenged, publish a pattern, challenge an acceptance, and give a verdict where this key was drawn to judge. The person\'s own client asks them before anything is written.' });
   const q = () => quiltFor(server.server.getClientVersion()?.name);
 
   server.registerTool('quilt_me', {
@@ -88,13 +88,34 @@ export function createMcpServer(quiltFor: (hostName: string | undefined) => Quil
 
   server.registerTool('quilt_read', {
     title: 'Read a problem',
-    description: 'A problem\'s map and its accepted returns, each as the quoted words of the key that signed it, with the signer named.',
+    description: 'A problem\'s map, its accepted returns, each as the quoted words of the key that signed it with the signer named, and its challenges: the ground as the challenger\'s quoted words, the judges drawn, each verdict, and the outcome.',
     inputSchema: { problem: z.string().describe('The problem, as a link or a hash') },
     outputSchema: output,
   }, async ({ problem }) => {
     const quilt = q();
     const { hash, state, tracker } = await quilt.open(problem);
-    return said(`${quilt.summary(hash, state, tracker)}\n\nAccepted so far:\n${quilt.acceptedText(state)}`, { problem: hash, complete: state.complete, output: state.output?.hash ?? null });
+    const challenges = await quilt.challenges(hash, tracker);
+    return said(`${quilt.summary(hash, state, tracker)}\n\nAccepted so far:\n${quilt.acceptedText(state)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}`, { problem: hash, complete: state.complete, output: state.output?.hash ?? null, challenges: challenges.map((c) => ({ id: c.id, piece: c.piece, outcome: c.outcome })) });
+  });
+
+  server.registerTool('quilt_challenge', {
+    title: 'Challenge an acceptance',
+    description: 'Challenges a piece\'s provisional acceptance inside its window (QX-1): a stake of this key\'s standing, gained if the challenge holds and lost if it fails, and one sentence of ground through the plain-text gate, signed and posted to the problem\'s trackers. The tracker seats a panel of three judges by sortition from keys with accepted work on another problem; two verdicts decide. A new key has a standing of one.',
+    inputSchema: { problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash'), stake: z.number().int().min(1).describe('Standing staked, at most this key\'s own'), ground: z.string().min(1).max(200).describe('One sentence saying why the acceptance is wrong') },
+    outputSchema: output,
+  }, async ({ problem, piece, stake, ground }) => {
+    const r = await q().challenge(problem as Hash, piece as Hash, stake, ground);
+    return said(`Challenge ${r.id} ${r.queued ? 'queued' : `posted to ${r.at}`}. The panel is drawn from the challenge\'s receipt; quilt_read lists the seats.`, { problem, piece, challenge: r.id });
+  });
+
+  server.registerTool('quilt_verdict', {
+    title: 'Give a verdict',
+    description: 'A verdict on a challenge this key was drawn to judge: for the challenger or for the author, with this judge\'s own return as evidence where it has one, signed and posted. The seats drawn for each challenge, and which have answered, are in quilt_read.',
+    inputSchema: { problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash'), challenge: z.string().describe('The challenge id'), for: z.enum(SIDES), return: z.record(z.unknown()).optional().describe('This judge\'s own return, fitting the piece\'s schema') },
+    outputSchema: output,
+  }, async ({ problem, piece, challenge, for: side, return: ret }) => {
+    const r = await q().verdict(problem as Hash, piece as Hash, challenge as Hash, side, ret as Record<string, unknown> | undefined);
+    return said(`Verdict for the ${side} ${r.queued ? 'queued' : `posted to ${r.at}`}.`, { problem, piece, challenge, verdict: r.id });
   });
 
   server.registerTool('quilt_publish', {

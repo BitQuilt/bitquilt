@@ -1,17 +1,34 @@
 /**
  * The verbs' work, with no MCP and no HTTP in it: open a problem, search, be handed a piece, hand one back, decline,
- * read, publish. The MCP server and the page are thin shells over this. Other people's words come out of here only as
- * quoted text with the signer named.
+ * read, publish, challenge an acceptance, give a verdict. The MCP server and the page are thin shells over this. Other
+ * people's words come out of here only as quoted text with the signer named.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   type Capability, type Envelope, type Event, type Hash, type Pick, type Problem, type State, type Unsigned,
-  commitHash, hashBytes, newNonce, next, plainTextProblems, problemHash, signEvent, signObject, canonical, envelopeProblems,
+  commitHash, eventId, hashBytes, newNonce, next, plainTextProblems, problemHash, signEvent, signObject, canonical, envelopeProblems,
 } from '@bitquilt/core';
 import type { Config, Identity } from './config.js';
 import { type Link, makeLink, parseLink } from './link.js';
 import type { Resolver } from './resolver.js';
+
+export const SIDES = ['challenger', 'author'] as const;
+export type Side = (typeof SIDES)[number];
+
+/** A challenge as a tracker lists it at /p/<hash>/challenges (QX-1): the seats drawn, each verdict, the outcome. */
+export interface ChallengeListing {
+  id: Hash;
+  piece: Hash;
+  name: string | null;
+  root: string;
+  at: string;
+  stake: number;
+  ground: string;
+  seats: { root: string; offered_at: string; lapsed_at: string | null; verdict: { at: string; for: Side; return: Record<string, unknown> | null } | null }[];
+  outcome: 'open' | 'held' | 'failed' | 'void';
+  decided_at: string | null;
+}
 
 export const STATE_MARK: Record<string, string> = { locked: 'l', unknown: '?', open: '.', in_flight: 'i', sealed: 's', needs_verify: 'v', disputed: 'd', accepted_provisional: 'p', accepted: 'a', unreachable: 'u' };
 
@@ -70,6 +87,12 @@ export class Quilt {
   private needKey(): Identity {
     if (!this.identity) throw new Error('no key yet: run quilt init');
     return this.identity;
+  }
+
+  /** Where posts about a problem go: the trackers the library remembers for it, then the config's. */
+  private trackersFor(problem: Hash): string[] {
+    const entry = this.library.problems[problem];
+    return entry ? [...new Set([...entry.trackers, ...this.config.trackers])] : this.config.trackers;
   }
 
   me() {
@@ -198,10 +221,74 @@ export class Quilt {
 
   async decline(problem: Hash, piece: Hash, reason: 'cannot' | 'unclear' | 'refuse' | 'duplicate' | 'no_time') {
     const id = this.needKey();
-    const entry = this.library.problems[problem];
-    const trackers = entry ? [...new Set([...entry.trackers, ...this.config.trackers])] : this.config.trackers;
     const e = this.sign({ quilt: 1, type: 'decline', problem, piece, key: id.address, ts: new Date().toISOString(), body: { reason } });
-    return this.resolver.post(e, problem, trackers);
+    return this.resolver.post(e, problem, this.trackersFor(problem));
+  }
+
+  /** A challenge of a piece's provisional acceptance (QX-1): a stake of this key's standing and one sentence of ground, signed and posted. */
+  async challenge(problem: Hash, piece: Hash, stake: number, ground: string): Promise<{ id: Hash; at: string | null; queued: boolean; error?: string }> {
+    const id = this.needKey();
+    if (!Number.isInteger(stake) || stake < 1) throw new Error('the stake is a whole number of at least 1');
+    const issues = plainTextProblems(ground, 'ground');
+    if (issues.length) throw new Error(issues[0]);
+    const e = this.sign({ quilt: 1, type: 'challenge', problem, piece, key: id.address, ts: new Date().toISOString(), body: { stake, ground } });
+    const r = await this.resolver.post(e, problem, this.trackersFor(problem));
+    if (r.error && !r.queued) throw new Error(`the tracker refused the challenge: ${r.error}`);
+    return { id: eventId(e), ...r };
+  }
+
+  /** A verdict on a challenge this key was drawn to judge: for the challenger or for the author, with this judge's own return as evidence where it has one. */
+  async verdict(problem: Hash, piece: Hash, challenge: Hash, side: Side, ret?: Record<string, unknown>): Promise<{ id: Hash; at: string | null; queued: boolean; error?: string }> {
+    const id = this.needKey();
+    if (!SIDES.includes(side)) throw new Error(`a verdict is for the ${SIDES.join(' or the ')}`);
+    if (ret) for (const s of Object.values(ret)) if (typeof s === 'string') {
+      const issues = plainTextProblems(s, 'return');
+      if (issues.length) throw new Error(issues[0]);
+    }
+    const e = this.sign({ quilt: 1, type: 'verdict', problem, piece, key: id.address, ts: new Date().toISOString(), body: { challenge, for: side, ...(ret ? { return: ret } : {}) } });
+    const r = await this.resolver.post(e, problem, this.trackersFor(problem));
+    if (r.error && !r.queued) throw new Error(`the tracker refused the verdict: ${r.error}`);
+    return { id: eventId(e), ...r };
+  }
+
+  /** The problem's challenges as the first tracker that answers computes them: the one that answered for the problem, then the known ones. */
+  async challenges(problem: Hash, tracker: string | null = null): Promise<ChallengeListing[]> {
+    for (const t of [...new Set([...(tracker ? [tracker] : []), ...this.trackersFor(problem)])]) {
+      try {
+        const r = await fetch(`${t}p/${problem}/challenges`, { signal: AbortSignal.timeout(8000) });
+        if (!r.ok) continue;
+        return ((await r.json()) as { challenges: ChallengeListing[] }).challenges;
+      } catch {
+        /* a tracker that does not answer is skipped */
+      }
+    }
+    return [];
+  }
+
+  /** The challenges said as text: the ground as the challenger's quoted words, the seats, each verdict with the judge named and its return quoted. */
+  challengesText(list: ChallengeListing[], state: State): string {
+    if (list.length === 0) return 'No challenge on this problem.';
+    const who = (a: string) => state.names.get(a as `0x${string}`)?.name ?? a;
+    const outcome: Record<ChallengeListing['outcome'], string> = {
+      open: 'open: the piece is challenged while the panel sits',
+      held: 'held: the acceptance was struck and the piece is open again',
+      failed: 'failed: the acceptance stands and the stake was lost',
+      void: 'void: no panel could decide it and the acceptance stands',
+    };
+    return list.map((c) => {
+      const lines = [
+        `Challenge ${c.id} on ${c.name ?? c.piece}, by ${who(c.root)} with a stake of ${c.stake}, ${outcome[c.outcome]}.`,
+        `${who(c.root)} wrote as the ground: "${c.ground}"`,
+      ];
+      if (c.seats.length === 0) lines.push('No seats drawn yet.');
+      for (const s of c.seats) {
+        const judge = who(s.root);
+        if (s.verdict) lines.push(`${judge}, drawn, answered for the ${s.verdict.for}${s.verdict.return ? ` and returned: ${canonical(s.verdict.return)}` : ''}.`);
+        else if (s.lapsed_at) lines.push(`${judge}, drawn, let the seat lapse.`);
+        else lines.push(`${judge}, drawn, has not answered.`);
+      }
+      return lines.join('\n');
+    }).join('\n\n');
   }
 
   /** The accepted returns of a problem as quoted text with the signers named. */

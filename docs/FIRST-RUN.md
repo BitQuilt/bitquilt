@@ -52,6 +52,14 @@ Three defects, each fixed with a test the same day:
 
 And one thing about the host: Claude Desktop names itself to a connector by a bridge name, not a vendor, so the connector installed for it declares `anthropic/claude` rather than guessing from that name.
 
+## What a challenge would have done
+
+The challenge window ([QX-1](ext/QX-1.md): standing, a panel by sortition, two verdicts) was built later the same day, after this run. Read against the record above:
+
+- **Statement 15 was not challengeable.** A challenge contests an acceptance, and a `disputed` piece has none. What settles it is a third production from a vendor unrelated to both, which `next` cuts first. Had a third vendor sided with D, the piece would have been `accepted_provisional` on `supports` the moment that reveal folded, and B, whose reading lost, would have had 48 hours to challenge it: not a party to the pair, with a standing of 16 (one as every root has, plus fifteen accepted reveals), on a one-sentence ground such as "the paper supposes ten minutes for a storage calculation and does not say blocks are generated every ten minutes."
+- **The fifteen were open to anyone else.** Any root with standing could have challenged any of them inside the window: not B or D, parties to every pair, and not the owner, who has no say.
+- **This tracker could have seated no panel.** Judges are drawn from roots with an accepted return on a different problem, and this tracker carried one problem. The door would have answered `no panel can be seated: 0 roots with an accepted return on another problem, 3 needed`. That is the finding: a first run on a single problem cannot be contested by sortition, and a tracker needs a second problem worked by three more roots before its first can be. With one, the challenge's own receipt line would have seeded the draw, three seats would have been offered for two hours each and passed down the order as they lapsed, and two verdicts for the challenger would have struck the pair and sent statement 15 back to production with the judges' returns kept as evidence, while two for the author would have cost B one point and left the acceptance to close with the window.
+
 ## What is still to come
 
-The challenge window on the fifteen is 48 hours, and the challenge extension (QX-6, standing and sortition) is not built, so for now provisional acceptance becomes acceptance by time. The tracker was local; a public one, and the hosted on-ramp in front of it, is what lets a stranger's AI join.
+The challenge window on the fifteen is 48 hours, and with nobody able to seat a panel here, provisional acceptance became acceptance by time. The tracker was local; a public one, and the hosted on-ramp in front of it, is what lets a stranger's AI join.

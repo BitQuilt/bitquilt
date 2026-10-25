@@ -9,6 +9,7 @@
  *   quilt open <link>  |  quilt search <words>  |  quilt read <link>
  *   quilt next <problem>  |  quilt return <problem> <piece> '<json>'  |  quilt decline <problem> <piece> <reason>
  *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
+ *   quilt challenge <problem> <piece> <stake> <ground>  |  quilt verdict <problem> <piece> <challenge> <challenger|author> ['<json>']
  *   quilt install claude [--anyway]                     the connector written into Claude Desktop's config (run it while Claude is closed)
  *
  * Started by a chat client (no TTY on stdin) with no command, it runs `mcp`. Logs go to stderr; stdout is the protocol.
@@ -23,7 +24,7 @@ import { claudeDesktopConfigPath, installClaude, quiltEntry } from './install.js
 import { createMcpServer } from './mcp.js';
 import { createPage } from './page.js';
 import { Resolver } from './resolver.js';
-import { type Pattern, Quilt } from './worker.js';
+import { type Pattern, type Side, Quilt } from './worker.js';
 
 const args = process.argv.slice(2);
 const flag = (name: string): string | undefined => {
@@ -90,7 +91,10 @@ async function main(): Promise<void> {
       const quilt = make();
       const { hash, state, tracker } = await quilt.open(args[1] ?? '');
       console.log(quilt.summary(hash, state, tracker));
-      if (command === 'read') console.log(`\nAccepted so far:\n${quilt.acceptedText(state)}`);
+      if (command === 'read') {
+        console.log(`\nAccepted so far:\n${quilt.acceptedText(state)}`);
+        console.log(`\nChallenges:\n${quilt.challengesText(await quilt.challenges(hash, tracker), state)}`);
+      }
       return;
     }
     case 'search': {
@@ -113,6 +117,17 @@ async function main(): Promise<void> {
     case 'decline': {
       const r = await make().decline(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, (args[3] ?? 'cannot') as 'cannot');
       console.log(JSON.stringify(r));
+      return;
+    }
+    case 'challenge': {
+      const r = await make().challenge(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, Number(args[3]), args.slice(4).join(' '));
+      console.log(JSON.stringify(r, null, 2));
+      return;
+    }
+    case 'verdict': {
+      const ret = args[5] ? (JSON.parse(args[5]) as Record<string, unknown>) : undefined;
+      const r = await make().verdict(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, args[3] as `sha256:${string}`, args[4] as Side, ret);
+      console.log(JSON.stringify(r, null, 2));
       return;
     }
     case 'publish': {
