@@ -1,5 +1,7 @@
 # Findings: writing the core from CORE.md and the fixtures alone
 
+> **Postscript, the same day.** Every finding below was read against the reference and CORE.md now says what it did (section 12, Clarifications); the output document's shape is written down, a fixture for verifies-first was added, and dropped events are compared by count. With the shape in the document, this implementation reproduces 24 of 24 fixtures. The text below stands as written before that, as the record of what a stranger met.
+
 This implementation was written from `docs/CORE.md` (version 1) and the
 fixtures in `packages/core/fixtures/*.json`, with `docs/PROTOCOL.md` and
 `docs/EXTENSIONS.md` read for context. No reference source, test or script

@@ -88,7 +88,7 @@ describe('the core and the extension kinds', () => {
   it('is fixed by the conformance fixtures, which still hold the judge piece unknown and its dependent locked', () => {
     const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures');
     const names = readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
-    expect(names).toHaveLength(23);
+    expect(names).toHaveLength(24);
     const twenty = JSON.parse(readFileSync(join(dir, '20-verifies-first-and-inputs-rendered.json'), 'utf8')) as { expect: { states: Record<string, string> } };
     expect(twenty.expect.states.summary).toBe('unknown');
     expect(twenty.expect.states.after).toBe('locked');

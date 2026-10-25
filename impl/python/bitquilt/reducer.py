@@ -735,34 +735,37 @@ def availability(piece, state, weights, endgame):
 
 
 def output_document(state):
-    """The output as this implementation reads section 6's one sentence:
-    an array in file order; for each piece its name and hash, its agree
-    fields once, and `returns`, each return's other fields with the signer's
-    address; for check and score the patch and the two runs. CORE.md does
-    not fix this shape, and fixture 22's hash does not reproduce
-    (FINDINGS.md)."""
-    doc = []
+    """The output as CORE.md section 6 (Output) now writes it: {"quilt": 1,
+    "problem": hash, "pieces": [...]} in file order; each piece its name,
+    hash and state; an agree piece adds "agreed" (the agree fields from the
+    set's first reveal) and "evidence" (per reveal, the signer and every
+    other field); a check or score piece adds "patch", "author" and "runs"
+    (per run, the signer, exit, and score, image, host when present)."""
+    pieces = []
     for piece in state.pieces:
         acc = piece.accepting
-        entry = {"piece": piece.name, "hash": piece.hash}
+        entry = {"name": piece.name, "piece": piece.hash, "state": piece.state}
         if acc is None:
-            doc.append(entry)
+            pieces.append(entry)
             continue
         if acc["kind"] == "agree":
             agree = piece.agree_fields()
             first = acc["reveals"][0]["ret"]
-            for f in agree:
-                entry[f] = first.get(f)
-            entry["returns"] = [
-                dict({k: v for k, v in rv["ret"].items() if k not in agree}, key=rv["key"])
+            entry["agreed"] = {f: first.get(f) for f in agree}
+            entry["evidence"] = [
+                dict({"signer": rv["root"]}, **{k: v for k, v in rv["ret"].items() if k not in agree})
                 for rv in acc["reveals"]
             ]
         else:
             entry["patch"] = acc["reveals"][0]["ret"].get("patch")
-            entry["key"] = acc["reveals"][0]["key"]
-            entry["runs"] = [
-                {k: v for k, v in (("key", run["key"]), ("exit", run["exit"]), ("score", run["score"])) if v is not None}
-                for run in acc["runs"]
-            ]
-        doc.append(entry)
-    return doc
+            entry["author"] = acc["reveals"][0]["root"]
+            runs = []
+            for run in acc["runs"]:
+                r = {"signer": run["root"], "exit": run["exit"]}
+                for k in ("score", "image", "host"):
+                    if run.get(k) is not None:
+                        r[k] = run[k]
+                runs.append(r)
+            entry["runs"] = runs
+        pieces.append(entry)
+    return {"quilt": 1, "problem": state.problem_hash, "pieces": pieces}

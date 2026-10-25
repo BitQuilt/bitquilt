@@ -165,6 +165,14 @@ const SP = problemHash(small);
 const sc1 = pieceHash(small, 'cite/1'), sc2 = pieceHash(small, 'cite/2');
 const sclaim = ev(A, 'claim', t(0), { by: by('a/x') }, sc1, SP);
 fixtures.push({ name: '21-endgame', description: 'When the pieces not yet done are few, live claims count for nothing in availability, so the tie-break decides.', envelopes: [small], receipts: [sclaim], now: t(1), states: { 'cite/1': 'in_flight', 'cite/2': 'open' }, picks: [{ key: addr(B), client: web, piece: ['cite/1', 'cite/2'] }] });
+// Three citations: two revealed once by A, one untouched. Verifies outnumber the open, so a key of another vendor is handed one of the two
+// needing a second production and not the open piece rarest-first would give; a key of A's vendor is handed one of them too, there being none fresh.
+const three = envelope({ slug: 'three', pieces: { 'cite/*': { count: 3, verifier: 'agree', brief: 'Citation {n}', schema, agree: ['verdict'] } } }, { endgame_at: 1 });
+const TP = problemHash(three);
+const tc1 = pieceHash(three, 'cite/1'), tc2 = pieceHash(three, 'cite/2');
+const tfirst = [...handIn(A, tc1, 0, { verdict: 'supports', quote: 'one' }, 'anthropic/claude', 't1a', TP), ...handIn(A, tc2, 2, { verdict: 'supports', quote: 'two' }, 'anthropic/claude', 't2a', TP)];
+fixtures.push({ name: '23-verifies-first', description: 'Two of three citations have one reveal each and the third none: the pieces needing a second production outnumber the open, so next hands a key of another vendor one of them rather than the open piece, and a key of the same vendor one of them too.', envelopes: [three], receipts: tfirst, now: t(5), states: { 'cite/1': 'needs_verify', 'cite/2': 'needs_verify', 'cite/3': 'open' }, picks: [{ key: addr(B), client: { can: ['web'], model: 'openai/gpt' }, piece: ['cite/1', 'cite/2'] }, { key: addr(C), client: { can: ['web'], model: 'anthropic/claude' }, piece: ['cite/1', 'cite/2'] }] });
+
 const sdone = [...handIn(A, sc1, 0, { verdict: 'unreachable', quote: 'gone' }, 'a/x', 's1a', SP), ...handIn(B, sc1, 2, { verdict: 'unreachable', quote: 'also gone' }, 'b/y', 's1b', SP), ...handIn(A, sc2, 4, { verdict: 'supports', quote: 'x' }, 'a/x', 's2a', SP), ...handIn(B, sc2, 6, { verdict: 'supports', quote: 'y' }, 'b/y', 's2b', SP)];
 fixtures.push({ name: '22-complete-with-output', description: 'Every piece accepted or unreachable: the output exists and has a hash.', envelopes: [small], receipts: sdone, now: t(60 * 50), states: { 'cite/1': 'unreachable', 'cite/2': 'accepted' }, complete: true, picks: [{ key: addr(C), client: web, piece: null }] });
 

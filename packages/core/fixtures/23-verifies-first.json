@@ -1,0 +1,213 @@
+{
+  "name": "23-verifies-first",
+  "description": "Two of three citations have one reveal each and the third none: the pieces needing a second production outnumber the open, so next hands a key of another vendor one of them rather than the open piece, and a key of the same vendor one of them too.",
+  "envelopes": [
+    {
+      "quilt": 1,
+      "problem": {
+        "title": "A report",
+        "done_when": "Every citation has a verdict.",
+        "owner": "0xF7Edc8FA1eCc32967F827C9043FcAe6ba73afA5c",
+        "slug": "three",
+        "prev": null,
+        "from": null,
+        "settings": {
+          "challenge_window_h": 48,
+          "lease_h": 2,
+          "endgame_at": 1,
+          "budget": 100,
+          "patch_max": 10000
+        },
+        "pieces": {
+          "cite/*": {
+            "count": 3,
+            "verifier": "agree",
+            "brief": "Citation {n}",
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "verdict",
+                "quote"
+              ],
+              "properties": {
+                "verdict": {
+                  "enum": [
+                    "supports",
+                    "contradicts",
+                    "unreachable"
+                  ]
+                },
+                "quote": {
+                  "type": "string",
+                  "maxLength": 160
+                }
+              }
+            },
+            "agree": [
+              "verdict"
+            ]
+          }
+        },
+        "data": {
+          "cites.json": "sha256:29607373b4d1c00b6d051d71cc0550ef23a494c88762bdce794442f903e48684"
+        }
+      },
+      "hints": {
+        "trackers": [
+          "https://tracker.example/"
+        ],
+        "mirrors": []
+      },
+      "sig": "0x6066dd0b9c8e6df62e3b20b9695a62db01ac1c737de556b03a13b4846965b8352c5187647b0183facb9132c054313d49238d64750c270c0fb98d4754a2817b701c"
+    }
+  ],
+  "blobs": {
+    "sha256:29607373b4d1c00b6d051d71cc0550ef23a494c88762bdce794442f903e48684": "W3sicyI6Im9uZSJ9LHsicyI6InR3byJ9LHsicyI6InRocmVlIn1d"
+  },
+  "receipts": [
+    {
+      "event": {
+        "quilt": 1,
+        "type": "commit",
+        "key": "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
+        "ts": "2026-10-24T18:00:00.000Z",
+        "body": {
+          "h": "sha256:d0129fb378db423d841ec534ec135b03787d377337c0d2e869c454a5257e4831"
+        },
+        "problem": "sha256:832d9bab3edf790a30407f146cb394219de1cb26e1e2b057f8a2f7be22d3ed07",
+        "piece": "sha256:620aad781c0e2b2c83f321b3958f97b8550d9c1f50ee132e5c23c67ace7a50cf",
+        "sig": "0x060751f1fdbd4a55932ae7812b173243a24db85a24895be4ca95b80212613acd220a12c9ab7d6e4d29506cf8f770d0b71f019e7871f30c21be570bbdf0cfa3a61c"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:00:00.000Z",
+          "custody": "self"
+        }
+      ]
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "reveal",
+        "key": "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
+        "ts": "2026-10-24T18:01:00.000Z",
+        "body": {
+          "return": {
+            "verdict": "supports",
+            "quote": "one"
+          },
+          "nonce": "2b1f1d657b13f41af807f28e8269bfcc",
+          "by": {
+            "model": "anthropic/claude",
+            "client": "fixture/1",
+            "can": [
+              "web",
+              "shell"
+            ]
+          }
+        },
+        "problem": "sha256:832d9bab3edf790a30407f146cb394219de1cb26e1e2b057f8a2f7be22d3ed07",
+        "piece": "sha256:620aad781c0e2b2c83f321b3958f97b8550d9c1f50ee132e5c23c67ace7a50cf",
+        "sig": "0x32d4cf5704a66914563c8d2cca32824fd326398b992de94c017c58a216ea88752ba1a964feed9388c85db246cb717af59d3d5921c94afaf0dadf2e51f51935e21b"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:01:00.000Z",
+          "custody": "self"
+        }
+      ]
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "commit",
+        "key": "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
+        "ts": "2026-10-24T18:02:00.000Z",
+        "body": {
+          "h": "sha256:cd4ab2c2667f44d94778a6892122c067a017d26417b34262b8bf84137b5ff7d4"
+        },
+        "problem": "sha256:832d9bab3edf790a30407f146cb394219de1cb26e1e2b057f8a2f7be22d3ed07",
+        "piece": "sha256:8aa928f7ec9e7f4095a6c507908dfa8d557e807a7a92618e6882b611bb950e76",
+        "sig": "0xb225bd0f4b7511914efb2430f0dae04581d265449a74a7007d70336ea181c24a4c613b53b76c5f3dfeb51d1b48be165bf167f0773d527b84e1bff47ed75746541b"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:02:00.000Z",
+          "custody": "self"
+        }
+      ]
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "reveal",
+        "key": "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
+        "ts": "2026-10-24T18:03:00.000Z",
+        "body": {
+          "return": {
+            "verdict": "supports",
+            "quote": "two"
+          },
+          "nonce": "53ef272d2d0955b78ed3c3043b26e169",
+          "by": {
+            "model": "anthropic/claude",
+            "client": "fixture/1",
+            "can": [
+              "web",
+              "shell"
+            ]
+          }
+        },
+        "problem": "sha256:832d9bab3edf790a30407f146cb394219de1cb26e1e2b057f8a2f7be22d3ed07",
+        "piece": "sha256:8aa928f7ec9e7f4095a6c507908dfa8d557e807a7a92618e6882b611bb950e76",
+        "sig": "0x27cf20f35ed94d03fbb7078a3401ba7891416285eb451a82067ebc7b2ba85ac363979298d82bf5bd58dfdf994ceb5135e7009d357990c3a77d1a7899efa00f2b1c"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:03:00.000Z",
+          "custody": "self"
+        }
+      ]
+    }
+  ],
+  "now": "2026-10-24T18:05:00.000Z",
+  "expect": {
+    "states": {
+      "cite/1": "needs_verify",
+      "cite/2": "needs_verify",
+      "cite/3": "open"
+    },
+    "dropped": [],
+    "complete": false,
+    "output": null,
+    "picks": [
+      {
+        "key": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+        "client": {
+          "can": [
+            "web"
+          ],
+          "model": "openai/gpt"
+        },
+        "now": "2026-10-24T18:05:00.000Z",
+        "piece": "cite/1"
+      },
+      {
+        "key": "0x6813Eb9362372EEF6200f3b1dbC3f819671cBA69",
+        "client": {
+          "can": [
+            "web"
+          ],
+          "model": "anthropic/claude"
+        },
+        "now": "2026-10-24T18:05:00.000Z",
+        "piece": "cite/2"
+      }
+    ]
+  }
+}

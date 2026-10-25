@@ -190,8 +190,8 @@ claude mcp add quilt -- ./dist/bin/quilt-darwin-arm64 mcp</pre>
     <div class="cols">
       <div class="prose">
         <p>The core is one short document a client has to get right, frozen as version 1: canonical JSON, the envelope and the piece hash, the event line, receipts, the reducer for three verifiers, next, and the link. Everything else is an extension a core client may ignore.</p>
-        <p>The reference library ships twenty-three fixtures: envelopes, blobs, receipts, a time, and the state and the pick each must produce. A client is a client when it reproduces them all. The milestone that matters is the second implementation, by someone else, from the core and the fixtures alone.</p>
-        <pre>pnpm conform        # 23 of 23 fixtures pass
+        <p>The reference library ships twenty-four fixtures: envelopes, blobs, receipts, a time, and the state and the pick each must produce. A client is a client when it reproduces them all. A second implementation, in Python, was written from the core and the fixtures alone with no sight of the reference, and reproduces them all; where it found the text silent, the text now says what the reference did (CORE.md, section 12). The milestone that matters is the next one, by someone else.</p>
+        <pre>pnpm conform        # 24 of 24 fixtures pass
 bitquilt-verify events.jsonl sha256:…   # chain ok; every signature its key's</pre>
       </div>
       <div class="prose">
