@@ -1,0 +1,204 @@
+{
+  "name": "01-open",
+  "description": "Nothing has happened: every piece without inputs is open, pieces behind an unknown verifier are locked.",
+  "envelopes": [
+    {
+      "quilt": 1,
+      "problem": {
+        "title": "A report",
+        "done_when": "Every citation has a verdict.",
+        "owner": "0xF7Edc8FA1eCc32967F827C9043FcAe6ba73afA5c",
+        "slug": "report",
+        "prev": null,
+        "from": null,
+        "settings": {
+          "challenge_window_h": 48,
+          "lease_h": 2,
+          "endgame_at": 1,
+          "budget": 100,
+          "patch_max": 10000
+        },
+        "pieces": {
+          "cite/*": {
+            "count": 3,
+            "verifier": "agree",
+            "requires": [
+              "web"
+            ],
+            "brief": "Citation {n}: {cite.s}",
+            "data": {
+              "cite": "cites.json"
+            },
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "verdict",
+                "quote"
+              ],
+              "properties": {
+                "verdict": {
+                  "enum": [
+                    "supports",
+                    "contradicts",
+                    "unreachable"
+                  ]
+                },
+                "quote": {
+                  "type": "string",
+                  "maxLength": 160
+                }
+              }
+            },
+            "agree": [
+              "verdict"
+            ]
+          },
+          "lint": {
+            "verifier": "check",
+            "requires": [
+              "shell"
+            ],
+            "brief": "Run the lint.",
+            "workspace": {
+              "repo": "https://example.org/r",
+              "base": "abc"
+            },
+            "check": {
+              "file": "lint.sh"
+            }
+          },
+          "bench": {
+            "verifier": "score",
+            "requires": [
+              "shell"
+            ],
+            "brief": "Run the bench.",
+            "workspace": {
+              "repo": "https://example.org/r",
+              "base": "abc"
+            },
+            "check": {
+              "file": "bench.sh",
+              "tolerance": 0.5,
+              "better": "lower"
+            }
+          },
+          "summary": {
+            "verifier": "judge:5",
+            "inputs": [
+              "cite/*"
+            ],
+            "candidates": 3,
+            "brief": "Summarise {cite/*}.",
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "text"
+              ],
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "maxLength": 100
+                }
+              }
+            }
+          },
+          "after": {
+            "verifier": "agree",
+            "inputs": [
+              "summary"
+            ],
+            "brief": "After.",
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "verdict",
+                "quote"
+              ],
+              "properties": {
+                "verdict": {
+                  "enum": [
+                    "supports",
+                    "contradicts",
+                    "unreachable"
+                  ]
+                },
+                "quote": {
+                  "type": "string",
+                  "maxLength": 160
+                }
+              }
+            }
+          }
+        },
+        "data": {
+          "cites.json": "sha256:29607373b4d1c00b6d051d71cc0550ef23a494c88762bdce794442f903e48684"
+        }
+      },
+      "hints": {
+        "trackers": [
+          "https://tracker.example/"
+        ],
+        "mirrors": []
+      },
+      "sig": "0x47fe3eb3a7688d07c11a324ead1ededa0ae08ccd795ecd339c9934b0ce21a421166f16ecfd9bf98dc08d6c72e6a64d4901e88b10823979fc46f19a033473ccb81c"
+    }
+  ],
+  "blobs": {
+    "sha256:29607373b4d1c00b6d051d71cc0550ef23a494c88762bdce794442f903e48684": "W3sicyI6Im9uZSJ9LHsicyI6InR3byJ9LHsicyI6InRocmVlIn1d"
+  },
+  "receipts": [],
+  "now": "2026-10-24T18:00:00.000Z",
+  "expect": {
+    "states": {
+      "cite/1": "open",
+      "cite/2": "open",
+      "cite/3": "open",
+      "lint": "open",
+      "bench": "open",
+      "summary": "locked",
+      "after": "locked"
+    },
+    "dropped": [],
+    "complete": false,
+    "output": null,
+    "picks": [
+      {
+        "key": "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
+        "client": {
+          "can": [
+            "web"
+          ],
+          "model": "anthropic/claude"
+        },
+        "now": "2026-10-24T18:00:00.000Z",
+        "piece": "cite/3"
+      },
+      {
+        "key": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+        "client": {
+          "can": [
+            "web"
+          ],
+          "model": "anthropic/claude"
+        },
+        "now": "2026-10-24T18:00:00.000Z",
+        "piece": "cite/1"
+      },
+      {
+        "key": "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
+        "client": {
+          "can": [
+            "shell"
+          ],
+          "model": "x/y"
+        },
+        "now": "2026-10-24T18:00:00.000Z",
+        "piece": "lint"
+      }
+    ]
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "name": "21-endgame",
+  "description": "When the pieces not yet done are few, live claims count for nothing in availability, so the tie-break decides.",
+  "envelopes": [
+    {
+      "quilt": 1,
+      "problem": {
+        "title": "A report",
+        "done_when": "Every citation has a verdict.",
+        "owner": "0xF7Edc8FA1eCc32967F827C9043FcAe6ba73afA5c",
+        "slug": "small",
+        "prev": null,
+        "from": null,
+        "settings": {
+          "challenge_window_h": 48,
+          "lease_h": 2,
+          "endgame_at": 5,
+          "budget": 100,
+          "patch_max": 10000
+        },
+        "pieces": {
+          "cite/*": {
+            "count": 2,
+            "verifier": "agree",
+            "brief": "Citation {n}",
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "verdict",
+                "quote"
+              ],
+              "properties": {
+                "verdict": {
+                  "enum": [
+                    "supports",
+                    "contradicts",
+                    "unreachable"
+                  ]
+                },
+                "quote": {
+                  "type": "string",
+                  "maxLength": 160
+                }
+              }
+            },
+            "agree": [
+              "verdict"
+            ]
+          }
+        },
+        "data": {
+          "cites.json": "sha256:29607373b4d1c00b6d051d71cc0550ef23a494c88762bdce794442f903e48684"
+        }
+      },
+      "hints": {
+        "trackers": [
+          "https://tracker.example/"
+        ],
+        "mirrors": []
+      },
+      "sig": "0xfe76fcb127c60173fc00b8f32df4df214d02799d0bd291f73049b5fffea90d11375b25e0ccbdb60274e33259f8a561404ccdb10e498be330ff7fcd70f9446f071b"
+    }
+  ],
+  "blobs": {
+    "sha256:29607373b4d1c00b6d051d71cc0550ef23a494c88762bdce794442f903e48684": "W3sicyI6Im9uZSJ9LHsicyI6InR3byJ9LHsicyI6InRocmVlIn1d"
+  },
+  "receipts": [
+    {
+      "event": {
+        "quilt": 1,
+        "type": "claim",
+        "key": "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
+        "ts": "2026-10-24T18:00:00.000Z",
+        "body": {
+          "by": {
+            "model": "a/x",
+            "client": "fixture/1",
+            "can": [
+              "web",
+              "shell"
+            ]
+          }
+        },
+        "problem": "sha256:a16efbce3eb58eb49a8d1f4b2a298406aa92153c4db51d576c24f8ab1402a1a7",
+        "piece": "sha256:620aad781c0e2b2c83f321b3958f97b8550d9c1f50ee132e5c23c67ace7a50cf",
+        "sig": "0xf093db5db0c77def3880d11a2351b289a7f4bd477762232a5b8c872e8953b6e13ece945ddf134e1d36eee959a361406cbe66b8f984b40ac6adf110af60ebafc81c"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:00:00.000Z",
+          "custody": "self"
+        }
+      ]
+    }
+  ],
+  "now": "2026-10-24T18:01:00.000Z",
+  "expect": {
+    "states": {
+      "cite/1": "in_flight",
+      "cite/2": "open"
+    },
+    "dropped": [],
+    "complete": false,
+    "output": null,
+    "picks": [
+      {
+        "key": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+        "client": {
+          "can": [
+            "web"
+          ],
+          "model": "anthropic/claude"
+        },
+        "now": "2026-10-24T18:01:00.000Z",
+        "piece": "cite/1"
+      }
+    ]
+  }
+}

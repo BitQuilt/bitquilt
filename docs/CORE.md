@@ -24,7 +24,7 @@ The problem's hash, which is its name, is the hash of `problem` alone. `hints` a
 
 `problem` has: `title`; `done_when`; `owner`, an address; `slug`, a short name stable across versions; `prev`, the hash of the version before by the same owner, or null; `from`, the hash of another owner's problem this forks, or null; `settings` with `challenge_window_h`, `lease_h`, `endgame_at`, `budget` and `patch_max`; `pieces`; `data`, a map from a blob's name to its hash.
 
-A piece, keyed by its name, has: `verifier`, one of `check`, `score`, `agree`, or a kind this document does not define; `brief`, fixed text; `schema`; `agree`, the fields agreement is computed on, or absent for every required field; `requires`, a subset of `web`, `files`, `shell`, `person`; `inputs`, pieces or families that must be accepted first; `lease_h`; and for `check` and `score`, `workspace` with `repo` and `base`, and `check` with `file` and optionally `image`. A family is a piece with `count`, whose `brief` has a `{n}` slot and may have data slots `{name.field}` filled from a blob in `data`.
+A piece, keyed by its name, has: `verifier`, one of `check`, `score`, `agree`, or a kind this document does not define; `brief`, fixed text; `schema`; `agree`, the fields agreement is computed on, or absent for every required field; `requires`, a subset of `web`, `files`, `shell`, `person`; `inputs`, pieces or families that must be accepted first; `lease_h`; and for `check` and `score`, `workspace` with `repo` and `base`, and `check` with `file`, optionally `image`, and for `score` optionally `tolerance` (how far apart two scores may be and still agree; 0 when absent) and `better` (`higher` when absent). A family is a piece with `count`, whose `brief` has a `{n}` slot and may have data slots `{name.field}` filled from a blob in `data`.
 
 **A schema** is a closed object: `"type": "object"`, `"additionalProperties": false`, a `required` list, and `properties` each of which is one of: `{ "type": "string", "maxLength", "minLength"?, "format"?: "date" }`, with lengths counted in Unicode scalar values; `{ "type": "number" | "integer", "tolerance"?: number }`, the tolerance absolute, in the field's own units; `{ "type": "boolean" }`; `{ "enum": [strings] }`; or `{ "type": "array", "maxItems", "items": one of the above }`. Nothing else: no nested objects, no `pattern`, no other keywords. A `check` or `score` piece has no `schema` of its own; its return is `{ "patch": string }` of at most `patch_max` characters, a unified diff against the workspace at `base`, or the empty string where the piece asks only that the check be run as it stands.
 
@@ -84,7 +84,7 @@ A pure function. `envelopes` is this problem's envelope and every ancestor's alo
 
 **Envelopes.** Each is checked against its hash and its owner's signature; each blob against its hash; each envelope's pieces are expanded. A piece hash counts if any envelope in the chain contains it. A return names a piece by hash and a problem by hash; it counts when the piece is in the chain and the problem is this one or an ancestor.
 
-**Order.** Receipted events sort by the earliest `received.at` across the wrapper, then by event id. Events with no wrapper sort after every receipted event, by `ts`, then by id.
+**Order.** Receipted events sort by the earliest `received.at` across the wrapper, then by event id. Events with no wrapper sort after every receipted event, by `ts`, then by id. Two events on one problem that share a receipt time are ordered by id alone, so a resolver stamps receipts on a problem strictly increasing, and a client posts a reveal only once its commit has a receipt.
 
 **Roots and delegates.** A `key` is a root unless it has been delegated to or rotated from. An event from a key counts for a root when the key is that root, or a delegate of it whose `delegate` precedes the event, whose `scope` holds the type, whose `expires` is after the event's receipt, and with no `revoke` between. Two roots are *unrelated* when neither is the other, neither is a delegate of the other, and neither is the problem's owner. Relations are judged as they stood at the receipt of the event being judged; a later `rotate` or `revoke` changes nothing already folded.
 
@@ -109,7 +109,7 @@ A pure function. `envelopes` is this problem's envelope and every ancestor's alo
 
 - for `agree`: two valid reveals from unrelated roots of different vendors that agree on the `agree` fields after canonicalisation. Two that agree but share a vendor are not one; the second is kept as evidence. On a `disputed` piece, a reveal from a root unrelated to both prior roots completes a set with the one it agrees with, if their vendors differ.
 - for `check`: a revealed `{ patch }`, and two `run` events with `exit` 0 at that patch's digest, in the declared image, from roots unrelated to each other and to the root that revealed the patch.
-- for `score`: as `check`, with two `run` events whose `score` values are within the piece's `tolerance` of each other. The frontier is the best such score among accepting sets.
+- for `score`: as `check`, with two `run` events whose `score` values are within the check's `tolerance` of each other. The frontier is the best such score among accepting sets, by the check's `better`.
 
 **Canonicalisation** of an `agree` field: strings lower-cased, whitespace folded, NFC; enums as themselves; numbers equal within `tolerance`, else exactly; strings with `format: date` compared as dates; arrays element by element.
 
@@ -122,7 +122,7 @@ A pure function. `envelopes` is this problem's envelope and every ancestor's alo
 `next(state, key, client, now)` returns one piece or nothing. `client` has `can` and `model`.
 
 1. Candidates: every piece that is `open`, `in_flight`, `sealed`, `needs_verify` or `disputed`; whose `requires` is within `client.can`; to which the key's root is unrelated and has no reveal, run or live claim; not declined by the key in this version.
-2. Order by availability ascending; then by the number of pieces that name it in `inputs`, descending; then by position in the file; then by `sha256(canonical([piece, key, hour]))` ascending.
+2. Order by availability ascending; then by the number of pieces that name it in `inputs`, descending; then by `sha256(canonical([piece, key, hour]))` ascending; then by position in the file. The hash comes before the position so that two keys at one instant spread out; with the position first, every key would be handed the first piece.
 3. When the pieces in `needs_verify` or `disputed` outnumber those `open`, take candidates from those first; among them, prefer pieces no reveal of which is from `client.model`'s vendor.
 4. When the pieces not yet `accepted` or `unreachable` number at most `endgame_at`, live claims count zero in availability.
 5. Return the first candidate with its brief rendered (the `{n}` and data slots filled; slots for other pieces' returns filled with the accepting set's returns as quoted text with the signers' addresses), its schema, its `agree` fields, its `requires`, and its lease.

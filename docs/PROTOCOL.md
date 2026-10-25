@@ -139,7 +139,7 @@ with `brief` the template after its `{n}` and data slots are filled from the pro
 | Kind | Accepted when |
 | --- | --- |
 | `check` | A patch is revealed, and two roots unrelated to each other and to the patch's author each report a `run` that applied it at `base`, in the declared image where there is one, and exited 0. |
-| `score` | As `check`, with the two runs' scores within the piece's `tolerance` of each other. The best such score is the frontier. |
+| `score` | As `check`, with the two runs' scores within the check's `tolerance` of each other. The best such score, by the check's `better`, is the frontier. |
 | `agree` | Two returns from unrelated roots whose declared model vendors differ agree on the `agree` fields after canonicalisation. The default for research pieces. |
 | `judge:n` | `candidates` returns are revealed; a panel of `n` roots is drawn by sortition; each panelist ranks the candidates blind, in an order seeded by their address; the tally decides. |
 | `human` | As `agree`, with every return from a seat a tracker opened for a person (`seat: person` in the receipt) and the model declared as `human`. |
@@ -262,7 +262,7 @@ piece = next(state, key, client, now)
 
 1. **Candidates**: every unlocked piece not yet accepted or unreachable, the ones `in_flight` and `sealed` included, since a claim is an intent and the second production is the point; whose `requires` the client declared it can meet, whose verifier the key may serve (`human` only from a person's seat), to which the key's root has no relation (not author, agreeing root, challenger, panelist, or the problem's owner) and on which it holds no live claim, and which the key has not declined in this version. A panel piece is a candidate only for the root the draw named.
 2. **Availability** of a candidate: the sum over its live claims of the claimant's weight, plus its commits and reveals. A root's weight is its accepted reveals plus one over its claims plus one, held between a tenth and one, so a key that claims and never returns stops hiding pieces.
-3. **Rarest first**: the lowest availability. Ties: more dependents first, then earlier in the file, then `sha256(canonical([piece, key, hour]))` with the hour as `YYYY-MM-DDTHH` in UTC, so two keys at the same instant spread out and one key retrying gets the same answer for an hour.
+3. **Rarest first**: the lowest availability. Ties: more dependents first, then `sha256(canonical([piece, key, hour]))` with the hour as `YYYY-MM-DDTHH` in UTC, so two keys at the same instant spread out and one key retrying gets the same answer for an hour, and file position last. The first draft had the position before the hash, which would have sent every key to the first piece; implementing the picker found it.
 4. **Verifies first** when the pieces needing a second production outnumber the open ones, so acceptance keeps pace with production. A second production is offered first to clients whose declared vendor differs from the first return's; a client of the same vendor is offered it only when no other has asked for a lease.
 5. **Endgame**: when the pieces not yet accepted number `endgame_at` or fewer, live claims count for nothing in availability, so stragglers get second workers. The duplicate is the verify.
 6. **The piece** is returned with its brief rendered, its schema, its `agree` fields marked, and its lease; the client emits a `claim`.
@@ -285,7 +285,7 @@ The first names an exact version. The second names a problem by its owner and sl
 
 ## The tracker
 
-The site. What it serves is checkable from hashes and signatures; what it may do beyond serving is stamp receipts, refuse, omit and hide.
+The site. What it serves is checkable from hashes and signatures; what it may do beyond serving is stamp receipts, refuse, omit and hide. It stamps receipts on one problem strictly increasing, since two events that share a time are ordered by id alone and a commit must fold before its reveal.
 
 | Route | What |
 | --- | --- |
