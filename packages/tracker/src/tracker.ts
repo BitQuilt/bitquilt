@@ -214,6 +214,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     if (store.hasEvent(chainKey, id)) throw new Refusal(409, 'already here');
     const hosted = options.custodySecret !== undefined && req.headers['x-quilt-custody'] === options.custodySecret;
     const line = hosted ? store.appendReceipt(chainKey, event, id, url, now(), 'hosted', 'ai') : store.appendReceipt(chainKey, event, id, url, now(), 'self');
+    if ((type === 'reveal' || type === 'decline') && under && event.piece) store.releaseHold(under, event.piece, event.key);
     if (type === 'version') store.putName(event.key, (event.body as { slug: string }).slug, (event.body as { hash: Hash }).hash, line.received[0]!.at);
     if (type === 'announce' && under) store.putAnnouncement(under, event.key, event, line.received[0]!.at);
     json(res, 202, { id, seq: line.seq, hash: line.hash, at: line.received[0]!.at });

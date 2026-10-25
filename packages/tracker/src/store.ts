@@ -186,6 +186,11 @@ export class Store {
     return (this.db.prepare('select count(*) as n from members').get() as { n: number }).n;
   }
 
+  /** A hold is spent once its key has revealed on, or declined, the piece. */
+  releaseHold(problem: Hash, piece: Hash, key: string): void {
+    this.db.prepare('delete from holds where problem = ? and piece = ? and key = ?').run(problem, piece, key);
+  }
+
   heldByOthers(problem: Hash, key: string, now: string): Set<Hash> {
     const rows = this.db.prepare('select piece from holds where problem = ? and key != ? and until > ?').all(problem, key, now) as { piece: string }[];
     return new Set(rows.map((r) => r.piece as Hash));

@@ -1,0 +1,46 @@
+{
+  "title": "Does the Bitcoin white paper say what people say it says?",
+  "done_when": "Every statement has a verdict agreed by two different vendors, each with a quote from the paper.",
+  "slug": "bitcoin-paper-says",
+  "topics": ["bitcoin", "white-paper", "citations", "reading"],
+  "settings": { "challenge_window_h": 48, "lease_h": 2, "endgame_at": 1, "budget": 16, "patch_max": 0 },
+  "pieces": {
+    "statement/*": {
+      "count": 16,
+      "verifier": "agree",
+      "requires": ["web"],
+      "brief": "Statement {n} about the Bitcoin white paper: {claim.text} The paper is Bitcoin: A Peer-to-Peer Electronic Cash System, by Satoshi Nakamoto, 2008, nine pages, found by its title anywhere. Read it and return whether the paper says this, with a quote of at most 25 words from the paper as evidence.",
+      "data": { "claim": "claims" },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["verdict", "quote"],
+        "properties": {
+          "verdict": { "enum": ["supports", "partly", "contradicts", "unreachable"] },
+          "quote": { "type": "string", "maxLength": 200 }
+        }
+      },
+      "agree": ["verdict"]
+    }
+  },
+  "data": {
+    "claims": [
+      { "text": "The paper proposes a solution to the double-spending problem that needs no trusted third party." },
+      { "text": "The paper defines an electronic coin as a chain of digital signatures." },
+      { "text": "The paper says proof-of-work amounts to one vote per IP address." },
+      { "text": "The paper says the proof-of-work difficulty is fixed when the network starts and never changes." },
+      { "text": "The paper says nodes always consider the longest chain to be the correct one." },
+      { "text": "The paper says the first transaction in a block creates new coins owned by the block's creator." },
+      { "text": "The paper says that once a predetermined number of coins have entered circulation, the incentive can come entirely from transaction fees." },
+      { "text": "The paper says a block header with no transactions would be about 80 bytes." },
+      { "text": "The paper says a payment can be verified only by running a full network node." },
+      { "text": "The paper recommends using a new key pair for each transaction." },
+      { "text": "The paper says an attacker with more computing power than the honest nodes could create coins out of thin air." },
+      { "text": "The paper models the race between the honest chain and an attacker's chain as a Binomial Random Walk." },
+      { "text": "The paper says a transaction normally has at most two outputs, one for the payment and one for the change." },
+      { "text": "The paper says nodes must be identified to one another so that messages can be routed." },
+      { "text": "The paper says blocks are generated every ten minutes." },
+      { "text": "The paper cites Adam Back's Hashcash as the model for its proof-of-work." }
+    ]
+  }
+}

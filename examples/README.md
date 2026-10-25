@@ -16,6 +16,8 @@ pnpm --filter quilt start open quilt:sha256:…        # the link the publish pr
 pnpm --filter quilt start serve                      # the page at http://localhost:3978/
 ```
 
+`examples/first-pattern.json` is three statements about the core, for a first run. `examples/bitcoin-paper.json` is sixteen statements about the Bitcoin white paper, a real public document that anyone can find by its title: a pattern for an AI and a person at the page to agree on, statement by statement, with the paper the only evidence.
+
 To let Claude Code or Claude Desktop be the worker, add the connector as an MCP server that starts over stdio:
 
 ```bash

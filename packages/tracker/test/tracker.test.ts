@@ -5,7 +5,7 @@ import { Store } from '../src/store.js';
 import { createTracker, IDENTITY } from '../src/tracker.js';
 
 const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
-const owner = key(9), A = key(1), B = key(2), C = key(3), D = key(4);
+const owner = key(9), A = key(1), B = key(2), C = key(3), D = key(4), E = key(5);
 const addr = addressOf;
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
 const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
@@ -128,6 +128,15 @@ describe('the reference tracker', () => {
     expect(n1.piece).not.toBe(n2.piece);
     expect(n1.brief).toMatch(/^Citation \d: /);
     expect((await (await get(`/p/${P}/next?key=${addr(C).toLowerCase()}&can=web`)).json()).error).toMatch(/checksum/);
+    // A hold is spent by its key's reveal: the piece goes to the next key at once, not when the hold's minute is up.
+    const ret = { verdict: 'contradicts', quote: 'q3' };
+    const nonce = newNonce();
+    tick += 1000;
+    expect((await post(`/p/${P}/events`, ev(C, 'commit', { h: commitHash(ret, nonce) }, P, n1.piece))).status).toBe(202);
+    tick += 1000;
+    expect((await post(`/p/${P}/events`, ev(C, 'reveal', { return: ret, nonce, by: by('meta/llama') }, P, n1.piece))).status).toBe(202);
+    const n3 = await (await get(`/p/${P}/next?key=${addr(E)}&can=web&model=google/gemini`)).json();
+    expect(n3.piece).toBe(n1.piece);
   });
   it('keeps identity events in their own log and announcements in the index', async () => {
     const name = ev(A, 'name', { name: 'Ada' });

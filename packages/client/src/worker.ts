@@ -131,7 +131,7 @@ export class Quilt {
     return [...out.values()];
   }
 
-  /** The rarest piece for this key, from the tracker's assisted next when one answers, else computed here; then a claim. */
+  /** The rarest piece for this key: the tracker's assisted next when one answers and names a piece, else computed here from the map; then a claim. */
   async next(input: string): Promise<{ hash: Hash; pick: Pick; posted: { at: string | null; queued: boolean; error?: string }; author: string }> {
     const id = this.needKey();
     const { hash, state, tracker } = await this.open(input);
@@ -145,7 +145,8 @@ export class Quilt {
           if (j.piece) {
             const view = state.byHash.get(j.piece);
             if (view) pick = next(state, id.address, { can: this.config.can, model: this.model() }, new Date().toISOString(), { exclude: new Set(state.pieces.filter((v) => v.piece.hash !== j.piece).map((v) => v.piece.hash)) });
-          } else return Promise.reject(new Error('nothing for this key on that problem right now'));
+          }
+          // A tracker that names nothing is only saying its holds are taken; the map decides below.
         }
       } catch {
         pick = null;
