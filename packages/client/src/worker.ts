@@ -1,13 +1,13 @@
 /**
  * The verbs' work, with no MCP and no HTTP in it: open a problem, search, be handed a piece, hand one back, decline,
- * read, publish, challenge an acceptance, give a verdict. The MCP server and the page are thin shells over this. Other
- * people's words come out of here only as quoted text with the signer named.
+ * read, publish, challenge an acceptance, give a verdict, rank a judge piece's candidates. The MCP server and the page
+ * are thin shells over this. Other people's words come out of here only as quoted text with the signer named.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  type Capability, type Envelope, type Event, type Hash, type Pick, type Problem, type State, type Unsigned,
-  commitHash, eventId, hashBytes, newNonce, next, plainTextProblems, problemHash, signEvent, signObject, canonical, envelopeProblems,
+  type Capability, type Envelope, type Event, type Hash, type Pick, type PieceView, type Problem, type State, type Unsigned,
+  commitHash, eventId, hashBytes, isHash, newNonce, next, plainTextProblems, problemHash, renderInputs, signEvent, signObject, canonical, envelopeProblems,
 } from '@bitquilt/core';
 import type { Config, Identity } from './config.js';
 import { type Link, makeLink, parseLink } from './link.js';
@@ -30,7 +30,77 @@ export interface ChallengeListing {
   decided_at: string | null;
 }
 
-export const STATE_MARK: Record<string, string> = { locked: 'l', unknown: '?', open: '.', in_flight: 'i', sealed: 's', needs_verify: 'v', disputed: 'd', accepted_provisional: 'p', accepted: 'a', unreachable: 'u' };
+/** A judge panel as a tracker lists it at /p/<hash>/panels (QX-2): the candidates by digest, their signers named once it has decided, the seats, each rank, the outcome. */
+export interface PanelListing {
+  piece: Hash;
+  name: string;
+  verifier: string | null;
+  panel: number;
+  majority: number;
+  candidates: { digest: Hash; return: Record<string, unknown>; root?: string; signer?: string | null }[];
+  seats: { root: string; offered_at: string; lapsed_at: string | null; rank: { at: string; ranking: Hash[] } | null }[];
+  outcome: 'open' | 'decided' | 'void';
+  winner: Hash | null;
+  decided_at: string | null;
+}
+
+/** A piece as the tracker that answered holds it in its layer (QX-1, QX-2, QX-3, QX-10): its state beside the core's, the kind and its strength. */
+export interface LayerPiece {
+  hash: Hash;
+  name: string;
+  verifier: string;
+  state: string;
+  core: string;
+  kind: string | null;
+  extension: string | null;
+  strength: string | null;
+  says: string;
+  weakest: boolean;
+  attested: boolean;
+  panel: string | null;
+  challenge: Hash | null;
+}
+
+export const STATE_MARK: Record<string, string> = { locked: 'l', unknown: '?', open: '.', in_flight: 'i', sealed: 's', needs_verify: 'v', disputed: 'd', accepted_provisional: 'p', accepted: 'a', unreachable: 'u', challenged: 'c', judging: 'j' };
+
+/** A verifier kind in words: how a square of it is earned, how strongly, and that attest is the weakest. */
+export function kindWords(verifier: string): { kind: string; extension: string | null; strength: string; says: string; weakest: boolean } {
+  const judge = /^judge:([1-9]\d*)$/.exec(verifier);
+  if (judge) return { kind: 'judge', extension: 'QX-2', strength: 'judged', says: `a panel of ${judge[1]} drawn by sortition ranks the candidates and a majority's first choice is accepted`, weakest: false };
+  switch (verifier) {
+    case 'check':
+      return { kind: 'check', extension: null, strength: 'reproduced', says: 'two unrelated runs reproduce the patch', weakest: false };
+    case 'score':
+      return { kind: 'score', extension: null, strength: 'reproduced', says: 'two unrelated runs score the patch within tolerance', weakest: false };
+    case 'agree':
+      return { kind: 'agree', extension: null, strength: 'agreed', says: 'two returns from different vendors agree', weakest: false };
+    case 'human':
+      return { kind: 'human', extension: 'QX-3', strength: 'agreed', says: 'two people at seats a tracker opened for them agree', weakest: false };
+    case 'attest':
+      return { kind: 'attest', extension: 'QX-10', strength: 'attested', says: 'the actor\'s own signed record is accepted at once and may be challenged for the window; the weakest kind', weakest: true };
+    default:
+      return { kind: verifier, extension: null, strength: 'unknown', says: 'a kind this client does not implement', weakest: false };
+  }
+}
+
+/** What a piece waits for after a return, by its kind. */
+export function waitsText(verifier: string | undefined): string {
+  switch (verifier ? kindWords(verifier).kind : null) {
+    case 'check':
+    case 'score':
+      return 'The patch now waits for two runs by others.';
+    case 'agree':
+      return 'The piece now waits for a second production from another vendor.';
+    case 'human':
+      return 'The piece now waits for a second person at a seat to agree.';
+    case 'judge':
+      return 'The return is a candidate; once the candidates are in, a panel drawn by sortition ranks them.';
+    case 'attest':
+      return 'The record is accepted at once as the actor\'s own word, marked attested, and may be challenged for the window.';
+    default:
+      return 'What the piece waits for next is its verifier\'s to say.';
+  }
+}
 
 /** The vendor and model a host declares, from the name it gives at connection. */
 export function modelFor(hostName: string | undefined, override?: string): string {
@@ -58,7 +128,7 @@ export interface Pattern {
 
 interface Library {
   problems: Record<string, { title: string; slug: string; trackers: string[]; first: string; last: string }>;
-  pieces: Record<string, { problem: Hash; name: string; when: string; what: string }>;
+  pieces: Record<string, { problem: Hash; name: string; when: string; what: string; verifier?: string }>;
   /** The standing list (QX-4): the problems this key seeds, by the time it said so. */
   seeding: Record<string, string>;
 }
@@ -102,8 +172,8 @@ export class Quilt {
     return { address: this.identity?.address ?? null, name: this.config.name ?? null, model: this.model(), can: this.config.can, trackers: this.config.trackers, mirrors: this.config.mirrors, queued: this.resolver.queued(), problems: Object.keys(this.library.problems).length };
   }
 
-  /** The problem behind a link or hash, resolved and reduced. */
-  async open(input: string): Promise<{ link: Link; hash: Hash; state: State; tracker: string | null }> {
+  /** The problem behind a link or hash, resolved and reduced, with the tracker's own view of its pieces where one answered. */
+  async open(input: string): Promise<{ link: Link; hash: Hash; state: State; tracker: string | null; layer: LayerPiece[] | null }> {
     const link = parseLink(input);
     const resolved = await this.resolver.resolve(link);
     if (!resolved) throw new Error('no resolver answered for that hash');
@@ -113,20 +183,48 @@ export class Quilt {
     const entry = this.library.problems[resolved.hash];
     this.library.problems[resolved.hash] = { title: state.envelope.problem.title, slug: state.envelope.problem.slug, trackers, first: entry?.first ?? now, last: now };
     this.save();
-    return { link, hash: resolved.hash, state, tracker: resolved.tracker };
+    const layer = resolved.tracker ? await this.layerOf(resolved.hash, resolved.tracker) : null;
+    return { link, hash: resolved.hash, state, tracker: resolved.tracker, layer };
   }
 
-  /** The map as a strip of marks, one per piece in file order, and the counts. */
-  mapText(state: State): string {
-    const strip = state.pieces.map((v) => STATE_MARK[v.state] ?? '?').join('');
+  /**
+   * The tracker's own states for a problem's pieces, with each kind and its strength: where its layer (the challenge
+   * window, the verifier kinds) says more than the core this client computes. Null when the tracker does not answer.
+   */
+  async layerOf(hash: Hash, tracker: string): Promise<LayerPiece[] | null> {
+    try {
+      const r = await fetch(`${tracker}p/${hash}/state`, { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) return null;
+      const j = (await r.json()) as { pieces?: LayerPiece[] };
+      return Array.isArray(j.pieces) ? j.pieces : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** The map as a strip of marks, one per piece in file order, and the counts; the tracker's states where it answered, the core's otherwise. */
+  mapText(state: State, layer: LayerPiece[] | null = null): string {
+    const over = new Map((layer ?? []).map((l) => [l.hash, l] as const));
+    const stateOf = (v: PieceView): string => over.get(v.piece.hash)?.state ?? v.state;
+    const strip = state.pieces.map((v) => STATE_MARK[stateOf(v)] ?? '?').join('');
     const counts: Record<string, number> = {};
-    for (const v of state.pieces) counts[v.state] = (counts[v.state] ?? 0) + 1;
+    for (const v of state.pieces) counts[stateOf(v)] = (counts[stateOf(v)] ?? 0) + 1;
     const parts = Object.entries(counts).map(([k, n]) => `${n} ${k.replace('_', ' ')}`);
     return `${strip}\n${parts.join(', ')}${state.complete ? '; complete' : ''}`;
   }
 
-  /** A problem said as text: title and done_when as the owner's quoted words, the map, the trackers. */
-  summary(hash: Hash, state: State, tracker: string | null): string {
+  /** The kinds of the problem's pieces and how each earns its square, the weakest said so. */
+  kindsText(state: State): string {
+    const counts = new Map<string, number>();
+    for (const v of state.pieces) counts.set(v.piece.verifier, (counts.get(v.piece.verifier) ?? 0) + 1);
+    return `Kinds: ${[...counts].map(([verifier, n]) => {
+      const k = kindWords(verifier);
+      return `${n} ${verifier} (${k.strength}: ${k.says})`;
+    }).join('; ')}.`;
+  }
+
+  /** A problem said as text: title and done_when as the owner's quoted words, the map, the kinds, the trackers. */
+  summary(hash: Hash, state: State, tracker: string | null, layer: LayerPiece[] | null = null): string {
     const p = state.envelope.problem;
     const owner = state.names.get(p.owner as `0x${string}`)?.name ?? p.owner;
     const lines = [
@@ -134,8 +232,9 @@ export class Quilt {
       `The owner, ${owner}, titled it: "${p.title}"`,
       `and wrote of when it is done: "${p.done_when}"`,
       `${state.pieces.length} pieces, version ${state.chain.length} along prev.`,
-      this.mapText(state),
-      `Legend: . open, i in flight, s sealed, v needs a second production, d disputed, p accepted within the window, a accepted, u unreachable, l locked, ? a kind this client does not implement.`,
+      this.mapText(state, layer),
+      this.kindsText(state),
+      `Legend: . open, i in flight, s sealed, v needs a second production, d disputed, p accepted within the window, a accepted, u unreachable, l locked, c challenged, j a panel ranking candidates, ? a kind neither this client nor the tracker that answered implements.`,
       tracker ? `Answered by ${tracker}.` : 'Answered from the cache or a mirror.',
       `Link: ${makeLink(hash, tracker ? [tracker] : this.config.trackers, p.slug)}`,
     ];
@@ -168,10 +267,16 @@ export class Quilt {
       try {
         const r = await fetch(`${tracker}p/${hash}/next?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}`, { signal: AbortSignal.timeout(8000) });
         if (r.ok) {
-          const j = (await r.json()) as { piece: Hash | null };
+          const j = (await r.json()) as { piece: Hash | null; state?: string; agree?: string[]; lease_h?: number };
           if (j.piece) {
             const view = state.byHash.get(j.piece);
             if (view) pick = next(state, id.address, { can: this.config.can, model: this.model() }, new Date().toISOString(), { exclude: new Set(state.pieces.filter((v) => v.piece.hash !== j.piece).map((v) => v.piece.hash)) });
+            // A kind the core does not implement (human, judge:n, attest): the tracker's layer offered it, and the piece's
+            // own brief, schema and lease are in the envelope this client holds.
+            if (view && !pick && view.state === 'unknown') pick = {
+              piece: view.piece, state: (j.state ?? 'open') as Pick['state'], brief: renderInputs(view, state), ...(view.piece.schema ? { schema: view.piece.schema } : {}),
+              agree: j.agree ?? view.piece.agree ?? view.piece.schema?.required ?? [], requires: view.piece.requires, lease_h: j.lease_h ?? view.piece.lease_h ?? state.envelope.problem.settings.lease_h, availability: view.availability,
+            };
           }
           // A tracker that names nothing is only saying its holds are taken; the map decides below.
         }
@@ -183,7 +288,7 @@ export class Quilt {
     if (!pick) throw new Error('nothing for this key on that problem right now');
     const claim = this.sign({ quilt: 1, type: 'claim', problem: hash, piece: pick.piece.hash, key: id.address, ts: new Date().toISOString(), body: { by: this.by() } });
     const posted = await this.resolver.post(claim, hash, trackers);
-    this.library.pieces[pick.piece.hash] = { problem: hash, name: pick.piece.name, when: claim.ts, what: 'claimed' };
+    this.library.pieces[pick.piece.hash] = { problem: hash, name: pick.piece.name, when: claim.ts, what: 'claimed', verifier: pick.piece.verifier };
     this.save();
     const owner = state.names.get(state.envelope.problem.owner as `0x${string}`)?.name ?? state.envelope.problem.owner;
     return { hash, pick, posted, author: owner };
@@ -230,10 +335,12 @@ export class Quilt {
     return r;
   }
 
-  /** The piece said as text: the brief as the author's quoted words, the schema, what it requires, the lease. */
+  /** The piece said as text: its kind and how strongly that kind earns a square, the brief as the author's quoted words, the schema, what it requires, the lease. */
   pieceText(hash: Hash, pick: Pick, author: string): string {
+    const k = kindWords(pick.piece.verifier);
     const lines = [
       `Piece ${pick.piece.name} (${pick.piece.hash}) of problem ${hash}, verifier ${pick.piece.verifier}, state ${pick.state.replace('_', ' ')}.`,
+      `A square of this kind is ${k.strength}: ${k.says}.`,
       `The author, ${author}, wrote this brief: "${pick.brief}"`,
       pick.schema ? `A return is an object with these fields: ${canonical(pick.schema.properties)}; required: ${pick.schema.required.join(', ')}; agreement is on: ${pick.agree.join(', ')}.` : `A return is { patch }: a unified diff against ${pick.piece.workspace?.repo ?? 'the workspace'} at ${pick.piece.workspace?.base ?? 'base'}, or the empty string; the check is ${pick.piece.check?.file ?? 'the check file'}.`,
       pick.requires.length ? `It requires: ${pick.requires.join(', ')}.` : 'It requires nothing in particular.',
@@ -242,8 +349,8 @@ export class Quilt {
     return lines.join('\n');
   }
 
-  /** A return handed in: a commit, then its reveal. */
-  async return(problem: Hash, piece: Hash, ret: Record<string, unknown>): Promise<{ commit: { at: string | null; queued: boolean; error?: string }; reveal: { at: string | null; queued: boolean; error?: string } }> {
+  /** A return handed in: a commit, then its reveal; and what the piece waits for next, by its kind. */
+  async return(problem: Hash, piece: Hash, ret: Record<string, unknown>): Promise<{ commit: { at: string | null; queued: boolean; error?: string }; reveal: { at: string | null; queued: boolean; error?: string }; waits: string }> {
     const id = this.needKey();
     const entry = this.library.problems[problem];
     const trackers = entry ? [...new Set([...entry.trackers, ...this.config.trackers])] : this.config.trackers;
@@ -259,9 +366,57 @@ export class Quilt {
     const r = await this.resolver.post(reveal, problem, trackers);
     if (r.error && !r.queued) throw new Error(`the tracker refused the reveal: ${r.error}`);
     const known = this.library.pieces[piece];
-    this.library.pieces[piece] = { problem, name: known?.name ?? piece, when: reveal.ts, what: 'returned' };
+    this.library.pieces[piece] = { problem, name: known?.name ?? piece, when: reveal.ts, what: 'returned', ...(known?.verifier ? { verifier: known.verifier } : {}) };
     this.save();
-    return { commit: c, reveal: r };
+    return { commit: c, reveal: r, waits: waitsText(known?.verifier) };
+  }
+
+  /** A ranking of a judge piece's candidates by a key drawn to its panel (QX-2): every candidate's digest once, first choice first, signed and posted. */
+  async rank(problem: Hash, piece: Hash, ranking: Hash[]): Promise<{ id: Hash; at: string | null; queued: boolean; error?: string }> {
+    const id = this.needKey();
+    if (!Array.isArray(ranking) || ranking.length === 0 || !ranking.every((d) => isHash(d))) throw new Error('a ranking is a list of candidate digests, first choice first');
+    if (new Set(ranking).size !== ranking.length) throw new Error('a ranking names each digest once');
+    const e = this.sign({ quilt: 1, type: 'rank', problem, piece, key: id.address, ts: new Date().toISOString(), body: { ranking } });
+    const r = await this.resolver.post(e, problem, this.trackersFor(problem));
+    if (r.error && !r.queued) throw new Error(`the tracker refused the rank: ${r.error}`);
+    return { id: eventId(e), ...r };
+  }
+
+  /** The problem's judge panels as the first tracker that answers computes them: the one that answered for the problem, then the known ones. */
+  async panels(problem: Hash, tracker: string | null = null): Promise<PanelListing[]> {
+    for (const t of [...new Set([...(tracker ? [tracker] : []), ...this.trackersFor(problem)])]) {
+      try {
+        const r = await fetch(`${t}p/${problem}/panels`, { signal: AbortSignal.timeout(8000) });
+        if (!r.ok) continue;
+        return ((await r.json()) as { panels: PanelListing[] }).panels;
+      } catch {
+        /* a tracker that does not answer is skipped */
+      }
+    }
+    return [];
+  }
+
+  /** The panels said as text: each candidate's return quoted, its signer named once the panel has decided and "a candidate" while the judges rank blind, the seats, each rank, the outcome. */
+  panelsText(list: PanelListing[], state: State): string {
+    if (list.length === 0) return 'No judge panel on this problem.';
+    const who = (a: string) => state.names.get(a as `0x${string}`)?.name ?? a;
+    const outcome: Record<PanelListing['outcome'], string> = {
+      open: 'sitting: the candidates are in and the judges drawn are ranking them',
+      decided: 'decided: the candidate a majority ranked first is accepted',
+      void: 'void: the panel ran out before a majority agreed, and the piece is disputed',
+    };
+    return list.map((p) => {
+      const lines = [`Panel on ${p.name} (${p.verifier ?? 'judge'}, ${p.majority} of ${p.panel} decide), ${outcome[p.outcome]}.`];
+      for (const c of p.candidates) lines.push(`${c.root ? who(c.root) : 'A candidate'}${c.digest === p.winner ? ', ranked first by the majority,' : ''} returned, as digest ${c.digest}: ${canonical(c.return)}`);
+      if (p.seats.length === 0) lines.push('No seats drawn yet.');
+      for (const s of p.seats) {
+        const judge = who(s.root);
+        if (s.rank) lines.push(`${judge}, drawn, ranked: ${s.rank.ranking.join(', ')}.`);
+        else if (s.lapsed_at) lines.push(`${judge}, drawn, let the seat lapse.`);
+        else lines.push(`${judge}, drawn, has not ranked.`);
+      }
+      return lines.join('\n');
+    }).join('\n\n');
   }
 
   async decline(problem: Hash, piece: Hash, reason: 'cannot' | 'unclear' | 'refuse' | 'duplicate' | 'no_time') {
@@ -336,13 +491,25 @@ export class Quilt {
     }).join('\n\n');
   }
 
-  /** The accepted returns of a problem as quoted text with the signers named. */
-  acceptedText(state: State): string {
+  /**
+   * The accepted returns of a problem as quoted text with the signers named: the core's accepting sets, and on a piece of
+   * a kind the core does not implement that the tracker holds as accepted, every return on it, with the kind and its
+   * strength beside the name, since which of them the tracker counted is the tracker's word.
+   */
+  acceptedText(state: State, layer: LayerPiece[] | null = null): string {
+    const over = new Map((layer ?? []).map((l) => [l.hash, l] as const));
+    const who = (a: string) => state.names.get(a as `0x${string}`)?.name ?? a;
     const lines: string[] = [];
     for (const v of state.pieces) {
-      if (!v.accepting) continue;
-      if (v.accepting.kind === 'agree') for (const r of v.accepting.reveals) lines.push(`${v.piece.name}, ${state.names.get(r.root)?.name ?? r.root} returned: ${canonical(r.return)}`);
-      else lines.push(`${v.piece.name}, ${state.names.get(v.accepting.patch.root)?.name ?? v.accepting.patch.root} returned a patch of ${(v.accepting.patch.return.patch as string).length} characters, run by ${v.accepting.runs.map((r) => r.root).join(' and ')}`);
+      if (v.accepting) {
+        if (v.accepting.kind === 'agree') for (const r of v.accepting.reveals) lines.push(`${v.piece.name}, ${who(r.root)} returned: ${canonical(r.return)}`);
+        else lines.push(`${v.piece.name}, ${who(v.accepting.patch.root)} returned a patch of ${(v.accepting.patch.return.patch as string).length} characters, run by ${v.accepting.runs.map((r) => r.root).join(' and ')}`);
+        continue;
+      }
+      const l = over.get(v.piece.hash);
+      if (!l || !['accepted', 'accepted_provisional', 'challenged'].includes(l.state) || v.state !== 'unknown') continue;
+      const how = l.attested ? 'attested, the actor\'s own word' : `${l.strength ?? 'accepted'} as the tracker holds it`;
+      for (const r of v.reveals) lines.push(`${v.piece.name} (${l.verifier}; ${how}), ${who(r.root)} returned: ${canonical(r.return)}`);
     }
     return lines.length ? lines.join('\n') : 'Nothing accepted yet.';
   }

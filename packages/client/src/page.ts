@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type Hash, IDENTITY_LOG, isHash } from '@bitquilt/core';
 import type { Resolver } from './resolver.js';
-import type { Pattern, Quilt } from './worker.js';
+import { type Pattern, type Quilt, kindWords } from './worker.js';
 
 /** The page's HTML: an asset of the single executable when this runs as one, else the file beside the source. */
 function pageHtml(): string {
@@ -59,7 +59,11 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       if (path === '/api/me') return json(res, 200, quilt.me());
       if (path === '/api/search') return json(res, 200, { problems: await quilt.search(u.searchParams.get('q') ?? '') });
       if (path === '/api/open') {
-        const { hash, state, tracker } = await quilt.open(u.searchParams.get('link') ?? '');
+        const { hash, state, tracker, layer } = await quilt.open(u.searchParams.get('link') ?? '');
+        const over = new Map((layer ?? []).map((l) => [l.hash, l] as const));
+        // The judge panels this person sits on with a seat still live: the page offers a ranking form for each.
+        const me = person.identity?.address ?? null;
+        const judging = me === null ? [] : (await person.panels(hash, tracker)).filter((p) => p.outcome === 'open' && p.seats.some((s) => s.root === me && s.lapsed_at === null && !s.rank));
         let seed: { seeders: number; last_seeded: string | null } = { seeders: 0, last_seeded: null };
         if (tracker) {
           try {
@@ -74,14 +78,24 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         }
         return json(res, 200, {
           problem: hash, tracker, seeders: seed.seeders, last_seeded: seed.last_seeded, seeding: Boolean(quilt.library.seeding[hash]), title: state.envelope.problem.title, done_when: state.envelope.problem.done_when, owner: state.envelope.problem.owner, complete: state.complete,
-          pieces: state.pieces.map((v) => ({ name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: v.state, requires: v.piece.requires })),
-          accepted: quilt.acceptedText(state), summary: quilt.summary(hash, state, tracker),
+          pieces: state.pieces.map((v) => {
+            const l = over.get(v.piece.hash);
+            const k = kindWords(v.piece.verifier);
+            return { name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l?.state ?? v.state, core: v.state, requires: v.piece.requires, kind: k.kind, strength: k.strength, says: k.says, weakest: k.weakest, attested: l?.attested ?? false };
+          }),
+          kinds: quilt.kindsText(state),
+          judging: judging.map((p) => ({ piece: p.piece, name: p.name, verifier: p.verifier, majority: p.majority, panel: p.panel, candidates: p.candidates.map((c) => ({ digest: c.digest, return: c.return })) })),
+          accepted: quilt.acceptedText(state, layer), summary: quilt.summary(hash, state, tracker, layer),
         });
+      }
+      if (path === '/api/rank' && method === 'POST') {
+        const b = (await body(req)) as { problem: Hash; piece: Hash; ranking: Hash[] };
+        return json(res, 200, await person.rank(b.problem, b.piece, b.ranking));
       }
       if (path === '/api/library') return json(res, 200, quilt.library);
       if (path === '/api/next' && method === 'GET') {
         const { hash, pick, posted, author } = await person.next(u.searchParams.get('problem') ?? '');
-        return json(res, 200, { problem: hash, piece: pick.piece.hash, name: pick.piece.name, brief: pick.brief, author, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h, posted });
+        return json(res, 200, { problem: hash, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: kindWords(pick.piece.verifier), brief: pick.brief, author, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h, posted });
       }
       if (path === '/api/seed' && method === 'POST') {
         const b = (await body(req)) as { problem: Hash; on: boolean };

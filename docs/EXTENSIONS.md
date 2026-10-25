@@ -30,20 +30,20 @@ A change that needs any of these is version 2 of the core, which is a different 
 
 ## Registry
 
-Numbers assigned 24 Oct 2026. Each is described in [PROTOCOL.md](PROTOCOL.md) for now and gets its own document under `docs/ext/` when it is first implemented.
+Numbers assigned 24 Oct 2026. Each is described in [PROTOCOL.md](PROTOCOL.md) for now and gets its own document under `docs/ext/` when it is first implemented; the three verifier kinds (QX-2, QX-3, QX-10) share one, since they share one layer, one pool and one door. The exact event shapes and the states a client shows are in those documents, not here.
 
 | Number | Title | Status | Where |
 | --- | --- | --- | --- |
 | QX-1 | The challenge window: `challenge` and `verdict`, standing, panels by sortition | Draft, one implementation (25 Oct 2026) | [ext/QX-1.md](ext/QX-1.md); PROTOCOL.md, Sortition and The reducer |
-| QX-2 | The `judge:n` verifier | Draft | PROTOCOL.md, Verifiers |
-| QX-3 | The `human` verifier and the seat receipt | Draft | PROTOCOL.md, Verifiers and Events |
+| QX-2 | The `judge:n` verifier: `candidates` returns, a panel of `n` by QX-1's sortition seeded by the first candidate's receipt line, blind `rank` events, a majority's first choice accepted | Draft, one implementation (25 Oct 2026) | [ext/verifiers.md](ext/verifiers.md); PROTOCOL.md, Verifiers and Sortition |
+| QX-3 | The `human` verifier: as `agree`, every counted reveal from a person's seat (`seat: person` or `custody: hosted` on the receipt, or `by.model` `human`) | Draft, one implementation (25 Oct 2026) | [ext/verifiers.md](ext/verifiers.md); PROTOCOL.md, Verifiers and Events |
 | QX-4 | Seeding, watch pieces and the standing list | Draft, one implementation (26 Oct 2026) | [ext/QX-4.md](ext/QX-4.md); PROTOCOL.md, Events and SWARM.md |
 | QX-5 | Reciprocity in the order problems are offered | Draft, one implementation (26 Oct 2026) | [ext/QX-5.md](ext/QX-5.md); PROTOCOL.md, In BitTorrent's terms; SWARM.md |
 | QX-6 | The `hide` event and a maintainer's key | Draft | PROTOCOL.md, Events and Governance |
 | QX-7 | The stamp: proof of work at a tracker's door | Draft | CORE.md section 11; PROTOCOL.md, Governance |
 | QX-8 | Independence from the agreement graph | Reserved | [OPEN-PROBLEM.md](OPEN-PROBLEM.md), direction 1 |
 | QX-9 | Evidence a machine can check | Reserved | OPEN-PROBLEM.md, direction 3 |
-| QX-10 | The `attest` verifier: a piece whose work is an action, accepted on the actor's signed record | Draft | PROTOCOL.md, Verifiers |
+| QX-10 | The `attest` verifier: a piece whose work is an action, accepted at once on the actor's signed record as `accepted_provisional` marked attested, challengeable under QX-1 for the window, crediting no standing; the weakest kind | Draft, one implementation (25 Oct 2026) | [ext/verifiers.md](ext/verifiers.md); PROTOCOL.md, Verifiers |
 | QX-11 | Chained ledger lines: `seq`, `prev` and `hash` on every receipt a resolver keeps, with a published head | Draft | PROTOCOL.md, The mirror |
 | QX-12 | Anchoring a chain's head outside the ledger, through OpenTimestamps | Reserved | PROTOCOL.md, The mirror |
 | QX-13 | The `announce` event: what indexes and relays store, signed by an owner or a seeder | Draft | [APP.md](APP.md), The announce event |

@@ -24,6 +24,8 @@
   .sq.in_flight { background: var(--flight); } .sq.sealed { background: var(--sealed); } .sq.needs_verify { background: var(--verify); }
   .sq.disputed { background: var(--disputed); } .sq.accepted_provisional { background: var(--prov); } .sq.accepted { background: var(--acc); }
   .sq.unreachable { background: var(--unreach); } .sq.locked { background: var(--locked); } .sq.unknown { background: var(--unknown); }
+  .sq.challenged { background: var(--disputed); } .sq.judging { background: var(--sealed); }
+  .sq.attested { outline: 2px dotted var(--muted); outline-offset: -2px; }
   pre { white-space: pre-wrap; word-break: break-word; font-size: 13px; background: var(--locked); padding: 10px; border-radius: 8px; }
   nav { display: flex; gap: 14px; margin-bottom: 18px; font-size: 15px; }
   nav a { color: var(--muted); text-decoration: none; cursor: pointer; } nav a.on { color: var(--ink); font-weight: 600; }
@@ -76,8 +78,44 @@
 
   var mapOf = function (pieces) {
     var m = el('div', 'map');
-    pieces.forEach(function (p) { var s = el('div', 'sq ' + p.state); s.title = p.name + ': ' + p.state.replace('_', ' ') + ' (' + p.verifier + ')'; m.appendChild(s); });
+    pieces.forEach(function (p) {
+      var s = el('div', 'sq ' + p.state + (p.attested ? ' attested' : ''));
+      s.title = p.name + ': ' + p.state.replace('_', ' ') + ' (' + p.verifier + (p.strength ? ', ' + p.strength : '') + (p.weakest ? ', the weakest kind' : '') + (p.attested ? ', attested' : '') + ')';
+      m.appendChild(s);
+    });
     return m;
+  };
+  var ordinal = function (n) { return n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'); };
+  /** A ranking form for a judge piece this person is drawn to: each candidate's return as text, and a place for each. */
+  var judgeCard = function (problem, j) {
+    var c = el('div', 'card');
+    c.appendChild(el('h3', null, 'You are drawn to judge ' + j.name));
+    c.appendChild(el('div', 'meta', j.verifier + ': ' + j.majority + ' of ' + j.panel + ' first choices decide. The candidates are shown without their signers.'));
+    var form = el('form');
+    var selects = [];
+    j.candidates.forEach(function (cand, i) {
+      var f = el('div', 'field');
+      var label = el('label', null, 'Candidate ' + cand.digest.slice(7, 15) + ' returned:'); f.appendChild(label);
+      f.appendChild(el('pre', null, JSON.stringify(cand.return, null, 2)));
+      var sel = el('select'); sel.dataset.digest = cand.digest;
+      j.candidates.forEach(function (_, k) { var op = el('option', null, ordinal(k + 1)); op.value = String(k + 1); sel.appendChild(op); });
+      sel.value = String(i + 1); selects.push(sel); f.appendChild(sel); form.appendChild(f);
+    });
+    var submit = el('button', 'primary', 'Post this ranking, signed'); submit.type = 'submit'; form.appendChild(submit);
+    var out = el('pre', 'quiet', ''); form.appendChild(out);
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var places = selects.map(function (s) { return { digest: s.dataset.digest, place: Number(s.value) }; });
+      var seen = {}; var twice = places.some(function (x) { if (seen[x.place]) return true; seen[x.place] = true; return false; });
+      if (twice) { out.textContent = 'Each place once.'; return; }
+      places.sort(function (a, b) { return a.place - b.place; });
+      out.textContent = 'Signing and posting…';
+      api('/api/rank', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ problem: problem, piece: j.piece, ranking: places.map(function (x) { return x.digest; }) }) })
+        .then(function (r) { out.textContent = 'Ranking ' + (r.queued ? 'queued' : 'posted') + '.'; openProblem(problem); })
+        .catch(function (e) { out.textContent = e.message; });
+    });
+    c.appendChild(form);
+    return c;
   };
   var countsOf = function (counts) { return Object.keys(counts).map(function (k) { return counts[k] + ' ' + k.replace('_', ' '); }).join(', '); };
 
@@ -95,9 +133,11 @@
       v.appendChild(mapOf(p.pieces));
       var counts = {}; p.pieces.forEach(function (x) { counts[x.state] = (counts[x.state] || 0) + 1; });
       v.appendChild(el('div', 'meta', p.pieces.length + ' pieces: ' + countsOf(counts) + (p.complete ? ' · complete' : '')));
+      v.appendChild(el('div', 'meta', p.kinds + ' A dotted square is attested: accepted on the actor’s own word.'));
       var b = el('button', 'primary', 'Hand me a piece'); b.addEventListener('click', function () { takePiece(p.problem); }); v.appendChild(b);
       v.appendChild(el('div', 'meta', (p.seeders || 0) + (p.seeders === 1 ? ' seeder' : ' seeders') + (p.last_seeded ? ' · last seeded ' + String(p.last_seeded).slice(0, 10) : '')));
       var sb = el('button', null, p.seeding ? 'Stop keeping this problem' : 'Keep this problem'); sb.addEventListener('click', function () { sb.disabled = true; api('/api/seed', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ problem: p.problem, on: !p.seeding }) }).then(function () { openProblem(p.problem); }).catch(function (e) { sb.disabled = false; sb.textContent = e.message; }); }); v.appendChild(sb);
+      (p.judging || []).forEach(function (j) { v.appendChild(judgeCard(p.problem, j)); });
       v.appendChild(el('h3', null, 'Accepted so far'));
       v.appendChild(el('pre', null, p.accepted));
       v.appendChild(el('pre', 'quiet', p.summary));
@@ -111,6 +151,7 @@
       if (!problem) { currentProblem = pk.problem; var pvw = $('problemView'); pvw.textContent = 'From problem ' + pk.problem + '. Its map is in your library.'; pvw.className = 'quiet'; }
       var c = el('div', 'card');
       c.appendChild(el('h3', null, pk.name + ' · ' + (pk.posted.queued ? 'claim queued' : 'claimed')));
+      if (pk.kind) c.appendChild(el('div', 'meta', 'Kind ' + pk.verifier + ', ' + pk.kind.strength + ': ' + pk.kind.says + '.'));
       c.appendChild(el('div', 'meta', 'The author, ' + pk.author + ', wrote:'));
       c.appendChild(el('pre', null, pk.brief));
       var form = el('form');
@@ -133,7 +174,7 @@
         fields.forEach(function (name) { var i = $('f_' + name); var kind = i.dataset.kind; var v = i.value; if (kind === 'number' || kind === 'integer') v = Number(v); if (kind === 'boolean') v = v === 'true'; ret[name] = v; });
         out.textContent = 'Signing and posting…';
         api('/api/return', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ problem: pk.problem, piece: pk.piece, return: ret }) })
-          .then(function (r) { out.textContent = 'Commit ' + (r.commit.queued ? 'queued' : 'posted') + '; reveal ' + (r.reveal.queued ? 'queued' : 'posted') + '.'; openProblem(pk.problem); })
+          .then(function (r) { out.textContent = 'Commit ' + (r.commit.queued ? 'queued' : 'posted') + '; reveal ' + (r.reveal.queued ? 'queued' : 'posted') + '. ' + (r.waits || ''); openProblem(pk.problem); })
           .catch(function (e) { out.textContent = e.message; });
       });
       c.appendChild(form); pv.appendChild(c);

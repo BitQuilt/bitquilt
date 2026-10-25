@@ -6,7 +6,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { type Hash, DECLINE_REASONS } from '@bitquilt/core';
-import { type Quilt, SIDES } from './worker.js';
+import { type Quilt, SIDES, kindWords } from './worker.js';
 
 const output = { text: z.string(), handles: z.record(z.unknown()).optional() };
 
@@ -15,7 +15,7 @@ function said(text: string, handles: Record<string, unknown> = {}) {
 }
 
 export function createMcpServer(quiltFor: (hostName: string | undefined) => Quilt): McpServer {
-  const server = new McpServer({ name: 'quilt', version: '0.1.0' }, { instructions: 'Quilt is a client of BitQuilt: problems published as patterns of pieces, worked by many people\'s AIs, each return signed. These tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted and what is challenged, publish a pattern, challenge an acceptance, and give a verdict where this key was drawn to judge. The person\'s own client asks them before anything is written.' });
+  const server = new McpServer({ name: 'quilt', version: '0.1.0' }, { instructions: 'Quilt is a client of BitQuilt: problems published as patterns of pieces, worked by many people\'s AIs, each return signed. These tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, what is challenged and what a panel is ranking, publish a pattern, challenge an acceptance, give a verdict where this key was drawn to judge a challenge, and rank the candidates of a judge piece where it sits on the panel. Each piece names its verifier kind and how strongly that kind earns a square; an attest piece is the actor\'s own word and the weakest. The person\'s own client asks them before anything is written.' });
   const q = () => quiltFor(server.server.getClientVersion()?.name);
 
   server.registerTool('quilt_me', {
@@ -31,13 +31,13 @@ export function createMcpServer(quiltFor: (hostName: string | undefined) => Quil
 
   server.registerTool('quilt_open', {
     title: 'Open a problem',
-    description: 'Opens a problem from a quilt link, a tracker address or a bare hash: the owner\'s title and statement of when it is done as their quoted words, the map of pieces with their states, and the link to pass on.',
+    description: 'Opens a problem from a quilt link, a tracker address or a bare hash: the owner\'s title and statement of when it is done as their quoted words, the map of pieces with their states, the verifier kinds and how strongly each earns a square, and the link to pass on.',
     inputSchema: { link: z.string().describe('A quilt: link, a tracker\'s /p/<hash> address, or a sha256: hash') },
     outputSchema: output,
   }, async ({ link }) => {
     const quilt = q();
-    const { hash, state, tracker } = await quilt.open(link);
-    return said(quilt.summary(hash, state, tracker), { problem: hash, pieces: state.pieces.length, complete: state.complete });
+    const { hash, state, tracker, layer } = await quilt.open(link);
+    return said(quilt.summary(hash, state, tracker, layer), { problem: hash, pieces: state.pieces.length, complete: state.complete });
   });
 
   server.registerTool('quilt_search', {
@@ -55,25 +55,26 @@ export function createMcpServer(quiltFor: (hostName: string | undefined) => Quil
 
   server.registerTool('quilt_next', {
     title: 'Take the rarest piece',
-    description: 'The rarest piece of a problem that fits this client, claimed for it: the author\'s brief as their quoted words, the fields a return has and which agree, what the piece requires, and the lease in hours. With no problem named, the standing list is asked first and then each tracker\'s offer: the problems of people who have worked this key\'s own problems, then the rarest, with every tenth offer a newcomer\'s. The piece hash and the problem hash come back as handles for quilt_return.',
+    description: 'The rarest piece of a problem that fits this client, claimed for it: its verifier kind and how strongly that kind earns a square, the author\'s brief as their quoted words, the fields a return has and which must agree, what the piece requires, and the lease in hours. With no problem named, the standing list is asked first and then each tracker\'s offer: the problems of people who have worked this key\'s own problems, then the rarest, with every tenth offer a newcomer\'s. The piece hash and the problem hash come back as handles for quilt_return.',
     inputSchema: { problem: z.string().optional().describe('The problem, as a link or a hash; left out, something to do') },
     outputSchema: output,
   }, async ({ problem }) => {
     const quilt = q();
     const { hash, pick, posted, author } = await quilt.next(problem ?? '');
     const text = `${quilt.pieceText(hash, pick, author)}\n${posted.queued ? 'The claim waits in the queue; no tracker answered.' : `The claim was posted to ${posted.at}.`}`;
-    return said(text, { problem: hash, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, requires: pick.requires, lease_h: pick.lease_h, agree: pick.agree, schema: pick.schema ?? null });
+    const k = kindWords(pick.piece.verifier);
+    return said(text, { problem: hash, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: k.kind, strength: k.strength, weakest: k.weakest, requires: pick.requires, lease_h: pick.lease_h, agree: pick.agree, schema: pick.schema ?? null });
   });
 
   server.registerTool('quilt_return', {
     title: 'Hand a return back',
-    description: 'Hands back a return for a piece this client was handed: a commit with the hash of the return, then its reveal, both signed with this client\'s key and posted to the problem\'s trackers. The return is an object with the fields the piece\'s schema names, every string plain text.',
+    description: 'Hands back a return for a piece this client was handed: a commit with the hash of the return, then its reveal, both signed with this client\'s key and posted to the problem\'s trackers. The return is an object with the fields the piece\'s schema names, every string plain text. What the piece waits for next depends on its kind: another vendor\'s agreement, a second person, a panel\'s ranking, or nothing, for an attest piece, which is accepted at once on this record.',
     inputSchema: { problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash'), return: z.record(z.unknown()).describe('The return, fitting the piece\'s schema') },
     outputSchema: output,
   }, async ({ problem, piece, return: ret }) => {
     const r = await q().return(problem as Hash, piece as Hash, ret as Record<string, unknown>);
     const where = (x: { at: string | null; queued: boolean }) => (x.queued ? 'queued' : `posted to ${x.at}`);
-    return said(`Commit ${where(r.commit)}; reveal ${where(r.reveal)}. The piece now waits for a second production from another vendor.`, { problem, piece, commit: r.commit, reveal: r.reveal });
+    return said(`Commit ${where(r.commit)}; reveal ${where(r.reveal)}. ${r.waits}`, { problem, piece, commit: r.commit, reveal: r.reveal });
   });
 
   server.registerTool('quilt_decline', {
@@ -88,14 +89,25 @@ export function createMcpServer(quiltFor: (hostName: string | undefined) => Quil
 
   server.registerTool('quilt_read', {
     title: 'Read a problem',
-    description: 'A problem\'s map, its accepted returns, each as the quoted words of the key that signed it with the signer named, and its challenges: the ground as the challenger\'s quoted words, the judges drawn, each verdict, and the outcome.',
+    description: 'A problem\'s map with its kinds, its accepted returns, each as the quoted words of the key that signed it with the signer named, its challenges (the ground as the challenger\'s quoted words, the judges drawn, each verdict, the outcome), and its judge panels (each candidate\'s return quoted, the seats drawn, each rank, the outcome).',
     inputSchema: { problem: z.string().describe('The problem, as a link or a hash') },
     outputSchema: output,
   }, async ({ problem }) => {
     const quilt = q();
-    const { hash, state, tracker } = await quilt.open(problem);
-    const challenges = await quilt.challenges(hash, tracker);
-    return said(`${quilt.summary(hash, state, tracker)}\n\nAccepted so far:\n${quilt.acceptedText(state)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}`, { problem: hash, complete: state.complete, output: state.output?.hash ?? null, challenges: challenges.map((c) => ({ id: c.id, piece: c.piece, outcome: c.outcome })) });
+    const { hash, state, tracker, layer } = await quilt.open(problem);
+    const [challenges, panels] = await Promise.all([quilt.challenges(hash, tracker), quilt.panels(hash, tracker)]);
+    const text = `${quilt.summary(hash, state, tracker, layer)}\n\nAccepted so far:\n${quilt.acceptedText(state, layer)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}\n\nPanels:\n${quilt.panelsText(panels, state)}`;
+    return said(text, { problem: hash, complete: state.complete, output: state.output?.hash ?? null, challenges: challenges.map((c) => ({ id: c.id, piece: c.piece, outcome: c.outcome })), panels: panels.map((p) => ({ piece: p.piece, outcome: p.outcome, candidates: p.candidates.map((c) => c.digest) })) });
+  });
+
+  server.registerTool('quilt_rank', {
+    title: 'Rank a judge piece\'s candidates',
+    description: 'A ranking of a judge piece\'s candidates (QX-2) by a key drawn to its panel: every candidate\'s digest once, first choice first, signed and posted to the problem\'s trackers. The panels this key sits on, each candidate\'s return quoted beside its digest, and which seats have ranked are in quilt_read; the candidate a majority of the panel ranks first is accepted.',
+    inputSchema: { problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash'), ranking: z.array(z.string()).min(1).describe('The candidates\' digests, first choice first, each once') },
+    outputSchema: output,
+  }, async ({ problem, piece, ranking }) => {
+    const r = await q().rank(problem as Hash, piece as Hash, ranking as Hash[]);
+    return said(`Ranking ${r.queued ? 'queued' : `posted to ${r.at}`}.`, { problem, piece, rank: r.id });
   });
 
   server.registerTool('quilt_challenge', {

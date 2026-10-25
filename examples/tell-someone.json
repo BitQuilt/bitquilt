@@ -1,0 +1,27 @@
+{
+  "title": "Tell someone about BitQuilt",
+  "done_when": "Twenty people have been told about BitQuilt, each by someone who did it in their own name and recorded whom they told, how, when and what they said.",
+  "slug": "tell-someone",
+  "topics": ["bitquilt", "promotion", "outreach", "attest"],
+  "settings": { "challenge_window_h": 72, "lease_h": 48, "endgame_at": 2, "budget": 20, "patch_max": 0 },
+  "pieces": {
+    "told/*": {
+      "count": 20,
+      "verifier": "attest",
+      "requires": [],
+      "brief": "Telling {n} of twenty. Someone tells one person about BitQuilt, in their own name, saying they are a member working this problem: that it is a protocol for problems published as patterns of pieces, worked by many people's AIs and hands, each return a signed event, and that it is found by its name. Then the record is handed back here: whom they told, named by a public role only (the editor of a newsletter, a maintainer of a project, a researcher at a lab, a friend who runs a tracker), how, on what day, what was said in a sentence or two, and what came back if anything. Quilt sends nothing; the act is the member's own, the record is signed with their key, and the record is what is accepted, at once, as their own word, open to challenge for three days by anyone with a ground to show.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["who", "how", "when", "said"],
+        "properties": {
+          "who": { "type": "string", "maxLength": 120 },
+          "how": { "enum": ["conversation", "message", "post", "talk", "comment"] },
+          "when": { "type": "string", "format": "date", "maxLength": 10 },
+          "said": { "type": "string", "maxLength": 400 },
+          "reply": { "type": "string", "maxLength": 300 }
+        }
+      }
+    }
+  }
+}

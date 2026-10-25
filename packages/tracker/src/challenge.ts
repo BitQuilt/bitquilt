@@ -5,12 +5,19 @@
  * makes alone; two verdicts decide. A held challenge strikes the accepting set's events, and the core's own reducer,
  * run again without them, says what the piece is now; a failed one costs the challenger the stake. The core's state is
  * a coarsening of this layer's: where it says `challenged`, the core says accepted within its window.
+ *
+ * The fold this layer reads is the core's with the verifier kinds of verifiers.ts (human, judge:n, attest) decided on
+ * top, so an attested or judged acceptance can be challenged and struck like any other, and a judge panel is drawn
+ * from the same pool of credits as a challenge's. The two are folded together here because both are functions of the
+ * whole store: a credit on one problem seats a panel on another.
  */
 import {
   type Address, type Event, type Hash, type PieceState, type PieceView, type Receipt, type ReduceInput, type Return, type State,
   commitHash, eventId, eventSignedByKey, hashCanonical, isHash, orderReceipts, reduce, returnProblems,
 } from '@bitquilt/core';
+import { type KindInfo, type Layered, type PanelView, applyVerifiers, panelSeatProblem, rankBodyProblems, rankingProblem, rootFor, viaOf } from './verifiers.js';
 
+export { rootFor };
 export const EXTENSION = 'QX-1';
 export const PANEL = 3;
 export const MAJORITY = 2;
@@ -19,7 +26,7 @@ export const SEED = 'challenge-receipt';
 export const SIDES = ['challenger', 'author'] as const;
 export type Side = (typeof SIDES)[number];
 export type Outcome = 'open' | 'held' | 'failed' | 'void';
-export type LayerState = PieceState | 'challenged';
+export type LayerState = PieceState | 'challenged' | 'judging';
 export const CHALLENGE_EVENTS: ReadonlySet<string> = new Set(['challenge', 'verdict']);
 
 export interface VerdictView { id: Hash; key: Address; root: Address; at: string; for: Side; return: Return | null }
@@ -47,17 +54,32 @@ export interface ChallengeView {
   dropped: { id: Hash; why: string }[];
 }
 
-export interface PieceLayer { hash: Hash; name: string; core: PieceState; state: LayerState; challenge: ChallengeView | null }
+export interface PieceLayer {
+  hash: Hash;
+  name: string;
+  core: PieceState;
+  state: LayerState;
+  challenge: ChallengeView | null;
+  /** The verifier in words: kind, registry number, strength. */
+  kind: KindInfo;
+  /** An attest piece accepted on the actor's own record: the square says so. */
+  attested: boolean;
+  /** The panel sitting or having sat on a judge piece. */
+  panel: PanelView | null;
+}
 
 export interface ProblemLayer {
   problem: Hash;
   /** The core's fold, untouched. */
   core: State;
-  /** The core's fold with struck events left out: the same as `core` where nothing was struck. */
+  /** The core's fold with struck events left out and the verifier kinds decided: the same as `core` where nothing was struck and every kind is the core's. */
   fold: State;
   pieces: PieceLayer[];
   byHash: Map<Hash, PieceLayer>;
   challenges: ChallengeView[];
+  panels: PanelView[];
+  /** Pieces `next` is not to offer here: a judge piece whose panel sits or ran out. */
+  unoffered: Set<Hash>;
   dropped: { id: Hash; type: string; why: string }[];
 }
 
@@ -73,11 +95,14 @@ export interface Layer {
   admitChallenge(problem: Hash, piece: Hash, key: Address, stake: number): Admission;
   /** Whether a verdict by this key on this challenge would count if received now, and why not. */
   admitVerdict(problem: Hash, piece: Hash, key: Address, challenge: Hash, body: Record<string, unknown>): Admission;
+  /** Whether a rank by this key on this judge piece would count if received now, and why not. */
+  admitRank(problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>): Admission;
 }
 
 interface Credit { root: Address; problem: Hash; at: string; until: string | null }
 interface Delta { root: Address; at: string; delta: number }
-interface Entry { hash: Hash; input: ReduceInput; core: State; fold: State; struck: Set<Hash>; challenges: ChallengeView[]; dropped: ProblemLayer['dropped'] }
+/** `base` is the core's reduce without the struck events; `fold` is `base` with the verifier kinds decided; `core` is the reduce of everything, kept for the core's states. */
+interface Entry { hash: Hash; input: ReduceInput; core: State; base: State; fold: State; layered: Layered; struck: Set<Hash>; challenges: ChallengeView[]; dropped: ProblemLayer['dropped'] }
 interface Candidate { id: Hash; event: Event; at: string; receipt: Receipt; home: Entry }
 
 const plusHours = (t: string, h: number): string => new Date(Date.parse(t) + h * 3_600_000).toISOString();
@@ -109,18 +134,11 @@ export function acceptingRoots(v: PieceView): Address[] {
   return [v.accepting.patch.root, ...v.accepting.runs.map((r) => r.root)];
 }
 
-/** The roots whose standing a set credits: the reveals, not the runs. */
+/** The roots whose standing a set credits: the reveals, not the runs; an attested acceptance credits nobody, being the actor's own word. */
 function creditedRoots(v: PieceView): Address[] {
   if (!v.accepting) return [];
+  if (viaOf(v.accepting) === 'attest') return [];
   return v.accepting.kind === 'agree' ? v.accepting.reveals.map((r) => r.root) : [v.accepting.patch.root];
-}
-
-/** The root a key counts for at a time for an extension type, or null when the key may not sign it. */
-export function rootFor(state: State, key: Address, type: string, at: string): Address | null {
-  const live = state.delegations.find((d) => d.to === key && d.since <= at && (d.revokedAt === null || d.revokedAt > at) && d.expires > at);
-  if (live) return live.scope.has(type) ? state.rootOf(key, at) : null;
-  if (state.delegations.some((d) => d.to === key) && !state.rotations.has(key)) return null;
-  return state.rootOf(key, at);
 }
 
 /** The ids of an accepting set's events in the problem's receipts: the reveals with their commits, or the patch's with the runs. */
@@ -151,21 +169,41 @@ function setEventIds(v: PieceView, receipts: Receipt[]): Hash[] {
 export function challengeLayer(input: { problems: ReduceInput[]; now: string }): Layer {
   const { now } = input;
   const entries = new Map<Hash, Entry>();
-  for (const p of input.problems) {
-    const core = reduce(p);
-    if (entries.has(core.problem)) continue;
-    entries.set(core.problem, { hash: core.problem, input: p, core, fold: core, struck: new Set(), challenges: [], dropped: [] });
-  }
-
-  // Standing: credits from the folds as they stand, struck ones kept with the time they were withdrawn, and the stakes.
   const struckCredits: Credit[] = [];
   const deltas: Delta[] = [];
   let credits: Credit[] = [];
+  /** The pool a judge panel is drawn from: roots credited on another problem at the time, unstruck then, unrelated to the piece's parties. */
+  const judgePool = (problem: Hash, at: string, unrelatedTo: Address[], fold: State): Address[] => {
+    const roots = new Set<Address>();
+    for (const c of [...credits, ...struckCredits]) if (c.problem !== problem && c.at <= at && (c.until === null || c.until > at)) roots.add(c.root);
+    return [...roots].filter((r) => !unrelatedTo.some((u) => fold.related(r, u, at)));
+  };
+  /** The verifier kinds decided over an entry's base fold, with the pool as the credits stand. */
+  const refold = (e: Entry) => {
+    e.layered = applyVerifiers(e.base, e.input.receipts.filter((x) => !e.struck.has(eventId(x.event))), now, { pool: judgePool });
+    e.fold = e.layered.fold;
+  };
+  for (const p of input.problems) {
+    const core = reduce(p);
+    if (entries.has(core.problem)) continue;
+    const e: Entry = { hash: core.problem, input: p, core, base: core, fold: core, layered: null as unknown as Layered, struck: new Set(), challenges: [], dropped: [] };
+    entries.set(core.problem, e);
+  }
+
+  // Standing: credits from the folds as they stand, struck ones kept with the time they were withdrawn, and the stakes.
   const refreshCredits = () => {
     credits = [];
     for (const e of entries.values()) for (const v of e.fold.pieces) if (v.accepting) for (const r of creditedRoots(v)) credits.push({ root: e.fold.rootOf(r, now), problem: e.hash, at: v.accepting.completedAt, until: null });
   };
-  refreshCredits();
+  // The kinds are decided to a fixed point: a judge panel's pool is credits on other problems, and a judged acceptance is itself a credit.
+  let signature = '';
+  for (let pass = 0; pass < 4; pass++) {
+    for (const e of entries.values()) refold(e);
+    refreshCredits();
+    const next = [...entries.values()].map((e) => `${e.fold.pieces.map((v) => v.state).join(',')}|${e.layered.panels.map((p) => `${p.piece}:${p.outcome}:${p.seats.map((s) => s.root).join('.')}`).join(';')}`).join('/');
+    if (next === signature) break;
+    signature = next;
+  }
   const standing = (root: Address, at: string = now): number => {
     const moves: { at: string; delta: number }[] = [];
     for (const c of [...credits, ...struckCredits]) if (c.root === root) {
@@ -286,7 +324,8 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
       for (const e of entries.values()) {
         if (!e.input.receipts.some((x) => struck.has(eventId(x.event)))) continue;
         for (const id of struck) e.struck.add(id);
-        e.fold = reduce({ ...e.input, receipts: e.input.receipts.filter((x) => !e.struck.has(eventId(x.event))) });
+        e.base = reduce({ ...e.input, receipts: e.input.receipts.filter((x) => !e.struck.has(eventId(x.event))) });
+        refold(e);
       }
       refreshCredits();
     } else if (challenge.outcome === 'failed') {
@@ -302,9 +341,13 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
       const last = own.length ? own[own.length - 1]! : null;
       const core = e.core.byHash.get(v.piece.hash)?.state ?? v.state;
       const state: LayerState = last?.outcome === 'open' ? 'challenged' : v.state;
-      return { hash: v.piece.hash, name: v.piece.name, core, state, challenge: last };
+      const kind = e.layered.kinds.get(v.piece.hash)!;
+      return { hash: v.piece.hash, name: v.piece.name, core, state, challenge: last, kind, attested: viaOf(v.accepting) === 'attest', panel: e.layered.byPiece.get(v.piece.hash) ?? null };
     });
-    problems.set(e.hash, { problem: e.hash, core: e.core, fold: e.fold, pieces, byHash: new Map(pieces.map((p) => [p.hash, p])), challenges: e.challenges, dropped: e.dropped });
+    problems.set(e.hash, {
+      problem: e.hash, core: e.core, fold: e.fold, pieces, byHash: new Map(pieces.map((p) => [p.hash, p])), challenges: e.challenges,
+      panels: e.layered.panels, unoffered: e.layered.unoffered, dropped: [...e.dropped, ...e.layered.dropped],
+    });
     all.push(...e.challenges);
   }
   all.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
@@ -330,8 +373,26 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
     const rp = returnProblem(view, body.return);
     return rp ? { ok: false, why: rp } : { ok: true };
   };
+  const admitRank = (problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>): Admission => {
+    const home = entries.get(problem);
+    if (!home) return { ok: false, why: 'no such problem here' };
+    if (!home.fold.byHash.has(piece)) return { ok: false, why: 'names a piece this problem does not have' };
+    const shape = rankBodyProblems(body);
+    if (shape.length) return { ok: false, why: shape[0]! };
+    const panel = home.layered.byPiece.get(piece);
+    if (!panel) return { ok: false, why: home.layered.kinds.get(piece)?.kind === 'judge' ? 'the candidates for this piece are not in yet' : 'no panel sits on this piece' };
+    if (panel.outcome === 'decided') return { ok: false, why: 'the panel has decided' };
+    if (panel.outcome === 'void') return { ok: false, why: 'the panel ran out' };
+    if (panel.seats.length === 0) return { ok: false, why: 'no seats drawn yet' };
+    const root = rootFor(home.fold, key, 'rank', now);
+    if (!root) return { ok: false, why: 'the key may not sign a rank' };
+    const why = panelSeatProblem(panel, root);
+    if (why) return { ok: false, why };
+    const rp = rankingProblem(panel, body.ranking);
+    return rp ? { ok: false, why: rp } : { ok: true };
+  };
 
-  return { now, problems, challenges: all, standing, admitChallenge, admitVerdict };
+  return { now, problems, challenges: all, standing, admitChallenge, admitVerdict, admitRank };
 }
 
 /** Why a root has no live seat on a challenge, or null when it has one. */
