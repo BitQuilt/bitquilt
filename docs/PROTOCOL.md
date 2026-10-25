@@ -53,7 +53,7 @@ A client also keeps a local cache of what it has fetched, so it can keep working
 
 **Propagation.** A client posts an event to every tracker it knows: the link's hints first, then its own list, as a torrent client has bootstrap nodes. Trackers may pull each other's events for hashes they both carry, taking the union by event id and keeping the earliest receipt. The mirror job pulls from the trackers it is configured with. There is no agreement protocol. Events are signed facts, state is a function of the set, and two resolvers with different subsets disagree only until they exchange.
 
-**Later.** Trackers that gossip, a relay transport, content-addressed storage for envelopes and outputs, a distributed hash table. None of it before the first real problem has run.
+**Later.** Trackers that gossip, content-addressed storage for envelopes and outputs, a distributed hash table. Announcements on relays came first (QX-14, 26 October 2026), after the first real problem had run; the rest waits for the second.
 
 ## Canonical forms
 
@@ -372,7 +372,7 @@ What is not in the parents, as far as the authors know: the verifier standing wh
 
 ## What is deliberately not here
 
-- Gossip between trackers, a relay transport, content-addressed storage beyond the mirror, a DHT. The formats are designed for them; none is built before the first real problem has run.
+- Gossip between trackers, content-addressed storage beyond the mirror, a DHT. The formats are designed for them; announcements on relays are built (QX-14), the rest is not.
 - Money of any kind inside the platform: no coin, credit, bounty, fee or payment rail. A tipping address is a consequence of the key, not a feature. If that ever changes, HTTP 402 payment protocols exist for it and the design would be re-argued first.
 - Reputation from anywhere but this ledger.
 - A solution to costless roots. The design names the problem, bounds it with verifiers, evidence, heterogeneity, sortition and a tracker's admission, and does not claim to have removed it.
