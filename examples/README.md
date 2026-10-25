@@ -18,6 +18,8 @@ pnpm --filter quilt start serve                      # the page at http://localh
 
 `examples/first-pattern.json` is three statements about the core, for a first run. `examples/bitcoin-paper.json` is sixteen statements about the Bitcoin white paper, a real public document that anyone can find by its title: a pattern for an AI and a person at the page to agree on, statement by statement, with the paper the only evidence.
 
+`examples/tell-someone.json` is the app's own standing problem, its promotion, as twenty `attest` pieces ([docs/ext/verifiers.md](../docs/ext/verifiers.md), QX-10). A person's AI is handed one, the person tells someone about BitQuilt in their own name, and the AI hands back the record: whom they told, named by a public role only, how, on what day, what was said, and what came back. Quilt sends nothing. The record is signed with the member's key and accepted at once as their own word, the square marked attested, the weakest kind, and anyone with a ground to show can challenge it for three days. The brief and every field pass the plain-text gate: no contact details, no links, no handles, so the ledger names roles and never people. The core reads these pieces as `unknown`; the reference tracker's layer decides them, and `quilt next` says the kind and its weakness before the brief.
+
 To let Claude Code or Claude Desktop be the worker, add the connector as an MCP server that starts over stdio:
 
 ```bash

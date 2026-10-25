@@ -12,6 +12,7 @@ import {
 } from '@bitquilt/core';
 import { createHash } from 'node:crypto';
 import { type Layer, type ProblemLayer, CHALLENGE_EVENTS, EXTENSION, GROUND_MAX, MAJORITY, PANEL, SEED, challengeBodyProblems, challengeLayer, verdictBodyProblems } from './challenge.js';
+import { type PanelView, EXTENSIONS, JUDGE_SEED, RANK_EVENTS, kindOf, rankBodyProblems } from './verifiers.js';
 import type { Store } from './store.js';
 
 export const IDENTITY: Hash = IDENTITY_LOG;
@@ -42,7 +43,7 @@ export interface Tracker {
   listen(port: number, host?: string): Promise<Server>;
   /** The core's fold of a problem this tracker holds. */
   reduceProblem(hash: Hash): ReturnType<typeof reduce> | null;
-  /** The challenge layer (QX-1) over every problem this tracker holds, at now. */
+  /** The layer over every problem this tracker holds, at now: the challenge window (QX-1) and the verifier kinds (QX-2, QX-3, QX-10). */
   layer(): Layer;
   /** One problem's view in that layer. */
   view(hash: Hash): ProblemLayer | null;
@@ -148,6 +149,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       head: head ? { seq: head.seq, hash: head.hash, short: `${head.hash.slice(0, 8)}:${head.hash.slice(8, 16)}` } : null,
       versions: s.chain.length,
       challenges: pl.challenges.length,
+      panels: pl.panels.length,
     };
   }
 
@@ -215,11 +217,12 @@ export function createTracker(options: TrackerOptions): Tracker {
       chainKey = IDENTITY;
     } else {
       if (IDENTITY_EVENTS.has(type)) throw new Refusal(400, 'identity events go to the identity log');
-      if (!PIECE_EVENTS.has(type) && !PROBLEM_EVENTS.has(type) && !CHALLENGE_EVENTS.has(type)) throw new Refusal(400, `this tracker does not carry ${type} events`);
+      if (!PIECE_EVENTS.has(type) && !PROBLEM_EVENTS.has(type) && !CHALLENGE_EVENTS.has(type) && !RANK_EVENTS.has(type)) throw new Refusal(400, `this tracker does not carry ${type} events`);
       if (event.problem !== under) throw new Refusal(400, 'post an event under the problem it names');
       const state = reduceProblem(under);
       if (!state) throw new Refusal(404, 'no such problem here');
       if (CHALLENGE_EVENTS.has(type)) checkChallengeEvent(event, under);
+      if (RANK_EVENTS.has(type)) checkRankEvent(event, under);
       if (PIECE_EVENTS.has(type)) {
         const view = event.piece ? state.byHash.get(event.piece) : undefined;
         if (!view) throw new Refusal(400, 'names a piece this problem does not have');
@@ -234,6 +237,7 @@ export function createTracker(options: TrackerOptions): Tracker {
             if (issues.length) throw new Refusal(400, issues[0]!);
           }
           if (!view.commits.some((c) => c.key === event.key && !c.revealed)) throw new Refusal(400, 'no unrevealed commit by this key on the piece');
+          checkRevealKind(event, under, view.piece.verifier, hostedPost(req));
         }
         if (type === 'run' && !view.reveals.some((r) => r.digest === (event.body as { digest: Hash }).digest)) throw new Refusal(400, 'the digest is no revealed return of the piece');
       }
@@ -241,12 +245,51 @@ export function createTracker(options: TrackerOptions): Tracker {
       chainKey = under;
     }
     if (store.hasEvent(chainKey, id)) throw new Refusal(409, 'already here');
-    const hosted = options.custodySecret !== undefined && req.headers['x-quilt-custody'] === options.custodySecret;
+    const hosted = hostedPost(req);
     const line = hosted ? store.appendReceipt(chainKey, event, id, url, now(), 'hosted', 'ai') : store.appendReceipt(chainKey, event, id, url, now(), 'self');
     if ((type === 'reveal' || type === 'decline') && under && event.piece) store.releaseHold(under, event.piece, event.key);
     if (type === 'version') store.putName(event.key, (event.body as { slug: string }).slug, (event.body as { hash: Hash }).hash, line.received[0]!.at);
     if (type === 'announce' && under) store.putAnnouncement(under, event.key, event, line.received[0]!.at);
     json(res, 202, { id, seq: line.seq, hash: line.hash, at: line.received[0]!.at });
+  }
+
+  /** Whether a post was made by the connector mounted beside this tracker, for a key it holds: a seat this tracker opened for a person. */
+  function hostedPost(req: IncomingMessage): boolean {
+    return options.custodySecret !== undefined && req.headers['x-quilt-custody'] === options.custodySecret;
+  }
+
+  /**
+   * The door for the verifier kinds' reveals: a human piece takes a return only from a person's seat (QX-3), which here is
+   * the connector's custody or a client declaring the model `human`; a judge piece takes no more candidates once its
+   * panel sits (QX-2). The layer would count neither; the door says why.
+   */
+  function checkRevealKind(event: Event, under: Hash, verifier: string, hosted: boolean): void {
+    const kind = kindOf(verifier)?.kind;
+    if (kind === 'human') {
+      const by = (event.body as { by: { model: string } }).by;
+      if (by.model !== 'human' && !hosted) throw new Refusal(400, 'a human piece takes a return from a person\'s seat');
+    }
+    if (kind === 'judge' && event.piece && view(under)?.panels.some((p) => p.piece === event.piece)) throw new Refusal(400, 'the candidates for this piece are in');
+  }
+
+  /** The door for QX-2's rank: from a judge drawn to the piece's panel, naming every candidate once. */
+  function checkRankEvent(event: Event, under: Hash): void {
+    if (!event.piece) throw new Refusal(400, 'a rank names a problem and a piece');
+    const shape = rankBodyProblems(event.body);
+    if (shape.length) throw new Refusal(400, shape[0]!);
+    const a = layer().admitRank(under, event.piece, event.key, event.body);
+    if (!a.ok) throw new Refusal(400, a.why);
+  }
+
+  /** A problem's judge panels as the tracker computes them at now: the candidates by digest (their signers named once the panel has decided), the seats, each rank, the outcome. */
+  function panels(pl: ProblemLayer) {
+    const name = (a: string) => pl.fold.names.get(a as `0x${string}`)?.name ?? null;
+    return pl.panels.map((p: PanelView) => ({
+      piece: p.piece, name: p.name, verifier: pl.byHash.get(p.piece)?.kind.verifier ?? null, panel: p.panel, majority: p.majority, wanted: p.wanted, seed: p.seed, completed_at: p.completedAt,
+      candidates: p.candidates.map((c) => (p.outcome === 'decided' ? { digest: c.digest, return: c.return, root: c.root, signer: name(c.root) } : { digest: c.digest, return: c.return })),
+      seats: p.seats.map((s) => ({ root: s.root, judge: name(s.root), offered_at: s.offeredAt, lapsed_at: s.lapsedAt, rank: s.rank ? { id: s.rank.id, at: s.rank.at, ranking: s.rank.ranking } : null })),
+      outcome: p.outcome, winner: p.winner, decided_at: p.decidedAt, dropped: p.dropped,
+    }));
   }
 
   /** The door for QX-1: a challenge from a root with standing, inside the window, with a panel to seat; a verdict from a judge drawn. */
@@ -307,19 +350,26 @@ export function createTracker(options: TrackerOptions): Tracker {
     const can = (query.get('can') ?? '').split(',').filter(Boolean);
     if (!can.every((c) => (CAPABILITIES as readonly string[]).includes(c))) throw new Refusal(400, `can: from ${CAPABILITIES.join(', ')}`);
     const model = query.get('model') ?? 'unknown/unknown';
-    // The layer's fold: a struck piece is open again, and a challenged one is not offered while its panel sits.
+    // The layer's fold: a struck piece is open again, a challenged one is not offered while its panel sits, a judge piece
+    // not while its candidates are judged, and a human piece only to a client that declared a person.
     const pl = view(hash);
     if (!pl) throw new Refusal(404, 'no such problem here');
     const state = pl.fold;
     const at = now();
     const client: Client = { can: can as Capability[], model };
-    const pick = next(state, key, client, at, { exclude: store.heldByOthers(hash, key, at) });
+    const exclude = new Set<Hash>([...store.heldByOthers(hash, key, at), ...pl.unoffered]);
+    if (!can.includes('person')) for (const p of pl.pieces) if (p.kind.kind === 'human') exclude.add(p.hash);
+    const pick = next(state, key, client, at, { exclude });
     if (!pick) {
       json(res, 200, { piece: null });
       return;
     }
+    const kind = pl.byHash.get(pick.piece.hash)!.kind;
     store.hold(hash, pick.piece.hash, key, new Date(Date.parse(at) + HOLD_SECONDS * 1000).toISOString());
-    json(res, 200, { piece: pick.piece.hash, name: pick.piece.name, state: pick.state, brief: pick.brief, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h, verifier: pick.piece.verifier, workspace: pick.piece.workspace ?? null, check: pick.piece.check ?? null });
+    json(res, 200, {
+      piece: pick.piece.hash, name: pick.piece.name, state: pick.state, brief: pick.brief, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h,
+      verifier: pick.piece.verifier, kind: kind.kind, extension: kind.extension, strength: kind.strength, says: kind.says, weakest: kind.weakest, workspace: pick.piece.workspace ?? null, check: pick.piece.check ?? null,
+    });
   }
 
   function index(query: URLSearchParams) {
@@ -353,7 +403,13 @@ export function createTracker(options: TrackerOptions): Tracker {
         return;
       }
       if (path === '/.well-known/quilt' && method === 'GET') {
-        json(res, 200, { quilt: 1, tracker: options.name ?? url, url, peers: options.peers ?? [], limits, stamp: { name: stampNeeded }, sortition: SEED, challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX }, chain: 'QX-11', identity: IDENTITY, hosted: options.extra !== undefined, routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/k/events', '/b/<hash>', '/n/<owner>/<slug>', '/search'] });
+        json(res, 200, {
+          quilt: 1, tracker: options.name ?? url, url, peers: options.peers ?? [], limits, stamp: { name: stampNeeded }, sortition: SEED,
+          challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
+          verifiers: { human: EXTENSIONS.human, 'judge:n': EXTENSIONS.judge, attest: EXTENSIONS.attest, judge_seed: JUDGE_SEED },
+          chain: 'QX-11', identity: IDENTITY, hosted: options.extra !== undefined,
+          routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/b/<hash>', '/n/<owner>/<slug>', '/search'],
+        });
         return;
       }
       if (path === '/' && method === 'GET') {
@@ -377,7 +433,7 @@ export function createTracker(options: TrackerOptions): Tracker {
         return;
       }
       let m: RegExpExecArray | null;
-      if ((m = /^\/p\/(sha256:[0-9a-f]{64})(?:\/(events|state|scrape|next|challenges))?$/.exec(path))) {
+      if ((m = /^\/p\/(sha256:[0-9a-f]{64})(?:\/(events|state|scrape|next|challenges|panels))?$/.exec(path))) {
         const hash = m[1] as Hash;
         const sub = m[2];
         if (!store.getEnvelope(hash)) throw new Refusal(404, 'no such problem here');
@@ -395,17 +451,26 @@ export function createTracker(options: TrackerOptions): Tracker {
           return;
         }
         if (sub === 'state') {
-          // The layer's states, with the core's beside each: a core client reads `core`, one with QX-1 reads `state`.
+          // The layer's states, with the core's beside each: a core client reads `core`, one with the extensions reads `state`,
+          // and the kind says how the square is earned and how strongly.
           const pl = view(hash)!;
           const s = pl.fold;
           json(res, 200, { problem: hash, now: now(), pieces: s.pieces.map((v) => {
             const l = pl.byHash.get(v.piece.hash)!;
-            return { name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l.state, core: l.core, challenge: l.challenge?.id ?? null, availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length };
+            return {
+              name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l.state, core: l.core, challenge: l.challenge?.id ?? null,
+              kind: l.kind.kind, extension: l.kind.extension, strength: l.kind.strength, says: l.kind.says, weakest: l.kind.weakest, attested: l.attested, panel: l.panel?.outcome ?? null,
+              availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length,
+            };
           }), complete: s.complete, output: s.output?.hash ?? null, dropped: [...s.dropped, ...pl.dropped] });
           return;
         }
         if (sub === 'challenges') {
           json(res, 200, { problem: hash, now: now(), challenges: challenges(view(hash)!) });
+          return;
+        }
+        if (sub === 'panels') {
+          json(res, 200, { problem: hash, now: now(), panels: panels(view(hash)!) });
           return;
         }
         if (sub === 'scrape') {

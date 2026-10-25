@@ -10,6 +10,7 @@
  *   quilt next <problem>  |  quilt return <problem> <piece> '<json>'  |  quilt decline <problem> <piece> <reason>
  *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
  *   quilt challenge <problem> <piece> <stake> <ground>  |  quilt verdict <problem> <piece> <challenge> <challenger|author> ['<json>']
+ *   quilt rank <problem> <piece> <digest> [<digest>...]   a judge's ranking of a piece's candidates, first choice first
  *   quilt install claude [--anyway]                     the connector written into Claude Desktop's config (run it while Claude is closed)
  *
  * Started by a chat client (no TTY on stdin) with no command, it runs `mcp`. Logs go to stderr; stdout is the protocol.
@@ -89,11 +90,12 @@ async function main(): Promise<void> {
     case 'open':
     case 'read': {
       const quilt = make();
-      const { hash, state, tracker } = await quilt.open(args[1] ?? '');
-      console.log(quilt.summary(hash, state, tracker));
+      const { hash, state, tracker, layer } = await quilt.open(args[1] ?? '');
+      console.log(quilt.summary(hash, state, tracker, layer));
       if (command === 'read') {
-        console.log(`\nAccepted so far:\n${quilt.acceptedText(state)}`);
+        console.log(`\nAccepted so far:\n${quilt.acceptedText(state, layer)}`);
         console.log(`\nChallenges:\n${quilt.challengesText(await quilt.challenges(hash, tracker), state)}`);
+        console.log(`\nPanels:\n${quilt.panelsText(await quilt.panels(hash, tracker), state)}`);
       }
       return;
     }
@@ -127,6 +129,11 @@ async function main(): Promise<void> {
     case 'verdict': {
       const ret = args[5] ? (JSON.parse(args[5]) as Record<string, unknown>) : undefined;
       const r = await make().verdict(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, args[3] as `sha256:${string}`, args[4] as Side, ret);
+      console.log(JSON.stringify(r, null, 2));
+      return;
+    }
+    case 'rank': {
+      const r = await make().rank(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, args.slice(3) as `sha256:${string}`[]);
       console.log(JSON.stringify(r, null, 2));
       return;
     }
