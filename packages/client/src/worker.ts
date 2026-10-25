@@ -114,6 +114,14 @@ export function modelFor(hostName: string | undefined, override?: string): strin
   return `${n.replace(/\s+/g, '-')}/${n.replace(/\s+/g, '-')}`;
 }
 
+/** A maintainer's takedown as a tracker reports it (QX-6). */
+export interface Takedown {
+  id: string;
+  by: string;
+  why: string;
+  at: string;
+}
+
 export interface Pattern {
   title: string;
   done_when: string;
@@ -174,7 +182,7 @@ export class Quilt {
   }
 
   /** The problem behind a link or hash, resolved and reduced, with the tracker's own view of its pieces where one answered. */
-  async open(input: string): Promise<{ link: Link; hash: Hash; state: State; tracker: string | null; layer: LayerPiece[] | null }> {
+  async open(input: string): Promise<{ link: Link; hash: Hash; state: State; tracker: string | null; layer: LayerPiece[] | null; hidden: Takedown | null }> {
     const link = parseLink(input);
     const resolved = await this.resolver.resolve(link);
     if (!resolved) throw new Error('no resolver answered for that hash');
@@ -185,7 +193,8 @@ export class Quilt {
     this.library.problems[resolved.hash] = { title: state.envelope.problem.title, slug: state.envelope.problem.slug, trackers, first: entry?.first ?? now, last: now };
     this.save();
     const layer = resolved.tracker ? await this.layerOf(resolved.hash, resolved.tracker) : null;
-    return { link, hash: resolved.hash, state, tracker: resolved.tracker, layer };
+    const hidden = resolved.tracker ? await this.takedownOf(resolved.hash, resolved.tracker) : null;
+    return { link, hash: resolved.hash, state, tracker: resolved.tracker, layer, hidden };
   }
 
   /**
@@ -225,7 +234,30 @@ export class Quilt {
   }
 
   /** A problem said as text: title and done_when as the owner's quoted words, the map, the kinds, the trackers. */
-  summary(hash: Hash, state: State, tracker: string | null, layer: LayerPiece[] | null = null): string {
+  /** Whether the tracker that answered has taken the problem down (QX-6), and why, in its own word. */
+  async takedownOf(hash: Hash, tracker: string): Promise<Takedown | null> {
+    try {
+      const r = await fetch(`${tracker}p/${hash}/scrape`, { signal: AbortSignal.timeout(5000) });
+      if (!r.ok) return null;
+      const j = (await r.json()) as { hidden?: Takedown | null };
+      return j.hidden ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** A maintainer's takedown (QX-6): a hide event on the identity log of this client's trackers; lifted with `on` false. */
+  async hide(id: string, why: string, on = true): Promise<{ at: string | null; queued: boolean; error?: string }> {
+    const k = this.needKey();
+    const issues = plainTextProblems(why, 'why');
+    if (issues.length) throw new Error(issues[0]);
+    const e = this.sign({ quilt: 1, type: 'hide', key: k.address, ts: new Date().toISOString(), body: { id, why, on } });
+    const r = await this.resolver.post(e, null, this.config.trackers);
+    if (r.error && !r.queued) throw new Error(`the tracker refused the hide: ${r.error}`);
+    return r;
+  }
+
+  summary(hash: Hash, state: State, tracker: string | null, layer: LayerPiece[] | null = null, hidden: Takedown | null = null): string {
     const p = state.envelope.problem;
     const owner = state.names.get(p.owner as `0x${string}`)?.name ?? p.owner;
     const lines = [
@@ -237,6 +269,7 @@ export class Quilt {
       this.kindsText(state),
       `Legend: . open, i in flight, s sealed, v needs a second production, d disputed, p accepted within the window, a accepted, u unreachable, l locked, c challenged, j a panel ranking candidates, ? a kind neither this client nor the tracker that answered implements.`,
       tracker ? `Answered by ${tracker}.` : 'Answered from the cache or a mirror.',
+      ...(hidden ? [`Taken down on ${tracker} by ${hidden.by}: "${hidden.why}" (${hidden.at}). The map above is still what the chain says.`] : []),
       `Link: ${makeLink(hash, tracker ? [tracker] : this.config.trackers, p.slug)}`,
     ];
     return lines.join('\n');
@@ -270,6 +303,7 @@ export class Quilt {
     const { hash, state, tracker } = await this.open(input);
     const trackers = tracker ? [tracker, ...this.config.trackers] : this.config.trackers;
     let pick: Pick | null = null;
+    let takenDown: string | null = null;
     if (tracker) {
       try {
         const r = await fetch(`${tracker}p/${hash}/next?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}`, { signal: AbortSignal.timeout(8000) });
@@ -286,11 +320,15 @@ export class Quilt {
             };
           }
           // A tracker that names nothing is only saying its holds are taken; the map decides below.
+        } else if (r.status === 410) {
+          // QX-6: the tracker has taken the problem down; it takes no claim on it either.
+          takenDown = ((await r.json().catch(() => ({}))) as { error?: string }).error ?? 'taken down';
         }
       } catch {
         pick = null;
       }
     }
+    if (takenDown) throw new Error(`${tracker} has taken this problem down: ${takenDown}`);
     if (!pick) pick = next(state, id.address, { can: this.config.can, model: this.model() }, new Date().toISOString());
     if (!pick) throw new Error('nothing for this key on that problem right now');
     const claim = this.sign({ quilt: 1, type: 'claim', problem: hash, piece: pick.piece.hash, key: id.address, ts: new Date().toISOString(), body: { by: this.by() } });

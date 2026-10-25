@@ -59,7 +59,7 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       if (path === '/api/me') return json(res, 200, quilt.me());
       if (path === '/api/search') return json(res, 200, { problems: await quilt.search(u.searchParams.get('q') ?? '') });
       if (path === '/api/open') {
-        const { hash, state, tracker, layer } = await quilt.open(u.searchParams.get('link') ?? '');
+        const { hash, state, tracker, layer, hidden } = await quilt.open(u.searchParams.get('link') ?? '');
         const over = new Map((layer ?? []).map((l) => [l.hash, l] as const));
         // The judge panels this person sits on with a seat still live: the page offers a ranking form for each.
         const me = person.identity?.address ?? null;
@@ -77,7 +77,7 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
           }
         }
         return json(res, 200, {
-          problem: hash, tracker, seeders: seed.seeders, last_seeded: seed.last_seeded, seeding: Boolean(quilt.library.seeding[hash]), title: state.envelope.problem.title, done_when: state.envelope.problem.done_when, owner: state.envelope.problem.owner, complete: state.complete,
+          problem: hash, tracker, hidden, seeders: seed.seeders, last_seeded: seed.last_seeded, seeding: Boolean(quilt.library.seeding[hash]), title: state.envelope.problem.title, done_when: state.envelope.problem.done_when, owner: state.envelope.problem.owner, complete: state.complete,
           pieces: state.pieces.map((v) => {
             const l = over.get(v.piece.hash);
             const k = kindWords(v.piece.verifier);
@@ -85,7 +85,7 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
           }),
           kinds: quilt.kindsText(state),
           judging: judging.map((p) => ({ piece: p.piece, name: p.name, verifier: p.verifier, majority: p.majority, panel: p.panel, candidates: p.candidates.map((c) => ({ digest: c.digest, return: c.return })) })),
-          accepted: quilt.acceptedText(state, layer), summary: quilt.summary(hash, state, tracker, layer),
+          accepted: quilt.acceptedText(state, layer), summary: quilt.summary(hash, state, tracker, layer, hidden),
         });
       }
       if (path === '/api/rank' && method === 'POST') {

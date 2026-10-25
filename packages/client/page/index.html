@@ -129,6 +129,7 @@
       var v = $('problemView'); v.textContent = ''; v.className = '';
       v.appendChild(el('h3', null, p.title));
       v.appendChild(el('div', 'meta', 'Published by ' + p.owner + (p.tracker ? ' · answered by ' + p.tracker : ' · from the cache')));
+      if (p.hidden) v.appendChild(el('div', 'meta', 'Taken down on this tracker by ' + p.hidden.by + ': ' + p.hidden.why + ' (' + String(p.hidden.at).slice(0, 10) + '). The map below is still what the chain says.'));
       v.appendChild(el('p', null, 'Done when: ' + p.done_when));
       v.appendChild(mapOf(p.pieces));
       var counts = {}; p.pieces.forEach(function (x) { counts[x.state] = (counts[x.state] || 0) + 1; });

@@ -38,6 +38,7 @@ async function main(): Promise<void> {
     limits: { keyPerHour: Number(process.env.QUILT_LIMIT_KEY_HOUR ?? 120), ipPerHour: Number(process.env.QUILT_LIMIT_IP_HOUR ?? 600) },
     stamp: { name: Number(process.env.QUILT_STAMP_NAME ?? 0) },
     ...(process.env.QUILT_IP_SALT ? { ipSalt: process.env.QUILT_IP_SALT } : {}),
+    maintainers: (process.env.QUILT_MAINTAINERS ?? '').split(',').map((s) => s.trim()).filter(Boolean) as `0x${string}`[],
   });
   await tracker.listen(port, host);
   console.log(`bitquilt tracker with the hosted on-ramp at ${url} (db ${dbPath}; addresses at ${url}join)`);

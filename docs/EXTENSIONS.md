@@ -39,7 +39,7 @@ Numbers assigned 24 Oct 2026. Each is described in [PROTOCOL.md](PROTOCOL.md) fo
 | QX-3 | The `human` verifier: as `agree`, every counted reveal from a person's seat (`seat: person` or `custody: hosted` on the receipt, or `by.model` `human`) | Draft, one implementation (25 Oct 2026) | [ext/verifiers.md](ext/verifiers.md); PROTOCOL.md, Verifiers and Events |
 | QX-4 | Seeding, watch pieces and the standing list | Draft, one implementation (26 Oct 2026) | [ext/QX-4.md](ext/QX-4.md); PROTOCOL.md, Events and SWARM.md |
 | QX-5 | Reciprocity in the order problems are offered | Draft, one implementation (26 Oct 2026) | [ext/QX-5.md](ext/QX-5.md); PROTOCOL.md, In BitTorrent's terms; SWARM.md |
-| QX-6 | The `hide` event and a maintainer's key | Draft | PROTOCOL.md, Events and Governance |
+| QX-6 | The `hide` event and a maintainer's key | Draft, one implementation (27 Oct 2026) | [ext/QX-6.md](ext/QX-6.md); PROTOCOL.md, Events and Governance |
 | QX-7 | The stamp: proof of work at a tracker's door | Draft | CORE.md section 11; PROTOCOL.md, Governance |
 | QX-8 | Independence from the agreement graph | Reserved | [OPEN-PROBLEM.md](OPEN-PROBLEM.md), direction 1 |
 | QX-9 | Evidence a machine can check | Reserved | OPEN-PROBLEM.md, direction 3 |

@@ -6,19 +6,20 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import {
-  type Envelope, type Event, type Hash, type Receipt, type ReduceInput, type Client, type Capability,
+  type Address, type Envelope, type Event, type Hash, type Receipt, type ReduceInput, type Client, type Capability,
   blobProblems, envelopeProblems, eventId, eventProblems, eventSignedByKey, expandPieces, hashBytes, isAddress, isHash,
   next, plainTextProblems, problemHash, reduce, returnProblems, returnStrings, signedBy, stampOk, textIssues, verifyChain, CAPABILITIES, IDENTITY_LOG,
 } from '@bitquilt/core';
 import { createHash } from 'node:crypto';
 import { type Layer, type ProblemLayer, CHALLENGE_EVENTS, EXTENSION, GROUND_MAX, MAJORITY, PANEL, SEED, challengeBodyProblems, challengeLayer, verdictBodyProblems } from './challenge.js';
+import { HIDE, type Hidden, hideBodyProblems, hiddenNow } from './hide.js';
 import { RECIPROCITY, SEEDING, offerOrder, seedBodyProblems, seedInfo, watchExclusions } from './seeding.js';
 import { type PanelView, EXTENSIONS, JUDGE_SEED, RANK_EVENTS, kindOf, rankBodyProblems } from './verifiers.js';
 import type { Store } from './store.js';
 
 export const IDENTITY: Hash = IDENTITY_LOG;
 const PIECE_EVENTS: ReadonlySet<string> = new Set(['claim', 'commit', 'reveal', 'decline', 'run']);
-const IDENTITY_EVENTS: ReadonlySet<string> = new Set(['name', 'delegate', 'revoke', 'rotate']);
+const IDENTITY_EVENTS: ReadonlySet<string> = new Set(['name', 'delegate', 'revoke', 'rotate', 'hide']);
 const PROBLEM_EVENTS: ReadonlySet<string> = new Set(['version', 'output', 'announce', 'seed']);
 const MAX_BODY = 4 * 1024 * 1024;
 const HOLD_SECONDS = 60;
@@ -33,6 +34,8 @@ export interface TrackerOptions {
   stamp?: { name: number };
   ipSalt?: string;
   now?: () => string;
+  /** The keys whose hide events this tracker honours (QX-6); published at the well-known document. */
+  maintainers?: Address[];
   /** A secret only this process knows: a post carrying it in x-quilt-custody was made by the connector mounted beside the tracker, for a key it holds. */
   custodySecret?: string;
   /** Routes mounted beside the tracker, such as the hosted on-ramp. Answers true when it handled the request. */
@@ -115,6 +118,13 @@ export function createTracker(options: TrackerOptions): Tracker {
     return input ? reduce(input) : null;
   }
 
+  const maintainers: Address[] = options.maintainers ?? [];
+  const maintainerSet = new Set(maintainers.map((a) => a.toLowerCase()));
+  /** QX-6: what the maintainers have taken down here, read from the identity log each time. */
+  function hidden(): Map<string, Hidden> {
+    return maintainers.length ? hiddenNow(store.receipts(IDENTITY), maintainers) : new Map();
+  }
+
   /** The challenge layer over every problem here: standing and the pool are functions of the whole store. */
   function layer(): Layer {
     const problems: ReduceInput[] = [];
@@ -154,6 +164,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       seeders: seed.seeders.size,
       last_seeded: seed.last_seeded,
       panels: pl.panels.length,
+      hidden: hidden().get(hash) ?? null,
     };
   }
 
@@ -215,14 +226,20 @@ export function createTracker(options: TrackerOptions): Tracker {
     const type = event.type;
     let chainKey: Hash;
     if (under === null) {
-      if (!IDENTITY_EVENTS.has(type)) throw new Refusal(400, 'the identity log takes name, delegate, revoke and rotate');
+      if (!IDENTITY_EVENTS.has(type)) throw new Refusal(400, 'the identity log takes name, delegate, revoke, rotate and hide');
       if (event.problem !== undefined || event.piece !== undefined) throw new Refusal(400, 'an identity event names no problem');
       if (type === 'name' && stampNeeded > 0 && !stampOk(event, stampNeeded)) throw new Refusal(400, `a name event here carries a stamp of ${stampNeeded} bits`);
+      if (type === 'hide') {
+        const hp = hideBodyProblems(event.body);
+        if (hp.length) throw new Refusal(400, hp[0]!);
+        if (!maintainerSet.has(event.key.toLowerCase())) throw new Refusal(403, 'a hide is signed by one of this tracker\'s maintainers');
+      }
       chainKey = IDENTITY;
     } else {
       if (IDENTITY_EVENTS.has(type)) throw new Refusal(400, 'identity events go to the identity log');
       if (!PIECE_EVENTS.has(type) && !PROBLEM_EVENTS.has(type) && !CHALLENGE_EVENTS.has(type) && !RANK_EVENTS.has(type)) throw new Refusal(400, `this tracker does not carry ${type} events`);
       if (event.problem !== under) throw new Refusal(400, 'post an event under the problem it names');
+      if (hidden().has(under)) throw new Refusal(410, 'this problem is taken down here');
       const state = reduceProblem(under);
       if (!state) throw new Refusal(404, 'no such problem here');
       if (CHALLENGE_EVENTS.has(type)) checkChallengeEvent(event, under);
@@ -362,6 +379,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     // not while its candidates are judged, and a human piece only to a client that declared a person.
     const pl = view(hash);
     if (!pl) throw new Refusal(404, 'no such problem here');
+    if (hidden().has(hash)) throw new Refusal(410, 'this problem is taken down here');
     const state = pl.fold;
     const at = now();
     const client: Client = { can: can as Capability[], model };
@@ -393,7 +411,9 @@ export function createTracker(options: TrackerOptions): Tracker {
     const at = now();
     const layered = layer();
     const inputs = new Map<Hash, ReduceInput>();
+    const hid = hidden();
     for (const h of layered.problems.keys()) {
+      if (hid.has(h)) continue;
       const input = inputFor(h);
       if (input) inputs.set(h, input);
     }
@@ -418,7 +438,9 @@ export function createTracker(options: TrackerOptions): Tracker {
     }
     const out: unknown[] = [];
     const layered = layer();
+    const hid = hidden();
     for (const e of store.listEnvelopes()) {
+      if (hid.has(e.hash)) continue;
       const topics = [...(topicsByProblem.get(e.hash) ?? [])];
       const hay = `${e.envelope.problem.title} ${e.envelope.problem.slug} ${e.envelope.problem.done_when} ${topics.join(' ')}`.toLowerCase();
       if (q && !hay.includes(q)) continue;
@@ -443,13 +465,17 @@ export function createTracker(options: TrackerOptions): Tracker {
           quilt: 1, tracker: options.name ?? url, url, peers: options.peers ?? [], limits, stamp: { name: stampNeeded }, sortition: SEED,
           challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
           verifiers: { human: EXTENSIONS.human, 'judge:n': EXTENSIONS.judge, attest: EXTENSIONS.attest, judge_seed: JUDGE_SEED },
-          chain: 'QX-11', seeding: SEEDING, reciprocity: RECIPROCITY, identity: IDENTITY, hosted: options.extra !== undefined,
-          routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer'],
+          chain: 'QX-11', seeding: SEEDING, reciprocity: RECIPROCITY, hide: HIDE, maintainers, identity: IDENTITY, hosted: options.extra !== undefined,
+          routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden'],
         });
         return;
       }
       if (path === '/' && method === 'GET') {
         json(res, 200, { quilt: 1, tracker: url, problems: index(u.searchParams) });
+        return;
+      }
+      if (path === '/hidden' && method === 'GET') {
+        json(res, 200, { hidden: [...hidden().values()] });
         return;
       }
       if (path === '/offer' && method === 'GET') {
@@ -495,7 +521,7 @@ export function createTracker(options: TrackerOptions): Tracker {
           // and the kind says how the square is earned and how strongly.
           const pl = view(hash)!;
           const s = pl.fold;
-          json(res, 200, { problem: hash, now: now(), pieces: s.pieces.map((v) => {
+          json(res, 200, { problem: hash, now: now(), hidden: hidden().get(hash) ?? null, pieces: s.pieces.map((v) => {
             const l = pl.byHash.get(v.piece.hash)!;
             return {
               name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l.state, core: l.core, challenge: l.challenge?.id ?? null,

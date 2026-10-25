@@ -36,8 +36,8 @@ export function createMcpServer(quiltFor: (hostName: string | undefined) => Quil
     outputSchema: output,
   }, async ({ link }) => {
     const quilt = q();
-    const { hash, state, tracker, layer } = await quilt.open(link);
-    return said(quilt.summary(hash, state, tracker, layer), { problem: hash, pieces: state.pieces.length, complete: state.complete });
+    const { hash, state, tracker, layer, hidden } = await quilt.open(link);
+    return said(quilt.summary(hash, state, tracker, layer, hidden), { problem: hash, pieces: state.pieces.length, complete: state.complete });
   });
 
   server.registerTool('quilt_search', {
@@ -94,9 +94,9 @@ export function createMcpServer(quiltFor: (hostName: string | undefined) => Quil
     outputSchema: output,
   }, async ({ problem }) => {
     const quilt = q();
-    const { hash, state, tracker, layer } = await quilt.open(problem);
+    const { hash, state, tracker, layer, hidden } = await quilt.open(problem);
     const [challenges, panels] = await Promise.all([quilt.challenges(hash, tracker), quilt.panels(hash, tracker)]);
-    const text = `${quilt.summary(hash, state, tracker, layer)}\n\nAccepted so far:\n${quilt.acceptedText(state, layer)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}\n\nPanels:\n${quilt.panelsText(panels, state)}`;
+    const text = `${quilt.summary(hash, state, tracker, layer, hidden)}\n\nAccepted so far:\n${quilt.acceptedText(state, layer)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}\n\nPanels:\n${quilt.panelsText(panels, state)}`;
     return said(text, { problem: hash, complete: state.complete, output: state.output?.hash ?? null, challenges: challenges.map((c) => ({ id: c.id, piece: c.piece, outcome: c.outcome })), panels: panels.map((p) => ({ piece: p.piece, outcome: p.outcome, candidates: p.candidates.map((c) => c.digest) })) });
   });
 

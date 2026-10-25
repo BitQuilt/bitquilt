@@ -34,6 +34,22 @@ export interface MirrorReport {
 
 const withSlash = (u: string) => (u.endsWith('/') ? u : `${u}/`);
 
+/** QX-6: every hide in an identity log, by the problem or event it names and the key that signed it; a lift by the same key removes its entry. The reader decides whom to trust. */
+export function hiddenFromIdentity(lines: Receipt[]): Map<string, { by: string; why: string; at: string }[]> {
+  const out = new Map<string, { by: string; why: string; at: string }[]>();
+  for (const l of lines) {
+    const e = l.event;
+    if (e.type !== 'hide') continue;
+    const b = e.body as { id?: unknown; why?: unknown; on?: unknown };
+    if (typeof b.id !== 'string' || typeof b.why !== 'string') continue;
+    const list = (out.get(b.id) ?? []).filter((h) => h.by !== e.key);
+    if (b.on !== false) list.push({ by: e.key, why: b.why, at: l.received[0]?.at ?? e.ts });
+    if (list.length) out.set(b.id, list);
+    else out.delete(b.id);
+  }
+  return out;
+}
+
 export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
   const f = options.fetchImpl ?? fetch;
   const now = options.now ?? (() => new Date().toISOString());
@@ -200,7 +216,8 @@ export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
     if (e.type === 'revoke') k.delegates = k.delegates.filter((d) => d.to !== (e.body as { of: string }).of);
   }
   writeFileSync(join(out, 'keys.json'), JSON.stringify(keys, null, 2) + '\n');
-  writeFileSync(join(out, 'index.json'), JSON.stringify({ quilt: 1, mirrored: nowIso, problems: [...index].map(([hash, v]) => ({ hash, ...v })) }, null, 2) + '\n');
+  const hiddenBy = hiddenFromIdentity(identityLines);
+  writeFileSync(join(out, 'index.json'), JSON.stringify({ quilt: 1, mirrored: nowIso, problems: [...index].map(([hash, v]) => ({ hash, ...v, hidden: hiddenBy.get(hash) ?? [] })) }, null, 2) + '\n');
   // QX-12: the head of every chain held here, stamped outside the ledger when asked.
   if (options.anchor) {
     const heads: Head[] = [];

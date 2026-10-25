@@ -12,6 +12,7 @@
  *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
  *   quilt challenge <problem> <piece> <stake> <ground>  |  quilt verdict <problem> <piece> <challenge> <challenger|author> ['<json>']
  *   quilt rank <problem> <piece> <digest> [<digest>...]   a judge's ranking of a piece's candidates, first choice first
+ *   quilt hide <id or hash> <why> [--lift]                a maintainer's takedown on this client's trackers, or its lift
  *   quilt install claude [--anyway]                     the connector written into Claude Desktop's config (run it while Claude is closed)
  *
  * Started by a chat client (no TTY on stdin) with no command, it runs `mcp`. Logs go to stderr; stdout is the protocol.
@@ -91,8 +92,8 @@ async function main(): Promise<void> {
     case 'open':
     case 'read': {
       const quilt = make();
-      const { hash, state, tracker, layer } = await quilt.open(args[1] ?? '');
-      console.log(quilt.summary(hash, state, tracker, layer));
+      const { hash, state, tracker, layer, hidden } = await quilt.open(args[1] ?? '');
+      console.log(quilt.summary(hash, state, tracker, layer, hidden));
       if (command === 'read') {
         console.log(`\nAccepted so far:\n${quilt.acceptedText(state, layer)}`);
         console.log(`\nChallenges:\n${quilt.challengesText(await quilt.challenges(hash, tracker), state)}`);
@@ -150,6 +151,11 @@ async function main(): Promise<void> {
     }
     case 'name': {
       console.log(JSON.stringify(await make().setName(args.slice(1).join(' '))));
+      return;
+    }
+    case 'hide': {
+      const lift = args.includes('--lift');
+      console.log(JSON.stringify(await make().hide(args[1] ?? '', args.slice(2).filter((a) => a !== '--lift').join(' '), !lift)));
       return;
     }
     case 'install': {
