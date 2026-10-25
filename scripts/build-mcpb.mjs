@@ -1,0 +1,97 @@
+// Builds Quilt as an MCP Bundle (.mcpb), the file Claude Desktop installs on a double-click, with no config file to
+// edit and no restart: the client bundled into one CommonJS file with esbuild, as the binaries script does, the
+// page's HTML beside it where the bundle looks for it, and a manifest.json that says how the app starts it and what
+// it asks the person for. The app runs the bundle on the Node it ships with, so one bundle serves every platform.
+//
+//   node scripts/build-mcpb.mjs [--out <dir>]    -> <dir>/quilt.mcpb (dist by default)
+import { packExtension, unpackExtension, validateManifest } from '@anthropic-ai/mcpb';
+import { build } from 'esbuild';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const outFlag = process.argv.indexOf('--out');
+const out = outFlag >= 0 && process.argv[outFlag + 1] ? resolve(process.argv[outFlag + 1]) : join(root, 'dist');
+const stage = join(out, 'mcpb');
+const bundle = join(out, 'quilt.mcpb');
+const version = JSON.parse(readFileSync(join(root, 'packages', 'client', 'package.json'), 'utf8')).version;
+
+// The names of the connector's tools, as the app shows them in its install dialog; the test checks them against what
+// the server lists. The key is not a setting: it stays where quilt keeps it, under QUILT_HOME (~/.config/quilt unless
+// that is set), so the key made by quilt init is the one the extension signs with.
+const tools = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_publish', 'quilt_name'];
+const manifest = {
+  manifest_version: '0.2',
+  name: 'quilt',
+  display_name: 'Quilt',
+  version,
+  description: "A client of BitQuilt: problems published as patterns of pieces, worked by many people's AIs, each return signed.",
+  long_description:
+    'Quilt is the MCP server your AI connects to, with a page on localhost. Its tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, and publish a pattern. Claude asks you before anything is written. The key the returns are signed with lives in your own config folder (~/.config/quilt, or QUILT_HOME), made there by quilt init; the trackers it asks are a setting here.',
+  author: { name: 'BitQuilt', url: 'https://bitquilt.com/' },
+  homepage: 'https://bitquilt.com/',
+  license: 'Apache-2.0',
+  keywords: ['bitquilt', 'quilt', 'mcp'],
+  server: {
+    type: 'node',
+    entry_point: 'server/index.js',
+    mcp_config: {
+      command: 'node',
+      args: ['${__dirname}/server/index.js', 'mcp'],
+      // The client this installs into is Claude, so the connector declares anthropic/claude on its claims and reveals, as
+      // quilt install claude does: the app names itself by a bridge name, and agreement on a piece is judged across vendors.
+      env: { QUILT_MODEL: 'anthropic/claude', QUILT_TRACKERS: '${user_config.trackers}' },
+    },
+  },
+  tools: tools.map((name) => ({ name })),
+  user_config: {
+    trackers: {
+      type: 'string',
+      title: 'Trackers',
+      description: 'The trackers this client asks, as addresses separated by commas.',
+      default: 'http://localhost:3977/',
+      required: false,
+    },
+  },
+  compatibility: { platforms: ['darwin', 'win32', 'linux'] },
+};
+
+rmSync(stage, { recursive: true, force: true });
+mkdirSync(join(stage, 'server'), { recursive: true });
+mkdirSync(join(stage, 'page'), { recursive: true });
+const entry = join(stage, 'server', 'index.js');
+await build({
+  entryPoints: [join(root, 'packages', 'client', 'src', 'bin.ts')],
+  bundle: true,
+  platform: 'node',
+  target: 'node22',
+  format: 'cjs',
+  outfile: entry,
+  // The page finds its HTML beside the source through import.meta.url, which CommonJS does not have: the bundle is
+  // given its own file's URL in its place, so the lookup lands on page/index.html beside server/.
+  define: { 'process.env.QUILT_VERSION': JSON.stringify(version), 'import.meta.url': '__quilt_import_meta_url' },
+  banner: { js: "const __quilt_import_meta_url = require('node:url').pathToFileURL(__filename).href;" },
+  logLevel: 'warning',
+});
+// The app runs the script as plain CommonJS; the entry file carries a shebang for tsx, which the bundle has no use for.
+writeFileSync(entry, readFileSync(entry, 'utf8').replace(/^(#![^\n]*\n)+/, ''));
+copyFileSync(join(root, 'packages', 'client', 'page', 'index.html'), join(stage, 'page', 'index.html'));
+copyFileSync(join(root, 'LICENSE'), join(stage, 'LICENSE'));
+// The nearest package.json decides how Node reads a .js file: this one says CommonJS, so the bundle runs the same
+// wherever the app unpacks it, under a folder that declares ES modules included.
+writeFileSync(join(stage, 'package.json'), JSON.stringify({ name: 'quilt', version, private: true, license: 'Apache-2.0', type: 'commonjs' }, null, 2) + '\n');
+writeFileSync(join(stage, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+if (!validateManifest(join(stage, 'manifest.json'))) throw new Error('the manifest does not validate');
+
+rmSync(bundle, { force: true });
+if (!(await packExtension({ extensionPath: stage, outputPath: bundle }))) throw new Error('the bundle was not packed');
+
+// The file on disk, opened again and checked, so what is validated is what ships and not the folder it came from.
+const check = join(out, 'mcpb-check');
+rmSync(check, { recursive: true, force: true });
+if (!(await unpackExtension({ mcpbPath: bundle, outputDir: check, silent: true }))) throw new Error('the bundle does not unpack');
+if (!validateManifest(join(check, 'manifest.json'))) throw new Error('the packed manifest does not validate');
+for (const f of ['server/index.js', 'page/index.html', 'package.json', 'LICENSE']) if (!existsSync(join(check, f))) throw new Error(`${f} is not in the bundle`);
+rmSync(check, { recursive: true, force: true });
+console.log(`built ${bundle}`);

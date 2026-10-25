@@ -14,7 +14,8 @@
     "test": "vitest run",
     "check": "pnpm typecheck && pnpm test",
     "conform": "pnpm --filter @bitquilt/core conform",
-    "build:bin": "node scripts/build-binaries.mjs"
+    "build:bin": "node scripts/build-binaries.mjs",
+    "build:mcpb": "node scripts/build-mcpb.mjs"
   },
   "devDependencies": {
     "@types/node": "22.19.21",
@@ -22,7 +23,8 @@
     "typescript": "5.9.3",
     "vitest": "^4.0.18",
     "esbuild": "^0.28.2",
-    "postject": "^1.0.0-alpha.6"
+    "postject": "^1.0.0-alpha.6",
+    "@anthropic-ai/mcpb": "2.1.2"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

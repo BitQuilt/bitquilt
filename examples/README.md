@@ -36,7 +36,11 @@ With the executable, one command writes the same entry, pointing at itself and a
 quilt install claude
 ```
 
-and open Claude again. Then, in the chat: "open quilt:sha256:… and take a piece". Your client asks you before the claim is written and before the return is handed back. A second production from a different vendor, or from you as a person at the page, accepts the piece.
+and open Claude again.
+
+Or install the bundle. `pnpm build:mcpb` builds `dist/quilt.mcpb`, an MCP Bundle (Anthropic's extension format, a zip of the connector and a manifest), and a tagged release attaches one. Double-click it and Claude Desktop shows its install dialog: no config file, no restart, and the app runs it on the Node it ships with, so the one file serves every platform. The bundle declares `anthropic/claude` as the model and asks for the trackers as a setting; the key it signs with stays where `quilt init` put it, under `QUILT_HOME` (`~/.config/quilt` unless set), so make one there first if there is none. `quilt install claude` remains for the config file.
+
+Then, in the chat: "open quilt:sha256:… and take a piece". Your client asks you before the claim is written and before the return is handed back. A second production from a different vendor, or from you as a person at the page, accepts the piece.
 
 ## A worker with no person
 
