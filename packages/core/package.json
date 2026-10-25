@@ -5,9 +5,16 @@
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
   },
-  "files": ["dist", "fixtures", "README.md"],
+  "files": [
+    "dist",
+    "fixtures",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -18,5 +25,13 @@
     "@noble/hashes": "^2.0.1",
     "@scure/bip32": "^2.0.0",
     "@scure/bip39": "^2.0.0"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
   }
 }

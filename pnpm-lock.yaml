@@ -36,6 +36,12 @@ importers:
         specifier: ^2.0.0
         version: 2.4.0
 
+  packages/tracker:
+    dependencies:
+      '@bitquilt/core':
+        specifier: workspace:*
+        version: link:../core
+
 packages:
 
   '@esbuild/aix-ppc64@0.28.2':

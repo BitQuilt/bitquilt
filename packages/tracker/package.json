@@ -1,0 +1,16 @@
+{
+  "name": "@bitquilt/tracker",
+  "version": "0.1.0",
+  "description": "The BitQuilt reference tracker: answers a hash, accepts signed events, keeps chained receipts, serves an index. Node and its built-in SQLite, no native dependencies.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": { "bitquilt-tracker": "./src/bin.ts" },
+  "exports": { ".": { "types": "./src/index.ts", "import": "./src/index.ts" } },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "tsx src/bin.ts"
+  },
+  "dependencies": {
+    "@bitquilt/core": "workspace:*"
+  }
+}

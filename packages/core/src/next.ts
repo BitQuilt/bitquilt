@@ -45,7 +45,12 @@ function vendorOf(model: string): string {
   return i < 0 ? model : model.slice(0, i);
 }
 
-export function next(state: State, key: Address, client: Client, now: string): Pick | null {
+export interface NextOptions {
+  /** Pieces to leave out: a tracker's short holds for other keys, which are its own and not the ledger's. */
+  exclude?: ReadonlySet<string>;
+}
+
+export function next(state: State, key: Address, client: Client, now: string, options: NextOptions = {}): Pick | null {
   const root = state.rootOf(key, now);
   const owner = state.envelope.problem.owner as Address;
   const settings = state.envelope.problem.settings;
@@ -55,6 +60,7 @@ export function next(state: State, key: Address, client: Client, now: string): P
 
   const candidates = state.pieces.filter((v) => {
     if (!CANDIDATE_STATES.has(v.state)) return false;
+    if (options.exclude?.has(v.piece.hash)) return false;
     if (!v.piece.requires.every((r) => can.has(r))) return false;
     if (state.related(root, owner, now)) return false;
     if (v.reveals.some((r) => state.related(r.root, root, now))) return false;
