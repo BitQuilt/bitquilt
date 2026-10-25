@@ -54,7 +54,7 @@ describe('the MCP Bundle for Claude Desktop', () => {
     for (const text of [manifest.description, manifest.long_description ?? '', ...Object.values(manifest.user_config).flatMap((c) => [c.title, c.description])]) expect(text).not.toMatch(instructs);
   });
 
-  it('starts over stdio from the unpacked files, under a folder that declares ES modules, finds its page, and lists the nine tools the manifest names', async () => {
+  it('starts over stdio from the unpacked files, under a folder that declares ES modules, finds its page, and lists the eleven tools the manifest names', async () => {
     const home = join(out, 'home');
     // Where the app unpacks it is not the bundle's to choose; a package.json above it saying ES modules changes nothing.
     writeFileSync(join(out, 'package.json'), JSON.stringify({ type: 'module' }));
@@ -68,7 +68,7 @@ describe('the MCP Bundle for Claude Desktop', () => {
     await client.connect(transport);
     const tools = await client.listTools();
     const names = tools.tools.map((t) => t.name).sort();
-    expect(names).toEqual(['quilt_decline', 'quilt_me', 'quilt_name', 'quilt_next', 'quilt_open', 'quilt_publish', 'quilt_read', 'quilt_return', 'quilt_search']);
+    expect(names).toEqual(['quilt_challenge', 'quilt_decline', 'quilt_me', 'quilt_name', 'quilt_next', 'quilt_open', 'quilt_publish', 'quilt_read', 'quilt_return', 'quilt_search', 'quilt_verdict']);
     expect(names).toEqual(manifest.tools.map((t) => t.name).sort());
     for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
     const me = await client.callTool({ name: 'quilt_me', arguments: {} });

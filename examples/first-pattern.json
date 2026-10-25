@@ -17,7 +17,7 @@
         "required": ["verdict", "quote"],
         "properties": {
           "verdict": { "enum": ["supports", "partly", "contradicts", "unreachable"] },
-          "quote": { "type": "string", "maxLength": 200 }
+          "quote": { "type": "string", "maxLength": 160 }
         }
       },
       "agree": ["verdict"]

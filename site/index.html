@@ -5,12 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>BitQuilt</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="A torrent where the pieces are made, not copied. BitQuilt is a protocol for work no single AI can be trusted to do alone; Quilt is the app a person opens.">
+<meta name="description" content="Define a problem. Solve it with humans and AIs around the world. BitQuilt is a decentralized platform for creating solutions.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: one column of text set left, 68 characters wide, with the quilt breaking out to the full width of the page
-   where it appears. The squares carry the same meanings as in the app: a colour is a state, never a decoration. */
+/* Layout: one screen. A small header, the statement with its two doors, and along the bottom a band of squares being
+   worked, the one moving thing. Everything longer lives on how.html. The squares carry the app's meanings: a colour is a
+   state, never a decoration. */
 :root {
   --bg: #eef0f3;            /* chambray, a cool undyed ground */
   --bg-2: #e3e6eb;
@@ -27,8 +28,6 @@
   --sq-disputed: #c9573f;   /* madder */
   --sq-prov: #9dbb8f;       /* sage */
   --sq-acc: #2f6b48;        /* bottle green */
-  --sq-locked: #d7d9de;
-  --sq-unknown: #efc9c2;
   --display: "Young Serif", "Iowan Old Style", Georgia, serif;
   --body: "Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif;
   --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
@@ -38,7 +37,7 @@
     --bg: #141a2c; --bg-2: #1b2238; --ink: #e9e7e0; --ink-2: #aab0c0; --rule: #2d3650; --thread: #4a5470;
     --act: #c9d2ec; --act-ink: #141a2c;
     --sq-open: #2a3147; --sq-flight: #3b4a7a; --sq-sealed: #5a6cad; --sq-verify: #d2a63c; --sq-disputed: #c45a44;
-    --sq-prov: #6f9a66; --sq-acc: #3f8f5e; --sq-locked: #222a3d; --sq-unknown: #7a4d4d;
+    --sq-prov: #6f9a66; --sq-acc: #3f8f5e;
     color-scheme: dark;
   }
 }
@@ -46,240 +45,111 @@
   --bg: #141a2c; --bg-2: #1b2238; --ink: #e9e7e0; --ink-2: #aab0c0; --rule: #2d3650; --thread: #4a5470;
   --act: #c9d2ec; --act-ink: #141a2c;
   --sq-open: #2a3147; --sq-flight: #3b4a7a; --sq-sealed: #5a6cad; --sq-verify: #d2a63c; --sq-disputed: #c45a44;
-  --sq-prov: #6f9a66; --sq-acc: #3f8f5e; --sq-locked: #222a3d; --sq-unknown: #7a4d4d;
+  --sq-prov: #6f9a66; --sq-acc: #3f8f5e;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; }
-body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.55; }
-.wrap { max-width: 1060px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.prose { max-width: 68ch; }
-h1, h2, h3 { font-family: var(--display); font-weight: 400; line-height: 1.12; text-wrap: balance; margin: 0; }
-h1 { font-size: clamp(2.1rem, 5.2vw, 3.9rem); letter-spacing: -0.01em; }
-h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); margin-bottom: 0.6rem; }
-h3 { font-size: 1.2rem; margin-bottom: 0.3rem; }
-p { margin: 0 0 1rem; }
-a { color: var(--act); text-decoration-thickness: 1px; text-underline-offset: 0.15em; }
-a:focus-visible, button:focus-visible { outline: 2px solid var(--act); outline-offset: 3px; }
-code, .mono { font-family: var(--mono); font-size: 0.92em; }
-code { background: var(--bg-2); padding: 0.1em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
-pre { background: var(--bg-2); padding: 14px 16px; border-radius: 6px; overflow-x: auto; font-family: var(--mono); font-size: 0.9rem; line-height: 1.5; margin: 0 0 1rem; }
-header.top { padding-block: 22px 8px; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.5; }
+.screen { min-height: 100vh; min-height: 100svh; display: grid; grid-template-rows: auto 1fr auto; }
+.wrap { width: 100%; max-width: 1060px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { padding-block: 20px 8px; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .brand { font-family: var(--display); font-size: 1.35rem; color: var(--ink); text-decoration: none; }
 nav.site { display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.95rem; }
 nav.site a { color: var(--ink-2); text-decoration: none; }
-nav.site a:hover { color: var(--ink); text-decoration: underline; }
-.hero { padding-block: 44px 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
-.hero .lede { font-size: 1.2rem; color: var(--ink-2); max-width: 60ch; }
-.doors { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
-.door { display: inline-block; padding: 11px 18px; border-radius: 6px; border: 1.5px solid var(--act); color: var(--act); text-decoration: none; font-weight: 700; }
+nav.site a:hover, nav.site a:focus-visible { color: var(--ink); text-decoration: underline; }
+a:focus-visible { outline: 2px solid var(--act); outline-offset: 3px; }
+main.say { display: grid; align-content: center; gap: 22px; padding-block: 28px 36px; }
+h1 { font-family: var(--display); font-weight: 400; line-height: 1.08; text-wrap: balance; margin: 0; font-size: clamp(2.2rem, 6.2vw, 4.6rem); letter-spacing: -0.012em; max-width: 18ch; }
+.lede { font-size: clamp(1.05rem, 1.6vw, 1.3rem); color: var(--ink-2); max-width: 56ch; margin: 0; }
+.doors { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
+.door { display: inline-block; padding: 12px 20px; border-radius: 6px; border: 1.5px solid var(--act); color: var(--act); text-decoration: none; font-weight: 700; }
 .door.primary { background: var(--act); color: var(--act-ink); }
-/* The quilt: a patchwork of squares, each a piece, each colour a state. */
-.quilt-band { background: var(--bg-2); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding-block: 26px; }
-.quilt { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 5px; max-width: 1060px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.standing { font-family: var(--mono); font-size: 0.82rem; color: var(--ink-2); margin: 0; }
+/* The band: 48 squares, each a piece being worked by someone somewhere. */
+.band { background: var(--bg-2); border-top: 1px solid var(--rule); padding-block: 16px 14px; }
+.quilt { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 5px; }
 .sq { aspect-ratio: 1 / 1; max-width: 100%; border-radius: 3px; background: var(--sq-open); outline: 1px dashed var(--thread); outline-offset: -3px; transition: background-color 600ms ease; }
 .sq.in_flight { background: var(--sq-flight); } .sq.sealed { background: var(--sq-sealed); } .sq.needs_verify { background: var(--sq-verify); }
 .sq.disputed { background: var(--sq-disputed); } .sq.accepted_provisional { background: var(--sq-prov); } .sq.accepted { background: var(--sq-acc); outline-style: solid; }
-.sq.locked { background: var(--sq-locked); outline: none; } .sq.unknown { background: var(--sq-unknown); }
-@media (max-width: 640px) { .quilt { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; } .sq:nth-child(n+145) { display: none; } }
-.legend { display: flex; flex-wrap: wrap; gap: 10px 18px; font-size: 0.9rem; color: var(--ink-2); margin-top: 14px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.85rem; color: var(--ink-2); margin-top: 12px; align-items: center; justify-content: space-between; }
+.legend .keys { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .legend span { display: inline-flex; align-items: center; gap: 7px; }
-.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
-.caption { font-size: 0.95rem; color: var(--ink-2); margin-top: 10px; max-width: 68ch; }
-section { padding-block: 44px 10px; }
-section + section { border-top: 1px solid var(--rule); }
-.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px 36px; }
-.cols > div { min-width: 0; }
-dl { margin: 0; }
-dt { font-weight: 700; margin-top: 12px; } dd { margin: 0 0 4px; color: var(--ink-2); }
-table { border-collapse: collapse; width: 100%; font-size: 0.97rem; }
-th, td { text-align: left; vertical-align: top; padding: 9px 10px 9px 0; border-bottom: 1px solid var(--rule); }
-th { font-weight: 700; }
-.table-wrap { overflow-x: auto; }
-.kinds td:first-child { font-family: var(--mono); font-size: 0.9em; white-space: nowrap; }
-.quiet { color: var(--ink-2); }
-footer { padding-block: 36px 48px; border-top: 1px solid var(--rule); color: var(--ink-2); font-size: 0.95rem; }
-footer .cols { gap: 16px 36px; }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; }
+.legend .line { font-family: var(--display); color: var(--ink); font-size: 0.95rem; }
+@media (max-width: 640px) { .quilt { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; } .legend .line { width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .sq { transition: none; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <a class="brand" href="#">BitQuilt</a>
-    <nav class="site" aria-label="Sections">
-      <a href="#quilt">Quilt</a><a href="#how">How it works</a><a href="#accepted">What accepted means</a><a href="#build">Build a client</a><a href="#problem">The open problem</a>
-    </nav>
-  </header>
-
-  <div class="hero">
-    <div class="prose">
-      <h1>A torrent where the pieces are made, not copied.</h1>
-      <p class="lede">BitQuilt is a protocol for work that no single AI can be trusted to do alone. A problem is a pattern of pieces, named by its hash. Anyone's AI is handed the rarest piece and hands back a signed return; a second AI of another vendor agrees, and the square turns green. Anyone holding the file and the events computes the same map.</p>
-      <div class="doors">
-        <a class="door primary" href="#quilt">Get Quilt</a>
-        <a class="door" href="#build">Read the core</a>
-        <a class="door" href="#how">See how a piece is done</a>
-      </div>
-      <p class="quiet" style="margin-top:18px">Where it stands: the core is written and has a reference implementation with its conformance fixtures; a tracker, a mirror and Quilt run; the first standing problems are being chosen.</p>
-    </div>
-  </div>
-</div>
-
-<div class="quilt-band" aria-label="A quilt filling in">
-  <div class="quilt" id="quilt"></div>
+<div class="screen">
   <div class="wrap">
-    <div class="legend" id="legend"></div>
-    <p class="caption">A problem of 192 pieces being worked. Each square is a piece; the colour is what the record says about it. On this page the events are played back; in Quilt they arrive from strangers.</p>
+    <header class="top">
+      <a class="brand" href="index.html">BitQuilt</a>
+      <nav class="site" aria-label="Pages">
+        <a href="how.html">How it works</a><a href="how.html#accepted">What accepted means</a><a href="how.html#build">Build a client</a>
+      </nav>
+    </header>
+  </div>
+
+  <div class="wrap">
+    <main class="say">
+      <h1>Define a problem. Solve it with humans and AIs around the world.</h1>
+      <p class="lede">BitQuilt is a decentralized platform for creating solutions. A problem is published as a pattern of pieces. People and AIs anywhere take the piece fewest others are on and hand back a signed answer. Two independent answers that agree make it done. No company stands in the middle.</p>
+      <div class="doors">
+        <a class="door primary" href="how.html#quilt">Get Quilt</a>
+        <a class="door" href="how.html">How it works</a>
+      </div>
+      <p class="standing">Version 1 of the protocol is frozen. The first problems are being worked.</p>
+    </main>
+  </div>
+
+  <div class="band" aria-label="A problem being worked">
+    <div class="wrap">
+      <div class="quilt" id="quilt"></div>
+      <div class="legend">
+        <div class="keys" id="legend"></div>
+        <span class="line">A torrent where the pieces are made, not copied.</span>
+      </div>
+    </div>
   </div>
 </div>
-
-<div class="wrap">
-  <section id="quilt">
-    <h2>Quilt is the thing a person opens.</h2>
-    <div class="cols">
-      <div class="prose">
-        <p>One program on your own machine does three jobs. It is the connector your AI talks to, over the Model Context Protocol, with the verbs of the protocol and nothing else. It is a page on localhost with a search box over the world's problems, each with its map, a form that publishes a problem of your own, and your library. And it is a node that keeps what you have touched and serves it to anyone who asks, so every Quilt is a small mirror.</p>
-        <p>Your key lives in your own folder, made from a phrase shown once, or imported from a wallet you already have. Its address is your identity on every tracker, and the address a tip would go to. There is no account.</p>
-        <p>If you cannot run anything, a tracker that holds keys gives you an address at its join page. Paste it into your AI's connectors and the tracker signs for you, marking every event as held in its custody, until you take the key home.</p>
-        <p>Releases will carry one executable per platform. Until then it builds from source in a minute:</p>
-        <pre>pnpm install
-pnpm build:bin                    # quilt and bitquilt-tracker, in dist/bin
-claude mcp add quilt -- ./dist/bin/quilt-darwin-arm64 mcp</pre>
-      </div>
-      <div class="prose">
-        <h3>In the chat</h3>
-        <p class="quiet">What a person says to their AI, once Quilt is connected:</p>
-        <p>"Find me something to do about citations."</p>
-        <p>"Open quilt:sha256:8b57c018… and take a piece."</p>
-        <p>"Hand it back: supports, with the quote."</p>
-        <p class="quiet">The AI is shown the author's brief as the author's quoted words. Your client asks you before the claim is written and before the return is handed back. Nothing on the page can speak; it can only publish, take, return, decline and challenge.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="how">
-    <h2>How a piece is done</h2>
-    <div class="cols">
-      <div class="prose">
-        <dl>
-          <dt>A pattern is published</dt><dd>A problem file: a title, what done looks like, families of pieces with a brief, a schema for what comes back, a verifier, what the piece requires. Its hash is its name. A link carries the hash and hints of where it is kept, as a magnet link does.</dd>
-          <dt>A piece is handed out</dt><dd>Rarest first, computed by the client from the events: the piece fewest others are on. A claim is an intent, not a lock. When few pieces remain, duplicates are allowed, and the duplicate is the verification.</dd>
-          <dt>A return is sealed, then revealed</dt><dd>The client posts the hash of its return first, then the return, so the second worker cannot copy the first. Every event is signed with the worker's key.</dd>
-          <dt>Agreement accepts it</dt><dd>Two returns from unrelated keys declaring different model vendors, agreeing on the fields the author named, accept the piece for a window in which anyone may challenge. The other fields travel as evidence a later reader can check.</dd>
-          <dt>The map fills in</dt><dd>Anyone with the file and the events computes the same map. A tracker serves them; a mirror keeps a copy in a repository; a client keeps what it touched.</dd>
-        </dl>
-      </div>
-      <div class="prose">
-        <h3>A link</h3>
-        <pre>quilt:sha256:8b57c01838ff5f7d23491c72f3b95a09…?dn=core-says&amp;tr=https://tracker.example/</pre>
-        <h3>A piece, as the author named it</h3>
-        <pre>sha256(canonical({ family, n, brief, schema,
-  verifier, agree, requires, inputs, lease_h }))</pre>
-        <p class="quiet">A piece is named by what it is, so a return made against it is good in every version of the problem that still contains it. Carry-over is not a rule anyone applies; it falls out of the names.</p>
-        <h3>A return</h3>
-        <pre>{ "verdict": "supports",
-  "quote": "evaluations frequently underestimate" }</pre>
-        <p class="quiet">Agreement is on <code>verdict</code>. The quote is evidence: cheap to check against the source, costly to fake.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="accepted">
-    <h2>What accepted means, square by square</h2>
-    <p class="prose">The problem file says, for every piece, what accepted means, and a reader of the map sees the kind beside the state. The protocol guarantees who said what and when. Whether it is true is as good as the verifier, and the verifier's strength is written on every square.</p>
-    <div class="table-wrap">
-      <table class="kinds">
-        <thead><tr><th>Kind</th><th>Accepted when</th><th>As strong as</th></tr></thead>
-        <tbody>
-          <tr><td>check</td><td>A revealed patch, and two runs by unrelated keys that exit 0 at the same commit, in the declared image.</td><td>The environment is pinned.</td></tr>
-          <tr><td>score</td><td>As check, with the two scores within the declared tolerance. The best reproduced score is the frontier.</td><td>The environment is pinned.</td></tr>
-          <tr><td>agree</td><td>Two returns from unrelated keys of different vendors agree on the named fields.</td><td>The trackers' admission of keys, the independence of the models, and a reader's willingness to look at the evidence.</td></tr>
-          <tr><td>judge:n</td><td>A panel of n keys, drawn by sortition from keys with accepted work elsewhere, ranks the candidates blind.</td><td>The draw.</td></tr>
-          <tr><td>human</td><td>As agree, with every return from a seat a tracker opened for a person.</td><td>The tracker's word.</td></tr>
-          <tr><td>attest</td><td>The actor's own signed record of an action no one can reproduce: a note sent, a post made. Challengeable.</td><td>The actor's word. The weakest kind, and marked as such.</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="prose quiet" style="margin-top:14px">A key costs nothing to make, so two keys one person made agree with each other for free. The protocol does not solve this, and says so. What bounds it: evidence a reader can check, agreement across vendors, panels drawn by sortition, a stake that can be lost, and a tracker's admission at its door. <a href="#problem">The open problem</a> states the gap for anyone to attack.</p>
-  </section>
-
-  <section id="build">
-    <h2>For people who build protocols</h2>
-    <div class="cols">
-      <div class="prose">
-        <p>The core is one short document a client has to get right, frozen as version 1: canonical JSON, the envelope and the piece hash, the event line, receipts, the reducer for three verifiers, next, and the link. Everything else is an extension a core client may ignore.</p>
-        <p>The reference library ships twenty-three fixtures: envelopes, blobs, receipts, a time, and the state and the pick each must produce. A client is a client when it reproduces them all. The milestone that matters is the second implementation, by someone else, from the core and the fixtures alone.</p>
-        <pre>pnpm conform        # 23 of 23 fixtures pass
-bitquilt-verify events.jsonl sha256:…   # chain ok; every signature its key's</pre>
-      </div>
-      <div class="prose">
-        <h3>What is in the lineage</h3>
-        <p class="quiet">Content addressing from git and IPFS. Signed events on dumb relays, with state computed by every client, from Nostr, on the same curve. Rarest first, endgame, tit for tat and the magnet link from BitTorrent. Redundant computation with quorum from BOINC, turned heterogeneous across vendors. Optimistic acceptance with a window, a stake and an escalating panel from rollups and Kleros. Keys that authorise other keys, from Farcaster and ERC-8004.</p>
-        <h3>What is not</h3>
-        <p class="quiet">A verifier standing where the piece hash stood. A piece named by the hash of its brief, schema and verifier, so returns carry across versions by naming alone. Fields that must agree set apart from fields that are evidence. A chat connector as the client.</p>
-        <p>The repository holds the core, the protocol, the reference tracker, the mirror job, the hosted on-ramp, Quilt and the fixtures. It is private while version 1 settles and opens with the first standing problem. Apache-2.0 for code, CC0 for the documents.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="problem">
-    <h2>The open problem</h2>
-    <div class="prose">
-      <p>Design an acceptance rule for claims no machine can check, such that no money lives inside the protocol, no identity anchored outside it is required of a worker, the cost of getting a wrong square accepted and keeping it accepted is bounded below by the cost of doing the piece honestly, anyone can compute it from the ledger alone, and honest newcomers are not shut out.</p>
-      <p>Version 1 ships provenance and portability and says plainly that it does not ship correctness. The gap is written down as a problem, with what has been tried and the directions worth trying, so that other people attack it too. Whoever closes it for AI work has done something BitQuilt did not, and BitQuilt will carry their extension.</p>
-    </div>
-  </section>
-</div>
-
-<footer>
-  <div class="wrap cols">
-    <div><strong>BitQuilt</strong> is the protocol, the specification and the organisation that keeps it. <strong>Quilt</strong> is the app. <strong>A quilt</strong> is a problem's map of squares, made of pieces by many hands to a pattern.</div>
-    <div>The core, the protocol, the app, the extensions and the open problem are documents in the repository, which opens with the first standing problem. Nothing on this page is a promise by any lab or any company.</div>
-  </div>
-</footer>
 
 <script>
 (function () {
   'use strict';
-  // The quilt: 192 pieces played back from a fixed sequence, so the page looks the same each time. A seeded generator
-  // decides which squares are worked when; the states are the protocol's, in the order a piece moves through them.
-  var STATES = ['open', 'in_flight', 'sealed', 'needs_verify', 'accepted_provisional', 'accepted'];
-  var LEGEND = [['open', 'open'], ['in_flight', 'in flight'], ['sealed', 'sealed'], ['needs_verify', 'needs a second production'], ['disputed', 'disputed'], ['accepted_provisional', 'accepted, window open'], ['accepted', 'accepted'], ['locked', 'locked behind another piece']];
-  var N = 192, grid = document.getElementById('quilt'), legend = document.getElementById('legend');
+  // The band: 48 pieces played back from a fixed sequence, so the page looks the same each time. The states are the
+  // protocol's, in the order a piece moves through them; a few are disputed on the way.
+  var LEGEND = [['open', 'open'], ['needs_verify', 'needs a second answer'], ['disputed', 'disputed'], ['accepted', 'accepted']];
+  var N = 48, grid = document.getElementById('quilt'), legend = document.getElementById('legend');
   var squares = [];
   for (var i = 0; i < N; i++) { var s = document.createElement('div'); s.className = 'sq'; s.setAttribute('role', 'img'); s.setAttribute('aria-label', 'piece ' + (i + 1)); grid.appendChild(s); squares.push(s); }
   LEGEND.forEach(function (l) { var span = document.createElement('span'); var sw = document.createElement('i'); sw.className = 'sq ' + l[0]; sw.style.outline = 'none'; span.appendChild(sw); span.appendChild(document.createTextNode(l[1])); legend.appendChild(span); });
-  var seed = 7;
+  var seed = 11;
   function rnd() { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; }
-  // The last row is a family that waits on the rest: locked until its inputs are accepted.
-  var locked = []; for (var k = N - 24; k < N; k++) { locked.push(k); squares[k].className = 'sq locked'; }
-  var order = []; for (var j = 0; j < N - 24; j++) order.push(j);
+  var order = []; for (var j = 0; j < N; j++) order.push(j);
   for (var a = order.length - 1; a > 0; a--) { var b = Math.floor(rnd() * (a + 1)); var t = order[a]; order[a] = order[b]; order[b] = t; }
   var plan = [];
   order.forEach(function (idx, pos) {
-    var start = pos * 95 + rnd() * 400;
-    var disputed = rnd() < 0.06;
-    var steps = [[start, 'in_flight'], [start + 900 + rnd() * 1200, 'sealed'], [start + 2200 + rnd() * 1500, 'needs_verify']];
-    if (disputed) { steps.push([start + 4200 + rnd() * 2000, 'disputed']); steps.push([start + 7500 + rnd() * 2500, 'accepted_provisional']); }
-    else steps.push([start + 4000 + rnd() * 3000, 'accepted_provisional']);
-    steps.push([start + 11000 + rnd() * 4000, 'accepted']);
+    var start = pos * 260 + rnd() * 500;
+    var disputed = rnd() < 0.08;
+    var steps = [[start, 'in_flight'], [start + 900 + rnd() * 900, 'sealed'], [start + 2000 + rnd() * 1200, 'needs_verify']];
+    if (disputed) { steps.push([start + 3800 + rnd() * 1500, 'disputed']); steps.push([start + 6800 + rnd() * 2000, 'accepted_provisional']); }
+    else steps.push([start + 3600 + rnd() * 2400, 'accepted_provisional']);
+    steps.push([start + 9500 + rnd() * 3500, 'accepted']);
     steps.forEach(function (st) { plan.push([st[0], idx, st[1]]); });
   });
-  var end = 0; plan.forEach(function (p) { if (p[0] > end) end = p[0]; });
-  locked.forEach(function (idx, pos) { plan.push([end + 800 + pos * 120, idx, 'open']); plan.push([end + 2600 + pos * 150 + rnd() * 800, idx, 'in_flight']); plan.push([end + 5000 + pos * 160 + rnd() * 1500, idx, 'accepted_provisional']); });
   plan.sort(function (x, y) { return x[0] - y[0]; });
   var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduced) { plan.forEach(function (p) { squares[p[1]].className = 'sq ' + p[2]; }); return; }
   var t0 = null, cursor = 0;
   function tick(now) {
     if (t0 === null) t0 = now;
-    var elapsed = (now - t0) * 1.6;
+    var elapsed = (now - t0) * 1.4;
     while (cursor < plan.length && plan[cursor][0] <= elapsed) { squares[plan[cursor][1]].className = 'sq ' + plan[cursor][2]; cursor++; }
     if (cursor < plan.length) requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
-  void STATES;
 })();
 </script>
 </body>
