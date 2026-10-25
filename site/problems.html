@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Problems on BitQuilt</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="The problems a tracker carries, each with its map: how many pieces, how many done, and the link your AI opens.">
+<!-- The tracker this page reads when the address carries no ?tr=: one line to change at deployment. -->
+<meta name="bitquilt:tracker" content="http://localhost:3977/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column; each problem is a row with a strip of squares that is its map in small, coloured from the counts
+   the tracker reports. The page loads nothing but JSON from the tracker it is pointed at. */
+:root {
+  --bg: #eef0f3; --bg-2: #e3e6eb; --ink: #17213a; --ink-2: #4a546b; --rule: #cfd4dd; --thread: #a9b0bd; --act: #2b3f7a; --act-ink: #ffffff;
+  --sq-open: #f6f2ea; --sq-flight: #c9d2ec; --sq-sealed: #8e9ccb; --sq-verify: #e4b84a; --sq-disputed: #c9573f; --sq-prov: #9dbb8f; --sq-acc: #2f6b48; --sq-locked: #d7d9de; --sq-unknown: #efc9c2;
+  --display: "Young Serif", "Iowan Old Style", Georgia, serif;
+  --body: "Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141a2c; --bg-2: #1b2238; --ink: #e9e7e0; --ink-2: #aab0c0; --rule: #2d3650; --thread: #4a5470; --act: #c9d2ec; --act-ink: #141a2c;
+    --sq-open: #2a3147; --sq-flight: #3b4a7a; --sq-sealed: #5a6cad; --sq-verify: #d2a63c; --sq-disputed: #c45a44; --sq-prov: #6f9a66; --sq-acc: #3f8f5e; --sq-locked: #222a3d; --sq-unknown: #7a4d4d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141a2c; --bg-2: #1b2238; --ink: #e9e7e0; --ink-2: #aab0c0; --rule: #2d3650; --thread: #4a5470; --act: #c9d2ec; --act-ink: #141a2c;
+  --sq-open: #2a3147; --sq-flight: #3b4a7a; --sq-sealed: #5a6cad; --sq-verify: #d2a63c; --sq-disputed: #c45a44; --sq-prov: #6f9a66; --sq-acc: #3f8f5e; --sq-locked: #222a3d; --sq-unknown: #7a4d4d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.5; }
+.wrap { max-width: 1060px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { padding-block: 20px 8px; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.brand { font-family: var(--display); font-size: 1.35rem; color: var(--ink); text-decoration: none; }
+nav.site { display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.95rem; }
+nav.site a { color: var(--ink-2); text-decoration: none; }
+nav.site a:hover, nav.site a:focus-visible { color: var(--ink); text-decoration: underline; }
+nav.site a[aria-current] { color: var(--ink); font-weight: 700; }
+a { color: var(--act); }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--act); outline-offset: 3px; }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(1.8rem, 3.6vw, 2.6rem); line-height: 1.12; margin: 26px 0 6px; text-wrap: balance; }
+.lede { color: var(--ink-2); max-width: 62ch; margin: 0 0 18px; }
+form.ask { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-bottom: 8px; }
+form.ask input { font: inherit; padding: 10px 12px; border: 1.5px solid var(--rule); border-radius: 6px; background: var(--bg-2); color: var(--ink); min-width: 0; }
+form.ask button { font: inherit; font-weight: 700; padding: 10px 16px; border-radius: 6px; border: 1.5px solid var(--act); background: var(--act); color: var(--act-ink); cursor: pointer; }
+.source { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-2); margin: 0 0 22px; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.source input { font: inherit; width: min(100%, 34ch); padding: 4px 8px; border: 1px solid var(--rule); border-radius: 4px; background: var(--bg-2); color: var(--ink); }
+.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 18px 0; border-top: 1px solid var(--rule); }
+.row h2 { font-family: var(--display); font-weight: 400; font-size: 1.3rem; line-height: 1.2; margin: 0; text-wrap: balance; }
+.row .done { color: var(--ink-2); margin: 0; max-width: 68ch; }
+.strip { display: grid; grid-template-columns: repeat(32, minmax(0, 1fr)); gap: 3px; max-width: 560px; }
+.sq { aspect-ratio: 1 / 1; border-radius: 2px; background: var(--sq-open); outline: 1px dashed var(--thread); outline-offset: -2px; }
+.sq.in_flight { background: var(--sq-flight); } .sq.sealed { background: var(--sq-sealed); } .sq.needs_verify { background: var(--sq-verify); }
+.sq.disputed { background: var(--sq-disputed); } .sq.accepted_provisional { background: var(--sq-prov); } .sq.accepted { background: var(--sq-acc); outline-style: solid; }
+.sq.challenged { background: var(--sq-verify); outline-style: solid; } .sq.locked { background: var(--sq-locked); outline: none; } .sq.unknown, .sq.unreachable { background: var(--sq-unknown); }
+.facts { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.9rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.facts .mono { font-family: var(--mono); font-size: 0.82rem; }
+.topics span { display: inline-block; background: var(--bg-2); border-radius: 4px; padding: 1px 7px; margin-right: 6px; font-size: 0.85rem; color: var(--ink-2); }
+.linkrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.linkrow code { font-family: var(--mono); font-size: 0.8rem; background: var(--bg-2); padding: 4px 8px; border-radius: 4px; overflow-wrap: anywhere; max-width: 100%; }
+.linkrow button { font: inherit; font-size: 0.9rem; padding: 5px 12px; border-radius: 6px; border: 1.5px solid var(--act); background: transparent; color: var(--act); cursor: pointer; }
+.empty, .error { padding: 22px 0; border-top: 1px solid var(--rule); color: var(--ink-2); max-width: 62ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.85rem; color: var(--ink-2); margin: 10px 0 0; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; }
+footer { padding-block: 36px 48px; border-top: 1px solid var(--rule); color: var(--ink-2); font-size: 0.95rem; margin-top: 30px; }
+@media (max-width: 640px) { .strip { grid-template-columns: repeat(16, minmax(0, 1fr)); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="index.html">BitQuilt</a>
+    <nav class="site" aria-label="Pages">
+      <a href="problems.html" aria-current="page">Problems</a><a href="how.html">How it works</a><a href="how.html#accepted">What accepted means</a><a href="how.html#build">Build a client</a>
+    </nav>
+  </header>
+
+  <h1>Problems being worked</h1>
+  <p class="lede">What one tracker carries right now, read live. Each strip is a problem's map in small: a square a piece, a colour a state. Copy a link and hand it to your AI.</p>
+
+  <form class="ask" id="ask">
+    <input type="search" id="q" placeholder="a word from a title, a topic, a slug" autocomplete="off" aria-label="Search the problems">
+    <button type="submit">Search</button>
+  </form>
+  <p class="source">reading <input type="url" id="tr" aria-label="The tracker read" spellcheck="false"> <span id="status"></span></p>
+
+  <ul class="rows" id="rows"></ul>
+  <div class="legend" id="legend"></div>
+</div>
+
+<footer>
+  <div class="wrap">A tracker is one place a quilt: link resolves; anyone may run one, and this page reads whichever it is pointed at. The counts are the tracker's own reading of its chain; your Quilt computes the same map from the events.</div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+  var STATES = ['accepted', 'accepted_provisional', 'challenged', 'disputed', 'needs_verify', 'sealed', 'in_flight', 'open', 'locked', 'unreachable', 'unknown'];
+  var LEGEND = [['open', 'open'], ['in_flight', 'in flight'], ['needs_verify', 'needs a second answer'], ['disputed', 'disputed'], ['accepted_provisional', 'accepted, window open'], ['accepted', 'accepted']];
+  var $ = function (id) { return document.getElementById(id); };
+  var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  var params = new URLSearchParams(location.search);
+  var meta = document.querySelector('meta[name="bitquilt:tracker"]');
+  var tracker = params.get('tr') || (meta && meta.getAttribute('content')) || '';
+  if (tracker && tracker.slice(-1) !== '/') tracker += '/';
+  $('tr').value = tracker;
+  $('q').value = params.get('q') || '';
+  LEGEND.forEach(function (l) { var s = el('span'); var i = el('i', 'sq ' + l[0]); i.style.outline = 'none'; s.appendChild(i); s.appendChild(document.createTextNode(l[1])); $('legend').appendChild(s); });
+
+  function strip(p) {
+    var n = Math.min(p.pieces || 0, 64), counts = p.counts || {}, cells = [];
+    STATES.forEach(function (st) { for (var k = 0; k < (counts[st] || 0); k++) cells.push(st); });
+    if (cells.length > n) { var scale = n / cells.length, kept = []; STATES.forEach(function (st) { var c = Math.round((counts[st] || 0) * scale); for (var k = 0; k < c; k++) kept.push(st); }); cells = kept.slice(0, n); }
+    while (cells.length < n) cells.push('open');
+    var s = el('div', 'strip'); s.setAttribute('role', 'img');
+    s.setAttribute('aria-label', Object.keys(counts).map(function (k) { return counts[k] + ' ' + k.replace(/_/g, ' '); }).join(', ') || 'no pieces');
+    cells.forEach(function (st) { s.appendChild(el('div', 'sq ' + st)); });
+    return s;
+  }
+
+  function when(iso) { if (!iso) return ''; var d = new Date(iso); return isNaN(d) ? '' : d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC'; }
+
+  function row(p) {
+    var li = el('li', 'row');
+    li.appendChild(el('h2', null, p.title || p.slug || p.problem));
+    if (p.done_when) li.appendChild(el('p', 'done', 'Done when: ' + p.done_when));
+    li.appendChild(strip(p));
+    var facts = el('div', 'facts');
+    var counts = p.counts || {}, done = (counts.accepted || 0) + (counts.accepted_provisional || 0);
+    facts.appendChild(el('span', null, (p.pieces || 0) + ' pieces, ' + done + ' done' + (p.complete ? ', complete' : '')));
+    if (counts.disputed) facts.appendChild(el('span', null, counts.disputed + ' disputed'));
+    if (p.challenges) facts.appendChild(el('span', null, p.challenges + ' challenged'));
+    if (p.head && p.head.short) facts.appendChild(el('span', 'mono', 'receipt ' + p.head.seq + ' · ' + p.head.short));
+    if (p.last) facts.appendChild(el('span', 'mono', 'last ' + when(p.last)));
+    if (p.owner) facts.appendChild(el('span', 'mono', 'by ' + p.owner.slice(0, 10) + '…'));
+    li.appendChild(facts);
+    if (p.topics && p.topics.length) { var t = el('div', 'topics'); p.topics.forEach(function (x) { t.appendChild(el('span', null, x)); }); li.appendChild(t); }
+    var link = 'quilt:' + p.problem + '?dn=' + encodeURIComponent(p.slug || '') + '&tr=' + encodeURIComponent(tracker);
+    var lr = el('div', 'linkrow'); var code = el('code', null, link); lr.appendChild(code);
+    var btn = el('button', null, 'Copy link'); btn.type = 'button';
+    btn.addEventListener('click', function () {
+      var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy link'; }, 1600); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, function () { select(code); });
+      else select(code);
+    });
+    lr.appendChild(btn); li.appendChild(lr);
+    return li;
+  }
+  function select(node) { var r = document.createRange(); r.selectNodeContents(node); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+
+  function load() {
+    var rows = $('rows'); rows.textContent = '';
+    var q = $('q').value.trim();
+    if (!tracker) { rows.appendChild(el('li', 'empty', 'No tracker to read. Add ?tr=https://your.tracker/ to the address, or type one above.')); $('status').textContent = ''; return; }
+    $('status').textContent = '…';
+    fetch(tracker + 'search?q=' + encodeURIComponent(q), { signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined })
+      .then(function (r) { if (!r.ok) throw new Error('the tracker answered ' + r.status); return r.json(); })
+      .then(function (j) {
+        var list = (j && j.problems) || [];
+        $('status').textContent = list.length + (list.length === 1 ? ' problem' : ' problems');
+        if (!list.length) { rows.appendChild(el('li', 'empty', q ? 'Nothing on this tracker matches that. Try a topic or a word from a title.' : 'This tracker carries no problems yet. Publish one from Quilt and it appears here.')); return; }
+        list.sort(function (a, b) { return (b.last || '').localeCompare(a.last || ''); });
+        list.forEach(function (p) { rows.appendChild(row(p)); });
+      })
+      .catch(function (e) {
+        $('status').textContent = 'not reached';
+        rows.appendChild(el('li', 'error', 'Could not read ' + tracker + ': ' + (e && e.message ? e.message : 'no answer') + '. Check the address, or that the tracker is up.'));
+      });
+  }
+
+  $('ask').addEventListener('submit', function (ev) { ev.preventDefault(); var u = new URL(location.href); u.searchParams.set('q', $('q').value.trim()); u.searchParams.set('tr', tracker); history.replaceState(null, '', u); load(); });
+  $('tr').addEventListener('change', function () { tracker = $('tr').value.trim(); if (tracker && tracker.slice(-1) !== '/') tracker += '/'; var u = new URL(location.href); u.searchParams.set('tr', tracker); history.replaceState(null, '', u); load(); });
+  load();
+})();
+</script>
+</body>
+</html>
