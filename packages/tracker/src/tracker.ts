@@ -6,11 +6,12 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import {
-  type Envelope, type Event, type Hash, type Receipt, type Client, type Capability,
+  type Envelope, type Event, type Hash, type Receipt, type ReduceInput, type Client, type Capability,
   blobProblems, envelopeProblems, eventId, eventProblems, eventSignedByKey, expandPieces, hashBytes, isAddress, isHash,
   next, plainTextProblems, problemHash, reduce, returnProblems, returnStrings, signedBy, stampOk, textIssues, verifyChain, CAPABILITIES, IDENTITY_LOG,
 } from '@bitquilt/core';
 import { createHash } from 'node:crypto';
+import { type Layer, type ProblemLayer, CHALLENGE_EVENTS, EXTENSION, GROUND_MAX, MAJORITY, PANEL, SEED, challengeBodyProblems, challengeLayer, verdictBodyProblems } from './challenge.js';
 import type { Store } from './store.js';
 
 export const IDENTITY: Hash = IDENTITY_LOG;
@@ -39,7 +40,12 @@ export interface TrackerOptions {
 export interface Tracker {
   handle(req: IncomingMessage, res: ServerResponse): Promise<void>;
   listen(port: number, host?: string): Promise<Server>;
+  /** The core's fold of a problem this tracker holds. */
   reduceProblem(hash: Hash): ReturnType<typeof reduce> | null;
+  /** The challenge layer (QX-1) over every problem this tracker holds, at now. */
+  layer(): Layer;
+  /** One problem's view in that layer. */
+  view(hash: Hash): ProblemLayer | null;
 }
 
 class Refusal extends Error {
@@ -91,21 +97,42 @@ export function createTracker(options: TrackerOptions): Tracker {
     if (store.hit(bucket, now().slice(0, 13), max)) throw new Refusal(429, 'over the hour\'s limit');
   };
 
-  function reduceProblem(hash: Hash) {
+  /** What the reducer takes for a problem: its chain, the blobs, every receipt along the chain and the identity log. */
+  function inputFor(hash: Hash): ReduceInput | null {
     const chain = store.chain(hash);
     if (chain.length === 0) return null;
     const hashes = chain.map(problemHash);
     const receipts: Receipt[] = [];
     for (const h of hashes) receipts.push(...store.receipts(h));
     receipts.push(...store.receipts(IDENTITY));
-    return reduce({ envelopes: chain, blobs: store.blobsFor(chain), receipts, now: now() });
+    return { envelopes: chain, blobs: store.blobsFor(chain), receipts, now: now() };
   }
 
-  function summary(hash: Hash) {
-    const s = reduceProblem(hash);
-    if (!s) return null;
+  function reduceProblem(hash: Hash) {
+    const input = inputFor(hash);
+    return input ? reduce(input) : null;
+  }
+
+  /** The challenge layer over every problem here: standing and the pool are functions of the whole store. */
+  function layer(): Layer {
+    const problems: ReduceInput[] = [];
+    for (const e of store.listEnvelopes()) {
+      const input = inputFor(e.hash);
+      if (input) problems.push(input);
+    }
+    return challengeLayer({ problems, now: now() });
+  }
+
+  function view(hash: Hash): ProblemLayer | null {
+    return layer().problems.get(hash) ?? null;
+  }
+
+  function summary(hash: Hash, layered: Layer = layer()) {
+    const pl = layered.problems.get(hash);
+    if (!pl) return null;
+    const s = pl.fold;
     const counts: Record<string, number> = {};
-    for (const v of s.pieces) counts[v.state] = (counts[v.state] ?? 0) + 1;
+    for (const v of pl.pieces) counts[v.state] = (counts[v.state] ?? 0) + 1;
     const head = store.head(hash);
     return {
       problem: hash,
@@ -120,6 +147,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       last: head?.at ?? null,
       head: head ? { seq: head.seq, hash: head.hash, short: `${head.hash.slice(0, 8)}:${head.hash.slice(8, 16)}` } : null,
       versions: s.chain.length,
+      challenges: pl.challenges.length,
     };
   }
 
@@ -187,10 +215,11 @@ export function createTracker(options: TrackerOptions): Tracker {
       chainKey = IDENTITY;
     } else {
       if (IDENTITY_EVENTS.has(type)) throw new Refusal(400, 'identity events go to the identity log');
-      if (!PIECE_EVENTS.has(type) && !PROBLEM_EVENTS.has(type)) throw new Refusal(400, `this tracker does not carry ${type} events`);
+      if (!PIECE_EVENTS.has(type) && !PROBLEM_EVENTS.has(type) && !CHALLENGE_EVENTS.has(type)) throw new Refusal(400, `this tracker does not carry ${type} events`);
       if (event.problem !== under) throw new Refusal(400, 'post an event under the problem it names');
       const state = reduceProblem(under);
       if (!state) throw new Refusal(404, 'no such problem here');
+      if (CHALLENGE_EVENTS.has(type)) checkChallengeEvent(event, under);
       if (PIECE_EVENTS.has(type)) {
         const view = event.piece ? state.byHash.get(event.piece) : undefined;
         if (!view) throw new Refusal(400, 'names a piece this problem does not have');
@@ -220,6 +249,41 @@ export function createTracker(options: TrackerOptions): Tracker {
     json(res, 202, { id, seq: line.seq, hash: line.hash, at: line.received[0]!.at });
   }
 
+  /** The door for QX-1: a challenge from a root with standing, inside the window, with a panel to seat; a verdict from a judge drawn. */
+  function checkChallengeEvent(event: Event, under: Hash): void {
+    if (!event.piece) throw new Refusal(400, `a ${event.type} names a problem and a piece`);
+    const layered = layer();
+    const body = event.body;
+    if (event.type === 'challenge') {
+      const shape = challengeBodyProblems(body);
+      if (shape.length) throw new Refusal(400, shape[0]!);
+      const issues = plainTextProblems(body.ground as string, 'ground');
+      if (issues.length) throw new Refusal(400, issues[0]!);
+      const a = layered.admitChallenge(under, event.piece, event.key, body.stake as number);
+      if (!a.ok) throw new Refusal(400, a.why);
+      return;
+    }
+    const shape = verdictBodyProblems(body);
+    if (shape.length) throw new Refusal(400, shape[0]!);
+    if (body.return !== undefined) for (const s of returnStrings(body.return as Record<string, unknown>)) {
+      const issues = plainTextProblems(s, 'return');
+      if (issues.length) throw new Refusal(400, issues[0]!);
+    }
+    const a = layered.admitVerdict(under, event.piece, event.key, body.challenge as Hash, body);
+    if (!a.ok) throw new Refusal(400, a.why);
+  }
+
+  /** A problem's challenges as the tracker computes them at now: the seats, each verdict with its judge, the outcome. */
+  function challenges(pl: ProblemLayer) {
+    const name = (a: string) => pl.fold.names.get(a as `0x${string}`)?.name ?? null;
+    return pl.challenges.map((c) => ({
+      id: c.id, piece: c.piece, name: pl.byHash.get(c.piece)?.name ?? null, key: c.key, root: c.root, challenger: name(c.root), at: c.at, stake: c.stake, ground: c.ground,
+      parties: c.parties, seed: c.seed, panel: PANEL, majority: MAJORITY,
+      seats: c.seats.map((s) => ({ root: s.root, judge: name(s.root), offered_at: s.offeredAt, lapsed_at: s.lapsedAt, verdict: s.verdict ? { id: s.verdict.id, at: s.verdict.at, for: s.verdict.for, return: s.verdict.return } : null })),
+      outcome: c.outcome, decided_at: c.decidedAt, struck: c.struck, dropped: c.dropped,
+    }));
+  }
+
   function checkAnnouncement(event: Event, envelope: Envelope): void {
     const b = event.body as Record<string, unknown>;
     if (b.title !== envelope.problem.title || b.slug !== envelope.problem.slug || b.done_when !== envelope.problem.done_when) throw new Refusal(400, 'announce: title, slug and done_when are the envelope\'s');
@@ -243,8 +307,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     const can = (query.get('can') ?? '').split(',').filter(Boolean);
     if (!can.every((c) => (CAPABILITIES as readonly string[]).includes(c))) throw new Refusal(400, `can: from ${CAPABILITIES.join(', ')}`);
     const model = query.get('model') ?? 'unknown/unknown';
-    const state = reduceProblem(hash);
-    if (!state) throw new Refusal(404, 'no such problem here');
+    // The layer's fold: a struck piece is open again, and a challenged one is not offered while its panel sits.
+    const pl = view(hash);
+    if (!pl) throw new Refusal(404, 'no such problem here');
+    const state = pl.fold;
     const at = now();
     const client: Client = { can: can as Capability[], model };
     const pick = next(state, key, client, at, { exclude: store.heldByOthers(hash, key, at) });
@@ -265,11 +331,12 @@ export function createTracker(options: TrackerOptions): Tracker {
       topicsByProblem.set(a.problem, set);
     }
     const out: unknown[] = [];
+    const layered = layer();
     for (const e of store.listEnvelopes()) {
       const topics = [...(topicsByProblem.get(e.hash) ?? [])];
       const hay = `${e.envelope.problem.title} ${e.envelope.problem.slug} ${e.envelope.problem.done_when} ${topics.join(' ')}`.toLowerCase();
       if (q && !hay.includes(q)) continue;
-      const s = summary(e.hash);
+      const s = summary(e.hash, layered);
       if (s) out.push({ ...s, topics });
     }
     return out;
@@ -286,7 +353,7 @@ export function createTracker(options: TrackerOptions): Tracker {
         return;
       }
       if (path === '/.well-known/quilt' && method === 'GET') {
-        json(res, 200, { quilt: 1, tracker: options.name ?? url, url, peers: options.peers ?? [], limits, stamp: { name: stampNeeded }, sortition: 'receipts', chain: 'QX-11', identity: IDENTITY, hosted: options.extra !== undefined, routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/k/events', '/b/<hash>', '/n/<owner>/<slug>', '/search'] });
+        json(res, 200, { quilt: 1, tracker: options.name ?? url, url, peers: options.peers ?? [], limits, stamp: { name: stampNeeded }, sortition: SEED, challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX }, chain: 'QX-11', identity: IDENTITY, hosted: options.extra !== undefined, routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/k/events', '/b/<hash>', '/n/<owner>/<slug>', '/search'] });
         return;
       }
       if (path === '/' && method === 'GET') {
@@ -310,7 +377,7 @@ export function createTracker(options: TrackerOptions): Tracker {
         return;
       }
       let m: RegExpExecArray | null;
-      if ((m = /^\/p\/(sha256:[0-9a-f]{64})(?:\/(events|state|scrape|next))?$/.exec(path))) {
+      if ((m = /^\/p\/(sha256:[0-9a-f]{64})(?:\/(events|state|scrape|next|challenges))?$/.exec(path))) {
         const hash = m[1] as Hash;
         const sub = m[2];
         if (!store.getEnvelope(hash)) throw new Refusal(404, 'no such problem here');
@@ -328,8 +395,17 @@ export function createTracker(options: TrackerOptions): Tracker {
           return;
         }
         if (sub === 'state') {
-          const s = reduceProblem(hash)!;
-          json(res, 200, { problem: hash, now: now(), pieces: s.pieces.map((v) => ({ name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: v.state, availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length })), complete: s.complete, output: s.output?.hash ?? null, dropped: s.dropped });
+          // The layer's states, with the core's beside each: a core client reads `core`, one with QX-1 reads `state`.
+          const pl = view(hash)!;
+          const s = pl.fold;
+          json(res, 200, { problem: hash, now: now(), pieces: s.pieces.map((v) => {
+            const l = pl.byHash.get(v.piece.hash)!;
+            return { name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l.state, core: l.core, challenge: l.challenge?.id ?? null, availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length };
+          }), complete: s.complete, output: s.output?.hash ?? null, dropped: [...s.dropped, ...pl.dropped] });
+          return;
+        }
+        if (sub === 'challenges') {
+          json(res, 200, { problem: hash, now: now(), challenges: challenges(view(hash)!) });
           return;
         }
         if (sub === 'scrape') {
@@ -372,5 +448,5 @@ export function createTracker(options: TrackerOptions): Tracker {
     return new Promise((resolve) => server.listen(port, host, () => resolve(server)));
   }
 
-  return { handle, listen, reduceProblem };
+  return { handle, listen, reduceProblem, layer, view };
 }

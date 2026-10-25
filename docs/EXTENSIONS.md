@@ -30,11 +30,11 @@ A change that needs any of these is version 2 of the core, which is a different 
 
 ## Registry
 
-Numbers assigned 24 Oct 2026. Each is described in [PROTOCOL.md](PROTOCOL.md) for now and gets its own document when it is first implemented.
+Numbers assigned 24 Oct 2026. Each is described in [PROTOCOL.md](PROTOCOL.md) for now and gets its own document under `docs/ext/` when it is first implemented.
 
 | Number | Title | Status | Where |
 | --- | --- | --- | --- |
-| QX-1 | The challenge window: `challenge` and `verdict`, standing, panels by sortition | Draft | PROTOCOL.md, Sortition and The reducer |
+| QX-1 | The challenge window: `challenge` and `verdict`, standing, panels by sortition | Draft, one implementation (25 Oct 2026) | [ext/QX-1.md](ext/QX-1.md); PROTOCOL.md, Sortition and The reducer |
 | QX-2 | The `judge:n` verifier | Draft | PROTOCOL.md, Verifiers |
 | QX-3 | The `human` verifier and the seat receipt | Draft | PROTOCOL.md, Verifiers and Events |
 | QX-4 | Seeding, watch pieces and the standing list | Draft | PROTOCOL.md, Events and SWARM.md |
