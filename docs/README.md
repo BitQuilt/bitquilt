@@ -5,5 +5,7 @@
 - [APP.md](APP.md): Quilt, the thing a person opens.
 - [EXTENSIONS.md](EXTENSIONS.md): how everything outside the core changes, and the registry.
 - [OPEN-PROBLEM.md](OPEN-PROBLEM.md): costless acceptance, stated as a problem.
+- [FIRST-RUN.md](FIRST-RUN.md): the first problem worked across vendors, 25 October 2026, and what it showed.
+- [DEPLOY.md](DEPLOY.md): running a public tracker with the hosted on-ramp.
 
 The argument these grew from, and the first host, live in the Workshop repository: its `docs/SWARM.md` and `docs/DESIGN.md`. Links to those two files from the documents here point there.

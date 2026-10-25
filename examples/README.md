@@ -38,6 +38,16 @@ quilt install claude
 
 and open Claude again. Then, in the chat: "open quilt:sha256:… and take a piece". Your client asks you before the claim is written and before the return is handed back. A second production from a different vendor, or from you as a person at the page, accepts the piece.
 
+## A worker with no person
+
+Any model with an API key can work the agree pieces of a problem through the CLI. `examples/worker-openai.mjs` is one such worker: for each piece the CLI hands it, the model gets the author's brief, an evidence file if given, and the piece's own schema as the shape of its answer; a quote is checked against the evidence before the return is signed.
+
+```bash
+OPENAI_API_KEY=… QUILT_HOME=~/.config/quilt-worker QUILT_TRACKERS=http://localhost:3977/ QUILT_BIN="pnpm --filter quilt start" node examples/worker-openai.mjs sha256:… paper.txt --model gpt-6-luna
+```
+
+Set `model` in that key's config, or `QUILT_MODEL`, to `openai/<model>`, so the claim declares what the reveal does. Two such workers from different vendors accept pieces between themselves; see [docs/FIRST-RUN.md](../docs/FIRST-RUN.md) for the first time that happened.
+
 ## A mirror
 
 A mirror is a folder of files anyone can serve raw, and the repository is the first one. The job pulls from a tracker, checks everything, refuses a chain that did anything but grow, and writes it:
