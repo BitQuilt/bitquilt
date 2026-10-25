@@ -6,9 +6,10 @@
  * is a growth of the first's:
  *
  *   problems/<hash>.json   blobs/<hash>   ledger/<hash>.jsonl   ledger/identity.jsonl
- *   names/<owner>/<slug>   outputs/<hash>/output.json   keys.json   index.json
+ *   names/<owner>/<slug>   outputs/<hash>/output.json   keys.json   index.json   anchors/<problem>/<seq>.ots (QX-12, when asked)
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { type AnchorReport, type Head, anchorHeads } from './anchor.js';
 import { dirname, join } from 'node:path';
 import {
   type Envelope, type Hash, type Receipt, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, onlyAppends, problemHash, reduce, signedBy, verifyChain,
@@ -19,6 +20,8 @@ export interface MirrorOptions {
   out: string;
   fetchImpl?: typeof fetch;
   now?: () => string;
+  /** QX-12: stamp every chain's head through OpenTimestamps; true for the default calendars, or the calendars to ask. */
+  anchor?: boolean | { calendars?: string[] };
 }
 
 export interface MirrorReport {
@@ -26,6 +29,7 @@ export interface MirrorReport {
   identity: { lines: number; added: number };
   refused: string[];
   errors: string[];
+  anchors?: AnchorReport;
 }
 
 const withSlash = (u: string) => (u.endsWith('/') ? u : `${u}/`);
@@ -197,5 +201,17 @@ export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
   }
   writeFileSync(join(out, 'keys.json'), JSON.stringify(keys, null, 2) + '\n');
   writeFileSync(join(out, 'index.json'), JSON.stringify({ quilt: 1, mirrored: nowIso, problems: [...index].map(([hash, v]) => ({ hash, ...v })) }, null, 2) + '\n');
+  // QX-12: the head of every chain held here, stamped outside the ledger when asked.
+  if (options.anchor) {
+    const heads: Head[] = [];
+    const headOf = (file: string, problem: string) => {
+      const lines = readLines(file);
+      const last = lines[lines.length - 1];
+      if (last && typeof last.hash === 'string' && typeof last.seq === 'number') heads.push({ problem, seq: last.seq, hash: last.hash });
+    };
+    for (const p of report.problems) headOf(join(out, 'ledger', `${p.hash}.jsonl`), p.hash);
+    headOf(join(out, 'ledger', 'identity.jsonl'), 'identity');
+    report.anchors = await anchorHeads({ out, heads, ...(typeof options.anchor === 'object' && options.anchor.calendars ? { calendars: options.anchor.calendars } : {}), fetchImpl: f, now });
+  }
   return report;
 }

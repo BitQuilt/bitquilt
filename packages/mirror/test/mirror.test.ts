@@ -106,4 +106,26 @@ describe('the mirror', () => {
     const lines = readFileSync(join(out, 'ledger', `${P}.jsonl`), 'utf8').split('\n').filter(Boolean);
     expect(lines).toHaveLength(9);
   });
+it('anchors the head of every chain it holds when asked, and keeps a stamp it already has', async () => {
+    const calendarBytes = new Uint8Array([0xf0, 0x10, 0x01, 0x02, 0x03, 0x00, 0x83, 0xdf, 0xe3, 0x0d, 0x2e, 0xf9, 0x0c, 0x8e]);
+    let posts = 0;
+    const fetchImpl: typeof fetch = async (input, init) => {
+      if (String(input) === 'https://cal.test/digest') {
+        posts++;
+        return new Response(calendarBytes, { status: 200 });
+      }
+      return fetch(input, init);
+    };
+    const report = await mirror({ trackers: [one.base], out, now, anchor: { calendars: ['https://cal.test'] }, fetchImpl });
+    expect(report.anchors?.failed).toEqual([]);
+    expect(report.anchors?.stamped.map((a) => a.problem).sort()).toEqual([P, 'identity'].sort());
+    const head = JSON.parse(readFileSync(join(out, 'ledger', `${P}.jsonl`), 'utf8').trim().split('\n').pop()!) as { seq: number; hash: string };
+    expect(existsSync(join(out, 'anchors', P, `${head.seq}.ots`))).toBe(true);
+    const side = JSON.parse(readFileSync(join(out, 'anchors', P, `${head.seq}.json`), 'utf8')) as { hash: string; calendar: string };
+    expect(side.hash).toBe(head.hash);
+    expect(side.calendar).toBe('https://cal.test');
+    const again = await mirror({ trackers: [one.base], out, now, anchor: { calendars: ['https://cal.test'] }, fetchImpl });
+    expect(again.anchors?.kept).toBe(2);
+    expect(posts).toBe(2);
+  });
 });

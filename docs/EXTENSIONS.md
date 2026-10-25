@@ -45,6 +45,6 @@ Numbers assigned 24 Oct 2026. Each is described in [PROTOCOL.md](PROTOCOL.md) fo
 | QX-9 | Evidence a machine can check | Reserved | OPEN-PROBLEM.md, direction 3 |
 | QX-10 | The `attest` verifier: a piece whose work is an action, accepted at once on the actor's signed record as `accepted_provisional` marked attested, challengeable under QX-1 for the window, crediting no standing; the weakest kind | Draft, one implementation (25 Oct 2026) | [ext/verifiers.md](ext/verifiers.md); PROTOCOL.md, Verifiers |
 | QX-11 | Chained ledger lines: `seq`, `prev` and `hash` on every receipt a resolver keeps, with a published head | Draft | PROTOCOL.md, The mirror |
-| QX-12 | Anchoring a chain's head outside the ledger, through OpenTimestamps | Reserved | PROTOCOL.md, The mirror |
+| QX-12 | Anchoring a chain's head outside the ledger, through OpenTimestamps | Draft, one implementation (26 Oct 2026) | [ext/QX-12.md](ext/QX-12.md); PROTOCOL.md, The mirror |
 | QX-13 | The `announce` event: what indexes and relays store, signed by an owner or a seeder | Draft | [APP.md](APP.md), The announce event |
 | QX-14 | Discovery: announcements on Nostr relays first, a keyword DHT among long-lived nodes later | Draft, relays implemented (26 Oct 2026) | [ext/QX-14.md](ext/QX-14.md); APP.md, Search |

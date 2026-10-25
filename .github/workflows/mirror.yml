@@ -18,7 +18,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @bitquilt/mirror start --trackers "${{ vars.BITQUILT_TRACKERS }}" --out mirror
+      - run: pnpm --filter @bitquilt/mirror start --trackers "${{ vars.BITQUILT_TRACKERS }}" --out mirror --anchor
       - name: commit what grew
         run: |
           git config user.name "bitquilt mirror"

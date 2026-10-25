@@ -70,6 +70,8 @@ A mirror is a folder of files anyone can serve raw, and the repository is the fi
 pnpm --filter @bitquilt/mirror start --trackers http://localhost:3977/ --out ./mirror
 ```
 
+With `--anchor`, the job also stamps every chain's head through OpenTimestamps into `anchors/<problem>/<seq>.ots`, so the time a head existed is attested by a Bitcoin block and not by the tracker's word; `ots upgrade` and `ots verify` from the reference client read the files.
+
 Point a client at the folder served over HTTP (GitHub serves a repository's files raw) with `mirrors` in its config, stop the tracker, and `quilt open` still answers; a claim and a return made then wait in the queue until a tracker is back. In the repository, `.github/workflows/mirror.yml` runs the job every fifteen minutes against the trackers named in the `BITQUILT_TRACKERS` variable and commits what grew.
 
 ## The executables
