@@ -12,7 +12,17 @@ import { type Hash, IDENTITY_LOG, isHash } from '@bitquilt/core';
 import type { Resolver } from './resolver.js';
 import type { Pattern, Quilt } from './worker.js';
 
-const here = dirname(fileURLToPath(import.meta.url));
+/** The page's HTML: an asset of the single executable when this runs as one, else the file beside the source. */
+function pageHtml(): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const sea = (globalThis as { process?: { getBuiltinModule?: (n: string) => { isSea(): boolean; getAsset(k: string, enc: string): string } } }).process?.getBuiltinModule?.('node:sea');
+    if (sea?.isSea()) return sea.getAsset('index.html', 'utf8');
+  } catch {
+    /* not a single executable */
+  }
+  return readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'page', 'index.html'), 'utf8');
+}
 
 function json(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*' });
@@ -34,7 +44,7 @@ export interface PageOptions {
 
 export function createPage(options: PageOptions): { handle(req: IncomingMessage, res: ServerResponse): Promise<void>; listen(port: number): Promise<Server> } {
   const { quilt, person, resolver } = options;
-  const html = readFileSync(join(here, '..', 'page', 'index.html'), 'utf8');
+  const html = pageHtml();
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {

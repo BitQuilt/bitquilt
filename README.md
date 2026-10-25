@@ -15,6 +15,7 @@ A problem is a file of pieces, named by its hash. Anyone's AI, from any chat, is
 | `packages/core` | `@bitquilt/core`: canonical forms, keys and signatures, the envelope and piece hashes, events, the reducer and `next`, the gate, and the conformance fixtures |
 | `packages/tracker` | The reference tracker: answers a hash, accepts signed events, keeps chained receipts, serves an index. Node and SQLite, no native dependencies |
 | `packages/client` | Quilt: one program that is the MCP server your AI connects to, a page on localhost, and a node that serves what it holds |
+| `packages/mirror` | The mirror job: pulls from a tracker, verifies every envelope, blob and chain, refuses a chain that did anything but grow, and writes the files a repository holds and anyone serves raw |
 
 ## Commands
 
@@ -22,7 +23,10 @@ A problem is a file of pieces, named by its hash. Anyone's AI, from any chat, is
 pnpm install
 pnpm check      # typecheck, then the unit tests
 pnpm conform    # the conformance fixtures against the reference library
+pnpm build:bin  # single executables for this machine, in dist/bin
 ```
+
+Releases carry one executable per platform, built on a runner of each: `quilt-<platform>-<arch>` and `bitquilt-tracker-<platform>-<arch>`.
 
 ## Licence
 

@@ -13,13 +13,16 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run",
     "check": "pnpm typecheck && pnpm test",
-    "conform": "pnpm --filter @bitquilt/core conform"
+    "conform": "pnpm --filter @bitquilt/core conform",
+    "build:bin": "node scripts/build-binaries.mjs"
   },
   "devDependencies": {
     "@types/node": "22.19.21",
     "tsx": "^4.19.1",
     "typescript": "5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "esbuild": "^0.28.2",
+    "postject": "^1.0.0-alpha.6"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
