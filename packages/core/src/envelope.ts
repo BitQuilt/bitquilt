@@ -29,6 +29,9 @@ export interface Workspace {
 export interface Check {
   file: string;
   image?: string;
+  /** For a score piece: how far apart two scores may be and still agree (0 when absent), and which direction is better (higher when absent). */
+  tolerance?: number;
+  better?: 'higher' | 'lower';
 }
 
 export interface PieceDef {
@@ -155,6 +158,11 @@ export function envelopeProblems(e: unknown): string[] {
       if ('schema' in d) out.push(`${at}.schema: a check or score piece has none; its return is a patch`);
       if (!isRecord(d.workspace) || typeof d.workspace.repo !== 'string' || typeof d.workspace.base !== 'string') out.push(`${at}.workspace: repo and base`);
       if (!isRecord(d.check) || typeof d.check.file !== 'string' || (d.check.image !== undefined && typeof d.check.image !== 'string')) out.push(`${at}.check: file, and optionally image`);
+      else {
+        if (d.check.tolerance !== undefined && !(typeof d.check.tolerance === 'number' && d.check.tolerance >= 0 && Number.isFinite(d.check.tolerance))) out.push(`${at}.check.tolerance: a number from 0`);
+        if (d.check.better !== undefined && d.check.better !== 'higher' && d.check.better !== 'lower') out.push(`${at}.check.better: higher or lower`);
+        for (const k of Object.keys(d.check)) if (!['file', 'image', 'tolerance', 'better'].includes(k)) out.push(`${at}.check.${k}: not a field of a check`);
+      }
       if ('agree' in d) out.push(`${at}.agree: a check or score piece has none`);
     } else {
       if (d.schema === undefined) out.push(`${at}.schema: required`);

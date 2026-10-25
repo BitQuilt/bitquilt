@@ -4,3 +4,8 @@ export * from './gate.js';
 export * from './schema.js';
 export * from './envelope.js';
 export * from './keys.js';
+export * from './events.js';
+export * from './chain.js';
+export * from './stamp.js';
+export * from './reduce.js';
+export * from './next.js';
