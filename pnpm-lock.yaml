@@ -33,6 +33,9 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
+      '@bitquilt/mirror':
+        specifier: workspace:*
+        version: link:../mirror
       '@bitquilt/tracker':
         specifier: workspace:*
         version: link:../tracker
@@ -51,6 +54,16 @@ importers:
       '@scure/bip39':
         specifier: ^2.0.0
         version: 2.4.0
+
+  packages/mirror:
+    dependencies:
+      '@bitquilt/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@bitquilt/tracker':
+        specifier: workspace:*
+        version: link:../tracker
 
   packages/tracker:
     dependencies:

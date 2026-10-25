@@ -23,6 +23,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@bitquilt/tracker": "workspace:*"
+    "@bitquilt/tracker": "workspace:*",
+    "@bitquilt/mirror": "workspace:*"
   }
 }

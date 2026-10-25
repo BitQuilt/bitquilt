@@ -78,6 +78,11 @@ export class Resolver {
   /** The hash a mutable name points at, from the first place that knows it. */
   async resolveName(owner: string, slug: string, link: Link): Promise<Hash | null> {
     for (const p of this.places(link)) {
+      if (p.kind === 'mirror') {
+        const text = (await this.getText(`${p.url}names/${owner}/${slug}`))?.trim();
+        if (text && /^sha256:[0-9a-f]{64}$/.test(text)) return text as Hash;
+        continue;
+      }
       const j = (await this.getJson(`${p.url}n/${owner}/${slug}`)) as { hash?: Hash } | null;
       if (j?.hash) return j.hash;
     }
@@ -90,7 +95,7 @@ export class Resolver {
 
   async envelope(hash: Hash, link: Link): Promise<{ envelope: Envelope; from: string | null } | null> {
     for (const p of this.places(link)) {
-      const j = await this.getJson(`${p.url}p/${hash}`);
+      const j = await this.getJson(p.kind === 'mirror' ? `${p.url}problems/${hash}.json` : `${p.url}p/${hash}`);
       if (j && envelopeProblems(j).length === 0 && problemHash(j as Envelope) === hash) {
         writeFileSync(this.cachePath('envelope', hash), JSON.stringify(j));
         return { envelope: j as Envelope, from: p.kind === 'tracker' ? p.url : null };
@@ -111,7 +116,7 @@ export class Resolver {
       if (hashBytes(b) === hash) return b;
     }
     for (const p of this.places(link)) {
-      const b = await this.getBytes(`${p.url}b/${hash}`);
+      const b = await this.getBytes(p.kind === 'mirror' ? `${p.url}blobs/${hash}` : `${p.url}b/${hash}`);
       if (b && hashBytes(b) === hash) {
         writeFileSync(cached, b);
         return b;
@@ -123,7 +128,7 @@ export class Resolver {
   /** A problem's chained receipts from the first place that serves a chain that verifies, else the cache. */
   async receipts(hash: Hash, link: Link, genesis: Hash = hash): Promise<Receipt[]> {
     for (const p of this.places(link)) {
-      const lines = await this.getLines(`${p.url}p/${hash}/events`, p.url);
+      const lines = p.kind === 'mirror' ? await this.getFileLines(`${p.url}ledger/${hash}.jsonl`) : await this.getLines(`${p.url}p/${hash}/events`, p.url);
       if (lines && verifyChain(lines, genesis).ok) {
         writeFileSync(this.cachePath('ledger', hash), lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));
         return lines;
@@ -156,9 +161,21 @@ export class Resolver {
     return out;
   }
 
+  /** A mirror's ledger file, whole. An absent file is an empty log, not a failure. */
+  private async getFileLines(url: string): Promise<Receipt[] | null> {
+    try {
+      const r = await this.fetchImpl(url, { signal: AbortSignal.timeout(15000) });
+      if (r.status === 404) return [];
+      if (!r.ok) return null;
+      return (await r.text()).split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
+    } catch {
+      return null;
+    }
+  }
+
   async identity(link: Link): Promise<Receipt[]> {
     for (const p of this.places(link)) {
-      const lines = await this.getLines(`${p.url}k/events`, p.url);
+      const lines = p.kind === 'mirror' ? await this.getFileLines(`${p.url}ledger/identity.jsonl`) : await this.getLines(`${p.url}k/events`, p.url);
       if (lines && verifyChain(lines, IDENTITY_LOG).ok) {
         writeFileSync(join(this.home, 'cache', 'identity.jsonl'), lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));
         return lines;
