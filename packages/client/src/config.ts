@@ -11,6 +11,8 @@ import { type Address, type Capability, addressOf, isPhrase, newPhrase, secretFr
 export interface Config {
   trackers: string[];
   mirrors: string[];
+  /** Nostr relays announcements are posted to and searched on (QX-14); none by default. */
+  relays: string[];
   name?: string;
   /** The model declared on claims and reveals when the host does not say, as vendor/model. */
   model?: string;
@@ -23,6 +25,7 @@ export interface Config {
 export const DEFAULT_CONFIG: Config = {
   trackers: ['http://localhost:3977/'],
   mirrors: [],
+  relays: [],
   can: ['web', 'files', 'shell'],
   port: 3978,
 };
@@ -42,6 +45,9 @@ export function loadConfig(home = quiltHome()): Config {
   const env = process.env.QUILT_TRACKERS?.split(',').map((s) => s.trim()).filter(Boolean);
   const config: Config = { ...DEFAULT_CONFIG, ...fromFile };
   if (env?.length) config.trackers = env;
+  const relays = process.env.QUILT_RELAYS?.split(',').map((x) => x.trim()).filter(Boolean);
+  if (relays?.length) config.relays = relays;
+  if (!Array.isArray(config.relays)) config.relays = [];
   if (process.env.QUILT_PORT_PAGE) config.port = Number(process.env.QUILT_PORT_PAGE);
   if (process.env.QUILT_MODEL) config.model = process.env.QUILT_MODEL;
   return config;

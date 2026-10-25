@@ -188,12 +188,12 @@
     var r = $('results'); r.textContent = 'Searching…';
     api('/api/search?q=' + encodeURIComponent(q)).then(function (j) {
       r.textContent = '';
-      if (!j.problems.length) { r.appendChild(el('p', 'quiet', 'Nothing matched on the trackers this client knows.')); return; }
+      if (!j.problems.length) { r.appendChild(el('p', 'quiet', 'Nothing matched on the trackers and relays this client knows.')); return; }
       j.problems.forEach(function (p) {
         var c = el('div', 'card');
         var h = el('h3', null, p.title); c.appendChild(h);
         c.appendChild(el('div', 'meta', p.slug + ' · by ' + p.owner + (p.topics.length ? ' · ' + p.topics.join(', ') : '') + ' · at ' + p.tracker));
-        c.appendChild(el('div', 'meta', p.pieces + ' pieces: ' + countsOf(p.counts)));
+        c.appendChild(el('div', 'meta', p.via === 'relay' ? 'found on a relay; its map is read when you open it' : p.pieces + ' pieces: ' + countsOf(p.counts)));
         var b = el('button', null, 'Open'); b.addEventListener('click', function () { openProblem(p.problem); }); c.appendChild(b);
         r.appendChild(c);
       });

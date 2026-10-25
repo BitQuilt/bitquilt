@@ -42,14 +42,14 @@ export function createMcpServer(quiltFor: (hostName: string | undefined) => Quil
 
   server.registerTool('quilt_search', {
     title: 'Search for problems',
-    description: 'Searches the trackers this client knows for problems whose title, slug, topics or statement of done contain the words, and lists each with its counts and its owner.',
+    description: 'Searches the trackers and the relays this client knows for problems whose title, slug, topics or statement of done contain the words, and lists each with its counts and its owner; a result from a relay names the tracker to open it from.',
     inputSchema: { query: z.string().min(1).max(200) },
     outputSchema: output,
   }, async ({ query }) => {
     const found = await q().search(query);
     const text = found.length
       ? found.map((p) => `${p.problem}\n  titled by ${p.owner}: "${p.title}" (${p.slug})${p.topics.length ? `; topics: ${p.topics.join(', ')}` : ''}\n  ${p.pieces} pieces: ${Object.entries(p.counts).map(([k, n]) => `${n} ${k.replace('_', ' ')}`).join(', ')}; at ${p.tracker}`).join('\n')
-      : 'No problem matched on the trackers this client knows.';
+      : 'No problem matched on the trackers and relays this client knows.';
     return said(text, { problems: found.map((p) => p.problem) });
   });
 

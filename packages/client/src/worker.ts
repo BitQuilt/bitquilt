@@ -11,6 +11,7 @@ import {
 } from '@bitquilt/core';
 import type { Config, Identity } from './config.js';
 import { type Link, makeLink, parseLink } from './link.js';
+import { announcementEvent, postToRelays, searchRelays } from './relay.js';
 import type { Resolver } from './resolver.js';
 
 export const SIDES = ['challenger', 'author'] as const;
@@ -169,7 +170,7 @@ export class Quilt {
   }
 
   me() {
-    return { address: this.identity?.address ?? null, name: this.config.name ?? null, model: this.model(), can: this.config.can, trackers: this.config.trackers, mirrors: this.config.mirrors, queued: this.resolver.queued(), problems: Object.keys(this.library.problems).length };
+    return { address: this.identity?.address ?? null, name: this.config.name ?? null, model: this.model(), can: this.config.can, trackers: this.config.trackers, mirrors: this.config.mirrors, relays: this.config.relays, queued: this.resolver.queued(), problems: Object.keys(this.library.problems).length };
   }
 
   /** The problem behind a link or hash, resolved and reduced, with the tracker's own view of its pieces where one answered. */
@@ -241,17 +242,23 @@ export class Quilt {
     return lines.join('\n');
   }
 
-  async search(query: string): Promise<{ problem: Hash; title: string; slug: string; owner: string; pieces: number; counts: Record<string, number>; topics: string[]; tracker: string }[]> {
-    const out = new Map<string, { problem: Hash; title: string; slug: string; owner: string; pieces: number; counts: Record<string, number>; topics: string[]; tracker: string }>();
+  async search(query: string): Promise<{ problem: Hash; title: string; slug: string; owner: string; pieces: number; counts: Record<string, number>; topics: string[]; tracker: string; via: 'tracker' | 'relay' }[]> {
+    const out = new Map<string, { problem: Hash; title: string; slug: string; owner: string; pieces: number; counts: Record<string, number>; topics: string[]; tracker: string; via: 'tracker' | 'relay' }>();
     for (const t of this.config.trackers) {
       try {
         const r = await fetch(`${t}search?q=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(8000) });
         if (!r.ok) continue;
         const j = (await r.json()) as { problems: { problem: Hash; title: string; slug: string; owner: string; pieces: number; counts: Record<string, number>; topics: string[] }[] };
-        for (const p of j.problems) if (!out.has(p.problem)) out.set(p.problem, { ...p, tracker: t });
+        for (const p of j.problems) if (!out.has(p.problem)) out.set(p.problem, { ...p, tracker: t, via: 'tracker' });
       } catch {
         /* a tracker that does not answer is skipped */
       }
+    }
+    // QX-14: what the relays carry, with the tracker the announce named as the place to open it.
+    for (const a of await searchRelays(this.config.relays, query)) {
+      if (out.has(a.problem)) continue;
+      const counts = (a.announce.body as { counts?: Record<string, number> }).counts ?? {};
+      out.set(a.problem, { problem: a.problem, title: a.title, slug: a.slug, owner: a.owner, pieces: Object.values(counts).reduce((n, c) => n + c, 0), counts, topics: a.topics, tracker: a.trackers[0] ?? a.relay, via: 'relay' });
     }
     return [...out.values()];
   }
@@ -515,7 +522,7 @@ export class Quilt {
   }
 
   /** Builds, signs and publishes an envelope from a pattern, with its blobs; then announces it. */
-  async publish(pattern: Pattern): Promise<{ hash: Hash; link: string; posted: string[]; refused: string[] }> {
+  async publish(pattern: Pattern): Promise<{ hash: Hash; link: string; posted: string[]; refused: string[]; relays: string[] }> {
     const id = this.needKey();
     const blobs = new Map<Hash, Uint8Array>();
     const data: Record<string, Hash> = {};
@@ -544,6 +551,7 @@ export class Quilt {
     const body = JSON.stringify({ envelope, blobs: Object.fromEntries([...blobs].map(([h, b]) => [h, Buffer.from(b).toString('base64')])) });
     const posted: string[] = [];
     const refused: string[] = [];
+    let relays: string[] = [];
     for (const t of this.config.trackers) {
       try {
         const r = await fetch(`${t}p`, { method: 'POST', body, headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(15000) });
@@ -556,13 +564,14 @@ export class Quilt {
     if (posted.length) {
       const announce = this.sign({ quilt: 1, type: 'announce', problem: hash, key: id.address, ts: new Date().toISOString(), body: { title: problem.title, slug: problem.slug, done_when: problem.done_when, topics: pattern.topics ?? [], counts: {}, trackers: posted, mirrors: this.config.mirrors } });
       await this.resolver.post(announce, hash, posted);
+      if (this.config.relays.length) relays = (await postToRelays(this.config.relays, announcementEvent(announce, id.secret))).posted;
       const version = this.sign({ quilt: 1, type: 'version', problem: hash, key: id.address, ts: new Date().toISOString(), body: { slug: problem.slug, hash } });
       await this.resolver.post(version, hash, posted);
     }
     const now = new Date().toISOString();
     this.library.problems[hash] = { title: problem.title, slug: problem.slug, trackers: posted, first: now, last: now };
     this.save();
-    return { hash, link: makeLink(hash, posted, problem.slug), posted, refused };
+    return { hash, link: makeLink(hash, posted, problem.slug), posted, refused, relays };
   }
 
   /** A name event for this key. */

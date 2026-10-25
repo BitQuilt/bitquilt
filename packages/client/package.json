@@ -20,10 +20,14 @@
   "dependencies": {
     "@bitquilt/core": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.31.0",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@bitquilt/mirror": "workspace:*",
     "@bitquilt/tracker": "workspace:*",
-    "@bitquilt/mirror": "workspace:*"
+    "@types/ws": "^8.18.2",
+    "ws": "^8.22.0"
   }
 }

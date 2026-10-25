@@ -47,4 +47,4 @@ Numbers assigned 24 Oct 2026. Each is described in [PROTOCOL.md](PROTOCOL.md) fo
 | QX-11 | Chained ledger lines: `seq`, `prev` and `hash` on every receipt a resolver keeps, with a published head | Draft | PROTOCOL.md, The mirror |
 | QX-12 | Anchoring a chain's head outside the ledger, through OpenTimestamps | Reserved | PROTOCOL.md, The mirror |
 | QX-13 | The `announce` event: what indexes and relays store, signed by an owner or a seeder | Draft | [APP.md](APP.md), The announce event |
-| QX-14 | Discovery: announcements on Nostr relays first, a keyword DHT among long-lived nodes later | Reserved | APP.md, Search |
+| QX-14 | Discovery: announcements on Nostr relays first, a keyword DHT among long-lived nodes later | Draft, relays implemented (26 Oct 2026) | [ext/QX-14.md](ext/QX-14.md); APP.md, Search |

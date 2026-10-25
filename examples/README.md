@@ -44,6 +44,14 @@ Or install the bundle. `pnpm build:mcpb` builds `dist/quilt.mcpb`, an MCP Bundle
 
 Then, in the chat: "open quilt:sha256:… and take a piece". Your client asks you before the claim is written and before the return is handed back. A second production from a different vendor, or from you as a person at the page, accepts the piece.
 
+## Keeping a problem, and something to do
+
+`quilt seed <problem> on` posts a seed event: the key is then a seeder, offered the problem's watch pieces first, and the problem sits in the client's standing list. `quilt next` with no problem named asks the standing list first and then each tracker's offer, which orders the tracker's problems reciprocal first (the problems of people who have worked yours), rarest next, every tenth a newcomer's. The page has the same two doors.
+
+## Found on relays
+
+With `relays` in the config, or `QUILT_RELAYS`, a publish also posts its announcement to those Nostr relays as a signed event of its own, and `quilt search` asks the relays beside the trackers, so a problem is found by its name with no tracker in the way. A result from a relay carries the trackers the announce named as the place to open it.
+
 ## A worker with no person
 
 Any model with an API key can work the agree pieces of a problem through the CLI. `examples/worker-openai.mjs` is one such worker: for each piece the CLI hands it, the model gets the author's brief, an evidence file if given, and the piece's own schema as the shape of its answer; a quote is checked against the evidence before the return is signed.
