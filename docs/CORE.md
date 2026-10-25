@@ -64,6 +64,8 @@ The id of an event is the hash of the event without `sig` and `sig_to`. `piece` 
 
 The challenge, verdict, seed and hide events are extensions, described in PROTOCOL.md; a core client ignores them.
 
+**Where events live.** An event about a piece, and a `version` or `output`, names its problem and is kept in that problem's log. `name`, `delegate`, `revoke` and `rotate` name no problem and are kept in a log of their own, the identity log, whose chain (section 11 of PROTOCOL.md, QX-11) begins at the hash of the text `quilt:identity`. A resolver serves it beside the problems it carries, and a reducer takes its receipts along with the problem's.
+
 ## 5. Receipts
 
 A resolver serves an event wrapped:

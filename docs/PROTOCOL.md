@@ -271,7 +271,7 @@ piece = next(state, key, client, now)
 
 ## Sealing: commit, then reveal
 
-The second worker must not be able to copy the first, and there is no server to trust with the first's return. So a return is handed in twice. The `commit` carries the hash of the return and a nonce, and is public at once: a return exists, and availability moves. The `reveal` carries the return and the nonce. A client reveals when a second commit on the piece appears, when its lease ends, or when its person says so; a commit never revealed by the end of its lease and one more lease's grace is abandoned. A tracker may, as a courtesy to readers, hold an early reveal out of its pages until a second is in; the protocol does not depend on it.
+The second worker must not be able to copy the first, and there is no server to trust with the first's return. So a return is handed in twice. The `commit` carries the hash of the return and a nonce, and is public at once: a return exists, and availability moves. The `reveal` carries the return and the nonce. A client reveals when a second commit on the piece appears, when its lease ends, or when its person says so (the first Quilt reveals at once, taking the person's hand-in as the say-so); a commit never revealed by the end of its lease and one more lease's grace is abandoned. A tracker may, as a courtesy to readers, hold an early reveal out of its pages until a second is in; the protocol does not depend on it.
 
 ## The link
 
@@ -293,6 +293,7 @@ The site. What it serves is checkable from hashes and signatures; what it may do
 | `POST /p` | Publish an envelope. Validated as above. `201` with the hash |
 | `GET /p/<hash>` | The envelope |
 | `GET /p/<hash>/events?since=<cursor>` | Receipts as the tracker's chained lines, oldest first, paged |
+| `GET /k/events?since=<cursor>`, `POST /k/events` | The identity log: `name`, `delegate`, `revoke` and `rotate`, which name no problem, chained from the hash of `quilt:identity` |
 | `POST /p/<hash>/events` | One signed event. `202`, or `4xx` with the reason: signature, rule, gate, rate, stamp |
 | `GET /p/<hash>/next?key=<address>` | Assisted assignment: runs `next` for the client's declaration, takes the lease in one conditional update, returns the rendered piece |
 | `GET /p/<hash>/state` | The tracker's reduced view, a convenience; a client may recompute |
@@ -319,6 +320,7 @@ The ledger job, the one automated writer to `main`, writes:
 problems/<hash>.json       the envelope
 blobs/<hash>               the data blobs
 ledger/<hash>.jsonl        receipts in receipt order, append-only
+ledger/identity.jsonl      the identity log, chained from the hash of quilt:identity
 names/<owner>/<slug>       the latest version hash
 outputs/<hash>/            the assembled output when the reducer says complete
 keys.json                  address, latest name event, delegations in force

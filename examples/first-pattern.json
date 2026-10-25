@@ -1,0 +1,33 @@
+{
+  "title": "Does the BitQuilt core say what the protocol says it says?",
+  "done_when": "Every statement has a verdict with a quote from CORE.md.",
+  "slug": "core-says",
+  "topics": ["bitquilt", "spec", "citations"],
+  "settings": { "challenge_window_h": 48, "lease_h": 2, "endgame_at": 1, "budget": 10, "patch_max": 0 },
+  "pieces": {
+    "claim/*": {
+      "count": 3,
+      "verifier": "agree",
+      "requires": ["files"],
+      "brief": "Statement {n} about the BitQuilt core: {claim.text} Read docs/CORE.md in the BitQuilt repository and return whether the core says this, with a quote of at most 25 words from it as evidence.",
+      "data": { "claim": "claims" },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["verdict", "quote"],
+        "properties": {
+          "verdict": { "enum": ["supports", "partly", "contradicts", "unreachable"] },
+          "quote": { "type": "string", "maxLength": 200 }
+        }
+      },
+      "agree": ["verdict"]
+    }
+  },
+  "data": {
+    "claims": [
+      { "text": "A claim on a piece is a lock that keeps other keys from working it." },
+      { "text": "The plain-text gate decides whether a reveal is valid and so decides the map." },
+      { "text": "Two events on one problem that share a receipt time are ordered by their ids." }
+    ]
+  }
+}
