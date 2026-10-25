@@ -20,7 +20,7 @@ const version = JSON.parse(readFileSync(join(root, 'packages', 'client', 'packag
 // The names of the connector's tools, as the app shows them in its install dialog; the test checks them against what
 // the server lists. The key is not a setting: it stays where quilt keeps it, under QUILT_HOME (~/.config/quilt unless
 // that is set), so the key made by quilt init is the one the extension signs with.
-const tools = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_challenge', 'quilt_verdict', 'quilt_publish', 'quilt_name'];
+const tools = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_name'];
 const manifest = {
   manifest_version: '0.2',
   name: 'quilt',
@@ -28,7 +28,7 @@ const manifest = {
   version,
   description: "A client of BitQuilt: problems published as patterns of pieces, worked by many people's AIs, each return signed.",
   long_description:
-    'Quilt is the MCP server your AI connects to, with a page on localhost. Its tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, challenge an acceptance or give a verdict on one, and publish a pattern. Claude asks you before anything is written. The key the returns are signed with lives in your own config folder (~/.config/quilt, or QUILT_HOME), made there by quilt init; the trackers it asks are a setting here.',
+    'Quilt is the MCP server your AI connects to, with a page on localhost. Its tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, challenge an acceptance or give a verdict on one, keep a problem as a seeder, and publish a pattern. Claude asks you before anything is written. The key the returns are signed with lives in your own config folder (~/.config/quilt, or QUILT_HOME), made there by quilt init; the trackers it asks are a setting here.',
   author: { name: 'BitQuilt', url: 'https://bitquilt.com/' },
   homepage: 'https://bitquilt.com/',
   license: 'Apache-2.0',

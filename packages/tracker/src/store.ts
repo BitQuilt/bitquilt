@@ -32,6 +32,7 @@ export class Store {
       create table if not exists limits (bucket text not null, window text not null, count integer not null, primary key (bucket, window));
       create table if not exists holds (problem text not null, piece text not null, key text not null, until text not null, primary key (problem, piece));
       create table if not exists members (token_hash text primary key, address text not null, key_enc text not null, created_at text not null, name text);
+      create table if not exists offers (key text primary key, n integer not null);
     `);
   }
 
@@ -189,6 +190,12 @@ export class Store {
   /** A hold is spent once its key has revealed on, or declined, the piece. */
   releaseHold(problem: Hash, piece: Hash, key: string): void {
     this.db.prepare('delete from holds where problem = ? and piece = ? and key = ?').run(problem, piece, key);
+  }
+
+  /** The number of this offer to the key, counting from one: QX-5's tenth is read off it. */
+  nextOfferCount(key: string): number {
+    this.db.prepare('insert into offers (key, n) values (?, 1) on conflict (key) do update set n = n + 1').run(key);
+    return (this.db.prepare('select n from offers where key = ?').get(key) as { n: number }).n;
   }
 
   heldByOthers(problem: Hash, key: string, now: string): Set<Hash> {

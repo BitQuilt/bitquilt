@@ -55,12 +55,12 @@ export function createMcpServer(quiltFor: (hostName: string | undefined) => Quil
 
   server.registerTool('quilt_next', {
     title: 'Take the rarest piece',
-    description: 'The rarest piece of a problem that fits this client, claimed for it: the author\'s brief as their quoted words, the fields a return has and which must agree, what the piece requires, and the lease in hours. The piece hash and the problem hash come back as handles for quilt_return.',
-    inputSchema: { problem: z.string().describe('The problem, as a link or a hash') },
+    description: 'The rarest piece of a problem that fits this client, claimed for it: the author\'s brief as their quoted words, the fields a return has and which agree, what the piece requires, and the lease in hours. With no problem named, the standing list is asked first and then each tracker\'s offer: the problems of people who have worked this key\'s own problems, then the rarest, with every tenth offer a newcomer\'s. The piece hash and the problem hash come back as handles for quilt_return.',
+    inputSchema: { problem: z.string().optional().describe('The problem, as a link or a hash; left out, something to do') },
     outputSchema: output,
   }, async ({ problem }) => {
     const quilt = q();
-    const { hash, pick, posted, author } = await quilt.next(problem);
+    const { hash, pick, posted, author } = await quilt.next(problem ?? '');
     const text = `${quilt.pieceText(hash, pick, author)}\n${posted.queued ? 'The claim waits in the queue; no tracker answered.' : `The claim was posted to ${posted.at}.`}`;
     return said(text, { problem: hash, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, requires: pick.requires, lease_h: pick.lease_h, agree: pick.agree, schema: pick.schema ?? null });
   });
@@ -116,6 +116,16 @@ export function createMcpServer(quiltFor: (hostName: string | undefined) => Quil
   }, async ({ problem, piece, challenge, for: side, return: ret }) => {
     const r = await q().verdict(problem as Hash, piece as Hash, challenge as Hash, side, ret as Record<string, unknown> | undefined);
     return said(`Verdict for the ${side} ${r.queued ? 'queued' : `posted to ${r.at}`}.`, { problem, piece, challenge, verdict: r.id });
+  });
+
+  server.registerTool('quilt_seed', {
+    title: 'Keep a problem',
+    description: 'A seed event on the problem\'s log, on or off. On, this key is a seeder: offered the problem\'s watch pieces first, with the problem in this client\'s standing list, asked before the trackers\' offers. Seeding is a statement rather than a stake; a reader of the log sees who keeps a problem and since when.',
+    inputSchema: { problem: z.string().describe('The problem hash'), on: z.boolean().describe('true to keep it, false to stop') },
+    outputSchema: output,
+  }, async ({ problem, on }) => {
+    const r = await q().seed(problem as Hash, on);
+    return said(`${on ? 'Seeding' : 'No longer seeding'} ${problem}: ${r.queued ? 'the seed waits in the queue' : `posted to ${r.at}`}.`, { problem, on });
   });
 
   server.registerTool('quilt_publish', {

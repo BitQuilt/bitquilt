@@ -1,6 +1,6 @@
 # QX-4: seeding, watch pieces and the standing list
 
-Status: Draft, written 26 October 2026 ahead of its first implementation in the reference tracker and the Quilt client. [EXTENSIONS.md](../EXTENSIONS.md) says what an extension may do; [PROTOCOL.md](../PROTOCOL.md) (Events, In BitTorrent's terms) and the Workshop's SWARM.md name this one.
+Status: Draft. Written 26 October 2026 and first implemented the same day in the reference tracker (`packages/tracker/src/seeding.ts`) and the Quilt client. [EXTENSIONS.md](../EXTENSIONS.md) says what an extension may do; [PROTOCOL.md](../PROTOCOL.md) (Events, In BitTorrent's terms) and the Workshop's SWARM.md name this one.
 
 **Abstract.** A torrent stays alive because someone keeps seeding it after the download is done. A problem on BitQuilt is finished when its pieces are accepted, and then it goes stale: a source is withdrawn, a fact changes, nobody is watching. This extension gives a problem seeders, roots that have said they are keeping it, and gives the pattern a way to say what keeping it means: watch pieces, which are offered to the seeders first. It adds one event and one piece of arithmetic, and changes nothing the core computes.
 

@@ -60,8 +60,20 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       if (path === '/api/search') return json(res, 200, { problems: await quilt.search(u.searchParams.get('q') ?? '') });
       if (path === '/api/open') {
         const { hash, state, tracker } = await quilt.open(u.searchParams.get('link') ?? '');
+        let seed: { seeders: number; last_seeded: string | null } = { seeders: 0, last_seeded: null };
+        if (tracker) {
+          try {
+            const r = await fetch(`${tracker}p/${hash}/scrape`, { signal: AbortSignal.timeout(5000) });
+            if (r.ok) {
+              const j = (await r.json()) as { seeders?: number; last_seeded?: string | null };
+              seed = { seeders: j.seeders ?? 0, last_seeded: j.last_seeded ?? null };
+            }
+          } catch {
+            /* the map is shown without the seeders */
+          }
+        }
         return json(res, 200, {
-          problem: hash, tracker, title: state.envelope.problem.title, done_when: state.envelope.problem.done_when, owner: state.envelope.problem.owner, complete: state.complete,
+          problem: hash, tracker, seeders: seed.seeders, last_seeded: seed.last_seeded, seeding: Boolean(quilt.library.seeding[hash]), title: state.envelope.problem.title, done_when: state.envelope.problem.done_when, owner: state.envelope.problem.owner, complete: state.complete,
           pieces: state.pieces.map((v) => ({ name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: v.state, requires: v.piece.requires })),
           accepted: quilt.acceptedText(state), summary: quilt.summary(hash, state, tracker),
         });
@@ -70,6 +82,10 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       if (path === '/api/next' && method === 'GET') {
         const { hash, pick, posted, author } = await person.next(u.searchParams.get('problem') ?? '');
         return json(res, 200, { problem: hash, piece: pick.piece.hash, name: pick.piece.name, brief: pick.brief, author, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h, posted });
+      }
+      if (path === '/api/seed' && method === 'POST') {
+        const b = (await body(req)) as { problem: Hash; on: boolean };
+        return json(res, 200, await quilt.seed(b.problem, b.on !== false));
       }
       if (path === '/api/return' && method === 'POST') {
         const b = (await body(req)) as { problem: Hash; piece: Hash; return: Record<string, unknown> };
