@@ -109,7 +109,14 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
 
   function listen(port: number): Promise<Server> {
     const server = createServer((req, res) => void handle(req, res));
-    return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve(server)));
+    // A port already taken (a second copy of quilt, say) is this promise's rejection, never a crash of the process around it.
+    return new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(port, '127.0.0.1', () => {
+        server.off('error', reject);
+        resolve(server);
+      });
+    });
   }
 
   return { handle, listen };

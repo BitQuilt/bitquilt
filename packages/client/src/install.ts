@@ -23,9 +23,14 @@ export function claudeDesktopConfigPath(platform: NodeJS.Platform = process.plat
   return join(env.XDG_CONFIG_HOME ?? join(home, '.config'), 'Claude', file);
 }
 
-/** The entry for this very program: the executable when it is one, else the development command from the repository. */
+/**
+ * The entry for this very program: the executable when it is one, else the development command from the repository.
+ * The client this installs into is Claude, so the connector declares `anthropic/claude` on its claims and reveals
+ * unless `QUILT_MODEL` says otherwise: the app names itself to the connector by a bridge name, not by its vendor,
+ * and agreement on a piece is judged across vendors.
+ */
 export function quiltEntry(options: { sea: boolean; execPath: string; repoRoot: string; home: string; env: NodeJS.ProcessEnv }): ServerEntry {
-  const env: Record<string, string> = { QUILT_HOME: options.home };
+  const env: Record<string, string> = { QUILT_HOME: options.home, QUILT_MODEL: options.env.QUILT_MODEL ?? 'anthropic/claude' };
   for (const k of ['QUILT_TRACKERS', 'QUILT_PORT_PAGE'] as const) if (options.env[k]) env[k] = options.env[k]!;
   return options.sea
     ? { command: options.execPath, args: ['mcp'], env }

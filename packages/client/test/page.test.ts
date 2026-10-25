@@ -74,6 +74,13 @@ afterAll(async () => {
 });
 
 describe('the page', () => {
+  it('refuses a port already taken as a rejection, so a second copy of quilt goes on without its page', async () => {
+    const taken = page.address();
+    const port = typeof taken === 'object' && taken ? taken.port : 0;
+    const resolver = new Resolver(config, homes.a);
+    const quilt = new Quilt(config, loadKey(homes.a), resolver, 'Claude Code');
+    await expect(createPage({ quilt, person: quilt, resolver }).listen(port)).rejects.toThrow(/EADDRINUSE/);
+  });
   it('serves one self-contained document that loads nothing from elsewhere', async () => {
     const r = await fetch(`${site}/`);
     expect(r.status, JSON.stringify(r.body)).toBe(200);

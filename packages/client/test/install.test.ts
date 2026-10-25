@@ -10,9 +10,10 @@ describe('quilt install claude', () => {
     expect(claudeDesktopConfigPath('win32', { APPDATA: 'C:\\Users\\x\\AppData\\Roaming' }, 'C:\\Users\\x')).toContain('Claude');
     expect(claudeDesktopConfigPath('linux', {}, '/home/x')).toBe('/home/x/.config/Claude/claude_desktop_config.json');
   });
-  it('names this executable, the home in use, and only the quilt variables that are set', () => {
+  it('names this executable, the home in use, the vendor Claude is, and only the quilt variables that are set', () => {
     const e = quiltEntry({ sea: true, execPath: '/opt/quilt', repoRoot: '/r', home: '/h', env: { QUILT_TRACKERS: 'http://t/', PATH: '/bin' } });
-    expect(e).toEqual({ command: '/opt/quilt', args: ['mcp'], env: { QUILT_HOME: '/h', QUILT_TRACKERS: 'http://t/' } });
+    expect(e).toEqual({ command: '/opt/quilt', args: ['mcp'], env: { QUILT_HOME: '/h', QUILT_MODEL: 'anthropic/claude', QUILT_TRACKERS: 'http://t/' } });
+    expect(quiltEntry({ sea: true, execPath: '/opt/quilt', repoRoot: '/r', home: '/h', env: { QUILT_MODEL: 'anthropic/claude-opus-5-5' } }).env.QUILT_MODEL).toBe('anthropic/claude-opus-5-5');
     expect(quiltEntry({ sea: false, execPath: '/usr/bin/node', repoRoot: '/r', home: '/h', env: {} }).args).toEqual(['--filter', 'quilt', '--dir', '/r', 'start', 'mcp']);
   });
   it('keeps everything else in the file and the other servers', () => {
@@ -23,7 +24,7 @@ describe('quilt install claude', () => {
   it('refuses while Claude runs, and writes the merged file when it does not', () => {
     const dir = mkdtempSync(join(tmpdir(), 'quilt-install-'));
     const file = join(dir, 'Claude', 'claude_desktop_config.json');
-    const entry = { command: '/q', args: ['mcp'], env: { QUILT_HOME: '/h' } };
+    const entry = { command: '/q', args: ['mcp'], env: { QUILT_HOME: '/h', QUILT_MODEL: 'anthropic/claude' } };
     expect(installClaude({ file, entry, claudeRunning: true, anyway: false }).written).toBe(false);
     expect(installClaude({ file, entry, claudeRunning: false, anyway: false })).toEqual({ file, written: true });
     writeFileSync(file, JSON.stringify({ preferences: { kept: true }, mcpServers: { quilt: { command: 'old', args: [], env: {} } } }));

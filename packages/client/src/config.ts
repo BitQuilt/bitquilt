@@ -43,6 +43,7 @@ export function loadConfig(home = quiltHome()): Config {
   const config: Config = { ...DEFAULT_CONFIG, ...fromFile };
   if (env?.length) config.trackers = env;
   if (process.env.QUILT_PORT_PAGE) config.port = Number(process.env.QUILT_PORT_PAGE);
+  if (process.env.QUILT_MODEL) config.model = process.env.QUILT_MODEL;
   return config;
 }
 
