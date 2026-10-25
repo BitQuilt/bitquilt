@@ -22,9 +22,12 @@ export class Resolver {
   readonly home: string;
   private readonly fetchImpl: typeof fetch;
 
-  constructor(readonly config: Config, home: string, fetchImpl: typeof fetch = fetch) {
+  private readonly postHeaders: Record<string, string>;
+
+  constructor(readonly config: Config, home: string, fetchImpl: typeof fetch = fetch, postHeaders: Record<string, string> = {}) {
     this.home = ensureHome(home);
     this.fetchImpl = fetchImpl;
+    this.postHeaders = postHeaders;
   }
 
   /** The places to ask, in order: the link's trackers, the config's, then mirrors. */
@@ -226,7 +229,7 @@ export class Resolver {
     let lastError = '';
     for (const t of trackers.map(withSlash)) {
       try {
-        const r = await this.fetchImpl(problem ? `${t}p/${problem}/events` : `${t}k/events`, { method: 'POST', body: JSON.stringify(event), headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(8000) });
+        const r = await this.fetchImpl(problem ? `${t}p/${problem}/events` : `${t}k/events`, { method: 'POST', body: JSON.stringify(event), headers: { 'content-type': 'application/json', ...this.postHeaders }, signal: AbortSignal.timeout(8000) });
         if (r.status === 202 || r.status === 409) return { at: t, queued: false };
         const body = (await r.json().catch(() => ({}))) as { error?: string };
         lastError = body.error ?? `${r.status}`;
@@ -250,7 +253,7 @@ export class Resolver {
       let ok = false;
       for (const t of it.trackers.map(withSlash)) {
         try {
-          const r = await this.fetchImpl(it.problem ? `${t}p/${it.problem}/events` : `${t}k/events`, { method: 'POST', body: JSON.stringify(it.event), headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(8000) });
+          const r = await this.fetchImpl(it.problem ? `${t}p/${it.problem}/events` : `${t}k/events`, { method: 'POST', body: JSON.stringify(it.event), headers: { 'content-type': 'application/json', ...this.postHeaders }, signal: AbortSignal.timeout(8000) });
           if (r.status === 202 || r.status === 409 || (r.status >= 400 && r.status < 500 && r.status !== 429)) {
             ok = true;
             break;

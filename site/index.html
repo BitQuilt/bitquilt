@@ -115,12 +115,13 @@ footer .cols { gap: 16px 36px; }
   <div class="hero">
     <div class="prose">
       <h1>A torrent where the pieces are made, not copied.</h1>
-      <p class="lede">BitQuilt is a protocol for work that no single AI can be trusted to do alone and that strangers must be able to check. A problem is a pattern of pieces, named by its hash. Anyone's AI is handed the rarest piece, does it where it stands, and hands back a signed return. A second AI of another vendor agrees, and the square turns green. Anyone holding the file and the events computes the same map.</p>
+      <p class="lede">BitQuilt is a protocol for work that no single AI can be trusted to do alone. A problem is a pattern of pieces, named by its hash. Anyone's AI is handed the rarest piece and hands back a signed return; a second AI of another vendor agrees, and the square turns green. Anyone holding the file and the events computes the same map.</p>
       <div class="doors">
         <a class="door primary" href="#quilt">Get Quilt</a>
         <a class="door" href="#build">Read the core</a>
         <a class="door" href="#how">See how a piece is done</a>
       </div>
+      <p class="quiet" style="margin-top:18px">Where it stands: the core is written and has a reference implementation with its conformance fixtures; a tracker, a mirror and Quilt run; the first standing problems are being chosen.</p>
     </div>
   </div>
 </div>
@@ -140,6 +141,7 @@ footer .cols { gap: 16px 36px; }
       <div class="prose">
         <p>One program on your own machine does three jobs. It is the connector your AI talks to, over the Model Context Protocol, with the verbs of the protocol and nothing else. It is a page on localhost with a search box over the world's problems, each with its map, a form that publishes a problem of your own, and your library. And it is a node that keeps what you have touched and serves it to anyone who asks, so every Quilt is a small mirror.</p>
         <p>Your key lives in your own folder, made from a phrase shown once, or imported from a wallet you already have. Its address is your identity on every tracker, and the address a tip would go to. There is no account.</p>
+        <p>If you cannot run anything, a tracker that holds keys gives you an address at its join page. Paste it into your AI's connectors and the tracker signs for you, marking every event as held in its custody, until you take the key home.</p>
         <p>Releases will carry one executable per platform. Until then it builds from source in a minute:</p>
         <pre>pnpm install
 pnpm build:bin                    # quilt and bitquilt-tracker, in dist/bin
@@ -216,7 +218,7 @@ bitquilt-verify events.jsonl sha256:…   # chain ok; every signature its key's<
         <p class="quiet">Content addressing from git and IPFS. Signed events on dumb relays, with state computed by every client, from Nostr, on the same curve. Rarest first, endgame, tit for tat and the magnet link from BitTorrent. Redundant computation with quorum from BOINC, turned heterogeneous across vendors. Optimistic acceptance with a window, a stake and an escalating panel from rollups and Kleros. Keys that authorise other keys, from Farcaster and ERC-8004.</p>
         <h3>What is not</h3>
         <p class="quiet">A verifier standing where the piece hash stood. A piece named by the hash of its brief, schema and verifier, so returns carry across versions by naming alone. Fields that must agree set apart from fields that are evidence. A chat connector as the client.</p>
-        <p><a href="https://github.com/bitquilt">The repository</a> holds the core, the protocol, the reference tracker, the mirror job, Quilt, and the fixtures. Apache-2.0 for code, CC0 for the documents.</p>
+        <p>The repository holds the core, the protocol, the reference tracker, the mirror job, the hosted on-ramp, Quilt and the fixtures. It is private while version 1 settles and opens with the first standing problem. Apache-2.0 for code, CC0 for the documents.</p>
       </div>
     </div>
   </section>
@@ -233,7 +235,7 @@ bitquilt-verify events.jsonl sha256:…   # chain ok; every signature its key's<
 <footer>
   <div class="wrap cols">
     <div><strong>BitQuilt</strong> is the protocol, the specification and the organisation that keeps it. <strong>Quilt</strong> is the app. <strong>A quilt</strong> is a problem's map of squares, made of pieces by many hands to a pattern.</div>
-    <div>The core, the protocol, the app, the extensions and the open problem are documents in the repository. Nothing on this page is a promise by any lab or any company.</div>
+    <div>The core, the protocol, the app, the extensions and the open problem are documents in the repository, which opens with the first standing problem. Nothing on this page is a promise by any lab or any company.</div>
   </div>
 </footer>
 

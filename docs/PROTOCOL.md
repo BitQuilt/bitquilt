@@ -301,6 +301,8 @@ The site. What it serves is checkable from hashes and signatures; what it may do
 | `GET /b/<hash>` | A blob |
 | `GET /n/<owner>/<slug>` | The latest version hash by that owner's signed `version` |
 | `GET /` | The problems this tracker carries, with their counts: the one place anyone browses |
+| `GET /join`, `POST /join` | Where a tracker offers the hosted on-ramp: an address for a person who cannot run Quilt, with a key the tracker makes and holds encrypted |
+| `/mcp/<token>` | The hosted connector at that address, over the Model Context Protocol's HTTP transport; every event it posts is received with `custody: hosted`. `/mcp/<token>/key` hands the person their key to take home |
 
 ### Governance: what a tracker decides
 

@@ -61,6 +61,21 @@ importers:
         specifier: ^2.0.0
         version: 2.4.0
 
+  packages/hosted:
+    dependencies:
+      '@bitquilt/core':
+        specifier: workspace:*
+        version: link:../core
+      '@bitquilt/tracker':
+        specifier: workspace:*
+        version: link:../tracker
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.31.0
+        version: 1.32.2(zod@3.25.76)
+      quilt:
+        specifier: workspace:*
+        version: link:../client
+
   packages/mirror:
     dependencies:
       '@bitquilt/core':

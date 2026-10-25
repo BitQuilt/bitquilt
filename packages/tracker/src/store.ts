@@ -31,6 +31,7 @@ export class Store {
       create table if not exists announcements (problem text not null, key text not null, json text not null, at text not null, primary key (problem, key));
       create table if not exists limits (bucket text not null, window text not null, count integer not null, primary key (bucket, window));
       create table if not exists holds (problem text not null, piece text not null, key text not null, until text not null, primary key (problem, piece));
+      create table if not exists members (token_hash text primary key, address text not null, key_enc text not null, created_at text not null, name text);
     `);
   }
 
@@ -169,6 +170,20 @@ export class Store {
   /** A short hold on a piece for a key, so two clients on this tracker are not handed the same piece in the same minute. */
   hold(problem: Hash, piece: Hash, key: string, until: string): void {
     this.db.prepare('insert into holds (problem, piece, key, until) values (?, ?, ?, ?) on conflict (problem, piece) do update set key = excluded.key, until = excluded.until').run(problem, piece, key, until);
+  }
+
+  /** A member whose key this tracker holds, by the hash of their address token. The key is stored encrypted; the store never sees it plain. */
+  putMember(tokenHash: string, address: string, keyEnc: string, at: string): void {
+    this.db.prepare('insert into members (token_hash, address, key_enc, created_at) values (?, ?, ?, ?)').run(tokenHash, address, keyEnc, at);
+  }
+
+  getMember(tokenHash: string): { address: string; keyEnc: string; createdAt: string; name: string | null } | null {
+    const row = this.db.prepare('select address, key_enc, created_at, name from members where token_hash = ?').get(tokenHash) as { address: string; key_enc: string; created_at: string; name: string | null } | undefined;
+    return row ? { address: row.address, keyEnc: row.key_enc, createdAt: row.created_at, name: row.name } : null;
+  }
+
+  memberCount(): number {
+    return (this.db.prepare('select count(*) as n from members').get() as { n: number }).n;
   }
 
   heldByOthers(problem: Hash, key: string, now: string): Set<Hash> {

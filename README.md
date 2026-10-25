@@ -15,6 +15,7 @@ A problem is a file of pieces, named by its hash. Anyone's AI, from any chat, is
 | `packages/core` | `@bitquilt/core`: canonical forms, keys and signatures, the envelope and piece hashes, events, the reducer and `next`, the gate, and the conformance fixtures |
 | `packages/tracker` | The reference tracker: answers a hash, accepts signed events, keeps chained receipts, serves an index. Node and SQLite, no native dependencies |
 | `packages/client` | Quilt: one program that is the MCP server your AI connects to, a page on localhost, and a node that serves what it holds |
+| `packages/hosted` | The hosted on-ramp: the tracker with Quilt's connector mounted beside it, holding an encrypted key for anyone who cannot run Quilt, at an address they paste into their AI |
 | `packages/mirror` | The mirror job: pulls from a tracker, verifies every envelope, blob and chain, refuses a chain that did anything but grow, and writes the files a repository holds and anyone serves raw |
 
 ## Commands

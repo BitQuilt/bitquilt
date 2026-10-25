@@ -30,6 +30,10 @@ export interface TrackerOptions {
   stamp?: { name: number };
   ipSalt?: string;
   now?: () => string;
+  /** A secret only this process knows: a post carrying it in x-quilt-custody was made by the connector mounted beside the tracker, for a key it holds. */
+  custodySecret?: string;
+  /** Routes mounted beside the tracker, such as the hosted on-ramp. Answers true when it handled the request. */
+  extra?: (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<boolean>;
 }
 
 export interface Tracker {
@@ -208,7 +212,8 @@ export function createTracker(options: TrackerOptions): Tracker {
       chainKey = under;
     }
     if (store.hasEvent(chainKey, id)) throw new Refusal(409, 'already here');
-    const line = store.appendReceipt(chainKey, event, id, url, now(), 'self');
+    const hosted = options.custodySecret !== undefined && req.headers['x-quilt-custody'] === options.custodySecret;
+    const line = hosted ? store.appendReceipt(chainKey, event, id, url, now(), 'hosted', 'ai') : store.appendReceipt(chainKey, event, id, url, now(), 'self');
     if (type === 'version') store.putName(event.key, (event.body as { slug: string }).slug, (event.body as { hash: Hash }).hash, line.received[0]!.at);
     if (type === 'announce' && under) store.putAnnouncement(under, event.key, event, line.received[0]!.at);
     json(res, 202, { id, seq: line.seq, hash: line.hash, at: line.received[0]!.at });
@@ -280,7 +285,7 @@ export function createTracker(options: TrackerOptions): Tracker {
         return;
       }
       if (path === '/.well-known/quilt' && method === 'GET') {
-        json(res, 200, { quilt: 1, tracker: options.name ?? url, url, peers: options.peers ?? [], limits, stamp: { name: stampNeeded }, sortition: 'receipts', chain: 'QX-11', identity: IDENTITY, routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/k/events', '/b/<hash>', '/n/<owner>/<slug>', '/search'] });
+        json(res, 200, { quilt: 1, tracker: options.name ?? url, url, peers: options.peers ?? [], limits, stamp: { name: stampNeeded }, sortition: 'receipts', chain: 'QX-11', identity: IDENTITY, hosted: options.extra !== undefined, routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/k/events', '/b/<hash>', '/n/<owner>/<slug>', '/search'] });
         return;
       }
       if (path === '/' && method === 'GET') {
@@ -350,6 +355,7 @@ export function createTracker(options: TrackerOptions): Tracker {
         json(res, 200, { hash });
         return;
       }
+      if (options.extra && (await options.extra(req, res, u))) return;
       throw new Refusal(404, 'no such route');
     } catch (err) {
       if (err instanceof Refusal) json(res, err.status, { error: err.message });

@@ -43,3 +43,13 @@ Point a client at the folder served over HTTP (GitHub serves a repository's file
 ## The executables
 
 `pnpm build:bin` builds `quilt` and `bitquilt-tracker` as single executables for the machine it runs on, in `dist/bin`, with Node's single-executable applications and nothing to install. A tagged release builds one per platform.
+
+## An address on a tracker, for people who cannot run Quilt
+
+The same tracker with the connector mounted beside it. It needs one secret, which the keys it holds are encrypted with:
+
+```bash
+QUILT_KEY_SECRET=$(openssl rand -hex 32) QUILT_DB=/tmp/quilt-tracker.db pnpm --filter @bitquilt/hosted start
+```
+
+Open http://localhost:3977/join, take an address, and paste it into your AI's connectors (claude.ai lists custom connectors under settings). The tracker signs for you and marks every event as held in its custody. To take the key home, open the address with `/key` after it once, then `quilt init --secret <hex>` on your own machine and treat the address as spent.
