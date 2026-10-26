@@ -18,7 +18,7 @@ export type ToolInput = Record<string, unknown>;
 /** Runs one tool by name for the host that asked (the client's name at connection, which the model declared follows). */
 export type ToolRunner = (name: ToolName, input: ToolInput, host: string | undefined) => Promise<ToolResult>;
 
-export const TOOL_NAMES = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_name'] as const;
+export const TOOL_NAMES = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold'] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 export function isToolName(s: string): s is ToolName {
@@ -93,8 +93,20 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
     }
     case 'quilt_publish': {
       const r = await quilt.publish(input.pattern as Pattern);
-      const text = [`Published ${r.hash}`, `Link: ${r.link}`, r.posted.length ? `Carried by: ${r.posted.join(', ')}` : 'No tracker took it.', ...r.refused.map((x) => `Refused by ${x}`)].join('\n');
-      return { text, handles: { problem: r.hash, link: r.link, posted: r.posted } };
+      const text = [
+        `Published ${r.hash}`, `Link: ${r.link}`, r.posted.length ? `Carried by: ${r.posted.join(', ')}` : 'No tracker took it.',
+        ...(r.gold ? [`Gold committed on ${r.gold.pieces} piece${r.gold.pieces === 1 ? '' : 's'} with a stake of ${r.gold.stake}; the answers stay in this home's library until each piece is accepted and revealed.`] : []),
+        ...r.refused.map((x) => `Refused by ${x}`),
+      ].join('\n');
+      return { text, handles: { problem: r.hash, link: r.link, posted: r.posted, gold: r.gold } };
+    }
+    case 'quilt_reveal_gold': {
+      const r = await quilt.revealGold(hash('problem'), hash('piece'));
+      const said: Record<string, string> = {
+        match: 'The set agreed with the gold: the square is verified.',
+        miss: 'The set differed from the gold: it is struck, its roots are docked and their locks forfeited, and the piece is open again; a struck root may challenge the gold inside the window.',
+      };
+      return { text: `Gold on ${r.name} revealed; ${where(r)}. ${r.outcome && said[r.outcome] ? said[r.outcome] : 'The tracker has not said what it decided yet.'}`, handles: { problem: input.problem, piece: input.piece, reveal: r.id, outcome: r.outcome } };
     }
     case 'quilt_name': {
       const r = await quilt.setName(str('name'));

@@ -17,7 +17,7 @@ export type LockKind = (typeof LOCK_KINDS)[number];
 /** A stake rule as the layer keeps it: the latest valid one at a time is the rule in force. */
 export interface StakeRule { id: Hash; root: Address; at: string; min: number; pieces: string[] | null }
 
-/** A standing lock as the layer keeps it. `releasedAt` is computed from the fold; `forfeitedAt` is set by a strike. */
+/** A standing lock as the layer keeps it. Its release is computed from the fold; a strike sets `forfeitedAt`, and a held challenge on a gold miss (QX-16) sets `restoredAt`. */
 export interface LockView {
   id: Hash;
   problem: Hash;
@@ -29,6 +29,7 @@ export interface LockView {
   kind: 'standing';
   amount: number;
   forfeitedAt: string | null;
+  restoredAt: string | null;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);

@@ -16,6 +16,7 @@ import { HIDE, type Hidden, hideBodyProblems, hiddenNow } from './hide.js';
 import { RECIPROCITY, SEEDING, offerOrder, seedBodyProblems, seedInfo, watchExclusions } from './seeding.js';
 import { type PanelView, EXTENSIONS, JUDGE_SEED, RANK_EVENTS, kindOf, rankBodyProblems } from './verifiers.js';
 import { PRODUCTION_EVENTS, STAKE, STAKE_EVENTS, lockBodyProblems, stakeRuleBodyProblems } from './stake.js';
+import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems } from './gold.js';
 import type { Store } from './store.js';
 
 export const IDENTITY: Hash = IDENTITY_LOG;
@@ -238,13 +239,14 @@ export function createTracker(options: TrackerOptions): Tracker {
       chainKey = IDENTITY;
     } else {
       if (IDENTITY_EVENTS.has(type)) throw new Refusal(400, 'identity events go to the identity log');
-      if (!PIECE_EVENTS.has(type) && !PROBLEM_EVENTS.has(type) && !CHALLENGE_EVENTS.has(type) && !RANK_EVENTS.has(type) && !STAKE_EVENTS.has(type)) throw new Refusal(400, `this tracker does not carry ${type} events`);
+      if (!PIECE_EVENTS.has(type) && !PROBLEM_EVENTS.has(type) && !CHALLENGE_EVENTS.has(type) && !RANK_EVENTS.has(type) && !STAKE_EVENTS.has(type) && !GOLD_EVENTS.has(type)) throw new Refusal(400, `this tracker does not carry ${type} events`);
       if (event.problem !== under) throw new Refusal(400, 'post an event under the problem it names');
       if (hidden().has(under)) throw new Refusal(410, 'this problem is taken down here');
       const state = reduceProblem(under);
       if (!state) throw new Refusal(404, 'no such problem here');
       if (CHALLENGE_EVENTS.has(type)) checkChallengeEvent(event, under);
       if (STAKE_EVENTS.has(type)) checkStakeEvent(event, under);
+      if (GOLD_EVENTS.has(type)) checkGoldEvent(event, under);
       if (type === 'seed') {
         const sp = seedBodyProblems(event.body);
         if (sp.length) throw new Refusal(400, sp[0]!);
@@ -321,6 +323,23 @@ export function createTracker(options: TrackerOptions): Tracker {
     if (!a.ok) throw new Refusal(400, a.why);
   }
 
+  /** The door for QX-16: the owner's gold, kept whole or refused naming the piece; the owner's reveal on an accepted piece inside its window. */
+  function checkGoldEvent(event: Event, under: Hash): void {
+    if (event.type === 'gold') {
+      if (event.piece !== undefined) throw new Refusal(400, 'a gold names a problem and no piece');
+      const shape = goldBodyProblems(event.body);
+      if (shape.length) throw new Refusal(400, shape[0]!);
+      const a = layer().admitGold(under, event.key, event.body);
+      if (!a.ok) throw new Refusal(400, a.why);
+      return;
+    }
+    if (!event.piece) throw new Refusal(400, 'a gold reveal names a problem and a piece');
+    const shape = goldRevealBodyProblems(event.body);
+    if (shape.length) throw new Refusal(400, shape[0]!);
+    const a = layer().admitGoldReveal(under, event.piece, event.key, event.body);
+    if (!a.ok) throw new Refusal(400, a.why);
+  }
+
   /** The door for QX-2's rank: from a judge drawn to the piece's panel, naming every candidate once. */
   function checkRankEvent(event: Event, under: Hash): void {
     if (!event.piece) throw new Refusal(400, 'a rank names a problem and a piece');
@@ -369,7 +388,7 @@ export function createTracker(options: TrackerOptions): Tracker {
   function challenges(pl: ProblemLayer) {
     const name = (a: string) => pl.fold.names.get(a as `0x${string}`)?.name ?? null;
     return pl.challenges.map((c) => ({
-      id: c.id, piece: c.piece, name: pl.byHash.get(c.piece)?.name ?? null, key: c.key, root: c.root, challenger: name(c.root), at: c.at, stake: c.stake, ground: c.ground,
+      id: c.id, piece: c.piece, name: pl.byHash.get(c.piece)?.name ?? null, key: c.key, root: c.root, challenger: name(c.root), at: c.at, stake: c.stake, ground: c.ground, against: c.against,
       parties: c.parties, seed: c.seed, panel: PANEL, majority: MAJORITY,
       seats: c.seats.map((s) => ({ root: s.root, judge: name(s.root), offered_at: s.offeredAt, lapsed_at: s.lapsedAt, verdict: s.verdict ? { id: s.verdict.id, at: s.verdict.at, for: s.verdict.for, return: s.verdict.return } : null })),
       outcome: c.outcome, decided_at: c.decidedAt, struck: c.struck, dropped: c.dropped,
@@ -496,7 +515,7 @@ export function createTracker(options: TrackerOptions): Tracker {
           challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
           verifiers: { human: EXTENSIONS.human, 'judge:n': EXTENSIONS.judge, attest: EXTENSIONS.attest, judge_seed: JUDGE_SEED },
           chain: 'QX-11', seeding: SEEDING, reciprocity: RECIPROCITY, hide: HIDE, maintainers, identity: IDENTITY, hosted: options.extra !== undefined,
-          stake: { extension: STAKE, coin: null },
+          stake: { extension: STAKE, coin: null }, gold: { extension: GOLD },
           routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/k/<address>/standing', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden'],
         });
         return;
@@ -570,7 +589,7 @@ export function createTracker(options: TrackerOptions): Tracker {
             return {
               name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l.state, core: l.core, challenge: l.challenge?.id ?? null,
               kind: l.kind.kind, extension: l.kind.extension, strength: l.kind.strength, says: l.kind.says, weakest: l.kind.weakest, attested: l.attested, panel: l.panel?.outcome ?? null,
-              availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length, stake: l.stake,
+              availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length, stake: l.stake, gold: l.gold, verified: l.verified,
             };
           }), complete: s.complete, output: s.output?.hash ?? null, dropped: [...s.dropped, ...pl.dropped] });
           return;

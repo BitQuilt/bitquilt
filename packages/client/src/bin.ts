@@ -12,6 +12,7 @@
  *   quilt seed <problem> on|off                          keep a problem: a seed event on its log, and the problem in the standing list
  *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
  *   quilt stake <problem> <min> [<family> ...]           the owner's stake rule (QX-15): what a claim on the pieces locks; 0 asks nothing
+ *   quilt gold reveal <problem> <piece>                   the owner's reveal of the gold committed on a piece (QX-16), from this home's library
  *   quilt challenge <problem> <piece> <stake> <ground>  |  quilt verdict <problem> <piece> <challenge> <challenger|author> ['<json>']
  *   quilt rank <problem> <piece> <digest> [<digest>...]   a judge's ranking of a piece's candidates, first choice first
  *   quilt hide <id or hash> <why> [--lift]                a maintainer's takedown on this client's trackers, or its lift
@@ -81,6 +82,14 @@ async function main(): Promise<void> {
     }
     case 'stake': {
       console.log(JSON.stringify(await make().stakeRule(args[1] as `sha256:${string}`, Number(args[2]), args.slice(3))));
+      return;
+    }
+    case 'gold': {
+      if (args[1] !== 'reveal') {
+        log('gold: reveal is the one subcommand so far');
+        process.exit(2);
+      }
+      console.log(JSON.stringify(await make().revealGold(args[2] as `sha256:${string}`, args[3] as `sha256:${string}`), null, 2));
       return;
     }
     case 'mcp': {

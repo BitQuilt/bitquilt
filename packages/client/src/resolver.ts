@@ -24,6 +24,8 @@ export interface Library {
   pieces: Record<string, { problem: Hash; name: string; when: string; what: string; verifier?: string }>;
   /** The standing list (QX-4): the problems this key seeds, by the time it said so. */
   seeding: Record<string, string>;
+  /** The owner's gold (QX-16), by problem then piece: the projection and nonce behind each commitment, which never leave the home, and when it was revealed. */
+  gold?: Record<string, Record<string, { name: string; projection: Record<string, unknown>; nonce: string; revealed?: string }>>;
 }
 
 const EMPTY_LIBRARY = (): Library => ({ problems: {}, pieces: {}, seeding: {} });

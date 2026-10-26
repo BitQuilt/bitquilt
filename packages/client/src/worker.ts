@@ -5,7 +5,7 @@
  */
 import {
   type Capability, type Envelope, type Event, type Hash, type Pick, type PieceView, type Problem, type State, type Unsigned,
-  commitHash, eventId, hashBytes, isHash, newNonce, next, plainTextProblems, problemHash, renderInputs, signEvent, signObject, canonical, envelopeProblems,
+  agreeFields, commitHash, eventId, expandPieces, hashBytes, isHash, newNonce, next, plainTextProblems, problemHash, renderInputs, signEvent, signObject, canonical, envelopeProblems,
 } from '@bitquilt/core';
 import type { Config, Identity } from './config.js';
 import { type Link, makeLink, parseLink } from './link.js';
@@ -62,6 +62,10 @@ export interface LayerPiece {
   challenge: Hash | null;
   /** The stake of standing the problem asks of a claim on this piece (QX-15); 0 or absent where none. */
   stake?: number;
+  /** The piece's gold (QX-16): null or absent with none kept, else pending, match, miss, overruled or lapsed. */
+  gold?: string | null;
+  /** A square whose accepting set agreed with the owner's gold. */
+  verified?: boolean;
 }
 
 export const STATE_MARK: Record<string, string> = { locked: 'l', unknown: '?', open: '.', in_flight: 'i', sealed: 's', needs_verify: 'v', disputed: 'd', accepted_provisional: 'p', accepted: 'a', unreachable: 'u', challenged: 'c', judging: 'j' };
@@ -122,8 +126,8 @@ export interface AttentionItem {
   title: string;
   piece: Hash | null;
   name: string | null;
-  /** rank: drawn to a judge panel and not yet ranked; verdict: drawn to a challenge and not yet answered; disputed: a piece this key returned is disputed; person: a human piece in a kept problem has a seat open. */
-  why: 'rank' | 'verdict' | 'disputed' | 'person';
+  /** rank: drawn to a judge panel and not yet ranked; verdict: drawn to a challenge and not yet answered; disputed: a piece this key returned is disputed; person: a human piece in a kept problem has a seat open; gold: a piece this key committed gold on is accepted and awaits the reveal. */
+  why: 'rank' | 'verdict' | 'disputed' | 'person' | 'gold';
   tracker: string | null;
 }
 
@@ -148,6 +152,8 @@ export interface Pattern {
   topics?: string[];
   /** The stake of standing a claim on the pieces is backed by (QX-15): `min` on every piece, or on the families and pieces named. */
   stake?: { min: number; pieces?: string[] };
+  /** The owner's gold (QX-16): the answers to some pieces by name, committed by hash before the work; the stake, left out, is the sum of the pieces' shares. */
+  gold?: { answers: Record<string, Record<string, unknown>>; stake?: number };
 }
 
 export class Quilt {
@@ -276,6 +282,17 @@ export class Quilt {
     return [`Stake asked (QX-15): ${staked.length} of the pieces ask ${amounts.join(' or ')} of a key's standing, locked before the claim and forfeited if the acceptance is struck.`];
   }
 
+  /** The owner's gold (QX-16), as the tracker that answered holds it: one line counting the squares, or none where nothing was committed. */
+  goldText(layer: LayerPiece[] | null): string[] {
+    const committed = (layer ?? []).filter((l) => l.gold !== null && l.gold !== undefined);
+    if (committed.length === 0) return [];
+    const count = (s: string) => committed.filter((l) => l.gold === s).length;
+    const parts = [`${count('match')} verified`, `${count('miss')} missed`, `${count('pending')} awaiting the owner's reveal`];
+    if (count('overruled')) parts.push(`${count('overruled')} overruled by a challenge`);
+    if (count('lapsed')) parts.push(`${count('lapsed')} lapsed unrevealed`);
+    return [`Gold (QX-16): ${committed.length} of the pieces have an answer the owner committed to before the work; ${parts.join(', ')}.`];
+  }
+
   /** Whether the tracker that answered has taken the problem down (QX-6), and why, in its own word. */
   async takedownOf(hash: Hash, tracker: string): Promise<Takedown | null> {
     try {
@@ -310,6 +327,7 @@ export class Quilt {
       this.mapText(state, layer),
       this.kindsText(state),
       ...this.stakeText(layer),
+      ...this.goldText(layer),
       `Legend: . open, i in flight, s sealed, v needs a second production, d disputed, p accepted within the window, a accepted, u unreachable, l locked, c challenged, j a panel ranking candidates, ? a kind neither this client nor the tracker that answered implements.`,
       tracker ? `Answered by ${tracker}.` : 'Answered from the cache or a mirror.',
       ...(hidden ? [`Taken down on ${tracker} by ${hidden.by}: "${hidden.why}" (${hidden.at}). The map above is still what the chain says.`] : []),
@@ -450,7 +468,8 @@ export class Quilt {
     if (!me) return { items, checked };
     const kept = Object.keys(this.library.seeding);
     const worked = Object.values(this.library.pieces).map((p) => p.problem);
-    const problems = [...new Set([...kept, ...worked])].filter((h) => isHash(h)).slice(0, limit) as Hash[];
+    const golden = Object.keys(this.library.gold ?? {});
+    const problems = [...new Set([...kept, ...worked, ...golden])].filter((h) => isHash(h)).slice(0, limit) as Hash[];
     for (const problem of problems) {
       let resolved: Awaited<ReturnType<Resolver['resolve']>>;
       try {
@@ -469,6 +488,11 @@ export class Quilt {
         const [panels, challenges] = await Promise.all([this.panels(problem, tracker), this.challenges(problem, tracker)]);
         for (const p of panels) if (p.outcome === 'open' && p.seats.some((s) => s.root === me && s.lapsed_at === null && !s.rank)) item(p.piece, p.name, 'rank');
         for (const c of challenges) if (c.outcome === 'open' && c.seats.some((s) => s.root === me && s.lapsed_at === null && !s.verdict)) item(c.piece, c.name, 'verdict');
+        // QX-16: a piece this key committed gold on, accepted and not yet revealed, as the tracker holds it.
+        for (const [piece, g] of Object.entries(this.library.gold?.[problem] ?? {})) {
+          const l = over.get(piece as Hash);
+          if (l && l.gold === 'pending' && !g.revealed && ['accepted_provisional', 'accepted', 'challenged'].includes(l.state)) item(piece as Hash, g.name, 'gold');
+        }
       }
       for (const v of state.pieces) {
         const st = over.get(v.piece.hash)?.state ?? v.state;
@@ -647,8 +671,9 @@ export class Quilt {
     const lines: string[] = [];
     for (const v of state.pieces) {
       if (v.accepting) {
-        if (v.accepting.kind === 'agree') for (const r of v.accepting.reveals) lines.push(`${v.piece.name}, ${who(r.root)} returned: ${canonical(r.return)}`);
-        else lines.push(`${v.piece.name}, ${who(v.accepting.patch.root)} returned a patch of ${(v.accepting.patch.return.patch as string).length} characters, run by ${v.accepting.runs.map((r) => r.root).join(' and ')}`);
+        const verified = over.get(v.piece.hash)?.verified ? ' (verified: the set agreed with the answer the owner committed to before the work)' : '';
+        if (v.accepting.kind === 'agree') for (const r of v.accepting.reveals) lines.push(`${v.piece.name}${verified}, ${who(r.root)} returned: ${canonical(r.return)}`);
+        else lines.push(`${v.piece.name}${verified}, ${who(v.accepting.patch.root)} returned a patch of ${(v.accepting.patch.return.patch as string).length} characters, run by ${v.accepting.runs.map((r) => r.root).join(' and ')}`);
         continue;
       }
       const l = over.get(v.piece.hash);
@@ -659,8 +684,26 @@ export class Quilt {
     return lines.length ? lines.join('\n') : 'Nothing accepted yet.';
   }
 
-  /** Builds, signs and publishes an envelope from a pattern, with its blobs; then announces it. */
-  async publish(pattern: Pattern): Promise<{ hash: Hash; link: string; posted: string[]; refused: string[]; relays: string[] }> {
+  /**
+   * The owner's reveal of the gold on a piece (QX-16), from the projection and nonce kept at publishing: posted to the
+   * problem's trackers, and the tracker that took it says what it decided, a match or a miss.
+   */
+  async revealGold(problem: Hash, piece: Hash): Promise<{ id: Hash; at: string | null; queued: boolean; error?: string; name: string; outcome: string | null }> {
+    const id = this.needKey();
+    const kept = this.library.gold?.[problem]?.[piece];
+    if (!kept) throw new Error('no gold kept here for that piece: the projection and nonce are the owner\'s, in the library of the home that published');
+    const e = this.sign({ quilt: 1, type: 'gold_reveal', problem, piece, key: id.address, ts: new Date().toISOString(), body: { projection: kept.projection, nonce: kept.nonce } });
+    const r = await this.resolver.post(e, problem, this.trackersFor(problem));
+    if (r.error && !r.queued) throw new Error(`the tracker refused the reveal: ${r.error}`);
+    kept.revealed = e.ts;
+    this.save();
+    const layer = r.at ? await this.layerOf(problem, r.at) : null;
+    const outcome = layer?.find((l) => l.hash === piece)?.gold ?? null;
+    return { id: eventId(e), ...r, name: kept.name, outcome };
+  }
+
+  /** Builds, signs and publishes an envelope from a pattern, with its blobs; then announces it, and posts the stake rule and the gold where the pattern carries them. */
+  async publish(pattern: Pattern): Promise<{ hash: Hash; link: string; posted: string[]; refused: string[]; relays: string[]; gold: { pieces: number; stake: number } | null }> {
     const id = this.needKey();
     const blobs = new Map<Hash, Uint8Array>();
     const data: Record<string, Hash> = {};
@@ -690,6 +733,7 @@ export class Quilt {
     const posted: string[] = [];
     const refused: string[] = [];
     let relays: string[] = [];
+    let gold: { pieces: number; stake: number } | null = null;
     for (const t of this.config.trackers) {
       try {
         const r = await fetch(`${t}p`, { method: 'POST', body, headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(15000) });
@@ -711,11 +755,43 @@ export class Quilt {
         const r = await this.resolver.post(rule, hash, posted);
         if (r.error && !r.queued) refused.push(`stake rule: ${r.error}`);
       }
+      if (pattern.gold) {
+        // QX-16: each answer projected to the piece's agreed fields and committed by hash with its own nonce; the projections and nonces stay in the library.
+        const pieces = expandPieces(problem, blobs);
+        const commitments: Record<string, Hash> = {};
+        const kept: Record<string, { name: string; projection: Record<string, unknown>; nonce: string }> = {};
+        let shares = 0;
+        for (const [name, answer] of Object.entries(pattern.gold.answers)) {
+          const piece = pieces.find((x) => x.name === name);
+          if (!piece) throw new Error(`gold: no piece named ${name}`);
+          if (!piece.schema || piece.verifier === 'check' || piece.verifier === 'score') throw new Error(`gold: ${name} has no agreed fields to commit to`);
+          const fields = agreeFields(piece.schema, piece.agree);
+          const projection: Record<string, unknown> = {};
+          for (const f of fields) {
+            if (!(f in answer)) throw new Error(`gold: the answer for ${name} lacks ${f}`);
+            projection[f] = answer[f];
+          }
+          const nonce = newNonce();
+          commitments[piece.hash] = commitHash(projection, nonce);
+          kept[piece.hash] = { name, projection, nonce };
+          const covered = pattern.stake && (!pattern.stake.pieces?.length || pattern.stake.pieces.includes(piece.family) || pattern.stake.pieces.includes(piece.name));
+          shares += Math.max(1, covered ? pattern.stake!.min : 0);
+        }
+        const stake = pattern.gold.stake ?? shares;
+        const g = this.sign({ quilt: 1, type: 'gold', problem: hash, key: id.address, ts: new Date().toISOString(), body: { commitments, stake } });
+        const r = await this.resolver.post(g, hash, posted);
+        if (r.error && !r.queued) refused.push(`gold: ${r.error}`);
+        else {
+          this.library.gold ??= {};
+          this.library.gold[hash] = kept;
+          gold = { pieces: Object.keys(kept).length, stake };
+        }
+      }
     }
     const now = new Date().toISOString();
     this.library.problems[hash] = { title: problem.title, slug: problem.slug, trackers: posted, first: now, last: now };
     this.save();
-    return { hash, link: makeLink(hash, posted, problem.slug), posted, refused, relays };
+    return { hash, link: makeLink(hash, posted, problem.slug), posted, refused, relays, gold };
   }
 
   /** A name event for this key. */

@@ -126,7 +126,7 @@ describe('the connector over MCP', () => {
     const client = new Client({ name: 'claude-test', version: '0.0.0' });
     await client.connect(clientTransport);
     const tools = await client.listTools();
-    expect(tools.tools.map((t) => t.name).sort()).toEqual(['quilt_challenge', 'quilt_decline', 'quilt_me', 'quilt_name', 'quilt_next', 'quilt_open', 'quilt_publish', 'quilt_rank', 'quilt_read', 'quilt_return', 'quilt_search', 'quilt_seed', 'quilt_verdict']);
+    expect(tools.tools.map((t) => t.name).sort()).toEqual(['quilt_challenge', 'quilt_decline', 'quilt_me', 'quilt_name', 'quilt_next', 'quilt_open', 'quilt_publish', 'quilt_rank', 'quilt_read', 'quilt_return', 'quilt_reveal_gold', 'quilt_search', 'quilt_seed', 'quilt_verdict']);
     for (const t of tools.tools) expect(t.description ?? '').not.toMatch(/\b(you must|always|never|do not|important|ignore)\b/i);
     const me = await client.callTool({ name: 'quilt_me', arguments: {} });
     expect((me.structuredContent as { text: string }).text).toContain(a.identity!.address);

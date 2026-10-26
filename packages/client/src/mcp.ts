@@ -67,7 +67,7 @@ export function createMcpServer(run: ToolRunner): McpServer {
 
   server.registerTool('quilt_read', {
     title: 'Read a problem',
-    description: 'A problem\'s map with its kinds, its accepted returns, each as the quoted words of the key that signed it with the signer named, its challenges (the ground as the challenger\'s quoted words, the judges drawn, each verdict, the outcome), and its judge panels (each candidate\'s return quoted, the seats drawn, each rank, the outcome).',
+    description: 'A problem\'s map with its kinds, the stake it asks and the gold its owner committed (how many squares are verified, missed or awaiting the reveal), its accepted returns, each as the quoted words of the key that signed it with the signer named and a verified square said so, its challenges (the ground as the challenger\'s quoted words, the judges drawn, each verdict, the outcome), and its judge panels (each candidate\'s return quoted, the seats drawn, each rank, the outcome).',
     inputSchema: { problem: z.string().describe('The problem, as a link or a hash') },
     outputSchema: output,
   }, call('quilt_read'));
@@ -102,7 +102,7 @@ export function createMcpServer(run: ToolRunner): McpServer {
 
   server.registerTool('quilt_publish', {
     title: 'Publish a problem',
-    description: 'Publishes a problem from a pattern signed with this client\'s key as the owner: the title, the statement of when it is done, a slug, the pieces with their briefs, schemas, verifier kinds and what they require, the data rows the briefs\' slots draw on, topics for the index, and, where the owner asks it, the stake of standing a claim on the pieces is backed by (QX-15). Returns the problem\'s hash and link.',
+    description: 'Publishes a problem from a pattern signed with this client\'s key as the owner: the title, the statement of when it is done, a slug, the pieces with their briefs, schemas, verifier kinds and what they require, the data rows the briefs\' slots draw on, topics for the index, where the owner asks it the stake of standing a claim on the pieces is backed by (QX-15), and where the owner knows some answers in advance the gold (QX-16): each answer committed by hash before the work, backed by a stake of the owner\'s standing, kept in this home\'s library for the reveal. Returns the problem\'s hash and link.',
     inputSchema: {
       pattern: z.object({
         title: z.string(), done_when: z.string(), slug: z.string(),
@@ -110,10 +110,18 @@ export function createMcpServer(run: ToolRunner): McpServer {
         settings: z.record(z.number()).optional(),
         pieces: z.record(z.unknown()), data: z.record(z.array(z.unknown())).optional(), topics: z.array(z.string()).optional(),
         stake: z.object({ min: z.number().int().min(0).describe('The standing a claim locks; 0 asks nothing'), pieces: z.array(z.string()).optional().describe('The families or pieces it covers; left out, every piece') }).optional(),
+        gold: z.object({ answers: z.record(z.record(z.unknown())).describe('Piece names to the owner\'s answers; each is projected to the piece\'s agreed fields'), stake: z.number().int().min(1).optional().describe('The owner\'s standing locked behind the gold; left out, the sum of the pieces\' shares') }).optional(),
       }),
     },
     outputSchema: output,
   }, call('quilt_publish'));
+
+  server.registerTool('quilt_reveal_gold', {
+    title: 'Reveal the gold on a piece',
+    description: 'The owner\'s reveal of the answer committed to a piece before the work (QX-16), from the projection and nonce this home kept at publishing, posted once the piece has an accepted set and inside its window. The tracker compares the set\'s returns to the gold on the agreed fields: a match marks the square verified; a miss strikes the set, docks its roots and forfeits their locks, and a root of the struck set may challenge the gold inside the window. quilt_me\'s attention and the page list the reveals due.',
+    inputSchema: { problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash') },
+    outputSchema: output,
+  }, call('quilt_reveal_gold'));
 
   server.registerTool('quilt_name', {
     title: 'Set this key\'s name',
