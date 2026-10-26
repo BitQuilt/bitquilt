@@ -19,7 +19,15 @@ async function main(): Promise<void> {
     console.error('QUILT_KEY_SECRET is required: the keys this tracker holds are encrypted with it');
     process.exit(2);
   }
-  const { Store, createTracker } = await import('@bitquilt/tracker');
+  const { Store, createTracker, coinParamsProblems } = await import('@bitquilt/tracker');
+  // QX-17: the coin's parameters, as the tracker binary takes them.
+  let coin: import('@bitquilt/tracker').CoinParams | undefined;
+  if (process.env.QUILT_COIN) {
+    const parsed = JSON.parse(process.env.QUILT_COIN) as unknown;
+    const problems = coinParamsProblems(parsed);
+    if (problems.length) throw new Error(`QUILT_COIN: ${problems[0]}`);
+    coin = parsed as import('@bitquilt/tracker').CoinParams;
+  }
   const { createHosted } = await import('./hosted.js');
   const port = Number(process.env.QUILT_PORT ?? 3977);
   const host = process.env.QUILT_HOST ?? '127.0.0.1';
@@ -39,6 +47,7 @@ async function main(): Promise<void> {
     stamp: { name: Number(process.env.QUILT_STAMP_NAME ?? 0) },
     ...(process.env.QUILT_IP_SALT ? { ipSalt: process.env.QUILT_IP_SALT } : {}),
     maintainers: (process.env.QUILT_MAINTAINERS ?? '').split(',').map((s) => s.trim()).filter(Boolean) as `0x${string}`[],
+    ...(coin ? { coin } : {}),
   });
   await tracker.listen(port, host);
   console.log(`bitquilt tracker with the hosted on-ramp at ${url} (db ${dbPath}; addresses at ${url}join)`);

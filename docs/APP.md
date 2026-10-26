@@ -48,6 +48,10 @@ The publish form is the pattern: a title, what done looks like, families of piec
 
 The library is the person's shared folder. It holds the problems they published or seeded, the pieces they did with each one's state, the problems they are watching, and their own standing, shown to them and to nobody else. From the library a person seeds or unseeds a problem, which is what decides whose watch pieces they are offered first, and sees what their node is serving. A person's library on one machine and their CLI loop on another are one identity, because they share one key.
 
+## Standing, gold and the coin on the page
+
+Added 26 October 2026, with QX-15, QX-16 and QX-17. The Me tab shows what the trackers compute for the key: its standing, what is locked behind its claims and what is free, and, where a tracker carries the coin, its balance, what has vested, what is locked or escrowed and what is free. A problem's map underlines a square that asks a stake and rings in gold a square the owner's committed answer verified; the problem's view says the stake asked and counts the gold's verified, missed and pending squares. Where this key committed the gold, a button reveals it once the piece is accepted, and the Search tab lists the reveals due under what is wanted from you, beside the judge seats, verdicts and disputes. Where the tracker carries the coin, a small form escrows a pay to the problem's workers. Handed a staked piece, the page says what was locked and whether it was standing or coin. Every one of these is a read or a signed write of the person's own key, and the page still sets text with textContent and loads nothing from anywhere else.
+
 ## The announce event
 
 The core has no topics field and should not grow one. An index needs something to index. So an announcement is an event of its own, an extension (QX-13), signed by the owner or by a seeder, and ignored by the reducer:

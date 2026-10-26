@@ -1,5 +1,5 @@
 // MenuView.swift: the popover under the menu-bar icon. A search field, what is wanted from the person, the problems
-// they keep and opened lately, the node's standing, and three buttons. Everything that is an act opens the page, where
+// they keep and opened lately, the node's standing and coin, and three buttons. Everything that is an act opens the page, where
 // the person's own hand does it; the popover itself writes nothing.
 
 import SwiftUI
@@ -54,6 +54,7 @@ struct MenuView: View {
             Divider()
             VStack(alignment: .leading, spacing: 2) {
                 if !node.who.isEmpty { Text(node.who) }
+                if !node.holdings.isEmpty { Text(node.holdings) }
                 Text(node.statusText)
             }
             .font(.caption)
@@ -113,6 +114,7 @@ struct MenuView: View {
         case "verdict": reason = "a verdict is wanted from you"
         case "disputed": reason = "a return of yours is disputed"
         case "person": reason = "a piece wants a person"
+        case "gold": reason = "a reveal of your gold is due"
         default: reason = item.why
         }
         let what = item.name.map { "\($0) in \(item.title)" } ?? item.title

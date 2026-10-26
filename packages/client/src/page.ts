@@ -69,6 +69,11 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         return;
       }
       if (path === '/api/me') return json(res, 200, quilt.me());
+      if (path === '/api/standing') {
+        // Apart from /api/me, which a probe reads in a moment: this one asks the trackers.
+        const [standing, coin] = await Promise.all([quilt.standing(), quilt.coin()]);
+        return json(res, 200, { standing, coin });
+      }
       if (path === '/api/search') return json(res, 200, { problems: await quilt.search(u.searchParams.get('q') ?? '') });
       if (path === '/api/open') {
         const { hash, state, tracker, layer, hidden } = await quilt.open(u.searchParams.get('link') ?? '');
@@ -88,17 +93,31 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
             /* the map is shown without the seeders */
           }
         }
+        // QX-16: the gold this key committed here, by piece, so the page can offer the reveal; QX-17: where the coin lives, so it can offer a pay.
+        const mineGold = Object.keys(quilt.library.gold?.[hash] ?? {});
+        const coin = tracker ? await quilt.coinAt(tracker) : null;
         return json(res, 200, {
           problem: hash, tracker, hidden, seeders: seed.seeders, last_seeded: seed.last_seeded, seeding: Boolean(quilt.library.seeding[hash]), title: state.envelope.problem.title, done_when: state.envelope.problem.done_when, owner: state.envelope.problem.owner, complete: state.complete,
           pieces: state.pieces.map((v) => {
             const l = over.get(v.piece.hash);
             const k = kindWords(v.piece.verifier);
-            return { name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l?.state ?? v.state, core: v.state, requires: v.piece.requires, kind: k.kind, strength: k.strength, says: k.says, weakest: k.weakest, attested: l?.attested ?? false };
+            return {
+              name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l?.state ?? v.state, core: v.state, requires: v.piece.requires, kind: k.kind, strength: k.strength, says: k.says, weakest: k.weakest, attested: l?.attested ?? false,
+              stake: l?.stake ?? 0, gold: l?.gold ?? null, verified: l?.verified ?? false, mine_gold: mineGold.includes(v.piece.hash),
+            };
           }),
           kinds: quilt.kindsText(state),
           judging: judging.map((p) => ({ piece: p.piece, name: p.name, verifier: p.verifier, majority: p.majority, panel: p.panel, candidates: p.candidates.map((c) => ({ digest: c.digest, return: c.return })) })),
-          accepted: quilt.acceptedText(state, layer), summary: quilt.summary(hash, state, tracker, layer, hidden),
+          accepted: quilt.acceptedText(state, layer), summary: quilt.summary(hash, state, tracker, layer, hidden), coin,
         });
+      }
+      if (path === '/api/reveal' && method === 'POST') {
+        const b = (await body(req)) as { problem: Hash; piece: Hash };
+        return json(res, 200, await quilt.revealGold(b.problem, b.piece));
+      }
+      if (path === '/api/pay' && method === 'POST') {
+        const b = (await body(req)) as { problem: Hash; amount: number; per_square: number };
+        return json(res, 200, await quilt.pay(b.problem, Number(b.amount), Number(b.per_square)));
       }
       if (path === '/api/rank' && method === 'POST') {
         const b = (await body(req)) as { problem: Hash; piece: Hash; ranking: Hash[] };
@@ -116,8 +135,8 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         return json(res, 200, await runTool(forHost, name, b.input ?? {}));
       }
       if (path === '/api/next' && method === 'GET') {
-        const { hash, pick, posted, author, stake } = await person.next(u.searchParams.get('problem') ?? '');
-        return json(res, 200, { problem: hash, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: kindWords(pick.piece.verifier), brief: pick.brief, author, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h, posted, stake });
+        const { hash, pick, posted, author, stake, lock } = await person.next(u.searchParams.get('problem') ?? '');
+        return json(res, 200, { problem: hash, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: kindWords(pick.piece.verifier), brief: pick.brief, author, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h, posted, stake, lock });
       }
       if (path === '/api/seed' && method === 'POST') {
         const b = (await body(req)) as { problem: Hash; on: boolean };

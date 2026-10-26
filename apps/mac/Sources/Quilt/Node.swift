@@ -24,6 +24,7 @@ final class Node: ObservableObject {
     @Published private(set) var me: Me?
     @Published private(set) var library: Library?
     @Published private(set) var attention: [AttentionItem] = []
+    @Published private(set) var standing: Standing?
 
     let home: URL
     let port: Int
@@ -74,6 +75,14 @@ final class Node: ObservableObject {
         return me == nil ? "" : "no key yet"
     }
 
+    /// One quiet line: the standing and the coin the trackers compute for this key, where they answer.
+    var holdings: String {
+        var parts: [String] = []
+        if let s = standing?.standing { parts.append("standing \(s.standing), \(s.free) free") }
+        if let c = standing?.coin { parts.append("\(c.balance) units of coin, \(c.free) free") }
+        return parts.joined(separator: " · ")
+    }
+
     /// The problems the person keeps, newest first by when they began keeping them.
     var keeping: [Entry] {
         guard let library else { return [] }
@@ -121,6 +130,7 @@ final class Node: ObservableObject {
         guard isUp else { return }
         if let answer = try? await api.me() { me = answer }
         if let answer = try? await api.library() { library = answer }
+        if let answer = try? await api.standing() { standing = answer }
         await refreshAttention()
     }
 

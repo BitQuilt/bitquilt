@@ -46,6 +46,28 @@ struct SearchResult: Decodable, Identifiable {
     var id: String { problem }
 }
 
+/// GET /api/standing: the key's standing and coin as the trackers compute them (QX-1, QX-15, QX-17); either absent where no tracker answers or carries one.
+struct Standing: Decodable {
+    struct Points: Decodable {
+        let standing: Int
+        let locked: Int
+        let free: Int
+        let tracker: String
+    }
+
+    struct Coin: Decodable {
+        let balance: Int
+        let vested: Int
+        let locked: Int
+        let escrowed: Int
+        let free: Int
+        let home: String
+    }
+
+    let standing: Points?
+    let coin: Coin?
+}
+
 /// One item of GET /api/attention: something a piece wants from this person in particular.
 struct AttentionItem: Decodable {
     let problem: String
@@ -95,6 +117,13 @@ struct API {
     func search(_ words: String) async throws -> [SearchResult] {
         let found: Found = try decode(await get("/api/search", query: [URLQueryItem(name: "q", value: words)], timeout: 25))
         return found.problems
+    }
+
+    /// Nil on a node that has no standing route yet (404), so the line stays absent.
+    func standing() async throws -> Standing? {
+        let answer = try await get("/api/standing", timeout: 10)
+        if answer.status == 404 { return nil }
+        return try decode(answer)
     }
 
     /// Empty on a node that has no attention route yet (404), so the section stays absent.

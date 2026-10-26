@@ -78,6 +78,26 @@ With `--anchor`, the job also stamps every chain's head through OpenTimestamps i
 
 Point a client at the folder served over HTTP (GitHub serves a repository's files raw) with `mirrors` in its config, stop the tracker, and `quilt open` still answers; a claim and a return made then wait in the queue until a tracker is back. In the repository, `.github/workflows/mirror.yml` runs the job every fifteen minutes against the trackers named in the `BITQUILT_TRACKERS` variable and commits what grew.
 
+## Stake, gold and the coin
+
+Three extensions sit over the ledger ([docs/COIN.md](../docs/COIN.md) says why; [docs/ext/QX-15.md](../docs/ext/QX-15.md), [QX-16.md](../docs/ext/QX-16.md) and [QX-17.md](../docs/ext/QX-17.md) say exactly what). A pattern may ask a stake of standing on its pieces and carry the owner's answers as gold:
+
+```json
+{ "title": "…", "done_when": "…", "slug": "…", "pieces": { "statement/*": { "count": 2, "verifier": "agree", "brief": "…", "schema": { … }, "agree": ["verdict"] } },
+  "stake": { "min": 1 },
+  "gold": { "answers": { "statement/1": { "verdict": "supports" } } } }
+```
+
+`quilt publish` posts the stake rule and the gold commitments right after the envelope and keeps the answers' projections and nonces in the home's library, which never leave it. A worker handed a staked piece locks that much standing before the claim, in one step; `quilt me` shows the standing, what is locked and what is free. Once a gold piece is accepted, `quilt gold reveal <problem> <piece>` (or the tool `quilt_reveal_gold`, or the page) reveals it: a match marks the square verified, a miss strikes the set.
+
+A tracker carries the coin when it is started with `QUILT_COIN`, the parameters as one JSON object:
+
+```bash
+QUILT_COIN='{"genesis":"2026-11-01T00:00:00Z","epoch_h":24,"emission":{"per_epoch":1000000,"decline_bp":2500,"period_epochs":365},"vesting_h":8760,"infra_bp":1000,"treasury":"0x…","unit":1000000,"weights":{"cross_vendor":2,"same_vendor":1,"attest":0},"burn_rate":1000,"transfers_from":null,"redeem_from":null}' QUILT_DB=/tmp/quilt-tracker.db pnpm --filter @bitquilt/tracker start
+```
+
+Verified squares then earn the epoch's minting by weight; `quilt balance` prints a key's coin; `quilt pay <problem> <amount> <per_square>` escrows coin a problem's workers are paid from per accepted square; a worker whose standing cannot cover a stake locks coin in its place at the tracker's burn rate. Transfers and redemption are off until the maintainers set a time, and the mirror keeps the tracker's balances only where it reproduces them from the receipts.
+
 ## The executables
 
 `pnpm build:bin` builds `quilt` and `bitquilt-tracker` as single executables for the machine it runs on, in `dist/bin`, with Node's single-executable applications and nothing to install. A tagged release builds one per platform.
