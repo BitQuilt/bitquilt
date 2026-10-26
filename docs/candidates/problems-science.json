@@ -1,0 +1,356 @@
+[
+  {
+    "id": "S1",
+    "title": "Recompute reported p-values where statcheck cannot read",
+    "question": "In journals that report tests in tables or outside APA style, what share of reported p-values disagree with their test statistic and degrees of freedom, and how many disagreements flip a conclusion at .05?",
+    "why_wanted": "Meta-researchers (Nuijten, Wicherts, Roettger) and editors who adopted statcheck in peer review want error rates for fields and formats the regex cannot parse. Meta-analysts need the corrected statistics because they feed effect-size computation.",
+    "status": "statcheck finds at least one inconsistency in about half of psychology papers (Nuijten et al. 2016, Behavior Research Methods) and in 49% of 13,065 experimental-linguistics articles (Etemady and Roettger 2025, Glossa Psycholinguistics), but it reads only complete APA-style in-text reports. Tables, non-APA styles, and fields such as medicine and ecology remain unmeasured; the tool's last release is statcheck 1.5.0 (2024).",
+    "fit": "One article is one bounded read, and the recomputation is deterministic, so two AIs of different vendors land on the same numbers or expose a real disagreement. Per-article returns aggregate into a per-journal, per-year ledger of reporting consistency.",
+    "piece": "Brief: for one open-access article named by DOI, list every null-hypothesis test with a test statistic, degrees of freedom and reported p (in text or tables), recompute p, and flag inconsistencies and decision inconsistencies at .05, noting one-tailed tests and corrections. Return fields: article identifier, results list with location, test type, statistic, df, reported p, recomputed p, consistent flag, decision-inconsistent flag, one-tailed-or-corrected note; totals. Verifier: agree on the three totals, with the per-result list kept as evidence.",
+    "count": 2000,
+    "evidence": "The second AI opens the article by DOI, finds each listed location, and recomputes p from the statistic and df with the same distribution.",
+    "gold": "Yes: the owner runs statcheck on APA-format papers from the Nuijten corpus (data on OSF) and commits those known totals as gold rows mixed into the set.",
+    "risks": "One-tailed tests and multiple-comparison corrections create false flags (the 'statcheck is flawed by design' critique), and per-paper flags name authors, so publication should aggregate by journal and route individual flags to authors first.",
+    "sources": [
+      "https://escholarship.org/uc/item/373639hj",
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC5896892",
+      "https://statcheck.io/"
+    ]
+  },
+  {
+    "id": "S2",
+    "title": "Do papers citing retracted work know it was retracted?",
+    "question": "Of citations to a retracted article made after its retraction, how many acknowledge the retraction, and how many lean on the retracted finding as support?",
+    "why_wanted": "Retraction Watch, the NISO CREC recommendation group and journal editors want to measure and then correct unaware citation. Systematic reviewers need to know which syntheses rest on retracted findings.",
+    "status": "Hsiao and Schneider (Quantitative Science Studies 2021) hand-coded 48,134 citation contexts from PubMed Central and found only 5.4% of 13,252 post-retraction contexts acknowledged the retraction; a 2024 JAMA Network Open study of microRNA retractions found 78% of cited retracted papers were cited again after retraction. Since Crossref opened the Retraction Watch database in September 2023 the citing set can be enumerated, but context coding still exists only for samples.",
+    "fit": "One citation context is a small bounded reading coded against a fixed scheme, and two vendors' AIs agree on the code while the quoted sentence and its location stay as evidence. Returns aggregate into a per-journal and per-field ledger that a reader can spot-check line by line.",
+    "piece": "Brief: for one pair of a citing paper and a retracted paper (both named by DOI), where the citing paper is dated after the retraction notice, quote every sentence citing the retracted paper and code it: acknowledges retraction (yes or no), use (supports a claim, background, method, criticizes, other), and whether the cited claim is load-bearing for the citing paper. Return fields: both identifiers, retraction date, citing publication date, contexts with section, quote, acknowledges, use, load-bearing; overall codes. Verifier: agree on acknowledges and use for each context.",
+    "count": 2000,
+    "evidence": "The second AI opens the citing paper by DOI, finds each quoted sentence, and checks the retraction date against the retraction notice's metadata.",
+    "gold": "Yes: Hsiao and Schneider's released coded contexts give known codes the owner can hash and seed.",
+    "risks": "Returns name citing authors, so publication should be aggregate with per-paper flags routed to journals; some full texts link references wrongly, which the quote requirement catches.",
+    "sources": [
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9520488/",
+      "https://jamanetwork.com/journals/jamanetworkopen/fullarticle/2816597",
+      "https://ois.lbg.ac.at/wp-content/uploads/sites/30/2025/10/Hartley_Citations-After-Retraction.pdf"
+    ]
+  },
+  {
+    "id": "S3",
+    "title": "Citation accuracy audit of high-prestige science journals",
+    "question": "For claims in general-science and biomedical journals, does the cited source actually support the statement that cites it, and what is the per-journal rate of unsupported citations?",
+    "why_wanted": "Smith and Cumberledge (Proceedings of the Royal Society A 2020) found 25% of 250 sampled citations in Science, Nature, PNAS and their siblings were wrong or misleading, and Baethge and Jergas's updated meta-analysis of quotation inaccuracy in medicine (Peer Review Congress 2025) shows the problem persists. Editors and meta-researchers want a sample large enough to give per-journal and per-field rates and to test whether checks at review change them.",
+    "status": "Rates are known from samples of a few hundred citations; no large-scale audit exists and no journal publishes its own rate. Last moved 2024 to 2025 with the medicine meta-analysis.",
+    "fit": "A citation-claim pair is bounded, and two AIs code the support level with quotes from both documents as evidence; disagreements fall to a panel. Returns aggregate into a citation-accuracy ledger by journal and year.",
+    "piece": "Brief: given one citing sentence quoted from a named article with the reference it cites, read the cited source and classify the support as full, partial, none, or not checkable, quoting the passage in the cited work that bears on the claim. Return fields: citing identifier, sentence quote, cited identifier, classification, supporting or contradicting quote with page or section, note. Verifier: agree on classification, with a judge panel for the pairs that split.",
+    "count": 1500,
+    "evidence": "The second AI reads the cited source at the quoted location and checks that the quote exists and bears on the claim as classified.",
+    "gold": "Yes: the 250 citations coded by Smith and Cumberledge, with their published classifications, can be hashed and seeded.",
+    "risks": "The boundary between partial and no support is subjective and needs a tight codebook; paywalled sources yield many 'not checkable' returns; results name authors and should be published by journal.",
+    "sources": [
+      "https://doi.org/10.1098/rspa.2020.0538",
+      "https://peerreviewcongress.org/abstract/quotation-inaccuracy-in-medicine-a-systematic-review-and-meta-analysis/",
+      "https://www.timeshighereducation.com/news/quarter-citations-top-journals-wrong-or-misleading"
+    ]
+  },
+  {
+    "id": "S4",
+    "title": "Re-extract effect sizes behind psychology meta-analyses",
+    "question": "Which primary-study effect sizes in published psychology meta-analyses can be reproduced from the primary studies, and do the corrected values change the pooled estimates?",
+    "why_wanted": "Maassen et al. (PLOS ONE 2020) could not reproduce 224 of 500 effect sizes drawn from 33 meta-analyses, and corrections changed results in 13 of them; meta-analysts, journal editors and the meta-research community (BITSS, Tilburg Meta-Research Center) want a verified extraction ledger. Everyone who builds on a pooled estimate wants to know whether its rows are right.",
+    "status": "Known: about 45% of sampled effect sizes are not reproducible, mostly because extraction choices went unreported; the data are on OSF (project 7nsmd). Open: every meta-analysis beyond the 33 sampled; last moved 2020.",
+    "fit": "One row of a forest plot is one piece, two AIs extract it independently from the primary study, and the recomputation of the pooled estimate is a dependent score piece. The result is a corrected meta-analysis table anyone can rerun.",
+    "piece": "Brief: for one row (meta-analysis DOI, primary-study DOI, reported effect size and n), recompute the effect size from the primary study's reported statistics and record the inputs and formula used. Return fields: row identifier, reproduced effect size, its variance, group sizes, inputs with table or page quotes, match category (within 0.01, discrepant, not reproducible), reason. Verifier: agree on match category and on the effect size to two decimals.",
+    "count": 2000,
+    "evidence": "The second AI opens the primary study, finds the quoted table cell or statistic, and recomputes with the stated formula.",
+    "gold": "Yes: the 500 Maassen rows with their reproducibility outcomes are public and can be seeded as gold.",
+    "risks": "Many primary studies are paywalled, and several defensible effect-size choices can make 'discrepant' ambiguous, so the return must record the choice made.",
+    "sources": [
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7252608/",
+      "https://www.bitss.org/projects/examining-the-reproducibility-of-meta-analyses-in-psychology/"
+    ]
+  },
+  {
+    "id": "S5",
+    "title": "Rerun ecology meta-analyses that shared code and data",
+    "question": "When ecology and evolution meta-analyses share both data and code, does rerunning reproduce the headline pooled estimate, and what breaks when it does not?",
+    "why_wanted": "Kambouris, Wilkinson, Smith and Fidler (PLOS ONE 2024) reproduced the targeted result in only 27% to 73% of 26 articles depending on criteria; journals with code policies and the SORTEE community want the baseline extended and the failures diagnosed. Authors want to know whether their archives still run.",
+    "status": "177 meta-analyses from 2015 to 2017 were screened and 26 had both data and code; the rerun was done once in 2024. Open: every meta-analysis with shared code since 2018, and whether failures are environment rot or substance.",
+    "fit": "A rerun is a check-or-score piece: a pinned environment and a checker script that two other parties run and compare within tolerance. Returns aggregate into a computational-reproducibility ledger for the field, with patches that fix what broke.",
+    "piece": "Brief: for one article (DOI, with its data and code identifiers), build the environment, run the shared code, and report the pooled estimate and interval for the named target result against the paper's values, with a patch if a fix was needed. Return fields: article identifier, environment specification, ran (yes, partially, no), reproduced estimate, paper's estimate, absolute difference, failure class, patch. Verifier: score, with two independent reruns landing within tolerance.",
+    "count": 300,
+    "evidence": "The second party reruns the pinned environment and checker and compares the estimate within the stated tolerance.",
+    "gold": "Yes: the 26 Kambouris articles with known outcomes can be seeded.",
+    "risks": "Old package versions, hard-coded paths and long run times; some code carries licences that forbid redistribution of patches.",
+    "sources": [
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10936784/",
+      "https://ecoevorxiv.org/repository/view/5639/"
+    ]
+  },
+  {
+    "id": "S6",
+    "title": "Repair and rerun biomedical Jupyter notebooks from PubMed Central",
+    "question": "Of the Jupyter notebooks linked from PubMed Central papers, which can be made to run and reproduce their stored outputs, and what minimal fix does each need?",
+    "why_wanted": "Samuel and Mietchen (GigaScience 2024) found that of 10,388 notebooks whose dependencies installed, only 1,203 ran without error and 879 reproduced their outputs; the authors, journals that require code and the FAIR Jupyter effort want the failure causes cataloged and fixed rather than counted. Readers who try to reuse the methods want notebooks that run.",
+    "status": "The automated rerun was done twice, in 2021 and 2023, with no repair step; the corpus of 27,271 notebooks and a knowledge graph are public. Open: repairs, and the notebooks published since 2024.",
+    "fit": "Each notebook is a check piece: a patch with pinned requirements and a checker that executes it and diffs outputs, which two other AIs re-execute. The field gets a repaired corpus and a taxonomy of what breaks.",
+    "piece": "Brief: for one notebook (repository, commit, path), attempt to run it; if it fails, produce a minimal patch and pinned requirements that let it run, and report whether the outputs match the stored cells. Return fields: identifiers, Python version, status (ran identical, ran different, fails), failure class, patch diff, output diff summary. Verifier: check, with two parties executing the patched notebook and matching outputs.",
+    "count": 2000,
+    "evidence": "The second AI executes the checker in a fresh container and compares cell outputs with the stored ones.",
+    "gold": "Yes: notebooks the Zenodo dataset records as running identically can be seeded as controls.",
+    "risks": "Compute and large data downloads, notebooks that need private data, and outputs that are nondeterministic by design.",
+    "sources": [
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10783158/",
+      "https://zenodo.org/records/8226725",
+      "https://w3id.org/fairjupyter/"
+    ]
+  },
+  {
+    "id": "S7",
+    "title": "Preregistration versus paper: a deviation ledger",
+    "question": "In preregistered psychology studies, which planned elements (sample size, exclusions, hypotheses, analyses, outcomes) deviate from the registration, and were the deviations disclosed?",
+    "why_wanted": "Claesen et al. (Royal Society Open Science 2021) found only 2 of 27 Psychological Science badge papers free of deviations and 9 that disclosed none, and van den Akker et al. (Psychological Methods 2024) found the same pattern in a larger set. Journals that award badges, the Center for Open Science and the preregistration community want a running ledger to see whether disclosure improves.",
+    "status": "Hand-coded samples run from 27 to a few hundred pairs; last moved 2024. Open: the thousands of OSF registrations with a linked published paper.",
+    "fit": "One registration-paper pair is a bounded comparison against a fixed checklist, and two AIs agree item by item with quotes from both documents as evidence. Returns aggregate by journal and year into a disclosure-rate ledger.",
+    "piece": "Brief: for one pair (registration identifier, paper DOI), compare planned and reported sample size, exclusion rules, hypotheses, analysis plan and outcome measures, and code each as match, disclosed deviation, or undisclosed deviation with quotes. Return fields: pair identifiers, per-item code with quotes from both documents, whether a deviation statement exists. Verifier: agree on the per-item codes.",
+    "count": 1500,
+    "evidence": "The second AI reads both documents at the quoted locations and checks each code.",
+    "gold": "Yes: Claesen et al.'s 27 coded pairs and van den Akker's coded set are shared and can be seeded.",
+    "risks": "Registrations vary wildly in specificity, so the codebook must separate 'deviation' from 'unspecified'; results name authors and should be reported in aggregate.",
+    "sources": [
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8548785/",
+      "https://research.aston.ac.uk/en/publications/the-potential-of-preregistration-in-psychology-assessing-preregis/"
+    ]
+  },
+  {
+    "id": "S8",
+    "title": "Registered versus published primary outcomes in trials",
+    "question": "For registered randomized trials with a results publication, does the published primary outcome match the registry's prespecified one, including its change history, and is any switch disclosed?",
+    "why_wanted": "COMPare (Goldacre et al., Trials 2019) found most trials in five top journals misreported outcomes, and a 2023 medRxiv study of 292 German university trials found 41% discrepant, 14% hidden in registry history and 1% disclosed. Cochrane reviewers, TranspariMED and journal editors want trial-level checks at the scale of the registries.",
+    "status": "Samples of a few hundred trials, last extended to observational studies at the Peer Review Congress 2025. Open: the tens of thousands of ClinicalTrials.gov trials with linked publications.",
+    "fit": "One trial is one piece against a fixed codebook, the registry history is public structured data, and two AIs agree on the codes with quotes as evidence. Returns aggregate into a per-journal outcome-switching ledger that reviewers can consult before pooling.",
+    "piece": "Brief: for one trial (registry identifier and its linked results publication), list the registry's primary outcomes at first registration and at the last pre-completion version, list the publication's primary outcomes, and code each as match, added, omitted, timing changed or switched, noting whether the paper discloses it. Return fields: identifiers, dates, both outcome lists, per-outcome codes, disclosure quote. Verifier: agree on the codes.",
+    "count": 2000,
+    "evidence": "The second AI reads the registry's history page and the paper's methods and results at the quoted locations.",
+    "gold": "Yes: the COMPare trials and the German cohort have public coded outcomes that can be seeded.",
+    "risks": "Wording differences versus substantive switches need a tight codebook, and flagged trials name investigators, so flags should go to journals before publication.",
+    "sources": [
+      "https://www.medrxiv.org/content/10.1101/2023.02.20.23286182v1.full",
+      "https://doi.org/10.1186/s13063-019-3173-2",
+      "https://peerreviewcongress.org/abstract/outcome-switching-in-observational-studies-of-interventions-comparison-of-registration-records-and-published-articles/"
+    ]
+  },
+  {
+    "id": "S9",
+    "title": "Retracted trials inside meta-analyses: a living recomputation",
+    "question": "Which published meta-analyses include a since-retracted randomized trial, and does removing it change the pooled direction, significance or magnitude?",
+    "why_wanted": "VITALITY Study I (BMJ 2025) replicated 3,902 meta-analyses from 847 reviews that pooled retracted trials: direction changed in 8.4%, significance in 16% and magnitude by more than half in 15.7%, and 157 guideline documents cited the distorted reviews. Cochrane, guideline developers and journals want this kept current as retractions keep arriving.",
+    "status": "The cohort runs to November 2024 and was computed once; a Prescrire summary notes that only 11 of 61 affected top-journal reviews were corrected or retracted. Open: a living ledger covering new retractions and new reviews.",
+    "fit": "Confirming inclusion is an agree piece and recomputing a pooled estimate from the forest-plot rows is deterministic, so a score verifier settles it. Returns aggregate into a ledger that tells a guideline group which pooled estimates it can still trust.",
+    "piece": "Brief: for one pair (review DOI, retracted trial DOI), confirm the trial is pooled, transcribe the forest-plot rows of that meta-analysis, and recompute the pooled estimate with and without the retracted trial under the stated model. Return fields: identifiers, number of studies, model, original pooled estimate and interval, recomputed estimate and interval, direction changed, significance changed, percent change in magnitude, transcribed rows. Verifier: score, with two recomputations within tolerance.",
+    "count": 2000,
+    "evidence": "The second AI reruns the pooled model from the returned rows and checks the rows against the review's forest plot.",
+    "gold": "Yes: the VITALITY replicated meta-analyses are published and can be seeded.",
+    "risks": "Some forest plots exist only as figures, review authors are named, and mis-specifying the model (fixed versus random effects) produces false 'changes'.",
+    "sources": [
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12015725/",
+      "https://ueaeprints.uea.ac.uk/99702/1/bmj-2024-082068.pdf"
+    ]
+  },
+  {
+    "id": "S10",
+    "title": "Trustworthiness checks on trials in systematic reviews",
+    "question": "Applying the INSPECT-SR signalling checks and the Carlisle baseline-table test to trials pooled in health systematic reviews, which trials raise concerns, and how would excluding them change the pooled result?",
+    "why_wanted": "Cochrane policy says a trial with unresolved trustworthiness concerns should not be included, and INSPECT-SR was released in September 2025 for exactly this, but reviewers lack the hands to apply it to tens of thousands of already-included trials. Carlisle (Anaesthesia 2017) showed baseline distributions across 5,087 trials can flag problem studies, so the two checks together give reviewers a prioritized list.",
+    "status": "INSPECT-SR exists with guidance and prospective testing in a handful of reviews; the Carlisle method has been applied journal by journal. Open: retrospective application across reviews, and the effect on pooled estimates.",
+    "fit": "Most items are verifiable facts (registration exists, dates are plausible, recruitment rate is possible, baseline p-values are distributed as expected) that two AIs agree on with quotes, and the Carlisle statistic is a score piece. Returns aggregate into a concern ledger per review rather than a verdict on any trial.",
+    "piece": "Brief: for one randomized trial (DOI) pooled in a named review, answer the INSPECT-SR signalling items with quotes, transcribe the baseline table, and compute the Carlisle aggregate baseline p-value. Return fields: trial identifier, per-item answers with quotes, transcribed baseline table, Carlisle statistic, items raising concern. Verifier: agree on the items and score on the Carlisle statistic.",
+    "count": 1500,
+    "evidence": "The second AI re-transcribes the baseline table, recomputes the statistic, and checks the registry and dates named in the quotes.",
+    "gold": "Yes: trials later retracted for fabrication (from the VITALITY cohort) are seeded as positives and trials Carlisle himself cleared after correction as negatives.",
+    "risks": "Ethically delicate: a flag is a concern, not a finding, so publication must be aggregate with flags routed to review authors and journals; the Carlisle method has methodological critics (Mascha et al. 2017) and the brief must say so.",
+    "sources": [
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12424918/",
+      "https://retractionwatch.com/2017/06/05/two-100-clinical-trials-eight-major-journals-likely-contain-inaccurate-data-study/",
+      "https://anaesthetists.org/Home/News-opinion/News/Carlisle-Method-highlights-new-spate-of-data-inaccuracies-in-medical-trials"
+    ]
+  },
+  {
+    "id": "S11",
+    "title": "Verify nucleotide reagents in published papers",
+    "question": "In papers that report primers, siRNAs and shRNAs, does each sequence target the gene it claims to, and do the non-targeting controls really target nothing?",
+    "why_wanted": "Byrne and Labbé's Seek and Blastn (PLOS ONE 2019) found sequence errors in about a quarter of a suspect cohort, later work found wrongly identified sequences across human gene research (Life Science Alliance 2022) and journals slow to respond (Scientometrics 2021), and the authors call for publisher screening. The automated tool still needs expert follow-up on every flag, which is the part nobody has hands for.",
+    "status": "Semi-automated screening exists and has flagged thousands of papers; verification of each flag is by hand and lags years. Open since 2019 and growing with paper-mill output.",
+    "fit": "Extraction is a bounded read, BLAST is deterministic, and two AIs of different vendors agree on the best-hit gene while the sequence and accession hit stay as evidence. Returns aggregate into a per-journal reagent-error ledger.",
+    "piece": "Brief: for one open-access paper (PMID), extract every nucleotide reagent with its claimed target and status (targeting or non-targeting), search each against the standard nucleotide database with the parameters named in the brief, and report whether the claimed identity holds. Return fields: PMID, reagents each with sequence, claimed target, claimed type, best-hit gene and accession, percent identity, verdict. Verifier: agree on the verdict for each reagent.",
+    "count": 2000,
+    "evidence": "The second AI reruns the search on the quoted sequence with the same parameters and compares the best hit.",
+    "gold": "Yes: the human-verified flagged set published by the Seek and Blastn group can be seeded.",
+    "risks": "Papers and authors are named, species ambiguity can produce false mismatches, and the search parameters must be fixed in the brief so two parties get the same hit.",
+    "sources": [
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC6396917",
+      "https://peerreviewcongress.org/abstract/fact-checking-nucleotide-sequences-in-life-science-publications-the-seek-blastn-tool/",
+      "https://scigendetection.imag.fr/TPD52/Vb/"
+    ]
+  },
+  {
+    "id": "S12",
+    "title": "Risk-of-bias annotation for preclinical living evidence summaries",
+    "question": "For every in vivo study in a disease area such as stroke, Alzheimer's disease or intracerebral haemorrhage, did the paper report randomization, blinded outcome assessment, a sample-size calculation, allocation concealment, conflicts and welfare approval?",
+    "why_wanted": "CAMARADES runs Systematic Online Living Evidence Summaries that need these annotations for every included study, and built the SyRF platform for crowdsourced screening and annotation because the volume outruns its team. Failure to report these items is associated with overstated effects, so the annotations change what the summaries say.",
+    "status": "Stroke and Alzheimer's summaries exist with partial annotation, and an intracerebral-haemorrhage summary is funded for 2025 to 2029 (CAMARADES team pages); SyRF's early years were described in a 2021 paper. Open: thousands of unannotated papers and every new one.",
+    "fit": "A fixed checklist with required quotes is exactly an agree piece, and SyRF's dual-annotated items supply gold. Returns feed straight into a living summary the field already maintains.",
+    "piece": "Brief: for one open-access preclinical paper (PMID), answer the CAMARADES risk-of-bias items with a quote for each. Return fields: PMID, species, model, per-item answer (yes, no, unclear) with quote. Verifier: agree on the per-item answers.",
+    "count": 2000,
+    "evidence": "The second AI locates each quote in the paper and checks it supports the answer.",
+    "gold": "Yes: items already annotated by two humans in SyRF can be hashed and seeded.",
+    "risks": "Many preclinical papers are paywalled, 'unclear' needs a strict boundary, and the codebook must match CAMARADES's own to be of use to them.",
+    "sources": [
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8647599/",
+      "https://clinical-brain-sciences.ed.ac.uk/research/camarades/research-portfolio/past-projects",
+      "https://clinical-brain-sciences.ed.ac.uk/research/camarades/meet-the-team"
+    ]
+  },
+  {
+    "id": "S13",
+    "title": "Extract GWAS associations for the catalog's uncurated papers",
+    "question": "For eligible genome-wide association studies not yet curated, what are the lead variant-trait associations with risk allele, p-value, effect, ancestry and sample sizes?",
+    "why_wanted": "The NHGRI-EBI GWAS Catalog is hand-curated by trained curators (Cerezo et al., Nucleic Acids Research 2025: close to 7,000 publications and more than 625,000 lead associations), and the machine-compiled GWASkb (2019) reached 78% to 94% precision but the catalog still needs expert verification of every row. Geneticists building polygenic scores and Mendelian randomization studies want the rows sooner.",
+    "status": "Curation is ongoing with machine triage of candidates and manual extraction; the unprocessed queue is not published. Open: the extraction step, which the catalog's own description calls time-consuming.",
+    "fit": "One paper yields one table of associations against a fixed schema, and two AIs agree per association with the paper's table cell as evidence. Returns are a verified extraction table in exactly the catalog's shape.",
+    "piece": "Brief: for one open-access GWAS paper (PMID), extract the catalog's required fields for every genome-wide significant lead association. Return fields: PMID, study metadata (trait, ancestry, discovery and replication sample sizes, array and imputation), associations each with rsID, risk allele, p-value, odds ratio or beta, interval, trait, quoted table location. Verifier: agree on each association's fields.",
+    "count": 1000,
+    "evidence": "The second AI reads the quoted table rows and the methods for sample sizes.",
+    "gold": "Yes: papers the catalog has already curated supply known rows to seed.",
+    "risks": "Supplementary tables come in awkward formats, discovery and replication sets are often mixed, and trait mapping to the ontology needs a shared vocabulary.",
+    "sources": [
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11701593/",
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6659642/"
+    ]
+  },
+  {
+    "id": "S14",
+    "title": "Transcribe imaged herbarium labels into Darwin Core",
+    "question": "What do the labels say on the millions of imaged but untranscribed herbarium sheets: taxon, collector, date, locality and coordinates?",
+    "why_wanted": "Of roughly 400 million specimens worldwide about 48 million are digitized, and at 15 to 20 sheets an hour the transcription backlog is a thirty-year job (University of Michigan VoucherVision talks); Guralnick et al. (Applications in Plant Sciences 2024) say automated pipelines still need human validation. Biodiversity and climate researchers using GBIF want the records.",
+    "status": "Vision-language pipelines (VoucherVision, Hespi) reach near-human accuracy on typed labels and vary on handwriting, running at a few institutions with human review. Open: validated transcription across institutions, which is the review step nobody has staff for.",
+    "fit": "One sheet is one piece with a Darwin Core return, and two AIs of different vendors agreeing field by field is the validation institutions lack. Returns go straight into collection databases and GBIF.",
+    "piece": "Brief: for one specimen image (institution and catalog number), transcribe the label into Darwin Core fields, both verbatim and interpreted. Return fields: catalog number, scientific name, collector, event date, locality, verbatim locality, country and state, coordinates if printed, full verbatim label text. Verifier: agree on the named fields.",
+    "count": 2000,
+    "evidence": "The second AI reads the same image and transcribes independently.",
+    "gold": "Yes: sheets already transcribed by volunteers on Notes from Nature or by collection staff can be seeded.",
+    "risks": "Handwriting and faded ink, collector names (historical and public), and precise localities of threatened species, which should be generalized as GBIF does.",
+    "sources": [
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12835874/",
+      "https://midas.umich.edu/?p=27321",
+      "https://michigan.it.umich.edu/news/?p=28637"
+    ]
+  },
+  {
+    "id": "S15",
+    "title": "Transcribe weather from untranscribed ship logbooks",
+    "question": "What daily pressure, temperature, wind and position readings sit in the nineteenth-century naval and whaling logbooks that no one has transcribed?",
+    "why_wanted": "Weather Rescue at Sea (Teleti, Hawkins and Wilkinson, Geoscience Data Journal 2026) transcribed millions of Royal Navy observations and reports that substantial quantities remain untranscribed, with hundreds of thousands of logbooks never used in climate research. Reanalysis groups and the Copernicus data-rescue service want the observations to extend reconstructions back before 1900.",
+    "status": "Volunteer transcription has covered a set of Royal Navy logs; AI-assisted correction is being tried; New England whaling logs from 1790 to 1910 are still unexploited. Open: the rest of the imaged logbooks.",
+    "fit": "One page is one piece of numeric cells, two vendors' AIs agree digit by digit, and pages with consensus volunteer transcriptions supply gold. Returns aggregate into an observation dataset in the format the reanalyses already ingest.",
+    "piece": "Brief: for one scanned logbook page (archive reference and page), transcribe every observation row: date, hour, barometer, air temperature, sea temperature, wind direction and force, latitude and longitude, with any instrument notes. Return fields: page identifier, rows, notes. Verifier: agree on each cell.",
+    "count": 2000,
+    "evidence": "The second AI reads the same scan and transcribes independently.",
+    "gold": "Yes: pages already transcribed by several volunteers and reconciled can be seeded.",
+    "risks": "Handwriting and obsolete units, missing instrument metadata, and the need for archives to have released page images.",
+    "sources": [
+      "https://reading-9.eprints-hosting.org/113346",
+      "https://www.zooniverse.org/projects/p-teleti/weather-rescue-at-sea/about",
+      "https://brohan.org/transcription_methods_review/case_studies/case_studies.html"
+    ]
+  },
+  {
+    "id": "S16",
+    "title": "Extract species interactions locked in papers for GloBI",
+    "question": "Which species interactions (who eats, pollinates, parasitizes or hosts whom, where and when) are recorded in published papers but not yet in Global Biotic Interactions?",
+    "why_wanted": "GloBI aggregates interaction records, and the Pensoft-GloBI workflow (2020) extracts them only from semantically tagged tables, leaving most of the literature untouched; network ecologists, parasitologists and the Big Bee project want the records in one place. The literature is the largest unindexed source.",
+    "status": "The tagged-table workflow runs; datasets such as bee interactions were added through 2024. Open: the untagged literature, which is most of it.",
+    "fit": "One paper yields a small set of records against a controlled vocabulary (OBO Relation Ontology terms), and two AIs agree per record with the table cell or sentence as evidence. Returns are in GloBI's own ingestion shape.",
+    "piece": "Brief: for one open-access paper (DOI), extract every biotic interaction record. Return fields: DOI, records each with source taxon, interaction type, target taxon, locality, date, evidence quote or table cell. Verifier: agree on the set of records.",
+    "count": 1500,
+    "evidence": "The second AI finds each quoted cell or sentence and checks the taxa and interaction type.",
+    "gold": "Yes: papers whose interactions GloBI already holds give known record sets to seed.",
+    "risks": "Taxon-name resolution and synonymy, ambiguous interaction types, and much of the interaction literature in grey or paywalled sources.",
+    "sources": [
+      "https://blog.pensoft.net/2020/07/17/pensoft-globi-workflow-for-fair-data-exchange-and-indexing-of-biotic-interactions-locked-within-scholarly-articles",
+      "https://globalbioticinteractions.org/how-to",
+      "https://par.nsf.gov/biblio/10437333"
+    ]
+  },
+  {
+    "id": "S17",
+    "title": "Which published paleoclimate records were never archived?",
+    "question": "For published paleoclimate proxy records (ice cores, speleothems, tree rings, sediments), which sit in a public archive with complete metadata, and which exist only in the paper?",
+    "why_wanted": "Compiling the PAGES Antarctica 2k database, Stenni and Thomas (PAGES Magazine 2018) found about a third of the published records they needed had never been deposited; synthesis groups (PAGES 2k, Temp12k) and the NOAA World Data Service for Paleoclimatology want every record standardized in the LiPD format. A ledger of what is archived is the first step to rescuing what is not.",
+    "status": "The LiPD standard (Climate of the Past 2016) and shared vocabularies exist, and NOAA has minted DOIs for a backlog of more than 10,000 datasets. Open: the count and identity of published-but-unarchived records, which no one has.",
+    "fit": "One paper is one bounded extraction of record metadata plus an archive lookup, two AIs agree on the fields, and records already in lipdverse supply gold. Returns aggregate into an archive-coverage ledger and a rescue list.",
+    "piece": "Brief: for one paper (DOI), list each proxy record it presents with site name, latitude, longitude, elevation, archive type, proxy variable, units, resolution, time span, and the public archive accession if one exists. Return fields: DOI, records, archived status (yes, partial, no) with the accession or the reason. Verifier: agree on the fields and the archived status.",
+    "count": 1500,
+    "evidence": "The second AI checks the archive by accession and reads the paper's site table.",
+    "gold": "Yes: records already in the PAGES 2k version 2 database with known accessions can be seeded.",
+    "risks": "Several archives to search, partial deposits that lack metadata, and supplementary files hosted on dead links.",
+    "sources": [
+      "https://pastglobalchanges.org/node/12717",
+      "https://cp.copernicus.org/articles/12/1093/2016/",
+      "https://pastglobalchanges.org/node/12712"
+    ]
+  },
+  {
+    "id": "S18",
+    "title": "Experimental band gaps with method and provenance",
+    "question": "What are the experimentally measured band gaps in the literature, with phase, measurement method and conditions, for materials where databases hold only computed values?",
+    "why_wanted": "Dong and Cole (Scientific Data 2022) auto-extracted 100,236 band gap records at 84% precision, and Ning et al. (Digital Discovery 2026) and the PV600 benchmark (Scientific Data 2025) say experimental databases are scarce and auto-extraction misses structural and processing context. Materials informatics groups training band gap predictors want a clean experimental benchmark with provenance.",
+    "status": "Noisy auto-extracted databases exist, and a hand-annotated benchmark covers only 227 values. Open: verified experimental values at scale; last moved 2025 to 2026.",
+    "fit": "One paper is one bounded extraction against fixed fields, two AIs agree on formula, value and method with a quote as evidence, and well-known compounds plus PV600 supply gold. Returns aggregate into the verified experimental table the field lacks.",
+    "piece": "Brief: for one open-access paper (DOI), extract each experimental band gap: material formula, phase or structure, value and unit, method (for example Tauc plot from absorbance, photoluminescence), direct or indirect, temperature, sample form, and the sentence or table quote. Return fields: DOI, records. Verifier: agree on formula, value and method.",
+    "count": 2000,
+    "evidence": "The second AI reads the quoted sentence or table cell and checks the value is experimental, not computed.",
+    "gold": "Yes: PV600's annotated values and textbook values for silicon, gallium arsenide and the like can be seeded.",
+    "risks": "Computed values mislabeled as measured, unit and notation slips, and much of the literature paywalled, so the set should favor open-access and preprint papers.",
+    "sources": [
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9065101/",
+      "https://pubs.rsc.org/en/Content/ArticleLanding/2026/DD/D5DD00482A",
+      "https://research.utu.fi/converis/portal/Publication/499752519"
+    ]
+  },
+  {
+    "id": "S19",
+    "title": "Vet TESS planet candidates with standard diagnostics",
+    "question": "Which TESS Objects of Interest are genuine planet candidates and which are eclipsing binaries, blends or instrumental artifacts?",
+    "why_wanted": "The TESS Triple-9 catalogs (MNRAS 2022 and 2023) vetted 999 TOIs each with at least three human vetters and found about a quarter to be false positives or doubtful, and NASA reports more than 5,000 candidates awaiting verification at the end of the second extended mission (September 2025). Follow-up telescope time is scarce, so observers want prioritized, independently vetted lists.",
+    "status": "About 2,000 TOIs have independent vetting; the rest carry only the pipeline disposition. Open: the remaining thousands and every new sector's TOIs.",
+    "fit": "Each TOI is a bounded set of diagnostics on a public light curve (odd-even depth, secondary eclipse, centroid offset, duration against period), two AIs agree on the disposition and the numbers score within tolerance, and confirmed planets plus known false positives supply gold. Returns aggregate into a vetting catalog in the Triple-9 shape.",
+    "piece": "Brief: for one TOI, run the standard diagnostics on the public light curve and the data validation report and assign a disposition. Return fields: TOI identifier, period, depth, odd-even depth difference and its significance, secondary eclipse search result, centroid offset, duration consistency, disposition (planet candidate, false positive, potential false positive), notes. Verifier: agree on disposition and score on the diagnostic numbers.",
+    "count": 2000,
+    "evidence": "The second AI recomputes the diagnostics from the same light curve and compares within tolerance.",
+    "gold": "Yes: confirmed planets and Triple-9 false positives can be seeded with their dispositions.",
+    "risks": "Light-curve downloads and shared diagnostic code are needed for comparable numbers, and agreement tends to drift toward 'candidate' on ambiguous cases.",
+    "sources": [
+      "https://academic.oup.com/mnras/article/513/1/102/6548905",
+      "https://arxiv.org/abs/2303.00624v1",
+      "https://science.nasa.gov/missions/tess/nasas-planet-hunting-tess-reveals-dazzling-night-sky"
+    ]
+  },
+  {
+    "id": "S20",
+    "title": "Code published replications into the FORRT Replication Database",
+    "question": "For every published replication study, what were the original and replication effect sizes, sample sizes and outcome, coded in the Replication Database's schema?",
+    "why_wanted": "The Replication Database (Röseler et al., Journal of Open Psychology Data 2024) holds 1,239 original-replication pairs entered by volunteers, and the FORRT Replication Hub wants coverage of every replication so replication rates by journal, year and topic can be tracked and taught. Anyone asking whether a finding replicated wants a ledger they can check row by row.",
+    "status": "1,239 pairs as of 2024, succeeding the crowdsourced Replications and Reversals list of about 600 effects. Open: the thousands of replications published since 2015 that are not yet entered, and keeping pace with new ones.",
+    "fit": "One replication paper yields a few rows of numeric fields, two AIs agree on the numbers with quotes as evidence, and existing entries supply gold. Returns are rows in the database's own schema.",
+    "piece": "Brief: for one replication paper (DOI), identify the original study, and extract original and replication effect sizes in a common metric, sample sizes, direction, and the outcome category under the database's codebook. Return fields: both identifiers, effect description, original effect size and n, replication effect size and n, outcome category, quotes for each number. Verifier: agree on the numeric fields and the outcome category.",
+    "count": 1500,
+    "evidence": "The second AI reads the quoted values in both papers and re-derives the common-metric effect size.",
+    "gold": "Yes: existing database entries can be hashed and seeded.",
+    "risks": "Effect-size conversions across designs, contested success criteria, and multi-study papers that need one row per study.",
+    "sources": [
+      "https://doi.org/10.5334/jopd.101",
+      "https://doaj.org/article/713c9840de3c483bbd141bbebbac950a"
+    ]
+  }
+]

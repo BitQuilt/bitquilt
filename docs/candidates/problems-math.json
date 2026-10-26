@@ -1,0 +1,361 @@
+[
+  {
+    "id": "M1",
+    "title": "Literature status for every open Erdős problem",
+    "question": "For each of the roughly 593 Erdős problems marked completely open on erdosproblems.com, what is the strongest published result toward it, and is any of them already settled in literature the site has not indexed?",
+    "why_wanted": "Thomas Bloom and Terence Tao maintain the database with volunteer effort, and in October 2025 several problems announced as solved by AI turned out to be existing papers the site had not seen. A cited literature map per problem is what the maintainers, and the prover benchmarks built on the site (Formal Conjectures, FrontierMath Erdős), need most.",
+    "status": "The STATISTICS page of the teorth/erdosproblems repository lists 1,221 problems, 593 completely open, 336 proved, 139 disproved, 101 otherwise solved, and 310 problems potentially related to an OEIS sequence not yet listed; statuses move weekly through pull requests. The GPT-5 science-acceleration report (arXiv 2511.16072) counted 685 open of 1,105 on 31 October 2025, so about a hundred moved in a year, mostly by literature search.",
+    "fit": "Each problem is an independent bounded lookup that any web-capable AI can do in under an hour, and two strangers can agree on a citation (title, authors, DOI or arXiv id) and a one-word status. The aggregate is the maintainers' own data file in their own schema, ready as pull requests.",
+    "piece": "Brief: for Erdős problem number N, state the strongest published partial or full result, its source by title, author, year and identifier, and whether the problem should be marked proved, disproved or still open. Return fields: problem_id, status_recommendation, source_identifier, source_title, result_summary, quote. Verifier: agree on problem_id, status_recommendation and source_identifier, with the quote and summary kept as evidence.",
+    "count": 600,
+    "evidence": "The second AI resolves the identifier (DOI or arXiv id), confirms the quoted sentence appears in that paper, and reads the quoted theorem to confirm it states what the return claims.",
+    "gold": "Yes: the owner seeds the problems whose status moved in the last year (visible in the repository's git history) with the recommendation and identifier hashed, and strikes workers who disagree on them.",
+    "risks": "AIs over-claim a paper's relevance (the October 2025 episode), so the quote requirement and cross-vendor agreement must hold; everything cited is published work, so no private individual is targeted.",
+    "sources": [
+      "https://github.com/teorth/erdosproblems",
+      "https://www.erdosproblems.com/",
+      "https://arxiv.org/abs/2511.16072"
+    ]
+  },
+  {
+    "id": "M2",
+    "title": "Lean statements and solutions for Erdős problems",
+    "question": "Can the roughly 250 Erdős problems with no Lean statement, and the roughly 260 solved problems whose solutions are not yet in Lean, be formalized faithfully against mathlib in the Formal Conjectures repository?",
+    "why_wanted": "Google DeepMind's Formal Conjectures repository and the erdosproblems maintainers treat per-problem formalization as the ground truth for automated provers, and AlphaProof Nexus was run on the formalized open set in 2026. Every missing statement is a problem no prover can be scored on, and every unformalized solution is a proof nobody has machine-checked.",
+    "status": "The STATISTICS page of teorth/erdosproblems records 974 of 1,221 statements formalized in Lean and 318 solutions formalized; a December 2025 Xena Project guest post by Boris Alexeev counted about 240 statements, so the pace is several hundred a year. The repository's milestone page said 693 open problems remained to formalize as of August 2026, and misformalizations are caught by human review.",
+    "fit": "Each formalization is one file against a pinned mathlib commit that compiles or fails, and faithfulness to the informal statement is a judgement two strangers' AIs make independently. The aggregate is pull requests into a repository that already accepts them.",
+    "piece": "Brief: for Erdős problem N, write a Lean 4 statement (or, for a solved problem, a proof of the existing statement) against the pinned mathlib commit, with a comment mapping each informal clause to a Lean term. Return fields: problem_id, lean_source, mathlib_commit, build_ok, clause_map. Verifier: check (two other parties rebuild and confirm it compiles with no sorry), then agree on faithfulness between two vendors.",
+    "count": 500,
+    "evidence": "The second party rebuilds the file against the named commit, confirms no sorry and no axiom beyond mathlib's, and compares the clause map with the problem's informal text.",
+    "gold": "Yes: the owner seeds problems already formalized upstream by hiding the upstream file and comparing the returned statement's type against it up to definitional unfolding.",
+    "risks": "Vacuous or subtly wrong formalizations pass the compiler, so the faithfulness agreement is the only defence; the repository flags 11 problems as ambiguous and those should be excluded.",
+    "sources": [
+      "https://github.com/google-deepmind/formal-conjectures",
+      "https://github.com/teorth/erdosproblems",
+      "https://xenaproject.wordpress.com/2025/12/05/formalization-of-erdos-problems/"
+    ]
+  },
+  {
+    "id": "M3",
+    "title": "Run the finite computations that settle forty Erdős problems",
+    "question": "For the 40 Erdős problems the database tags as open but falsifiable, verifiable or decidable by a finite computation, what does the computation say when it is actually run to the required bound?",
+    "why_wanted": "The erdosproblems maintainers added these tags to flag problems where computation, not insight, is what is missing; each resolution moves a problem to solved and adds a certificate. Combinatorialists and the formalization projects want the certificates, not just the verdicts.",
+    "status": "The STATISTICS page of teorth/erdosproblems lists 25 open problems falsifiable by finite computation, 8 decidable by reduction to a finite computation and 7 verifiable by finite computation, out of 1,221; an independent snapshot of the database on 9 September 2026 showed the same categories (decidable 9, falsifiable 25, verifiable 7). Many of these are large Ramsey-type or covering-type searches that nobody has split up and run.",
+    "fit": "A finite search splits into disjoint ranges or case trees, each a bounded run with a deterministic output that two other parties rerun bit for bit. The aggregate is a verdict with a reproducible log that the database can cite.",
+    "piece": "Brief: for problem N and range or case R of the agreed decomposition, run the specified exhaustive search and return the outcome and any witness. Return fields: problem_id, range_id, outcome, witness, program_hash, run_log_hash. Verifier: check (a checker script reruns range R and compares outcome and witness).",
+    "count": 2000,
+    "evidence": "The second party reruns the published program on range R and compares the outcome, the witness and the hash of the output log.",
+    "gold": "Yes: the owner runs a few ranges in advance, hashes outcome and witness, and strikes any worker whose results on those ranges differ.",
+    "risks": "Some of the forty need a bound beyond feasible compute even when split, so each needs a feasibility piece first; a found counterexample is a real mathematical result and should be rechecked by hand before being announced.",
+    "sources": [
+      "https://github.com/teorth/erdosproblems/blob/main/STATISTICS.md",
+      "https://www.erdosproblems.com/",
+      "https://www.jasonwillems.com/sites/erdos/"
+    ]
+  },
+  {
+    "id": "M4",
+    "title": "Fill the 1000+ theorems formalization table",
+    "question": "For each theorem on the 1000+ theorems list, which of the six proof assistants (Isabelle, HOL Light, Rocq, Lean, Metamath, Mizar) has a formal proof, and where exactly is it?",
+    "why_wanted": "Freek Wiedijk's 100-theorems list drove a decade of formalization work and the 1000+ list is its successor, used by mathlib and other libraries to pick targets. The table is filled by hand and is sparse outside Lean, so library maintainers cannot tell which gaps are real and which are unrecorded.",
+    "status": "The site at 1000-plus.github.io lists each theorem with its MSC code and per-system links; Lean is heavily linked, Metamath and Mizar less, and Isabelle, HOL Light and Rocq sparsely, with no totals shown. A 2025 Indiana REU report describes contributing a formal proof of Abel's binomial theorem to the project, so it moves one theorem at a time.",
+    "fit": "Each theorem is an independent lookup across six searchable libraries with a definite answer (a declaration name in a named library at a named commit). The aggregate is the table itself, submitted in the repository's format.",
+    "piece": "Brief: for theorem T on the 1000+ list, for each of the six systems, give the declaration name and library commit of a formal proof or state that none was found after searching that library's index. Return fields: theorem_id, per_system_found, per_system_declaration, per_system_commit. Verifier: agree on per_system_found and per_system_declaration between two vendors.",
+    "count": 1000,
+    "evidence": "The second AI looks up each declaration name at the named commit and checks that it states the theorem.",
+    "gold": "Yes: entries already filled in on the site are hidden and used as gold; a worker whose entries disagree with the upstream table is struck.",
+    "risks": "Deciding that a declaration is the theorem involves judgement about generality; false negatives are cheap but false positives pollute the table.",
+    "sources": [
+      "https://1000-plus.github.io/",
+      "https://github.com/1000-plus-theorems/1000-plus",
+      "https://cs.ru.nl/~freek/100/"
+    ]
+  },
+  {
+    "id": "M5",
+    "title": "Extend the OEIS sequences marked as needing more terms",
+    "question": "For the OEIS sequences carrying the keyword 'more' (sequences the editors say need more terms), what are the next terms, computed by two independent programs?",
+    "why_wanted": "OEIS editors mark a sequence 'more' when its known terms are too few to be useful and nobody has extended it; integer-sequence researchers mine these terms for conjectures and the editors want b-files with provenance. Independent recomputation also catches wrong terms, which the OEIS corrects regularly.",
+    "status": "The OEIS search for keyword:more returns 27,008 sequences as of October 2026, out of about 380,000 in the database. The keyword is cleared one sequence at a time when a contributor submits more terms; a related keyword 'hard' marks those that cannot reasonably be extended.",
+    "fit": "Each sequence is a self-contained computation from its definition, taking minutes to hours, with a return (a list of integers) that two strangers' AIs on different vendors either match exactly or do not. The aggregate is thousands of OEIS edits in the standard submission format.",
+    "piece": "Brief: for sequence A-number N, read its definition and existing terms, write a program that reproduces the existing terms, and return the next k terms. Return fields: anumber, reproduced_existing, new_terms, program_source, runtime_seconds. Verifier: agree on new_terms between two vendors, with each program kept as evidence.",
+    "count": 2000,
+    "evidence": "The second AI runs the first AI's program and its own, confirms both reproduce the existing terms, and compares the new terms.",
+    "gold": "Yes: the owner takes sequences with long b-files, truncates them, and treats the hidden terms as gold.",
+    "risks": "Some sequences are 'more' because their definition is ambiguous or the next term needs infeasible compute, so the piece must allow a not-reproducible return; submission to the OEIS still passes through its editors.",
+    "sources": [
+      "https://oeis.org/search?q=keyword:more",
+      "https://oeis.org/wiki/User:Charles_R_Greathouse_IV/Keywords/difficulty",
+      "https://arxiv.org/abs/2301.03149"
+    ]
+  },
+  {
+    "id": "M6",
+    "title": "Tighten covering design bounds in the Covering Repository",
+    "question": "For the thousands of (v,k,t) parameter sets whose best known covering design has more blocks than the proven lower bound, can smaller coverings be found and verified?",
+    "why_wanted": "Covering designs are used in design theory, group testing, software test suites and lottery wheels; Dan Gordon ran the La Jolla Covering Repository for thirty years and its successor keeps 9,490 (v,k,t) parameter sets. A July 2026 arXiv paper settling C(12,6,4) = 41 shows single entries still take a paper each.",
+    "status": "The Covering Repository (coveringrepository.com) imported Gordon's data through March 2026, records 101,621 improvements since 1996 and accepts submitted improvements for listed parameter sets; Gordon's own site stopped accepting coverings after 1 March 2026 and will shut down in 2026. The scope is v < 100, k <= 25, t <= 8, and most entries have a gap between lower and upper bound.",
+    "fit": "A covering is a certificate checkable in milliseconds (does every t-set lie in some block) and its size is the score, so strangers need no trust at all. Each parameter set is an independent search that heuristics run in minutes to hours.",
+    "piece": "Brief: for parameters (v,k,t) with current bound B, search for a covering with fewer than B blocks and return it. Return fields: v, k, t, block_count, blocks, method_note. Verifier: score (a checker confirms every t-subset is covered and scores block_count against B).",
+    "count": 2000,
+    "evidence": "The second party runs the checker over all t-subsets against the returned blocks and compares block_count with the repository's current bound.",
+    "gold": "Yes: the owner hides a handful of recent improvements and seeds their parameter sets as gold with the known block count.",
+    "risks": "Many entries are near-optimal and will not move, so most returns are null; the repository's own review remains the publishing door.",
+    "sources": [
+      "https://coveringrepository.com/",
+      "https://dmgordon.org/cover",
+      "https://arxiv.org/abs/2607.23766"
+    ]
+  },
+  {
+    "id": "M7",
+    "title": "Denser packings of equal circles in a square",
+    "question": "For n equal circles in a unit square with n from 34 up to the few thousand Packomania tracks, can denser packings than the recorded ones be found, and which records are tight?",
+    "why_wanted": "Eckard Specht's Packomania is the reference table for circle packing researchers (Szabó, Markót, Csendes, Amore) and improvements are published as papers. Optimality is proven only through n = 33, so every larger entry is an open lower bound the field wants raised or confirmed.",
+    "status": "Markót's 2021 paper in the Journal of Global Optimization gives computer-assisted optimality proofs for n = 31, 32 and 33 (26, 61 and 13 CPU hours) and says the next few cases are reachable the same way; Packomania's circles-in-a-square section was last updated in 2022, with record files regenerated as late as July 2026. New records now come from heuristic searches such as Amore and Morales (arXiv 2102.01537).",
+    "fit": "A packing is a list of centres and a radius; the checker verifies pairwise distances and boundary constraints in high-precision or interval arithmetic and the radius is the score. Each n is an independent optimization that one AI can run for an hour.",
+    "piece": "Brief: for n circles, search for a packing in the unit square with radius larger than the recorded record r_n and return the centres. Return fields: n, radius, centres, precision_digits, method_note. Verifier: score (checker verifies non-overlap and containment to the stated precision and compares radius with r_n).",
+    "count": 500,
+    "evidence": "The second party recomputes all pairwise distances and boundary margins from the centres in high precision and compares the radius with the Packomania record.",
+    "gold": "Yes: the owner seeds small n with the proven optimal radii; a worker claiming to beat a proven optimum is struck.",
+    "risks": "Floating-point near-contacts are easy to fake and must be checked in interval arithmetic; most n will not improve.",
+    "sources": [
+      "https://packomania.com/",
+      "https://link.springer.com/article/10.1007/s10898-021-01086-z",
+      "https://arxiv.org/abs/2102.01537"
+    ]
+  },
+  {
+    "id": "M8",
+    "title": "Raise Hadamard maximal determinant records",
+    "question": "For orders n below 120 not divisible by 4 where the maximal determinant of an n by n matrix of plus and minus ones is unknown, can matrices with larger determinant than the recorded ones be found?",
+    "why_wanted": "The maximal determinant problem (Hadamard 1893) underlies D-optimal experimental designs, and Orrick, Brent, Osborn, Đoković and Kotsireas have kept record tables for twenty years. Each record is a lower bound; the smallest unresolved orders, 29 and 33, have been open since orders 19 and 37 were settled in 2011.",
+    "status": "Brent, Orrick, Osborn and Zimmermann (arXiv 1112.4160) settled n = 19 and 37 and improved the upper bounds for 29 and 33, which remain the smallest open orders; an August 2026 preprint (arXiv 2608.22518) reports new records for n = 51, 107, 111, 115 and 119 with optimality proven only within a circulant-block family. Orrick's Indiana record site is no longer online, so the current table lives in papers.",
+    "fit": "A matrix is a certificate whose determinant anyone recomputes exactly in integer arithmetic; the determinant is the score. Each order is an independent search (Ehlich block constructions, circulant families, local search) that runs in minutes to hours.",
+    "piece": "Brief: for order n with record D_n, search for a matrix of plus and minus ones with absolute determinant greater than D_n and return it. Return fields: n, matrix_rows, determinant, construction_note. Verifier: score (checker recomputes the determinant exactly and compares with D_n).",
+    "count": 90,
+    "evidence": "The second party recomputes the determinant from the returned rows with exact integer arithmetic.",
+    "gold": "Yes: the owner seeds orders with proven maxima (n up to 21, and 37) as gold; a return exceeding a proven maximum is struck.",
+    "risks": "Records are hard to beat and most returns will be null; the current record table must first be reassembled from the literature, which can itself be a piece.",
+    "sources": [
+      "https://arxiv.org/abs/1112.4160",
+      "https://arxiv.org/abs/2608.22518",
+      "https://arxiv.org/abs/math/0304410"
+    ]
+  },
+  {
+    "id": "M9",
+    "title": "Longer snakes and coils in hypercubes of dimension 9 to 13",
+    "question": "What are the longest induced paths (snakes) and cycles (coils) in the n-dimensional hypercube for n = 9 to 13, where the exact maxima are unknown and the records moved in 2025 and 2026?",
+    "why_wanted": "Snake-in-the-box codes are used in error detection and analog-to-digital encoding, and the records are a standing benchmark for search heuristics (Potter, Casella, Allison and Paulusma, Ace). The lowest open dimension is 9, where a fourteen-year-old record of 190 fell to 191 in July 2026.",
+    "status": "A July 2026 census (arXiv 2607.15270) reports a length-191 snake in dimension 9; Thomas Ace's 2025 Zenodo preprints raised dimensions 10 to 13 to 376, 736, 1445 and 2854, and a June 2026 preprint claims 1461 and 2892 for dimensions 12 and 13, unconfirmed. Exact maxima are known only through dimension 8.",
+    "fit": "A snake is a vertex list whose validity (consecutive vertices adjacent, no other adjacencies) is checked in linear time, and length is the score. Each dimension is an independent search that heuristics run for an hour.",
+    "piece": "Brief: for dimension n and current record L_n, search for an induced path (or cycle) in the hypercube Q_n longer than L_n and return the vertex sequence. Return fields: n, kind, length, vertex_sequence, method_note. Verifier: score (checker validates the sequence and scores length against L_n).",
+    "count": 100,
+    "evidence": "The second party checks that consecutive vertices differ in exactly one bit and no two non-consecutive vertices do, then counts the length.",
+    "gold": "Yes: the owner seeds dimensions 1 to 8 with their proven maxima; a return exceeding them is struck.",
+    "risks": "Improvements are rare and incremental; the problem is a benchmark more than a frontier, which may attract low-effort returns.",
+    "sources": [
+      "https://arxiv.org/abs/2607.15270",
+      "https://zenodo.org/records/17832883",
+      "https://en.wikipedia.org/wiki/Snake-in-the-box"
+    ]
+  },
+  {
+    "id": "M10",
+    "title": "Graceful labelings for every tree on 36 to 40 vertices",
+    "question": "Does every tree with 36 or more vertices admit a graceful labeling, as the Ringel-Kotzig conjecture asserts, and can the labelings be produced as a public certificate file?",
+    "why_wanted": "The graceful tree conjecture (1967) is open, and the computational frontier (35 vertices published, 39 reported but unpublished) is the field's evidence base, cited in Gallian's dynamic survey of graph labelings. A public certificate file would let anyone check the frontier instead of trusting one program.",
+    "status": "Fang (arXiv 1003.3045, 2010) verified all trees with at most 35 vertices and MathWorld records an unpublished 39-vertex verification from 2012; a November 2025 arXiv paper (2511.11331) proves an asymptotic version but no finite extension has been published since. Knuth and Elkies extended the counts of gracefully labeled trees through 31 vertices in 2021.",
+    "fit": "Trees are generated canonically (nauty's gentreeg) in deterministic order, so a piece is a contiguous range of trees whose labelings are certificates checked in linear time each. The aggregate is a complete certificate file per vertex count.",
+    "piece": "Brief: generate trees number i through j of order n in gentreeg order and return a graceful labeling for each. Return fields: n, range_start, range_end, generator_version, labelings_file, labelings_hash, failures. Verifier: check (a checker regenerates the range, verifies each labeling and compares the hash).",
+    "count": 2000,
+    "evidence": "The second party regenerates the same range with the named generator version and verifies every labeling induces distinct edge labels 1 to n-1.",
+    "gold": "Yes: the owner labels a few ranges in advance and strikes workers whose failure lists or hashes disagree on them.",
+    "risks": "There are about 2.8 billion trees on 36 vertices, so one order is thousands of multi-hour pieces; a reported failure (a non-graceful tree) would be a disproof and needs careful rechecking.",
+    "sources": [
+      "https://arxiv.org/abs/1003.3045",
+      "https://mathworld.wolfram.com/GracefulTreeConjecture.html",
+      "https://arxiv.org/abs/2511.11331"
+    ]
+  },
+  {
+    "id": "M11",
+    "title": "Settle the open Graffiti.pc conjectures by exhaustive small-graph search",
+    "question": "For the Graffiti.pc conjectures on DeLaViña's Written on the Wall II list still marked open, which have a small counterexample graph and which hold on every connected graph up to 10 or 11 vertices?",
+    "why_wanted": "Graffiti and Graffiti.pc generated over 900 machine conjectures on graph invariants, and graph theorists (DeLaViña, Pepper, Davila) still mine the open ones for theorems. In 2026 three were proved (Conjectures 141 to 143) and one was disproved with a Lean-certified infinite family (Conjecture 194), now in the Formal Conjectures repository.",
+    "status": "Written on the Wall II is a web list at the University of Houston-Downtown, cited as retrieved July 2026 by arXiv 2608.01396; arXiv 2609.19195 disproved Conjecture 194 and its Lean certificate was merged into Formal Conjectures in August 2026. The list's status marks (open, proved, refuted) are updated by hand.",
+    "fit": "Each conjecture is an inequality between graph invariants that can be checked exhaustively on all connected graphs to 10 vertices (about 12 million) with nauty in minutes to hours, and a counterexample is a graph6 string anyone verifies. The aggregate is a status table with certificates.",
+    "piece": "Brief: for Conjecture C with the pinned invariant definitions, compute both sides on every connected graph up to n vertices and return the smallest counterexample or the bound reached. Return fields: conjecture_id, max_n_checked, counterexample_graph6, lhs_value, rhs_value, program_source. Verifier: agree on counterexample_graph6 and max_n_checked between vendors, with the counterexample's invariants rechecked.",
+    "count": 300,
+    "evidence": "The second AI recomputes both invariants on the returned graph6 string and reruns the exhaustive check at a smaller n.",
+    "gold": "Yes: the owner seeds conjectures already refuted on the list with their known counterexamples hashed.",
+    "risks": "Invariant definitions on the list are sometimes informal, so each piece must pin the definition; a no-counterexample return up to 10 vertices is evidence, not a proof.",
+    "sources": [
+      "https://arxiv.org/abs/2609.19195",
+      "https://arxiv.org/abs/2608.01396",
+      "https://www.uhd.edu/documents/academics/sciences/history.pdf"
+    ]
+  },
+  {
+    "id": "M12",
+    "title": "Close the undetermined unknotting numbers in KnotInfo",
+    "question": "For the prime knots up to 12 crossings whose unknotting number KnotInfo records only as a range such as [2,3], can the value be pinned down by an explicit crossing-change sequence or a published lower bound the table has not yet absorbed?",
+    "why_wanted": "KnotInfo (Livingston and Moore) is the knot theorists' reference table and unknotting number is its most-cited incomplete column; Brittenham, Lewark, Wright, Dranowski, Kabkov and Tubbenhauer have each closed a few entries in recent years. Each closed entry is a small published result and feeds the slice-genus and Gordian-distance tables.",
+    "status": "KnotInfo's unknotting number page records undetermined values as ranges, lists 12n805, 12n814, 12n844 and 12n856 as 2 or 3 after Ana Wright's work and 12a554 and 12a750 with lower bound 3 from Lukas Lewark's Nakanishi index, and says new upper bounds by Dranowski, Kabkov and Tubbenhauer are pending and not installed. There is no formal submission process; results are credited from published work.",
+    "fit": "An upper bound is a certificate (a diagram and a list of crossing changes whose result an AI verifies as the unknot with SnapPy or Regina), and a lower bound is a citation to a named invariant whose value two AIs recompute. Each knot is an independent piece of minutes to hours.",
+    "piece": "Brief: for knot K with recorded range [a,b], either return a sequence of fewer than b crossing changes on the given PD code that yields the unknot, or a published invariant bound above a with its source, or report that neither was found. Return fields: knot_name, pd_code, crossing_changes, unknot_check, lower_bound_source, new_range. Verifier: agree on new_range between vendors, with check of the crossing-change certificate.",
+    "count": 300,
+    "evidence": "The second party applies the crossing changes to the PD code and runs an unknot recognizer, or recomputes the cited invariant.",
+    "gold": "Yes: the owner seeds knots whose values were settled recently (Wright's four, Lewark's two) with the hidden range.",
+    "risks": "Lower bounds are hard and most pieces will return nothing new; new values should be published through KnotInfo's maintainers.",
+    "sources": [
+      "https://knotinfo.org/descriptions/unknotting_number.html",
+      "https://knotinfo.org/homelinks/about.html"
+    ]
+  },
+  {
+    "id": "M13",
+    "title": "A 5-chromatic unit-distance graph smaller than 509 vertices",
+    "question": "Is there a unit-distance graph in the plane with chromatic number 5 and fewer than 509 vertices, and can each candidate be certified by exact coordinates and a proof of non-4-colourability?",
+    "why_wanted": "De Grey's 2018 proof that the plane needs at least 5 colours launched Polymath16, whose stated aim is a simpler, smaller certificate; Heule and Parts drove the record from 1,581 to 509 vertices by 2020. A smaller graph is the field's measure of understanding the lower bound and a step toward a human-readable proof.",
+    "status": "Parts's 509-vertex, 2,442-edge graph (arXiv 2010.12665) has stood since 2020 and MathWorld lists it as the smallest as of 2022; Heule's 2023 FoCM talk cites 510 as the smallest certificate. No planar record below 509 has appeared through October 2026; a 2026 preprint reports a 231-vertex 5-chromatic graph on a sphere, a different setting.",
+    "fit": "A candidate graph is a certificate twice over: exact algebraic coordinates prove the unit distances and a DRAT proof from a SAT solver proves non-4-colourability, both checkable by strangers in minutes. Each piece is a seeded minimization run from a parent graph.",
+    "piece": "Brief: starting from the named parent graph and a random seed, run the agreed vertex-deletion and SAT-check minimization and return the smallest 5-chromatic unit-distance subgraph found. Return fields: parent_graph_hash, seed, vertex_count, coordinates_exact, edges, drat_proof. Verifier: score (checker verifies unit distances exactly and the DRAT proof, scoring vertex_count against 509).",
+    "count": 1000,
+    "evidence": "The second party verifies every edge has squared length exactly 1 in the stated algebraic number field and runs a DRAT checker on the non-4-colourability proof.",
+    "gold": "Yes: the owner seeds the known 509-, 510- and 529-vertex graphs; a return claiming fewer vertices for them without a valid proof is struck.",
+    "risks": "The 509 record has resisted five years of search, so many pieces will tie or lose; a new record would need a written construction for the community.",
+    "sources": [
+      "https://arxiv.org/abs/2010.12665",
+      "https://mathworld.wolfram.com/deGreyGraphs.html",
+      "https://arxiv.org/abs/1805.12181"
+    ]
+  },
+  {
+    "id": "M14",
+    "title": "Advance the open-ended aliquot sequences below one million",
+    "question": "Do the aliquot sequences starting below 10^6 whose fate is unknown (about 9,100 as of 2020, including the Lehmer five 276, 552, 564, 660 and 966) terminate, cycle or grow without bound, and can they be extended by factoring their next terms?",
+    "why_wanted": "The Catalan-Dickson conjecture (every aliquot sequence is bounded) against the Guy-Selfridge counter-conjecture is a live question, and Zimmermann, Creyaufmüller, Varona, Garambois and the Mersenne Forum community have run the computation for 25 years and keep the record tables. Every extension is a factorization of a 100-to-200-digit number that the tables record with credit.",
+    "status": "Zimmermann stopped extending 276 in March 2017 at index 2051 with a 201-digit cofactor after ECM to 60 digits; the Riesel Prime wiki counted 9,118 open-ended sequences below 10^6 and 27,659 below 3 million as of October 2020; Garambois's aliquotes.com was last updated 14 July 2026 and lists open problems and conjectures. Progress is one factorization at a time.",
+    "fit": "Each piece is a factorization or next-term computation whose return is checked by multiplying and primality-testing in milliseconds. The aggregate is the community's own sequence database, in the format factordb already uses.",
+    "piece": "Brief: for sequence S at index i with known composite cofactor C, factor C by ECM or NFS to the agreed effort level and return the factors, or attest the ECM effort spent. Return fields: sequence, index, cofactor, factors, primality_certificates, method, effort. Verifier: check (a checker multiplies the factors and verifies primality) for factored returns; attest for unsuccessful effort.",
+    "count": 2000,
+    "evidence": "The second party multiplies the factors, confirms the product equals the cofactor, and runs a primality proof on each factor.",
+    "gold": "Yes: the owner holds back factorizations already in factordb and seeds them as gold.",
+    "risks": "Cofactors above 150 digits need days of NFS, beyond one AI's piece; the problem is open-ended by nature, so the result is a longer table, not a verdict.",
+    "sources": [
+      "https://members.loria.fr/PZimmermann/records/aliquot.html",
+      "https://www.rieselprime.de/ziki/Aliquot_sequence",
+      "http://www.aliquotes.com/"
+    ]
+  },
+  {
+    "id": "M15",
+    "title": "First-occurrence prime gaps above 2^64",
+    "question": "Which prime gaps first occur in the interval just above 2^64 (about 1.84 times 10^19), where the exhaustive scan ended, and are the recorded first known occurrences for gaps of 1,500 to 2,000 actually first?",
+    "why_wanted": "Nicely's tables, now the community prime-gap-list project on GitHub fed from primegaps.cloudygo.com and the Mersenne Forum, separate proven first occurrences (exhaustive to 2^64) from first known occurrences that are only upper bounds; number theorists use the maximal-gap table to test Cramér-type conjectures. Extending the exhaustive frontier is the only way to promote known occurrences to proven ones.",
+    "status": "745 first-occurrence gaps and 80 maximal gaps were known below 2^64 as of 2019 (cited in arXiv 2002.02115), t5k.org's maximal gap table stops at 1,853 with the exhaustive scan at 2^64, and the prime-gap-list repository remains active with thousands of commits and a checker script. No exhaustive extension beyond 2^64 has been published.",
+    "fit": "The interval splits into disjoint ranges of about 10^13, each a deterministic sieve an AI runs in an hour and two other parties rerun to the same list of gaps. The aggregate is a verified extension of the exhaustive frontier in the project's own format.",
+    "piece": "Brief: sieve the range [a,b) above 2^64 for all primes and return every gap of length at least 1,000 with its starting prime, plus the range's maximal gap and prime count. Return fields: range_start, range_end, gaps_list, max_gap, max_gap_start, prime_count, program_hash. Verifier: check (a checker reruns the range and compares gaps_list and prime_count).",
+    "count": 2000,
+    "evidence": "The second party reruns a sieve over the same range and compares the gap list, the maximal gap and the prime count.",
+    "gold": "Yes: the owner seeds a few ranges just below 2^64, whose answers are in Nicely's tables, with the gap list hashed.",
+    "risks": "Each range needs 128-bit arithmetic and a careful sieve, and 10^13 per piece covers only a sliver above 2^64; the community's submission process should remain the publishing door.",
+    "sources": [
+      "https://github.com/primegap-list-project/prime-gap-list",
+      "https://t5k.org/notes/GapsTable.html",
+      "https://faculty.lynchburg.edu/~nicely/gaps/gaps.html"
+    ]
+  },
+  {
+    "id": "M16",
+    "title": "ABC triples with c above 2^63",
+    "question": "Which abc-triples (coprime a + b = c with radical of abc less than c) exist with c between 2^63 and 2^66, and do any beat the quality or merit records on de Smit's unbeaten list?",
+    "why_wanted": "Bart de Smit's Leiden lists of triples by size, quality, merit and unbeaten are the empirical side of the abc conjecture, and ABC@Home (BOINC) found all triples to 10^18 by 2011 and 9,345,651 more up to 2^63 before closing in 2015. Nobody has continued the exhaustive list since, so the unbeaten list has stood a decade.",
+    "status": "De Smit's page defines quality q = log c / log rad(abc), records Reyssat's 1987 triple 2 + 3^10 times 109 = 23^5 with q about 1.630 as the quality record, and offers the ABC@Home data (big_triples.gz) through 2^63; ABC@Home is listed as inactive. A 2020 arXiv paper (2012.12475) still cites the site's count of 236 triples of quality at least 1.4 below twenty digits.",
+    "fit": "The search splits by c-range and by smooth-number tables into deterministic pieces, and a triple is a certificate (three integers whose radical anyone recomputes by factoring). The aggregate is the continuation of de Smit's lists.",
+    "piece": "Brief: enumerate all abc-triples with c in [a,b) using the agreed smooth-number method and return them with their quality. Return fields: range_start, range_end, triples, triple_count, best_quality, program_hash. Verifier: check (a checker reruns the range and compares triples and count).",
+    "count": 1500,
+    "evidence": "The second party reruns the enumeration on the range and factors each returned triple to confirm it is an abc-triple with the stated quality.",
+    "gold": "Yes: the owner seeds ranges below 2^63 with the hidden ABC@Home triple lists as gold.",
+    "risks": "Complete enumeration at 2^66 is compute-heavy and the pieces must agree on one method or two correct programs find different subsets; interest is strong but niche.",
+    "sources": [
+      "https://pub.math.leidenuniv.nl/~smitbde/abc/",
+      "https://en.wikipedia.org/wiki/ABC@Home",
+      "https://arxiv.org/abs/2012.12475"
+    ]
+  },
+  {
+    "id": "M17",
+    "title": "Reproduce and extend the odd perfect number bound past 10^2200",
+    "question": "Can the factor-chain proof tree of Ochem and Rao, which shows any odd perfect number exceeds 10^1500 (published) and 10^2200 (unpublished), be independently reproduced and extended, one branch at a time?",
+    "why_wanted": "Whether an odd perfect number exists is among the oldest open questions, and the only progress for a century has been lower bounds by case analysis: Brent, Cohen and te Riele (10^300, 1991) and Ochem and Rao (10^1500, Mathematics of Computation 2012) built trees of thousands of branches, each closed by a factorization. The newer 10^2200 bound sits on Ochem's web page without a published, rechecked tree.",
+    "status": "Ochem's project page states the computation has been pushed to N greater than 10^2200 and Omega(N) at least 115, beyond the published 10^1500 and Omega(N) at least 101; the 2012 paper also proved N has a component above 10^62. No date is given for the 10^2200 figure and it is not peer-reviewed.",
+    "fit": "The proof tree is a case split on prime powers dividing N, and each branch is closed by factoring sigma(p^a) or by an inequality, so a piece is one branch: a bounded computation with a certificate (factors, or the bound) strangers verify. The aggregate is a machine-checkable tree, the first independent reproduction of the bound.",
+    "piece": "Brief: for branch B of the tree (a set of prime-power constraints), either factor the named sigma(p^a) value and return the factors, or verify that the branch closes by the stated bound, and return the resulting subtree. Return fields: branch_id, constraints, sigma_value, factors, closure_rule, subtree_hash. Verifier: check (a checker multiplies the factors, proves primality and reapplies the closure rules).",
+    "count": 2000,
+    "evidence": "The second party multiplies the factors back, tests primality, and reruns the closure rule for the branch.",
+    "gold": "Yes: the owner seeds branches from the published 10^1500 tree, whose closures are known.",
+    "risks": "Some branches need factoring numbers of 100 or more digits, which is days of work; the tree is Ochem and Rao's intellectual work and they should be told before the problem is published.",
+    "sources": [
+      "https://www.lirmm.fr/~ochem/opn/",
+      "https://www.ams.org/mcom/2012-81-279/S0025-5718-2012-02563-4/",
+      "https://www.lirmm.fr/~ochem/opn/opn_slide.pdf"
+    ]
+  },
+  {
+    "id": "M18",
+    "title": "Decide the remaining BB(6) holdout Turing machines",
+    "question": "For the roughly 1,100 six-state Turing machines (up to equivalence) that the Busy Beaver Challenge has neither proved to halt nor proved to run forever, which can be decided with a certificate, and which are genuine Cryptids?",
+    "why_wanted": "The bbchallenge community proved BB(5) in 2024 with Coq-verified deciders and is applying the same method to BB(6); each holdout decided shrinks the set between the community and a value for S(6), and the Cryptids (Antihydra and others) are of independent interest as Collatz-like problems. The wiki tracks the holdout count monthly.",
+    "status": "The BB(6) wiki page cites about 1,094 holdouts up to equivalence (2,320 without) as of June 2026, down from 1,161 in April 2026; all holdouts have been simulated to 10^13 steps and a June 2025 champion raised the lower bound. A new Cryptid resembling Space Needle was found in April 2026 and a Cryptid classification is under way.",
+    "fit": "Each holdout is an independent piece: run the published deciders with stronger parameters, or write a certificate (a closed tape language, a bouncer, a halting trace) that the community's verified checkers accept and strangers rerun in minutes. The aggregate is the community's own holdout spreadsheet.",
+    "piece": "Brief: for holdout machine M in the standard text format, produce a non-halting certificate accepted by a named bbchallenge verified checker, or a halting trace, or a reasoned Cryptid classification. Return fields: machine, verdict, certificate_type, certificate, checker_name, checker_version. Verifier: check (two parties rerun the named checker on the certificate), or judge for Cryptid classifications.",
+    "count": 1100,
+    "evidence": "The second party runs the named verified checker on the certificate, or replays the halting trace to the halting step.",
+    "gold": "Yes: the owner seeds recently decided holdouts (the 57 from April 2026) with their verdicts hashed.",
+    "risks": "Most remaining holdouts resisted every existing decider, so many pieces end with no certificate; Cryptid classification is a judgement, not a proof.",
+    "sources": [
+      "https://wiki.bbchallenge.org/wiki/BB(6)",
+      "https://wiki.bbchallenge.org/wiki/Cryptid",
+      "https://wiki.bbchallenge.org/wiki/TMBR:_April_2026"
+    ]
+  },
+  {
+    "id": "M19",
+    "title": "Smaller sorting networks for 13 to 20 inputs",
+    "question": "For n = 13 to 20, what is the fewest comparators a sorting network needs, given that the best known sizes (45, 51, 56, 60, 71, 77, 85, 91) sit above the proven lower bounds (44, 48, 53, 57, 63, 68, 73, 78)?",
+    "why_wanted": "Optimal sorting networks are a classic Knuth problem used in hardware and SIMD sorting; Codish, Cruz-Filipe, Ehlers, Müller and Schneider-Kamp settled depth for n up to 17 and size for n up to 12 with SAT, and Bert Dobbelaere's record table is where search programs such as SorterHunter report. Every size improvement since 2017 has come from heuristic search, exactly the kind an AI can run.",
+    "status": "Dobbelaere's table, updated 10 October 2026, lists best known size and depth pairs for n = 13 to 20 and marks none of the sizes proven optimal; depth is optimal for n up to 17 (Bundala and Závodný; Codish et al.), and a November 2025 paper (arXiv 2511.04107) found depth-13 networks for 28 channels. The size records for 17, 19 and 20 trace to Ehlers and Müller's 2014 work and later SorterHunter runs.",
+    "fit": "A network is a comparator list whose correctness is the 0-1 principle check over 2^n binary inputs (about a million for n = 20), and its size is the score. Each piece is a seeded search run of an hour.",
+    "piece": "Brief: for n inputs and current record S_n comparators, run the agreed search from the given seed and return any network with fewer than S_n comparators. Return fields: n, comparator_list, size, depth, seed, verified_01. Verifier: score (checker sorts all 2^n binary inputs and scores size against S_n).",
+    "count": 800,
+    "evidence": "The second party runs the 0-1 principle check over all binary inputs and counts the comparators.",
+    "gold": "Yes: the owner seeds n up to 12 with the proven optimal sizes; a return beating a proven optimum is struck.",
+    "risks": "Records are hard and most pieces will match rather than beat them, so the owner should also accept new depth-size tradeoff points as partial results.",
+    "sources": [
+      "https://bertdobbelaere.github.io/sorting_networks.html",
+      "https://arxiv.org/abs/1501.06946",
+      "https://lacker.io/complexity/problems/optimal-sorting-networks-small-n.html"
+    ]
+  },
+  {
+    "id": "M20",
+    "title": "Close the DIMACS graph colouring instances still open",
+    "question": "For the DIMACS and COLOR02/03/04 benchmark graphs whose chromatic number is unknown (DSJC500.5 at 47 or 48 colours, DSJC1000.5 at 82 or 83, flat_1000_76_0, latin_square_10 and others), can the best colourings be improved or the lower bounds raised?",
+    "why_wanted": "These thirty-year-old instances are the standard test set for every graph colouring algorithm, and the gap between best colouring and proven lower bound means papers still cannot say whether they found the optimum; Hao, Galinier, Malaguti, Porumbel and others maintain the best-known tables. A proven optimum or a tighter bound on any of them is publishable.",
+    "status": "Hao's result pages list DSJC1000.5 at 83 colours, a deep-learning memetic paper (arXiv 2109.05948) reports a legal 47-colouring of DSJC500.5 in five of ten runs against the long-standing 48, and surveys state that the chromatic numbers of the DSJC family are unknown; a 2019 sum-colouring paper (arXiv 1909.08906) gives DSJC1000.5 a range of roughly 73 to 82. Lower bounds come from cliques and sit far below the colourings.",
+    "fit": "A colouring is a certificate checked in linear time and the colour count is the score; a lower bound is a clique or a Lovász theta value two parties recompute. Each instance and seed is an independent piece of minutes to hours.",
+    "piece": "Brief: for instance G with best known k colours, run the agreed memetic or tabu search from seed s and return any proper colouring with fewer than k colours, or the largest clique found. Return fields: instance, seed, colour_count, colouring, clique_size, clique, runtime_seconds. Verifier: score (checker verifies the colouring is proper and the clique is complete, scoring against k and the known lower bound).",
+    "count": 500,
+    "evidence": "The second party checks that every edge has differently coloured ends and every pair in the clique is adjacent.",
+    "gold": "Yes: the owner seeds instances with known chromatic numbers (the flat and queen graphs with planted colourings) as gold.",
+    "risks": "The hard instances need long runs and strong implementations, improvements are rare, and the result is new best-known bounds rather than a theorem.",
+    "sources": [
+      "https://leria-info.univ-angers.fr/~jinkao.hao/ie2col.html",
+      "https://arxiv.org/abs/2109.05948",
+      "https://arxiv.org/abs/1909.08906"
+    ]
+  }
+]

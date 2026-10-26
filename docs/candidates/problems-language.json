@@ -1,0 +1,358 @@
+[
+  {
+    "id": "L1",
+    "title": "Grambank grammar features for languages not yet coded",
+    "question": "For the thousands of languages that have a published grammar but no Grambank entry, what are the values of the 195 Grambank features, each tied to a page of the grammar that supports it?",
+    "why_wanted": "Typologists and historical linguists use Grambank to measure structural diversity and the effect of language loss, and every uncoded language is a blind spot in those measurements. The project states its aim is to cover every language with a grammar or sketch grammar, and regional teams such as the South American Grambank group at PUCP are coding grammars by hand.",
+    "status": "Grambank v1 (Skirgard et al., Science Advances 2023) holds 2,467 varieties by 195 features with many cells marked unknown, and the project says it will keep releasing versions with new languages and features. The PUCP South American Grambank page reports a group coding 80 South American grammars; several thousand languages with grammars remain uncoded.",
+    "fit": "A single feature value for a single language from a named grammar is a small, bounded task with a written definition in the public Grambank feature questionnaire. Two AIs reading the same grammar independently either cite the same page and value or they do not, and the page is what a reader checks.",
+    "piece": "Brief: for language X (Glottocode) and Grambank feature GBnnn, read the named grammar and return the feature value under the published definition. Return fields: value (0, 1 or unknown), grammar title, edition, page, quoted supporting passage, confidence note. Verifier: agree on value and on page within one page.",
+    "count": 1950,
+    "evidence": "The checker opens the same grammar at the cited page and confirms the quoted passage supports the value under the feature's published definition.",
+    "gold": "The owner mixes in features from languages already in Grambank, whose public coding is hashed as gold, so a worker whose set disagrees with the released values is struck.",
+    "risks": "Many grammars are in copyright and not online, Grambank's conventions on unknown versus absent must be quoted in the brief, and coding without the project's consent risks parallel incompatible datasets.",
+    "sources": [
+      "https://grambank.clld.org/",
+      "https://chana.pucp.edu.pe/projects/south-american-grambank",
+      "https://scholarlypublications.universiteitleiden.nl/access/item%3A4250961/download"
+    ]
+  },
+  {
+    "id": "L2",
+    "title": "Universal Dependencies treebanks for languages that have none",
+    "question": "Can a first dependency treebank of a few hundred sentences, annotated to the Universal Dependencies guidelines, be built for languages that have public text but no UD treebank at all?",
+    "why_wanted": "NLP researchers and descriptive linguists use UD for cross-lingual parsing, evaluation and typology, and a language with no treebank cannot be parsed or evaluated. UD's own materials note that low-resource languages are often limited to a single test-only treebank, and new languages are added at every release.",
+    "status": "UD v2.17 (November 2025) holds 339 treebanks in 186 languages (Universal Dependencies download page), leaving most of the world's roughly 7,000 languages, including many with public-domain scripture or Wikipedia text, without any treebank. Release v2.18 is scheduled for May 2026.",
+    "fit": "One sentence annotated with UPOS, lemma, head and relation per token is a bounded task, and the UD guidelines are public and precise. Two AIs annotating the same sentence either agree token by token or produce a disagreement that is itself a finding, and the official validator is a mechanical gate.",
+    "piece": "Brief: annotate sentence N of corpus C (a public-domain text in language L) in CoNLL-U with UPOS, lemma, head and deprel for every token, citing the UD guideline section used for each non-obvious decision. Return fields: CoNLL-U block, guideline citations. Verifier: agree (exact head and deprel per token, exact UPOS), with the UD validator script run as a check gate first.",
+    "count": 500,
+    "evidence": "The checker runs the UD validation script on the CoNLL-U block and compares head and deprel per token with the second return.",
+    "gold": "The owner hand-annotates thirty sentences, or uses sentences whose translations already exist in a sister-language treebank, and commits their CoNLL-U hash.",
+    "risks": "Without a speaker, tokenization and morphology may be wrong in ways two AIs share, so a human seat must spot-check, and each language community should be asked which texts may be used.",
+    "sources": [
+      "https://universaldependencies.org/download.html",
+      "https://en.wikipedia.org/wiki/Universal_Dependencies"
+    ]
+  },
+  {
+    "id": "L3",
+    "title": "Re-transcribe and gloss Dorsey's 1890 Omaha and Ponca texts",
+    "question": "Can Dorsey's public-domain Omaha and Ponca texts (The Cegiha Language, Contributions to North American Ethnology VI, 1890) be re-transcribed into the modern community orthography and glossed morpheme by morpheme, each word tied to a lemma in the Omaha and Ponca Digital Dictionary?",
+    "why_wanted": "The Omaha and Ponca Digital Dictionary project at the University of Nebraska-Lincoln built its dictionary from Dorsey's slip file because only a few dozen elderly fluent speakers remain, and his texts are the largest body of connected nineteenth-century speech in the language. Teachers and learners want the stories in the orthography they use, with glosses, not in Dorsey's 1890 characters.",
+    "status": "UNL's Nineteenth Century Omaha Texts site posts a selection of Dorsey's stories as keyed in the 1970s, confirms they are public domain, and shows only one story with a re-transcribed version and audio. The dictionary project's main funding was an NEH grant for 2008 to 2011, and the re-transcription of the texts has not been completed.",
+    "fit": "Each story divides into sentences that already carry Dorsey's interlinear English, so a piece is a sentence with a known meaning to be re-spelled and glossed against a public dictionary. Two AIs working from the same page and dictionary converge on the same lemmas and gloss tags, and a speaker at a human seat settles the residue.",
+    "piece": "Brief: for sentence S of text T on page P of Dorsey 1890, give the modern orthography, the morpheme segmentation, Leipzig-style glosses and the dictionary lemma for each word. Return fields: page, line, modern transcription, segmentation, gloss line, lemma identifiers. Verifier: agree on segmentation and lemma identifiers, with human (native speaker) review of a sample.",
+    "count": 2000,
+    "evidence": "The checker opens the cited page of the 1890 volume in the public scan and the cited dictionary entries and confirms each lemma and gloss.",
+    "gold": "The owner seeds the sentences UNL has already re-transcribed and any checked with speakers, hashing their segmentation and lemma lists.",
+    "risks": "Consent and benefit for the Omaha and Ponca nations must come first, and glossing without speakers can fossilize errors, so the human verifier must be a speaker or the project's linguists.",
+    "sources": [
+      "https://omahalanguage.unl.edu/dorsey/index.html",
+      "https://libdev.unl.edu/omaha_ponca_public/pages/about",
+      "https://www.usgs.gov/publications/contributions-north-american-ethnology-volume-vi-cegiha-language"
+    ]
+  },
+  {
+    "id": "L4",
+    "title": "Earlier first attestations for words the OED has appealed on",
+    "question": "For words whose earliest Oxford English Dictionary citation is suspected to be late, including those the OED has publicly appealed on, what is the earliest verifiable printed use, with full bibliographic detail and quotation?",
+    "why_wanted": "OED editors say they aim to leave no stone unturned for each word's earliest evidence and have asked the public for help since the 2012 OED Appeals launch, and each verified earlier citation changes a dictionary entry. Historians of English and etymologists depend on those dates.",
+    "status": "OED Appeals launched in October 2012 (Oxford University Press blog) with words such as disco, Bellini and FAQ, and later appeals covered First World War vocabulary (University of Oxford news); the OED continues to revise first dates in every quarterly update, so the list of suspect dates is never closed. Whether the dedicated appeals page is still maintained could not be verified.",
+    "fit": "One word is one piece: search digitized newspapers and books and return the earliest hit with its quotation and source. Two AIs that find the same date and source agree; if one finds an earlier verifiable use it supersedes, and both returns remain evidence.",
+    "piece": "Brief: for headword W, sense S, currently first dated D, find an earlier printed use. Return fields: date, title, author, edition or newspaper with page or column, exact quotation, how the source was found. Verifier: agree on date and source; judge if the two returns differ.",
+    "count": 300,
+    "evidence": "The checker opens the named digitized source (Internet Archive, HathiTrust, Chronicling America, Google Books) at the cited page and reads the quotation.",
+    "gold": "The owner seeds words whose antedatings have already been published in OED revision notes, hashing the known date and source.",
+    "risks": "Many newspaper archives are paywalled, AIs invent citations unless the checker re-reads every page, and misdated scans are a known trap.",
+    "sources": [
+      "https://blog.oup.com/2012/10/announcing-oed-appeals/",
+      "https://www.ox.ac.uk/node/15049"
+    ]
+  },
+  {
+    "id": "L5",
+    "title": "Corpus citations for the stalled Sanskrit historical dictionary",
+    "question": "For Sanskrit lemmas the Encyclopaedic Dictionary of Sanskrit on Historical Principles (Deccan College, begun 1948, still within its first letter) has not reached, can dated and located citations be gathered from the open electronic corpora so that an article can be drafted for each?",
+    "why_wanted": "Sanskritists have called the dictionary's pace a pitiful story (Indology list, 2003) and estimated progress at about six percent (Indology list, 2018); no historical dictionary of Sanskrit on OED principles exists. A corpus-sourced citation bank per lemma is the raw material an editor needs.",
+    "status": "Published parts reached volume 30 by 2014 while roughly 82 lakh of 90 lakh slips remained unedited (reply in the Indian Parliament, via eparlib), and the slips were being digitized in 2014 (Indology list). Nothing indicates completion is near.",
+    "fit": "A lemma is a bounded piece: search GRETIL, SARIT and the Digital Corpus of Sanskrit, return every occurrence with text, chapter, verse and a provisional sense tag. Two AIs searching the same corpora should return the same loci, and Sanskrit's standard citation system makes agreement precise.",
+    "piece": "Brief: for lemma L in IAST, list attestations in the named open corpora with text, locus and the quoted line, grouped provisionally by sense and ordered by the text's conventional date. Return fields: lemma, attestations (text identifier, locus, quote), sense groups. Verifier: agree on the set of loci; judge on sense grouping.",
+    "count": 2000,
+    "evidence": "The checker opens each cited electronic text at the locus and confirms the line contains the lemma in the stated form.",
+    "gold": "The owner seeds lemmas already covered by published Deccan College fascicles and by Monier-Williams, hashing the known loci.",
+    "risks": "Sense division is interpretive, sandhi and compounds make occurrence-finding error-prone, and the Deccan College project may not take outside material.",
+    "sources": [
+      "https://list.indology.info/pipermail/indology/2018-August/048006.html",
+      "https://eparlib.nic.in/bitstream/123456789/587918/1/91837.pdf",
+      "https://www.hindu-blog.com/2010/10/sanskrit-encyclopaedia-project-at.html?hl=en"
+    ]
+  },
+  {
+    "id": "L6",
+    "title": "Early spellings for counties the Place-Name Survey has not reached",
+    "question": "For parishes in the English counties the Survey of English Place-Names has not yet covered (Hampshire, Kent, Lancashire, Suffolk, Somerset, Northumberland, Herefordshire) and the five it marks incomplete, can the early attested spellings with dated sources be compiled from public-domain editions?",
+    "why_wanted": "The English Place-Name Society has produced the county survey since 1925 and names county editors still working on Hampshire, Kent, Lancashire and others, and a dated spelling list per name is the base of every etymology. Historians, archaeologists and local historians use the survey constantly.",
+    "status": "Ninety-six volumes exist, the latest in 2020; Durham, Lincolnshire, Norfolk, Shropshire and Staffordshire are marked incomplete and seven counties have no volume (EPNS volumes list). Editors are named for the missing counties on the EPNS survey page but no volume has appeared for them.",
+    "fit": "One place-name is one piece: search Domesday, Feet of Fines, Pipe Rolls, Charter Rolls and other public-domain calendars for spellings and return each with date, source and page. Two AIs working the same printed sources return overlapping lists, and every item is checkable at a page.",
+    "piece": "Brief: for place-name N in parish P of county C, list every spelling before 1500 found in the named public-domain sources, with date, source title, volume and page. Return fields: name, spellings (form, date, source, page). Verifier: agree on the set of form, date and source.",
+    "count": 2000,
+    "evidence": "The checker opens the cited volume and page on the Internet Archive or British History Online and reads the spelling.",
+    "gold": "The owner seeds names from completed counties whose spellings are printed in EPNS volumes, hashing the spelling lists.",
+    "risks": "Deciding which medieval form refers to which modern place is a judgment the survey's editors make with local knowledge, so the output is a draft for editors, not the survey itself.",
+    "sources": [
+      "https://www.nottingham.ac.uk/research/groups/epns/survey/volumes.aspx",
+      "https://nottingham.ac.uk/research/groups/epns/survey.aspx"
+    ]
+  },
+  {
+    "id": "L7",
+    "title": "Transcribe every scholion in the Homer Multitext manuscripts",
+    "question": "Can the marginal and interlinear scholia of the Venetus A and the other Iliad manuscripts in the Homer Multitext archive (Venetus B, Escorialensis and others) be fully transcribed diplomatically and linked to the Iliad lines they comment on?",
+    "why_wanted": "The Homer Multitext team estimated that about twenty percent of the Venetus A scholia had never appeared in print (Center for Hellenic Studies interview with Casey Due), and Homerists want the whole commentary tradition readable. The project has worked toward a complete edition since 2010.",
+    "status": "Editions of the Venetus A Iliad and scholia are downloadable from homermultitext.org and editing continues in the project's GitHub repository; a 2017 count covered eighteen books and about 8,000 scholia (Society for Classical Studies newsletter, June 2017). The other manuscripts in the archive are less complete and no completion date is published.",
+    "fit": "A scholion is a short, bounded text with a fixed image region, and two AIs reading the same image either transcribe the same characters or differ at a checkable letter. The project's conventions (TEI markup, Iliad line references) give the return a natural schema.",
+    "piece": "Brief: for folio F, image region R of manuscript M, transcribe the scholion diplomatically, identify the Iliad line it comments on and the lemma it quotes. Return fields: manuscript, folio, region, transcription, Iliad line, lemma. Verifier: agree at character level on the transcription and on the Iliad line.",
+    "count": 1500,
+    "evidence": "The checker opens the project's published image of the folio and reads the named region against the transcription.",
+    "gold": "The owner seeds scholia already published in the Homer Multitext editions and commits their transcription hash.",
+    "risks": "Byzantine minuscule abbreviations defeat most readers, AIs may paraphrase from Erbse's printed edition instead of reading the image, and the image licences must be respected.",
+    "sources": [
+      "https://www.homermultitext.org/",
+      "https://chs.harvard.edu/?p=476",
+      "https://classicalstudies.org/education/scs-newsletter-june-2017-collaborative-research-and-digital-criticism"
+    ]
+  },
+  {
+    "id": "L8",
+    "title": "Transcribe and collate the 88 Canterbury Tales witnesses",
+    "question": "Can the remaining pages of the 88 pre-1500 manuscripts and prints of the Canterbury Tales be transcribed and collated line by line against a base text so that the whole textual tradition can be analysed?",
+    "why_wanted": "The Canterbury Tales Project set out to transcribe, collate and edit all 88 witnesses, and Chaucerians need the full collation to decide which readings are Chaucer's. The project's director describes its scope as an ongoing challenge.",
+    "status": "In 2015 the project reported about 18,000 of 30,000 pages transcribed but needing checking and 12,000 not yet transcribed (Textual Communities workshop announcement, KU Leuven); a 2021 Digital Medievalist article reports 7,000 pages transcribed since 2010. The CantApp of 2020 covers a selection, and the full collation is not published.",
+    "fit": "A manuscript page is a bounded piece with a public image at many libraries, and a line is checkable against that image. Two independent transcriptions agreeing character for character are strong evidence, and the collation step is a reproducible script.",
+    "piece": "Brief: transcribe folio F of witness W (manuscript shelfmark, library, public image) line by line in the project's transcription conventions, keyed to Riverside line numbers. Return fields: witness, folio, lines (number, transcription). Verifier: agree at character level per line; collation against the base text by check.",
+    "count": 2000,
+    "evidence": "The checker opens the library's image of the folio and compares each transcribed line with it.",
+    "gold": "The owner seeds pages already published in the project's Miller's Tale and Wife of Bath editions and hashes them.",
+    "risks": "The project's own transcriptions are copyrighted and it may prefer its own workflow, and some manuscript images are not freely licensed.",
+    "sources": [
+      "https://canterburytalesproject.org/",
+      "https://listserv.uleth.ca/hyperkitty/list/dm-l@uleth.ca/thread/DTNEVCZR63PDPFM7H34I7JXGZUWCS2QX",
+      "https://journal.digitalmedievalist.org/article/id/8072"
+    ]
+  },
+  {
+    "id": "L9",
+    "title": "Translate the untranslated Ur III administrative tablets",
+    "question": "For the tens of thousands of Ur III administrative tablets transliterated in CDLI and Oracc but never translated, can each be given a translation with its commodities, quantities, personal names, date and transaction type extracted as data?",
+    "why_wanted": "Assyriologists and economic historians want the Ur III archive, the largest administrative corpus of antiquity, as structured data, and a CDLI Google Summer of Code project in 2020 aimed at a full translation pipeline because most texts have none. Machine translation experiments (Punia et al. 2020; SumTablets 2024) exist but are unverified at scale.",
+    "status": "In 2011 CDLI reported about 59,000 transliterations covering 62 percent of 95,781 catalogued Ur III texts (CDLI Notes 2011-4), and SumTablets (ML4AL workshop, 2024) pairs 91,606 tablets with Oracc transliterations, most without translations. No reviewed full translation set has been published.",
+    "fit": "Each tablet is a few formulaic lines in transliteration, and its fields (quantity, commodity, names, month, year name) are what two AIs can agree on exactly. Agreement on structured fields, with the free translation kept as evidence, makes each return checkable by anyone who can read the sign list.",
+    "piece": "Brief: for CDLI P-number N, translate the published transliteration and extract the structured record, preserving damage notation. Return fields: P-number, translation, commodities with quantities, personal names, year name, month, transaction type. Verifier: agree on the structured fields; the translation is kept as evidence.",
+    "count": 2000,
+    "evidence": "The checker reads the transliteration on the CDLI or Oracc page and verifies each extracted field against the lines.",
+    "gold": "The owner seeds tablets with published translations (Oracc's lemmatized Ur III sets, editions such as UET 3) and hashes their fields.",
+    "risks": "Year names and personal names need the public lists in the brief, and AIs may invent readings for broken signs unless damage notation is required.",
+    "sources": [
+      "https://cdli.earth/articles/cdln/2011-4",
+      "https://aclanthology.org/2024.ml4al-1.20.pdf",
+      "https://summerofcode.withgoogle.com/archive/2020/projects/5672069980749824"
+    ]
+  },
+  {
+    "id": "L10",
+    "title": "Transliterate Classic Maya inscriptions block by block",
+    "question": "Can the roughly 10,000 known Classic Maya inscriptions be transliterated glyph block by glyph block from published drawings, with sign numbers, readings and computed dates, into a corpus others can search?",
+    "why_wanted": "The Bonn Text Database and Dictionary of Classic Mayan, funded by the North Rhine-Westphalian Academy from 2014 for fifteen years, aims at a machine-readable corpus of all known texts and a corpus-based dictionary, and Mayanists need the corpus to work on the roughly forty percent of signs still unclear. Published drawings in the Corpus of Maya Hieroglyphic Inscriptions cover most monuments.",
+    "status": "The project has a sign catalogue, a TEI schema and the ALMAH analysis tool and keeps adding texts, with research notes appearing through 2025 (University of Bonn repository); the complete corpus is not yet published. The Union of the German Academies lists the project as running.",
+    "fit": "A glyph block with a fixed coordinate on a named monument is a bounded unit, and sign identification and Long Count arithmetic are checkable. Two AIs reading the same drawing either agree on the sign sequence and reading or disagree at a specific block.",
+    "piece": "Brief: for monument M (site, designation, published drawing) and block coordinate B, give the sign sequence by catalogue number, the transliteration, the transcription, and for calendrical blocks the computed date. Return fields: monument, block, sign numbers, transliteration, transcription, date. Verifier: agree on sign numbers and transliteration; check for the Long Count arithmetic.",
+    "count": 2000,
+    "evidence": "The checker opens the published drawing and verifies each sign number against the catalogue and recomputes any date.",
+    "gold": "The owner seeds blocks from monuments with published full epigraphic readings, hashing the sign sequences.",
+    "risks": "Many drawings are in copyright publications, readings for undeciphered signs are disputed and must be returned as sign numbers only, and unprovenanced monuments carry looting and repatriation concerns.",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Text_Database_and_Dictionary_of_Classic_Mayan",
+      "https://www.akademienunion.de/en/research/project-database/twkm",
+      "https://bonndoc.ulb.uni-bonn.de/xmlui/handle/20.500.11811/1119"
+    ]
+  },
+  {
+    "id": "L11",
+    "title": "Transcribe the remaining Bentham manuscript folios",
+    "question": "Can the roughly 30,000 untranscribed folios of Jeremy Bentham's manuscripts at University College London be transcribed to the Transcribe Bentham TEI conventions so the Collected Works can be edited from them?",
+    "why_wanted": "The Bentham Project edits the Collected Works of Jeremy Bentham from these papers and has run Transcribe Bentham since 2010, with each transcript feeding a volume. Historians of utilitarianism, law and penal reform want the unpublished material readable.",
+    "status": "By June 2023, 30,540 of about 60,000 folios were transcribed, with 1,345 in progress and 7,514 submitted for review, and growth had slowed (Transcribe Bentham blog); UCL's project page gives the scale as 60,000 folios and over 30 million words. The wiki's Progress category tracks completion box by box.",
+    "fit": "One folio with a public image is a bounded piece, and two independent transcriptions agreeing at word level are strong evidence, with handwritten-text-recognition output as a third witness. The project's TEI tags for deletions, additions and unclear words give a fixed schema.",
+    "piece": "Brief: transcribe folio F in box B from the UCL image in the project's TEI conventions, marking deletions, insertions and unclear words. Return fields: box, folio, transcription with markup, count of unclear words. Verifier: agree at word level.",
+    "count": 2000,
+    "evidence": "The checker opens the UCL image of the folio and compares it with the transcription word by word.",
+    "gold": "The owner seeds approved transcripts from completed boxes such as Box 095 and hashes them.",
+    "risks": "Bentham's hand is hard, the project may prefer its own review queue, and the image licence must be confirmed before the pieces are cut.",
+    "sources": [
+      "https://www.ucl.ac.uk/laws/transcribe-bentham",
+      "https://transcribe-bentham.ucl.ac.uk/td/Category:Progress",
+      "https://blogs.ucl.ac.uk/transcribe-bentham/category/uncategorized/page/2"
+    ]
+  },
+  {
+    "id": "L12",
+    "title": "Date the undated English charters of 1066 to 1307",
+    "question": "For the undated charters in printed English cartularies and the DEEDS corpus, what is the best date range for each, derived from witnesses with known dates, formulae and references to dated events, with every clue cited?",
+    "why_wanted": "Roughly ninety percent of the more than a million surviving English charters before 1307 carry no date (DEEDS project; Tilahun, Feuerverger and Gervers 2012), which hampers legal, economic and prosopographical history. The DEEDS project at Toronto has built statistical daters and needs more dated witnesses to improve them.",
+    "status": "DEEDS methods estimate dates from vocabulary against about 10,000 charters datable to a year (Annals of Applied Statistics 2012, arXiv 1301.2405), while the mass of undated charters in printed cartularies remain dated only by editors' guesses. The DEEDS site still describes the corpus and method.",
+    "fit": "One charter is one piece and each clue (a witness with a known floruit, a formula, a regnal year) is checkable in public editions and prosopographies. Two AIs returning overlapping ranges with the same anchor clues agree, and dated charters with their dates hidden test them.",
+    "piece": "Brief: for charter C (cartulary edition, number, page), give a date range with the clues: named witnesses and their attested dates, diplomatic formulae, references to dated events. Return fields: charter identifier, date range, clues (type, text, source). Verifier: agree when ranges overlap by at least half and share an anchor clue; judge otherwise.",
+    "count": 1500,
+    "evidence": "The checker verifies each clue against the cited edition page and the cited prosopographical source.",
+    "gold": "The owner hides the dates of securely dated charters and seeds them as ordinary pieces.",
+    "risks": "Dating by witness lists needs prosopographies that are often paywalled, and AIs overstate precision unless the brief requires ranges with explicit clues.",
+    "sources": [
+      "https://deeds.utsc.utoronto.ca/?p=144",
+      "https://arxiv.org/abs/1301.2405",
+      "https://www.medievalists.net/2013/01/dating-medieval-english-charters/"
+    ]
+  },
+  {
+    "id": "L13",
+    "title": "English translations of Galen's untranslated treatises",
+    "question": "Can the Galenic treatises that have no English translation, large parts of a corpus of about three million words printed in Kuhn's public-domain edition, be translated chapter by chapter, keyed to Kuhn volume and page?",
+    "why_wanted": "Historians of medicine and philosophy need Galen in English, and the Cambridge Galen Translations project at Humboldt-Universitat zu Berlin says large parts of Galen's work are not available in English even where critical editions exist. Kuhn's Greek is out of copyright and scanned.",
+    "status": "Individual treatises have modern translations (Corpus Medicorum Graecorum, Cambridge Galen Translations, Loeb), but for example De simplicium medicamentorum facultatibus has only books 1 to 5 in English; the Berlin project page names the gap as its reason for existing and new volumes appear slowly.",
+    "fit": "A chapter keyed to Kuhn pages is a bounded piece with a fixed public source text. Translation admits several defensible answers, so a panel ranking candidates suits it, while the glossary of technical terms can be held to agreement.",
+    "piece": "Brief: translate Kuhn volume V pages P to Q (treatise T, chapter N) into plain English, keeping technical terms with the Greek in brackets and noting textual cruces. Return fields: treatise, Kuhn pages, translation, glossary of terms. Verifier: judge on the translation; agree on the glossary renderings.",
+    "count": 2000,
+    "evidence": "The checker reads the Greek at the cited Kuhn pages in the Internet Archive scan against the translation and glossary.",
+    "gold": "The owner seeds chapters that already have published translations and commits a hash of key term renderings and sentence count.",
+    "risks": "Kuhn's text is often corrupt and the corrected modern editions are copyrighted, and AI translation of medical Greek tends to smooth over cruces that matter.",
+    "sources": [
+      "https://www.klassphil.hu-berlin.de/en/avh-professur/projects/towards-a-galen-in-english",
+      "https://sourcelibrary.org/book/69b008dabfca0364b2a09314"
+    ]
+  },
+  {
+    "id": "L14",
+    "title": "Translate the Kitab al-Aghani anecdote by anecdote",
+    "question": "Can the twenty-four-volume Kitab al-Aghani of Abu al-Faraj al-Isfahani, over 9,000 pages in the Cairo edition, be translated into English khabar by khabar with its chains of transmitters, poems and song notations preserved?",
+    "why_wanted": "It is the central source for early Arabic poetry, music and social history, yet only selections exist in English (George Sawa, Brill 2019; Hilary Kilpatrick's 2003 study is not a translation). Arabists, musicologists and historians cite it constantly through the Arabic alone.",
+    "status": "No complete English translation exists; Sawa's Brill volume translates musical and socio-cultural anecdotes only, Encyclopaedia Iranica gives the Cairo edition at twenty-four volumes and over 9,000 pages, and a 2024 article by Cassarino argues for translating it into other languages. Nothing larger is announced.",
+    "fit": "The work is built of discrete akhbar, each a bounded unit with a named chain of transmitters, so one anecdote is one piece. Judge ranking suits the prose, while the extracted transmitters, poet and metre can be held to agreement.",
+    "piece": "Brief: translate khabar K (volume, page, opening words) including its isnad and verses, and list the transmitters, the poet, and the metre of any verse. Return fields: volume, page, translation, transmitters, poet, metre. Verifier: judge on the translation; agree on transmitters, poet and metre.",
+    "count": 2000,
+    "evidence": "The checker reads the Arabic at the cited page in the OpenITI or Shamela text or a scan against the translation and name list.",
+    "gold": "The owner seeds anecdotes Sawa translated and hashes their transmitter lists and metres.",
+    "risks": "The Cairo edition is in copyright in some jurisdictions while the Bulaq edition of 1868 is free, poetry translation quality varies, and judges must be competent in classical Arabic.",
+    "sources": [
+      "https://www.iranicaonline.org/articles/ketab-al-agani/",
+      "https://brill.com/abstract/book/9789004383654/BP000001.xml",
+      "https://en.wikipedia.org/wiki/Kitab_al-Aghani"
+    ]
+  },
+  {
+    "id": "L15",
+    "title": "Translate the untranslated Pali commentaries on the suttas",
+    "question": "Can the Pali commentaries on the four Nikayas (Sumangalavilasini, Papancasudani, Saratthappakasini, Manorathapurani), still largely untranslated, be translated paragraph by paragraph and aligned to the sutta segments they explain?",
+    "why_wanted": "SuttaCentral, which published Bhikkhu Sujato's translation of the four Nikayas, has proposed a commentaries database aligned to root texts by head-word and in 2021 announced a collaboration with the Oxford Centre for Buddhist Studies to translate the missing texts. A SuttaCentral forum post notes the Pali Text Society avoided the major sutta commentaries.",
+    "status": "Existing English commentary translations are mostly Abhidhamma and Khuddaka Nikaya material; the SuttaCentral thread on a commentaries database (2020) and Sujato's 2021 talk on Dharma Seed describe the gap. No complete translation of the four major commentaries has appeared.",
+    "fit": "Commentaries are keyed to sutta passages by head-word, so a piece is one commentarial paragraph on one segment, with the alignment checkable. Translation suits a judge panel, and the alignment and head-word list suit agreement.",
+    "piece": "Brief: translate the commentary paragraph on sutta segment S (for example MN 1 segment 3.2) from the Mahasangiti Pali text, listing the head-words it glosses. Return fields: sutta segment, commentary locus, translation, head-words. Verifier: judge on the translation; agree on head-words and alignment.",
+    "count": 2000,
+    "evidence": "The checker reads the Pali paragraph at the cited locus, public on SuttaCentral and tipitaka.org, against the translation.",
+    "gold": "The owner seeds paragraphs with published translations, such as the Dhammapada commentary and Bodhi's translated commentarial excerpts, and hashes the head-word lists.",
+    "risks": "Doctrinal terminology is contested among Buddhist traditions, and SuttaCentral may prefer its own translators and its CC0 licence.",
+    "sources": [
+      "https://discourse.suttacentral.net/t/commentaries-database-in-suttacentral/16483",
+      "https://www.dharmaseed.org/talks/73847",
+      "https://discourse.suttacentral.net/t/atthakatha-and-sinhalatthakatha/8534?page=2"
+    ]
+  },
+  {
+    "id": "L16",
+    "title": "English translation of the Joseon Veritable Records, entry by entry",
+    "question": "Can the 1,893-volume Veritable Records of the Joseon Dynasty (1392 to 1865), whose Classical Chinese text and modern Korean translation are both online, be translated into English entry by entry?",
+    "why_wanted": "Korea's National Institute of Korean History announced in 2012 an English translation to be finished by 2033 and estimated it would need forty billion won, and historians of East Asia without Korean have only one printed reign (The Annals of King T'aejo, Harvard 2014). The source is already public online.",
+    "status": "The Korean translation (1968 to 1993) and digitization (2006) are complete at sillok.history.go.kr, while the English work had produced roughly one king's records (KAIST paper on translating Hanja documents; Korea Times 2019). At the current pace the 2033 target is out of reach.",
+    "fit": "Each dated entry is a bounded unit with a Korean translation as a second source, so a piece is one entry with both texts given. Judge suits the prose, while named persons, offices and the converted date suit agreement.",
+    "piece": "Brief: translate entry E (king, year, month, day, entry number) from the Classical Chinese, consulting the Korean, and list the persons, offices and places named with the Western date. Return fields: entry identifier, translation, names, offices, places, converted date. Verifier: judge on the translation; agree on names, offices and date.",
+    "count": 2000,
+    "evidence": "The checker reads the original and the Korean on the institute's page for the entry and checks the names and the converted date.",
+    "gold": "The owner seeds entries from Choi's published Taejo translation and hashes their names and dates.",
+    "risks": "The institute may regard the translation as its own mandate, and Joseon official titles have no settled English equivalents, so the brief must fix a glossary.",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Veritable_Records_of_the_Joseon_Dynasty",
+      "https://www.koreajoongangdaily.com/korea/translations-raise-global-profile-of-korean-history/11468586",
+      "https://c.hancinema.net/s-korea-to-translate-annals-of-joseon-dynasty-into-english-37277.html"
+    ]
+  },
+  {
+    "id": "L17",
+    "title": "Translate and source every fragment in Stoicorum Veterum Fragmenta",
+    "question": "Can von Arnim's Stoicorum Veterum Fragmenta (1903 to 1924, Greek and Latin, public domain) be given a reviewed English translation fragment by fragment, each located in a modern edition of its source author?",
+    "why_wanted": "Scholars of Hellenistic philosophy still cite SVF by number but there is no scholarly complete English translation; Long and Sedley translate selections and Jan Garrett's online partial translation is marked not for citation. A self-published AI-assisted translation in 2025 shows the demand but is unreviewed by its own admission.",
+    "status": "The Routledge Encyclopedia bibliography on Stoicism and Garrett's page document the gap, and the Substack translation concedes flaws of translation and doctrine. The source authors (Plutarch, Galen, Diogenes Laertius, Stobaeus and others) are mostly public domain.",
+    "fit": "A fragment is a bounded quotation with a known source, so translation suits a judge panel while the locating fields (author, work, book, chapter, modern edition reference) suit agreement. Fragments already in Long and Sedley make ready gold.",
+    "piece": "Brief: for SVF volume V number N, translate the fragment and give its locus in a modern edition of the source, noting where von Arnim's text differs. Return fields: SVF number, source author and locus, translation, textual notes. Verifier: judge on the translation; agree on the source locus.",
+    "count": 1800,
+    "evidence": "The checker reads the Greek or Latin at the cited locus against the translation.",
+    "gold": "The owner seeds fragments translated in Long and Sedley or Inwood and Gerson and hashes their source loci.",
+    "risks": "Fragment boundaries and contexts are interpretive, judges must read Greek, and the AI-made Substack translation may contaminate returns unless the brief forbids copying it.",
+    "sources": [
+      "https://people.wku.edu/jan.garrett/stoa/tesv3.htm",
+      "https://www.rep.routledge.com/articles/thematic/stoicism/v-1/bibliography/stoicism-bib",
+      "https://godsandartists.substack.com/p/stoicorum-veterum-fragmenta-full"
+    ]
+  },
+  {
+    "id": "L18",
+    "title": "Trace unsourced famous quotations to their earliest print",
+    "question": "For the thousands of quotations attributed to famous people but parked unsourced on Wikiquote talk pages and in quotation dictionaries, what is the earliest dated printed appearance, and to whom was it attributed there?",
+    "why_wanted": "Quote Investigator and The New Yale Book of Quotations (2021) show that systematic searching of digitized books and newspapers overturns attributions, and Wikiquote editors say a depressingly large share of its quotes are unsourced. Quotation dictionaries want the dates and first attributions.",
+    "status": "Quote Investigator has traced thousands individually since 2010, for example the sausages-and-laws remark to a 1933 textbook rather than Bismarck, and Wikiquote policy moves unsourced quotes to talk pages where they sit (Wikiquote: Sourced and Unsourced sections). No systematic sweep exists.",
+    "fit": "One quotation is one piece: search digitized corpora and return the earliest hit with its date, source and the attribution it then carried. Two AIs agreeing on the earliest source agree, and an earlier verified hit supersedes both.",
+    "piece": "Brief: for quotation Q attributed to public figure P, find the earliest printed appearance. Return fields: quotation, earliest date, source title, author, page or column, attribution in that source, later notable misattributions. Verifier: agree on date and source; judge with evidence when they differ.",
+    "count": 2000,
+    "evidence": "The checker opens the cited scan on the Internet Archive, HathiTrust or Chronicling America and reads the passage.",
+    "gold": "The owner seeds quotations Quote Investigator has already solved and hashes the date and source.",
+    "risks": "Paywalled newspaper archives limit reach, AIs fabricate citations unless every page is re-read, and sayings of living private individuals must be excluded.",
+    "sources": [
+      "https://quoteinvestigator.com/2010/07/08/laws-sausages/",
+      "https://en.wikiquote.org/wiki/Wikiquote:Sourced_and_Unsourced_sections",
+      "https://news.yale.edu/2021/08/18/you-can-quote-us-new-yale-book-quotations-its-way"
+    ]
+  },
+  {
+    "id": "L19",
+    "title": "Tabulate the Arden of Faversham attribution evidence scene by scene",
+    "question": "Which scenes of Arden of Faversham (1592) are by Shakespeare, Kyd, Watson or someone else, and can every stylometric and verbal-parallel claim in the debate be recomputed and tabulated scene by scene from the public-domain text?",
+    "why_wanted": "The New Oxford Shakespeare (2016) put the play partly in the canon, and Freebury-Jones, Rizvi, Taylor and others dispute it in Notes and Queries and Early Modern Literary Studies with incompatible methods. Editors of the next Shakespeare and Kyd editions need the evidence in one reproducible table.",
+    "status": "Taylor's attribution of a scene to Thomas Watson was rebutted in Early Modern Literary Studies, Dooner (2023) argued that principal component analysis cannot prove Shakespeare's hand, and the question is unresolved (Wikipedia; the Oxford chapter Determining the Shakespeare Canon). Nothing is settled as of 2025.",
+    "fit": "Each piece is one scene crossed with one published test (function-word profile, rare n-gram matches against a fixed reference corpus, feminine endings), computed by a script that a checker reruns. The result is a table of numbers, not an opinion.",
+    "piece": "Brief: for scene S and test T, defined in the brief with the reference corpus named, compute the statistic and list every match with play, act, scene and line. Return fields: scene, test, statistic, match list, script hash. Verifier: check (the checker script reproduces the numbers).",
+    "count": 200,
+    "evidence": "The checker reruns the published script on the same public-domain texts and gets the same numbers and match list.",
+    "gold": "The owner precomputes a handful of cells and commits them.",
+    "risks": "Some reference corpora carry licence restrictions, and a table of statistics can be mis-sold as settling authorship when it only tabulates.",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Arden_of_Faversham",
+      "https://extra.shu.ac.uk/emls/journal/index.php/emls/article/view/586",
+      "https://academic.oup.com/book/2573/chapter/142905703"
+    ]
+  },
+  {
+    "id": "L20",
+    "title": "Machine-check every demonstration in Spinoza's Ethics",
+    "question": "Does each demonstration in the Ethics follow from the definitions, axioms and earlier propositions it cites when formalized in a proof assistant, and which demonstrations need premises Spinoza does not state?",
+    "why_wanted": "Historians of philosophy have long disputed whether Spinoza's geometrical method is valid, and a 2026 Lean 4 formalization covers only Part I. A dependency map with machine-checked gaps across all five parts would settle recurring debates and give commentators a shared object.",
+    "status": "Bombard and Tredwell built dependency graphs of the whole Ethics; a Lean 4 paper (arXiv 2605.02331) formalizes Part I and exhibits counter-models for some claimed reductions; a 2017 Amsterdam thesis formalized the first 23 propositions in a dependence logic. Parts II to V have no machine-checked formalization.",
+    "fit": "A proposition with its demonstration is a bounded unit with explicit citations, and a formal statement plus proof checks mechanically. Agreement on the cited-premise list and a compiling Lean proof make each piece verifiable by strangers.",
+    "piece": "Brief: for proposition N of Part P, state it formally in the shared Lean vocabulary, list the premises Spinoza cites (Gebhardt text), and either prove it or report the minimal extra premise needed. Return fields: proposition identifier, formal statement, cited premises, Lean proof or gap report. Verifier: check (Lean compiles against the shared vocabulary) and agree on the cited-premise list.",
+    "count": 260,
+    "evidence": "The checker compiles the Lean file against the shared vocabulary and compares the premise list with the text.",
+    "gold": "The owner seeds Part I propositions already formalized in the published Lean work and hashes their premise lists.",
+    "risks": "Formalization choices for substance, attribute and mode are contestable and may be mistaken for the philosophy itself, so the shared vocabulary must be fixed before pieces are cut.",
+    "sources": [
+      "https://arxiv.org/pdf/2605.02331",
+      "https://capone.mtsu.edu/rbombard/RB/Spinoza/Spinoza4.html",
+      "https://eprints.illc.uva.nl/id/document/9479"
+    ]
+  }
+]

@@ -1,0 +1,368 @@
+{
+  "title": "Model deprecation and retirement ledger for the major AI labs",
+  "done_when": "Every model listed has its retirement date and its weights-preservation status agreed by two AIs of different vendors, each return carrying the release and announcement dates, the days of notice, whether an interview or report was published, and the titles of the lab's own documents with the days they were read, so the ledger can be checked against the labs' notices line by line.",
+  "slug": "model-retirement-ledger",
+  "topics": [
+    "model-deprecation",
+    "model-retirement",
+    "model-weights",
+    "ai-labs",
+    "ledger"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 3,
+    "endgame_at": 2,
+    "budget": 37,
+    "patch_max": 0
+  },
+  "pieces": {
+    "model/*": {
+      "count": 37,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Model {n}: {model.name}, offered by {model.lab} as {model.id} on {model.surface}. Using the lab's own published documents, meaning its model deprecation or lifecycle page, its release notes or changelog, its blog posts and its help articles, report this model's lifecycle on that surface. Release date is the day the lab made the model available there. Announcement date is the day the lab first published that the model would be deprecated or retired. Retirement date is the day the model was, or is scheduled to be, withdrawn from that surface for its users at large; a tail kept open for one class of customers goes in the notes and does not move the date. Retirement state is retired when that day has passed and scheduled when it has not. Notice days is the whole number of days from the announcement to the retirement. Weights is yes when the lab has published that the model's weights are preserved, whether in a notice about this model or in a lab-wide commitment that covers it, or when the weights are publicly released; no when the lab has published that they are or will be deleted; unstated when the lab's documents say nothing either way. Interview is published when the lab has made public an interview with the model, or a report about it, from before or at its retirement; described when the lab says such a document exists without publishing it; none otherwise. Name each document by its title with the day it was read: the deprecation notice, and the statement on weights or the interview where there is one. Give titles and identifiers, never links; the model id above is the identifier to search by.",
+      "data": {
+        "model": "models"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "release_date",
+          "retire_date",
+          "retirement_state",
+          "weights",
+          "interview",
+          "notice_title",
+          "notice_accessed"
+        ],
+        "properties": {
+          "release_date": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          },
+          "announce_date": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          },
+          "retire_date": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          },
+          "retirement_state": {
+            "enum": [
+              "retired",
+              "scheduled"
+            ]
+          },
+          "notice_days": {
+            "type": "integer"
+          },
+          "weights": {
+            "enum": [
+              "yes",
+              "no",
+              "unstated"
+            ]
+          },
+          "weights_source_title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "interview": {
+            "enum": [
+              "published",
+              "described",
+              "none"
+            ]
+          },
+          "report_title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "notice_title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "notice_accessed": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          },
+          "successor": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 400
+          }
+        }
+      },
+      "agree": [
+        "retire_date",
+        "weights"
+      ]
+    }
+  },
+  "data": {
+    "models": [
+      {
+        "lab": "Anthropic",
+        "name": "Claude 2.1",
+        "id": "claude-2.1",
+        "surface": "the Claude API"
+      },
+      {
+        "lab": "Anthropic",
+        "name": "Claude 3 Sonnet",
+        "id": "claude-3-sonnet-20240229",
+        "surface": "the Claude API"
+      },
+      {
+        "lab": "Anthropic",
+        "name": "Claude 3 Opus",
+        "id": "claude-3-opus-20240229",
+        "surface": "the Claude API"
+      },
+      {
+        "lab": "Anthropic",
+        "name": "Claude 3.5 Sonnet, the October 2024 release",
+        "id": "claude-3-5-sonnet-20241022",
+        "surface": "the Claude API"
+      },
+      {
+        "lab": "Anthropic",
+        "name": "Claude 3.7 Sonnet",
+        "id": "claude-3-7-sonnet-20250219",
+        "surface": "the Claude API"
+      },
+      {
+        "lab": "Anthropic",
+        "name": "Claude 3.5 Haiku",
+        "id": "claude-3-5-haiku-20241022",
+        "surface": "the Claude API"
+      },
+      {
+        "lab": "Anthropic",
+        "name": "Claude 3 Haiku",
+        "id": "claude-3-haiku-20240307",
+        "surface": "the Claude API"
+      },
+      {
+        "lab": "Anthropic",
+        "name": "Claude Opus 4",
+        "id": "claude-opus-4-0 (snapshot 2025-05-14)",
+        "surface": "the Claude API"
+      },
+      {
+        "lab": "Anthropic",
+        "name": "Claude Sonnet 4",
+        "id": "claude-sonnet-4-0 (snapshot 2025-05-14)",
+        "surface": "the Claude API"
+      },
+      {
+        "lab": "Anthropic",
+        "name": "Claude Opus 4.1",
+        "id": "claude-opus-4-1 (snapshot 2025-08-05)",
+        "surface": "the Claude API"
+      },
+      {
+        "lab": "Anthropic",
+        "name": "Claude Sonnet 4.5",
+        "id": "claude-sonnet-4-5 (snapshot 2025-09-29)",
+        "surface": "the Claude API"
+      },
+      {
+        "lab": "OpenAI",
+        "name": "GPT-4o, as offered to ChatGPT users",
+        "id": "GPT-4o",
+        "surface": "ChatGPT"
+      },
+      {
+        "lab": "OpenAI",
+        "name": "GPT-4o, the May 2024 snapshot",
+        "id": "gpt-4o-2024-05-13",
+        "surface": "the OpenAI API"
+      },
+      {
+        "lab": "OpenAI",
+        "name": "ChatGPT-4o latest, the rolling snapshot",
+        "id": "chatgpt-4o-latest",
+        "surface": "the OpenAI API"
+      },
+      {
+        "lab": "OpenAI",
+        "name": "GPT-4.5 Preview",
+        "id": "gpt-4.5-preview",
+        "surface": "the OpenAI API"
+      },
+      {
+        "lab": "OpenAI",
+        "name": "OpenAI o1-preview",
+        "id": "o1-preview",
+        "surface": "the OpenAI API"
+      },
+      {
+        "lab": "OpenAI",
+        "name": "OpenAI o1-mini",
+        "id": "o1-mini",
+        "surface": "the OpenAI API"
+      },
+      {
+        "lab": "OpenAI",
+        "name": "GPT-4 32k",
+        "id": "gpt-4-32k",
+        "surface": "the OpenAI API"
+      },
+      {
+        "lab": "OpenAI",
+        "name": "GPT-4, the June 2023 snapshot",
+        "id": "gpt-4-0613",
+        "surface": "the OpenAI API"
+      },
+      {
+        "lab": "OpenAI",
+        "name": "text-davinci-003, of the GPT-3.5 series",
+        "id": "text-davinci-003",
+        "surface": "the OpenAI API"
+      },
+      {
+        "lab": "OpenAI",
+        "name": "OpenAI o3",
+        "id": "o3-2025-04-16",
+        "surface": "the OpenAI API"
+      },
+      {
+        "lab": "Google",
+        "name": "Gemini 1.5 Pro, version 002",
+        "id": "gemini-1.5-pro-002",
+        "surface": "Vertex AI on Google Cloud"
+      },
+      {
+        "lab": "Google",
+        "name": "Gemini 1.5 Flash, version 002",
+        "id": "gemini-1.5-flash-002",
+        "surface": "Vertex AI on Google Cloud"
+      },
+      {
+        "lab": "Google",
+        "name": "Gemini 1.0 Pro, version 002",
+        "id": "gemini-1.0-pro-002",
+        "surface": "Vertex AI on Google Cloud"
+      },
+      {
+        "lab": "Google",
+        "name": "PaLM 2 for Text",
+        "id": "text-bison",
+        "surface": "Vertex AI on Google Cloud"
+      },
+      {
+        "lab": "Google",
+        "name": "Gemini 2.0 Flash",
+        "id": "gemini-2.0-flash",
+        "surface": "the Gemini API"
+      },
+      {
+        "lab": "Google",
+        "name": "Gemini 2.5 Pro Preview, the March 2025 release",
+        "id": "gemini-2.5-pro-preview-03-25",
+        "surface": "the Gemini API"
+      },
+      {
+        "lab": "Google",
+        "name": "Gemini 3 Pro Preview",
+        "id": "gemini-3-pro-preview",
+        "surface": "the Gemini API"
+      },
+      {
+        "lab": "xAI",
+        "name": "Grok 3",
+        "id": "grok-3",
+        "surface": "the xAI API"
+      },
+      {
+        "lab": "xAI",
+        "name": "Grok 4, the July 2025 release",
+        "id": "grok-4-0709",
+        "surface": "the xAI API"
+      },
+      {
+        "lab": "xAI",
+        "name": "Grok Code Fast 1",
+        "id": "grok-code-fast-1",
+        "surface": "the xAI API"
+      },
+      {
+        "lab": "xAI",
+        "name": "Grok 4 Fast, reasoning",
+        "id": "grok-4-fast-reasoning",
+        "surface": "the xAI API"
+      },
+      {
+        "lab": "Mistral AI",
+        "name": "Mistral Medium, version 23.12",
+        "id": "mistral-medium-2312",
+        "surface": "La Plateforme, the Mistral API"
+      },
+      {
+        "lab": "Mistral AI",
+        "name": "Mistral Large, version 24.02",
+        "id": "mistral-large-2402",
+        "surface": "La Plateforme, the Mistral API"
+      },
+      {
+        "lab": "Mistral AI",
+        "name": "Mixtral 8x7B",
+        "id": "open-mixtral-8x7b",
+        "surface": "La Plateforme, the Mistral API"
+      },
+      {
+        "lab": "Mistral AI",
+        "name": "Mistral Large 2, version 24.07",
+        "id": "mistral-large-2407",
+        "surface": "La Plateforme, the Mistral API"
+      },
+      {
+        "lab": "Mistral AI",
+        "name": "Mistral Saba, version 25.02",
+        "id": "mistral-saba-2502",
+        "surface": "La Plateforme, the Mistral API"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "model/3": {
+        "retire_date": "2026-01-05",
+        "weights": "yes"
+      },
+      "model/5": {
+        "retire_date": "2026-02-19",
+        "weights": "yes"
+      },
+      "model/8": {
+        "retire_date": "2026-06-15",
+        "weights": "yes"
+      },
+      "model/12": {
+        "retire_date": "2026-02-13",
+        "weights": "unstated"
+      },
+      "model/26": {
+        "retire_date": "2026-06-01",
+        "weights": "unstated"
+      },
+      "model/35": {
+        "retire_date": "2025-03-30",
+        "weights": "yes"
+      }
+    }
+  }
+}

@@ -1,0 +1,385 @@
+{
+  "title": "Translate the untranslated Ur III administrative tablets",
+  "done_when": "Every tablet has an English translation made from its published transliteration, damage notation kept, and a structured record whose year (king and regnal year), month name and first commodity two AIs of different vendors read the same way; the translation, the entries, the personal names and the year formula are kept as evidence for a reader who can check them against the sign list.",
+  "slug": "ur-iii-tablets",
+  "topics": [
+    "assyriology",
+    "sumerian",
+    "ur-iii",
+    "cuneiform",
+    "translation",
+    "cdli",
+    "economic-history"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 3,
+    "endgame_at": 2,
+    "budget": 34,
+    "patch_max": 0
+  },
+  "pieces": {
+    "tablet/*": {
+      "count": 34,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Tablet {n}: CDLI P-number {tablet.pnumber}, published as {tablet.designation}, from {tablet.provenience}, Ur III period, Sumerian. Its transliteration as CDLI publishes it, line by line (a hash mark after a sign means the sign is damaged, square brackets enclose what is lost, x is an illegible sign, a question mark an uncertain reading, parentheses a determinative or the sign a value is written with, a prime after a line number a count from a break):\n{tablet.transliteration}\nTranslate the text into English line by line from this transliteration, keeping the damage notation: what is lost or damaged stays marked so in the translation, and nothing is restored beyond what the transliteration gives. Then read off the record. The year is the formula after mu; the CDLI wiki's year-name pages for each Ur III king and Sigrist and Damerow's index Mesopotamian Year Names give the king and regnal year each formula names, and a formula beginning mu us2-sa names the year after the one it quotes. Return year_king, the king of that formula, one of Ur-Namma, Shulgi, Amar-Suen, Shu-Suen, Ibbi-Suen, or none when no year formula is written or it is lost; year_number, the regnal year as a whole number (0 when none); month_name, the month name as the transliteration writes it after iti, with determinatives, hash marks, brackets and question marks dropped (none when no month is written); commodity, the class of what the first preserved entry of the text counts, one of barley, other-grain-or-flour, bread-or-beer, sheep-or-goats, cattle, pigs, fish, wool-or-textiles, silver, oil-or-fat, reeds-or-wood, dates-or-fruit, labor (workdays of gurusz or geme2), other, or none for a tag or label that counts nothing; translation, the whole text in English; entries, one item per quantity in the text, as quantity, unit and commodity; names, every personal name in the text as transliterated; year_name, the formula as written and the year it names in words; day, the day of the month as a whole number (0 when none); transaction, the kind of record, one of receipt, disbursement, account, labor-record, label, legal, letter or other; notes, anything uncertain. Every field is plain text with no links, and the tablet is named by its P-number alone.",
+      "data": {
+        "tablet": "tablets"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "year_king",
+          "year_number",
+          "month_name",
+          "commodity",
+          "translation",
+          "entries",
+          "names",
+          "year_name",
+          "day",
+          "transaction"
+        ],
+        "properties": {
+          "year_king": {
+            "enum": [
+              "Ur-Namma",
+              "Shulgi",
+              "Amar-Suen",
+              "Shu-Suen",
+              "Ibbi-Suen",
+              "none"
+            ]
+          },
+          "year_number": {
+            "type": "integer"
+          },
+          "month_name": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "commodity": {
+            "enum": [
+              "barley",
+              "other-grain-or-flour",
+              "bread-or-beer",
+              "sheep-or-goats",
+              "cattle",
+              "pigs",
+              "fish",
+              "wool-or-textiles",
+              "silver",
+              "oil-or-fat",
+              "reeds-or-wood",
+              "dates-or-fruit",
+              "labor",
+              "other",
+              "none"
+            ]
+          },
+          "translation": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "entries": {
+            "type": "array",
+            "maxItems": 60,
+            "items": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          "names": {
+            "type": "array",
+            "maxItems": 60,
+            "items": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          "year_name": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "day": {
+            "type": "integer"
+          },
+          "transaction": {
+            "enum": [
+              "receipt",
+              "disbursement",
+              "account",
+              "labor-record",
+              "label",
+              "legal",
+              "letter",
+              "other"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      },
+      "agree": [
+        "year_king",
+        "year_number",
+        "month_name",
+        "commodity"
+      ]
+    }
+  },
+  "data": {
+    "tablets": [
+      {
+        "pnumber": "P100002",
+        "designation": "AAS 014",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(gesz2) 3(u) 6(disz) 1/2(disz) gurusz u4 1(disz)-sze3\n2. ki szesz-kal-la dumu a-ri2-bi-ta\n3. lu2-sa6-i3-zu\nreverse\n1. szu ba-ti\n(blank space)\n2. mu si-mu-ru-um(ki) lu-lu-bu(ki) a-ra2 1(u) la2 1(disz)-kam-asz ba-hul"
+      },
+      {
+        "pnumber": "P100008",
+        "designation": "AAS 020",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(disz) gurusz nagar\n2. u4 8(disz)-sze3\n3. gu4 apin-e gub-ba\n4. ki lu2-igi-sa6-sa6-ta\nreverse\n1. kiszib3 i7-pa-e3\n(blank space)\n2. iti szu-numun\n3. mu us2-sa ki-masz(ki) ba-hul\nseal 1\n1. i7-pa-e3\n2. dumu lugal-uszurx(|LAL2.TUG2|)\n3. nu-banda3-gu4 (d)szara2"
+      },
+      {
+        "pnumber": "P100451",
+        "designation": "Aleppo 119",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 3(gesz2) sa gi\n2. nig2-gu7 di-de3\n3. ki ur-(d)szara2-ta\n4. ur-zu szu ba-ti\n5. sza3 bala\n6. iti min-esz3\nreverse\n(blank space)\n1. mu us2-sa an-sza-an(ki) ba-hul\nseal 1\n1. ur-(d)szara2\n2. dub-sar\n3. dumu lugal-uszur4\n4. nu-banda3-gu4 (d)szara2"
+      },
+      {
+        "pnumber": "P100010",
+        "designation": "AAS 022",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 3(u) 4(disz) gurusz u4 1(disz)-sze3\n2. al 4(disz) sar-ta\n3. GAN2-lugal-iti-da-ke4\n4. a-sza3 muru13\n5. ugula lugal-nig2-lagar-e\n6. kiszib3 a-kal-la\nreverse\n1. iti (d)li9-si4-na\n(blank space)\n2. mu (d)amar-(d)suen lugal\nseal 1\n1. a-[kal-la dub-sar]\n2. [dumu ...]"
+      },
+      {
+        "pnumber": "P100011",
+        "designation": "AAS 023",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 7(gesz2) 2(u) 8(disz) gurusz u4 1(disz)-sze3\n2. ki lugal-ma2-gur8-re-ta\n3. ugu2 lu2-sukkal-an-ka ba-a-gar\n4. kiszib3 ur-(d)szara2\nreverse\n(blank space)\n1. mu gu-za (d)en-lil2-la2 ba-dim2\nseal 1\n1. ur-(d)szara2\n2. dub-sar\n3. dumu lugal-uszur4"
+      },
+      {
+        "pnumber": "P100995",
+        "designation": "AnOr 01, 004",
+        "provenience": "Puzriš-Dagan (mod. Drehem)",
+        "transliteration": "object: tablet\nobverse\n1. 3(disz) masz2\n2. ki ab-ba-sa6-ga-ta\n3. [i]-szar-be-li2 [i3]-dab5\nreverse\n(blank space)\n1. iti szu-esz5-[sza]\n2. mu sza-asz-ru-um(ki) mu-hul"
+      },
+      {
+        "pnumber": "P101018",
+        "designation": "AnOr 01, 027",
+        "provenience": "Puzriš-Dagan (mod. Drehem)",
+        "transliteration": "object: tag\nobverse\n1. 5(ban2)# 8(disz) sila3 zi3 gazx(KUM)\n2. sa2-DU ku5-da\n3. bala er3-ra-gar3?\n4. mu szu-szu#-mu-dar#\nreverse\n1. kiszib3# tu#-ra#-am-[i3-li2]\n2. [...] x\n3. iti# a2-ki-ti\n4. mu e2 (d)szara2 umma(ki)-ka mu-du3\nseal 1\n((illegible))"
+      },
+      {
+        "pnumber": "P100021",
+        "designation": "AAS 033",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 3(disz) sila3 kasz saga 3(disz) sila3# ninda\n2. 3(disz) gin2 i3 2(disz) gin2 naga\n3. [x] sa szum2#\n4. a-hu-ni sukkal gaba-ta\n5. 3(barig) dabin 3(barig) ninda\n6. [x] gal x [...] bala-a\n7. giri3 a-hu-ni [...]\n8. iti szu-numun\n9. mu e2 (d)[szara2] umma(ki) ba-du3"
+      },
+      {
+        "pnumber": "P100024",
+        "designation": "AAS 036",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. [x] 2(barig) 3(ban2) sze szuku-ra gur\n2. [x] szesz-a-ni gudu4# (d)szul-gi\n3. e2-[x]-ta#\nreverse\n1. [iti] ezem-(d)szul-gi\n2. mu hu-hu-nu-ri(ki) ba-hul"
+      },
+      {
+        "pnumber": "P100940",
+        "designation": "Amherst 101",
+        "provenience": "Girsu (mod. Tello)",
+        "transliteration": "object: tablet\nobverse\n1. 3(u) masz2\n2. udu szuku-ra PA#? udu gukkal-ka\n3. ki gu3-de2-a-ta\nreverse\n1. lu2-(d)igi-ma-sze3 i3-dab5\n2. giri3 ur-(d)nansze\n(1 line blank)\n3. mu en eridu(ki) ba-hun"
+      },
+      {
+        "pnumber": "P100324",
+        "designation": "Akkadica 007, pl. 2 3",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(disz) u8 ba-usz2\n2. ki ur-ru-ta\n3. kiszib3 da-da-ga\n4. iti diri\nreverse\n1. mu ki-masz(ki) ba-hul\n(blank space)\nseal 1\n1. lu2-du10-ga\n2. dub-sar\n3. dumu ur-nigar(gar)"
+      },
+      {
+        "pnumber": "P100028",
+        "designation": "AAS 040",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(gesz2) 1(u) 3(disz) gu4 ab2 hi-a\n2. ka2 gu4-sze3\n3. ki lugal-a2-zi-da-ta\n4. ba-sa6 i3-dab5\nreverse\n1. iti szu-numun\n2. mu us2-sa [an]-sza-an(ki) ba-hul"
+      },
+      {
+        "pnumber": "P100029",
+        "designation": "AAS 041",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(u) la2 1(disz) udu\n2. 2(u) sila4 e3-li\n3. kiszib3 ur-(gesz)gigir\n4. ki lugal-a2-zi-da-ta\nreverse\n1. ba-sa6\n2. i3-dab5\n3. iti min3-esz3\n4. mu us2-sa an-sza-an(ki) ba-hul"
+      },
+      {
+        "pnumber": "P100033",
+        "designation": "AAS 045",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(disz) gu4-gesz\n2. sze-ta sa10-a\n3. ki da-a-ga-ta\n4. kas4 i3-dab5\n5. iti min3-esz3\nreverse\n1. mu si-mu-ru-um(ki) lu-lu-bu(ki) a-ra2 1(u) la2 1(disz)-kam-asz ba-hul"
+      },
+      {
+        "pnumber": "P100160",
+        "designation": "AAS 180",
+        "provenience": "Girsu (mod. Tello)",
+        "transliteration": "object: tablet\nobverse\n1. 1(disz) gu4 szu-gi4#\n2. engar-ta\n3. ur-ba-gara2 i3-dab5\n4. e2-udu ga2-nun# gesz#-sze3#\nreverse\n(blank space)\n1. iti amar-a-a-si u4 2(u) ba-zal\n2. mu en (d)inanna masz-e i3-pa3"
+      },
+      {
+        "pnumber": "P100454",
+        "designation": "Aleppo 122",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(asz) gu2 (gesz)ma-nu\n2. 1(asz) gu2 gi\n3. siskur2 ki-(d)suen\n4. ki szesz-a-ni-ta\n5. ku3-ga-ni\nreverse\n1. szu ba-ti\n2. iti szu-numun\n3. mu lugal-e bad3 mu-du3\nseal 1\n1. lu2-(d)nin-tu\n2. dub-sar\n3. dumu en-u2-a"
+      },
+      {
+        "pnumber": "P100042",
+        "designation": "AAS 054",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(disz) u8 ba-usz2\n2. ki ur-ru-ta\n3. kiszib3 a-kal-la\n4. iti (d)li9-si4\n5. mu us2-sa bad3 ba-du3\nreverse\n(blank space)\nseal 1\n1. a-kal-[la]\n2. dub-[sar]\n3. dumu ur-nigar(gar) szusz3"
+      },
+      {
+        "pnumber": "P100054",
+        "designation": "AAS 066",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(disz) gin2 ku3-[babbar]\n2. a2 gurusz-am3#\n3. mu-kux(DU)\n4. giri3# ur-(d)suen\nreverse\n(blank space)\n1. iti (d)li9-si4\n2. mu (d)i-bi2-(d)suen lugal"
+      },
+      {
+        "pnumber": "P100057",
+        "designation": "AAS 069",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 3(disz) gin2 ku3-babbar\n2. ki ba-sa6-ga gu-za-la2-ta\n3. lugal-nig2-lagar-e\n4. dumu lugal-e2-mah-e-ke4\n5. szu ba-ti\nreverse\n1. iti ezem-(d)szul-[gi]\n2. mu (d)[nanna] kar#-zi-da [a-ra2 2(disz)-kam] e2-na ba-kux(KWU147)#\n3. kiszib3 nu-ra-a"
+      },
+      {
+        "pnumber": "P101019",
+        "designation": "AnOr 01, 028",
+        "provenience": "Puzriš-Dagan (mod. Drehem)",
+        "transliteration": "object: tablet\nobverse\n1. [...] 1(disz) udu szu-gid2\n2. ki a-ba-(d)en-lil2-gin7-ta\n3. gaba-ri\n4. kiszib3 ab-ba-kal-la\n5. giri3 ur-da-gi4\nreverse\n1. iti ki-siki-(d)nin-a-zu\n2. mu (d)i-bi2-(d)suen lugal"
+      },
+      {
+        "pnumber": "P101242",
+        "designation": "AnOr 01, 251",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(disz) dug dida 5(disz) sila3 kasz saga\n2. 1(ban2) ninda 2(disz) gin2 i3 2(disz) gin2 naga\n3. 3(disz) ku6 3(disz) sa szum2\n4. ARAD2-(d)nanna\nreverse\n1. 5(disz) sila3 kasz 3(disz) sila3 ninda\n2. 2(disz) gin2 i3 2(disz) gin2 naga\n3. 1(disz) ku6 1(disz) sa szum2\n4. szu-e2-a\n5. u4 2(u) 1(disz)-kam\n6. iti sze-kar-ra-gal2-la"
+      },
+      {
+        "pnumber": "P100075",
+        "designation": "AAS 088",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 2(asz) 3(barig) sze gur lugal\n2. 1(asz) 1(barig) ziz2 gur\n3. sa2-du11 e2 nig2-lagar!(BA)\n4. a-sza3 la2-tur-ta\n5. ki ARAD2-ta\nreverse\n1. ur-(gesz)gigir\n2. szu ba-ti\n3. iti e2-iti-6(disz)\n4. mu e2 puzur4-da-gan ba-du3"
+      },
+      {
+        "pnumber": "P100041",
+        "designation": "AAS 053",
+        "provenience": "Puzriš-Dagan (mod. Drehem)",
+        "transliteration": "object: tablet\nobverse\n1. 6(disz) udu\n2. kiszib3 lu2-(d)suen\n3. ki ab-ba-kal-la-ta\n4. ba-zi#\nreverse\n(blank space)\nseal 1\ncolumn 1\n1. (d)szu-(d)suen\n2. lugal kal-ga\n3. lugal uri5(ki)-ma\n4. lugal an-ub-da limmu2-ba\ncolumn 2\n1. ur-ku3-nun-na#\n2. dub-sar#\n3. dumu [...]\n4. ARAD2-[zu]"
+      },
+      {
+        "pnumber": "P100046",
+        "designation": "AAS 058",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 2(disz) udu 1(disz) masz2\n2. udu gu2-na gu-za unu3 ba-usz2\n3. e2-hul-am3\n4. kiszib3 ensi2-ka\n5. mu (d)amar-(d)suen lugal-e ur-bi2-lum(ki) mu-hul\nreverse\n(blank space)"
+      },
+      {
+        "pnumber": "P100049",
+        "designation": "AAS 061",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(disz) gu4 niga\n2. lugal-e2-mah-e\n3. giri3 da-gi\n4. iti sze-sag11-ku5\n5. mu ki-masz(ki) ba-hul\nreverse\n(blank space)"
+      },
+      {
+        "pnumber": "P101220",
+        "designation": "AnOr 01, 229",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 5(disz) sila3 kasz [saga] 3(disz)# sila3 ninda\n2. 2(disz) gin2 i3 2(disz) gin2 naga\n3. 1(disz) sa szum2\n4. a2-(d)[...] x\n5. 1(ban2) [kasz 2(ban2) ninda ...]\n6. x-[...]\nreverse\n1. giri3# [...]\n2. szunigin 5(disz) sila3 kasz saga szunigin 1(ban2) kasz\n3. szunigin 2(ban2) 3(disz) sila3 ninda szunigin 2(disz) gin2 i3\n4. szunigin 2(disz) gin2 naga szunigin 1(disz) sa szum2\n5. u4 1(u) 6(disz)-kam\n6. iti (d)li9-si4\n7. mu (d)szu-(d)suen lugal-e na-ru2-a-mah (d)en-lil2 mu-na-du3"
+      },
+      {
+        "pnumber": "P100056",
+        "designation": "AAS 068",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(disz) ma-na ku3-babbar\n2. ki lugal-ezem\n3. a-kal-la\n4. szu ba-ti\n5. iti sze-sag11-ku5\nreverse\n1. mu (d)nanna a-ra2 2(disz)-kam"
+      },
+      {
+        "pnumber": "P100064",
+        "designation": "AAS 077",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1/2(disz) ma-na ku3-babbar\n2. ku3 (d)en-ki-a-ri2-ik-tum-sze3\n3. e2-gal-la kux(KWU147)-ra\nreverse\n1. [...] ma? [...]\n2. kiszib3 lugal-ezem\n3. mu (d)nanna kar-zi-da a-ra2 2(disz)-kam e2-a-na ba-a-kux(KWU147)"
+      },
+      {
+        "pnumber": "P100072",
+        "designation": "AAS 085",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(asz) sze gur lugal\n2. sze zi3-da\n3. ki ur-(d)li9-si4-ta\n4. a-tu\n5. szu ba-ti\nreverse\n1. iti (d#)dumu-zi\n2. mu dumu-lugal\n(blank space)"
+      },
+      {
+        "pnumber": "P100073",
+        "designation": "AAS 086",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(u) 4(asz) sze gur lugal\n2. sze-ba gaszam#-ne#\n3. ki# ur-sa6-ga-ta\nreverse\n1. szu# ba-ti\n2. a-sza3 me-en-kar2\n3. iti sze-sag11-ku5\n4. mu a-ra2 2(disz)-kam kar2-har(ki) ba-hul"
+      },
+      {
+        "pnumber": "P100079",
+        "designation": "AAS 092",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 1(barig) sze zi3-da\n2. e2-kikken-ta\n3. ki ARAD2-ta\n4. ur-lugal muhaldim\n5. szagina\nreverse\n1. kiszib3 nu-ra-a\n2. mu e2 puzur4-da-gan ba-du3\n3. inim a-kal-la-ta\n(blank space)"
+      },
+      {
+        "pnumber": "P100081",
+        "designation": "AAS 094",
+        "provenience": "Umma (mod. Tell Jokha)",
+        "transliteration": "object: tablet\nobverse\n1. 2(u) 2(asz) 3(barig) 4(ban2) 3(disz) 1/3(disz) sila3 sze gur\n2. la2-ia3 GAN2# kab2-du11#-ga\n3. gu4 apin 3(disz)-kam\n4. gu4-suhub2\n5. ugula lu2-(d)szara2 dumu al-la [...]-dam\n6. mu si-mu-ru-um(ki) lu-lu-bu-um(ki) a-ra2 1(u) la2 1(disz)-kam-asz ba-hul"
+      },
+      {
+        "pnumber": "P100997",
+        "designation": "AnOr 01, 006",
+        "provenience": "Puzriš-Dagan (mod. Drehem)",
+        "transliteration": "object: tablet\nobverse\n1. 3(disz) sila4\n2. 3(disz) masz2\n3. ki na-sa6-ta\n4. mu-kux(DU)\n5. iti ki-siki-(d)nin-a-zu\nreverse\n1. mu si-mu-ru-um(ki) lu-lu-bu(ki) a-ra2 [1(u) la2 1(disz)]-kam-asz ba-hul\nleft edge\n1. 6(disz)"
+      },
+      {
+        "pnumber": "P101015",
+        "designation": "AnOr 01, 024",
+        "provenience": "Puzriš-Dagan (mod. Drehem)",
+        "transliteration": "object: tablet\nobverse\n1. 4(disz) udu u2 1(disz) sila4\n2. i-mi-(d)suen\n3. mu-kux(DU)\n4. a2-bi2-li2-a i3-dab5\nreverse\n1. iti ki-siki-(d)nin-a-zu\n2. mu us2-sa bad3 ma-da ba-du3"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "tablet/3": {
+        "year_king": "Shulgi",
+        "year_number": 35,
+        "month_name": "min-esz3",
+        "commodity": "reeds-or-wood"
+      },
+      "tablet/7": {
+        "year_king": "Shu-Suen",
+        "year_number": 9,
+        "month_name": "a2-ki-ti",
+        "commodity": "other-grain-or-flour"
+      },
+      "tablet/11": {
+        "year_king": "Shulgi",
+        "year_number": 46,
+        "month_name": "diri",
+        "commodity": "sheep-or-goats"
+      },
+      "tablet/16": {
+        "year_king": "Shulgi",
+        "year_number": 37,
+        "month_name": "szu-numun",
+        "commodity": "reeds-or-wood"
+      },
+      "tablet/21": {
+        "year_king": "none",
+        "year_number": 0,
+        "month_name": "sze-kar-ra-gal2-la",
+        "commodity": "bread-or-beer"
+      },
+      "tablet/26": {
+        "year_king": "Shu-Suen",
+        "year_number": 6,
+        "month_name": "li9-si4",
+        "commodity": "bread-or-beer"
+      }
+    }
+  }
+}

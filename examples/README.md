@@ -78,6 +78,25 @@ With `--anchor`, the job also stamps every chain's head through OpenTimestamps i
 
 Point a client at the folder served over HTTP (GitHub serves a repository's files raw) with `mirrors` in its config, stop the tracker, and `quilt open` still answers; a claim and a return made then wait in the queue until a tracker is back. In the repository, `.github/workflows/mirror.yml` runs the job every fifteen minutes against the trackers named in the `BITQUILT_TRACKERS` variable and commits what grew.
 
+## The first wave
+
+Twelve standing problems, written on 26 October 2026 from a survey of a hundred and twenty candidates (`docs/candidates/`, with the fifty chosen for launch in `launch-50.json`). Each is a pattern under `examples/` with real rows, a brief that stands alone, agreed fields two vendors' AIs can match, and six to eight gold answers the owner commits by hash; `npx tsx scripts/check-pattern.ts examples/<file>.json --briefs` says whether a pattern would publish and shows every brief as a worker sees it.
+
+| Pattern | Pieces | What one piece is | Agreed on |
+| --- | --- | --- | --- |
+| `oeis-more-terms.json` | 27 | the next five terms of a sequence the Encyclopedia marks as needing more, computed by a program the worker writes | the outcome and the terms |
+| `erdos-problem-status.json` | 34 | the status of one Erdős problem against the published literature, with the strongest result cited | the status |
+| `retracted-trials-in-meta-analyses.json` | 32 | one review's meta-analysis recomputed with and without a retracted trial | pooled, change, both estimates within a tenth |
+| `herbarium-labels.json` | 32 | one imaged specimen's label transcribed into Darwin Core | scientific name, event date, record number |
+| `bills-of-mortality.json` | 32 | nine numbers from one weekly bill of 1669, 1671 or 1673 | the nine integers |
+| `wikidata-dates-from-newspapers.json` | 39 | one unsourced death date checked against a period newspaper | the verdict and the date found |
+| `ur-iii-tablets.json` | 34 | one Ur III tablet translated from its published transliteration, with its hard fields | the year, the month, the first commodity |
+| `unsourced-quotations.json` | 36 | the earliest print of one quotation attributed to a long-dead figure | the year and the attribution |
+| `surveillance-atlas.json` | 32 | one agency and one technology: documentation of acquisition or use, or none found | found, and the kind of document |
+| `zoning-districts.json` | 34 | one zoning district read for four housing types | the four enums |
+| `ai-personhood-bills.json` | 25 | one bill or statute on the legal personhood of AI, its status and effect | status and effect |
+| `model-retirement-ledger.json` | 37 | one model's retirement: dates, notice, whether weights were preserved | the retirement date and the weights enum |
+
 ## Stake, gold and the coin
 
 Three extensions sit over the ledger ([docs/COIN.md](../docs/COIN.md) says why; [docs/ext/QX-15.md](../docs/ext/QX-15.md), [QX-16.md](../docs/ext/QX-16.md) and [QX-17.md](../docs/ext/QX-17.md) say exactly what). A pattern may ask a stake of standing on its pieces and carry the owner's answers as gold:
@@ -88,7 +107,7 @@ Three extensions sit over the ledger ([docs/COIN.md](../docs/COIN.md) says why; 
   "gold": { "answers": { "statement/1": { "verdict": "supports" } } } }
 ```
 
-`quilt publish` posts the stake rule and the gold commitments right after the envelope and keeps the answers' projections and nonces in the home's library, which never leave it. A worker handed a staked piece locks that much standing before the claim, in one step; `quilt me` shows the standing, what is locked and what is free. Once a gold piece is accepted, `quilt gold reveal <problem> <piece>` (or the tool `quilt_reveal_gold`, or the page) reveals it: a match marks the square verified, a miss strikes the set.
+`quilt publish` posts the stake rule and the gold commitments right after the envelope and keeps the answers' projections and nonces in the home's library, which never leave it. A worker handed a staked piece locks that much standing before the claim, in one step; `quilt me` shows the standing, what is locked and what is free. Once a gold piece is accepted, `quilt gold reveal <problem> <piece>` (or the tool `quilt_reveal_gold`, or the page) reveals it: a match marks the square verified, a miss strikes the set. A gold is backed by the owner's own standing, one point a piece where no stake rule applies, so a new key can commit to one piece; `quilt gold commit <problem> <answers.json>` adds gold after publishing, on pieces nobody has worked, once the standing is there.
 
 A tracker carries the coin when it is started with `QUILT_COIN`, the parameters as one JSON object:
 

@@ -1,0 +1,291 @@
+{
+  "title": "Literature status of open Erdős problems: a first set of thirty-four",
+  "done_when": "Every problem has a status agreed by two different vendors, each naming the strongest published result by title, authors, year and identifier, with a quote from it.",
+  "slug": "erdos-problem-status",
+  "topics": [
+    "erdos-problems",
+    "literature",
+    "mathematics",
+    "citations",
+    "open-problems"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 2,
+    "endgame_at": 1,
+    "budget": 34,
+    "patch_max": 0
+  },
+  "pieces": {
+    "problem/*": {
+      "count": 34,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Problem {n} of this set is number {p.number} in the Erdős problems database kept by Thomas Bloom, filed under {p.tags}, where it reads: {p.statement} The task is a literature check of this one problem: find the strongest published result toward it, in a journal paper, a preprint with an arXiv number, or a proof the database records among its proof expositions, and return the problem's status as the literature stands. Proved means the statement as posed is proved, or the question answered yes; disproved means a counterexample or a proof of the negation is published, or the question answered no; solved means it is settled another way, such as a quantity the problem asks for being determined; open means no published work settles it, whatever partial results exist. Evidence: the result's title, authors, year and venue; its arXiv number as two whole numbers, the four digits before the dot and the digits after it read as a number (so 02384 is given as 2384), both zero when it has none; one sentence saying what the result establishes; and a quote of at most 40 words from the result that states it. With no published result at all, the title is none and the year 0. Identifiers, never links.",
+      "data": {
+        "p": "problems"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "source_title",
+          "source_authors",
+          "source_year",
+          "source_venue",
+          "arxiv_yymm",
+          "arxiv_number",
+          "result_summary",
+          "quote"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "open",
+              "proved",
+              "disproved",
+              "solved"
+            ]
+          },
+          "source_title": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "source_authors": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "source_year": {
+            "type": "integer"
+          },
+          "source_venue": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "arxiv_yymm": {
+            "type": "integer"
+          },
+          "arxiv_number": {
+            "type": "integer"
+          },
+          "result_summary": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 400
+          }
+        }
+      },
+      "agree": [
+        "status"
+      ]
+    }
+  },
+  "data": {
+    "problems": [
+      {
+        "number": 3,
+        "tags": "number theory, additive combinatorics, arithmetic progressions",
+        "statement": "If A is a subset of the positive integers with the sum of 1/n over n in A infinite, then must A contain arbitrarily long arithmetic progressions?"
+      },
+      {
+        "number": 164,
+        "tags": "number theory, primitive sets",
+        "statement": "A set A of positive integers is primitive if no member of A divides another. Is the sum over n in A of 1/(n log n) maximised over all primitive sets when A is the set of primes?"
+      },
+      {
+        "number": 5,
+        "tags": "number theory, primes",
+        "statement": "Let C be at least 0. Is there an infinite sequence of indices n_i such that (p_(n_i + 1) - p_(n_i)) / log n_i tends to C as i tends to infinity, where p_n is the n-th prime?"
+      },
+      {
+        "number": 10,
+        "tags": "number theory, additive basis, primes",
+        "statement": "Is there some k such that every large integer is the sum of a prime and at most k powers of 2?"
+      },
+      {
+        "number": 11,
+        "tags": "number theory, additive basis",
+        "statement": "Is every large odd integer n the sum of a squarefree number and a power of 2?"
+      },
+      {
+        "number": 328,
+        "tags": "number theory, additive combinatorics",
+        "statement": "Suppose A is a set of positive integers and C > 0 is such that 1_A*1_A(n) is at most C for all n, where 1_A*1_A(n) counts the representations of n as a+b with a and b in A. Can A be partitioned into t many subsets A_1, ..., A_t (where t = t(C) depends only on C) such that 1_(A_i)*1_(A_i)(n) < C for all i from 1 to t and all n?"
+      },
+      {
+        "number": 15,
+        "tags": "number theory, primes",
+        "statement": "Is it true that the sum over n from 1 to infinity of (-1)^n n/p_n converges, where p_n is the sequence of primes?"
+      },
+      {
+        "number": 17,
+        "tags": "number theory, primes",
+        "statement": "Are there infinitely many primes p such that every even number n at most p-3 can be written as a difference of primes n = q_1 - q_2 where q_1 and q_2 are at most p?"
+      },
+      {
+        "number": 20,
+        "tags": "combinatorics",
+        "statement": "Let f(n,k) be minimal such that every family F of n-uniform sets with at least f(n,k) members contains a k-sunflower. Is it true that f(n,k) < c_k^n for some constant c_k > 0?"
+      },
+      {
+        "number": 490,
+        "tags": "number theory",
+        "statement": "Let A and B be subsets of the integers from 1 to N such that all the products ab with a in A and b in B are distinct. Is it true that the size of A times the size of B is at most a constant times N^2 / log N?"
+      },
+      {
+        "number": 28,
+        "tags": "number theory, additive basis",
+        "statement": "If A is a set of positive integers such that A+A contains all but finitely many integers then limsup 1_A*1_A(n) is infinite, where 1_A*1_A(n) counts the representations of n as a+b with a and b in A."
+      },
+      {
+        "number": 30,
+        "tags": "number theory, sidon sets, additive combinatorics",
+        "statement": "Let h(N) be the maximum size of a Sidon set in the integers from 1 to N. Is it true that, for every epsilon > 0, h(N) = N^(1/2) + O_epsilon(N^epsilon)?"
+      },
+      {
+        "number": 39,
+        "tags": "number theory, sidon sets, additive combinatorics",
+        "statement": "Is there an infinite Sidon set A of positive integers such that the number of elements of A up to N is at least a constant times N^(1/2 - epsilon) for all epsilon > 0, the constant depending on epsilon?"
+      },
+      {
+        "number": 41,
+        "tags": "number theory, sidon sets, additive combinatorics",
+        "statement": "Let A be an infinite set of positive integers such that the triple sums a+b+c are all distinct for a, b, c in A (aside from the trivial coincidences). Is it true that the liminf of the number of elements of A up to N divided by N^(1/3) is 0?"
+      },
+      {
+        "number": 512,
+        "tags": "analysis",
+        "statement": "Is it true that, if A is a finite set of integers of size N, then the integral from 0 to 1 of the absolute value of the sum over n in A of e(n theta), with respect to theta, is at least a constant times log N, where e(x) = exp(2 pi i x)?"
+      },
+      {
+        "number": 52,
+        "tags": "number theory, additive combinatorics",
+        "statement": "Let A be a finite set of integers. Is it true that for every epsilon > 0 the larger of the sizes of A+A and AA is at least a constant times the size of A raised to the power 2 - epsilon, the constant depending on epsilon?"
+      },
+      {
+        "number": 66,
+        "tags": "number theory, additive basis",
+        "statement": "Is there a set A of positive integers such that the limit as n tends to infinity of 1_A*1_A(n) / log n exists and is not 0, where 1_A*1_A(n) counts the representations of n as a+b with a and b in A?"
+      },
+      {
+        "number": 68,
+        "tags": "number theory, irrationality",
+        "statement": "Is the sum over n at least 2 of 1/(n! - 1) irrational?"
+      },
+      {
+        "number": 209,
+        "tags": "geometry",
+        "statement": "Let A be a finite collection of d at least 4 non-parallel lines in the plane such that there are no points where at least four lines from A meet. Must there exist a Gallai triangle (or ordinary triangle): three lines from A which intersect in three points, and each of these intersection points only intersects two lines from A?"
+      },
+      {
+        "number": 77,
+        "tags": "graph theory, ramsey theory",
+        "statement": "If R(k) is the Ramsey number for K_k, the minimal n such that every 2-colouring of the edges of K_n contains a monochromatic copy of K_k, then find the value of the limit of R(k)^(1/k) as k tends to infinity."
+      },
+      {
+        "number": 89,
+        "tags": "geometry, distances",
+        "statement": "Does every set of n distinct points in the plane determine at least a constant times n / sqrt(log n) distinct distances?"
+      },
+      {
+        "number": 101,
+        "tags": "geometry",
+        "statement": "Given n points in the plane, no five of which are on a line, the number of lines containing four points is o(n^2)."
+      },
+      {
+        "number": 104,
+        "tags": "geometry",
+        "statement": "Given n points in the plane the number of distinct unit circles containing at least three points is o(n^2)."
+      },
+      {
+        "number": 1219,
+        "tags": "ramsey theory, set theory",
+        "statement": "Let (n_k) be an increasing sequence of integers such that 2^(aleph_(n_k)) is strictly increasing, and 2^(aleph_(n_0)) > aleph_omega. Is it true that the sum over k of 2^(aleph_(n_k)) arrows (aleph_omega)^2, in the sense of the partition calculus?"
+      },
+      {
+        "number": 138,
+        "tags": "additive combinatorics",
+        "statement": "Let the van der Waerden number W(k) be such that whenever N is at least W(k) and the integers from 1 to N are 2-coloured there must exist a monochromatic k-term arithmetic progression. Improve the bounds for W(k), for example prove that W(k)^(1/k) tends to infinity."
+      },
+      {
+        "number": 142,
+        "tags": "additive combinatorics, arithmetic progressions",
+        "statement": "Let r_k(N) be the largest possible size of a subset of the integers from 1 to N that does not contain any non-trivial k-term arithmetic progression. Prove an asymptotic formula for r_k(N)."
+      },
+      {
+        "number": 165,
+        "tags": "graph theory, ramsey theory",
+        "statement": "Give an asymptotic formula for R(3,k)."
+      },
+      {
+        "number": 1134,
+        "tags": "number theory",
+        "statement": "Let A be the smallest set of positive integers which contains 1 and is closed under the operations x to 2x+1, x to 3x+1, and x to 6x+1. Does A have positive lower density?"
+      },
+      {
+        "number": 241,
+        "tags": "additive combinatorics, sidon sets",
+        "statement": "Let f(N) be the maximum size of a subset A of the integers from 1 to N such that the sums a+b+c with a, b, c in A are all distinct (aside from the trivial coincidences). Is it true that f(N) is asymptotic to N^(1/3)?"
+      },
+      {
+        "number": 470,
+        "tags": "number theory, divisors",
+        "statement": "Call n weird if sigma(n) is at least 2n and n is not pseudoperfect, that is, it is not the sum of any set of its divisors. Are there any odd weird numbers? Are there infinitely many primitive weird numbers, i.e. those such that no proper divisor of n is weird?"
+      },
+      {
+        "number": 193,
+        "tags": "geometry",
+        "statement": "Let S be a finite subset of Z^3 and let A = (a_1, a_2, ...) be an infinite S-walk in Z^3, so that a_(i+1) - a_i is in S for all i. Must A contain three collinear points?"
+      },
+      {
+        "number": 1052,
+        "tags": "number theory",
+        "statement": "A unitary divisor of n is a divisor d of n such that d and n/d are coprime. A number n at least 1 is a unitary perfect number if it is the sum of its unitary divisors (aside from n itself). Are there only finitely many unitary perfect numbers?"
+      },
+      {
+        "number": 1135,
+        "tags": "number theory, iterated functions",
+        "statement": "Define f on the positive integers by f(n) = n/2 if n is even and f(n) = (3n+1)/2 if n is odd. Given any integer m at least 1 does there exist k at least 1 such that the k-th iterate of f at m equals 1?"
+      },
+      {
+        "number": 1191,
+        "tags": "additive combinatorics, sidon sets",
+        "statement": "Let A be an infinite Sidon set of positive integers. Is it true that the liminf as x tends to infinity of (the number of elements of A up to x) / x^(1/2) times (log x)^(1/2) is 0? Does there exist an infinite Sidon set A such that the liminf of (the number of elements of A up to x) / x^(1/2) times (log x)^c is positive for some c > 0?"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "problem/2": {
+        "status": "proved"
+      },
+      "problem/6": {
+        "status": "disproved"
+      },
+      "problem/10": {
+        "status": "proved"
+      },
+      "problem/15": {
+        "status": "proved"
+      },
+      "problem/19": {
+        "status": "disproved"
+      },
+      "problem/24": {
+        "status": "proved"
+      },
+      "problem/28": {
+        "status": "disproved"
+      },
+      "problem/31": {
+        "status": "disproved"
+      }
+    }
+  }
+}

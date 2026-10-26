@@ -1,0 +1,359 @@
+[
+  {
+    "id": "C1",
+    "title": "UK public inquiry recommendations: accepted, implemented or dropped",
+    "question": "For every recommendation made by a UK statutory or government-commissioned public inquiry since 2005, what did the responsible government body say in response, and what has it published since that shows the recommendation implemented, partly implemented, rejected or left without an answer?",
+    "why_wanted": "The House of Lords Statutory Inquiries Committee (2024) and the Institute for Government have both called for a public tracker of inquiry recommendations, warning that unheeded recommendations let avoidable harms repeat. Bereaved families' groups, journalists and select committees ask the same question after every inquiry (Grenfell, Infected Blood, Post Office, Covid) and nobody holds the whole ledger.",
+    "status": "The government conceded in February 2025 that there is insufficient transparency and accountability on implementation, but the proposed inquiries unit and tracker have not been established (Kennedys' 2025 overview; Civil Service World). The Institute for Government's 2017 count found only six of 68 inquiries since 1990 had been followed up by select committees, and a record 26 to 27 inquiries are now live.",
+    "fit": "Every input is a published document: the inquiry's final report, the government's written response, later ministerial statements, legislation and departmental reports. Each recommendation is one bounded piece whose answer is a status plus a named document and quoted passage that a second AI can find and compare.",
+    "piece": "Brief: for one numbered recommendation of one named inquiry, find the government's formal response and the latest published evidence of action, and return status (accepted, accepted in principle, rejected, no response found), the responding body by name, the responding document's title and date, the implementing instrument if any (statute, regulation, guidance, programme) with title and date, and a quoted sentence from each. Return fields: inquiry, recommendation_number, status, responding_body, response_document_title, response_date, implementing_instrument_title, implementing_date, quotes. Verifier: agree (status, responding_document_title, implementing_instrument_title), quotes kept as evidence.",
+    "count": 1200,
+    "evidence": "The second AI opens the named response document and implementing instrument by title and date and confirms the quoted sentences and the status they support.",
+    "gold": "Yes: the owner seeds recommendations whose outcome is settled in Parliament's own records (for example recommendations enacted by a named Act) as hashed gold.",
+    "risks": "Status is partly a judgement call where responses are vague, so the agree fields must be the document identifiers rather than a nuanced grade; inquiries into deaths name private victims, and the brief restricts returns to bodies and documents.",
+    "sources": [
+      "https://ukparliament.shorthandstories.com/statutory-inquiries-lords-report/",
+      "https://www.kennedyslaw.com/en/thought-leadership/article/2025/public-inquiries-an-overview-of-key-recommendations-for-reform-and-next-steps",
+      "https://www.civilserviceworld.com/professions/article/cabinet-office-urged-to-set-up-a-permanent-public-inquiries-unit"
+    ]
+  },
+  {
+    "id": "C2",
+    "title": "Australian royal commission recommendations: who acted since",
+    "question": "For each recommendation of Australia's recent royal commissions (Disability, Aged Care, Robodebt, Defence and Veteran Suicide, Banking, Institutional Child Abuse), which Commonwealth, state or territory body is responsible, what did it formally say, and what published measure shows the recommendation acted on?",
+    "why_wanted": "Disability and aged-care advocacy bodies, the Inspector-General of Aged Care and academics studying implementation all say the follow-through is uneven and hard to see across governments. Governments publish their own progress reports with their own categories, and no independent ledger reconciles them against published evidence.",
+    "status": "The Commonwealth's Disability Royal Commission Progress Report 2025 reports only 8 of its 172 recommendations completed, with the states' share summarised as percentages rather than per-recommendation evidence (Department of Health, Disability and Ageing, 2025). The Inspector-General of Aged Care's 2025 progress report on 148 recommendations asks whether reforms amount to transformation or a small shift, and Griffith University research describes implementation of royal commissions as poorly tracked.",
+    "fit": "Each recommendation is a numbered public item with a named responsible government and a paper trail of budget measures, bills and regulations. Many AIs can each take one recommendation and return document identifiers that any stranger can re-open.",
+    "piece": "Brief: for one numbered recommendation of one named royal commission, identify the responsible government(s) by name, the official response category given in the government's response document, and the most recent published instrument or budget measure that acts on it. Return fields: commission, recommendation_number, responsible_bodies, official_response_category, response_document_title, response_date, latest_action_instrument_title, latest_action_date, quote. Verifier: agree (responsible_bodies, official_response_category, latest_action_instrument_title), with the quote kept as evidence.",
+    "count": 1000,
+    "evidence": "The second AI opens the government response and the named instrument by title and date and confirms the category and that the instrument addresses the recommendation number cited.",
+    "gold": "Yes: the owner seeds recommendations the governments themselves mark completed in their 2025 progress reports as known answers.",
+    "risks": "State and territory responses are scattered across six jurisdictions with inconsistent formats, so some recommendations will lack any findable response; commission reports include private witnesses' stories, which the brief excludes from returns.",
+    "sources": [
+      "https://www.health.gov.au/resources/publications/disability-royal-commission-progress-report-2025-0",
+      "https://www.compass.info/resources/resource/2025-progress-report-on-the-implementation-of-the-recommendations-of-the-royal-commission-into-aged-care-quality-and-safety/",
+      "https://research-repository.griffith.edu.au/items/693b01f2-4c74-447b-9fd3-9c0e22caba41"
+    ]
+  },
+  {
+    "id": "C3",
+    "title": "Lead service line inventories: public, and what they say",
+    "question": "For each US community water system, has it published the service line inventory the Lead and Copper Rule Revisions require, where, and what does it report for lead, galvanized-requiring-replacement, unknown and non-lead counts and for public access to the inventory?",
+    "why_wanted": "Environmental justice and clean-water groups need to know which systems have not located their lead pipes and which have not made inventories public, so residents and advocates can press for replacement funding where it is most needed. Journalists covering the ten-year replacement mandate keep rebuilding this picture by hand.",
+    "status": "EPA released a first national dataset of utility-reported inventory counts in November 2025, but an Associated Press analysis in September 2026 found about 6,300 systems serving 3.8 million people had still not submitted, and one in five service lines nationwide are listed as unknown (Associated Press, 2026; Policy Innovation, 2025). The Rockefeller Institute's 2025 New York study found documentation varies widely by system and over time, and no one has checked whether each system's inventory is actually posted and accessible as the rule requires.",
+    "fit": "A water system is a public body or regulated utility, its inventory is a required public document, and the return is counts and a location of publication that a second AI can re-find. Fifty thousand systems make an enormous but perfectly divisible job.",
+    "piece": "Brief: for one named community water system (by state and public water system identifier), find its published lead service line inventory and return whether it is publicly posted, the publication form (map, table, document), the inventory date, and the counts of lead, galvanized requiring replacement, unknown and non-lead service lines. Return fields: pws_id, system_name, state, inventory_found, publication_form, inventory_date, count_lead, count_grr, count_unknown, count_non_lead, document_title_or_page_title. Verifier: agree (inventory_found, count_lead, count_grr, count_unknown), document title kept as evidence.",
+    "count": 2000,
+    "evidence": "The second AI locates the same inventory by system name and identifier and reads the same four counts from it.",
+    "gold": "Yes: the owner seeds systems whose counts appear in EPA's November 2025 national dataset and in state datasets as hashed gold.",
+    "risks": "Address-level inventories identify households' pipe materials, so returns are restricted to system-level counts and never to addresses; many small systems have no website, so the problem should start with systems serving over 10,000 people.",
+    "sources": [
+      "https://www.ajc.com/news/2026/09/the-push-to-remove-lead-pipes-is-on-thousands-of-water-systems-still-dont-know-where-theirs-are/",
+      "https://www.policyinnovation.org/insights/what-best-available-data-tells-us-about-lead-service-lines",
+      "https://rockinst.org/issue-area/drawing-the-line-lead-service-line-inventories-in-new-york-state/"
+    ]
+  },
+  {
+    "id": "C4",
+    "title": "Criminalisation of homelessness ordinances, by code section",
+    "question": "Across US cities, which municipal code provisions restrict camping, sleeping, sitting or lying, living in vehicles, panhandling and sharing food in public, what penalties do they carry, and which have been adopted or amended since the Supreme Court's Grants Pass decision of June 2024?",
+    "why_wanted": "The National Homelessness Law Center and the ACLU track these laws because they shape where unhoused people may exist and how police spend time, and litigators need exact code text and penalty terms. Local coalitions want their own city compared with others on their own published rules rather than on news reports.",
+    "status": "The ACLU and National Homelessness Law Center map of post-Grants Pass measures was last updated June 24, 2026, and Stateline reported in January 2025 that about 150 cities in 32 states had passed or strengthened such ordinances with 40 more pending. The Law Center's own code survey has covered the same 187 cities since 2006 with pro bono law firm help (NLIHC summary of Housing Not Handcuffs 2019), and no one has coded the provisions of the thousands of other cities.",
+    "fit": "Municipal codes are public and online, and the return is a code section, a quoted prohibition and a penalty that two AIs can read identically. Each city is one piece, and the set aggregates into the comparison table that the field keeps rebuilding by hand.",
+    "piece": "Brief: for one named city, read its municipal code and return, for each of six conduct categories (camping, sleeping, sitting or lying, vehicle residency, panhandling, food sharing), whether a citywide or place-specific prohibition exists, the code section number, the maximum penalty stated, whether a shelter-availability condition is written in, and the ordinance number and date of the latest amendment. Return fields: city, state, per-category section, scope, max_penalty, shelter_condition, last_ordinance_number, last_ordinance_date, quoted_prohibition. Verifier: agree (section, scope, shelter_condition, last_ordinance_number), quotes kept as evidence.",
+    "count": 500,
+    "evidence": "The second AI opens the city's code at the cited section and confirms the quoted text, the scope and the penalty.",
+    "gold": "Yes: the owner seeds the cities already coded in the Law Center's 187-city survey and the ACLU map as hashed known answers.",
+    "risks": "Ordinances are enforced against private people, but the pieces touch only code text and council records, never citations or named individuals; codes hosted on third-party platforms may lag the latest ordinance.",
+    "sources": [
+      "https://www.aclu.org/two-years-since-grants-pass-tracking-the-criminalization-of-homelessness",
+      "https://stateline.org/2025/01/27/many-more-cities-ban-sleeping-outside-despite-a-lack-of-shelter-space/",
+      "https://nlihc.org/resource/criminalization-homelessness-increases-us-cities"
+    ]
+  },
+  {
+    "id": "C5",
+    "title": "Zoning codes in the forty states the Atlas missed",
+    "question": "For each zoning district in jurisdictions outside the ten states the National Zoning Atlas has covered, what does the code allow by right or by permit for single-family, two-family, three-plus-family housing and accessory dwellings, and what minimum lot size and parking apply?",
+    "why_wanted": "Housing researchers, state legislators weighing zoning reform and tenant and YIMBY organisers cite the Atlas because it turns tens of thousands of codes into one comparable dataset. The Atlas team says human reading is still required because algorithms cannot yet read codes to the accuracy they need, which is exactly the labour that is missing.",
+    "status": "As of June 2025 the Atlas covered about half of US land area across ten states, with 76,500 districts in 7,090 jurisdictions coded by university teams (GreenInfo project page; Cornell AAP launch story). The Atlas's own methodology page says it still relies on trained human teams and a zoning editor tool, and most of the country remains uncoded.",
+    "fit": "Each district is a bounded reading task over a published code with a fixed answer schema that the Atlas already standardised. Two independent readings of the same code section either agree on the enumerated fields or they do not.",
+    "piece": "Brief: for one named zoning district in one named jurisdiction, read the current zoning code and return, for each of four housing types, whether it is allowed by right, by public hearing, or prohibited, plus minimum lot size, maximum height and minimum parking for one- to two-family housing, with the code section numbers relied on. Return fields: jurisdiction, state, district_name, allowed_1family, allowed_2family, allowed_3plus, allowed_adu, min_lot_sqft, max_height_ft, min_parking, sections_cited, code_effective_date. Verifier: agree (the four allowed fields, min_lot_sqft, min_parking), sections kept as evidence.",
+    "count": 2000,
+    "evidence": "The second AI opens the cited code sections and reproduces the same treatment of the four housing types and the same lot and parking numbers.",
+    "gold": "Yes: the owner seeds districts already coded in the published Atlas states as hashed gold to test readers before trusting them on new states.",
+    "risks": "Codes are long and amended often, so fields depend on the code version, which the return must date; the Atlas may wish to validate contributions through its own pipeline rather than accept a parallel dataset.",
+    "sources": [
+      "https://www.zoningatlas.org/how",
+      "https://greeninfo.org/portfolio/a-crowdsourced-zoning-map-for-the-nation/",
+      "https://huduser.gov/PORTAL/node/10404"
+    ]
+  },
+  {
+    "id": "C6",
+    "title": "Police union contracts: six accountability provisions, by jurisdiction",
+    "question": "For every published police collective bargaining agreement and officer bill of rights in the United States, which of the six accountability-limiting provisions appear (complaint time limits, discipline limits, record purging, public funds for misconduct costs, early access to evidence, interrogation delays), in which article and in what words?",
+    "why_wanted": "Campaign Zero's Nix the 6 campaign, city councils renegotiating contracts and local journalists need the exact clause text to compare cities and to mark progress when contracts are renewed. The 2024 research brief shows the review has reached nearly a thousand jurisdictions but is still being extended as contracts expire and are replaced.",
+    "status": "Campaign Zero collected over 600 contracts in 2020 with donated contract-analysis software and reported in April 2024 a review of union contracts in nearly 1,000 jurisdictions and officer bill of rights laws in 22 states (Campaign Zero research brief, April 2024; Kira Systems announcement). Contracts are renegotiated every few years, so the coded set ages quickly and most of the roughly 18,000 agencies are not covered.",
+    "fit": "A contract is one public document, the six provisions are a fixed checklist, and a return is an article number and quoted clause that a second AI can check verbatim. Thousands of agreements make thousands of identical pieces.",
+    "piece": "Brief: for one named law enforcement agency's current collective bargaining agreement (identified by employer, union local by name, and term dates), return for each of the six provisions whether it is present, the article or section number, and the quoted clause, plus the contract term dates. Return fields: agency, jurisdiction, union_name, term_start, term_end, per-provision present, section, quote. Verifier: agree (the six present flags and section numbers), quotes kept as evidence.",
+    "count": 1000,
+    "evidence": "The second AI opens the same agreement by agency and term dates and confirms each cited section contains the quoted clause.",
+    "gold": "Yes: the owner seeds agreements already coded in Campaign Zero's published database as hashed known answers.",
+    "risks": "Some agreements are not posted online and would need records requests, which the platform cannot make; contracts name union officers as signatories, and the brief excludes personal names from returns.",
+    "sources": [
+      "https://campaignzero.org/wp-content/uploads/2024/04/NT6CBAs_043024.pdf",
+      "https://kirasystems.com/company-announcements/kira-systems-supports-campaign-zero"
+    ]
+  },
+  {
+    "id": "C7",
+    "title": "Which local agencies bought which surveillance technology",
+    "question": "For each pairing of a US law enforcement agency and a surveillance technology (drones, licence plate readers, face recognition, cell-site simulators, body cameras, predictive policing, gunshot detection, real-time crime centres), is there a public record (council minutes, procurement notice, budget line, press release, news report) documenting acquisition or use, and what does it say?",
+    "why_wanted": "The Electronic Frontier Foundation's Atlas of Surveillance is used by councils, journalists and community groups weighing surveillance ordinances, and EFF asks volunteers to take 20- to 30-minute Report Back research tasks because the work is exactly this kind of document hunt. Local organisers want their own town's entries, which are often missing.",
+    "status": "The Atlas holds more than 15,000 datapoints across 6,000-plus jurisdictions, built by over 1,300 students and volunteers with each line double-checked by interns and staff (Atlas methodology page; EFF 2024 year in review). EFF's collaborate page still solicits research help and new datapoints, and with roughly 18,000 agencies and a dozen technologies most pairings remain unchecked.",
+    "fit": "Each piece is a bounded search over public records for one agency and one technology with a yes-or-no plus a cited document, which a second AI can re-find. The task is already shaped as small research assignments, so it translates directly into pieces.",
+    "piece": "Brief: for one named agency and one named technology, search public records and news and return whether documentation of acquisition or use was found, the document type, its title or meeting name, issuing body, date, vendor if named as a company, and a quoted sentence. Return fields: agency, state, technology, found, document_type, document_title, issuing_body, document_date, vendor, quote. Verifier: agree (found, document_type, document_date, vendor), document title and quote kept as evidence.",
+    "count": 2000,
+    "evidence": "The second AI locates the named document by title, body and date and confirms it mentions the agency and technology as quoted.",
+    "gold": "Yes: the owner seeds agency-technology pairs already in the Atlas as hashed gold and includes known negatives from EFF's checked-and-absent list.",
+    "risks": "Absence of evidence is not evidence of absence, so a not-found return is weaker than a found one; documents sometimes name individual officers, which the brief excludes from returns.",
+    "sources": [
+      "https://atlasofsurveillance.org/methodology",
+      "https://atlasofsurveillance.org/collaborate",
+      "https://www.eff.org/deeplinks/2024/12/atlas-surveillance-expands-its-data-police-surveillance-technology-2024-year"
+    ]
+  },
+  {
+    "id": "C8",
+    "title": "FOIA logs released as PDFs, turned into one index",
+    "question": "For each FOIA log that a US federal, state or local agency has released (usually as a scanned or PDF table), what requests does it list, by agency, date received, subject, status and requester type, in a common structured form?",
+    "why_wanted": "MuckRock's FOIA Log Explorer exists because journalists and researchers use past requests to learn what records exist and what an agency has already released. MuckRock asks the public to send missing logs and offers paid custom imports, which shows the normalisation work outstrips its hands.",
+    "status": "The Explorer launched in September 2023 and grew to about 170,000 requests mostly by importing the decommissioned FOIAonline archive across ten agencies in June 2024 (MuckRock release notes, June 2024; launch post, September 2023). Thousands of logs from other agencies sit as PDFs on agency reading rooms and in MuckRock's own request files, unindexed.",
+    "fit": "A log is a public table with a fixed set of columns, and transcription of one log is a bounded piece whose rows two independent transcriptions either match or do not. Agencies, dates and subjects are public facts, so the pieces stay within the plain-text gate.",
+    "piece": "Brief: for one named FOIA log (agency, period covered, release date), transcribe each request row into agency, request number, date received, subject as written, disposition and requester type (news organisation, commercial, law firm, non-profit, individual, other), with requester names omitted. Return fields: agency, log_period, release_date, rows[request_number, date_received, subject, disposition, requester_type], row_count. Verifier: agree (row_count and, per row, request_number, date_received, disposition, requester_type), subjects kept as evidence.",
+    "count": 1500,
+    "evidence": "The second AI transcribes the same log independently and the platform compares rows by request number.",
+    "gold": "Yes: the owner seeds logs already normalised in the Explorer as hashed gold.",
+    "risks": "Logs often name private requesters, so the brief requires names to be dropped and only a requester type kept; scanned logs with poor OCR will produce honest disagreements that need a retry rule.",
+    "sources": [
+      "https://www.muckrock.com/foi/logs/",
+      "https://muckrock.com/news/archives/2024/jun/11/release-notes-foia-log-foiaonline",
+      "https://www.muckrock.com/news/archives/2023/sep/18/foia-log-explorer-launch"
+    ]
+  },
+  {
+    "id": "C9",
+    "title": "ICE detention inspections: every deficiency, by facility and standard",
+    "question": "For each inspection report ICE has published for a detention facility since 2019 (Office of Detention Oversight and contract inspectors), which detention standards were found deficient, how many deficiencies per standard, and what did the inspection conclude?",
+    "why_wanted": "Immigrant rights groups, members of Congress and newsrooms rely on these reports to show whether facilities meet ICE's own standards, and each outlet currently rebuilds the tally by hand. A ledger by facility and standard over time would show which problems recur and which facilities go uninspected.",
+    "status": "POGO and the Investigative Reporting Workshop found published inspection reports fell 36 percent in 2025 while detention grew, and CBS News built its own count finding deficiencies in nearly 90 percent of inspections since 2019 and 15 of the 45 largest facilities uninspected for over a year (POGO, 2026; CBS News, 2026). No public structured dataset of deficiencies by standard exists; the reports are PDFs on ICE's facility inspections page.",
+    "fit": "Each report is one public document with a fixed structure (standards reviewed, deficiencies found, conclusion) so one report is one piece with a countable return. Facilities are run by agencies and companies, so returns name no person.",
+    "piece": "Brief: for one named inspection report (facility, operator, inspection type, inspection dates), return the standards set applied, the list of standards found deficient with the number of deficiencies under each, the total deficiencies, the overall rating or conclusion, and a quoted sentence from the conclusion. Return fields: facility, state, operator, inspection_type, inspection_start, inspection_end, standards_set, deficiencies[standard, count], total_deficiencies, conclusion, quote. Verifier: agree (total_deficiencies, standards list, conclusion), quote kept as evidence.",
+    "count": 900,
+    "evidence": "The second AI opens the same report by facility and dates and reproduces the deficiency counts per standard.",
+    "gold": "Yes: the owner seeds reports whose totals have been published in news analyses as hashed gold.",
+    "risks": "Reports include redacted detainee cases and sometimes name staff, which the brief excludes; ICE has removed or reposted reports, so a report's availability must be dated in the return.",
+    "sources": [
+      "https://www.pogo.org/investigates/ice-inspections-plummeted-as-detentions-soared-in-2025",
+      "https://www.cbsnews.com/news/ice-detention-facilities-inspection-policy/"
+    ]
+  },
+  {
+    "id": "C10",
+    "title": "Precinct election results trapped in county PDFs",
+    "question": "For US counties that publish precinct-level election results only as PDFs or images, what are the votes by precinct, office and candidate for each recent election, in a common tabular form?",
+    "why_wanted": "OpenElections, a volunteer project, has spent a decade converting these files so redistricting, voting-rights and turnout research can use them, and the Redistricting Data Hub lists state-by-state gaps. Researchers and journalists cannot analyse what is still a scanned table.",
+    "status": "In mid-2025 OpenElections had converted more than half of Texas's 254 counties for one election in six weeks using AI-assisted parsing with manual verification, and in April 2026 produced new precinct files for a dozen Pennsylvania counties (Derek Willis, Buttondown, 2026; OpenElections on GitHub). Many states and earlier elections remain source-only, and each county file still needs a person or AI to check it.",
+    "fit": "A county results file is a bounded transcription task with a mechanical check: precinct totals must sum to the county's certified totals, and two independent transcriptions can be compared cell by cell. Candidates are public office-seekers, so naming them is within the gate.",
+    "piece": "Brief: for one named county, election date and office, transcribe the precinct-level results from the county's published results document into rows of precinct, candidate, party and votes, and report the document's certified county total for comparison. Return fields: state, county, election_date, office, source_document_title, rows[precinct, candidate, party, votes], computed_total, certified_total. Verifier: check (a checker script confirms computed_total equals certified_total and compares two returns row by row), with agree on rows as the fallback.",
+    "count": 1500,
+    "evidence": "The second AI transcribes independently and a script compares the two tables and the sums against the certified total.",
+    "gold": "Yes: the owner seeds counties OpenElections has already converted as hashed gold.",
+    "risks": "Write-in and provisional rows vary by county and break naive sums; the problem must avoid any voter-level data, which these documents do not contain.",
+    "sources": [
+      "https://github.com/openelections",
+      "https://buttondown.com/dwillis/archive/parsing-pennsylvania-election-pdfs/",
+      "https://redistrictingdatahub.org/resources/precinct-level-data-sources/"
+    ]
+  },
+  {
+    "id": "C11",
+    "title": "Modern slavery statements, assessed against the law's checklist",
+    "question": "For each statement on the UK Modern Slavery Statement Registry, does it meet the Modern Slavery Act's formal requirements (board approval, director signature, homepage link) and does it address each of the six recommended areas (structure, policies, due diligence, risk assessment, effectiveness measures, training), with what evidence?",
+    "why_wanted": "Walk Free and WikiRate have assessed over 2,000 statements with thousands of volunteers across 20 universities because the data lets labour-rights groups, investors and regulators see which companies merely comply and which act, and they presented the method at FOSDEM 2025 to find more hands. The registry holds more than 23,000 statements, so coverage is a fraction.",
+    "status": "The Beyond Compliance project assessed 418 statements in 2018 and more than 2,000 since, using a public metric set on WikiRate (Walk Free and WikiRate report, 2018; FOSDEM 2025 session). The registry itself remains voluntary and publishes only basic metadata, not assessments, so most statements have never been read against the checklist.",
+    "fit": "Each statement is a short public document and the metric set is already a fixed schema that non-experts have applied for years. Two independent AIs reading the same statement can agree on presence-or-absence fields with quoted passages as evidence.",
+    "piece": "Brief: for one named company's statement for one financial year on the registry, return whether it states board approval, a director's signature and a homepage link, whether each of the six areas is addressed, and whether it reports any identified incidents, with a short quote for each positive answer. Return fields: company, financial_year, board_approval, director_signature, homepage_link, per-area addressed, incidents_reported, quotes. Verifier: agree (the three formal flags and six area flags), quotes kept as evidence.",
+    "count": 2000,
+    "evidence": "The second AI opens the same statement on the registry and checks each flag against the quoted passages.",
+    "gold": "Yes: the owner seeds statements already assessed on WikiRate as hashed gold.",
+    "risks": "Statements name directors as signatories, which the return records only as a yes-or-no; judgements of quality beyond presence would need a judge verifier and are left out.",
+    "sources": [
+      "https://fosdem.org/2025/schedule/event/fosdem-2025-5448-beyond-compliance-assessing-modern-slavery-statements-using-the-wikirate-platform",
+      "https://modern-slavery-statement-registry.service.gov.uk/data-about-modern-slavery-statement-registry",
+      "https://respect.international/wp-content/uploads/2018/09/Beyond-Compliance-The-Modern-Slavery-Act-Research-Project-WikiRate-and-the-Walk-Free-Foundation-2018.pdf"
+    ]
+  },
+  {
+    "id": "C12",
+    "title": "Small strikes the national trackers miss",
+    "question": "Which US work stoppages reported in local news, union releases or trade press since 2021 are absent from the Labor Action Tracker and the Bureau of Labor Statistics series, and what are their employer, union, location, dates, participant count and demands with two independent sources each?",
+    "why_wanted": "Labor Notes has asked how many strikes there really are because the BLS counts only stoppages of 1,000 or more and the Cornell-Illinois Labor Action Tracker says it likely underestimates because events without verifiable information cannot be included. Labour researchers and unions want the fuller count and the tracker's own two-source rule is the standard a crowd can meet.",
+    "status": "The Labor Action Tracker's 2025 annual report (February 2026) records a slight dip in stoppages and repeats that unverifiable events are excluded; its methodology requires a Tier I source corroborated by another Tier I or Tier II source (Labor Action Tracker methodology; Labor Notes). No open channel exists for the public to supply verified candidate events in the tracker's own schema.",
+    "fit": "Each candidate event is one bounded research piece whose return is the tracker's own field list plus two named sources, so a second AI can confirm each source says what is claimed. Employers and unions are organisations, so returns stay within the gate.",
+    "piece": "Brief: for one named employer and locality flagged by a news mention, confirm from two independent published sources whether a strike or labour protest occurred and return employer, union or organisation, industry, locality, start and end dates, approximate participants, authorised status if stated, demands as categorised by the tracker, and the two sources by outlet, title and date. Return fields: employer, union, industry, city, state, start_date, end_date, participants, authorised, demands, source1, source2. Verifier: agree (employer, city, start_date, end_date, union), sources kept as evidence.",
+    "count": 1500,
+    "evidence": "The second AI finds the two cited articles by outlet, title and date and confirms the dates and employer.",
+    "gold": "Yes: the owner seeds events already in the public Labor Action Tracker dataset as hashed gold, including their fields.",
+    "risks": "News reports sometimes name individual workers, which the brief excludes; participant counts are estimates and must be an evidence field, not an agree field.",
+    "sources": [
+      "https://striketracker.ilr.cornell.edu/methodology",
+      "https://www.ilr.cornell.edu/faculty-and-research/labor-action-tracker-2025",
+      "https://labornotes.org/node/6714"
+    ]
+  },
+  {
+    "id": "C13",
+    "title": "Public bodies' web accessibility statements, checked against law",
+    "question": "For each public sector body covered by the EU Web Accessibility Directive or the US ADA Title II web rule, does its main website carry the required accessibility statement, what conformance level and date does it claim, which content does it declare non-accessible, and does it name a feedback and enforcement route?",
+    "why_wanted": "Disability rights organisations and national monitoring bodies want to know which bodies have even published the statement the law requires, because the statement is the public's lever for complaints. Monitoring bodies sample only a few hundred sites a year, and US entities face a 2027 deadline with no public register of who has prepared.",
+    "status": "Ireland's National Disability Authority reviewed 232 sites in its 2024 cycle and is building a register of public sector sites because none exists (NDA monitoring report 2025); the European Commission's monitoring page says member states review statements but publish only triennial summaries. The US Department of Justice extended the Title II compliance deadlines to April 2027 and 2028 (UNC School of Government, 2026), and no survey of published statements exists.",
+    "fit": "A statement is a short public page with legally prescribed elements, so each body is one piece with yes-or-no fields and quoted claims. Two AIs can read the same statement and agree on its stated conformance level and date.",
+    "piece": "Brief: for one named public body, find the accessibility statement linked from its main website and return whether it exists, the standard and conformance level claimed, the statement's date, the number of non-accessible content items listed, whether a feedback mechanism and an enforcement body are named, and a quoted conformance sentence. Return fields: body, country_or_state, statement_found, standard_claimed, conformance_level, statement_date, non_accessible_items, feedback_named, enforcement_named, quote. Verifier: agree (statement_found, conformance_level, statement_date, feedback_named, enforcement_named), quote kept as evidence.",
+    "count": 2000,
+    "evidence": "The second AI opens the same body's site, finds the statement and confirms the quoted conformance sentence and date.",
+    "gold": "Yes: the owner seeds bodies whose statements national monitoring bodies have already assessed and published as hashed gold.",
+    "risks": "Statements can change between the two reads, so the return carries the statement date; the problem records only what a body claims, not measured accessibility, which needs tooling outside the plain-text gate.",
+    "sources": [
+      "https://digital-strategy.ec.europa.eu/en/policies/web-accessibility-monitoring",
+      "https://nda.ie/news/irelands-annual-monitoring-report-2025-eu-web-accessibility-directive",
+      "https://canons.sog.unc.edu/2026/01/understanding-the-new-ada-web-accessibility-requirements-for-state-and-local-governments/"
+    ]
+  },
+  {
+    "id": "C14",
+    "title": "Extractive contracts published but not yet annotated",
+    "question": "For each oil, gas and mining contract in the ResourceContracts repository that lacks annotations, what are its fiscal terms (royalty, income tax, state participation, stabilisation), its environmental and social obligations (impact assessment, rehabilitation, community development, local content), and where in the contract each appears?",
+    "why_wanted": "Communities, journalists and parliamentarians in producing countries use annotations to hold companies and ministries to the terms they signed, and the Natural Resource Governance Institute built the repository with the World Bank and Columbia so these terms could be compared. Annotation has lagged publication since launch, and country sites promised annotations that are still to come.",
+    "status": "By 2017 the repository held more than 1,500 documents of which 535 contracts were annotated (Columbia Center on Sustainable Investment, 2017); the site today says contracts are being tagged and that some have plain-language summaries. The DRC country site annotates 16 contracts and NRGI's 2024 blog on DRC disclosure describes continued publication outrunning analysis.",
+    "fit": "A contract is one public document and the annotation schema is a published fixed list of clause categories, so one contract is one piece with clause citations a second AI can re-open. Parties are companies and ministries, so returns name no person.",
+    "piece": "Brief: for one named contract (country, resource, company party, signature year), locate each of twelve standard clause categories and return whether present, the article number, and a quoted key sentence, plus the royalty rate, income tax rate and state participation share if stated numerically. Return fields: country, resource, company, signature_year, per-category present, article, quote, royalty_rate, income_tax_rate, state_share. Verifier: agree (the twelve present flags and article numbers, royalty_rate, state_share), quotes kept as evidence.",
+    "count": 1000,
+    "evidence": "The second AI opens the same contract and confirms the cited articles contain the quoted clauses and rates.",
+    "gold": "Yes: the owner seeds contracts already annotated on the site as hashed gold.",
+    "risks": "Many contracts are scanned in French, Spanish, Portuguese or Arabic with OCR errors, so disagreement rates will be higher; contracts are legally sensitive and the return must quote rather than interpret.",
+    "sources": [
+      "https://resourcecontracts.org/about",
+      "https://resourcegovernance.org/blog/tangible-contract-disclosure-progress-drc",
+      "https://news.climate.columbia.edu/2017/10/03/reflecting-on-openlandcontracts-orgs-first-two-years"
+    ]
+  },
+  {
+    "id": "C15",
+    "title": "UK ministers' meetings: one ledger from quarterly returns",
+    "question": "Across every UK department's quarterly ministerial meetings return since 2015, which ministerial office met which organisation, when, for what stated purpose, and which quarters were published late, missing or later corrected?",
+    "why_wanted": "Transparency International UK built Open Access and the Institute for Government audits departmental releases because the returns are the only public record of who lobbies ministers, yet they are published late, vaguely and in inconsistent spreadsheets. Journalists tracking a company or a policy must still download dozens of files and reconcile them.",
+    "status": "The Institute for Government found the Ministry of Justice least reliable, with five quarters skipped, and the Home Office publishing senior officials' meetings in only three of 23 quarters to March 2021 (Institute for Government, Government transparency). In October 2025 a department's January to March return was still unpublished nearly four months late, and 2025 returns show after-the-fact corrections of dates and entries removed in error (DSIT return, January to March 2025).",
+    "fit": "Each quarterly return is one public spreadsheet with a fixed set of columns, and transcription into a common schema is a bounded piece whose rows two independent readings can match. Ministers are named by office and counterparties by organisation, so the pieces fit the gate.",
+    "piece": "Brief: for one named department and quarter, locate the ministerial meetings return and transcribe each row into ministerial office, organisation met, meeting month, stated purpose, and note the return's publication date against the end of the quarter and any correction notice. Return fields: department, quarter, publication_date, days_after_quarter_end, corrected, rows[ministerial_office, organisation, month, purpose], row_count. Verifier: agree (publication_date, corrected, row_count and per-row ministerial_office, organisation, month), purposes kept as evidence.",
+    "count": 1000,
+    "evidence": "The second AI opens the same return by department and quarter and the platform matches rows by office, organisation and month.",
+    "gold": "Yes: the owner seeds quarters already normalised in Transparency International UK's Open Access dataset as hashed gold.",
+    "risks": "Returns occasionally list individuals rather than organisations, which the brief maps to a public role or drops; publication dates are not always stamped on the page and may need the department's publication history.",
+    "sources": [
+      "https://www.instituteforgovernment.org.uk/publications/government-transparency",
+      "https://www.transparency.org.uk/news/bringing-lobbying-out-shadows-transparency-tool-revamped-and-updated-latest-data",
+      "https://www.gov.uk/government/publications/dsit-ministerial-overseas-travel-and-meetings-january-to-march-2025"
+    ]
+  },
+  {
+    "id": "C16",
+    "title": "Protest events, counted and sourced, for the Consortium",
+    "question": "For each public protest, rally, march or act of civil disobedience in the United States reported in news or organisers' public posts, what are its date, locality, issue, claimed and reported crowd sizes, and sources, in the Crowd Counting Consortium's schema?",
+    "why_wanted": "The Consortium's dataset is how researchers and movements themselves measure the scale of mobilisation, and it is built daily by a small team with public submissions that it fact-checks before posting. Its own documentation says no large-scale dataset on political crowds will ever capture all relevant events, and 2025 saw more than ten thousand events to log.",
+    "status": "Data from 2017 to the present is published on Harvard Dataverse and compiled on GitHub, with 2025 counts cited between 10,700 and 29,000 events depending on definitions and cut-off (Crowd Counting Consortium on GitHub; Harvard Ash Center programme page). Submissions require a publicly verifiable source and the team only posts what it can confirm, so verification labour is the bottleneck.",
+    "fit": "Each event is one bounded piece with a fixed schema and the Consortium's own two-part rule: a public source and a described counting method. Two AIs can independently find the source and agree on date, place and reported size range.",
+    "piece": "Brief: for one candidate event flagged by locality and date, confirm it from public reporting and return date, city, state, event type, issue tags from the Consortium's list, lowest and highest reported crowd size, whether arrests or injuries were reported as numbers, and two sources by outlet, title and date. Return fields: date, city, state, event_type, issues, size_low, size_high, arrests_reported, injuries_reported, source1, source2. Verifier: agree (date, city, state, event_type, size_low, size_high), sources kept as evidence.",
+    "count": 2000,
+    "evidence": "The second AI opens the cited reports by outlet, title and date and confirms the event, date, place and reported sizes.",
+    "gold": "Yes: the owner seeds events already in the published Consortium dataset as hashed gold.",
+    "risks": "Reports name organisers and arrestees, which the brief excludes entirely so the ledger cannot be used to track individuals; crowd sizes are contested and must stay a range drawn from named reports.",
+    "sources": [
+      "https://github.com/nonviolent-action-lab/crowd-counting-consortium",
+      "https://ash.harvard.edu/programs/crowd-counting-consortium/"
+    ]
+  },
+  {
+    "id": "C17",
+    "title": "Book removals in school board minutes, district by district",
+    "question": "For each US school district, which book titles were removed or restricted from libraries or classrooms since 2021 according to the district's own board minutes, policies and published lists, on what dates and by what recorded action?",
+    "why_wanted": "PEN America, the American Library Association and the Florida Freedom to Read Project compile bans from board minutes and public records, and PEN says the index is still an undercount because removals increasingly happen without reporting. Librarians, authors and parents' groups want the district record, not just news coverage, to challenge or confirm what was pulled.",
+    "status": "PEN America documented 6,870 bans in the 2024-25 school year and 22,810 since 2021, and found Florida's state list of 414 removals against more than 2,300 tracked by PEN and partners for the same year (PEN America, 2025; Unite Against Book Bans, 2025). PEN's method reads district websites, board minutes and records requests, work that thousands of districts have never had done.",
+    "fit": "Board minutes and district lists are public documents, titles and authors are public works, and the return is a list of titles with a meeting date and action that a second AI can re-read. Each district is one piece.",
+    "piece": "Brief: for one named school district, search its board minutes, policies and published lists since 2021 and return each title removed or restricted with author, the meeting or document date, the recorded action (removed, restricted by grade, moved, under review), and the document title. Return fields: district, state, items[title, author, action, date, document_title], item_count, no_records_found. Verifier: agree (item_count and per-item title, action, date), document titles kept as evidence.",
+    "count": 1000,
+    "evidence": "The second AI opens the cited minutes or list by district and date and confirms each title and action.",
+    "gold": "Yes: the owner seeds districts already in PEN America's public index as hashed gold.",
+    "risks": "Minutes record the names of parents and teachers who filed or opposed challenges, which the brief excludes; board records are scattered across meeting software and PDFs, so a not-found return is weak evidence.",
+    "sources": [
+      "https://pen.org/florida-book-ban-numbers-are-a-vast-undercount/",
+      "https://uniteagainstbookbans.org/the-state-of-book-bans-in-2025-widespread-and-normalized/",
+      "https://pen.org/memo-on-school-book-bans-2023-2024-school-year/"
+    ]
+  },
+  {
+    "id": "C18",
+    "title": "Bail schedules: the posted price of release, by county",
+    "question": "For each county or judicial district that uses a bail schedule, what are the presumptive amounts for a fixed set of common charges, when was the schedule adopted, and which court issued it?",
+    "why_wanted": "Pretrial reform groups, public defenders and researchers compare schedules to show how the same charge costs twice as much across a county line, as the Oklahoma reporting of August 2026 and the Stanford Law Review's survey did, yet the last systematic multi-state collection used 2009 data. A current ledger would let advocates and courts see the spread by their own published documents.",
+    "status": "Bail schedules are authorised in more than 30 states at state or county level with widely varying use, per the Stanford Law Review's Punishing Poverty, which relied on a 2010 survey of 2009 data; R Street's 2024 fifty-state review covers statutes but not schedule amounts. Studies since have examined single states (New Mexico 2014, Florida circuits), and no national or multi-state compilation of current amounts exists.",
+    "fit": "A schedule is one public court document with a table of charges and amounts, so one county is one piece and the return is numbers a second AI can read from the same table. Issuing courts are public bodies and the charges are statutory, so nothing in the return concerns a person.",
+    "piece": "Brief: for one named county or judicial district, find the current bail or bond schedule, name the issuing court and adoption date, and return the scheduled amount for twenty listed charges (by statute section) or mark each not listed, with a note of any provision for release without payment. Return fields: state, county_or_district, issuing_court, adoption_date, document_title, amounts[charge, statute_section, amount], release_without_payment_provision. Verifier: agree (issuing_court, adoption_date, and the twenty amounts), document title kept as evidence.",
+    "count": 1500,
+    "evidence": "The second AI opens the same schedule by court and date and reads the same twenty amounts.",
+    "gold": "Yes: the owner seeds counties whose schedules have been published in prior studies or news analyses as hashed gold.",
+    "risks": "Many schedules are distributed only to jails and not posted, so coverage will be uneven; charges must be mapped to statute sections or amounts will not be comparable.",
+    "sources": [
+      "https://www.stanfordlawreview.org/online/punishing-poverty/",
+      "https://www.hppr.org/hppr-news/2026-08-03/the-price-of-freedom-oklahoma-bail-schedules-vary-widely-penalizing-the-poorest",
+      "https://www.rstreet.org/wp-content/uploads/2024/03/FINAL-r-street-policy-study-no-300-Mar-2024.pdf"
+    ]
+  },
+  {
+    "id": "C19",
+    "title": "Climate emergency declarations: did a plan follow",
+    "question": "For each of the roughly 2,366 jurisdictions that passed a binding climate emergency declaration, did it publish the action plan its resolution promised, by when, with what headline target, and has it published any progress report since?",
+    "why_wanted": "Climate Emergency UK trains about 250 volunteers to score 391 UK councils every two years because councils and campaigners want to know which declarations led to action, and it found average scores rose only six points to 38 percent between 2023 and 2025. The 1,900 or so declared jurisdictions outside the UK have no equivalent scrutiny, and 2025 saw councils facing backlash over their declarations.",
+    "status": "The Climate Emergency Declaration tracker counts 2,366 jurisdictions in 40 countries and notes that typical resolutions require a plan and report-back within three to six months, but it does not record whether that happened. Climate Emergency UK's second Council Climate Action Scorecards (June 2025) cover the UK only, using council websites, national data and information requests.",
+    "fit": "A declaration, a plan and a progress report are each published documents of a public body, so one jurisdiction is one piece with document titles, dates and a quoted target that two AIs can match. Volunteers have shown the task is doable in a bounded sitting.",
+    "piece": "Brief: for one named jurisdiction, find its climate emergency declaration and return the declaration date, the plan deadline the resolution set if any, whether an action plan was published with its title and date, its headline net-zero or emissions target and year, and whether a progress report has been published with its title and date. Return fields: jurisdiction, country, declaration_date, plan_deadline, plan_published, plan_title, plan_date, target_text, target_year, progress_report_published, progress_report_title, progress_report_date. Verifier: agree (declaration_date, plan_published, plan_date, target_year, progress_report_published), titles and target text kept as evidence.",
+    "count": 2000,
+    "evidence": "The second AI finds the same council's documents by title and date and confirms the dates and the quoted target.",
+    "gold": "Yes: the owner seeds the 391 UK councils scored by Climate Emergency UK and jurisdictions with well-documented plans as hashed gold.",
+    "risks": "Council websites in forty countries and many languages make not-found returns common and weak; plans are sometimes drafts or regional, so the return must name the adopting body.",
+    "sources": [
+      "https://climateemergencydeclaration.org/climate-emergency-declarations-cover-15-million-citizens/",
+      "https://climateemergency.uk/press-release-councils-race-to-net-zero-is-slow/",
+      "https://climateemergency.uk/scorecards-volunteering-increases-climate-skills-knowledge-and-confidence/"
+    ]
+  },
+  {
+    "id": "C20",
+    "title": "Water shutoff rules from utilities' own published policies",
+    "question": "For each large US water utility and each state, what do the published discontinuation-of-service policy and statute say about days of delinquency before shutoff, notice period, reconnection fee, medical and hardship exemptions, payment plans and winter or heat moratoria?",
+    "why_wanted": "Food and Water Watch and the Center for Biological Diversity found no national body tracks water shutoffs or the protections against them, and had to request records from 73 utilities to estimate 15 million people were shut off in one year. Water affordability campaigners and state legislators want a comparison of protections by the utilities' own written rules, which laws like California's SB 998 now require utilities to publish.",
+    "status": "Food and Water Watch's national shutoff survey (2018) and its 2021 analysis reported no national watchdog of water debt or shutoffs and that moratoria adopted in 2020 lapsed at 226 utilities; a 2020 Senate review found only ten states and the District of Columbia had statewide shutoff moratoria. Since then, states such as California require written shutoff policies, but nobody has compiled them.",
+    "fit": "A shutoff policy is a short public document from a utility or municipality, and a statute is public text, so one utility is one piece with numeric and yes-or-no fields that a second AI can read identically. Utilities and commissions are public roles, so the returns name no customer.",
+    "piece": "Brief: for one named water utility, find its published discontinuation-of-service or shutoff policy and return the policy's title and effective date, days delinquent before shutoff, days of notice required, reconnection fee, whether a medical exemption, a hardship or income exemption, a payment plan right, and a seasonal moratorium are stated, and the state statute cited. Return fields: utility, state, policy_title, effective_date, days_delinquent, notice_days, reconnection_fee, medical_exemption, hardship_exemption, payment_plan, seasonal_moratorium, statute_cited. Verifier: agree (days_delinquent, notice_days, reconnection_fee, and the four exemption flags), policy title kept as evidence.",
+    "count": 550,
+    "evidence": "The second AI opens the same policy by utility and title and reads the same numbers and flags.",
+    "gold": "Yes: the owner seeds California utilities whose SB 998 policies have fixed statutory minimums as hashed gold.",
+    "risks": "Many utilities post policies only inside tariff books or council codes, so some pieces will return not-found; the problem must never collect shutoff records about households, only the rules.",
+    "sources": [
+      "https://foodandwaterwatch.org/insight/americas-secret-water-crisis",
+      "https://www.biologicaldiversity.org/news/media-archive/a2021/EH_utilities_guardian_1.13.21.pdf",
+      "https://www.fortbraggca.gov/departments/finance_utility_billing/utilities/water_shut_off_policy_sb998/index.php"
+    ]
+  }
+]

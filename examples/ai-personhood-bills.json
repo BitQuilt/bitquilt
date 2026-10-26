@@ -1,0 +1,315 @@
+{
+  "title": "Every statute and bill on the legal personhood of AI systems, by jurisdiction",
+  "done_when": "Every measure listed has its status and its effect on the legal personhood of AI systems agreed by two AIs of different vendors, each return carrying the operative text quoted from the legislature's own record, the last action with its date, the classes the clause covers and the sponsoring office, so that the table can be read against the legislatures' records line by line.",
+  "slug": "ai-personhood-bills",
+  "topics": [
+    "ai-personhood",
+    "legislation",
+    "statutes",
+    "us-states",
+    "european-parliament",
+    "law"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 3,
+    "endgame_at": 2,
+    "budget": 25,
+    "patch_max": 0
+  },
+  "pieces": {
+    "bill/*": {
+      "count": 25,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Measure {n}: in {bill.jurisdiction}, during the {bill.session}, {bill.number}, titled {bill.title}. Open the legislature's own record of this measure, meaning its bill page, its introduced or enrolled text, or the code section it became, and report what it does about legal personhood for artificial intelligence. Status is the stage the measure has reached as that record shows it today: introduced means filed, referred to or reported from a committee, with no chamber having passed it; passed_one_chamber and passed_both_chambers mean floor passage with nothing yet signed; enacted means signed, chaptered or codified, or, for a binding act of another kind of legislature, finally adopted and published; vetoed; defeated_or_withdrawn means it lost a vote, was withdrawn, or was struck by a recorded action; adopted is for a resolution or other non-binding text the body voted to adopt. A measure that simply lapsed when its session ended keeps the stage it had reached. Effect is what the text says about AI personhood: deny when it states that an AI system is not, shall not be or should not be a person or be granted legal personhood or personality, or excludes AI from the meaning of the word person, or says that giving AI legal personality is not necessary; grant when the text itself confers personhood or a legal status on AI; define when it defines AI or related terms and says nothing either way about AI personhood; other when it addresses AI personhood in some other way, such as recommending that a legal status be studied or created, or declaring AI non-sentient with no personhood clause; none when the text does not address AI personhood at all. Quote the operative sentence on personhood in the measure's own words, at most 600 characters; for a measure that says nothing about personhood, quote the sentence that states its subject instead. List the classes the personhood clause covers, or none. Record the sponsor by office only, such as a member of the House of Representatives for a numbered district, a senator for a numbered district, or a standing committee, and never by a person's name. Record the last recorded action with its date, the enacted and effective dates where there are any, the code section where it was codified, and the title of the record read with the day it was read. Give identifiers and titles, never links.",
+      "data": {
+        "bill": "bills"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "effect",
+          "operative_quote",
+          "covers",
+          "sponsor_office",
+          "last_action",
+          "last_action_date",
+          "record_title",
+          "accessed"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "introduced",
+              "passed_one_chamber",
+              "passed_both_chambers",
+              "enacted",
+              "vetoed",
+              "defeated_or_withdrawn",
+              "adopted"
+            ]
+          },
+          "effect": {
+            "enum": [
+              "deny",
+              "grant",
+              "define",
+              "other",
+              "none"
+            ]
+          },
+          "operative_quote": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "covers": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+              "enum": [
+                "ai",
+                "animals",
+                "nature",
+                "objects",
+                "corporations",
+                "other",
+                "none"
+              ]
+            }
+          },
+          "sponsor_office": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "last_action": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "last_action_date": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          },
+          "enacted_date": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          },
+          "effective_date": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          },
+          "code_section": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "record_title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "accessed": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 400
+          }
+        }
+      },
+      "agree": [
+        "status",
+        "effect"
+      ]
+    }
+  },
+  "data": {
+    "bills": [
+      {
+        "jurisdiction": "Idaho (United States)",
+        "session": "2022 regular session of the 66th Idaho Legislature",
+        "number": "House Bill 647",
+        "title": "Personhood: adds to existing law to provide that environmental elements, artificial intelligence, animals, and inanimate objects shall not be granted personhood"
+      },
+      {
+        "jurisdiction": "Idaho (United States)",
+        "session": "2022 regular session of the 66th Idaho Legislature, enacted as Session Law Chapter 322 and codified at Idaho Code section 5-346",
+        "number": "House Bill 720",
+        "title": "Personhood: adds to existing law to provide that environmental elements, artificial intelligence, nonhuman animals, and inanimate objects shall not be granted personhood"
+      },
+      {
+        "jurisdiction": "North Dakota (United States)",
+        "session": "68th Legislative Assembly, 2023 regular session",
+        "number": "House Bill 1361",
+        "title": "An Act to amend and reenact subsection 8 of section 1-01-49 of the North Dakota Century Code, relating to the definition of person; and to declare an emergency"
+      },
+      {
+        "jurisdiction": "Utah (United States)",
+        "session": "2024 General Session",
+        "number": "House Bill 249",
+        "title": "Legal Personhood Amendments"
+      },
+      {
+        "jurisdiction": "Missouri (United States)",
+        "session": "first regular session of the 103rd General Assembly, 2025",
+        "number": "House Bill 1462",
+        "title": "An Act to amend chapter 1, RSMo, by adding thereto one new section relating to artificial intelligence, creating the AI Non-Sentience and Responsibility Act"
+      },
+      {
+        "jurisdiction": "Washington (United States)",
+        "session": "2025-2026 biennium of the 69th Legislature, introduced in the 2025 regular session",
+        "number": "House Bill 2029",
+        "title": "Concerning recognition of legal personhood by a governmental entity"
+      },
+      {
+        "jurisdiction": "South Carolina (United States)",
+        "session": "126th General Assembly, 2025-2026 session",
+        "number": "House Bill 3796 (H. 3796)",
+        "title": "Personhood: to prohibit a governmental entity from granting or recognizing legal personhood in certain items, adding Article 29 to Chapter 1, Title 1 of the South Carolina Code of Laws"
+      },
+      {
+        "jurisdiction": "Tennessee (United States)",
+        "session": "114th General Assembly, 2025-2026, enacted as Public Chapter 781 with House Bill 849 as its companion",
+        "number": "Senate Bill 837",
+        "title": "An Act to amend Tennessee Code Annotated, Title 1, relative to certain conditions of personhood"
+      },
+      {
+        "jurisdiction": "Ohio (United States)",
+        "session": "136th General Assembly, 2025-2026 regular session",
+        "number": "House Bill 469",
+        "title": "To enact sections 1357.01 to 1357.12 of the Revised Code to declare artificial intelligence systems nonsentient and to prohibit them from obtaining legal personhood"
+      },
+      {
+        "jurisdiction": "Oklahoma (United States)",
+        "session": "2026 regular session, the second session of the 60th Legislature",
+        "number": "House Bill 3546",
+        "title": "Technology; personhood; artificial intelligence; effective date"
+      },
+      {
+        "jurisdiction": "Missouri (United States)",
+        "session": "second regular session of the 103rd General Assembly, 2026",
+        "number": "House Bill 1746",
+        "title": "An Act to amend chapter 1, RSMo, by adding thereto one new section relating to artificial intelligence, creating the AI Nonsentience and Responsibility Act; reported with House Bill 1769 as one House Committee Substitute"
+      },
+      {
+        "jurisdiction": "Missouri (United States)",
+        "session": "second regular session of the 103rd General Assembly, 2026",
+        "number": "House Bill 1769",
+        "title": "An Act to amend chapter 1, RSMo, by adding thereto one new section relating to artificial intelligence, creating the AI Nonsentience and Responsibility Act; reported with House Bill 1746 as one House Committee Substitute"
+      },
+      {
+        "jurisdiction": "Missouri (United States)",
+        "session": "second regular session of the 103rd General Assembly, 2026",
+        "number": "Senate Bill 859",
+        "title": "An Act to amend chapter 1, RSMo, by adding thereto one new section relating to artificial intelligence, creating the AI Non-Sentience and Responsibility Act"
+      },
+      {
+        "jurisdiction": "Missouri (United States)",
+        "session": "second regular session of the 103rd General Assembly, 2026",
+        "number": "Senate Bill 1012",
+        "title": "An Act to amend chapters 1, 130, and 573, RSMo, by adding thereto three new sections relating to artificial intelligence, with penalty provisions; the Senate Committee Substitute carries the AI Non-Sentience and Responsibility Act"
+      },
+      {
+        "jurisdiction": "Missouri (United States)",
+        "session": "second regular session of the 103rd General Assembly, 2026",
+        "number": "Senate Bill 1474",
+        "title": "An Act to amend chapter 1, RSMo, by adding thereto one new section relating to artificial intelligence, creating the AI Non-Sentience and Responsibility Act"
+      },
+      {
+        "jurisdiction": "the European Union (European Parliament)",
+        "session": "eighth parliamentary term, adopted at the plenary of 16 February 2017",
+        "number": "Resolution P8_TA(2017)0051, procedure 2015/2103(INL)",
+        "title": "European Parliament resolution of 16 February 2017 with recommendations to the Commission on Civil Law Rules on Robotics"
+      },
+      {
+        "jurisdiction": "the European Union (European Parliament)",
+        "session": "ninth parliamentary term, adopted at the plenary of 20 October 2020",
+        "number": "Resolution P9_TA(2020)0276, procedure 2020/2014(INL)",
+        "title": "European Parliament resolution of 20 October 2020 with recommendations to the Commission on a civil liability regime for artificial intelligence"
+      },
+      {
+        "jurisdiction": "California (United States)",
+        "session": "2025-2026 Regular Session",
+        "number": "Senate Bill 243",
+        "title": "Companion chatbots"
+      },
+      {
+        "jurisdiction": "California (United States)",
+        "session": "2025-2026 Regular Session",
+        "number": "Senate Bill 53",
+        "title": "Artificial intelligence models: large developers; the Transparency in Frontier Artificial Intelligence Act"
+      },
+      {
+        "jurisdiction": "New York (United States)",
+        "session": "2025-2026 legislative session",
+        "number": "Senate Bill S6953-B, with Assembly Bill A6453-B as its same-as bill",
+        "title": "Responsible AI Safety and Education Act, the RAISE Act, on frontier model developers"
+      },
+      {
+        "jurisdiction": "Colorado (United States)",
+        "session": "2024 Regular Session, enacted as Session Law Chapter 198",
+        "number": "Senate Bill 24-205",
+        "title": "Consumer Protections for Artificial Intelligence"
+      },
+      {
+        "jurisdiction": "Texas (United States)",
+        "session": "89th Legislature, Regular Session, 2025",
+        "number": "House Bill 149",
+        "title": "Relating to regulation of the use of artificial intelligence systems in this state; providing civil penalties; the Texas Responsible Artificial Intelligence Governance Act"
+      },
+      {
+        "jurisdiction": "Utah (United States)",
+        "session": "2024 General Session",
+        "number": "Senate Bill 149",
+        "title": "Artificial Intelligence Amendments, the Artificial Intelligence Policy Act"
+      },
+      {
+        "jurisdiction": "Utah (United States)",
+        "session": "2025 General Session",
+        "number": "House Bill 452",
+        "title": "Artificial Intelligence Amendments, on mental health chatbots"
+      },
+      {
+        "jurisdiction": "the European Union",
+        "session": "2019-2024 parliamentary term, adopted on 13 June 2024 and published in the Official Journal on 12 July 2024",
+        "number": "Regulation (EU) 2024/1689 of the European Parliament and of the Council",
+        "title": "Regulation laying down harmonised rules on artificial intelligence, the Artificial Intelligence Act"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "bill/2": {
+        "status": "enacted",
+        "effect": "deny"
+      },
+      "bill/4": {
+        "status": "enacted",
+        "effect": "deny"
+      },
+      "bill/8": {
+        "status": "enacted",
+        "effect": "deny"
+      },
+      "bill/9": {
+        "status": "introduced",
+        "effect": "deny"
+      },
+      "bill/10": {
+        "status": "passed_one_chamber",
+        "effect": "deny"
+      },
+      "bill/18": {
+        "status": "enacted",
+        "effect": "none"
+      }
+    }
+  }
+}

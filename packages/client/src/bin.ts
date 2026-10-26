@@ -12,6 +12,7 @@
  *   quilt seed <problem> on|off                          keep a problem: a seed event on its log, and the problem in the standing list
  *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
  *   quilt stake <problem> <min> [<family> ...]           the owner's stake rule (QX-15): what a claim on the pieces locks; 0 asks nothing
+ *   quilt gold commit <problem> <answers.json>            the owner's gold after publishing (QX-16): piece names to answers, as a pattern's gold.answers; the stake follows the shares
  *   quilt gold reveal <problem> <piece>                   the owner's reveal of the gold committed on a piece (QX-16), from this home's library
  *   quilt pay <problem> <amount> <per_square>            coin escrowed to a problem on the coin's home (QX-17), paid per accepted square
  *   quilt balance                                         this key's coin at the first tracker that carries one
@@ -95,8 +96,14 @@ async function main(): Promise<void> {
       return;
     }
     case 'gold': {
+      if (args[1] === 'commit') {
+        const file = JSON.parse(readFileSync(args[3] ?? '', 'utf8')) as Record<string, Record<string, unknown>> | { answers: Record<string, Record<string, unknown>>; stake?: number };
+        const given = 'answers' in file && typeof file.answers === 'object' ? (file as { answers: Record<string, Record<string, unknown>>; stake?: number }) : { answers: file as Record<string, Record<string, unknown>> };
+        console.log(JSON.stringify(await make().commitGold(args[2] as `sha256:${string}`, given.answers, given.stake), null, 2));
+        return;
+      }
       if (args[1] !== 'reveal') {
-        log('gold: reveal is the one subcommand so far');
+        log('gold: commit and reveal are the subcommands');
         process.exit(2);
       }
       console.log(JSON.stringify(await make().revealGold(args[2] as `sha256:${string}`, args[3] as `sha256:${string}`), null, 2));

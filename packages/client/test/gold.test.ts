@@ -110,6 +110,19 @@ describe('gold pieces, from the client', () => {
     expect(read.text).toContain('statement/1 (verified: the set agreed with the answer the owner committed to before the work)');
   });
 
+  it('commits gold after publishing, on a piece nobody has worked, and refuses one already worked', async () => {
+    const r = (await other.publish(pattern('later', 2))).hash;
+    const r1 = await pieceOf(r, 0);
+    const committed = await other.commitGold(r, { 'statement/1': { verdict: 'supports', quote: 'kept at home' } });
+    expect(committed).toEqual({ pieces: 1, stake: 1 });
+    expect((await trackerState(r)).pieces.map((x) => x.gold)).toEqual(['pending', null]);
+    const lib = JSON.parse(readFileSync(join(homes.get(8)!, 'library.json'), 'utf8')) as { gold: Record<string, Record<string, { name: string }>> };
+    expect(Object.values(lib.gold[r]!).map((k) => k.name)).toEqual(['statement/1']);
+    await a.return(r, r1, { verdict: 'supports', quote: 'x' });
+    await expect(other.commitGold(r, { 'statement/2': { verdict: 'supports', quote: '' }, 'statement/1': { verdict: 'supports', quote: '' } })).rejects.toThrow(/already worked/);
+    await expect(other.commitGold(r, { 'statement/9': { verdict: 'supports', quote: '' } })).rejects.toThrow(/no piece named/);
+  });
+
   it('strikes the set on a miss and says so, refuses a reveal with nothing kept, and the tools describe', async () => {
     const p2 = await pieceOf(p, 1);
     await a.return(p, p2, { verdict: 'supports', quote: 'we read it so' });

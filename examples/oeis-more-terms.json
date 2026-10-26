@@ -1,0 +1,359 @@
+{
+  "title": "Next five terms for OEIS sequences marked as needing more terms",
+  "done_when": "Every sequence has five further terms, or a verdict that its definition cannot be pinned down or that the computation does not fit a lease, agreed by two different vendors, each with the program that produced it.",
+  "slug": "oeis-more-terms",
+  "topics": [
+    "oeis",
+    "integer-sequences",
+    "computation",
+    "number-theory",
+    "combinatorics"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 4,
+    "endgame_at": 1,
+    "budget": 27,
+    "patch_max": 0
+  },
+  "pieces": {
+    "sequence/*": {
+      "count": 27,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Sequence {n} of this set is the On-Line Encyclopedia of Integer Sequences entry {seq.anumber}, named: {seq.name} The entry carries the keyword more, which the encyclopedia's editors give a sequence that needs more terms. Its offset is {seq.offset}, and the terms given here are its first {seq.shown} terms, from index {seq.offset} on: {seq.terms}. The task is to read the entry's definition (the entry is found by its A-number; its comments, examples and programs are part of the definition), write a program that reproduces every term given here from the definition alone, run it on, and return the next five terms after the last term given, as whole numbers in order. Outcome extended means the program reproduces the given terms and found five further terms. Outcome infeasible means the program reproduces the given terms but five further terms do not come within the lease, and next_terms is then an empty list. Outcome definition-unclear means the definition cannot be pinned down well enough to reproduce the given terms, with the difficulty described in notes. Evidence: the program's full source and its language, the seconds it ran, whether it reproduced the given terms, and notes on what was checked. The door the return passes refuses text holding a web address, an at-sign, a run of nine or more digits (digits separated only by dots, dashes or spaces still count as one run) or doubled curly braces, so the program text and the notes avoid those. Identifiers, never links.",
+      "data": {
+        "seq": "sequences"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "outcome",
+          "next_terms",
+          "reproduces_given",
+          "language",
+          "program",
+          "runtime_seconds"
+        ],
+        "properties": {
+          "outcome": {
+            "enum": [
+              "extended",
+              "infeasible",
+              "definition-unclear"
+            ]
+          },
+          "next_terms": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "reproduces_given": {
+            "type": "boolean"
+          },
+          "language": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "program": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "runtime_seconds": {
+            "type": "integer"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 1500
+          }
+        }
+      },
+      "agree": [
+        "outcome",
+        "next_terms"
+      ]
+    }
+  },
+  "data": {
+    "sequences": [
+      {
+        "anumber": "A001212",
+        "name": "a(n) = solution to the postage stamp problem with n denominations and 2 stamps.",
+        "offset": 1,
+        "shown": 24,
+        "terms": "2,4,8,12,16,20,26,32,40,46,54,64,72,80,92,104,116,128,140,152,164,180,196,212"
+      },
+      {
+        "anumber": "A014224",
+        "name": "Numbers k such that 3^k - 2 is prime.",
+        "offset": 1,
+        "shown": 20,
+        "terms": "2,4,5,6,9,22,37,41,90,102,105,317,520,541,561,648,780,786,957,1353"
+      },
+      {
+        "anumber": "A108050",
+        "name": "Integers k such that 10^k+21 is prime.",
+        "offset": 1,
+        "shown": 19,
+        "terms": "1,3,9,17,55,77,133,195,357,1537,2629,3409,8007,25671,48003,55811,94983,109615,135669"
+      },
+      {
+        "anumber": "A383708",
+        "name": "Number of integer partitions of n such that it is possible to choose a family of pairwise disjoint strict integer partitions, one of each part.",
+        "offset": 0,
+        "shown": 20,
+        "terms": "1,1,2,2,3,5,5,7,8,13,14,18,22,27,36,41,50,61,73,86"
+      },
+      {
+        "anumber": "A383710",
+        "name": "Number of integer partitions of n such that it is not possible to choose a family of pairwise disjoint strict integer partitions, one of each part.",
+        "offset": 0,
+        "shown": 21,
+        "terms": "0,0,1,1,3,4,6,10,15,22,29,42,59,79,108,140,190,247,324,417,541"
+      },
+      {
+        "anumber": "A108054",
+        "name": "Integers k such that 10^k+49 is prime.",
+        "offset": 1,
+        "shown": 15,
+        "terms": "1,2,3,5,8,17,24,32,65,66,67,79,83,98,152"
+      },
+      {
+        "anumber": "A139056",
+        "name": "Numbers k for which (k!-3)/3 is prime.",
+        "offset": 1,
+        "shown": 14,
+        "terms": "4,6,12,16,29,34,43,111,137,181,528,2685,39477,43697"
+      },
+      {
+        "anumber": "A335457",
+        "name": "Number of normal patterns contiguously matched by compositions of n.",
+        "offset": 0,
+        "shown": 21,
+        "terms": "1,2,5,12,31,80,196,486,1171,2787,6564,15323,35403,81251,185087,418918,942525,2109143,4695648,10405694,22959156"
+      },
+      {
+        "anumber": "A045345",
+        "name": "Numbers k such that k divides sum of first k primes A007504(k).",
+        "offset": 1,
+        "shown": 4,
+        "terms": "1,23,53,853"
+      },
+      {
+        "anumber": "A326519",
+        "name": "Number of normal multiset partitions of weight n where each part has a different sum.",
+        "offset": 0,
+        "shown": 11,
+        "terms": "1,1,3,11,51,259,1461,9133,62348,459547,3632419"
+      },
+      {
+        "anumber": "A293606",
+        "name": "Number of unlabeled antichains of weight n.",
+        "offset": 0,
+        "shown": 10,
+        "terms": "1,1,2,3,6,9,20,33,72,139"
+      },
+      {
+        "anumber": "A057469",
+        "name": "Prime numbers k such that (2^k + 3^k)/5 is prime.",
+        "offset": 1,
+        "shown": 5,
+        "terms": "3,7,11,83,149"
+      },
+      {
+        "anumber": "A306006",
+        "name": "Number of non-isomorphic intersecting set-systems of weight n.",
+        "offset": 0,
+        "shown": 18,
+        "terms": "1,1,1,2,3,5,10,16,30,57,109,209,431,873,1850,3979,8819,19863"
+      },
+      {
+        "anumber": "A319559",
+        "name": "Number of non-isomorphic T_0 set systems of weight n.",
+        "offset": 0,
+        "shown": 16,
+        "terms": "1,1,1,2,4,7,16,35,82,200,517,1373,3867,11216,33910,105950"
+      },
+      {
+        "anumber": "A116884",
+        "name": "Integers k such that 0 < |k^5 - m^2| <= k^(3/2) for some integer m.",
+        "offset": 1,
+        "shown": 11,
+        "terms": "1,5,8,23,27,55,73,76,377,396,432"
+      },
+      {
+        "anumber": "A289587",
+        "name": "a(n) is the number of permutations of length n that avoid the pattern 321 and the mesh pattern (12, 174) or the same sequence for the mesh pattern (12, 234).",
+        "offset": 0,
+        "shown": 17,
+        "terms": "1,1,1,3,6,18,47,139,405,1225,3740,11602,36357,115049,366969,1178791,3809802"
+      },
+      {
+        "anumber": "A316473",
+        "name": "Number of locally disjoint rooted trees with n nodes, meaning no branch overlaps any other (unequal) branch of the same root.",
+        "offset": 1,
+        "shown": 22,
+        "terms": "1,1,2,4,9,19,44,99,233,554,1346,3300,8219,20635,52300,133488,343033,886360,2302133,6005835,15732029,41358573"
+      },
+      {
+        "anumber": "A162389",
+        "name": "Number of reduced words of length n in the Weyl group D_37.",
+        "offset": 0,
+        "shown": 8,
+        "terms": "1,37,702,9102,90686,740222,5153693,31465577"
+      },
+      {
+        "anumber": "A173348",
+        "name": "Numbers x such that 0 < |x^7 - y^2| < x^(5/2) for some number y.",
+        "offset": 1,
+        "shown": 16,
+        "terms": "12,93,239,4896,4904,6546,7806,9104,20542,35962,43783,96569,616400,635331,842163,7888432"
+      },
+      {
+        "anumber": "A319646",
+        "name": "Number of non-isomorphic weight-n chains of distinct multisets whose dual is also a chain of distinct multisets.",
+        "offset": 0,
+        "shown": 21,
+        "terms": "1,1,1,4,4,9,17,28,41,75,122,192,314,484,771,1216,1861,2848,4395,6610,10037"
+      },
+      {
+        "anumber": "A268448",
+        "name": "Numbers k such that (35*10^k - 11)/3 is prime.",
+        "offset": 1,
+        "shown": 20,
+        "terms": "1,2,4,5,6,7,14,21,27,34,53,72,96,145,168,191,192,309,393,502"
+      },
+      {
+        "anumber": "A318099",
+        "name": "Number of non-isomorphic weight-n antichains of (not necessarily distinct) multisets whose dual is also an antichain of (not necessarily distinct) multisets.",
+        "offset": 0,
+        "shown": 11,
+        "terms": "1,1,4,7,19,32,81,142,337,659,1564"
+      },
+      {
+        "anumber": "A242994",
+        "name": "Numbers n such that n!3 - 3 is prime, where n!3 = n!!! is a triple factorial number (A007661).",
+        "offset": 1,
+        "shown": 35,
+        "terms": "5,10,11,13,16,22,28,71,74,94,119,121,134,157,200,262,286,484,1039,1045,1190,1595,1679,1772,1789,2410,2920,5039,7919,10462,11846,23293,26705,30781,43694"
+      },
+      {
+        "anumber": "A095062",
+        "name": "Number of fib00 primes (A095082) in range [2^n,2^(n+1)].",
+        "offset": 1,
+        "shown": 20,
+        "terms": "1,1,2,1,2,7,12,14,27,50,91,178,335,611,1156,2147,4042,7831,14724,28227"
+      },
+      {
+        "anumber": "A122853",
+        "name": "Numbers k such that (3^k + 5^k)/8 = A074606(k)/8 is a prime.",
+        "offset": 1,
+        "shown": 15,
+        "terms": "3,5,7,17,19,109,509,661,709,1231,12889,13043,26723,43963,44789"
+      },
+      {
+        "anumber": "A319721",
+        "name": "Number of non-isomorphic antichains of multisets of weight n.",
+        "offset": 0,
+        "shown": 11,
+        "terms": "1,1,4,8,24,50,148,349,1014,2717,8114"
+      },
+      {
+        "anumber": "A293993",
+        "name": "Number of unlabeled multiset antichains of weight n.",
+        "offset": 0,
+        "shown": 9,
+        "terms": "1,1,3,6,16,35,98,242,690"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "sequence/2": {
+        "outcome": "extended",
+        "next_terms": [
+          2224,
+          2521,
+          6184,
+          7989,
+          8890
+        ]
+      },
+      "sequence/6": {
+        "outcome": "extended",
+        "next_terms": [
+          260,
+          781,
+          1225,
+          1777,
+          2023
+        ]
+      },
+      "sequence/9": {
+        "outcome": "extended",
+        "next_terms": [
+          11869,
+          117267,
+          339615,
+          3600489,
+          96643287
+        ]
+      },
+      "sequence/12": {
+        "outcome": "extended",
+        "next_terms": [
+          223,
+          599,
+          647,
+          1373,
+          8423
+        ]
+      },
+      "sequence/15": {
+        "outcome": "extended",
+        "next_terms": [
+          18219,
+          18231,
+          747343,
+          748635,
+          5523608
+        ]
+      },
+      "sequence/18": {
+        "outcome": "extended",
+        "next_terms": [
+          171895451,
+          853189623,
+          3893872009,
+          16498746405,
+          65414952123
+        ]
+      },
+      "sequence/21": {
+        "outcome": "extended",
+        "next_terms": [
+          667,
+          1055,
+          1534,
+          1710,
+          4171
+        ]
+      },
+      "sequence/24": {
+        "outcome": "extended",
+        "next_terms": [
+          53736,
+          102482,
+          196303,
+          376121,
+          723408
+        ]
+      }
+    }
+  }
+}

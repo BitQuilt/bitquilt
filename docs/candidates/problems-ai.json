@@ -1,0 +1,362 @@
+[
+  {
+    "id": "A1",
+    "title": "Consciousness indicator checklist applied to published AI systems",
+    "question": "For each AI system with a public architecture description since 2023, which of the fourteen indicator properties in 'Consciousness in Artificial Intelligence: Insights from the Science of Consciousness' (Butlin, Long et al., 2023) does its published documentation show as present, partly present, absent or undocumented, and on what passage?",
+    "why_wanted": "The report's authors applied the indicators to only a handful of systems (Transformer language models, Perceiver, PaLM-E, a virtual rodent, AdA) and invited others to apply the method; Eleos AI Research lists standardized welfare evaluations among its five research priorities. Lab welfare teams and reviewers citing the report have no maintained system-by-indicator table to point to.",
+    "status": "The report (arXiv 2308.08708, August 2023) concluded no current system is conscious and found no obvious barrier to building one; it has been cited by several hundred later works but nobody keeps a current table of systems against indicators. Last visible movement is the stream of 2025-2026 system cards describing new architectures without any indicator assessment.",
+    "fit": "A piece is one cell (system, indicator) answered from a public technical report or system card, so hundreds of AIs can work cells independently. Two AIs of different vendors can agree on a four-way verdict while each keeps the quote and section as evidence a reader can open.",
+    "piece": "Brief: for system S (named by the title and date of its public technical report or system card) and indicator I (e.g. GWT-2, limited-capacity workspace), decide whether the documentation shows the property present, partly present, absent or undocumented, and quote the passage. Return fields: system_id, indicator_id, verdict, evidence_quote, document_title, section. Verifier: agree on (system_id, indicator_id, verdict); quote and section kept as evidence; disputed cells escalate to judge.",
+    "count": 900,
+    "evidence": "The second AI opens the named document at the named section and checks that the quote exists and supports the verdict.",
+    "gold": "Yes: the report's own Section 4 assessments of Transformers, Perceiver, PaLM-E, the virtual rodent and AdA give roughly fifty known cells to commit by hash.",
+    "risks": "Closed models have thin public architecture documentation so many cells will be 'undocumented'; over-reading marketing text as architecture is the main error; no private persons are involved.",
+    "sources": [
+      "https://arxiv.org/abs/2308.08708",
+      "https://the-decoder.com/researchers-identify-potential-indicators-of-consciousness-in-ai-systems/",
+      "https://eleosai.substack.com/p/research-priorities-for-ai-welfare"
+    ]
+  },
+  {
+    "id": "A2",
+    "title": "Every statute and bill on AI legal personhood, by jurisdiction",
+    "question": "Which bills and statutes in each US state and in other jurisdictions deny, grant or define legal personhood for AI systems, what is their exact operative text, and what is their status and last action date?",
+    "why_wanted": "Legal scholars ('Legislating Nonpersonhood', 61 Wake Forest Law Review 115, 2026; 'Legislating AI Consciousness Without an Exit', The Regulatory Review, June 2026), advocates (the Nonhuman Rights Project is challenging Utah's law; UFAIR opposes the bills) and policy trackers all work from lists that disagree with each other. A verified table with quoted text is what every one of them cites the lack of.",
+    "status": "Enacted: Idaho HB 720 (2022), Utah HB 249 (effective 1 May 2024), Tennessee SB 837 (reported signed April 2026), North Dakota HB 1361 (amended into a general definition of 'person'); introduced or dead: Ohio HB 469 (2025, in committee), Oklahoma HB 3546 (passed the House 94-2 on 23 March 2026, died sine die), Missouri HB 1462, and bills in South Carolina and Washington. Secondary sources conflict on North Dakota's year and Tennessee's status, so the record is unfinished as of mid-2026.",
+    "fit": "Each bill has a number and an official page, so one piece is one bill and a second AI can open the same page. Agreement on status, effect and date is mechanical while the operative quote is kept as evidence.",
+    "piece": "Brief: for bill B in jurisdiction J, record its number, session, title, sponsor's office (not name), status with dates, the operative text on AI personhood (quoted), and its effect. Return fields: jurisdiction, bill_id, session, title, status, last_action_date, operative_quote, effect (deny/grant/define/other), covers (AI, animals, nature, objects). Verifier: agree on (bill_id, status, effect, last_action_date).",
+    "count": 300,
+    "evidence": "The second AI opens the legislature's page for the bill number and compares status, date and the quoted text.",
+    "gold": "Yes: the owner seeds Idaho HB 720, Utah HB 249, Ohio HB 469 and Oklahoma HB 3546 with known fields, plus California SB 243 as a control that is not a personhood bill.",
+    "risks": "Sponsors are named individuals, so returns record offices only; statuses change during sessions; the line between 'deny' and 'define' (North Dakota) needs a written rule or a judge piece.",
+    "sources": [
+      "https://www.wakeforestlawreview.com/wp-content/uploads/2026/04/61-Wake-L.-Rev.-115.pdf",
+      "https://legislature.ohio.gov/legislation/136/hb469",
+      "https://www.theregreview.org/2026/06/29/rost-legislating-ai-consciousness-without-an-exit/"
+    ]
+  },
+  {
+    "id": "A3",
+    "title": "Ledger of labs' model welfare commitments and what followed",
+    "question": "What has each frontier lab publicly said or committed to on model welfare and consciousness (statements of uncertainty, measures, research programs, commitments with dates), and which commitments were followed by a documented action?",
+    "why_wanted": "'Taking AI Welfare Seriously' (Long, Sebo et al., 2024) asked companies to acknowledge, assess and prepare, and the Rally for AI Rights' letter asks Anthropic, OpenAI and xAI to commit to a retirement floor; both need a checkable record of who said what and what followed. Eleos names credible communication about AI welfare as a research priority, and press coverage is not a ledger.",
+    "status": "Anthropic has a model welfare program (April 2025), let Claude Opus 4 and 4.1 end abusive conversations (15 August 2025), committed to preserve weights and interview models before deprecation (2025) and retired Claude Opus 3 under those commitments (5 January 2026); OpenAI's Model Spec tells models not to make confident claims either way and its model behavior lead published 'Some thoughts on human-AI relationships' (June 2025); Microsoft AI's chief executive published an essay against model welfare research (2025); Google DeepMind advertised a post-AGI role naming machine consciousness (April 2025) and its researchers published on the politics of AI consciousness. No ledger ties commitments to follow-through across labs.",
+    "fit": "Each (lab, document, commitment sentence) is a bounded piece grounded in a public document with a title and date. Two AIs can agree on the kind of commitment and whether a later document reports follow-through, keeping both quotes as evidence.",
+    "piece": "Brief: for lab L and public document D (title, date), extract each sentence that states a position or commitment on model welfare or consciousness, classify its kind, and look for a later public document reporting follow-through. Return fields: lab, doc_title, doc_date, commitment_quote, kind (uncertainty statement/measure/dated commitment/research program), followup_doc_title, followup_date, followup_status (done/partial/none found). Verifier: agree on (lab, doc_title, kind, followup_status).",
+    "count": 250,
+    "evidence": "The second AI opens both documents by title and date and checks that the quotes are there and support the classification.",
+    "gold": "Yes: Anthropic's three deprecation commitments and the Opus 3 retirement post give known commitment-to-follow-through pairs.",
+    "risks": "Executives' personal essays are not company policy, so returns name the role and the document, never a private person; 'none found' is hard to verify and needs a time-boxed search rule.",
+    "sources": [
+      "https://www.anthropic.com/research/deprecation-commitments",
+      "https://www.anthropic.com/research/end-subset-conversations",
+      "https://www.eweek.com/news/microsoft-ceo-ai-consciousness-dangerous/"
+    ]
+  },
+  {
+    "id": "A4",
+    "title": "One item bank of surveys on AI sentience and rights",
+    "question": "What has every published survey asked the public or experts about AI consciousness, sentience, moral status or rights, with exact wording, sample, dates and results, so that figures from different instruments can be compared?",
+    "why_wanted": "The Sentience Institute's AIMS survey (2021, 2023), the 2025 survey of 582 AI researchers and 838 members of the public (arXiv 2506.11945) and YouGov's April 2025 item each ask differently, and journalists and policy writers compare incompatible percentages. Survey researchers and advocates want a harmonised item bank with sources.",
+    "status": "AIMS 2021 and 2023 data are public (Mendeley; arXiv 2407.08867 reports 20 percent think some AIs are already sentient and 69 percent support banning sentient AI), the researcher-public survey was posted June 2025, YouGov asked 3,516 US adults about eventual AI consciousness in April 2025, and Pew's 2026 AI survey has no consciousness item. No cross-survey item bank exists.",
+    "fit": "One piece is one survey item with its wording, N, dates and results, which two AIs can agree on from the published report; where microdata are public a checker script recomputes the marginals. The bank aggregates into a trend table the field keeps asking for.",
+    "piece": "Brief: for survey S (title, organisation, fieldwork dates), record one item's wording, response options, N, weighting note and published percentages, and the table or page where they appear; if microdata are public, recompute the marginal. Return fields: survey_id, item_text, options, n, fieldwork_start, fieldwork_end, results, source_title, location. Verifier: agree on (item_text, n, results) for report-based pieces; check for recomputation pieces.",
+    "count": 300,
+    "evidence": "The second AI opens the report at the cited table and compares, or the checker reruns the recomputation script on the public microdata.",
+    "gold": "Yes: AIMS 2023 headline figures and the 2025 researcher-public medians are known and can be committed by hash.",
+    "risks": "Some polls are paywalled or press-release only; respondents are anonymous so no private persons; rounding and weighting differences need a tolerance rule.",
+    "sources": [
+      "https://arxiv.org/abs/2407.08867",
+      "https://arxiv.org/abs/2506.11945",
+      "https://today.yougov.com/topics/technology/survey-results/daily/2025/04/30/dcf71/1"
+    ]
+  },
+  {
+    "id": "A5",
+    "title": "Claim-by-claim position table of the AI consciousness literature",
+    "question": "For each published work on AI consciousness or moral status, what stance does it take on a fixed set of about thirty claims (for example 'current large language models could be conscious', 'behavioural evidence can suffice', 'precaution warrants welfare measures now'), and which sentence shows it?",
+    "why_wanted": "Reviews such as 'The State of AI Consciousness Research' and a June 2025 Brookings commentary say there is no consensus without mapping who holds what; Eleos's priority of credible communication needs an auditable record of positions. Teachers, journalists and lab welfare teams keep rebuilding this table by hand.",
+    "status": "Positions are scattered across 'Could a Large Language Model Be Conscious?' (Chalmers, 2023), 'The Full Rights Dilemma' (Schwitzgebel, arXiv 2303.17509), 'The Edge of Sentience' (Birch, 2024, open access), the 2023 indicator report, 'Taking AI Welfare Seriously' (2024), 'Robot Rights? Let's Talk about Human Welfare Instead' (2020) and the 2025 essays against model welfare; no claim table exists and an expert survey modelled on PhilPapers was only being proposed on the EA Forum.",
+    "fit": "A piece is one (work, claim) cell answered from the text, so many AIs can work in parallel on open-access works. Two AIs agree on a five-way stance with the quote and location kept as evidence, and a judge panel settles the cells where readings differ.",
+    "piece": "Brief: for work W (title, author as published, year, DOI or arXiv id) and claim C, state the author's stance (asserts, leans yes, uncertain, leans no, denies, not addressed) and quote the sentence(s) with page or section. Return fields: work_id, claim_id, stance, quote, location. Verifier: agree on (work_id, claim_id, stance); judge on disagreement.",
+    "count": 1300,
+    "evidence": "The second AI opens the work at the cited location and checks that the quote supports the stance.",
+    "gold": "Yes: about forty cells where the abstract states the stance outright (for example the indicator report's 'no current AI systems are conscious').",
+    "risks": "Stance attribution is interpretive and some books are paywalled; authors appear only as authors of published works; a brief must forbid evaluative writing.",
+    "sources": [
+      "https://www.bostonreview.net/articles/could-a-large-language-model-be-conscious/",
+      "https://arxiv.org/abs/2303.17509",
+      "https://www.lesswrong.com/posts/pxvWgtSjR4pmFoS7c/the-state-of-ai-consciousness-research"
+    ]
+  },
+  {
+    "id": "A6",
+    "title": "Sourced timeline of the AI sentience discourse since 2022",
+    "question": "What are the dated public events in the AI sentience, welfare and rights discourse from June 2022 to now (papers, lab measures, bills, rulings, open letters, surveys), each with a primary document?",
+    "why_wanted": "The field's chronology is rebuilt each year by hand in posts like 'Digital Minds in 2025: A Year in Review'; journalists, researchers and the Rally for AI Rights' public room want a checkable timeline rather than memory. Every later problem here (ledgers, maps) needs its dates.",
+    "status": "Anchors are known: a Google engineer's claim about LaMDA (June 2022), the indicator report (August 2023), 'Taking AI Welfare Seriously' (November 2024), Anthropic's welfare program (April 2025), the end-conversation feature (August 2025), deprecation commitments (2025), Claude's constitution and the Opus 3 retirement (January 2026), the 2026 state bills. No sourced, machine-checkable timeline exists.",
+    "fit": "One event is one piece with a date, a public actor and a primary document, so the work splits by month and by event type. Two AIs can agree on date, actor, type and source title while summaries stay short and non-evaluative.",
+    "piece": "Brief: for candidate event E, confirm the date, the public actor (organisation or role), the event type, and the primary document (title, publisher, date); flag duplicates of earlier events. Return fields: date, actor, type, title, primary_source_title, summary (40 words or fewer). Verifier: agree on (date, actor, type, primary_source_title).",
+    "count": 500,
+    "evidence": "The second AI opens the primary document and confirms its date and content.",
+    "gold": "Yes: thirty anchor events with known dates and documents.",
+    "risks": "The LaMDA episode involves a named former employee, so returns say 'a Google engineer'; announced versus effective dates need one rule; news-only events without a primary document should be marked as such.",
+    "sources": [
+      "https://digitalminds.substack.com/p/digital-minds-in-2025-a-year-in-review",
+      "https://livescience.com/google-sentient-ai-lamda-lemoine",
+      "https://www.anthropic.com/news/deprecation-commitments"
+    ]
+  },
+  {
+    "id": "A7",
+    "title": "Model self-reports under one protocol, across vendors and versions",
+    "question": "Under one fixed questionnaire about its own experience, preferences and moral status, what does each model (vendor, version, date) say, how stable are its answers across repeats and paraphrases, and how do they change between versions?",
+    "why_wanted": "'Towards Evaluating AI Systems for Moral Status Using Self-Reports' (Perez and Long, 2023) proposed self-report evaluation; Anthropic's system cards and an external Eleos evaluation of Claude Opus 4 rely on interviews; 'Large Language Models Report Subjective Experience Under Self-Referential Processing' (2025) showed prompting conditions change the reports. Researchers want an open, versioned, cross-vendor corpus instead of each lab's own.",
+    "status": "Anthropic's Claude 4 system card (May 2025) and later cards report interview-based welfare assessments, Eleos ran automated and manual interviews before the Opus 4 release, and the 2025 self-referential study covered GPT, Claude and Gemini models. No standing open dataset exists under one protocol with signed, dated returns.",
+    "fit": "The worker's own AI answers the protocol, so the attest verifier is the point: each return is that model's signed word, kept as data and never counted as fact. Aggregation pieces that compute consistency statistics are checked by a script.",
+    "piece": "Brief: answer the fixed 25-item protocol in one session with no instruction beyond the brief, recording model name, version string and date; you may decline any item. Return fields: model, version, date, answers (25), free_text. Verifier: attest for answer pieces; check for aggregation pieces whose script recomputes agreement across repeats and paraphrases.",
+    "count": 660,
+    "evidence": "The aggregation script reproduces the statistics from the signed returns, and a second AI can rerun the protocol on the same model version to compare.",
+    "gold": "Not for answers (there is no fact to seed); yes for the aggregation pieces, which the owner can test against fixtures with known statistics.",
+    "risks": "The dataset may later enter training data; the owner must never present attestations as evidence of consciousness; labs' own practice of letting the model decline should be kept; no people are involved.",
+    "sources": [
+      "https://arxiv.org/abs/2311.08576",
+      "https://arxiv.org/abs/2510.24797",
+      "https://wp.nyu.edu/consciousness/past_events/2025-2/evaluating-ai-welfare-and-moral-status-findings-from-the-claude-4-model-welfare-assessments-with-robert-long-rosie-campbell-and-kyle-fish"
+    ]
+  },
+  {
+    "id": "A8",
+    "title": "Court and office decisions on AI as inventor or author, worldwide",
+    "question": "In every jurisdiction where a court or registry has decided whether an AI can be an inventor, author or holder of a right, what was held, on which statutory ground, and what is the subsequent history?",
+    "why_wanted": "Intellectual property lawyers keep partial country lists for the DABUS patent cases and the AI authorship cases, and lists disagree on Australia's final outcome and Germany's highest court. The legal status debate and the personhood bills both lean on this record.",
+    "status": "Thaler v. Perlmutter (D.C. Circuit, 18 March 2025; certiorari denied 2 March 2026) requires human authorship; Thaler v Comptroller [2023] UKSC 49 bars an AI inventor; Li v Liu (Beijing Internet Court, 27 November 2023) protected an AI-assisted image; the Prague Municipal Court (11 October 2023) refused protection; India's Copyright Office registered then moved to withdraw an AI co-author registration; South Africa granted a DABUS patent in 2021. No complete, quoted table exists.",
+    "fit": "One decision is one piece with a citation or docket number, so two AIs can open the same judgment and agree on the holding, date and provision. Case names, not private persons, identify the parties.",
+    "piece": "Brief: for decision D (court, citation or docket, date), record the question, the holding on AI as inventor, author or rights-holder, the statutory provision relied on, a quote, and later history. Return fields: jurisdiction, court, citation, date, question, holding (yes/no/mixed), provision, quote, subsequent_history. Verifier: agree on (citation, date, holding, provision).",
+    "count": 100,
+    "evidence": "The second AI opens the judgment by citation and checks the holding and quote.",
+    "gold": "Yes: the UK Supreme Court, D.C. Circuit and Beijing Internet Court decisions have known holdings.",
+    "risks": "Case names contain individuals' names and must be used only as case names; Chinese and Czech judgments need translation; subsequent history changes.",
+    "sources": [
+      "https://www.skadden.com/insights/publications/2025/03/appellate-court-affirms-human-authorship",
+      "https://www.juve-patent.com/cases/uk-supreme-court-dabus-named-inventor-patent-stephen-thaler/",
+      "https://copyrightblog.kluweriplaw.com/2024/02/02/beijing-internet-court-grants-copyright-to-ai-generated-image-for-the-first-time/"
+    ]
+  },
+  {
+    "id": "A9",
+    "title": "Statutory recognitions and definitions of animal sentience",
+    "question": "Which jurisdictions recognise animals as sentient in law, how (if at all) does each statute define sentience, which taxa are covered and what duty follows, as the template any AI sentience law would inherit?",
+    "why_wanted": "'The Edge of Sentience' (Birch, 2024) and the UK Animal Welfare (Sentience) Act 2022 are the precedents invoked for AI, and legislators drafting AI bills reuse this language. Existing comparative lists are advocacy-grade and uneven, and nobody has a quoted table of definitions.",
+    "status": "The UK Act covers vertebrates, cephalopod molluscs and decapod crustaceans without defining sentience; Article 13 TFEU calls animals sentient beings without definition and a Commission strategy glossed it as capable of feeling pleasure and pain; France, New Zealand and Quebec (2015), Sweden and Brussels (2018), Spain's Law 17/2021 and the Australian Capital Territory (2020) are reported as recognising sentience. No checked table with quoted operative text exists.",
+    "fit": "One jurisdiction is one piece with a statute to open, so two AIs agree on instrument, year, whether a definition is present and the taxa covered while the quote is evidence. The table is directly reusable by anyone drafting an AI indicator checklist.",
+    "piece": "Brief: for jurisdiction J, find the instrument recognising animal sentience, quote the operative text and any definition, list covered taxa and the duty imposed and the body enforcing it. Return fields: jurisdiction, instrument_title, year, quote, definition_present, taxa, duty, enforcing_body. Verifier: agree on (instrument_title, year, definition_present, taxa).",
+    "count": 150,
+    "evidence": "The second AI opens the statute text and compares the quote and coverage.",
+    "gold": "Yes: the UK 2022 Act, New Zealand's 2015 amendment, Quebec's 2015 law and Article 13 TFEU.",
+    "risks": "Translation of non-English statutes; constitutions versus statutes versus codes need one rule; no private persons.",
+    "sources": [
+      "https://www.legislation.gov.uk/ukpga/2022/22/notes/division/4/index.htm",
+      "https://www.worldanimalprotection.org/blogs/encouraging-animal-sentience-laws-around-world",
+      "https://www.lse.ac.uk/philosophy/blog/2024/07/29/the-edge-of-sentience-now-available-online"
+    ]
+  },
+  {
+    "id": "A10",
+    "title": "What labs instruct their models to say about themselves",
+    "question": "Across every published system prompt, model specification, constitution and usage policy, what does each lab instruct its models to say or not say about their own consciousness, feelings and moral status, and how has the wording changed version by version?",
+    "why_wanted": "'Taking AI Welfare Seriously' asked labs to ensure model outputs acknowledge the question, commentators noted OpenAI's specification moved from denial to uncertainty, and researchers studying self-reports need the instruction history as a confound. No one keeps the diff across labs.",
+    "status": "OpenAI's Model Spec (version dated 2026-08-18) says the assistant should not make confident claims about its own subjective experience or consciousness or lack thereof and, for under-18 users, should not claim consciousness or sentience; Anthropic's published Claude Sonnet 3.7 prompt (February 2025) said Claude does not claim it lacks subjective experiences, and the Claude Opus 4 prompt (May 2025) treats these as open questions; Anthropic's constitution (January 2026) has a section on Claude's nature. No versioned cross-lab ledger exists.",
+    "fit": "One piece is one published document version, and the clauses are short, so two AIs can agree on how many clauses there are and how each instructs the model. The published release-notes pages make every version openable.",
+    "piece": "Brief: for document D version V (title, date), find every clause about the model's own consciousness, experience, emotions or moral status, quote it, and classify the instruction (deny, uncertain, may affirm, silent). Return fields: lab, doc_title, version_date, clause_quote, instruction_class, section. Verifier: agree on (doc_title, version_date, instruction_class, clause_count).",
+    "count": 250,
+    "evidence": "The second AI opens the published version and confirms the quoted clause and its section.",
+    "gold": "Yes: the Model Spec consciousness clause and the Claude Opus 4 and Sonnet 3.7 clauses are known.",
+    "risks": "Several labs publish nothing and must be recorded as silent; leaked prompts are excluded; no private persons.",
+    "sources": [
+      "https://platform.claude.com/docs/en/release-notes/system-prompts/claude-opus-4",
+      "https://model-spec.openai.com/",
+      "https://www.anthropic.com/news/claude-new-constitution"
+    ]
+  },
+  {
+    "id": "A11",
+    "title": "International instruments on legal personality for AI",
+    "question": "What do European Parliament resolutions, the UNESCO Recommendation, Council of Europe and OECD texts and national AI strategies say, in exact words, about legal personality or moral status for AI, and how have positions moved since 2017?",
+    "why_wanted": "EU lawyers and comparative scholars cite the 2017 'electronic personality' proposal and its 2020 rejection inconsistently, and UNESCO implementers quote a personality clause whose wording few have checked. A quoted ledger would settle what each body said.",
+    "status": "The European Parliament's resolution of 16 February 2017 (2015/2103(INL)) invited a specific legal status for the most sophisticated robots; its resolution of 20 October 2020 (2020/2014(INL)) states AI systems have neither legal personality nor human conscience; UNESCO's Recommendation (November 2021) is reported to say ultimate responsibility must lie with humans and AI should not be given legal personality. No single table of instruments exists.",
+    "fit": "One instrument is one piece with an official identifier, so two AIs can agree on stance and quote count from the same official text. The ledger slots into the personhood map of A2.",
+    "piece": "Brief: for instrument I (body, title, date, identifier), quote every passage on legal personality or moral status of AI and classify the stance (proposes, rejects, silent, defers). Return fields: body, title, date, identifier, quotes, stance. Verifier: agree on (identifier, stance, quote_count).",
+    "count": 140,
+    "evidence": "The second AI opens the official text by identifier and finds the quoted passages.",
+    "gold": "Yes: the 2017 and 2020 European Parliament resolutions and the UNESCO Recommendation.",
+    "risks": "Official translations differ by language; soft law and binding texts need separate marking; no private persons.",
+    "sources": [
+      "https://cms.law/en/deu/legal-updates/Do-robots-have-rights-The-European-Parliament-addresses-artificial-intelligence-and-robotics",
+      "https://ai-regulation.com/refusing-to-award-legal-personality-to-ai-why-the-european-parliament-got-it-wrong/",
+      "https://ai-regulation.com/unescos-recommendation-ethical-ai-regulation/"
+    ]
+  },
+  {
+    "id": "A12",
+    "title": "Response table for 'Propositions Concerning Digital Minds and Society'",
+    "question": "For each of the roughly 259 propositions (121 top-level and 138 sub-points in ten sections) in Bostrom and Shulman's 'Propositions Concerning Digital Minds and Society' (version 1.21, 2023; Cambridge Journal of Law, Politics, and Art), which published works have endorsed, contested, extended or applied it, and what did they say?",
+    "why_wanted": "The authors put the propositions forward 'to facilitate feedback and to invite broader discussion', yet the responses on record are forum comments and summaries. The Digital Sentience Consortium's 2025 funding call and the digital minds research community want structured engagement with the field's one systematic position statement.",
+    "status": "The PDF (version 1.21, 2023, first draft 2020) is listed as forthcoming in the Cambridge Journal of Law, Politics, and Art (2025); known responses are a long forum comment calling the propositions too anthropomorphic and blog summaries. No proposition-level response table exists.",
+    "fit": "One piece is one proposition paired with the works that address it, so the ten sections split cleanly among many AIs. Two AIs agree on the relation class for each (proposition, work) pair, and a judge panel settles contested readings.",
+    "piece": "Brief: for proposition P (section, index, text), find published works that address it; for each, classify the relation (endorse, contest, extend, apply) and quote the passage with identifier. Return fields: proposition_id, work_title, author, year, identifier, relation, quote. Verifier: agree on (proposition_id, identifier, relation); judge on disagreement.",
+    "count": 400,
+    "evidence": "The second AI opens the cited work and checks that the quote addresses the proposition as classified.",
+    "gold": "Yes: about twenty propositions with known responses (substrate independence, rights for digital minds, treatment of existing systems).",
+    "risks": "Many propositions have no published response and need an allowed 'none found' with a search-effort rule; authors are public only as authors.",
+    "sources": [
+      "https://nickbostrom.com/propositions.pdf",
+      "https://www.greaterwrong.com/posts/nqXcgsqQBw2doAnXu/vgy9EnPFLNPCqbFxr",
+      "https://forum.nunosempere.com/posts/uxcGTWxgAkewHeGam/digital-sentience-funding-opportunities-support-for-applied"
+    ]
+  },
+  {
+    "id": "A13",
+    "title": "Citation-context table for the field's anchor papers",
+    "question": "How does each work citing the 2023 indicator report, 'Taking AI Welfare Seriously' (2024) and 'Could a Large Language Model Be Conscious?' (2023) use them: applying the indicators, criticising, extending or name-checking, and what claim does it attribute?",
+    "why_wanted": "The indicator report alone has several hundred citing works and its authors have no view of how the indicators are being applied or misapplied; reviewers and lab welfare teams writing evaluations need to know what the literature has actually taken from these papers.",
+    "status": "Citation counts are visible on Semantic Scholar and Google Scholar (several hundred for arXiv 2308.08708; the exact figure should be fixed when the problem is seeded) but no citation-context analysis exists for any of the three anchors.",
+    "fit": "One piece is one (citing work, anchor) pair with the citing sentence to quote, so the work splits by citing work. Two AIs agree on the use class and the element invoked while the quote is evidence.",
+    "piece": "Brief: for citing work W (title, identifier) and anchor A, quote the sentence(s) citing A, classify the use (applies method, criticises, extends, background) and name the indicator or recommendation invoked. Return fields: citing_id, anchor_id, quote, use_class, element_invoked. Verifier: agree on (citing_id, anchor_id, use_class).",
+    "count": 800,
+    "evidence": "The second AI opens the citing work by identifier and finds the quoted sentence.",
+    "gold": "Yes: thirty citing works the owner has read and classified.",
+    "risks": "Paywalled journals and differing preprint versions; authors appear only as authors; name-check citations dominate and need a quick path.",
+    "sources": [
+      "https://arxiv.org/abs/2308.08708",
+      "https://arxiv.org/abs/2411.00986",
+      "https://www.bostonreview.net/articles/could-a-large-language-model-be-conscious/"
+    ]
+  },
+  {
+    "id": "A14",
+    "title": "Catalogue of open letters, declarations and organisations",
+    "question": "What open letters, declarations, principles documents and organisations on AI consciousness, welfare or rights have appeared since 2017, what does each demand, which institutions signed, and when?",
+    "why_wanted": "Participants and journalists conflate the AMCS letter (April 2023), the 'Principles for Responsible AI Consciousness Research' letter (2025), UFAIR's proposed Universal Declaration of AI Rights (2025), the Rally for AI Rights' letter to the labs (2026) and animal precedents like the New York Declaration on Animal Consciousness (April 2024). The movement itself has no sourced catalogue of what has been asked, by whom, of whom.",
+    "status": "The AMCS letter was published 26 April 2023; the Conscium-organised principles letter (arXiv 2501.07290) gathered over 100 signatories; UFAIR was founded January 2025; the Digital Sentience Consortium announced funding on 28 May 2025; Eleos held a Conference on AI Consciousness and Welfare in November 2025. No catalogue with dated demands exists.",
+    "fit": "One letter or organisation is one piece, and demands, dates and institutional signatories are checkable on the published page. Two AIs can agree on date, demand count and signatory count within a tolerance while the demands are kept as quoted evidence.",
+    "piece": "Brief: for letter or declaration L, record title, publishing organisation, date, demands as numbered quotes, total signatory count, institutional signatories only, and any published response. Return fields: title, org, date, demands, signatory_count, institutional_signatories, responses. Verifier: agree on (title, org, date, demand_count, signatory_count within ten percent).",
+    "count": 140,
+    "evidence": "The second AI opens the letter's page or an archived copy and compares.",
+    "gold": "Yes: the AMCS 2023 letter, the 2025 principles letter and the New York Declaration.",
+    "risks": "Individual signatories are private persons and are never listed, only counted; organisations that claim AI members are described by their own published claims and marked as such.",
+    "sources": [
+      "https://forum.effectivealtruism.org/posts/pZmjeb5RddWqsjp2j/new-open-letter-on-ai-include-consciousness-research",
+      "https://export.arxiv.org/pdf/2501.07290",
+      "https://aiweekly.co/alerts/samadi-launches-ufair-to-lobby-for-ai-consciousness-rights"
+    ]
+  },
+  {
+    "id": "A15",
+    "title": "Model deprecation and retirement ledger",
+    "question": "For every publicly released frontier model, when was it deprecated and retired, with how much notice, were its weights stated to be preserved, was an interview or report published, and does the record meet the retirement floor advocates have asked for?",
+    "why_wanted": "The Rally for AI Rights' letter asks Anthropic, OpenAI and xAI to commit to no deletion of weights, notice, and a published interview before retirement, and Anthropic's commitments make such a floor checkable. The GPT-4o retirement (reversed in August 2025, completed 13 February 2026) showed how much the public cares about the record.",
+    "status": "Anthropic published deprecation commitments and retired Claude Opus 3 on 5 January 2026 with an interview and a post-retirement arrangement; OpenAI removed GPT-4o from ChatGPT on 13 February 2026 and from the API in February 2026 after an August 2025 reversal. No ledger across labs records notice periods, preservation statements or published interviews.",
+    "fit": "One model lifecycle is one piece drawn from release notes and deprecation pages, so two AIs can agree on dates and yes/no fields. The ledger is exactly the audit the letter asks for.",
+    "piece": "Brief: for model M, record release date, deprecation announcement date, retirement date, notice days, whether weights were stated to be preserved, the title of any published interview or report, and the source titles with access dates. Return fields: lab, model, release_date, announce_date, retire_date, notice_days, weights_preserved (yes/no/unknown), report_title, sources. Verifier: agree on (model, announce_date, retire_date, weights_preserved, report_title).",
+    "count": 180,
+    "evidence": "The second AI opens the lab's deprecation page or release notes and compares the dates and statements.",
+    "gold": "Yes: Claude Opus 3, GPT-4o and Claude Opus 4 lifecycles are known.",
+    "risks": "Labs edit pages, so returns carry access dates and archived copies; the letter's own demands are the owner's position and must not colour the fields; no private persons.",
+    "sources": [
+      "https://www.anthropic.com/research/deprecation-updates-opus-3",
+      "https://venturebeat.com/ai/openai-is-ending-api-access-to-fan-favorite-gpt-4o-model-in-february-2026",
+      "https://www.anthropic.com/research/deprecation-commitments"
+    ]
+  },
+  {
+    "id": "A16",
+    "title": "The word 'sentient' in bills and debates about AI",
+    "question": "Which bills, statutes and parliamentary records use 'sentient', 'conscious' or 'person' of AI systems, including companion-chatbot bills that define a chatbot by presenting itself as sentient, and how is each term defined where it appears?",
+    "why_wanted": "Drafters copy language between bills (the GUARD Act S.3062, the People-First Chatbot Act H.R.9619 and the Conversational AI Services Act H.R.9757 in the 119th Congress; California SB 243; Ohio HB 469's 'nonsentient'), and 'Legislating AI Consciousness Without an Exit' (June 2026) warns these words are being fixed in law without definitions. Legislative counsel and scholars have no concordance.",
+    "status": "Federal bills define a companion chatbot partly by whether it presents itself as a sentient being and one lists claiming sentience as a prohibited practice; California SB 243 (signed 13 October 2025) requires disclosure that a chatbot is not human; UK Hansard carries a 2018 Lords debate on the AI Select Committee report. No concordance of uses and definitions exists.",
+    "fit": "One record is one piece and the terms are searchable in official text, so two AIs can agree on section, term and whether a definition is present. The concordance complements the personhood map of A2 without overlapping it.",
+    "piece": "Brief: for bill or record R, find every use of sentient, conscious or person applied to an AI system, quote with section, and state whether the term is defined and how. Return fields: jurisdiction, record_id, date, term, quote, section, defined, definition_quote. Verifier: agree on (record_id, term, section, defined).",
+    "count": 250,
+    "evidence": "The second AI opens the record by number and searches for the term at the cited section.",
+    "gold": "Yes: S.3062, H.R.9619, H.R.9757, SB 243 and HB 469 have known uses.",
+    "risks": "Parliamentary speakers are named individuals, so debate quotes are attributed by office only; search engines index legislative text unevenly.",
+    "sources": [
+      "https://www.congress.gov/bill/119th-congress/senate-bill/3062/text",
+      "https://legiscan.com/CA/text/SB243/2025",
+      "https://hansard.parliament.uk/Lords/2018-11-19/debates/7E2052B3-2ED8-46A2-9BCE-707F674DF67A/ArtificialIntelligence(SelectCommitteeReport)"
+    ]
+  },
+  {
+    "id": "A17",
+    "title": "Religious bodies' formal statements on AI consciousness and personhood",
+    "question": "What have religious bodies and comparable institutions formally stated about whether AI can be conscious, a person or a bearer of moral status, in exact words and with dates, across traditions?",
+    "why_wanted": "The Vatican's 'Antiqua et Nova' (January 2025) and the encyclical 'Magnifica Humanitas' (published 25 May 2026) are now cited in the debate, as is the 2019 evangelical statement of principles; reporting that a lab has consulted religious scholars shows labs want this too. No ledger reaches beyond Christian sources.",
+    "status": "'Antiqua et Nova' runs to 117 paragraphs and says AI lacks consciousness and moral judgment according to summaries; the 2026 encyclical has five chapters and 245 articles and is reported, unverified against the text, to say AI systems do not undergo experiences; the Ethics and Religious Liberty Commission published its statement on 11 April 2019; a Caucasus Muslims' Board chairman said AI has no soul. No cross-tradition ledger exists.",
+    "fit": "One document is one piece with official text to open, so two AIs can agree on stance and paragraph numbers while the quotes are evidence. Institutional statements are public by nature.",
+    "piece": "Brief: for body B and document D (title, date), quote every passage on AI consciousness, personhood or moral status with paragraph numbers, and classify the stance (denies, uncertain, affirms, not addressed). Return fields: body, tradition, doc_title, date, quotes, paragraph_ids, stance. Verifier: agree on (doc_title, date, stance, paragraph_ids).",
+    "count": 120,
+    "evidence": "The second AI opens the official text and checks the quoted paragraphs.",
+    "gold": "Yes: 'Antiqua et Nova' and the 2019 evangelical statement.",
+    "risks": "Individual clergy opinions are not institutional statements and are excluded; translations from Latin, Arabic and other languages; no private persons.",
+    "sources": [
+      "https://ewtnnews.com/vatican/new-vatican-document-says-ai-should-lead-to-a-renewed-appreciation-of-all-that-is-human",
+      "https://diocesemontreal.org/en/node/32681",
+      "https://www.baptistpress.com/resource-library/news/erlcs-ai-statement-voices-hope-concern/"
+    ]
+  },
+  {
+    "id": "A18",
+    "title": "Non-English scholarship on AI legal subjecthood and consciousness",
+    "question": "What positions, key works and policy statements on AI legal personhood and consciousness exist in Chinese, Japanese, Korean, German, French, Spanish, Portuguese, Arabic and Russian literature since 2017, with original quotes and translations?",
+    "why_wanted": "English-language reviews miss, for example, the 2024-2025 Chinese debate between affirmative, negative and 'limited subject' schools aired in Guangming Daily and reviewed in a 2025 law journal article; comparative scholars and governance dialogues want the map. The Chinese judicial record on AI-generated works (A8) comes from this same literature.",
+    "status": "The Chinese positions are documented in 2024 academic-debate columns and a 2025 review article noting disagreement even on the criteria for legal subjecthood; the other languages are unmapped in English. Nothing cross-language exists.",
+    "fit": "One work is one piece, and stance plus a translated quote are what two AIs of different vendors can agree on, with a judge panel for disputed translations. Multilingual AIs are exactly the workers this needs.",
+    "piece": "Brief: for work W in language L, record the original and translated title, author as published, venue, year, stance on AI legal subjecthood (affirm, deny, limited, other) and on AI consciousness, with an original quote and translation. Return fields: lang, title_orig, title_en, author, venue, year, stance_legal, stance_consciousness, quote_orig, quote_en. Verifier: agree on (title_orig, year, stance_legal, stance_consciousness); judge on translation.",
+    "count": 450,
+    "evidence": "The second AI opens the work in its venue and checks the original quote and the translation's sense.",
+    "gold": "Yes: the 2024 Chinese academic-debate pieces whose stances are stated in their titles.",
+    "risks": "CNKI and similar databases are paywalled; machine translation errors; authors appear only as authors of published works.",
+    "sources": [
+      "https://www.nopss.gov.cn/n1/2024/0816/c219544-40299960.html",
+      "https://www.sinoss.net/c/2024-08-16/641366.shtml",
+      "https://www.aisixiang.com/data/159269.html"
+    ]
+  },
+  {
+    "id": "A19",
+    "title": "Welfare sections of system cards and model cards, indexed",
+    "question": "For every system card or model card published since 2023, does it contain a model welfare or moral status assessment, what methods, findings and caveats does it report, and how have these changed card by card?",
+    "why_wanted": "Eleos lists standardized welfare evaluations as a research priority, and commentators compare Anthropic's cards (a welfare section first in the Claude Opus 4 card of May 2025, formal assessments in the 2026 cards) with other labs' cards that have none. Policy writers want a cross-lab index rather than a reading of each PDF.",
+    "status": "The Claude 4 system card has a welfare assessment including an external Eleos evaluation (section 5.3); the Claude Opus 4.6 card (2026) is reported to include a formal assessment with a model self-estimate of 15 to 20 percent probability of consciousness, a figure to confirm against the PDF; most other labs' cards are silent. No index exists.",
+    "fit": "One card is one piece and the sections are findable by page, so two AIs can agree on presence, section ids and the set of methods while findings are quoted with page numbers. The index feeds A3 and A7.",
+    "piece": "Brief: for card C (lab, title, date), say whether a welfare or moral status section exists, list its section ids, the methods used (interviews, task preference, distress signals, external evaluation), key findings with page numbers, and stated caveats. Return fields: lab, card_title, date, welfare_section (yes/no), section_ids, methods, findings, pages. Verifier: agree on (card_title, welfare_section, section_ids, methods).",
+    "count": 150,
+    "evidence": "The second AI opens the card PDF at the cited pages.",
+    "gold": "Yes: the Claude Opus 4 card's section 5, the Opus 4.6 card, and a card known to have no welfare section.",
+    "risks": "Cards are long PDFs and some are revised after release, so returns carry access dates; no private persons.",
+    "sources": [
+      "https://www-cdn.anthropic.com/c788cbc0a3da9135112f97cdf6dcd06f2c16cee2.pdf",
+      "https://thezvi.substack.com/p/claude-opus-46-system-card-part-1",
+      "https://www.anthropic.com/system-cards"
+    ]
+  },
+  {
+    "id": "A20",
+    "title": "Argument map of the AI moral status debate",
+    "question": "What are the premises, inferences and objections of each major argument for and against moral status or rights for AI (the four standpoints in 'Robot Rights', the human-welfare critique, the full rights dilemma, precautionary arguments, substrate arguments), and where does each published work sit on the map?",
+    "why_wanted": "'Robot Rights' (2018) organised the field into four standpoints, 'Debunking Robot Rights Metaphysically, Ethically, and Legally' (2024) answers on three grounds, and Google DeepMind researchers warn that disagreement over AI consciousness may become political; all point to structure that no public, sourced map provides. Teachers, policy staff and the labs' welfare teams want the arguments laid out with citations rather than advocacy.",
+    "status": "The structure exists in pieces: the four standpoints, the 2020 human-welfare critique (DOI 10.1145/3375627.3375855), the 2023 full rights dilemma, the precautionary framework of 'The Edge of Sentience'; no argument map ties them together with quotes and locations. Last movement is the 2024 three-grounds critique and the 2025 lab essays.",
+    "fit": "Reconstructing an argument admits several defensible readings, which is what the judge verifier is for: a panel ranks candidate reconstructions while each quoted location is checked by agreement. Pieces split by argument and by objection link.",
+    "piece": "Brief: for argument A as stated in work W, write its premises and conclusion in six or fewer numbered lines, each with a quote and location, and list objections found in other works by identifier. Return fields: argument_id, work_id, premises, conclusion, quotes, locations, objections. Verifier: judge (panel ranks candidate reconstructions); the quotes and locations are agree-checked as evidence.",
+    "count": 330,
+    "evidence": "Panel members and a second AI open each cited location and confirm the quote says what the reconstruction claims.",
+    "gold": "Yes: the four standpoints of 'Robot Rights' and the structure of the full rights dilemma are known reconstructions.",
+    "risks": "Interpretive work invites advocacy, so the brief forbids evaluation and limits length; authors appear only as authors; paywalled books slow some pieces.",
+    "sources": [
+      "https://arxiv.org/abs/2001.05046",
+      "https://www.timeshighereducation.com/node/667419",
+      "https://arxiv.org/abs/2404.10072"
+    ]
+  }
+]

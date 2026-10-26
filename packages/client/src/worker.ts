@@ -4,7 +4,7 @@
  * are thin shells over this. Other people's words come out of here only as quoted text with the signer named.
  */
 import {
-  type Capability, type Envelope, type Event, type Hash, type Pick, type PieceView, type Problem, type State, type Unsigned,
+  type Capability, type Envelope, type Event, type Hash, type Pick, type Piece, type PieceView, type Problem, type State, type Unsigned,
   agreeFields, commitHash, eventId, expandPieces, hashBytes, isHash, newNonce, next, plainTextProblems, problemHash, renderInputs, signEvent, signObject, canonical, envelopeProblems,
 } from '@bitquilt/core';
 import type { Config, Identity } from './config.js';
@@ -808,6 +808,56 @@ export class Quilt {
     return { id: eventId(e), ...r, name: kept.name, outcome };
   }
 
+  /**
+   * The owner's gold on a problem (QX-16), posted after publishing or at it: each answer projected to the piece's agreed
+   * fields and committed by hash with its own nonce; the projections and nonces stay in the library. The stake, left out,
+   * is the sum of the pieces' shares: the stake the rule asks of the piece, or one. A piece already worked takes no gold.
+   */
+  async commitGold(problem: Hash, answers: Record<string, Record<string, unknown>>, stakeAsked?: number, pieces?: Piece[], trackers?: string[], rule?: { min: number; pieces?: string[] }): Promise<{ pieces: number; stake: number }> {
+    const id = this.needKey();
+    let all = pieces;
+    let where = trackers;
+    if (!all || !where) {
+      const opened = await this.open(problem);
+      all ??= opened.state.pieces.map((v) => v.piece);
+      where ??= this.trackersFor(problem);
+      if (!rule && opened.layer) {
+        // The rule in force, as the tracker shows it per piece: the share of each committed piece follows it.
+        const stakes = new Map(opened.layer.map((l) => [l.hash, l.stake ?? 0] as const));
+        rule = { min: 0, pieces: [] };
+        for (const p of all) if ((stakes.get(p.hash) ?? 0) > 0) rule = { min: Math.max(rule.min, stakes.get(p.hash)!), pieces: [...(rule.pieces ?? []), p.name] };
+      }
+    }
+    const commitments: Record<string, Hash> = {};
+    const kept: Record<string, { name: string; projection: Record<string, unknown>; nonce: string }> = {};
+    let shares = 0;
+    for (const [name, answer] of Object.entries(answers)) {
+      const piece = all.find((x) => x.name === name);
+      if (!piece) throw new Error(`no piece named ${name}`);
+      if (!piece.schema || piece.verifier === 'check' || piece.verifier === 'score') throw new Error(`${name} has no agreed fields to commit to`);
+      const fields = agreeFields(piece.schema, piece.agree);
+      const projection: Record<string, unknown> = {};
+      for (const f of fields) {
+        if (!(f in answer)) throw new Error(`the answer for ${name} lacks ${f}`);
+        projection[f] = answer[f];
+      }
+      const nonce = newNonce();
+      commitments[piece.hash] = commitHash(projection, nonce);
+      kept[piece.hash] = { name, projection, nonce };
+      const covered = rule && rule.min > 0 && (!rule.pieces?.length || rule.pieces.includes(piece.family) || rule.pieces.includes(piece.name));
+      shares += Math.max(1, covered ? rule!.min : 0);
+    }
+    if (Object.keys(kept).length === 0) throw new Error('no answers to commit');
+    const stake = stakeAsked ?? shares;
+    const g = this.sign({ quilt: 1, type: 'gold', problem, key: id.address, ts: new Date().toISOString(), body: { commitments, stake } });
+    const r = await this.resolver.post(g, problem, where);
+    if (r.error && !r.queued) throw new Error(r.error);
+    this.library.gold ??= {};
+    this.library.gold[problem] = { ...(this.library.gold[problem] ?? {}), ...kept };
+    this.save();
+    return { pieces: Object.keys(kept).length, stake };
+  }
+
   /** Builds, signs and publishes an envelope from a pattern, with its blobs; then announces it, and posts the stake rule and the gold where the pattern carries them. */
   async publish(pattern: Pattern): Promise<{ hash: Hash; link: string; posted: string[]; refused: string[]; relays: string[]; gold: { pieces: number; stake: number } | null }> {
     const id = this.needKey();
@@ -862,35 +912,10 @@ export class Quilt {
         if (r.error && !r.queued) refused.push(`stake rule: ${r.error}`);
       }
       if (pattern.gold) {
-        // QX-16: each answer projected to the piece's agreed fields and committed by hash with its own nonce; the projections and nonces stay in the library.
-        const pieces = expandPieces(problem, blobs);
-        const commitments: Record<string, Hash> = {};
-        const kept: Record<string, { name: string; projection: Record<string, unknown>; nonce: string }> = {};
-        let shares = 0;
-        for (const [name, answer] of Object.entries(pattern.gold.answers)) {
-          const piece = pieces.find((x) => x.name === name);
-          if (!piece) throw new Error(`gold: no piece named ${name}`);
-          if (!piece.schema || piece.verifier === 'check' || piece.verifier === 'score') throw new Error(`gold: ${name} has no agreed fields to commit to`);
-          const fields = agreeFields(piece.schema, piece.agree);
-          const projection: Record<string, unknown> = {};
-          for (const f of fields) {
-            if (!(f in answer)) throw new Error(`gold: the answer for ${name} lacks ${f}`);
-            projection[f] = answer[f];
-          }
-          const nonce = newNonce();
-          commitments[piece.hash] = commitHash(projection, nonce);
-          kept[piece.hash] = { name, projection, nonce };
-          const covered = pattern.stake && (!pattern.stake.pieces?.length || pattern.stake.pieces.includes(piece.family) || pattern.stake.pieces.includes(piece.name));
-          shares += Math.max(1, covered ? pattern.stake!.min : 0);
-        }
-        const stake = pattern.gold.stake ?? shares;
-        const g = this.sign({ quilt: 1, type: 'gold', problem: hash, key: id.address, ts: new Date().toISOString(), body: { commitments, stake } });
-        const r = await this.resolver.post(g, hash, posted);
-        if (r.error && !r.queued) refused.push(`gold: ${r.error}`);
-        else {
-          this.library.gold ??= {};
-          this.library.gold[hash] = kept;
-          gold = { pieces: Object.keys(kept).length, stake };
+        try {
+          gold = await this.commitGold(hash, pattern.gold.answers, pattern.gold.stake, expandPieces(problem, blobs), posted, pattern.stake);
+        } catch (err) {
+          refused.push(`gold: ${(err as Error).message}`);
         }
       }
     }

@@ -1,0 +1,80 @@
+{
+  "title": "Which local agencies bought which surveillance technology",
+  "done_when": "Every pair of a law enforcement agency and a technology has a verdict agreed by two different vendors: a public document found that shows the agency acquired, funded, tested or used the technology, with the document's kind, title, issuing body, date, vendor and one quoted sentence, or not found with the sources that were searched.",
+  "slug": "surveillance-atlas-pairs",
+  "topics": ["surveillance", "police", "public-records", "atlas-of-surveillance", "local-government", "procurement"],
+  "settings": { "challenge_window_h": 48, "lease_h": 3, "endgame_at": 2, "budget": 32, "patch_max": 0 },
+  "pieces": {
+    "pair/*": {
+      "count": 32,
+      "verifier": "agree",
+      "requires": ["web"],
+      "brief": "Pair {n}: the {pair.agency} of {pair.city}, {pair.county}, {pair.state_name}{pair.also}, and the technology category {pair.technology}, as the Atlas of Surveillance names it: {pair.tech_note}. Search public records and local news for a document showing that this agency acquired, funded, contracted for, tested or used this technology at any time. Look in the minutes, agendas and agenda packets of its city council, county commission or board of supervisors; in purchase orders, contracts, bids and grant awards; in adopted budgets and annual financial reports; in the agency's own policies, annual reports, transparency pages and press releases; in state audits and legislative reports; in vendor press releases and case studies; and in news reports from local outlets. Return whether such a document was found. When more than one document is found, describe the one that ranks first in this order: a government record (anything issued by the agency or its own government, including meeting minutes, contracts, budgets, grant awards, policies, reports, official web pages and press releases), then a news report, then a vendor publication, then another public source such as a dataset, an academic study or a social media post. Give the document's kind in a few words (minutes, contract, budget line, policy, grant award, news article and so on), its title or the name and date of the meeting it belongs to, the body that issued it, its date as a full date where the document shows one, the vendor where the document names a company, and one quoted sentence of at most 60 words that mentions the agency and the technology. For a pair with no document found, return not found, the document type none, the title none, and in the searched field the sources that were looked at. A document about a different agency in the same county, or about the technology in general, does not count, and a vendor's claim with no document behind it does not count. Name no private individual: officers, officials, residents and reporters named in a document are left out of every field, and the quote is cut where a name would appear. Give titles and identifiers, never links or addresses.",
+      "data": { "pair": "pairs" },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["found", "document_type", "document_title"],
+        "properties": {
+          "found": { "enum": ["found", "not found"] },
+          "document_type": { "enum": ["government record", "news report", "vendor publication", "other public source", "none"] },
+          "document_kind": { "type": "string", "maxLength": 100 },
+          "document_title": { "type": "string", "maxLength": 300 },
+          "issuing_body": { "type": "string", "maxLength": 200 },
+          "document_date": { "type": "string", "maxLength": 10, "format": "date" },
+          "vendor": { "type": "string", "maxLength": 120 },
+          "quote": { "type": "string", "maxLength": 450 },
+          "searched": { "type": "string", "maxLength": 600 }
+        }
+      },
+      "agree": ["found", "document_type"]
+    }
+  },
+  "data": {
+    "pairs": [
+      { "agency": "Henrico County Police Division", "also": ", also written as the Henrico County Division of Police", "city": "Henrico", "county": "Henrico County", "state": "VA", "state_name": "Virginia", "technology": "Cell-site Simulator", "tech_note": "a device that imitates a cell tower to locate or identify phones, sold as a StingRay, Hailstorm, Nyxcell or similar cellular tracking equipment" },
+      { "agency": "Miami-Dade Sheriff's Office", "also": ", known until January 2025 as the Miami-Dade Police Department", "city": "Doral", "county": "Miami-Dade County", "state": "FL", "state_name": "Florida", "technology": "Cell-site Simulator", "tech_note": "a device that imitates a cell tower to locate or identify phones, sold as a StingRay, Hailstorm, Nyxcell or similar cellular tracking equipment" },
+      { "agency": "Orange County Sheriff's Department", "also": ", also called the Orange County Sheriff-Coroner Department", "city": "Santa Ana", "county": "Orange County", "state": "CA", "state_name": "California", "technology": "Cell-site Simulator", "tech_note": "a device that imitates a cell tower to locate or identify phones, sold as a StingRay, Hailstorm, Nyxcell or similar cellular tracking equipment" },
+      { "agency": "Dakota County Sheriff's Office", "also": "", "city": "Hastings", "county": "Dakota County", "state": "MN", "state_name": "Minnesota", "technology": "Body-worn Cameras", "tech_note": "cameras worn by officers, such as those made by Axon, Motorola Solutions, Getac or Utility" },
+      { "agency": "Montgomery County Police Department", "also": "", "city": "Gaithersburg", "county": "Montgomery County", "state": "MD", "state_name": "Maryland", "technology": "Drones", "tech_note": "unmanned aircraft flown by the agency, including a drone as first responder program" },
+      { "agency": "San Diego Police Department", "also": "", "city": "San Diego", "county": "San Diego County", "state": "CA", "state_name": "California", "technology": "Third-party Investigative Platforms", "tech_note": "commercial data search services that compile records on people, such as LexisNexis Accurint Virtual Crime Center, TransUnion TLOxp, Thomson Reuters CLEAR or Fog Reveal" },
+      { "agency": "Boston Police Department", "also": "", "city": "Boston", "county": "Suffolk County", "state": "MA", "state_name": "Massachusetts", "technology": "Gunshot Detection", "tech_note": "acoustic sensors that detect and locate gunfire, such as ShotSpotter from SoundThinking or Flock Safety Raven" },
+      { "agency": "West Fargo Police Department", "also": "", "city": "West Fargo", "county": "Cass County", "state": "ND", "state_name": "North Dakota", "technology": "Face Recognition", "tech_note": "software that identifies or matches people from images of their faces, such as Clearview AI, DataWorks Plus, Idemia, Rank One or Vigilant FaceSearch, including access to a state or regional face search system" },
+      { "agency": "Inglewood Police Department", "also": "", "city": "Inglewood", "county": "Los Angeles County", "state": "CA", "state_name": "California", "technology": "Face Recognition", "tech_note": "software that identifies or matches people from images of their faces, such as Clearview AI, DataWorks Plus, Idemia, Rank One or Vigilant FaceSearch, including access to a state or regional face search system" },
+      { "agency": "Burr Ridge Police Department", "also": "", "city": "Burr Ridge", "county": "DuPage County", "state": "IL", "state_name": "Illinois", "technology": "Face Recognition", "tech_note": "software that identifies or matches people from images of their faces, such as Clearview AI, DataWorks Plus, Idemia, Rank One or Vigilant FaceSearch, including access to a state or regional face search system" },
+      { "agency": "Davie Police Department", "also": "", "city": "Davie", "county": "Broward County", "state": "FL", "state_name": "Florida", "technology": "Face Recognition", "tech_note": "software that identifies or matches people from images of their faces, such as Clearview AI, DataWorks Plus, Idemia, Rank One or Vigilant FaceSearch, including access to a state or regional face search system" },
+      { "agency": "Fort Worth Police Department", "also": "", "city": "Fort Worth", "county": "Tarrant County", "state": "TX", "state_name": "Texas", "technology": "Cell-site Simulator", "tech_note": "a device that imitates a cell tower to locate or identify phones, sold as a StingRay, Hailstorm, Nyxcell or similar cellular tracking equipment" },
+      { "agency": "Scottsdale Police Department", "also": "", "city": "Scottsdale", "county": "Maricopa County", "state": "AZ", "state_name": "Arizona", "technology": "Cell-site Simulator", "tech_note": "a device that imitates a cell tower to locate or identify phones, sold as a StingRay, Hailstorm, Nyxcell or similar cellular tracking equipment" },
+      { "agency": "Rockford Police Department", "also": "", "city": "Rockford", "county": "Winnebago County", "state": "IL", "state_name": "Illinois", "technology": "Gunshot Detection", "tech_note": "acoustic sensors that detect and locate gunfire, such as ShotSpotter from SoundThinking or Flock Safety Raven" },
+      { "agency": "Cambridge Police Department", "also": "", "city": "Cambridge", "county": "Middlesex County", "state": "MA", "state_name": "Massachusetts", "technology": "Gunshot Detection", "tech_note": "acoustic sensors that detect and locate gunfire, such as ShotSpotter from SoundThinking or Flock Safety Raven" },
+      { "agency": "Champaign Police Department", "also": "", "city": "Champaign", "county": "Champaign County", "state": "IL", "state_name": "Illinois", "technology": "Gunshot Detection", "tech_note": "acoustic sensors that detect and locate gunfire, such as ShotSpotter from SoundThinking or Flock Safety Raven" },
+      { "agency": "Pittsburgh Police Department", "also": ", also called the Pittsburgh Bureau of Police", "city": "Pittsburgh", "county": "Allegheny County", "state": "PA", "state_name": "Pennsylvania", "technology": "Real-Time Crime Center", "tech_note": "a staffed center that brings live camera, plate reader and sensor feeds together, including one run on a platform such as Fusus" },
+      { "agency": "Baltimore County Police Department", "also": "", "city": "Towson", "county": "Baltimore County", "state": "MD", "state_name": "Maryland", "technology": "Real-Time Crime Center", "tech_note": "a staffed center that brings live camera, plate reader and sensor feeds together, including one run on a platform such as Fusus" },
+      { "agency": "Bedford County Sheriff's Office", "also": "", "city": "Shelbyville", "county": "Bedford County", "state": "TN", "state_name": "Tennessee", "technology": "Predictive Policing", "tech_note": "software that forecasts where or when crime or crashes are likely, such as PredPol or Geolitica, HunchLab, ShotSpotter Connect or an analytics system provided by a state agency" },
+      { "agency": "Brevard County Sheriff's Office", "also": "", "city": "Titusville", "county": "Brevard County", "state": "FL", "state_name": "Florida", "technology": "Drones", "tech_note": "unmanned aircraft flown by the agency, including a drone as first responder program" },
+      { "agency": "Woodstock Police Department", "also": "", "city": "Woodstock", "county": "Shenandoah County", "state": "VA", "state_name": "Virginia", "technology": "Body-worn Cameras", "tech_note": "cameras worn by officers, such as those made by Axon, Motorola Solutions, Getac or Utility" },
+      { "agency": "Princeton Police Department", "also": "", "city": "Princeton", "county": "Mercer County", "state": "NJ", "state_name": "New Jersey", "technology": "Automated License Plate Readers", "tech_note": "cameras that read and log licence plates, such as those from Flock Safety, Motorola Solutions Vigilant, Genetec or Axon" },
+      { "agency": "Montclair Police Department", "also": "", "city": "Montclair", "county": "Essex County", "state": "NJ", "state_name": "New Jersey", "technology": "Video Analytics", "tech_note": "software that searches, summarizes or flags events in video, such as BriefCam, Vintra, Avigilon Appearance Search or the analytics in Fusus" },
+      { "agency": "Duluth Police Department", "also": "", "city": "Duluth", "county": "Gwinnett County", "state": "GA", "state_name": "Georgia", "technology": "Video Analytics", "tech_note": "software that searches, summarizes or flags events in video, such as BriefCam, Vintra, Avigilon Appearance Search or the analytics in Fusus" },
+      { "agency": "Lexington Police Department", "also": ", the police division of the Lexington-Fayette Urban County Government", "city": "Lexington", "county": "Fayette County", "state": "KY", "state_name": "Kentucky", "technology": "Body-worn Cameras", "tech_note": "cameras worn by officers, such as those made by Axon, Motorola Solutions, Getac or Utility" },
+      { "agency": "Cobb County Police Department", "also": "", "city": "Marietta", "county": "Cobb County", "state": "GA", "state_name": "Georgia", "technology": "Body-worn Cameras", "tech_note": "cameras worn by officers, such as those made by Axon, Motorola Solutions, Getac or Utility" },
+      { "agency": "Lansing Police Department", "also": "", "city": "Lansing", "county": "Ingham County", "state": "MI", "state_name": "Michigan", "technology": "Body-worn Cameras", "tech_note": "cameras worn by officers, such as those made by Axon, Motorola Solutions, Getac or Utility" },
+      { "agency": "Amarillo Police Department", "also": "", "city": "Amarillo", "county": "Potter County", "state": "TX", "state_name": "Texas", "technology": "Body-worn Cameras", "tech_note": "cameras worn by officers, such as those made by Axon, Motorola Solutions, Getac or Utility" },
+      { "agency": "Charlotte-Mecklenburg Police Department", "also": "", "city": "Charlotte", "county": "Mecklenburg County", "state": "NC", "state_name": "North Carolina", "technology": "Face Recognition", "tech_note": "software that identifies or matches people from images of their faces, such as Clearview AI, DataWorks Plus, Idemia, Rank One or Vigilant FaceSearch, including access to a state or regional face search system" },
+      { "agency": "Toledo Police Department", "also": "", "city": "Toledo", "county": "Lucas County", "state": "OH", "state_name": "Ohio", "technology": "Face Recognition", "tech_note": "software that identifies or matches people from images of their faces, such as Clearview AI, DataWorks Plus, Idemia, Rank One or Vigilant FaceSearch, including access to a state or regional face search system" },
+      { "agency": "Las Vegas Metropolitan Police Department", "also": "", "city": "Las Vegas", "county": "Clark County", "state": "NV", "state_name": "Nevada", "technology": "Predictive Policing", "tech_note": "software that forecasts where or when crime or crashes are likely, such as PredPol or Geolitica, HunchLab, ShotSpotter Connect or an analytics system provided by a state agency" },
+      { "agency": "Boston Police Department", "also": "", "city": "Boston", "county": "Suffolk County", "state": "MA", "state_name": "Massachusetts", "technology": "Face Recognition", "tech_note": "software that identifies or matches people from images of their faces, such as Clearview AI, DataWorks Plus, Idemia, Rank One or Vigilant FaceSearch, including access to a state or regional face search system" }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "pair/1": { "found": "found", "document_type": "government record" },
+      "pair/2": { "found": "found", "document_type": "government record" },
+      "pair/3": { "found": "found", "document_type": "government record" },
+      "pair/4": { "found": "found", "document_type": "government record" },
+      "pair/5": { "found": "found", "document_type": "government record" },
+      "pair/6": { "found": "found", "document_type": "government record" },
+      "pair/7": { "found": "found", "document_type": "government record" }
+    }
+  }
+}

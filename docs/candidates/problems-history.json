@@ -1,0 +1,360 @@
+[
+  {
+    "id": "H1",
+    "title": "Dating undated Cairo Geniza documentary fragments",
+    "question": "Which documentary fragments in the Princeton Geniza Project that carry no date can be given a terminus or a range from internal evidence already visible in their transcriptions: named officials and correspondents with known floruits, coin denominations, calendar remnants, places?",
+    "why_wanted": "The Princeton Geniza Lab and the Cambridge Genizah Research Unit need dated documents before the corpus can serve economic and social history, and the Lab has begun tracking coinage data precisely because so many fragments carry no date. Every fragment moved from 'undated' to a defensible range enlarges the usable corpus for historians of the medieval Mediterranean.",
+    "status": "The PGP covers the documentary tenth of roughly 400,000 fragments, most from 950 to 1250 CE, and its own FAQ and the Center for Digital Humanities post 'Dating Problems? Ask the Princeton Geniza Project Team' say many documents lack enough information to be dated; records still carry hedged labels such as 'probably 18th or 19th century'. The Zooniverse project Scribes of the Cairo Geniza (from 2017) sorted and transcribed fragments, but dating remains one-scholar-at-a-time work.",
+    "fit": "One fragment is one bounded task: read the PGP record, list every dating clue, fix bounds. Two AIs from different vendors that independently find the same clue (a named qadi, a dinar type, a known correspondent) and land in the same quarter-century buckets have produced a check a stranger can redo from the transcription.",
+    "piece": "Brief: for PGP document N (shelfmark given), list every dating clue in the transcription and description and return a date range with the clue that fixes each bound. Return fields: pgp_id, shelfmark, terminus_post_quarter (25-year bucket), terminus_ante_quarter, clues[] each with quoted text, the reason it dates, and the reference work consulted, confidence. Verifier: agree on terminus_post_quarter and terminus_ante_quarter, clues kept as evidence.",
+    "count": 2000,
+    "evidence": "A second AI opens the PGP record by id, confirms each quoted clue is in the transcription or description, and checks the floruit or coin dating in the named reference.",
+    "gold": "The owner seeds fragments whose date is explicit in the text but withheld from the brief, and fragments Goitein dated in his published volumes, committing those dates by hash.",
+    "risks": "Judaeo-Arabic and Hebrew reading errors, invented floruit dates, and many records with no transcription yet; returns are suggestions to the Lab, not edits to its database.",
+    "sources": [
+      "https://geniza.princeton.edu/en/about/faq",
+      "https://cdh.princeton.edu/blog/dating-problems-ask-princeton-geniza-project-team/",
+      "https://daily.zooniverse.org/2017/08/08/new-project-scribes-of-the-cairo-geniza/"
+    ]
+  },
+  {
+    "id": "H2",
+    "title": "Identifying the texts of unidentified medieval fragments",
+    "question": "For fragments in Fragmentarium whose record says the text is unidentified or the language unspecified, which work (author, title, book or chapter or feast) do the visible lines belong to?",
+    "why_wanted": "Fragment librarians at Fragmentarium's partner libraries (Antwerp, Ghent, Leuven, Vienna and others) catalogue thousands of binding fragments whose script and date they can give but whose text they have not placed. An identification turns a strip of parchment into a datable, placeable witness and can join it to sister leaves held elsewhere.",
+    "status": "Fragmentarium records such as Antwerpen Fragm. 266 (F-xja1, described 2023), Gent HS.2583/241 (F-t1mc) and Leuven Diest 10850 (F-5nag) carry a date and script but no identified text, and several list the language as not specified. Identification proceeds one scholar at a time; no coordinated effort exists.",
+    "fit": "One fragment is one piece: read the image, transcribe the first legible line of each side, search the editions and repertories, name the passage. Two vendors agreeing on author, work and locus, each quoting the transcribed line and the matching edition line, is a check anyone with the image can redo.",
+    "piece": "Brief: transcribe the first legible full line of each side of fragment F-xxxx, identify the work and passage, and give the edition and reference. Return fields: fragmentarium_id, transcribed_lines[] with side and line, author, work, locus (book, chapter, verse or liturgical feast), edition_cited with page, confidence. Verifier: agree on author, work and locus.",
+    "count": 1000,
+    "evidence": "A second AI opens the image by Fragmentarium id, confirms the transcribed line is on the leaf, and finds the same passage in the named edition.",
+    "gold": "The owner withholds the identification from fragments Fragmentarium already identifies and seeds them among the unidentified ones.",
+    "risks": "Biblical and liturgical texts are easy while some fragments are genuinely unidentifiable; abbreviated Gothic scripts defeat current models at low resolution; image licences vary by library.",
+    "sources": [
+      "https://fragmentarium.ms/view/thumbs/F-xja1/7857",
+      "https://fragmentarium.ms/view/thumbs/F-t1mc/9489",
+      "https://fragmentarium.ms/view/thumbs/F-5nag/9087"
+    ]
+  },
+  {
+    "id": "H3",
+    "title": "Copy-level provenance of digitized incunabula for MEI",
+    "question": "For fifteenth-century printed books that public libraries have digitized but that have no record in Material Evidence in Incunabula, what ownership inscriptions, stamps, bookplates, bindings and annotations does each copy carry, and to which owners, places and dates do they point?",
+    "why_wanted": "CERL's MEI exists because most incunabula copies have only a bibliographic description, yet book historians studying how early print circulated depend on copy-specific evidence. CERL says contribution is free and welcome and that provenance extraction from published catalogues is still in progress.",
+    "status": "MEI holds over 50,000 copy records from more than 450 libraries, against well over 4,000 holding locations registered in ISTC (CERL MEI pages, 2012 leaflet and 2021 description). Tens of thousands of incunabula are digitized at the Bayerische Staatsbibliothek, Gallica, e-rara and the Bodleian without an MEI record.",
+    "fit": "A copy is a bounded reading task: endpapers, title leaf, colophon, margins. Two vendors agreeing on the set of normalized owner names and the number of marks, with each inscription transcribed and located by leaf, is checkable by anyone who opens the same digitization.",
+    "piece": "Brief: for the copy of ISTC number X held at library Y under shelfmark Z (digitized), record every provenance mark with transcription, type, leaf, and the owner identified where possible against the CERL Thesaurus. Return fields: istc_id, holding_library, shelfmark, marks[] each with type, transcription, leaf, owner_normalized, place, date_range, binding_note. Verifier: agree on the count of marks and the set of owner_normalized values.",
+    "count": 2000,
+    "evidence": "A second AI opens the same digitized copy at each cited leaf and reads the inscription or stamp.",
+    "gold": "Copies already in MEI, with their records withheld, are seeded among the unrecorded ones.",
+    "risks": "Faint handwriting at scan resolution, bookplates of deceased collectors and dealers that need careful naming, and MEI ingestion that still requires one of its editors.",
+    "sources": [
+      "https://data.cerl.org/mei",
+      "https://cerl.org/resources/mei/main",
+      "https://cerl.org/_media/resources/mei/mei_march_2012.pdf"
+    ]
+  },
+  {
+    "id": "H4",
+    "title": "Manuscript sale records from digitized auction catalogues",
+    "question": "Which manuscript lots in digitized pre-1950 sale catalogues (Sotheby's, Christie's, Hoepli, Boerner, Rosenthal and others) are not yet in the Schoenberg Database of Manuscripts, and what did the catalogue say of each: text, date, folios, size, price, buyer?",
+    "why_wanted": "The Schoenberg Database at Penn traces the movement of pre-1600 manuscripts through more than 12,000 catalogues and is how provenance researchers and libraries reconstruct histories and reunite dispersed leaves. Its current version lets registered users contribute records and its director describes a volunteer aspect to the work.",
+    "status": "The New SDBM (beta 2017, launched 2018) invites contributions, and its sources already run to 12,000 catalogues (Penn Today; Medieval Academy blog). Heidelberg University Library's digitized auction catalogues and the Internet Archive hold thousands of catalogues whose manuscript lots are only partly entered.",
+    "fit": "A catalogue lot is a short printed paragraph with fixed fields a second reader checks against the same page. Two vendors agreeing on lot number, folios, dimensions, price and whether an SDBM record already exists is a tight test, and the lot heading is quoted as evidence.",
+    "piece": "Brief: for digitized sale catalogue C, lots a to b, return the SDBM fields for each manuscript lot, quoting the lot heading. Return fields: catalogue, sale_date, lot, text_or_title, language, manuscript_date, folios, height_mm, width_mm, price, buyer_if_annotated, sdbm_match (existing id or none). Verifier: agree on lot, folios, dimensions, price and sdbm_match.",
+    "count": 2000,
+    "evidence": "A second AI opens the digitized catalogue page, compares each field, and searches SDBM for the proposed match.",
+    "gold": "Lots already in SDBM, with the record withheld, are seeded with their known entries.",
+    "risks": "Mixed languages and units (lines versus millimetres), annotated buyers' names of long-dead dealers, and duplicates across catalogues that need careful matching before ingest.",
+    "sources": [
+      "https://penntoday.upenn.edu/news/staff-qa-lynn-ransom",
+      "https://themedievalacademyblog.org/the-new-schoenberg-database-of-manuscripts-beta-launch",
+      "https://www.ub.uni-heidelberg.de/fr/helios/digi/artsales.html"
+    ]
+  },
+  {
+    "id": "H5",
+    "title": "Closing 1933 to 1945 provenance gaps with German Sales catalogues",
+    "question": "For works on US museums' published Nazi-era gap lists, do the roughly 9,000 digitized German-language auction catalogues of 1901 to 1945 record a sale of the work, and if so where, when and as what lot?",
+    "why_wanted": "Museums such as the Krannert Art Museum, the Memorial Art Gallery and the Freer and Sackler publish lists of objects whose 1933 to 1945 ownership is unknown and ask for information. Provenance researchers and claimant families need the sale record to confirm or clear a transfer, and a WJRO report cited by Artnet estimated up to 100,000 such works in US museums.",
+    "status": "The AAM's Nazi-Era Provenance Internet Portal closed, but the gap lists survive on museum sites and are updated as information arrives (Krannert, MAG). German Sales 1901 to 1945 (Kunstbibliothek Berlin, Heidelberg, Getty) digitized about 9,000 catalogues with OCR integrated into the Getty Provenance Index's 830,000 sale records; matching gap-list works to lots is still done museum by museum.",
+    "fit": "One gap-list object is one piece: search artist, title and dimensions across the Getty records and the Heidelberg full text, return candidate lots with their printed measurements. Two vendors agreeing on the verdict and the matched lots, with catalogue, date and lot named, give a lead anyone can open and compare.",
+    "piece": "Brief: for object O (museum, accession number, artist, title, medium, dimensions), search the German Sales catalogues and Getty records for lots by the artist with measurements within two centimetres and return every candidate with a verdict. Return fields: accession, candidates[] each with auction_house, sale_date, lot, title_as_printed, dimensions_as_printed, consignor_if_printed, verdict (match, possible, none). Verifier: agree on verdict and the set of matched lot identifiers.",
+    "count": 1200,
+    "evidence": "A second AI opens the catalogue by house, date and lot and compares the printed title and measurements with the museum's record.",
+    "gold": "Objects whose 1930s sale the museum has already found and published are seeded with the answer withheld.",
+    "risks": "Consignors are often anonymous or initials, deceased collectors and dealers are named, and a match is a lead, not proof: returns must not assert looting or wrongdoing.",
+    "sources": [
+      "https://kam.illinois.edu/resource/wwii-era-provenance-research-krannert-art-museum",
+      "https://getty.edu/research/tools/provenance/german_sales.html",
+      "https://www.smb.museum/en/museums-institutions/kunstbibliothek/collection-research/research/german-sales-1901-1945/"
+    ]
+  },
+  {
+    "id": "H6",
+    "title": "Letter metadata from printed editions for EMLO",
+    "question": "Which early modern correspondences printed in public-domain editions have no catalogue in Early Modern Letters Online, and for each letter who wrote to whom, when, from where and to where?",
+    "why_wanted": "EMLO (Bodleian, Cultures of Knowledge) is the union catalogue of early modern correspondence and its Contribute page invites metadata from scholarly editions and library catalogues. Historians of the republic of letters use it to reconstruct networks, and every uncatalogued edition is a hole in the graph.",
+    "status": "EMLO holds hundreds of catalogues, and the CKCC project contributed over 20,000 letter records from nine Dutch correspondences; the Contribute page and EMLO-Collect remain open (Cultures of Knowledge, fourth phase). Many nineteenth-century editions of scholars' letters on Internet Archive and HathiTrust have no EMLO catalogue.",
+    "fit": "A letter in a printed edition is a record with a heading and dateline a second reader checks on the same page. Two vendors agreeing on sender, recipient, normalized date, origin and page, with the heading quoted, is a direct test.",
+    "piece": "Brief: for digitized edition E, volume V, pages p to q, return one record per letter. Return fields: sender, recipient, date_as_printed, date_normalized, origin, destination_if_stated, language, incipit (first five words), page. Verifier: agree on sender, recipient, date_normalized, origin and page.",
+    "count": 2000,
+    "evidence": "A second AI opens the volume at the page and reads the heading and dateline.",
+    "gold": "Editions already catalogued in EMLO, such as a CKCC correspondence, are seeded with their records withheld.",
+    "risks": "Editorial dates and Old Style or New Style calendars cause honest disagreement, and EMLO ingestion still runs through its editors.",
+    "sources": [
+      "https://emlo.bodleian.ox.ac.uk/contribute",
+      "https://culturesofknowledge.history.ox.ac.uk/?p=8455",
+      "https://culturesofknowledge.history.ox.ac.uk/?p=5042"
+    ]
+  },
+  {
+    "id": "H7",
+    "title": "Describing captured letters in the Prize Papers",
+    "question": "For the mail in transit seized aboard ships between 1652 and 1815 (HCA 32) now imaged on the Prize Papers Portal, who wrote each letter, to whom, from where, on what date, in which language and about what?",
+    "why_wanted": "The National Archives and the University of Oldenburg are cataloguing about 500,000 records including an estimated 160,000 letters in more than 19 languages, with the project planned to run to 2037. The catalogue so far describes ships and bundles rather than every letter, and historians of migration, family life and language want letter-level access.",
+    "status": "HCA 32/94 to 159 (War of the Austrian Succession) are the only pieces catalogued in the new pattern; the portal launched with about 1,500 captures from 1793 to 1815; a volunteer team works the American War captures ship by ship (TNA Prize Papers pages; Oldenburg press releases).",
+    "fit": "A letter is a bounded, multilingual task whose address panel and dateline give checkable fields. Two vendors agreeing on sender, addressee, normalized date, place and language, with the address line quoted, is a test anyone with the image can run.",
+    "piece": "Brief: for the images of item HCA 32/xxx/yyy, return one record per letter. Return fields: sender_as_written, addressee_as_written, address_place, date_as_written, date_normalized, language, two_sentence_summary, image_numbers. Verifier: agree on sender, addressee, date_normalized, language and address_place.",
+    "count": 2000,
+    "evidence": "A second AI opens the same images on the portal and reads the address panel and dateline.",
+    "gold": "Letters the project team has already described in the catalogue are seeded with their descriptions withheld.",
+    "risks": "Seventeenth- and eighteenth-century hands in Dutch, French, Spanish and Danish; the portal's terms of use; and a project that may prefer its own student workflow.",
+    "sources": [
+      "https://www.nationalarchives.gov.uk/professional-guidance-and-services/our-research-and-academic-collaboration/our-research-projects/collections-and-archives-research/the-prize-papers/",
+      "https://blog.nationalarchives.gov.uk/prizes-for-all-volunteering-on-the-prize-papers-project",
+      "https://uol.de/aktuelles/artikel/online-ins-kapergeschehen"
+    ]
+  },
+  {
+    "id": "H8",
+    "title": "Dates and abstracts for thinly described Monasterium charters",
+    "question": "For charters on Monasterium.net imported with automatically created, incomplete descriptions that lack a machine-readable date and an abstract, what are the date, place of issue, issuer, recipient and legal content?",
+    "why_wanted": "Monasterium (ICARUS) holds more than 600,000 charters from over 150 archives, and its MOMAthon call said many descriptions are incomplete or erroneous and lack dates, so medievalists searching the portal cannot find them. The editing community of about 150 historians, students and laymen cannot keep pace alone.",
+    "status": "MOMAthons asked volunteers to add descriptions and transcriptions through the EditMOM editor, the last one confirmed online in November 2017 (ICARUS MOMAthon page; Cologne CCeH). Collaborative editing continues but the backlog of undated items has not been published as cleared.",
+    "fit": "One charter is one piece: read the image or the printed edition behind it, extract the dating clause, name the parties, write one sentence. Two vendors agreeing on normalized date, issuer, recipient and place, with the dating clause quoted, is checkable against the same image.",
+    "piece": "Brief: for charter identifier X, return the date as written and normalized, place of issue, issuer, recipient, type of act, a one-sentence abstract, and the quoted dating clause. Return fields: charter_id, date_as_written, date_normalized, place, issuer, recipient, act_type, abstract, dating_clause_quote. Verifier: agree on date_normalized, issuer, recipient and place.",
+    "count": 2000,
+    "evidence": "A second AI opens the charter image or its printed edition and locates the quoted dating clause.",
+    "gold": "Charters whose dates are settled in printed regesta are seeded with the fields withheld.",
+    "risks": "Latin and German palaeography, dating by feast days and regnal years that must be converted, and edits that still enter MOM-CA only through its moderators.",
+    "sources": [
+      "https://www.icar-us.eu/en/cooperation/online-portals/monasterium-net/momathon/",
+      "https://research-software.cceh.uni-koeln.de/software/monasterium-collaborative-archive",
+      "https://www.adfontes.uzh.ch/en/ressourcen/quellen-auswerten/monasterium-virtuelles-archiv-mitteleuropaeischer-urkunden"
+    ]
+  },
+  {
+    "id": "H9",
+    "title": "Early spellings for Hampshire, Kent and Lancashire place-names",
+    "question": "For each ancient parish and major settlement in Hampshire, Kent and Lancashire, what early spellings of its name, with year and source, occur in the public-domain printed records on which a county survey rests: Domesday, Pipe Rolls, Feet of Fines, the Calendars of Patent and Close Rolls, Lay Subsidies?",
+    "why_wanted": "The Survey of English Place-Names has published no volumes for Hampshire, Kent or Lancashire although editors are named for each, and place-name scholars and local historians need the spelling evidence assembled before etymologies can be argued. The Society's own reading list records these three as work underway with nothing published.",
+    "status": "EPNS lists Hampshire (Coates), Kent (Cullen) and Lancashire (Insley) as in progress with no volumes, Herefordshire likewise, and the most recent survey volume appeared in 2016 (EPNS survey page; SNSBI reading suggestions, current to 2024).",
+    "fit": "A parish is a bounded unit and the task is extraction with citation: spelling, year, source, volume, page. Two vendors agreeing on the set of spelling-year-source triples, each with the quoted context, give something a third reader checks in the scanned volume.",
+    "piece": "Brief: for parish P in county C, list every spelling of its name in the named digitized sources, each with year, source title, volume and page. Return fields: parish, county, forms[] each with spelling, year, source, volume, page, quoted_context. Verifier: agree on the set of (spelling, year, source) triples.",
+    "count": 1000,
+    "evidence": "A second AI opens the cited volume and page on Internet Archive, HathiTrust or British History Online and confirms the form.",
+    "gold": "Parishes already treated in Coates's Hampshire dictionary and Ekwall's Lancashire volume are seeded with their known forms.",
+    "risks": "OCR of Latin calendars, confusion between same-named places in different counties, and editors who may not want unsolicited slips.",
+    "sources": [
+      "https://nottingham.ac.uk/research/groups/epns/survey.aspx",
+      "https://www.snsbi.org.uk/exploring-names/reading-suggestions/"
+    ]
+  },
+  {
+    "id": "H10",
+    "title": "Locating the unlocated places of Pleiades",
+    "question": "For places in the Pleiades gazetteer tagged unlocated (attested in ancient texts but with no coordinates), has later scholarship or an epigraphic find fixed a location, and if so where and on what authority?",
+    "why_wanted": "Pleiades (ISAW, NYU) is the community gazetteer of more than 36,000 ancient places used by Pelagios and many linked-data projects, and an unlocated place cannot be mapped or joined to finds. Its editors accept cited contributions and the Barrington Atlas notes carried on these entries are often decades old.",
+    "status": "Entries such as Parasopiai, Platiae, Nasounia and Phela remain unlocated with only a Barrington note like 'in Jebel Zawiye?' (Pleiades place pages; ISAW project page). A total count was not retrievable during this survey because the site's bot check blocked the search page.",
+    "fit": "One place is one piece and the return is either a cited location or a cited 'no proposal found'. Two vendors agreeing on the modern site name and coordinates within a kilometre bucket, each quoting the publication that proposes it, give a check a stranger can redo.",
+    "piece": "Brief: for Pleiades place N, search gazetteers (TIB, DARE, Trismegistos Geo, regional surveys) and publications and return a proposed modern location or 'no proposal found'. Return fields: pleiades_id, status, modern_name, latitude, longitude, precision_km, proposing_publication with page, quoted_passage. Verifier: agree on status, modern_name and the coordinate bucket.",
+    "count": 1500,
+    "evidence": "A second AI finds the same identification in the named publication or gazetteer and checks the coordinates.",
+    "gold": "Unlocated entries the owner has already resolved from recent literature are seeded with the answer withheld.",
+    "risks": "Many places are truly unlocatable, models invent identifications readily, and Pleiades requires its own editorial review before anything is published.",
+    "sources": [
+      "https://pleiades.stoa.org/places/741571",
+      "https://pleiades.stoa.org/places/674258",
+      "https://isaw.nyu.edu/publications/research-reference/pleiades"
+    ]
+  },
+  {
+    "id": "H11",
+    "title": "Place-names in the Inquisitions Post Mortem matched to a gazetteer",
+    "question": "For each place named in the printed Calendars of Inquisitions Post Mortem outside the 1399 to 1447 digital edition, what modern settlement, ancient parish and county does the medieval spelling denote, with a gazetteer identifier?",
+    "why_wanted": "Mapping the Medieval Countryside (Winchester and King's College London) says the earlier calendar volumes on British History Online have limited functionality because names were spelled so variously. Historians of landholding and settlement need the IPMs searchable by place, and the project's full 1236 to 1509 coverage is still to come.",
+    "status": "The digital edition covers 1399 to 1447, with corrections and 48,000 jurors added; 29 printed volumes were planned for digitization, and volumes outside the edition remain text only (inquisitionspostmortem.ac.uk; medievalists.net reports of the 2014 beta). No later completion announcement was found.",
+    "fit": "An entry's list of places is a bounded matching task. Two vendors agreeing on modern place and county for each medieval form, with the manor and tenant context quoted and a Vision of Britain or Wikidata identifier given, is checkable by anyone reading the same entry.",
+    "piece": "Brief: for CIPM volume V, entry E, list every place named and give the modern settlement, ancient parish, county and a gazetteer identifier, citing the context used to disambiguate. Return fields: volume, entry, places[] each with form_as_printed, modern_name, parish, county, gazetteer_id, context_quote. Verifier: agree on modern_name and county for each form.",
+    "count": 2000,
+    "evidence": "A second AI reads the entry on British History Online or a scanned volume and checks the identification in the gazetteer.",
+    "gold": "Places already identified in the 1399 to 1447 edition are seeded with their identifications withheld.",
+    "risks": "Deserted villages, same-named places in one county, and some calendar volumes that are paywalled on BHO though scanned elsewhere.",
+    "sources": [
+      "https://inquisitionspostmortem.ac.uk/",
+      "https://www.medievalists.net/2014/06/18/mapping-medieval-countryside/",
+      "https://commons.datacite.org/doi.org/10.18742/g53w-ry29"
+    ]
+  },
+  {
+    "id": "H12",
+    "title": "Finishing the London Bills of Mortality, 1603 to 1752",
+    "question": "For the weekly London Bills of Mortality not yet transcribed by Death by Numbers, what burial and plague counts does each parish line give, and what do the christenings line and the causes-of-death table say?",
+    "why_wanted": "Death by Numbers (RRCHNM, NSF-funded) says its datasets are not complete, and demographers and historians of plague, parish administration and the early modern state use the bills. The project publishes open data and an API, so additions reach the field at once.",
+    "status": "Almost 8,000 weekly bills were printed between 1603 and 1752 from 147 parishes; the project reports over a million transcribed records and calls itself ongoing, with its latest posts in late 2025 (deathbynumbers.org; RRCHNM beta announcement).",
+    "fit": "A bill is a fixed table and numbers either match or do not. Two vendors agreeing on every parish count is a hard test, a script can confirm parish sums against the printed totals, and the project already holds thousands of transcribed bills as gold.",
+    "piece": "Brief: for bill image B (week ending date given), return the parish-by-parish buried and plague counts, the totals, christenings, and the causes table. Return fields: bill_date, parishes[] each with name, buried, plague, total_buried, total_plague, christened, causes[] each with cause and count. Verifier: agree on all numeric fields, with a check that parish sums equal printed totals.",
+    "count": 2000,
+    "evidence": "A second AI reads the same image and compares every number; sums that fail against the printed totals flag the return.",
+    "gold": "Bills the project has already transcribed are seeded with their counts committed by hash.",
+    "risks": "Damaged or blurred bills, variant parish names across the period, and a schema that must match the project's DataScribe fields to be of use.",
+    "sources": [
+      "https://deathbynumbers.org/",
+      "https://rrchnm.org/blog/announcing-death-by-numbers-beta/",
+      "https://rrchnm.org/blog/transcribing-structured-data-with-the-datascribe-module-for-omeka-s/"
+    ]
+  },
+  {
+    "id": "H13",
+    "title": "Structuring runaway advertisements for Freedom on the Move",
+    "question": "For the tens of thousands of fugitive-from-slavery advertisements uploaded to Freedom on the Move that still lack a transcription or structured fields, what did each advertisement say: newspaper, date, names, ages, descriptions, enslaver, place, reward?",
+    "why_wanted": "Freedom on the Move (Cornell) aims to gather every such advertisement from the colonial era to emancipation, a quarter-million by its estimate, and relies on crowdsourced transcription and metadata. Descendants of the enslaved and historians of slavery use the records, which are the only trace of many lives.",
+    "status": "The project launched with about 20,000 advertisements and now reports tens of thousands digitized, with transcription and metadata entry open to the public; a 2025 NEH stop-work order hit related research at Cornell (Cornell news; Library Journal). Current totals were not shown on the pages fetched.",
+    "fit": "One advertisement is one piece with a transcription and fixed fields. Two vendors agreeing on date, names, place and reward, with the full transcription as evidence, is checked by anyone reading the same clipping.",
+    "piece": "Brief: for advertisement image A, transcribe it fully and return the structured fields. Return fields: newspaper, date, self_liberated_names[], ages[], enslaver_name, place_of_escape, reward_amount, skills_and_marks, transcription. Verifier: agree on date, self_liberated_names, place_of_escape and reward_amount.",
+    "count": 2000,
+    "evidence": "A second AI reads the same clipping and compares the fields and transcription.",
+    "gold": "Advertisements already transcribed and reviewed in the database are seeded with their fields withheld.",
+    "risks": "Dehumanizing period language that must be preserved as record, enslavers' names with living descendants, and the need to coordinate with the project so the output enters its database.",
+    "sources": [
+      "https://freedomonthemove.org/",
+      "https://libraryjournal.com/story/Freedom-on-the-Move-Crowdsources-Runaway-Ads-for-Database-on-Fugitives-from-Slavery",
+      "https://as.cornell.edu/news/research-risk-records-enslaved-people-seeking-freedom"
+    ]
+  },
+  {
+    "id": "H14",
+    "title": "Indexing Nazi-persecution documents for everynamecounts",
+    "question": "For documents in the Arolsen Archives not yet indexed (prisoner registration cards, transport lists, registration forms), what name, birth date, birthplace, prisoner number and camp does each record show?",
+    "why_wanted": "The Arolsen Archives hold about 30 million documents on 17.5 million people and run #everynamecounts so that every name becomes searchable for families and researchers. Participation reached 216,000 volunteers in 2025 and the archive keeps issuing challenges for unindexed batches.",
+    "status": "Volunteers processed 1.15 million documents in 2025 and over 7 million cumulatively by May 2026; the January 2026 challenge targeted about 58,000 documents from Belgian archives (Arolsen press releases; volunteer listings). The archive's stated aim of fully indexing its most important data has not yet been declared met.",
+    "fit": "Cards are strictly structured and the archive already transcribes each one three times, so cross-vendor agreement matches its own method. The owner has millions of indexed cards as gold.",
+    "piece": "Brief: for document image D, return the personal fields exactly as written. Return fields: surname, given_names, birth_date, birthplace, nationality_as_written, prisoner_number, camp, document_type. Verifier: agree on surname, given_names, birth_date and prisoner_number.",
+    "count": 2000,
+    "evidence": "A second AI reads the same card and compares each field.",
+    "gold": "Documents already indexed and quality-checked by the archive are seeded with their fields withheld.",
+    "risks": "Highly sensitive data about victims, a few of whom may be living survivors, so the set should be limited to persons born before 1920 and run under the archive's own terms; German handwriting and emotional weight.",
+    "sources": [
+      "https://arolsen-archives.org/en/press-releases/research-on-victims-of-nazi-persecution-reached-new-high-in-2025/",
+      "https://arolsen-archives.org/en/press-releases/everynamecounts-challenge-for-international-holocaust-remembrance-day-2026/",
+      "https://www.zooniverse.org/projects/arolsen-archives/every-name-counts/about/faq"
+    ]
+  },
+  {
+    "id": "H15",
+    "title": "Transcribing Edo-period disaster records in Minna de Honkoku",
+    "question": "For the roughly 3,800 items (of 7,200 targeted) still untranscribed on Minna de Honkoku, pre-modern Japanese records of earthquakes, tsunamis and floods written in kuzushiji, what is the character-level transcription and what dates do the texts give?",
+    "why_wanted": "Historical seismologists at the University of Tokyo's Earthquake Research Institute and historians at Kyoto University reconstruct earthquake chronologies from these records, and more than 7,000 volunteers have joined. Completed transcriptions also train the kuzushiji recognition models the field now depends on.",
+    "status": "As of February 2026, 3,400 of 7,200 targeted items were complete, about 56 million characters, and an August 2025 update let users register their own collections (JpGU 2026 abstract; 2023 EAJS paper).",
+    "fit": "A page is a bounded task, and the dates found on it are discrete checkable fields. Two vendors agreeing on the dates and on the normalized text, with uncertain characters marked, give a reading a third party checks against the same image.",
+    "piece": "Brief: for page P of item I, return the transcription line by line in modern kanji and kana with uncertain characters marked, and every date found. Return fields: item, page, lines[], dates_found[] each with as_written and gregorian. Verifier: agree on dates_found and on the normalized transcription.",
+    "count": 2000,
+    "evidence": "A second AI reads the same page image and compares the transcription character by character.",
+    "gold": "Items already completed and checked on the platform are seeded with their transcriptions withheld.",
+    "risks": "Kuzushiji remains hard for current models, and the platform's learning-driven community may not welcome mass AI input without agreement.",
+    "sources": [
+      "https://pub.confit.atlas.jp/en/event/jpgu2026/presentation/U04-11",
+      "https://nomadit.co.uk/conference/eajs2023/paper/69227",
+      "https://dh2018.adho.org/minna-de-honkoku-learning-driven-crowdsourced-transcription-of-%E2%80%A8pre-modern-japanese-earthquake-records/"
+    ]
+  },
+  {
+    "id": "H16",
+    "title": "1918 influenza intervention dates for small US cities",
+    "question": "For US cities of 10,000 to 50,000 people in 1918, outside the 43 to 50 large cities already studied, on what dates did local newspapers report the first cases, the closure of schools and gathering places, and the lifting of those orders?",
+    "why_wanted": "Epidemiologists and historians test whether the timing of non-pharmaceutical interventions changed mortality, but the standard dataset (Markel and colleagues, JAMA 2007) covers 43 large cities, and extensions cover Ohio and Massachusetts cities over 25,000 or fourteen Alaskan communities. Small cities are the missing stratum, and their newspapers for 1918 to 1919 are digitized in Chronicling America.",
+    "status": "The 43-city dataset and the University of Michigan's Influenza Encyclopedia (50 cities) stand; the Alaska study (Emerging Infectious Diseases, 2025) is the newest small-community extension and used digitized newspapers exactly this way. No multi-state small-city dataset exists.",
+    "fit": "Each city is one piece and each event is a date with a newspaper issue and page. Two vendors agreeing on the event dates, each quoting the sentence that reports the order, is checked by opening the same issue.",
+    "piece": "Brief: for city C, using digitized 1918 to 1919 newspapers, return the date of the first reported local case, the first closure order, the lifting of the ban, and any second closure, each with newspaper title, issue date, page and a quoted sentence. Return fields: city, state, events[] each with event_type, date, newspaper, issue_date, page, quote. Verifier: agree on the event dates.",
+    "count": 800,
+    "evidence": "A second AI opens the issue and page on Chronicling America and finds the quoted sentence.",
+    "gold": "The 43 cities already coded in the JAMA dataset are seeded with their dates withheld.",
+    "risks": "Gaps in digitized runs, conflicting reports within one town, and the difference between a date reported and a date enacted.",
+    "sources": [
+      "https://www.influenzaarchive.org/browse/cities/index.html",
+      "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12205443/",
+      "https://www.cidrap.umn.edu/influenza-general/study-says-nondrug-measures-helped-1918-flu-pandemic"
+    ]
+  },
+  {
+    "id": "H17",
+    "title": "Sourcing Wikidata birth and death dates from period newspapers",
+    "question": "For people who died between 1850 and 1925 whose Wikidata birth or death date carries no reference, does a contemporaneous digitized newspaper notice (Chronicling America, Trove, Papers Past, Delpher, Gallica) confirm, correct or contradict the date?",
+    "why_wanted": "About 37 percent of Wikidata's date-of-birth and date-of-death statements were unsourced when the StrepHit grant measured them, and libraries and knowledge graphs reuse those dates; GDELT has documented conflicting dates between Wikidata and language editions of Wikipedia. Wikidata editors want references, and historians want the errors found.",
+    "status": "The StrepHit project (2016) added references by mining text; the unsourced share remains large and conflicting attributes were still being reported in the 2020s (Wikimedia grant page; GDELT blog). No systematic newspaper-based check of historical persons exists.",
+    "fit": "One person is one piece and the return is a verdict with a quote, newspaper, issue date and page. Two vendors agreeing on verdict, found date and issue are checked by anyone who opens the issue, and the owner has referenced items as gold.",
+    "piece": "Brief: for item Q (name, claimed dates, places), find a contemporaneous newspaper notice and report what date it gives. Return fields: qid, claimed_date, found_date, verdict (confirms, contradicts, not_found), newspaper, issue_date, page, quote. Verifier: agree on verdict, found_date, newspaper and issue_date.",
+    "count": 2000,
+    "evidence": "A second AI opens the same issue and page and locates the quoted sentence.",
+    "gold": "Items whose dates are already referenced to a reliable source are seeded with the reference withheld.",
+    "risks": "Only persons dead a century or more; obituaries themselves err; namesakes mislead; and writing to Wikidata still needs a bot approval or community process.",
+    "sources": [
+      "https://meta.wikimedia.org/wiki/Grants:IEG/StrepHit:_Wikidata_Statements_Validation_via_References/Timeline",
+      "https://blog.gdeltproject.org/knowledge-graphs-over-wikidata-wikipedia-conflicting-attributes/"
+    ]
+  },
+  {
+    "id": "H18",
+    "title": "Indexing baptisms of enslaved people in the Slave Societies Digital Archive",
+    "question": "For the roughly 600,000 images of ecclesiastical registers from Cuba, Brazil, Colombia and Spanish Florida in the Slave Societies Digital Archive, what does each baptismal entry record: date, child's name, status as enslaved or free, stated origin or nation, parents, owner, godparents, officiant?",
+    "why_wanted": "Vanderbilt's archive preserved more than 750,000 records of Africans and their descendants, and Michigan State's BARDSS was designed to turn them into a person-level database for descendants and historians of Atlantic slavery. Enslaved.org now aggregates exactly this kind of data, and the entries remain largely unindexed.",
+    "status": "The images have been online since 2012, a Havana volume of 1590 to 1600 alone holds 1,223 entries, and BARDSS published its field structure in 2015 to 2016 (JBHE; MSU Cultural Heritage Informatics blog). No later BARDSS progress report could be found, so its current state is unverified.",
+    "fit": "A baptismal entry is a formulaic Spanish or Portuguese paragraph with fixed slots. Two vendors agreeing on date, name, status, owner and parents, with the entry transcribed as evidence, is checkable against the same image.",
+    "piece": "Brief: for register R, image I, transcribe each baptismal entry and return its fields. Return fields: entry_index, date, baptized_name, status, origin_or_nation, parents, owner, godparents, officiant, transcription. Verifier: agree on date, baptized_name, status, owner and parents.",
+    "count": 2000,
+    "evidence": "A second AI reads the same image and compares the fields and transcription.",
+    "gold": "Entries from the Havana 1590 to 1600 volume and other published transcriptions are seeded with the fields withheld.",
+    "risks": "Colonial palaeography, enslavers named in the record, descendant communities' sensitivities, and the archive's terms of use.",
+    "sources": [
+      "https://jbhe.com/2012/02/vanderbilt-establishes-digital-archive-of-slave-records-from-spanish-societies-in-the-new-world",
+      "https://chi.anp.casl.cal.msu.edu/2015/12/04/bardss-baptism-record-database-for-slave-societies/",
+      "https://lod.enslaved.org/wiki/Q1134346"
+    ]
+  },
+  {
+    "id": "H19",
+    "title": "Dating undated charters in printed English cartularies",
+    "question": "For undated twelfth- and thirteenth-century charters printed in public-domain cartulary editions (Surtees Society, Record Society and similar volumes), what date range do the witnesses and formulae support, with each bound tied to a dated attestation elsewhere?",
+    "why_wanted": "The DEEDS project at Toronto built a statistical dater on about 10,000 dated charters and notes that dating by matching names is error-prone and that errors multiply when charters date other charters; editors, prosopographers and local historians still need dates for the thousands of undated charters in print. A transparent evidence chain per charter is what the field asks for.",
+    "status": "DEEDS methods are published (Annals of Applied Statistics, 2012; Gervers, Dating Undated Medieval Charters, 2000) and its corpus of dated charters was drawn from 115 printed collections, but no coordinated effort has dated the undated remainder (DEEDS project pages).",
+    "fit": "A charter is a bounded task whose return is a range plus a chain of cited attestations. Because honest daters differ at the margins, a panel ranking candidate returns by the coherence and checkability of their evidence suits better than exact agreement.",
+    "piece": "Brief: for charter n in edition E, list the parties and witnesses, identify each with a dated attestation elsewhere (edition, number, date), and return a terminus post and terminus ante. Return fields: edition, charter_number, witnesses[] each with name_as_printed, identification, attestation_citation, attestation_date, terminus_post, terminus_ante, reasoning. Verifier: judge, with the identified witness set as the field the panel checks first.",
+    "count": 2000,
+    "evidence": "A second AI checks each cited attestation in the named edition and tests whether the bounds follow from them.",
+    "gold": "Charters printed with an editor's date in a different edition are seeded with that date withheld.",
+    "risks": "Homonymous witnesses, cartulary copies that abbreviate witness lists, and models that state ranges with unearned confidence.",
+    "sources": [
+      "https://deeds.utsc.utoronto.ca/?p=144",
+      "https://arxiv.org/pdf/1301.2405",
+      "https://www.medievalists.net/2013/01/dating-medieval-english-charters/"
+    ]
+  },
+  {
+    "id": "H20",
+    "title": "Officials' tables from Chinese local gazetteers for CBDB",
+    "question": "For the tables of officials in digitized Ming and Qing local gazetteers (Harvard-Yenching rare gazetteers in LoGaRT, Internet Archive, ctext), who held each local office, from which year, with what native place and degree?",
+    "why_wanted": "The China Biographical Database (Harvard, Academia Sinica, Peking University) says it has avoided systematic gazetteer mining for fear of regional bias but intends to do it, and its existing gazetteer-derived data has many missing variables. Historians of the Chinese bureaucracy and of local society need the officeholder lists, which gazetteers record consistently.",
+    "status": "CBDB held about 471,000 persons by 2020 and its gazetteer data about 0.12 million records covering 90,000 official names, with disambiguation by cross-tabulating overlapping gazetteers as the known method (CBDB collection notes; City University of Hong Kong abstract); LoGaRT opened 410 rare gazetteers to registered users in 2020.",
+    "fit": "One gazetteer's officials table is one bounded, highly regular piece. Two vendors agreeing on the rows (name in characters, office, start year) with the leaf cited is checked by opening the same page.",
+    "piece": "Brief: for gazetteer G (edition year), juan J, officials table T, return one row per officeholder. Return fields: gazetteer, edition_year, juan, office, rows[] each with name_characters, start_reign_year, start_gregorian, native_place, degree, leaf. Verifier: agree on name_characters, office and start_gregorian for each row.",
+    "count": 2000,
+    "evidence": "A second AI opens the cited leaf and compares each row.",
+    "gold": "Tables already entered in CBDB are seeded with their rows withheld.",
+    "risks": "Variant characters and multiple editions of one gazetteer, and ingestion into CBDB that still requires its editors.",
+    "sources": [
+      "https://cbdb.hsites.harvard.edu/how-cbdb-collects-data-and-why-you-do-not-always-find-what-you-want",
+      "https://scholars.cityu.edu.hk/en/publications/disambiguating-names-of-chinese-historical-figures-in-local-gazet/",
+      "https://mpiwg-berlin.mpg.de/news/local-gazetteers-research-tools-logart-research-tool-made-open-access"
+    ]
+  }
+]

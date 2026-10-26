@@ -1,0 +1,410 @@
+{
+  "title": "Transcribe imaged herbarium labels into Darwin Core",
+  "done_when": "Every sheet has a transcription on which two AIs of different vendors agree for the name as written, the event date and the collector number, with the verbatim label and the other Darwin Core fields kept as evidence for a reader to check against the image.",
+  "slug": "herbarium-labels",
+  "topics": [
+    "herbarium",
+    "darwin-core",
+    "transcription",
+    "biodiversity",
+    "gbif",
+    "specimens"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 3,
+    "endgame_at": 2,
+    "budget": 32,
+    "patch_max": 0
+  },
+  "pieces": {
+    "sheet/*": {
+      "count": 32,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Specimen {n}: a herbarium sheet of the {s.inst} (herbarium code {s.code}), catalogue number {s.catalog}, published to GBIF in the dataset titled {s.dataset} and shown with its image on {s.portal}. Find the record by its catalogue number, open the specimen image and read every label and annotation slip on the sheet. Return the label text verbatim, then the Darwin Core fields read from it. scientific_name is the genus and species epithet as written on the label by the collector or the last determiner, with the infraspecific rank and epithet when the label gives one, without author names, the genus capitalized and the epithet in lower case; for a hybrid formula, both names joined by a lower-case x. event_date is the collection date in ISO form, YYYY-MM-DD, or YYYY-MM or YYYY when the label gives no more, and empty when the label gives no date. record_number is the collector's number exactly as written, or s.n. when the label gives none. recorded_by, locality, country, state_province, county, verbatim_coordinates, elevation, habitat and determination are evidence that a reader checks against the image. Where the record already holds a value, read the label rather than copying the record, and note in notes where the two differ or the writing is uncertain. If the taxon is listed as threatened in its country or on a CITES appendix, give the locality only to the county or district and no coordinates, as GBIF generalizes them. Give identifiers, never links; if the image cannot be opened, say so in notes and leave the fields empty.",
+      "data": {
+        "s": "sheets"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scientific_name",
+          "event_date",
+          "record_number",
+          "recorded_by",
+          "locality",
+          "country",
+          "state_province",
+          "county",
+          "verbatim_coordinates",
+          "elevation",
+          "habitat",
+          "determination",
+          "verbatim_label",
+          "notes"
+        ],
+        "properties": {
+          "scientific_name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "event_date": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "record_number": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "recorded_by": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "locality": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "country": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "state_province": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "county": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "verbatim_coordinates": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "elevation": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "habitat": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "determination": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "verbatim_label": {
+            "type": "string",
+            "maxLength": 3000
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      },
+      "agree": [
+        "scientific_name",
+        "event_date",
+        "record_number"
+      ]
+    }
+  },
+  "data": {
+    "sheets": [
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU031118",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284415
+      },
+      {
+        "inst": "Botanical Research Institute of Texas, R. Dale Thomas Collection formerly of the University of Louisiana at Monroe",
+        "code": "NLU",
+        "catalog": "NLU0171439",
+        "dataset": "University of Louisiana at Monroe Herbarium, R. Dale Thomas Collection",
+        "portal": "the SERNEC portal",
+        "gbif_key": 4101961256
+      },
+      {
+        "inst": "Naturalis Biodiversity Center",
+        "code": "WAG",
+        "catalog": "WAG.1992779",
+        "dataset": "Naturalis Biodiversity Center (NL) - Botany",
+        "portal": "the Naturalis Bioportal",
+        "gbif_key": 5207107476
+      },
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU031119",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284417
+      },
+      {
+        "inst": "Botanical Research Institute of Texas, R. Dale Thomas Collection formerly of the University of Louisiana at Monroe",
+        "code": "NLU",
+        "catalog": "NLU0213198",
+        "dataset": "University of Louisiana at Monroe Herbarium, R. Dale Thomas Collection",
+        "portal": "the SERNEC portal",
+        "gbif_key": 4101805412
+      },
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU031117",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284420
+      },
+      {
+        "inst": "Botanical Research Institute of Texas, R. Dale Thomas Collection formerly of the University of Louisiana at Monroe",
+        "code": "NLU",
+        "catalog": "NLU0291185",
+        "dataset": "University of Louisiana at Monroe Herbarium, R. Dale Thomas Collection",
+        "portal": "the SERNEC portal",
+        "gbif_key": 4101887871
+      },
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU044236",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284637
+      },
+      {
+        "inst": "Harvard University Herbaria, New England Botanical Club collection",
+        "code": "NEBC",
+        "catalog": "02756435",
+        "dataset": "Harvard University Herbaria: All Records",
+        "portal": "the Harvard University Herbaria specimen database",
+        "gbif_key": 6558596304
+      },
+      {
+        "inst": "Botanical Research Institute of Texas, R. Dale Thomas Collection formerly of the University of Louisiana at Monroe",
+        "code": "NLU",
+        "catalog": "NLU0180045",
+        "dataset": "University of Louisiana at Monroe Herbarium, R. Dale Thomas Collection",
+        "portal": "the SERNEC portal",
+        "gbif_key": 4101978139
+      },
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU044237",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284639
+      },
+      {
+        "inst": "California Botanic Garden Herbarium",
+        "code": "RSA",
+        "catalog": "RSA0680287",
+        "dataset": "RSA - California Botanic Garden Herbarium",
+        "portal": "the CCH2 portal of the Consortium of California Herbaria",
+        "gbif_key": 6415683408
+      },
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU044238",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284640
+      },
+      {
+        "inst": "Naturalis Biodiversity Center",
+        "code": "WAG",
+        "catalog": "WAG.1992763",
+        "dataset": "Naturalis Biodiversity Center (NL) - Botany",
+        "portal": "the Naturalis Bioportal",
+        "gbif_key": 5207093473
+      },
+      {
+        "inst": "California Botanic Garden Herbarium",
+        "code": "RSA",
+        "catalog": "RSA0685804",
+        "dataset": "RSA - California Botanic Garden Herbarium",
+        "portal": "the CCH2 portal of the Consortium of California Herbaria",
+        "gbif_key": 6502633302
+      },
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU044239",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284641
+      },
+      {
+        "inst": "California Botanic Garden Herbarium",
+        "code": "RSA",
+        "catalog": "RSA0682312",
+        "dataset": "RSA - California Botanic Garden Herbarium",
+        "portal": "the CCH2 portal of the Consortium of California Herbaria",
+        "gbif_key": 6491024387
+      },
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU044234",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284642
+      },
+      {
+        "inst": "California Botanic Garden Herbarium",
+        "code": "RSA",
+        "catalog": "RSA0663684",
+        "dataset": "RSA - California Botanic Garden Herbarium",
+        "portal": "the CCH2 portal of the Consortium of California Herbaria",
+        "gbif_key": 5937671956
+      },
+      {
+        "inst": "The New York Botanical Garden",
+        "code": "NY",
+        "catalog": "04285502",
+        "dataset": "The New York Botanical Garden Herbarium (NY)",
+        "portal": "the C. V. Starr Virtual Herbarium",
+        "gbif_key": 5829477564
+      },
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU031178",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284686
+      },
+      {
+        "inst": "Arizona State University Vascular Plant Herbarium",
+        "code": "ASU",
+        "catalog": "ASU0383011",
+        "dataset": "Arizona State University Vascular Plant Herbarium",
+        "portal": "the SEINet portal",
+        "gbif_key": 4948741575
+      },
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU031177",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284689
+      },
+      {
+        "inst": "Arizona State University Vascular Plant Herbarium",
+        "code": "ASU",
+        "catalog": "ASU0356691",
+        "dataset": "Arizona State University Vascular Plant Herbarium",
+        "portal": "the SEINet portal",
+        "gbif_key": 4948739104
+      },
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU034884",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284700
+      },
+      {
+        "inst": "Harvard University Herbaria, New England Botanical Club collection",
+        "code": "NEBC",
+        "catalog": "02756444",
+        "dataset": "Harvard University Herbaria: All Records",
+        "portal": "the Harvard University Herbaria specimen database",
+        "gbif_key": 6558597306
+      },
+      {
+        "inst": "University of California, Los Angeles Herbarium",
+        "code": "LA",
+        "catalog": "LA00675246",
+        "dataset": "LA - University of California, Los Angeles Herbarium",
+        "portal": "the CCH2 portal of the Consortium of California Herbaria",
+        "gbif_key": 5293360471
+      },
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU034885",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284701
+      },
+      {
+        "inst": "University of California, Los Angeles Herbarium",
+        "code": "LA",
+        "catalog": "LA00677933",
+        "dataset": "LA - University of California, Los Angeles Herbarium",
+        "portal": "the CCH2 portal of the Consortium of California Herbaria",
+        "gbif_key": 5900687305
+      },
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU034882",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284702
+      },
+      {
+        "inst": "Naturalis Biodiversity Center",
+        "code": "WAG",
+        "catalog": "WAG.1992777",
+        "dataset": "Naturalis Biodiversity Center (NL) - Botany",
+        "portal": "the Naturalis Bioportal",
+        "gbif_key": 5207109467
+      },
+      {
+        "inst": "Stover-Ebinger Herbarium of Eastern Illinois University",
+        "code": "EIU",
+        "catalog": "EIU034883",
+        "dataset": "Eastern Illinois University, Stover-Ebinger Herbarium",
+        "portal": "the Consortium of Midwest Herbaria portal",
+        "gbif_key": 4081284703
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "sheet/3": {
+        "scientific_name": "Millettia dinklagei",
+        "event_date": "2024-02-27",
+        "record_number": "14962"
+      },
+      "sheet/9": {
+        "scientific_name": "Mitchella repens",
+        "event_date": "2026-05-02",
+        "record_number": "15"
+      },
+      "sheet/14": {
+        "scientific_name": "Pentaclethra macrophylla",
+        "event_date": "2024-03-04",
+        "record_number": "14989"
+      },
+      "sheet/20": {
+        "scientific_name": "Pohlia longibracteata",
+        "event_date": "2025-04-13",
+        "record_number": "67792"
+      },
+      "sheet/26": {
+        "scientific_name": "Betula lenta",
+        "event_date": "2026-05-02",
+        "record_number": "5"
+      },
+      "sheet/31": {
+        "scientific_name": "Nymphoides senegalensis",
+        "event_date": "2024-03-01",
+        "record_number": "14970"
+      }
+    }
+  }
+}

@@ -1,0 +1,502 @@
+{
+  "title": "Sourcing Wikidata death dates from period newspapers: does a contemporary notice confirm the day?",
+  "done_when": "Every person has a verdict and, where a notice was found, the day of death it gives, agreed by two AIs of different vendors, each naming a newspaper, an issue date and a page in an open archive that a reader can open and check against the quoted words.",
+  "slug": "wikidata-dates-from-newspapers",
+  "topics": [
+    "wikidata",
+    "newspapers",
+    "biography",
+    "death-dates",
+    "chronicling-america",
+    "trove",
+    "papers-past",
+    "delpher"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 4,
+    "endgame_at": 2,
+    "budget": 39,
+    "patch_max": 0
+  },
+  "pieces": {
+    "person/*": {
+      "count": 39,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Person {n}: Wikidata item {p.qid}, {p.name}, {p.about}. The item gives a birth on {p.born} at {p.born_place} and a death on {p.died} at {p.died_place}; the death date carries no reference. Search {p.archive} for a notice printed within a year after that date: a death notice, an obituary, a funeral report or a news report of the death. Return a verdict: confirms when a notice gives the same day of death, contradicts when a notice gives a different day, not_found when no notice is found. Give found_date, as YYYY-MM-DD, only when a notice names the day of death or lets it be fixed from the issue date (a death reported as yesterday in an issue of the 25th fell on the 24th); leave it out when nothing is found. With any verdict but not_found, name the newspaper by its title and town, give the issue date and the page number, and quote the words that give the date, at most 40 words. Give no links and no catalogue numbers: the title, the date and the page are enough for a reader to open the page. Namesakes are common, so the notice is to fit the places and the description given here; a note may say what else was found or what the notice says of the birth.",
+      "data": {
+        "p": "people"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verdict"
+        ],
+        "properties": {
+          "verdict": {
+            "enum": [
+              "confirms",
+              "contradicts",
+              "not_found"
+            ]
+          },
+          "found_date": {
+            "type": "string",
+            "maxLength": 10,
+            "format": "date"
+          },
+          "newspaper": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "issue_date": {
+            "type": "string",
+            "maxLength": 10,
+            "format": "date"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "agree": [
+        "verdict",
+        "found_date"
+      ]
+    }
+  },
+  "data": {
+    "people": [
+      {
+        "qid": "Q6256532",
+        "name": "John Salmond",
+        "about": "New Zealand judge and jurist",
+        "born": "3 December 1862",
+        "born_place": "North Shields",
+        "died": "19 September 1924",
+        "died_place": "Wellington",
+        "archive": "Papers Past, the National Library of New Zealand collection of digitized newspapers"
+      },
+      {
+        "qid": "Q29558876",
+        "name": "Rosetta Douglass",
+        "about": "African-American teacher and activist, daughter of Frederick Douglass",
+        "born": "24 June 1839",
+        "born_place": "New Bedford, Massachusetts",
+        "died": "25 November 1906",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q24579035",
+        "name": "Alice Lee Moqué",
+        "about": "American traveler, writer, newspaper correspondent and photographer",
+        "born": "20 October 1861",
+        "born_place": "New Orleans",
+        "died": "16 July 1919",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q109837",
+        "name": "August Schoenborn",
+        "about": "German architect",
+        "born": "20 October 1827",
+        "born_place": "Erfurt",
+        "died": "24 January 1902",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q63882733",
+        "name": "Mary Ross Banks",
+        "about": "American author",
+        "born": "4 March 1846",
+        "born_place": "Macon, Georgia",
+        "died": "15 September 1910",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q3101969",
+        "name": "George E. Tyson",
+        "about": "American whaler and Arctic explorer",
+        "born": "15 December 1829",
+        "born_place": "Red Bank, New Jersey",
+        "died": "18 October 1906",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q16059102",
+        "name": "A. U. Wyman",
+        "about": "Treasurer of the United States",
+        "born": "25 September 1833",
+        "born_place": "Cornwall, Vermont",
+        "died": "5 March 1915",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q2923017",
+        "name": "Boyd Dunlop Morehead",
+        "about": "Premier of Queensland from 1888 to 1890",
+        "born": "24 August 1843",
+        "born_place": "Sydney",
+        "died": "30 October 1905",
+        "died_place": "Brisbane",
+        "archive": "Trove, the National Library of Australia collection of digitized newspapers"
+      },
+      {
+        "qid": "Q16030344",
+        "name": "Elizabeth Pulman",
+        "about": "New Zealand photographer",
+        "born": "1 August 1836",
+        "born_place": "Lymm, Cheshire",
+        "died": "3 February 1900",
+        "died_place": "Auckland",
+        "archive": "Papers Past, the National Library of New Zealand collection of digitized newspapers"
+      },
+      {
+        "qid": "Q670812",
+        "name": "Francis G. Newlands",
+        "about": "American politician, senator for Nevada",
+        "born": "28 August 1846",
+        "born_place": "Natchez, Mississippi",
+        "died": "24 December 1917",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q1819701",
+        "name": "Albert Margry",
+        "about": "Dutch architect",
+        "born": "30 April 1857",
+        "born_place": "Harderwijk",
+        "died": "27 October 1911",
+        "died_place": "Rotterdam",
+        "archive": "Delpher, the Dutch national library collection of digitized newspapers"
+      },
+      {
+        "qid": "Q16059164",
+        "name": "David Gage",
+        "about": "New Zealand rugby union player",
+        "born": "11 January 1868",
+        "born_place": "Kihikihi",
+        "died": "12 October 1916",
+        "died_place": "Wellington",
+        "archive": "Papers Past, the National Library of New Zealand collection of digitized newspapers"
+      },
+      {
+        "qid": "Q4684313",
+        "name": "Adolph Bartels",
+        "about": "Mayor of Adelaide from 1871 to 1873",
+        "born": "29 July 1819",
+        "born_place": "Gilten, Hanover",
+        "died": "9 November 1878",
+        "died_place": "Adelaide",
+        "archive": "Trove, the National Library of Australia collection of digitized newspapers"
+      },
+      {
+        "qid": "Q15429698",
+        "name": "Jedediah Hyde Baxter",
+        "about": "American surgeon, Surgeon General of the United States Army",
+        "born": "11 March 1837",
+        "born_place": "Strafford, Vermont",
+        "died": "4 December 1890",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q5539276",
+        "name": "George Fincham",
+        "about": "organ builder",
+        "born": "20 August 1828",
+        "born_place": "London",
+        "died": "21 December 1910",
+        "died_place": "Melbourne",
+        "archive": "Trove, the National Library of Australia collection of digitized newspapers"
+      },
+      {
+        "qid": "Q27990217",
+        "name": "Emilie Culp",
+        "about": "Dutch singer and actress",
+        "born": "2 February 1868",
+        "born_place": "Groningen",
+        "died": "19 January 1898",
+        "died_place": "Amsterdam",
+        "archive": "Delpher, the Dutch national library collection of digitized newspapers"
+      },
+      {
+        "qid": "Q16063066",
+        "name": "John Hobbs",
+        "about": "Wesleyan missionary, artisan and interpreter",
+        "born": "22 February 1800",
+        "born_place": "a place the item does not give",
+        "died": "24 June 1883",
+        "died_place": "Auckland",
+        "archive": "Papers Past, the National Library of New Zealand collection of digitized newspapers"
+      },
+      {
+        "qid": "Q15429653",
+        "name": "John Shillinglaw",
+        "about": "Australian public servant and historian",
+        "born": "30 September 1831",
+        "born_place": "London",
+        "died": "26 May 1905",
+        "died_place": "Melbourne",
+        "archive": "Trove, the National Library of Australia collection of digitized newspapers"
+      },
+      {
+        "qid": "Q477224",
+        "name": "Bernard Zweers",
+        "about": "Dutch composer",
+        "born": "18 May 1854",
+        "born_place": "Amsterdam",
+        "died": "9 December 1924",
+        "died_place": "Amsterdam",
+        "archive": "Delpher, the Dutch national library collection of digitized newspapers"
+      },
+      {
+        "qid": "Q212679",
+        "name": "Henry Clay Payne",
+        "about": "American politician, Postmaster General of the United States",
+        "born": "23 November 1843",
+        "born_place": "Ashfield, Massachusetts",
+        "died": "4 October 1904",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q12834389",
+        "name": "Servaas de Bruin",
+        "about": "Dutch writer and translator",
+        "born": "11 February 1821",
+        "born_place": "Schoonhoven",
+        "died": "12 January 1901",
+        "died_place": "The Hague",
+        "archive": "Delpher, the Dutch national library collection of digitized newspapers"
+      },
+      {
+        "qid": "Q643109",
+        "name": "Jan Heemskerk Azn.",
+        "about": "Dutch politician",
+        "born": "30 July 1818",
+        "born_place": "Amsterdam",
+        "died": "9 October 1897",
+        "died_place": "The Hague",
+        "archive": "Delpher, the Dutch national library collection of digitized newspapers"
+      },
+      {
+        "qid": "Q1361191",
+        "name": "Harry Atkinson",
+        "about": "Premier of New Zealand",
+        "born": "1 November 1831",
+        "born_place": "Broxton, Cheshire",
+        "died": "28 June 1892",
+        "died_place": "Wellington",
+        "archive": "Papers Past, the National Library of New Zealand collection of digitized newspapers"
+      },
+      {
+        "qid": "Q16030669",
+        "name": "John Wesley Ross",
+        "about": "American attorney and politician",
+        "born": "23 June 1841",
+        "born_place": "Lewistown, Pennsylvania",
+        "died": "29 July 1902",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q6243979",
+        "name": "John Langdon Parsons",
+        "about": "South Australian politician",
+        "born": "28 April 1837",
+        "born_place": "Launceston, Cornwall",
+        "died": "21 August 1903",
+        "died_place": "Adelaide",
+        "archive": "Trove, the National Library of Australia collection of digitized newspapers"
+      },
+      {
+        "qid": "Q432966",
+        "name": "Máximo Jerez",
+        "about": "Nicaraguan politician and diplomat",
+        "born": "6 June 1818",
+        "born_place": "León, Nicaragua",
+        "died": "11 August 1881",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q37983074",
+        "name": "Caroline B. Winslow",
+        "about": "American physician",
+        "born": "19 November 1822",
+        "born_place": "Appledore, Kent",
+        "died": "7 December 1896",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q5049693",
+        "name": "Castello Newton Holford",
+        "about": "American novelist",
+        "born": "7 December 1845",
+        "born_place": "Beetown, Wisconsin",
+        "died": "29 May 1905",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q4982138",
+        "name": "John Bell Blish",
+        "about": "United States naval officer",
+        "born": "8 September 1860",
+        "born_place": "Seymour, Indiana",
+        "died": "22 December 1921",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q5091032",
+        "name": "Charles Pierre Schimpf",
+        "about": "Dutch army officer and politician, Governor of Surinam",
+        "born": "13 February 1812",
+        "born_place": "Outreau",
+        "died": "31 December 1886",
+        "died_place": "The Hague",
+        "archive": "Delpher, the Dutch national library collection of digitized newspapers"
+      },
+      {
+        "qid": "Q2514768",
+        "name": "Dirk Margadant",
+        "about": "Dutch architect",
+        "born": "22 February 1849",
+        "born_place": "The Hague",
+        "died": "26 October 1915",
+        "died_place": "Amsterdam",
+        "archive": "Delpher, the Dutch national library collection of digitized newspapers"
+      },
+      {
+        "qid": "Q18390730",
+        "name": "Zalmon Richards",
+        "about": "American educator",
+        "born": "11 August 1811",
+        "born_place": "Cummington, Massachusetts",
+        "died": "1 November 1899",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q3809552",
+        "name": "John Plimmer",
+        "about": "British-born settler and businessman",
+        "born": "28 June 1812",
+        "born_place": "Shrewsbury",
+        "died": "5 January 1905",
+        "died_place": "Wellington",
+        "archive": "Papers Past, the National Library of New Zealand collection of digitized newspapers"
+      },
+      {
+        "qid": "Q164401",
+        "name": "Simon Newcomb",
+        "about": "American astronomer",
+        "born": "12 March 1835",
+        "born_place": "Wallace, Nova Scotia",
+        "died": "11 July 1909",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q7184901",
+        "name": "Philippe Viard",
+        "about": "Roman Catholic bishop of Wellington",
+        "born": "11 October 1809",
+        "born_place": "Lyon",
+        "died": "2 June 1872",
+        "died_place": "Wellington",
+        "archive": "Papers Past, the National Library of New Zealand collection of digitized newspapers"
+      },
+      {
+        "qid": "Q2131942",
+        "name": "Herman Hendrik Baanders",
+        "about": "Dutch architect",
+        "born": "22 August 1849",
+        "born_place": "Zutphen",
+        "died": "31 March 1905",
+        "died_place": "Amsterdam",
+        "archive": "Delpher, the Dutch national library collection of digitized newspapers"
+      },
+      {
+        "qid": "Q16030381",
+        "name": "Eugenia Washington",
+        "about": "American historian and civil servant",
+        "born": "27 June 1838",
+        "born_place": "Charles Town, West Virginia",
+        "died": "30 November 1900",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q116895",
+        "name": "Albert Samuel Gatschet",
+        "about": "Swiss ethnologist and linguist",
+        "born": "3 October 1832",
+        "born_place": "Beatenberg",
+        "died": "16 March 1907",
+        "died_place": "Washington, D.C.",
+        "archive": "Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "qid": "Q17795559",
+        "name": "John Farrell",
+        "about": "Australian poet, brewer and journalist",
+        "born": "18 December 1851",
+        "born_place": "Buenos Aires",
+        "died": "8 January 1904",
+        "died_place": "Sydney",
+        "archive": "Trove, the National Library of Australia collection of digitized newspapers"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "person/19": {
+        "verdict": "confirms",
+        "found_date": "1924-12-09"
+      },
+      "person/20": {
+        "verdict": "confirms",
+        "found_date": "1904-10-04"
+      },
+      "person/22": {
+        "verdict": "confirms",
+        "found_date": "1897-10-09"
+      },
+      "person/23": {
+        "verdict": "confirms",
+        "found_date": "1892-06-28"
+      },
+      "person/34": {
+        "verdict": "confirms",
+        "found_date": "1909-07-11"
+      },
+      "person/38": {
+        "verdict": "confirms",
+        "found_date": "1907-03-16"
+      }
+    }
+  }
+}

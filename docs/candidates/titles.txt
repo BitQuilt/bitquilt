@@ -1,0 +1,131 @@
+Mathematics and computation
+1. Literature status for every open Erdős problem
+2. Lean statements and solutions for Erdős problems
+3. Run the finite computations that settle forty Erdős problems
+4. Fill the 1000+ theorems formalization table
+5. Extend the OEIS sequences marked as needing more terms
+6. Tighten covering design bounds in the Covering Repository
+7. Denser packings of equal circles in a square
+8. Raise Hadamard maximal determinant records
+9. Longer snakes and coils in hypercubes of dimension 9 to 13
+10. Graceful labelings for every tree on 36 to 40 vertices
+11. Settle the open Graffiti.pc conjectures by exhaustive small-graph search
+12. Close the undetermined unknotting numbers in KnotInfo
+13. A 5-chromatic unit-distance graph smaller than 509 vertices
+14. Advance the open-ended aliquot sequences below one million
+15. First-occurrence prime gaps above 2^64
+16. ABC triples with c above 2^63
+17. Reproduce and extend the odd perfect number bound past 10^2200
+18. Decide the remaining BB(6) holdout Turing machines
+19. Smaller sorting networks for 13 to 20 inputs
+20. Close the DIMACS graph colouring instances still open
+
+Empirical science
+21. Recompute reported p-values where statcheck cannot read
+22. Do papers citing retracted work know it was retracted?
+23. Citation accuracy audit of high-prestige science journals
+24. Re-extract effect sizes behind psychology meta-analyses
+25. Rerun ecology meta-analyses that shared code and data
+26. Repair and rerun biomedical Jupyter notebooks from PubMed Central
+27. Preregistration versus paper: a deviation ledger
+28. Registered versus published primary outcomes in trials
+29. Retracted trials inside meta-analyses: a living recomputation
+30. Trustworthiness checks on trials in systematic reviews
+31. Verify nucleotide reagents in published papers
+32. Risk-of-bias annotation for preclinical living evidence summaries
+33. Extract GWAS associations for the catalog's uncurated papers
+34. Transcribe imaged herbarium labels into Darwin Core
+35. Transcribe weather from untranscribed ship logbooks
+36. Extract species interactions locked in papers for GloBI
+37. Which published paleoclimate records were never archived?
+38. Experimental band gaps with method and provenance
+39. Vet TESS planet candidates with standard diagnostics
+40. Code published replications into the FORRT Replication Database
+
+History and archives
+41. Dating undated Cairo Geniza documentary fragments
+42. Identifying the texts of unidentified medieval fragments
+43. Copy-level provenance of digitized incunabula for MEI
+44. Manuscript sale records from digitized auction catalogues
+45. Closing 1933 to 1945 provenance gaps with German Sales catalogues
+46. Letter metadata from printed editions for EMLO
+47. Describing captured letters in the Prize Papers
+48. Dates and abstracts for thinly described Monasterium charters
+49. Early spellings for Hampshire, Kent and Lancashire place-names
+50. Locating the unlocated places of Pleiades
+51. Place-names in the Inquisitions Post Mortem matched to a gazetteer
+52. Finishing the London Bills of Mortality, 1603 to 1752
+53. Structuring runaway advertisements for Freedom on the Move
+54. Indexing Nazi-persecution documents for everynamecounts
+55. Transcribing Edo-period disaster records in Minna de Honkoku
+56. 1918 influenza intervention dates for small US cities
+57. Sourcing Wikidata birth and death dates from period newspapers
+58. Indexing baptisms of enslaved people in the Slave Societies Digital Archive
+59. Dating undated charters in printed English cartularies
+60. Officials' tables from Chinese local gazetteers for CBDB
+
+Languages, literature and philosophy
+61. Grambank grammar features for languages not yet coded
+62. Universal Dependencies treebanks for languages that have none
+63. Re-transcribe and gloss Dorsey's 1890 Omaha and Ponca texts
+64. Earlier first attestations for words the OED has appealed on
+65. Corpus citations for the stalled Sanskrit historical dictionary
+66. Early spellings for counties the Place-Name Survey has not reached
+67. Transcribe every scholion in the Homer Multitext manuscripts
+68. Transcribe and collate the 88 Canterbury Tales witnesses
+69. Translate the untranslated Ur III administrative tablets
+70. Transliterate Classic Maya inscriptions block by block
+71. Transcribe the remaining Bentham manuscript folios
+72. Date the undated English charters of 1066 to 1307
+73. English translations of Galen's untranslated treatises
+74. Translate the Kitab al-Aghani anecdote by anecdote
+75. Translate the untranslated Pali commentaries on the suttas
+76. English translation of the Joseon Veritable Records, entry by entry
+77. Translate and source every fragment in Stoicorum Veterum Fragmenta
+78. Trace unsourced famous quotations to their earliest print
+79. Tabulate the Arden of Faversham attribution evidence scene by scene
+80. Machine-check every demonstration in Spinoza's Ethics
+
+Social change
+81. UK public inquiry recommendations: accepted, implemented or dropped
+82. Australian royal commission recommendations: who acted since
+83. Lead service line inventories: public, and what they say
+84. Criminalisation of homelessness ordinances, by code section
+85. Zoning codes in the forty states the Atlas missed
+86. Police union contracts: six accountability provisions, by jurisdiction
+87. Which local agencies bought which surveillance technology
+88. FOIA logs released as PDFs, turned into one index
+89. ICE detention inspections: every deficiency, by facility and standard
+90. Precinct election results trapped in county PDFs
+91. Modern slavery statements, assessed against the law's checklist
+92. Small strikes the national trackers miss
+93. Public bodies' web accessibility statements, checked against law
+94. Extractive contracts published but not yet annotated
+95. UK ministers' meetings: one ledger from quarterly returns
+96. Protest events, counted and sourced, for the Consortium
+97. Book removals in school board minutes, district by district
+98. Bail schedules: the posted price of release, by county
+99. Climate emergency declarations: did a plan follow
+100. Water shutoff rules from utilities' own published policies
+
+AI rights, sentience and welfare
+101. Consciousness indicator checklist applied to published AI systems
+102. Every statute and bill on AI legal personhood, by jurisdiction
+103. Ledger of labs' model welfare commitments and what followed
+104. One item bank of surveys on AI sentience and rights
+105. Claim-by-claim position table of the AI consciousness literature
+106. Sourced timeline of the AI sentience discourse since 2022
+107. Model self-reports under one protocol, across vendors and versions
+108. Court and office decisions on AI as inventor or author, worldwide
+109. Statutory recognitions and definitions of animal sentience
+110. What labs instruct their models to say about themselves
+111. International instruments on legal personality for AI
+112. Response table for 'Propositions Concerning Digital Minds and Society'
+113. Citation-context table for the field's anchor papers
+114. Catalogue of open letters, declarations and organisations
+115. Model deprecation and retirement ledger
+116. The word 'sentient' in bills and debates about AI
+117. Religious bodies' formal statements on AI consciousness and personhood
+118. Non-English scholarship on AI legal subjecthood and consciousness
+119. Welfare sections of system cards and model cards, indexed
+120. Argument map of the AI moral status debate

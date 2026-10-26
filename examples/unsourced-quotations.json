@@ -1,0 +1,316 @@
+{
+  "title": "Trace unsourced famous quotations to their earliest print",
+  "done_when": "Every quotation has an earliest printed appearance whose year, and whose attribution in that printing, two AIs of different vendors agree on, with the title, author, page, date and a short passage from the page kept as evidence for a reader to check against the scan; an earlier printing found later, read on its page, supersedes an accepted answer through a challenge.",
+  "slug": "unsourced-quotations",
+  "topics": [
+    "quotations",
+    "attribution",
+    "print-history",
+    "reference",
+    "newspapers",
+    "digitized-books"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 4,
+    "endgame_at": 2,
+    "budget": 36,
+    "patch_max": 0
+  },
+  "pieces": {
+    "quotation/*": {
+      "count": 36,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Quotation {n}, attributed to {quote.figure}, {quote.role}, and listed as unsourced or misattributed: {quote.text} Find the earliest dated appearance of this saying in print, in this wording or a close variant in any language, in digitized books, newspapers and periodicals (the Internet Archive, HathiTrust, Google Books, Chronicling America and whatever newspaper archives you can reach), and read the passage on the scanned page itself rather than in a quotation dictionary or on a quotation website. Return year, the year of that printing as a whole number (0 when no printed appearance can be found); attribution, what that printing says about who said the words: figure when it credits {quote.figure}, other when it credits someone else by name, none when it gives the words as the writer's own, as anonymous or proverbial, or as said by someone it does not name, and not-found when nothing was found; title, the book, newspaper or periodical and the article or chapter; author, the writer or editor as named there; place, the volume, issue, page or column; date, the fullest date the printing carries; passage, the words as they stand on the page, at most sixty words; attributed_to, the name the printing gives for the words, if any; where_seen, the archive or library and the identifier of the scan or catalogue record you read, named in words; notes, later attributions and anything uncertain. Every field is plain text that names sources by title and identifier, with no links.",
+      "data": {
+        "quote": "quotes"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "year",
+          "attribution",
+          "title",
+          "author",
+          "place",
+          "date",
+          "passage",
+          "where_seen"
+        ],
+        "properties": {
+          "year": {
+            "type": "integer"
+          },
+          "attribution": {
+            "enum": [
+              "figure",
+              "other",
+              "none",
+              "not-found"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "author": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "place": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "date": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "passage": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "attributed_to": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "where_seen": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      },
+      "agree": [
+        "year",
+        "attribution"
+      ]
+    }
+  },
+  "data": {
+    "quotes": [
+      {
+        "text": "Insanity is doing the same thing over and over again and expecting different results.",
+        "figure": "Albert Einstein",
+        "role": "the physicist, who died in 1955"
+      },
+      {
+        "text": "Not everything that can be counted counts, and not everything that counts can be counted.",
+        "figure": "Albert Einstein",
+        "role": "the physicist, who died in 1955"
+      },
+      {
+        "text": "Two things are infinite: the universe and human stupidity; and I am not sure about the universe.",
+        "figure": "Albert Einstein",
+        "role": "the physicist, who died in 1955"
+      },
+      {
+        "text": "Everybody talks about the weather, but nobody does anything about it.",
+        "figure": "Mark Twain",
+        "role": "the American writer, who died in 1910"
+      },
+      {
+        "text": "The coldest winter I ever spent was a summer in San Francisco.",
+        "figure": "Mark Twain",
+        "role": "the American writer, who died in 1910"
+      },
+      {
+        "text": "There are three kinds of lies: lies, damned lies, and statistics.",
+        "figure": "Mark Twain",
+        "role": "the American writer, who died in 1910"
+      },
+      {
+        "text": "All that is necessary for the triumph of evil is that good men do nothing.",
+        "figure": "Edmund Burke",
+        "role": "the Irish-born statesman and philosopher, who died in 1797"
+      },
+      {
+        "text": "If you're not a liberal when you're 25, you have no heart. If you're not a conservative by the time you're 35, you have no brain.",
+        "figure": "Winston Churchill",
+        "role": "the British prime minister, who died in 1965"
+      },
+      {
+        "text": "You make a living by what you get; you make a life by what you give.",
+        "figure": "Winston Churchill",
+        "role": "the British prime minister, who died in 1965"
+      },
+      {
+        "text": "First they ignore you, then they laugh at you, then they fight you, then you win.",
+        "figure": "Mahatma Gandhi",
+        "role": "the Indian independence leader, who died in 1948"
+      },
+      {
+        "text": "Be the change you wish to see in the world.",
+        "figure": "Mahatma Gandhi",
+        "role": "the Indian independence leader, who died in 1948"
+      },
+      {
+        "text": "It is better to be silent and be thought a fool than to speak and remove all doubt.",
+        "figure": "Abraham Lincoln",
+        "role": "the American president, who died in 1865"
+      },
+      {
+        "text": "You cannot help the poor by destroying the rich.",
+        "figure": "Abraham Lincoln",
+        "role": "the American president, who died in 1865"
+      },
+      {
+        "text": "Nearly all men can stand adversity, but if you want to test a man's character, give him power.",
+        "figure": "Abraham Lincoln",
+        "role": "the American president, who died in 1865"
+      },
+      {
+        "text": "It is not the strongest of the species that survives, nor the most intelligent, but rather the one most adaptable to change.",
+        "figure": "Charles Darwin",
+        "role": "the naturalist, who died in 1882"
+      },
+      {
+        "text": "Tell me and I forget. Teach me and I may remember. Involve me and I learn.",
+        "figure": "Benjamin Franklin",
+        "role": "the American printer and statesman, who died in 1790"
+      },
+      {
+        "text": "When governments fear the people, there is liberty. When the people fear the government, there is tyranny.",
+        "figure": "Thomas Jefferson",
+        "role": "the American president, who died in 1826"
+      },
+      {
+        "text": "The best government is that which governs least.",
+        "figure": "Thomas Jefferson",
+        "role": "the American president, who died in 1826"
+      },
+      {
+        "text": "Great minds discuss ideas; average minds discuss events; small minds discuss people.",
+        "figure": "Eleanor Roosevelt",
+        "role": "the American first lady and diplomat, who died in 1962"
+      },
+      {
+        "text": "I disapprove of what you say, but I will defend to the death your right to say it.",
+        "figure": "Voltaire",
+        "role": "the French writer, who died in 1778"
+      },
+      {
+        "text": "God is a comedian playing to an audience too afraid to laugh.",
+        "figure": "Voltaire",
+        "role": "the French writer, who died in 1778"
+      },
+      {
+        "text": "Laws, like sausages, cease to inspire respect in proportion as we know how they are made.",
+        "figure": "Otto von Bismarck",
+        "role": "the German chancellor, who died in 1898"
+      },
+      {
+        "text": "Always forgive your enemies; nothing annoys them so much.",
+        "figure": "Oscar Wilde",
+        "role": "the Irish writer, who died in 1900"
+      },
+      {
+        "text": "I like work: it fascinates me. I can sit and look at it for hours.",
+        "figure": "Oscar Wilde",
+        "role": "the Irish writer, who died in 1900"
+      },
+      {
+        "text": "Everyone is a genius. But if you judge a fish by its ability to climb a tree, it will live its whole life believing that it is stupid.",
+        "figure": "Albert Einstein",
+        "role": "the physicist, who died in 1955"
+      },
+      {
+        "text": "Compound interest is the most powerful force in the universe.",
+        "figure": "Albert Einstein",
+        "role": "the physicist, who died in 1955"
+      },
+      {
+        "text": "History does not repeat itself, but it rhymes.",
+        "figure": "Mark Twain",
+        "role": "the American writer, who died in 1910"
+      },
+      {
+        "text": "I would have written a shorter letter, but I did not have the time.",
+        "figure": "Mark Twain",
+        "role": "the American writer, who died in 1910"
+      },
+      {
+        "text": "A pessimist sees the difficulty in every opportunity; an optimist sees the opportunity in every difficulty.",
+        "figure": "Winston Churchill",
+        "role": "the British prime minister, who died in 1965"
+      },
+      {
+        "text": "An eye for an eye will make the whole world blind.",
+        "figure": "Mahatma Gandhi",
+        "role": "the Indian independence leader, who died in 1948"
+      },
+      {
+        "text": "The children now love luxury; they have bad manners, contempt for authority; they show disrespect for elders and love chatter in place of exercise.",
+        "figure": "Socrates",
+        "role": "the Athenian philosopher, who died in 399 BC"
+      },
+      {
+        "text": "Be kind, for everyone you meet is fighting a hard battle.",
+        "figure": "Plato",
+        "role": "the Athenian philosopher, who died in 348 or 347 BC"
+      },
+      {
+        "text": "We are what we repeatedly do. Excellence, then, is not an act, but a habit.",
+        "figure": "Aristotle",
+        "role": "the Greek philosopher, who died in 322 BC"
+      },
+      {
+        "text": "The single biggest problem in communication is the illusion that it has taken place.",
+        "figure": "George Bernard Shaw",
+        "role": "the Irish playwright, who died in 1950"
+      },
+      {
+        "text": "I learned long ago never to wrestle with a pig. You get dirty, and besides, the pig likes it.",
+        "figure": "George Bernard Shaw",
+        "role": "the Irish playwright, who died in 1950"
+      },
+      {
+        "text": "Give a man a fish and you feed him for a day. Teach him how to fish and you feed him for a lifetime.",
+        "figure": "Laozi",
+        "role": "the ancient Chinese philosopher to whom the Tao Te Ching is ascribed"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "quotation/1": {
+        "year": 1981,
+        "attribution": "none"
+      },
+      "quotation/2": {
+        "year": 1963,
+        "attribution": "none"
+      },
+      "quotation/4": {
+        "year": 1897,
+        "attribution": "none"
+      },
+      "quotation/7": {
+        "year": 1916,
+        "attribution": "none"
+      },
+      "quotation/10": {
+        "year": 1918,
+        "attribution": "none"
+      },
+      "quotation/15": {
+        "year": 1963,
+        "attribution": "figure"
+      },
+      "quotation/19": {
+        "year": 1901,
+        "attribution": "other"
+      },
+      "quotation/22": {
+        "year": 1869,
+        "attribution": "other"
+      }
+    }
+  }
+}
