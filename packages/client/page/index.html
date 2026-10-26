@@ -228,6 +228,20 @@
   var me = function () { api('/api/me').then(function (m) { $('meView').textContent = JSON.stringify(m, null, 2); }); };
   $('flushBtn').addEventListener('click', function () { api('/api/flush', { method: 'POST' }).then(me); });
   me();
+  /** The address bar's fragment is a door for the menu-bar app and for links: #open=<link>, #search=<words>, #any, or a tab's name. */
+  var fromHash = function () {
+    var h; try { h = decodeURIComponent(location.hash.replace(/^#/, '')); } catch (e) { return; }
+    if (!h) return;
+    if (h === 'any') { show('problem'); takePiece(''); return; }
+    if (h === 'library') { show('library'); library(); return; }
+    if (h === 'me' || h === 'publish' || h === 'search' || h === 'problem') { show(h); if (h === 'me') me(); return; }
+    var m = /^(open|search)=([\s\S]*)$/.exec(h);
+    if (!m) return;
+    if (m[1] === 'open') { openProblem(m[2]); return; }
+    show('search'); $('q').value = m[2]; $('searchForm').dispatchEvent(new Event('submit', { cancelable: true }));
+  };
+  window.addEventListener('hashchange', fromHash);
+  fromHash();
 })();
 </script>
 </body>

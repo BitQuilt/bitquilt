@@ -3,7 +3,7 @@
  * log from the places that answer, in the link's order, then the config's, then the cache; check every hash; keep a
  * copy; reduce. Posting goes to every tracker known; an event no tracker takes waits in the queue.
  */
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Envelope, type Event, type Hash, type Receipt, type State, IDENTITY_LOG, blobProblems, envelopeProblems, eventId, hashBytes, problemHash, reduce, verifyChain } from '@bitquilt/core';
 import { type Config, ensureHome } from './config.js';
@@ -18,16 +18,60 @@ export interface Resolved {
   tracker: string | null;
 }
 
+/** What a home has touched: the problems opened, the pieces claimed and returned, and the standing list (QX-4). */
+export interface Library {
+  problems: Record<string, { title: string; slug: string; trackers: string[]; first: string; last: string }>;
+  pieces: Record<string, { problem: Hash; name: string; when: string; what: string; verifier?: string }>;
+  /** The standing list (QX-4): the problems this key seeds, by the time it said so. */
+  seeding: Record<string, string>;
+}
+
+const EMPTY_LIBRARY = (): Library => ({ problems: {}, pieces: {}, seeding: {} });
+
 export class Resolver {
   readonly home: string;
   private readonly fetchImpl: typeof fetch;
 
   private readonly postHeaders: Record<string, string>;
+  private readonly libraryFile: string;
+  private held: Library | null = null;
+  /** The file's size and time when it was last read or written, so another process's write is seen before this one's next. */
+  private stamp = '';
 
   constructor(readonly config: Config, home: string, fetchImpl: typeof fetch = fetch, postHeaders: Record<string, string> = {}) {
     this.home = ensureHome(home);
     this.fetchImpl = fetchImpl;
     this.postHeaders = postHeaders;
+    this.libraryFile = join(this.home, 'library.json');
+  }
+
+  private fileStamp(): string {
+    try {
+      const s = statSync(this.libraryFile);
+      return `${s.size}:${s.mtimeMs}`;
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * The home's library, one for every Quilt over this resolver. It is read from disk when first asked for and again
+   * whenever the file has changed since, so a second copy of quilt on the same home (a one-shot command, say) is seen
+   * rather than written over.
+   */
+  get library(): Library {
+    const now = this.fileStamp();
+    if (this.held === null || now !== this.stamp) {
+      this.held = now === '' ? EMPTY_LIBRARY() : (JSON.parse(readFileSync(this.libraryFile, 'utf8')) as Library);
+      if (!this.held.seeding) this.held.seeding = {};
+      this.stamp = now;
+    }
+    return this.held;
+  }
+
+  saveLibrary(): void {
+    writeFileSync(this.libraryFile, JSON.stringify(this.library, null, 2) + '\n');
+    this.stamp = this.fileStamp();
   }
 
   /** The places to ask, in order: the link's trackers, the config's, then mirrors. */

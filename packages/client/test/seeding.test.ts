@@ -57,13 +57,8 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
 describe('seeding and the offer from Quilt', () => {
-  it('takes the tracker\'s offer when no problem is named, and never the key\'s own problem', async () => {
-    const { hash, pick, posted } = await a.next('');
-    expect(hash).toBe(problem);
-    expect(pick.piece.family).toBe('statement');
-    expect(posted.queued).toBe(false);
-    await expect(owner.next('')).rejects.toThrow(/nothing to do/);
-  });
+  // The seeder's test runs first: with nobody seeding, the watch piece is anyone's, and which of three equally rare pieces
+  // comes first turns on the hour's tie-break. Once the seeder holds it, the other key can only draw a statement.
   it('seeds a problem: a seed event the tracker counts, the standing list, and the watch piece first', async () => {
     const r = await b.seed(problem, true);
     expect(r.queued).toBe(false);
@@ -77,5 +72,12 @@ describe('seeding and the offer from Quilt', () => {
     expect(off.queued).toBe(false);
     expect(b.library.seeding).toEqual({});
     expect(((await (await fetch(`${base}p/${problem}/scrape`)).json()) as { seeders: number }).seeders).toBe(0);
+  });
+  it('takes the tracker\'s offer when no problem is named, and never the key\'s own problem', async () => {
+    const { hash, pick, posted } = await a.next('');
+    expect(hash).toBe(problem);
+    expect(pick.piece.family).toBe('statement');
+    expect(posted.queued).toBe(false);
+    await expect(owner.next('')).rejects.toThrow(/nothing to do/);
   });
 });

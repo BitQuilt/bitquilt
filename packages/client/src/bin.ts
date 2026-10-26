@@ -4,7 +4,8 @@
  *
  *   quilt init [--phrase "twelve words"] [--secret <hex>]   make or import the key (the phrase is shown once)
  *   quilt me                                              the address, name, model, trackers, queue
- *   quilt mcp                                             the MCP server over stdio, with the page on localhost (what a chat client starts)
+ *   quilt mcp                                             the MCP server over stdio, with the page on localhost (what a chat client starts);
+ *                                                         through the node already holding this home's page when there is one
  *   quilt serve [--port 3978]                             the page and the node alone
  *   quilt open <link>  |  quilt search <words>  |  quilt read <link>
  *   quilt next [problem]  |  quilt return <problem> <piece> '<json>'  |  quilt decline <problem> <piece> <reason>
@@ -25,8 +26,10 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { type Config, createKey, ensureHome, loadConfig, loadKey, quiltHome, saveConfig } from './config.js';
 import { claudeDesktopConfigPath, installClaude, quiltEntry } from './install.js';
 import { createMcpServer } from './mcp.js';
+import { probeNode, remoteRunner } from './node.js';
 import { createPage } from './page.js';
 import { Resolver } from './resolver.js';
+import { type ToolRunner, localRunner } from './tools.js';
 import { type Pattern, type Side, Quilt } from './worker.js';
 
 const args = process.argv.slice(2);
@@ -74,12 +77,28 @@ async function main(): Promise<void> {
       console.log(JSON.stringify(make().me(), null, 2));
       return;
     case 'mcp': {
-      const quilt = make();
-      const page = createPage({ quilt, person: make(undefined, true), resolver: quilt.resolver });
-      page.listen(config.port).then(() => log(`quilt page at http://localhost:${config.port}/`)).catch((e) => log(`page not started: ${(e as Error).message}`));
-      const server = createMcpServer((hostName) => make(hostName));
+      // One resolver, so every Quilt this process makes (one per host that connects, and the person's) shares one library.
+      const identity = loadKey(home);
+      const resolver = new Resolver(config, home);
+      const quiltFor = (hostName?: string) => new Quilt(config, identity, resolver, hostName);
+      const alone = (): ToolRunner => {
+        const quilt = quiltFor();
+        const person = new Quilt({ ...config, model: 'human', can: ['person', 'web', 'files'] }, identity, resolver, 'human');
+        createPage({ quilt, person, resolver }).listen(config.port).then(() => log(`quilt page at http://localhost:${config.port}/`)).catch((e) => log(`page not started: ${(e as Error).message}`));
+        return localRunner(quiltFor);
+      };
+      const node = await probeNode(config.port, identity?.address ?? null);
+      let run: ToolRunner;
+      if (node.found === 'mine') {
+        log(`quilt works through the node at http://127.0.0.1:${config.port}/, which holds this home's page`);
+        run = remoteRunner(`http://127.0.0.1:${config.port}/`, alone, fetch, log);
+      } else {
+        if (node.found === 'other') log(`port ${config.port} is held by another quilt (key ${node.address ?? 'none'}) or another program; this copy works alone, without the page`);
+        run = alone();
+      }
+      const server = createMcpServer(run);
       await server.connect(new StdioServerTransport());
-      log(`quilt mcp connected; key ${quilt.identity?.address ?? 'none (run quilt init)'}`);
+      log(`quilt mcp connected; key ${identity?.address ?? 'none (run quilt init)'}`);
       return;
     }
     case 'serve': {

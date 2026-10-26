@@ -9,6 +9,7 @@ import { type Hash } from '@bitquilt/core';
 import { Store, createTracker } from '@bitquilt/tracker';
 import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
 import { createMcpServer } from '../src/mcp.js';
+import { localRunner } from '../src/tools.js';
 import { Resolver } from '../src/resolver.js';
 import { type Pattern, Quilt } from '../src/worker.js';
 
@@ -120,7 +121,7 @@ describe('Quilt against a tracker', () => {
 describe('the connector over MCP', () => {
   it('lists tools whose text describes and never instructs, and answers with quoted text and handles', async () => {
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    const server = createMcpServer(() => a);
+    const server = createMcpServer(localRunner(() => a));
     await server.connect(serverTransport);
     const client = new Client({ name: 'claude-test', version: '0.0.0' });
     await client.connect(clientTransport);

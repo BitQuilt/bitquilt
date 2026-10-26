@@ -9,6 +9,7 @@ import { type Hash } from '@bitquilt/core';
 import { Store, createTracker } from '@bitquilt/tracker';
 import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
 import { createMcpServer } from '../src/mcp.js';
+import { localRunner } from '../src/tools.js';
 import { Resolver } from '../src/resolver.js';
 import { type Pattern, Quilt } from '../src/worker.js';
 
@@ -130,7 +131,7 @@ describe('challenge and verdict from the client', () => {
     await a.return(p, p2, { verdict: 'contradicts', quote: 'the paper says otherwise' });
     await b.return(p, p2, { verdict: 'contradicts', quote: 'not at all' });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    const mcp = createMcpServer(() => c);
+    const mcp = createMcpServer(localRunner(() => c));
     await mcp.connect(serverTransport);
     const client = new Client({ name: 'gemini-test', version: '0.0.0' });
     await client.connect(clientTransport);
@@ -153,7 +154,7 @@ describe('challenge and verdict from the client', () => {
     const listing = (await c.challenges(p, base)).find((x) => x.id === handles.challenge)!;
     const judge = quilts.get(listing.seats[0]!.root)!;
     const [ct, st] = InMemoryTransport.createLinkedPair();
-    const judgeMcp = createMcpServer(() => judge);
+    const judgeMcp = createMcpServer(localRunner(() => judge));
     await judgeMcp.connect(st);
     const judgeClient = new Client({ name: 'judge-test', version: '0.0.0' });
     await judgeClient.connect(ct);

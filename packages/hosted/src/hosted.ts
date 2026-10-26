@@ -13,7 +13,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { type Address, addressOf, randomSecretKey, secretFromHex, secretToHex } from '@bitquilt/core';
 import type { Store } from '@bitquilt/tracker';
-import { type Config, DEFAULT_CONFIG, Quilt, Resolver, createMcpServer } from 'quilt';
+import { type Config, DEFAULT_CONFIG, Quilt, Resolver, createMcpServer, localRunner } from 'quilt';
 
 export interface HostedOptions {
   store: Store;
@@ -153,11 +153,11 @@ export function createHosted(options: HostedOptions): Hosted {
         sessions.set(id, { transport, server, token, last: Date.now() });
       },
     });
-    server = createMcpServer((hostName) => {
+    server = createMcpServer(localRunner((hostName) => {
       const q = quiltFor(token, hostName);
       if (!q) throw new Error('this address is gone');
       return q;
-    });
+    }));
     transport.onclose = () => {
       if (transport.sessionId) sessions.delete(transport.sessionId);
     };

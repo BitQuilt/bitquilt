@@ -3,8 +3,6 @@
  * read, publish, challenge an acceptance, give a verdict, rank a judge piece's candidates. The MCP server and the page
  * are thin shells over this. Other people's words come out of here only as quoted text with the signer named.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import {
   type Capability, type Envelope, type Event, type Hash, type Pick, type PieceView, type Problem, type State, type Unsigned,
   commitHash, eventId, hashBytes, isHash, newNonce, next, plainTextProblems, problemHash, renderInputs, signEvent, signObject, canonical, envelopeProblems,
@@ -12,7 +10,9 @@ import {
 import type { Config, Identity } from './config.js';
 import { type Link, makeLink, parseLink } from './link.js';
 import { announcementEvent, postToRelays, searchRelays } from './relay.js';
-import type { Resolver } from './resolver.js';
+import type { Library, Resolver } from './resolver.js';
+
+export type { Library } from './resolver.js';
 
 export const SIDES = ['challenger', 'author'] as const;
 export type Side = (typeof SIDES)[number];
@@ -114,6 +114,17 @@ export function modelFor(hostName: string | undefined, override?: string): strin
   return `${n.replace(/\s+/g, '-')}/${n.replace(/\s+/g, '-')}`;
 }
 
+/** One thing waiting on this key's person, for a shell's list of what is wanted from them. */
+export interface AttentionItem {
+  problem: Hash;
+  title: string;
+  piece: Hash | null;
+  name: string | null;
+  /** rank: drawn to a judge panel and not yet ranked; verdict: drawn to a challenge and not yet answered; disputed: a piece this key returned is disputed; person: a human piece in a kept problem has a seat open. */
+  why: 'rank' | 'verdict' | 'disputed' | 'person';
+  tracker: string | null;
+}
+
 /** A maintainer's takedown as a tracker reports it (QX-6). */
 export interface Takedown {
   id: string;
@@ -135,23 +146,16 @@ export interface Pattern {
   topics?: string[];
 }
 
-interface Library {
-  problems: Record<string, { title: string; slug: string; trackers: string[]; first: string; last: string }>;
-  pieces: Record<string, { problem: Hash; name: string; when: string; what: string; verifier?: string }>;
-  /** The standing list (QX-4): the problems this key seeds, by the time it said so. */
-  seeding: Record<string, string>;
-}
-
 export class Quilt {
-  readonly library: Library;
-  private readonly libraryFile: string;
   readonly hostName: string | undefined;
 
   constructor(readonly config: Config, readonly identity: Identity | null, readonly resolver: Resolver, hostName?: string) {
     this.hostName = hostName;
-    this.libraryFile = join(resolver.home, 'library.json');
-    this.library = existsSync(this.libraryFile) ? (JSON.parse(readFileSync(this.libraryFile, 'utf8')) as Library) : { problems: {}, pieces: {}, seeding: {} };
-    if (!this.library.seeding) this.library.seeding = {};
+  }
+
+  /** The home's library, held by the resolver: every Quilt over one resolver reads and writes the same one. */
+  get library(): Library {
+    return this.resolver.library;
   }
 
   model(): string {
@@ -163,7 +167,7 @@ export class Quilt {
   }
 
   private save(): void {
-    writeFileSync(this.libraryFile, JSON.stringify(this.library, null, 2) + '\n');
+    this.resolver.saveLibrary();
   }
 
   private needKey(): Identity {
@@ -381,6 +385,48 @@ export class Quilt {
   }
 
   /** The piece said as text: its kind and how strongly that kind earns a square, the brief as the author's quoted words, the schema, what it requires, the lease. */
+  /**
+   * What waits on this key's person across the problems it keeps and the ones it has worked: a judge seat not yet
+   * ranked, a challenge seat without its verdict, a dispute on a piece this key returned, and, in a kept problem, a human
+   * piece with a seat open that this key has not filled. Nothing is written: the library's dates stay as they were.
+   */
+  async attention(limit = 20): Promise<{ items: AttentionItem[]; checked: string }> {
+    const checked = new Date().toISOString();
+    const me = this.identity?.address;
+    const items: AttentionItem[] = [];
+    if (!me) return { items, checked };
+    const kept = Object.keys(this.library.seeding);
+    const worked = Object.values(this.library.pieces).map((p) => p.problem);
+    const problems = [...new Set([...kept, ...worked])].filter((h) => isHash(h)).slice(0, limit) as Hash[];
+    for (const problem of problems) {
+      let resolved: Awaited<ReturnType<Resolver['resolve']>>;
+      try {
+        resolved = await this.resolver.resolve(parseLink(problem));
+      } catch {
+        continue;
+      }
+      if (!resolved) continue;
+      const state = this.resolver.state(resolved);
+      const title = state.envelope.problem.title;
+      const tracker = resolved.tracker;
+      const layer = tracker ? await this.layerOf(problem, tracker) : null;
+      const over = new Map((layer ?? []).map((l) => [l.hash, l] as const));
+      const item = (piece: Hash | null, name: string | null, why: AttentionItem['why']) => items.push({ problem, title, piece, name, why, tracker });
+      if (tracker) {
+        const [panels, challenges] = await Promise.all([this.panels(problem, tracker), this.challenges(problem, tracker)]);
+        for (const p of panels) if (p.outcome === 'open' && p.seats.some((s) => s.root === me && s.lapsed_at === null && !s.rank)) item(p.piece, p.name, 'rank');
+        for (const c of challenges) if (c.outcome === 'open' && c.seats.some((s) => s.root === me && s.lapsed_at === null && !s.verdict)) item(c.piece, c.name, 'verdict');
+      }
+      for (const v of state.pieces) {
+        const st = over.get(v.piece.hash)?.state ?? v.state;
+        const mine = this.library.pieces[v.piece.hash];
+        if (st === 'disputed' && mine?.what === 'returned') item(v.piece.hash, v.piece.name, 'disputed');
+        if (v.piece.verifier === 'human' && this.library.seeding[problem] && (st === 'open' || st === 'needs_verify') && mine?.what !== 'returned') item(v.piece.hash, v.piece.name, 'person');
+      }
+    }
+    return { items, checked };
+  }
+
   pieceText(hash: Hash, pick: Pick, author: string): string {
     const k = kindWords(pick.piece.verifier);
     const lines = [

@@ -10,6 +10,7 @@ import { type Hash, hashCanonical } from '@bitquilt/core';
 import { Store, createTracker } from '@bitquilt/tracker';
 import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
 import { createMcpServer } from '../src/mcp.js';
+import { localRunner } from '../src/tools.js';
 import { createPage } from '../src/page.js';
 import { Resolver } from '../src/resolver.js';
 import { type Pattern, Quilt, kindWords, waitsText } from '../src/worker.js';
@@ -183,7 +184,7 @@ describe('a judge piece', () => {
 
   it('takes one rank through the connector and one through the page\'s form where the person is a seated judge, and accepts the majority\'s first choice', async () => {
     const [ct, st] = InMemoryTransport.createLinkedPair();
-    const mcp = createMcpServer(() => j12);
+    const mcp = createMcpServer(localRunner(() => j12));
     await mcp.connect(st);
     const client = new Client({ name: 'judge-test', version: '0.0.0' });
     await client.connect(ct);
@@ -233,7 +234,7 @@ describe('a judge piece', () => {
 
   it('hands the kind and its strength to the AI as handles beside the text', async () => {
     const [ct, st] = InMemoryTransport.createLinkedPair();
-    const mcp = createMcpServer(() => c);
+    const mcp = createMcpServer(localRunner(() => c));
     await mcp.connect(st);
     const client = new Client({ name: 'gemini-test', version: '0.0.0' });
     await client.connect(ct);

@@ -22,6 +22,14 @@ The app is one program on the person's own machine, doing three jobs.
 
 **The node.** A cache of every envelope, blob and ledger the person has touched, kept on disk, and served to anyone who asks while the app is running, so that every app is a small mirror of what its person cares about. Events written while no tracker answers wait in a queue and go out when one does. A node that is up for long stretches, a CLI loop on a spare machine say, is a resolver in its own right and can announce what it carries.
 
+### One node per home (25 Oct 2026)
+
+Several programs start a copy of quilt: Claude Desktop starts one for its connector, the menu-bar app starts one for the page, a person types `quilt serve`. Two copies over one home would sign with one key from two processes and write one library from both. So a copy that starts asks the page's port whether a node signing with this home's key is already there (`GET /api/me`). If so, its tools run through that node (`POST /api/tool/<name>`, with the host's name, so the model declared on the claim is the host's), and it holds no page of its own; if not, or when that node goes away, it works alone as before. A node on the port with another key is another home's, and the copy works alone without the page. The library is held by the resolver, one per home, and re-read when the file has changed since, so a one-shot command's write is seen rather than written over. The page's API answers the page and programs on this machine: a request a browser marks as coming from another site is refused, since the key signs what the API is asked to.
+
+### The shell on a Mac (25 Oct 2026)
+
+Quilt is a node, so its native shape is a menu-bar app, not a window app. `apps/mac` is that shell: it starts the node or attaches to one already running, and shows a search field over the trackers and relays the client knows, what is wanted from the person (a judge seat not ranked, a verdict not given, a return of theirs disputed, a human piece with a seat open in a problem they keep: `GET /api/attention`), the problems they keep, and a window onto the page. It signs and writes nothing itself; every write stays in the page, which is the person's hand, or in the AI's connector. A downloaded copy needs notarization with an Apple Developer ID to open without the right-click dance.
+
 ## Search
 
 Search is over announcements, not over envelopes, and it goes to several places at once.
