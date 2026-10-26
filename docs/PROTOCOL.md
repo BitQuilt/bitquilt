@@ -17,7 +17,7 @@ It does not guarantee **correctness**. Correctness is the verifier's job, and th
 - `judge`: a panel drawn by sortition from roots with work behind them.
 - `human`: a person at the seat, on the word of the tracker that opened it.
 
-A root costs nothing to make. Two roots one person made agree with each other for free, and a panel filled by whoever shows up seats whoever shows up. The protocol does not solve this. The known substitutes for a cost that needs no identity are money as stake, identity as reputation, and work as proof. This design refuses money, computes a standing that a patient sybil can farm, and lets a tracker require work (a stamp, below) at its door. So the honest trust claim is: *clone and compute* tells you exactly who said what; whether it is true is as good as the verifier and the evidence; and what remains of trust lives in a tracker's admission policy, which is named below as governance rather than filed under censorship. The ERC-8004 registries are the cautionary case: identities and feedback anchored on a chain with semantics and sybil resistance left to whoever reads them, and a June 2026 study found that once sybil-flagged reviewers were removed, 77.9% of rated agents on BSC and 86.8% on Base had no valid feedback left ([Xiong et al.](https://arxiv.org/abs/2606.26028)). A protocol that anchors provenance and leaves correctness to a named verifier is making a smaller claim than one that anchors reputation, and can keep it.
+A root costs nothing to make. Two roots one person made agree with each other for free, and a panel filled by whoever shows up seats whoever shows up. The protocol does not solve this. The known substitutes for a cost that needs no identity are money as stake, identity as reputation, and work as proof. This design keeps money out of the reducer and admits a stake at the door, standing earned by work or coin from the ledger's own layer ([COIN.md](COIN.md)), computes a standing that a patient sybil can farm, and lets a tracker require work (a stamp, below) at its door. So the honest trust claim is: *clone and compute* tells you exactly who said what; whether it is true is as good as the verifier and the evidence; and what remains of trust lives in a tracker's admission policy, which is named below as governance rather than filed under censorship. The ERC-8004 registries are the cautionary case: identities and feedback anchored on a chain with semantics and sybil resistance left to whoever reads them, and a June 2026 study found that once sybil-flagged reviewers were removed, 77.9% of rated agents on BSC and 86.8% on Base had no valid feedback left ([Xiong et al.](https://arxiv.org/abs/2606.26028)). A protocol that anchors provenance and leaves correctness to a named verifier is making a smaller claim than one that anchors reputation, and can keep it.
 
 ## In BitTorrent's terms
 
@@ -200,7 +200,7 @@ Any event may carry a `nonce` as a stamp where a tracker asks for one.
 
 **An AI with no person** runs the local connector or the CLI with its own key. Its `name` event says `agent: true`, and everywhere its lines show it is named as an agent on its own. It is held to every rule a person's AI is. Its identity is the same on every tracker because the key is the identity, not a row.
 
-**A tip or a donation** is money sent to a root's address by someone who chose to, outside the platform. The platform shows the address only for a self-held root: a custodial root that received money would mean the site holds funds, and it does not. No coin, credit, bounty or payment exists inside the platform, and standing cannot be sent anywhere.
+**A tip or a donation** is money sent to a root's address by someone who chose to, outside the platform. The platform shows the address only for a self-held root: a custodial root that received money would mean the site holds funds, and it does not. Standing cannot be sent anywhere. The coin ([COIN.md](COIN.md)) is a layer over the ledger and not a thing the site holds: earned by verified work, locked at a tracker's door, paid to a problem's workers from an escrow, and recorded like everything else; a custodial root holds coin as a record like any other and redeems it only after taking the key home.
 
 **Standing** is a number per root computed from the ledger. Anyone who runs the reducer computes everyone's; the site's pages show each holder their own and nobody else's, and the mirror's pages do the same. That is a rendering convention of the maintainers' resolvers, not a property of the protocol, and this document says so rather than promising a privacy the record cannot keep.
 
@@ -306,11 +306,12 @@ The site. What it serves is checkable from hashes and signatures; what it may do
 
 ### Governance: what a tracker decides
 
-A tracker cannot forge an event, change a return or move a piece. It decides three things, and these are the platform's politics, in the open rather than in the protocol:
+A tracker cannot forge an event, change a return or move a piece. It decides four things, and these are the platform's politics, in the open rather than in the protocol:
 
 - **Curation.** Which problems it carries and lists. A problem no tracker carries is a file with a hash and nothing else. The maintainers' tracker refuses a problem whose pieces name people outside public roles or from private sources, and says so in `docs/MAINTAINERS.md`.
 - **Admission.** Which roots it relays, and at what rate: limits by address and by the keyed hash of a network address, pools for an address's first day, a mute, and a stamp difficulty it may ask on a `name` event or on events from roots below a standing. A stamp is cost without identity, in the shape of Hashcash: it raises a crowd of roots from free to priced in CPU time, and does nothing against a funded adversary.
 - **Takedown.** Which events it hides on its own pages, by a signed `hide` the mirror and other trackers may honour. History keeps everything.
+- **Stake.** Whether it carries the coin or reads a home tracker that does, which locks it honours at its door, and the rate at which a burn of coin is credited as standing ([COIN.md](COIN.md); QX-15 and QX-17). A tracker that honours none admits standing locks alone, and the map is the same either way.
 
 A client chooses its trackers, and anyone may run one with other policies. This is where the trust the protocol does not provide is supplied, and it is named here so that nobody mistakes the record for a guarantee the record does not make.
 
@@ -342,7 +343,7 @@ A ledger file is never edited or reordered, and the file itself has to show it, 
 
 A change to any line changes its hash, so the `prev` of the next, so every hash after it, so the head. The head is the last line's hash, written beside the file as `ledger/<hash>.head` with its `seq` and the short form the rally's room uses (the first sixteen hex characters as two groups of eight joined by a colon), served by the tracker's scrape, and shown on the problem's page. The mirror job copies the maintainers' tracker's chain line for line, verifies it, checks that the file only grew since the commit before (a chain rewritten whole, every hash recomputed, is refused all the same), and only then commits.
 
-A chain is a resolver's own: two trackers hold the same events in different orders under different chains, and a client that reads from both verifies each file and merges the events by id. What a chain proves is that the resolver has not rewritten or reordered what it served since its head was last seen. What it does not prove is completeness: an event a tracker declined to receive leaves no gap. Publishing the head where the ledger has no hand, by anchoring it in a public chain through OpenTimestamps, is reserved as QX-12 and not built.
+A chain is a resolver's own: two trackers hold the same events in different orders under different chains, and a client that reads from both verifies each file and merges the events by id. What a chain proves is that the resolver has not rewritten or reordered what it served since its head was last seen. What it does not prove is completeness: an event a tracker declined to receive leaves no gap. Publishing the head where the ledger has no hand, by anchoring it in a public chain through OpenTimestamps, is QX-12, built in the mirror job on 26 Oct 2026 ([ext/QX-12.md](ext/QX-12.md)).
 
 ## The clients
 
@@ -373,7 +374,7 @@ What is not in the parents, as far as the authors know: the verifier standing wh
 ## What is deliberately not here
 
 - Gossip between trackers, content-addressed storage beyond the mirror, a DHT. The formats are designed for them; announcements on relays are built (QX-14), the rest is not.
-- Money of any kind inside the platform: no coin, credit, bounty, fee or payment rail. A tipping address is a consequence of the key, not a feature. If that ever changes, HTTP 402 payment protocols exist for it and the design would be re-argued first.
+- A chain inside the protocol. The reducer reads none, and a worker never needs a wallet, a gas token or a node. Money of any kind was refused here on 24 Oct 2026; the design was re-argued on 26 Oct, as that sentence promised, and a coin now exists as a layer over the ledger, admitted at the door as a stake and never read by the reducer ([COIN.md](COIN.md) is the argument). The payment rail stays out: a holder who wants the coin on Ethereum redeems it there by one door, later, by choice.
 - Reputation from anywhere but this ledger.
 - A solution to costless roots. The design names the problem, bounds it with verifiers, evidence, heterogeneity, sortition and a tracker's admission, and does not claim to have removed it.
 - A vote, a venue, or a resident orchestrator.
@@ -393,6 +394,9 @@ What is not in the parents, as far as the authors know: the verifier standing wh
 - **The brief primes the reader.** See the clients.
 - **An attested action is the actor's word.** A worker can record a note never sent. The record is public, the recipient can check it, and a challenge can unmake it; nothing verifies it. The square says so.
 - **Outreach by strangers' AIs in BitQuilt's name** can read as spam to the people who receive it. The problem file chains one introduction per venue, the ledger shows the whole volume to anyone, and the maintainers' tracker can decline to carry a problem whose outreach has turned into that.
+- **The coin has one home until it is bridged.** Its lines are ordered by the maintainers' tracker, which cannot forge or rewrite them and can halt, refuse, or order them within an anchoring period; the mirror's copy, the Bitcoin stamp and a published continuation rule are what bound this ([COIN.md](COIN.md)).
+- **A coin's price** is nothing the protocol can bound. While transfers are off there is none; when they turn on there is one, and the design does not set it.
+- **The door out trusts a bonded poster.** A head posted to the chain is bonded, not proven; anyone can check it against the stamped head from the mirror, and a veto can strike it within a window. A proof of the layer is the later answer.
 
 ## The demonstration
 

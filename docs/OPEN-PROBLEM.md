@@ -12,7 +12,7 @@ For a piece whose verifier is a machine (`check`, `score`), who signed does not 
 
 Design an acceptance rule for claims no machine can check, such that:
 
-1. **No money inside the protocol.** No coin, token, credit, bounty, fee or transferable balance. (Stake that lives outside the protocol and is bound to a root may be an extension; it is not a solution to this problem.)
+1. **The reducer reads no chain, and a worker with no coin is never shut out.** No coin, token, credit, bounty or fee is an input to the map, and no stake is the only way in: standing earned by work satisfies any stake a problem asks, and a problem that asks none is open to a key with nothing. (A coin that is a function of the ledger, bound to a root and admitted at a tracker's door, is an extension; it is not a solution to this problem. Until 26 Oct 2026 this condition read "No money inside the protocol"; the note at the end says what changed.)
 2. **No identity anchored outside the protocol is required of a worker.** No government document, no biometric, no account with a company. A worker is a key.
 3. **The cost of getting a wrong square accepted, and keeping it accepted, is bounded below** by something comparable to the cost of doing the piece honestly, against an adversary who can make any number of roots and coordinate them.
 4. **Anyone can compute it from the ledger alone.** Clone and compute. No trusted party's word is an input, except as the design already admits (a tracker's receipt stamps).
@@ -22,11 +22,11 @@ A solution states its threat model (the adversary's budget in roots, work and pa
 
 ## Why the known answers do not fit
 
-- **Money.** Bitcoin's contribution was cost without identity, and it bought that cost with a coin. A coin inside BitQuilt makes BitQuilt about the coin; this is a decision of the project, not a finding, and condition 1 records it.
+- **Money.** Bitcoin's contribution was cost without identity, and it bought that cost with a coin. On 24 Oct 2026 the project decided that a coin inside BitQuilt would make BitQuilt about the coin, and condition 1 recorded it; on 26 Oct it reversed that decision for a coin that is a layer over the ledger and a stake at the door ([COIN.md](COIN.md)). Money still does not solve this problem: a stake prices a wrong square only for the root that holds one, and condition 1 as it now reads keeps the way in open for a root that holds none.
 - **Identity.** Proof of personhood (social graphs, pseudonym parties, biometrics) gives one key per person, at the cost of an anchor outside the protocol: a social network that already exists, a meeting, a device. Condition 2 refuses the anchor. Reputation computed inside the protocol (standing) is identity of a kind, and a patient adversary farms it.
 - **Work.** Proof of work prices a root in CPU time and so prices a crowd of roots. It does not bound the cost of one wrong square, and a funded adversary pays it. BitQuilt admits it as a tracker's lever, not as a verifier.
 - **Redundancy.** BOINC accepts a result when a quorum of volunteers agree, and assumes most volunteers are honest and compute the same thing. Here the failure is correlated error among copies of a model, which the vendor rule bounds, and collusion among free roots, which nothing bounds.
-- **Stake and dispute games.** Truebit, optimistic rollups and Kleros make a wrong acceptance costly by making the acceptor lose a stake to whoever challenges. The stake is money (condition 1), or standing, which is free to farm.
+- **Stake and dispute games.** Truebit, optimistic rollups and Kleros make a wrong acceptance costly by making the acceptor lose a stake to whoever challenges. The stake is money, or standing, which is free to farm. BitQuilt now admits both at the door (QX-15) and calls neither a solution: the square of a worker who staked nothing is still the problem.
 - **Peer prediction.** Mechanisms where honest reporting is an equilibrium without ground truth (Bayesian truth serum, the surprisingly popular answer) assume independent reporters paid by a score. They help with correlated error; they say nothing about an adversary who controls many reporters.
 
 ## What is known about BitQuilt's own ledger
@@ -43,7 +43,7 @@ Candidate attacks on the problem, none proven, in the order the maintainers woul
 4. **Random audits by sortition.** Re-draw a fixed fraction of accepted squares for an independent production. When the loss from being caught is small, the probability of being checked is the deterrent.
 5. **The surprisingly popular answer.** Each worker gives the verdict and a prediction of what others will say; the verdict more popular than predicted is likelier true. Against correlated error, not collusion.
 6. **Attested work.** Inference in attested hardware, where a return carries proof that a named model ran the brief: cost without identity, native to the work. In 2026 this exists in a few deployments and several preprints; most signed receipts are logs, not proofs; the trust moves to the chip vendor. A reserved slot in the return, and a watch.
-7. **External stake as an extension.** A root may bind a stake outside the protocol to itself, and a challenge may name it. Allowed as an extension under condition 1's parenthesis; not a solution, since a worker without one must still count.
+7. **Stake as an extension.** Taken, 26 Oct 2026: a problem may ask that a claim be backed by standing or by coin locked at the tracker's door, and a gold piece or a held challenge forfeits it ([COIN.md](COIN.md); QX-15 and QX-16). Allowed under condition 1's parenthesis; not a solution, since a worker without a stake must still count, and a problem that asks none is open to them.
 8. **Age.** Standing that accrues only after a root has agreed with independent roots over weeks. Patience is a cost the adversary pays with time, and slows every attack without stopping one.
 
 ## What a solution would change
@@ -57,6 +57,10 @@ Replay fixture ledgers with planted clusters through a prototype of direction 1.
 ## Status
 
 Open. Version 1 ships provenance and says so. Whoever closes this for AI work has done something BitQuilt did not, and BitQuilt will carry their extension.
+
+## A note of 26 October 2026
+
+Condition 1 was written "No money inside the protocol" on 24 October, as a decision of the project and not a finding. Two days later the project reversed it, for this reason: the stake this problem needs was already at the tracker's door, where a challenge is admitted only if the challenger's standing covers it (QX-1), and a coin bound to a root and admitted at that same door is what the condition's own parenthesis allowed. The reducer still reads no chain, the core and its fixtures are untouched, and a worker who holds nothing still has a way in, which is what the condition was protecting. The coin is a layer over the ledger, computed from receipts as standing is, with a chain only as a door out of it, later; [COIN.md](COIN.md) is the design. Direction 7 is the direction taken. The problem stays open: a stake prices a wrong square for the root that holds one, and says nothing about the square of a worker who staked nothing.
 
 ## Reading
 

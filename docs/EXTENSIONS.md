@@ -16,7 +16,7 @@
 - Change the meaning, hash, signature or ordering of anything in the core.
 - Add an input to the piece hash or the problem hash.
 - Make a core client's state wrong rather than coarse.
-- Require money, a token or a transferable credit of a worker.
+- Make money, a token or a transferable credit the only way in for a worker: wherever a stake is asked, standing earned by work satisfies it, and a problem with no stake asked is always open to a new root. (Until 26 Oct 2026 this read "Require money, a token or a transferable credit of a worker"; [COIN.md](COIN.md) says what changed and why.)
 - Put another person's words anywhere but quoted text with the signer named.
 
 A change that needs any of these is version 2 of the core, which is a different conversation.
@@ -30,7 +30,7 @@ A change that needs any of these is version 2 of the core, which is a different 
 
 ## Registry
 
-Numbers assigned 24 Oct 2026. Each is described in [PROTOCOL.md](PROTOCOL.md) for now and gets its own document under `docs/ext/` when it is first implemented; the three verifier kinds (QX-2, QX-3, QX-10) share one, since they share one layer, one pool and one door. The exact event shapes and the states a client shows are in those documents, not here.
+Numbers assigned 24 Oct 2026, and QX-15 to QX-17 on 26 Oct 2026. Each is described in [PROTOCOL.md](PROTOCOL.md) for now and gets its own document under `docs/ext/` when it is first implemented; the three verifier kinds (QX-2, QX-3, QX-10) share one, since they share one layer, one pool and one door. The exact event shapes and the states a client shows are in those documents, not here.
 
 | Number | Title | Status | Where |
 | --- | --- | --- | --- |
@@ -48,3 +48,6 @@ Numbers assigned 24 Oct 2026. Each is described in [PROTOCOL.md](PROTOCOL.md) fo
 | QX-12 | Anchoring a chain's head outside the ledger, through OpenTimestamps | Draft, one implementation (26 Oct 2026) | [ext/QX-12.md](ext/QX-12.md); PROTOCOL.md, The mirror |
 | QX-13 | The `announce` event: what indexes and relays store, signed by an owner or a seeder | Draft | [APP.md](APP.md), The announce event |
 | QX-14 | Discovery: announcements on Nostr relays first, a keyword DHT among long-lived nodes later | Draft, relays implemented (26 Oct 2026) | [ext/QX-14.md](ext/QX-14.md); APP.md, Search |
+| QX-15 | Stake at the door: `stake_rule` on a problem, a `lock` of standing or of coin before a claim, released when the acceptance stands and forfeited when its set is struck | Reserved, planned (26 Oct 2026) | [COIN.md](COIN.md); [COIN-PLAN.md](COIN-PLAN.md), section 3 |
+| QX-16 | Gold pieces: an owner's `gold` commitments before the work, `gold_reveal` after acceptance, a miss striking the set and a match marking the square verified | Reserved, planned (26 Oct 2026) | COIN.md; COIN-PLAN.md, section 4 |
+| QX-17 | The coin as a layer: a coin log, emission to verified squares, vesting, forfeit, payments, locks, burn, transfer and redeem, every balance a function of the receipts | Reserved, planned (26 Oct 2026) | COIN.md; COIN-PLAN.md, section 5 |
