@@ -10,3 +10,5 @@ export {
 } from './verifiers.js';
 export { STAKE, STAKE_EVENTS, PRODUCTION_EVENTS, LOCK_KINDS, stakeRuleBodyProblems, lockBodyProblems, stakeAsked, ruleNames, lockReleasedAt, type StakeRule, type LockView, type LockKind } from './stake.js';
 export { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems, goldMatches, goldShare, hasAgreedFields, firstProductionAt, type GoldView, type GoldCommitment, type GoldOutcome, type GoldState } from './gold.js';
+export { COIN, COIN_LOG, COIN_EVENTS, coinLayer, coinParamsProblems, coinBodyProblems, epochAmount, type CoinParams, type CoinLayer, type CoinLockView, type BalanceView, type EpochView, type CoinWord, type BurnWord } from './coin.js';
+export { creditedRoots, type CoinLockWord } from './challenge.js';

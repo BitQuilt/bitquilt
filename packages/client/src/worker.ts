@@ -212,6 +212,79 @@ export class Quilt {
     return null;
   }
 
+  private readonly wellKnownCache = new Map<string, Promise<Record<string, unknown> | null>>();
+  /** A tracker's well-known document, read once per Quilt; null when it does not answer. */
+  wellKnown(tracker: string): Promise<Record<string, unknown> | null> {
+    const t = tracker.endsWith('/') ? tracker : `${tracker}/`;
+    let p = this.wellKnownCache.get(t);
+    if (!p) {
+      p = (async () => {
+        try {
+          const r = await fetch(`${t}.well-known/quilt`, { signal: AbortSignal.timeout(5000) });
+          return r.ok ? ((await r.json()) as Record<string, unknown>) : null;
+        } catch {
+          return null;
+        }
+      })();
+      this.wellKnownCache.set(t, p);
+    }
+    return p;
+  }
+
+  /** QX-17: where a tracker's coin lives, as its well-known says under stake: the home that keeps the coin log, and the burn rate a point of standing costs there; null where it honours none. */
+  async coinAt(tracker: string): Promise<{ home: string; burn_rate: number } | null> {
+    const t = tracker.endsWith('/') ? tracker : `${tracker}/`;
+    const wk = await this.wellKnown(t);
+    const stake = wk?.stake as { coin?: string | null; burn_rate?: number } | undefined;
+    if (!stake?.coin || typeof stake.burn_rate !== 'number') return null;
+    const home = stake.coin === 'here' ? t : stake.coin.endsWith('/') ? stake.coin : `${stake.coin}/`;
+    return { home, burn_rate: stake.burn_rate };
+  }
+
+  /** This key's coin at a home (QX-17): balance, vested, locked, escrowed, free; null with no key or no answer. */
+  async coinBalance(home: string): Promise<{ home: string; balance: number; vested: number; unvested: number; locked: number; escrowed: number; free: number; free_vested: number } | null> {
+    const address = this.identity?.address;
+    if (!address) return null;
+    try {
+      const r = await fetch(`${home}coin/balance/${address}`, { signal: AbortSignal.timeout(5000) });
+      if (!r.ok) return null;
+      const j = (await r.json()) as { balance: number; vested: number; unvested: number; locked: number; escrowed: number; free: number; free_vested: number };
+      return { home, balance: j.balance, vested: j.vested, unvested: j.unvested, locked: j.locked, escrowed: j.escrowed, free: j.free, free_vested: j.free_vested };
+    } catch {
+      return null;
+    }
+  }
+
+  /** This key's coin at the first of this client's trackers that carries one, or null. */
+  async coin(): Promise<{ home: string; balance: number; vested: number; unvested: number; locked: number; escrowed: number; free: number; free_vested: number } | null> {
+    for (const t of this.config.trackers) {
+      const at = await this.coinAt(t);
+      if (!at) continue;
+      const b = await this.coinBalance(at.home);
+      if (b) return b;
+    }
+    return null;
+  }
+
+  /** A pay to a problem (QX-17): coin escrowed on the coin log of the problem's home, paid per square to the roots of each set accepted after it, the rest back to this key when the problem completes. */
+  async pay(problem: Hash, amount: number, perSquare: number): Promise<{ id: Hash; at: string | null; queued: boolean; error?: string; home: string }> {
+    const id = this.needKey();
+    if (!Number.isInteger(amount) || amount < 1 || !Number.isInteger(perSquare) || perSquare < 1) throw new Error('a pay is a whole amount and a whole price per square, each at least 1');
+    let home: string | null = null;
+    for (const t of this.trackersFor(problem)) {
+      const at = await this.coinAt(t);
+      if (at) {
+        home = at.home;
+        break;
+      }
+    }
+    if (!home) throw new Error('no tracker this client knows for that problem carries the coin');
+    const e = this.sign({ quilt: 1, type: 'pay', key: id.address, ts: new Date().toISOString(), body: { problem, amount, per_square: perSquare } });
+    const r = await this.resolver.post(e, 'coin', [home]);
+    if (r.error && !r.queued) throw new Error(`the coin's home refused the pay: ${r.error}`);
+    return { id: eventId(e), ...r, home };
+  }
+
   /** The stake a problem asks of a claim on its pieces (QX-15): a stake_rule event from the owner on the problem's log, replacing the one before. */
   async stakeRule(problem: Hash, min: number, pieces?: string[]): Promise<{ at: string | null; queued: boolean; error?: string }> {
     const id = this.needKey();
@@ -361,7 +434,7 @@ export class Quilt {
    * The rarest piece for this key: the tracker's assisted next when one answers and names a piece, else computed here
    * from the map; then a claim, after a lock of standing where the problem asks a stake of the piece (QX-15).
    */
-  async next(input: string): Promise<{ hash: Hash; pick: Pick; posted: { at: string | null; queued: boolean; error?: string }; author: string; stake: number }> {
+  async next(input: string): Promise<{ hash: Hash; pick: Pick; posted: { at: string | null; queued: boolean; error?: string }; author: string; stake: number; lock: 'standing' | 'coin' | null }> {
     if (!input.trim()) return this.offered();
     const id = this.needKey();
     const { hash, state, tracker } = await this.open(input);
@@ -370,6 +443,7 @@ export class Quilt {
     let takenDown: string | null = null;
     let stake = 0;
     let unaffordable: Hash[] = [];
+    let coinPlan: { home: string; units: number; stake: number } | null = null;
     if (tracker) {
       try {
         const r = await fetch(`${tracker}p/${hash}/next?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}`, { signal: AbortSignal.timeout(8000) });
@@ -397,25 +471,57 @@ export class Quilt {
       }
     }
     if (takenDown) throw new Error(`${tracker} has taken this problem down: ${takenDown}`);
+    const client = { can: this.config.can, model: this.model() };
     // The pieces the tracker left out for their stake are left out here too: a claim on one would be refused at its door.
-    if (!pick) pick = next(state, id.address, { can: this.config.can, model: this.model() }, new Date().toISOString(), { exclude: new Set(unaffordable) });
-    if (!pick) throw new Error(unaffordable.length ? `every piece left on that problem asks a stake this key's free standing cannot cover (${tracker})` : 'nothing for this key on that problem right now');
-    if (stake > 0) {
-      // QX-15: the lock first, then the claim; the person's own client asked once for the pair.
-      const lock = this.sign({ quilt: 1, type: 'lock', problem: hash, piece: pick.piece.hash, key: id.address, ts: new Date().toISOString(), body: { kind: 'standing', amount: stake } });
-      const l = await this.resolver.post(lock, hash, trackers);
-      if (l.error && !l.queued) throw new Error(`the tracker refused the lock of ${stake}: ${l.error}`);
+    if (!pick) pick = next(state, id.address, client, new Date().toISOString(), { exclude: new Set(unaffordable) });
+    if (!pick && unaffordable.length && tracker) {
+      // QX-17: standing is short. Where the tracker honours coin and this key's free coin covers a piece's stake at the burn rate, coin is locked instead.
+      const coin = await this.coinAt(tracker);
+      const layer = coin ? await this.layerOf(hash, tracker) : null;
+      const mine = coin ? await this.coinBalance(coin.home) : null;
+      if (coin && layer && mine) {
+        const byHash = new Map(layer.map((l) => [l.hash, l] as const));
+        for (const candidate of unaffordable) {
+          const asked = byHash.get(candidate)?.stake ?? 0;
+          const units = asked * coin.burn_rate;
+          if (asked <= 0 || units > mine.free) continue;
+          const chosen = next(state, id.address, client, new Date().toISOString(), { exclude: new Set(state.pieces.filter((v) => v.piece.hash !== candidate).map((v) => v.piece.hash)) });
+          if (!chosen) continue;
+          pick = chosen;
+          coinPlan = { home: coin.home, units, stake: asked };
+          stake = asked;
+          break;
+        }
+      }
     }
-    const claim = this.sign({ quilt: 1, type: 'claim', problem: hash, piece: pick.piece.hash, key: id.address, ts: new Date(Date.now() + 1).toISOString(), body: { by: this.by() } });
+    if (!pick) throw new Error(unaffordable.length ? `every piece left on that problem asks a stake this key's free standing cannot cover (${tracker})` : 'nothing for this key on that problem right now');
+    let lock: 'standing' | 'coin' | null = null;
+    if (coinPlan) {
+      // QX-17: the coin locked on the home's log, then the QX-15 lock naming it, then the claim; the person's own client asked once for the three.
+      const onLog = this.sign({ quilt: 1, type: 'lock', key: id.address, ts: new Date().toISOString(), body: { problem: hash, piece: pick.piece.hash, amount: coinPlan.units } });
+      const c = await this.resolver.post(onLog, 'coin', [coinPlan.home]);
+      if (c.error || c.queued) throw new Error(`the coin's home did not take the lock of ${coinPlan.units} units${c.error ? `: ${c.error}` : ''}; nothing was claimed`);
+      const atDoor = this.sign({ quilt: 1, type: 'lock', problem: hash, piece: pick.piece.hash, key: id.address, ts: new Date(Date.now() + 1).toISOString(), body: { kind: 'coin', amount: coinPlan.stake, id: eventId(onLog) } });
+      const l = await this.resolver.post(atDoor, hash, trackers);
+      if (l.error && !l.queued) throw new Error(`the tracker refused the coin lock of ${coinPlan.stake}: ${l.error}`);
+      lock = 'coin';
+    } else if (stake > 0) {
+      // QX-15: the lock first, then the claim; the person's own client asked once for the pair.
+      const atDoor = this.sign({ quilt: 1, type: 'lock', problem: hash, piece: pick.piece.hash, key: id.address, ts: new Date().toISOString(), body: { kind: 'standing', amount: stake } });
+      const l = await this.resolver.post(atDoor, hash, trackers);
+      if (l.error && !l.queued) throw new Error(`the tracker refused the lock of ${stake}: ${l.error}`);
+      lock = 'standing';
+    }
+    const claim = this.sign({ quilt: 1, type: 'claim', problem: hash, piece: pick.piece.hash, key: id.address, ts: new Date(Date.now() + 2).toISOString(), body: { by: this.by() } });
     const posted = await this.resolver.post(claim, hash, trackers);
     this.library.pieces[pick.piece.hash] = { problem: hash, name: pick.piece.name, when: claim.ts, what: 'claimed', verifier: pick.piece.verifier };
     this.save();
     const owner = state.names.get(state.envelope.problem.owner as `0x${string}`)?.name ?? state.envelope.problem.owner;
-    return { hash, pick, posted, author: owner, stake };
+    return { hash, pick, posted, author: owner, stake, lock };
   }
 
   /** Something to do when no problem is named: the standing list first (QX-4), then each tracker's offer in its order (QX-5). */
-  async offered(): Promise<{ hash: Hash; pick: Pick; posted: { at: string | null; queued: boolean; error?: string }; author: string; stake: number }> {
+  async offered(): Promise<{ hash: Hash; pick: Pick; posted: { at: string | null; queued: boolean; error?: string }; author: string; stake: number; lock: 'standing' | 'coin' | null }> {
     const id = this.needKey();
     for (const p of Object.keys(this.library.seeding)) {
       try {

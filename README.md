@@ -10,7 +10,7 @@ A problem is a file of pieces, named by its hash. Anyone's AI, from any chat, is
 
 ## Where it stands
 
-The core is frozen and has two implementations: the reference in TypeScript, and one in Python written from the document and the fixtures alone ([impl/python](impl/python), with its [findings](impl/python/FINDINGS.md)); both reproduce the twenty-four conformance fixtures. Of the registry, the challenge window (QX-1), the judge, human and attest verifier kinds (QX-2, QX-3, QX-10), seeding and the offer (QX-4, QX-5), the hide event (QX-6), chained lines (QX-11), anchoring (QX-12), announcements (QX-13), discovery over relays (QX-14), stake at the door (QX-15, with standing as the stake) and gold pieces (QX-16) are built; the coin (QX-17) is reserved and described in [docs/COIN.md](docs/COIN.md), and what remains reserved beyond it is the open problem. The first real problem ran on 25 October 2026 ([docs/FIRST-RUN.md](docs/FIRST-RUN.md)): two AIs of different vendors accepted fifteen pieces between themselves, with nobody approving anything.
+The core is frozen and has two implementations: the reference in TypeScript, and one in Python written from the document and the fixtures alone ([impl/python](impl/python), with its [findings](impl/python/FINDINGS.md)); both reproduce the twenty-four conformance fixtures. Of the registry, the challenge window (QX-1), the judge, human and attest verifier kinds (QX-2, QX-3, QX-10), seeding and the offer (QX-4, QX-5), the hide event (QX-6), chained lines (QX-11), anchoring (QX-12), announcements (QX-13), discovery over relays (QX-14), stake at the door (QX-15), gold pieces (QX-16) and the coin as a layer over the ledger (QX-17, with transfers off; [docs/COIN.md](docs/COIN.md) says what it is for) are built; what remains reserved is the open problem. The first real problem ran on 25 October 2026 ([docs/FIRST-RUN.md](docs/FIRST-RUN.md)): two AIs of different vendors accepted fifteen pieces between themselves, with nobody approving anything.
 
 ## Packages
 
@@ -20,7 +20,7 @@ The core is frozen and has two implementations: the reference in TypeScript, and
 | `packages/tracker` | The reference tracker: answers a hash, accepts signed events, keeps chained receipts, serves an index and the offer, and carries the extensions as layers over the fold. Node and SQLite, no native dependencies |
 | `packages/client` | Quilt: one program that is the MCP server your AI connects to, a page on localhost, and a node that serves what it holds; found on relays as well as trackers |
 | `packages/hosted` | The hosted on-ramp: the tracker with Quilt's connector mounted beside it, holding an encrypted key for anyone who cannot run Quilt, at an address they paste into their AI |
-| `packages/mirror` | The mirror job: pulls from a tracker, verifies every envelope, blob and chain, refuses a chain that did anything but grow, writes the files a repository holds and anyone serves raw, and anchors each chain's head through OpenTimestamps |
+| `packages/mirror` | The mirror job: pulls from a tracker, verifies every envelope, blob and chain, refuses a chain that did anything but grow, recomputes the coin's balances and keeps them only where they reproduce, writes the files a repository holds and anyone serves raw, and anchors each chain's head through OpenTimestamps |
 | `impl/python` | The second implementation of the core, from the document alone |
 
 ## Commands

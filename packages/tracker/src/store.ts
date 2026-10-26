@@ -104,11 +104,12 @@ export class Store {
    * Appends an event to a problem's chain with a receipt stamped strictly after the last one, and returns the line.
    * Two events on one problem never share a time, so a commit always folds before its reveal.
    */
-  appendReceipt(problem: Hash, event: Event, id: Hash, by: string, now: string, custody: Received['custody'], seat?: Received['seat']): Receipt {
+  appendReceipt(problem: Hash, event: Event, id: Hash, by: string, now: string, custody: Received['custody'], seat?: Received['seat'], extra?: Record<string, unknown>): Receipt {
     const last = this.last(problem);
     let at = now;
     if (last && at <= last.at) at = new Date(Date.parse(last.at) + 1).toISOString();
-    const received: Received = { by, at, ...(custody ? { custody } : {}), ...(seat ? { seat } : {}) };
+    // The wrapper may carry what the door read and vouches for (CORE.md section 5 allows extra fields); the coin's word is one (QX-17).
+    const received: Received = { by, at, ...(custody ? { custody } : {}), ...(seat ? { seat } : {}), ...(extra ?? {}) };
     const seq = (last?.seq ?? 0) + 1;
     const prev = last?.hash ?? hashHex(problem);
     const hash = lineHash(seq, prev, { event, received: [received] });

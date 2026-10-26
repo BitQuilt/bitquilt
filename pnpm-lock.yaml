@@ -96,7 +96,6 @@ importers:
       '@bitquilt/core':
         specifier: workspace:*
         version: link:../core
-    devDependencies:
       '@bitquilt/tracker':
         specifier: workspace:*
         version: link:../tracker

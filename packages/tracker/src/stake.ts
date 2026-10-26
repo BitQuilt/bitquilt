@@ -17,7 +17,10 @@ export type LockKind = (typeof LOCK_KINDS)[number];
 /** A stake rule as the layer keeps it: the latest valid one at a time is the rule in force. */
 export interface StakeRule { id: Hash; root: Address; at: string; min: number; pieces: string[] | null }
 
-/** A standing lock as the layer keeps it. Its release is computed from the fold; a strike sets `forfeitedAt`, and a held challenge on a gold miss (QX-16) sets `restoredAt`. */
+/**
+ * A lock as the layer keeps it: of standing, or of coin on the coin log (QX-17) that the door vouched for. Its release
+ * is computed from the fold; a strike sets `forfeitedAt`, and a held challenge on a gold miss (QX-16) sets `restoredAt`.
+ */
 export interface LockView {
   id: Hash;
   problem: Hash;
@@ -26,8 +29,11 @@ export interface LockView {
   key: Address;
   root: Address;
   at: string;
-  kind: 'standing';
+  kind: LockKind;
+  /** The stake in standing; for a coin lock, what the coin backs. */
   amount: number;
+  /** The coin-log lock a coin-kind lock names, or null. */
+  coinId: Hash | null;
   forfeitedAt: string | null;
   restoredAt: string | null;
 }
@@ -56,7 +62,7 @@ export function lockBodyProblems(body: unknown): string[] {
   if (!(LOCK_KINDS as readonly string[]).includes(body.kind as string)) out.push(`body.kind: one of ${LOCK_KINDS.join(', ')}`);
   if (!Number.isInteger(body.amount) || (body.amount as number) < 1) out.push('body.amount: a whole number of at least 1');
   const allowed = body.kind === 'coin' ? ['kind', 'amount', 'id'] : ['kind', 'amount'];
-  if (body.kind === 'coin' && typeof body.id !== 'string') out.push('body.id: the lock on the coin log');
+  if (body.kind === 'coin' && typeof body.id !== 'string') out.push('body.id: the id of the lock on the coin log');
   for (const k of Object.keys(body)) if (!allowed.includes(k)) out.push(`body.${k}: not a field of a lock`);
   return out;
 }

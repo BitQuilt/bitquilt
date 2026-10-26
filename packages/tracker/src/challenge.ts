@@ -121,8 +121,10 @@ export interface Layer {
   locks(root: Address): LockView[];
   /** Whether a stake rule by this key would count if received now, and why not. */
   admitStakeRule(problem: Hash, key: Address, body: Record<string, unknown>): Admission;
-  /** Whether a lock by this key on this piece would count if received now, and why not. */
-  admitLock(problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>): Admission;
+  /** Whether a lock by this key on this piece would count if received now, and why not; a coin-kind lock comes with the word the door read of the coin lock (QX-17). */
+  admitLock(problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>, word?: CoinLockWord | null): Admission;
+  /** QX-15: when the fold releases a lock, or null while it would be live; forfeits are not judged here. */
+  lockEndsAt(lock: LockView): string | null;
   /** Whether a claim, commit, reveal or run by this key on this piece is backed as the piece's stake asks, and why not. */
   admitProduction(problem: Hash, piece: Hash, key: Address): Admission;
   /** The undone pieces of a problem whose stake the key's free standing cannot cover and on which it holds no lock. */
@@ -136,6 +138,8 @@ export interface Layer {
 interface Credit { root: Address; problem: Hash; at: string; until: string | null }
 interface Delta { root: Address; at: string; delta: number }
 /** `base` is the core's reduce without the struck events; `fold` is `base` with the verifier kinds decided; `core` is the reduce of everything, kept for the core's states. */
+/** What the door wrote into a coin-kind lock's receipt (QX-17 section 5): the coin lock it read, and where. */
+export interface CoinLockWord { kind: 'coin'; amount: number; id: Hash; units: number; home: string }
 interface Entry { hash: Hash; input: ReduceInput; core: State; base: State; fold: State; layered: Layered; struck: Set<Hash>; challenges: ChallengeView[]; dropped: ProblemLayer['dropped']; rules: StakeRule[]; golds: GoldView[] }
 type CandidateKind = 'challenge' | 'lock' | 'gold' | 'gold_reveal';
 const CANDIDATE_KINDS: ReadonlySet<string> = new Set<CandidateKind>(['challenge', 'lock', 'gold', 'gold_reveal']);
@@ -171,7 +175,7 @@ export function acceptingRoots(v: PieceView): Address[] {
 }
 
 /** The roots whose standing a set credits: the reveals, not the runs; an attested acceptance credits nobody, being the actor's own word. */
-function creditedRoots(v: PieceView): Address[] {
+export function creditedRoots(v: PieceView): Address[] {
   if (!v.accepting) return [];
   if (viaOf(v.accepting) === 'attest') return [];
   return v.accepting.kind === 'agree' ? v.accepting.reveals.map((r) => r.root) : [v.accepting.patch.root];
@@ -202,7 +206,7 @@ function setEventIds(v: PieceView, receipts: Receipt[]): Hash[] {
   return ids;
 }
 
-export function challengeLayer(input: { problems: ReduceInput[]; now: string }): Layer {
+export function challengeLayer(input: { problems: ReduceInput[]; now: string; coin?: Receipt[] }): Layer {
   const { now } = input;
   const entries = new Map<Hash, Entry>();
   const struckCredits: Credit[] = [];
@@ -294,6 +298,14 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
     return end === null || end > at;
   };
   const hasLock = (home: Entry, piece: Hash, root: Address, at: string): boolean => locks.some((l) => l.problem === home.hash && l.piece === piece && l.root === root && liveAt(l, at));
+  // QX-17: a burn on the coin log is credited as standing on the door's word in its wrapper, as a reader takes custody.
+  for (const r of input.coin ?? []) {
+    const at = r.received[0]?.at;
+    const word = (r.received[0] as { stake?: { kind?: string; standing?: number } } | undefined)?.stake;
+    if (!at || at > now || r.event.type !== 'burn' || word?.kind !== 'burn' || typeof word.standing !== 'number' || word.standing <= 0) continue;
+    const first = entries.values().next().value as Entry | undefined;
+    deltas.push({ root: first ? first.fold.rootOf(r.event.key, at) : r.event.key, at, delta: word.standing });
+  }
 
   // QX-16: the owner's gold, whose stake is locked standing until every commitment is final or the gold is forfeited.
   const golds: GoldView[] = [];
@@ -352,7 +364,7 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
     return null;
   };
   const locked = (root: Address, at: string = now): number =>
-    locks.reduce((sum, l) => (l.root === root && liveAt(l, at) ? sum + l.amount : sum), 0) + golds.reduce((sum, g) => (g.root === root && goldLiveAt(g, at) ? sum + g.stake : sum), 0);
+    locks.reduce((sum, l) => (l.root === root && l.kind === 'standing' && liveAt(l, at) ? sum + l.amount : sum), 0) + golds.reduce((sum, g) => (g.root === root && goldLiveAt(g, at) ? sum + g.stake : sum), 0);
 
   const standing = (root: Address, at: string = now): number => {
     const moves: { at: string; delta: number }[] = [];
@@ -368,13 +380,17 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
   };
   const free = (root: Address, at: string = now): number => Math.max(0, standing(root, at) - locked(root, at));
   type LockCheck = { ok: true; root: Address; view: PieceView } | { ok: false; why: string };
-  /** Whether a lock would be kept if received at `at`, by section 1 of QX-15, and why not. */
-  const checkLock = (home: Entry, piece: Hash, key: Address, body: Record<string, unknown>, at: string): LockCheck => {
+  /**
+   * Whether a lock would be kept if received at `at`, by section 1 of QX-15, and why not. A coin-kind lock is kept on
+   * the door's word in its receipt (QX-17 section 5), and its coin is checked there, not here.
+   */
+  const checkLock = (home: Entry, piece: Hash, key: Address, body: Record<string, unknown>, at: string, word: CoinLockWord | null): LockCheck => {
     const view = home.fold.byHash.get(piece);
     if (!view) return { ok: false, why: 'names a piece this problem does not have' };
     const shape = lockBodyProblems(body);
     if (shape.length) return { ok: false, why: shape[0]! };
-    if (body.kind === 'coin') return { ok: false, why: 'this tracker honours no coin lock' };
+    const coin = body.kind === 'coin';
+    if (coin && (!word || word.kind !== 'coin' || word.id !== body.id)) return { ok: false, why: 'this tracker honours no coin lock' };
     const root = rootFor(home.fold, key, 'lock', at);
     if (!root) return { ok: false, why: 'the key may not sign a lock' };
     const asked = stakeAsked(ruleAt(home, at), view.piece);
@@ -382,8 +398,10 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
     const amount = body.amount as number;
     if (amount < asked) return { ok: false, why: `this piece asks for a stake of ${asked}` };
     if (hasLock(home, piece, root, at)) return { ok: false, why: 'a lock already stands on this piece' };
-    const f = free(root, at);
-    if (f < amount) return { ok: false, why: `free standing ${f} is below the lock of ${amount}` };
+    if (!coin) {
+      const f = free(root, at);
+      if (f < amount) return { ok: false, why: `free standing ${f} is below the lock of ${amount}` };
+    }
     return { ok: true, root, view };
   };
   type GoldCheck = { ok: true; root: Address; kept: GoldCommitment[]; dropped: string[] } | { ok: false; why: string };
@@ -456,7 +474,7 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
         if (end !== null && end <= d) continue;
         l.forfeitedAt = d;
         l.restoredAt = null;
-        deltas.push({ root, at: d, delta: -l.amount });
+        if (l.kind === 'standing') deltas.push({ root, at: d, delta: -l.amount });
       }
     }
     const ids = setEventIds(view, home.input.receipts);
@@ -487,7 +505,7 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
       for (const l of locks) {
         if (l.problem !== home.hash || l.piece !== c.piece || l.root !== root || l.forfeitedAt !== c.revealedAt || l.restoredAt !== null) continue;
         l.restoredAt = d;
-        deltas.push({ root, at: d, delta: l.amount });
+        if (l.kind === 'standing') deltas.push({ root, at: d, delta: l.amount });
       }
     }
   };
@@ -574,12 +592,14 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
         drop('signature is not the key\'s');
         continue;
       }
-      const r = checkLock(home, ev.piece, ev.key, ev.body, at);
+      const word = (c.receipt.received[0] as { stake?: CoinLockWord } | undefined)?.stake ?? null;
+      const r = checkLock(home, ev.piece, ev.key, ev.body, at, word);
       if (!r.ok) {
         drop(r.why);
         continue;
       }
-      locks.push({ id: c.id, problem: home.hash, piece: ev.piece, name: r.view.piece.name, key: ev.key, root: r.root, at, kind: 'standing', amount: ev.body.amount as number, forfeitedAt: null, restoredAt: null });
+      const coin = ev.body.kind === 'coin';
+      locks.push({ id: c.id, problem: home.hash, piece: ev.piece, name: r.view.piece.name, key: ev.key, root: r.root, at, kind: coin ? 'coin' : 'standing', amount: ev.body.amount as number, coinId: coin ? (ev.body.id as Hash) : null, forfeitedAt: null, restoredAt: null });
       continue;
     }
     if (c.kind === 'gold') {
@@ -756,10 +776,10 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
     const why = ruleProblem(home, key, body, now);
     return why ? { ok: false, why } : { ok: true };
   };
-  const admitLock = (problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>): Admission => {
+  const admitLock = (problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>, word: CoinLockWord | null = null): Admission => {
     const home = entries.get(problem);
     if (!home) return { ok: false, why: 'no such problem here' };
-    const r = checkLock(home, piece, key, body, now);
+    const r = checkLock(home, piece, key, body, now, word);
     return r.ok ? { ok: true } : r;
   };
   const admitProduction = (problem: Hash, piece: Hash, key: Address): Admission => {
@@ -796,7 +816,7 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
     return r.ok ? { ok: true } : r;
   };
 
-  return { now, problems, challenges: all, standing, admitChallenge, admitVerdict, admitRank, locked, free, locks: locksOf, admitStakeRule, admitLock, admitProduction, unaffordable, admitGold, admitGoldReveal };
+  return { now, problems, challenges: all, standing, admitChallenge, admitVerdict, admitRank, locked, free, locks: locksOf, admitStakeRule, admitLock, lockEndsAt: lockEnd, admitProduction, unaffordable, admitGold, admitGoldReveal };
 }
 
 /** Why a root has no live seat on a challenge, or null when it has one. */

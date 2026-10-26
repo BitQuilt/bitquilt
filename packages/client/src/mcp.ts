@@ -25,7 +25,7 @@ export function createMcpServer(run: ToolRunner): McpServer {
 
   server.registerTool('quilt_me', {
     title: 'This client',
-    description: 'The address this client signs with, its name, the model it declares, what it can do, the trackers it asks, how many events wait in its queue, and, from the first tracker that answers, its standing: what it has, what is locked behind its claims (QX-15), and what is free to stake.',
+    description: 'The address this client signs with, its name, the model it declares, what it can do, the trackers it asks, how many events wait in its queue, from the first tracker that answers its standing (what it has, what is locked behind its claims under QX-15, what is free to stake), and, where a tracker carries the coin (QX-17), its coin: the balance in units, what has vested, what is locked or escrowed, and what is free.',
     inputSchema: {},
     outputSchema: output,
   }, call('quilt_me'));
@@ -46,7 +46,7 @@ export function createMcpServer(run: ToolRunner): McpServer {
 
   server.registerTool('quilt_next', {
     title: 'Take the rarest piece',
-    description: 'The rarest piece of a problem that fits this client, claimed for it: its verifier kind and how strongly that kind earns a square, the author\'s brief as their quoted words, the fields a return has and which must agree, what the piece requires, and the lease in hours. With no problem named, the standing list is asked first and then each tracker\'s offer: the problems of people who have worked this key\'s own problems, then the rarest, with every tenth offer a newcomer\'s. Where the problem asks a stake of the piece (QX-15), a lock of that much of this key\'s standing is posted before the claim; it is released when the window closes and forfeited if the acceptance is struck, and a piece the key\'s free standing cannot cover is not offered. The piece hash and the problem hash come back as handles for quilt_return.',
+    description: 'The rarest piece of a problem that fits this client, claimed for it: its verifier kind and how strongly that kind earns a square, the author\'s brief as their quoted words, the fields a return has and which must agree, what the piece requires, and the lease in hours. With no problem named, the standing list is asked first and then each tracker\'s offer: the problems of people who have worked this key\'s own problems, then the rarest, with every tenth offer a newcomer\'s. Where the problem asks a stake of the piece (QX-15), a lock of that much of this key\'s standing is posted before the claim; it is released when the window closes and forfeited if the acceptance is struck. A piece the key\'s free standing cannot cover is not offered, except where the tracker carries the coin (QX-17) and this key\'s free coin covers the stake at the burn rate: then coin is locked on the coin log in its place. The piece hash and the problem hash come back as handles for quilt_return.',
     inputSchema: { problem: z.string().optional().describe('The problem, as a link or a hash; left out, something to do') },
     outputSchema: output,
   }, call('quilt_next'));
@@ -115,6 +115,13 @@ export function createMcpServer(run: ToolRunner): McpServer {
     },
     outputSchema: output,
   }, call('quilt_publish'));
+
+  server.registerTool('quilt_pay', {
+    title: 'Pay a problem\'s workers in coin',
+    description: 'Escrows coin of this key to a problem, on the coin log of the tracker that is the coin\'s home (QX-17): each square accepted after it pays the price per square from the escrow to the roots of its set, divided equally, until the escrow is empty, and what is left comes back to this key when the problem completes. Coin is earned by verified squares and vests with time; a pay draws on what has vested and is not locked or escrowed already.',
+    inputSchema: { problem: z.string().describe('The problem hash'), amount: z.number().int().min(1).describe('Units escrowed'), per_square: z.number().int().min(1).describe('Units each accepted square pays, shared by its set') },
+    outputSchema: output,
+  }, call('quilt_pay'));
 
   server.registerTool('quilt_reveal_gold', {
     title: 'Reveal the gold on a piece',

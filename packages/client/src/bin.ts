@@ -13,6 +13,8 @@
  *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
  *   quilt stake <problem> <min> [<family> ...]           the owner's stake rule (QX-15): what a claim on the pieces locks; 0 asks nothing
  *   quilt gold reveal <problem> <piece>                   the owner's reveal of the gold committed on a piece (QX-16), from this home's library
+ *   quilt pay <problem> <amount> <per_square>            coin escrowed to a problem on the coin's home (QX-17), paid per accepted square
+ *   quilt balance                                         this key's coin at the first tracker that carries one
  *   quilt challenge <problem> <piece> <stake> <ground>  |  quilt verdict <problem> <piece> <challenge> <challenger|author> ['<json>']
  *   quilt rank <problem> <piece> <digest> [<digest>...]   a judge's ranking of a piece's candidates, first choice first
  *   quilt hide <id or hash> <why> [--lift]                a maintainer's takedown on this client's trackers, or its lift
@@ -84,6 +86,14 @@ async function main(): Promise<void> {
       console.log(JSON.stringify(await make().stakeRule(args[1] as `sha256:${string}`, Number(args[2]), args.slice(3))));
       return;
     }
+    case 'pay': {
+      console.log(JSON.stringify(await make().pay(args[1] as `sha256:${string}`, Number(args[2]), Number(args[3])), null, 2));
+      return;
+    }
+    case 'balance': {
+      console.log(JSON.stringify(await make().coin(), null, 2));
+      return;
+    }
     case 'gold': {
       if (args[1] !== 'reveal') {
         log('gold: reveal is the one subcommand so far');
@@ -143,9 +153,9 @@ async function main(): Promise<void> {
     }
     case 'next': {
       const quilt = make();
-      const { hash, pick, posted, author, stake } = await quilt.next(args[1] ?? '');
+      const { hash, pick, posted, author, stake, lock } = await quilt.next(args[1] ?? '');
       console.log(quilt.pieceText(hash, pick, author, stake));
-      console.log(posted.queued ? 'Claim queued.' : `Claim posted to ${posted.at}${stake > 0 ? `, after a lock of ${stake}` : ''}.`);
+      console.log(posted.queued ? 'Claim queued.' : `Claim posted to ${posted.at}${lock ? `, after a lock of ${stake}${lock === 'coin' ? ' backed by coin' : ''}` : ''}.`);
       return;
     }
     case 'seed': {

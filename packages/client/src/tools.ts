@@ -18,7 +18,7 @@ export type ToolInput = Record<string, unknown>;
 /** Runs one tool by name for the host that asked (the client's name at connection, which the model declared follows). */
 export type ToolRunner = (name: ToolName, input: ToolInput, host: string | undefined) => Promise<ToolResult>;
 
-export const TOOL_NAMES = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold'] as const;
+export const TOOL_NAMES = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold', 'quilt_pay'] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 export function isToolName(s: string): s is ToolName {
@@ -33,13 +33,14 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
   switch (name) {
     case 'quilt_me': {
       const me = quilt.me();
-      const s = await quilt.standing();
+      const [s, c] = await Promise.all([quilt.standing(), quilt.coin()]);
       const text = [
         `Address: ${me.address ?? 'none yet (quilt init makes one)'}`, `Name: ${me.name ?? 'none set'}`, `Declares: ${me.model}; can: ${me.can.join(', ')}`, `Trackers: ${me.trackers.join(', ')}`,
         s ? `Standing: ${s.standing} (locked ${s.locked}, free ${s.free}) at ${s.tracker}${s.locks.length ? `; locks: ${s.locks.map((l) => `${l.amount} on ${l.piece} of ${l.problem}`).join(', ')}` : ''}` : 'Standing: no tracker answered',
+        ...(c ? [`Coin (QX-17): ${c.balance} units (vested ${c.vested}, locked ${c.locked}, escrowed ${c.escrowed}, free ${c.free}) at ${c.home}`] : []),
         `Queued events: ${me.queued}; problems in the library: ${me.problems}`,
       ].join('\n');
-      return { text, handles: { address: me.address, model: me.model, trackers: me.trackers, queued: me.queued, standing: s } };
+      return { text, handles: { address: me.address, model: me.model, trackers: me.trackers, queued: me.queued, standing: s, coin: c } };
     }
     case 'quilt_open': {
       const { hash: h, state, tracker, layer, hidden } = await quilt.open(str('link'));
@@ -53,10 +54,11 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       return { text, handles: { problems: found.map((p) => p.problem) } };
     }
     case 'quilt_next': {
-      const { hash: h, pick, posted, author, stake } = await quilt.next(str('problem'));
-      const text = `${quilt.pieceText(h, pick, author, stake)}\n${posted.queued ? 'The claim waits in the queue; no tracker answered.' : `The claim was posted to ${posted.at}${stake > 0 ? `, after a lock of ${stake}` : ''}.`}`;
+      const { hash: h, pick, posted, author, stake, lock } = await quilt.next(str('problem'));
+      const locked = lock === 'coin' ? `, after a lock of ${stake} backed by coin on the coin log` : lock === 'standing' ? `, after a lock of ${stake}` : '';
+      const text = `${quilt.pieceText(h, pick, author, stake)}\n${posted.queued ? 'The claim waits in the queue; no tracker answered.' : `The claim was posted to ${posted.at}${locked}.`}`;
       const k = kindWords(pick.piece.verifier);
-      return { text, handles: { problem: h, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: k.kind, strength: k.strength, weakest: k.weakest, requires: pick.requires, lease_h: pick.lease_h, agree: pick.agree, schema: pick.schema ?? null, stake } };
+      return { text, handles: { problem: h, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: k.kind, strength: k.strength, weakest: k.weakest, requires: pick.requires, lease_h: pick.lease_h, agree: pick.agree, schema: pick.schema ?? null, stake, lock } };
     }
     case 'quilt_return': {
       const r = await quilt.return(hash('problem'), hash('piece'), (input.return ?? {}) as Record<string, unknown>);
@@ -99,6 +101,10 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
         ...r.refused.map((x) => `Refused by ${x}`),
       ].join('\n');
       return { text, handles: { problem: r.hash, link: r.link, posted: r.posted, gold: r.gold } };
+    }
+    case 'quilt_pay': {
+      const r = await quilt.pay(hash('problem'), Number(input.amount), Number(input.per_square));
+      return { text: `Escrowed ${input.amount} units to ${str('problem')} at ${input.per_square} a square; ${r.queued ? 'the pay waits in the queue' : `posted to the coin log at ${r.home}`}. Each square accepted from now pays the roots of its set from the escrow; what is left comes back when the problem completes.`, handles: { problem: input.problem, pay: r.id, amount: input.amount, per_square: input.per_square, home: r.home } };
     }
     case 'quilt_reveal_gold': {
       const r = await quilt.revealGold(hash('problem'), hash('piece'));

@@ -5,15 +5,19 @@
  * resolver's own, so a mirror follows one tracker's chains; a second tracker's chain for the same problem is refused unless it
  * is a growth of the first's:
  *
- *   problems/<hash>.json   blobs/<hash>   ledger/<hash>.jsonl   ledger/identity.jsonl
- *   names/<owner>/<slug>   outputs/<hash>/output.json   keys.json   index.json   anchors/<problem>/<seq>.ots (QX-12, when asked)
+ *   problems/<hash>.json   blobs/<hash>   ledger/<hash>.jsonl   ledger/identity.jsonl   ledger/coin.jsonl (QX-17)
+ *   names/<owner>/<slug>   outputs/<hash>/output.json   keys.json   index.json   coin/balances.json   anchors/<problem>/<seq>.ots (QX-12, when asked)
+ *
+ * The coin (QX-17) is held to the same rule as a chain: the mirror recomputes every balance from the receipts it holds
+ * and the parameters the tracker publishes, and keeps the tracker's balances only where its own agree.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { type AnchorReport, type Head, anchorHeads } from './anchor.js';
 import { dirname, join } from 'node:path';
 import {
-  type Envelope, type Hash, type Receipt, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, onlyAppends, problemHash, reduce, signedBy, verifyChain,
+  type Envelope, type Hash, type Receipt, type ReduceInput, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, onlyAppends, problemHash, reduce, signedBy, verifyChain,
 } from '@bitquilt/core';
+import { type BalanceView, type CoinParams, COIN_LOG, challengeLayer, coinLayer } from '@bitquilt/tracker';
 
 export interface MirrorOptions {
   trackers: string[];
@@ -22,11 +26,15 @@ export interface MirrorOptions {
   now?: () => string;
   /** QX-12: stamp every chain's head through OpenTimestamps; true for the default calendars, or the calendars to ask. */
   anchor?: boolean | { calendars?: string[] };
+  /** QX-17: pull the coin log of a tracker that is the coin's home and reproduce its balances; on unless false. */
+  coin?: boolean;
 }
 
 export interface MirrorReport {
   problems: { hash: Hash; lines: number; added: number; complete: boolean }[];
   identity: { lines: number; added: number };
+  /** QX-17: the coin log held, and whether the tracker's balances at its head reproduced here (null where the head moved between reads). */
+  coin?: { lines: number; added: number; head: number | null; reproduced: boolean | null };
   refused: string[];
   errors: string[];
   anchors?: AnchorReport;
@@ -88,6 +96,27 @@ export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
   const writeLines = (file: string, lines: Receipt[]) => {
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));
+  };
+  /** What the reducer takes for a problem held here: its envelope chain along prev, the blobs, every receipt along the chain and the identity log; null when the envelope is not here. */
+  const inputFor = (hash: Hash, at: string): ReduceInput | null => {
+    const file = join(out, 'problems', `${hash}.json`);
+    if (!existsSync(file)) return null;
+    const chainEnvelopes: Envelope[] = [JSON.parse(readFileSync(file, 'utf8')) as Envelope];
+    const guard = new Set<Hash>([hash]);
+    for (let cur = chainEnvelopes[0]!.problem.prev; cur && !guard.has(cur); ) {
+      guard.add(cur);
+      const pf = join(out, 'problems', `${cur}.json`);
+      if (!existsSync(pf)) break;
+      const pe = JSON.parse(readFileSync(pf, 'utf8')) as Envelope;
+      chainEnvelopes.push(pe);
+      cur = pe.problem.prev;
+    }
+    const blobs = new Map<Hash, Uint8Array>();
+    for (const e of chainEnvelopes) for (const h of Object.values(e.problem.data)) if (!blobs.has(h) && existsSync(join(out, 'blobs', h))) blobs.set(h, new Uint8Array(readFileSync(join(out, 'blobs', h))));
+    const receipts: Receipt[] = [];
+    for (const e of chainEnvelopes) receipts.push(...readLines(join(out, 'ledger', `${problemHash(e)}.jsonl`)));
+    receipts.push(...readLines(join(out, 'ledger', 'identity.jsonl')));
+    return { envelopes: chainEnvelopes, blobs, receipts, now: at };
   };
 
   /** A chain from a tracker, taken only if it verifies and only adds to what the mirror holds. */
@@ -167,22 +196,7 @@ export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
       }
       let complete = false;
       try {
-        const chainEnvelopes: Envelope[] = [e];
-        let cur = e.problem.prev;
-        const guard = new Set<Hash>();
-        while (cur && !guard.has(cur)) {
-          guard.add(cur);
-          const pf = join(out, 'problems', `${cur}.json`);
-          if (!existsSync(pf)) break;
-          const pe = JSON.parse(readFileSync(pf, 'utf8')) as Envelope;
-          chainEnvelopes.push(pe);
-          for (const h of Object.values(pe.problem.data)) if (!blobs.has(h) && existsSync(join(out, 'blobs', h))) blobs.set(h, new Uint8Array(readFileSync(join(out, 'blobs', h))));
-          cur = pe.problem.prev;
-        }
-        const receipts = [...chain.lines];
-        for (const pe of chainEnvelopes.slice(1)) receipts.push(...readLines(join(out, 'ledger', `${problemHash(pe)}.jsonl`)));
-        receipts.push(...readLines(join(out, 'ledger', 'identity.jsonl')));
-        const state = reduce({ envelopes: chainEnvelopes, blobs, receipts, now: now() });
+        const state = reduce(inputFor(hash, now())!);
         complete = state.complete;
         if (state.output) {
           mkdirSync(join(out, 'outputs', hash), { recursive: true });
@@ -196,6 +210,44 @@ export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
     }
     const identity = await takeChain(`${t}k/events`, IDENTITY_LOG, join(out, 'ledger', 'identity.jsonl'), 'identity');
     if (identity) report.identity = { lines: identity.lines.length, added: Math.max(report.identity.added, identity.added) };
+    // QX-17: the coin log of the tracker that is the coin's home, and the balances it says it computed, held only where they reproduce here.
+    if (options.coin !== false) {
+      const wk = (await getJson(`${t}.well-known/quilt`)) as { coin?: (CoinParams & { home?: string | null; extension?: string }) | null } | null;
+      const published = wk?.coin ?? null;
+      if (published && (published.home === 'here' || published.home === undefined || published.home === null)) {
+        const chain = await takeChain(`${t}coin/events`, COIN_LOG, join(out, 'ledger', 'coin.jsonl'), 'coin');
+        if (chain) {
+          const held = chain.lines[chain.lines.length - 1];
+          report.coin = { lines: chain.lines.length, added: chain.added, head: held?.seq ?? null, reproduced: null };
+          const state = (await getJson(`${t}coin/state`)) as { head: { seq: number; hash: string } | null; at: string; balances: Record<string, BalanceView> } | null;
+          const same = state && ((state.head === null && !held) || (state.head !== null && held !== undefined && state.head.seq === held.seq && state.head.hash === held.hash));
+          if (state && same) {
+            const { home: _home, extension: _ext, ...params } = published;
+            const inputs: ReduceInput[] = [];
+            for (const hash of index.keys()) {
+              const input = inputFor(hash, state.at);
+              if (input) inputs.push(input);
+            }
+            try {
+              const layer = challengeLayer({ problems: inputs, now: state.at, coin: chain.lines });
+              const mine = Object.fromEntries(coinLayer({ layer, params: params as CoinParams, receipts: chain.lines, now: state.at }).balances());
+              const roots = [...new Set([...Object.keys(mine), ...Object.keys(state.balances)])].sort();
+              const differs = roots.find((r) => JSON.stringify(mine[r] ?? null) !== JSON.stringify(state.balances[r] ?? null));
+              if (differs === undefined) {
+                mkdirSync(join(out, 'coin'), { recursive: true });
+                writeFileSync(join(out, 'coin', 'balances.json'), JSON.stringify({ head: state.head, at: state.at, params: published, balances: state.balances }, null, 2) + '\n');
+                report.coin.reproduced = true;
+              } else {
+                report.refused.push(`coin: the balances at head ${state.head?.seq ?? 0} from ${t} do not reproduce here (${differs})`);
+                report.coin.reproduced = false;
+              }
+            } catch (err) {
+              report.errors.push(`coin: ${(err as Error).message}`);
+            }
+          }
+        }
+      }
+    }
   }
 
   // keys.json: each address's latest name and the delegations in force, folded from the identity log alone.
@@ -228,6 +280,7 @@ export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
     };
     for (const p of report.problems) headOf(join(out, 'ledger', `${p.hash}.jsonl`), p.hash);
     headOf(join(out, 'ledger', 'identity.jsonl'), 'identity');
+    headOf(join(out, 'ledger', 'coin.jsonl'), 'coin');
     report.anchors = await anchorHeads({ out, heads, ...(typeof options.anchor === 'object' && options.anchor.calendars ? { calendars: options.anchor.calendars } : {}), fetchImpl: f, now });
   }
   return report;

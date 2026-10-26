@@ -17,6 +17,8 @@ import { RECIPROCITY, SEEDING, offerOrder, seedBodyProblems, seedInfo, watchExcl
 import { type PanelView, EXTENSIONS, JUDGE_SEED, RANK_EVENTS, kindOf, rankBodyProblems } from './verifiers.js';
 import { PRODUCTION_EVENTS, STAKE, STAKE_EVENTS, lockBodyProblems, stakeRuleBodyProblems } from './stake.js';
 import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems } from './gold.js';
+import { type CoinLayer, type CoinLockView, type CoinParams, type CoinWord, COIN, COIN_EVENTS, COIN_LOG, coinLayer } from './coin.js';
+import type { CoinLockWord } from './challenge.js';
 import type { Store } from './store.js';
 
 export const IDENTITY: Hash = IDENTITY_LOG;
@@ -42,6 +44,10 @@ export interface TrackerOptions {
   custodySecret?: string;
   /** Routes mounted beside the tracker, such as the hosted on-ramp. Answers true when it handled the request. */
   extra?: (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<boolean>;
+  /** QX-17: the coin this tracker carries, or reads from a home; absent, it has no coin log and honours no coin lock. */
+  coin?: CoinParams;
+  /** How the tracker reaches another tracker: the coin's home for a coin lock, and its parameters. */
+  fetchImpl?: typeof fetch;
 }
 
 export interface Tracker {
@@ -53,6 +59,8 @@ export interface Tracker {
   layer(): Layer;
   /** One problem's view in that layer. */
   view(hash: Hash): ProblemLayer | null;
+  /** QX-17: the coin as this tracker computes it at now, or null where it carries none. */
+  coin(): CoinLayer | null;
 }
 
 class Refusal extends Error {
@@ -134,7 +142,62 @@ export function createTracker(options: TrackerOptions): Tracker {
       const input = inputFor(e.hash);
       if (input) problems.push(input);
     }
-    return challengeLayer({ problems, now: now() });
+    return challengeLayer({ problems, now: now(), ...(options.coin ? { coin: store.receipts(COIN_LOG) } : {}) });
+  }
+
+  /** QX-17: the coin over the layer, from the coin log and the parameters; null where this tracker carries none. */
+  function coin(layered: Layer = layer()): CoinLayer | null {
+    return options.coin ? coinLayer({ layer: layered, params: options.coin, receipts: store.receipts(COIN_LOG), now: now() }) : null;
+  }
+  const coinHome = (): string | null => (options.coin ? options.coin.home ?? 'here' : null);
+  const fetchImpl = options.fetchImpl ?? fetch;
+  let homeRate: number | null = null;
+
+  /**
+   * QX-17 section 5: what the door reads of a coin lock before it admits a coin-kind QX-15 lock, from its own coin layer
+   * at the home and from the home's route elsewhere; what it reads goes into the receipt as its word.
+   */
+  async function coinWord(under: Hash, event: Event, root: Address): Promise<CoinWord> {
+    const home = coinHome();
+    if (home === null) throw new Refusal(400, 'this tracker honours no coin lock');
+    const id = event.body.id as Hash;
+    const amount = event.body.amount as number;
+    let lock: CoinLockView | null;
+    let rate: number;
+    let head: { seq: number; hash: string } | null;
+    if (home === 'here') {
+      const c = coin()!;
+      lock = c.lock(id);
+      rate = c.params.burn_rate;
+      head = c.head;
+    } else {
+      try {
+        if (homeRate === null) {
+          const w = (await (await fetchImpl(`${home}.well-known/quilt`, { signal: AbortSignal.timeout(8000) })).json()) as { coin?: { burn_rate?: number } };
+          if (typeof w.coin?.burn_rate !== 'number') throw new Error('no coin');
+          homeRate = w.coin.burn_rate;
+        }
+        rate = homeRate;
+        const r = await fetchImpl(`${home}coin/lock/${id}`, { signal: AbortSignal.timeout(8000) });
+        if (r.status === 404) lock = null;
+        else if (!r.ok) throw new Error(`${r.status}`);
+        else {
+          const { head: h, ...rest } = (await r.json()) as CoinLockView & { head: { seq: number; hash: string } | null; at: string };
+          lock = rest;
+          head = h;
+        }
+      } catch {
+        throw new Refusal(400, 'the home did not answer');
+      }
+      head ??= null;
+    }
+    if (!lock) throw new Refusal(400, 'no such lock on the coin log');
+    if (lock.root !== root) throw new Refusal(400, 'the lock is another root\'s');
+    if (lock.problem !== under || lock.piece !== event.piece) throw new Refusal(400, 'the lock names another piece');
+    if (lock.bound !== null) throw new Refusal(400, 'the lock is bound');
+    if (lock.state !== 'live') throw new Refusal(400, 'the lock has ended');
+    if (Math.floor(lock.units / rate) < amount) throw new Refusal(400, `the lock holds ${lock.units} units, a stake of ${Math.floor(lock.units / rate)} at ${rate} a point`);
+    return { kind: 'coin', amount, id, units: lock.units, home, head };
   }
 
   function view(hash: Hash): ProblemLayer | null {
@@ -217,7 +280,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     json(res, 201, { hash });
   }
 
-  async function postEvent(req: IncomingMessage, res: ServerResponse, under: Hash | null): Promise<void> {
+  async function postEvent(req: IncomingMessage, res: ServerResponse, under: Hash | null | 'coin'): Promise<void> {
     limit(ipBucket(req), limits.ipPerHour);
     const event = parseJson(await readBody(req)) as Event;
     const shape = eventProblems(event);
@@ -227,7 +290,18 @@ export function createTracker(options: TrackerOptions): Tracker {
     const id = eventId(event);
     const type = event.type;
     let chainKey: Hash;
-    if (under === null) {
+    /** What the door read and vouches for, written into the receipt's wrapper (QX-17). */
+    let word: Record<string, unknown> | undefined;
+    if (under === 'coin') {
+      // QX-17: the coin log, admitted against the layer's balances at now.
+      if (!options.coin) throw new Refusal(404, 'this tracker carries no coin');
+      if (!COIN_EVENTS.has(type)) throw new Refusal(400, 'the coin log takes lock, pay, burn, transfer and redeem');
+      if (event.problem !== undefined || event.piece !== undefined) throw new Refusal(400, 'a coin event names no problem in its fields');
+      const a = coin()!.admit(event);
+      if (!a.ok) throw new Refusal(400, a.why);
+      if (type === 'burn') word = { stake: { kind: 'burn', amount: event.body.amount, standing: a.standing ?? 0 } };
+      chainKey = COIN_LOG;
+    } else if (under === null) {
       if (!IDENTITY_EVENTS.has(type)) throw new Refusal(400, 'the identity log takes name, delegate, revoke, rotate and hide');
       if (event.problem !== undefined || event.piece !== undefined) throw new Refusal(400, 'an identity event names no problem');
       if (type === 'name' && stampNeeded > 0 && !stampOk(event, stampNeeded)) throw new Refusal(400, `a name event here carries a stamp of ${stampNeeded} bits`);
@@ -245,7 +319,10 @@ export function createTracker(options: TrackerOptions): Tracker {
       const state = reduceProblem(under);
       if (!state) throw new Refusal(404, 'no such problem here');
       if (CHALLENGE_EVENTS.has(type)) checkChallengeEvent(event, under);
-      if (STAKE_EVENTS.has(type)) checkStakeEvent(event, under);
+      if (STAKE_EVENTS.has(type)) {
+        const w = await checkStakeEvent(event, under, state);
+        if (w) word = { stake: w };
+      }
       if (GOLD_EVENTS.has(type)) checkGoldEvent(event, under);
       if (type === 'seed') {
         const sp = seedBodyProblems(event.body);
@@ -280,10 +357,11 @@ export function createTracker(options: TrackerOptions): Tracker {
     }
     if (store.hasEvent(chainKey, id)) throw new Refusal(409, 'already here');
     const hosted = hostedPost(req);
-    const line = hosted ? store.appendReceipt(chainKey, event, id, url, now(), 'hosted', 'ai') : store.appendReceipt(chainKey, event, id, url, now(), 'self');
-    if ((type === 'reveal' || type === 'decline') && under && event.piece) store.releaseHold(under, event.piece, event.key);
+    const line = hosted ? store.appendReceipt(chainKey, event, id, url, now(), 'hosted', 'ai', word) : store.appendReceipt(chainKey, event, id, url, now(), 'self', undefined, word);
+    const problem = under !== null && under !== 'coin' ? under : null;
+    if ((type === 'reveal' || type === 'decline') && problem && event.piece) store.releaseHold(problem, event.piece, event.key);
     if (type === 'version') store.putName(event.key, (event.body as { slug: string }).slug, (event.body as { hash: Hash }).hash, line.received[0]!.at);
-    if (type === 'announce' && under) store.putAnnouncement(under, event.key, event, line.received[0]!.at);
+    if (type === 'announce' && problem) store.putAnnouncement(problem, event.key, event, line.received[0]!.at);
     json(res, 202, { id, seq: line.seq, hash: line.hash, at: line.received[0]!.at });
   }
 
@@ -306,21 +384,30 @@ export function createTracker(options: TrackerOptions): Tracker {
     if (kind === 'judge' && event.piece && view(under)?.panels.some((p) => p.piece === event.piece)) throw new Refusal(400, 'the candidates for this piece are in');
   }
 
-  /** The door for QX-15: a stake rule from the owner naming pieces the problem has; a lock a root can cover, on a piece that asks one. */
-  function checkStakeEvent(event: Event, under: Hash): void {
+  /**
+   * The door for QX-15: a stake rule from the owner naming pieces the problem has; a lock a root can cover, on a piece
+   * that asks one. A coin-kind lock is checked against the coin log (QX-17), and what the door read is its word for the receipt.
+   */
+  async function checkStakeEvent(event: Event, under: Hash, state: ReturnType<typeof reduce>): Promise<CoinLockWord | null> {
     if (event.type === 'stake_rule') {
       if (event.piece !== undefined) throw new Refusal(400, 'a stake rule names a problem and no piece');
       const shape = stakeRuleBodyProblems(event.body);
       if (shape.length) throw new Refusal(400, shape[0]!);
       const a = layer().admitStakeRule(under, event.key, event.body);
       if (!a.ok) throw new Refusal(400, a.why);
-      return;
+      return null;
     }
     if (!event.piece) throw new Refusal(400, 'a lock names a problem and a piece');
     const shape = lockBodyProblems(event.body);
     if (shape.length) throw new Refusal(400, shape[0]!);
-    const a = layer().admitLock(under, event.piece, event.key, event.body);
+    let word: CoinWord | null = null;
+    if (event.body.kind === 'coin') {
+      if (!state.byHash.has(event.piece)) throw new Refusal(400, 'names a piece this problem does not have');
+      word = await coinWord(under, event, state.rootOf(event.key, now()));
+    }
+    const a = layer().admitLock(under, event.piece, event.key, event.body, word);
     if (!a.ok) throw new Refusal(400, a.why);
+    return word;
   }
 
   /** The door for QX-16: the owner's gold, kept whole or refused naming the piece; the owner's reveal on an accepted piece inside its window. */
@@ -515,10 +602,56 @@ export function createTracker(options: TrackerOptions): Tracker {
           challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
           verifiers: { human: EXTENSIONS.human, 'judge:n': EXTENSIONS.judge, attest: EXTENSIONS.attest, judge_seed: JUDGE_SEED },
           chain: 'QX-11', seeding: SEEDING, reciprocity: RECIPROCITY, hide: HIDE, maintainers, identity: IDENTITY, hosted: options.extra !== undefined,
-          stake: { extension: STAKE, coin: null }, gold: { extension: GOLD },
-          routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/k/<address>/standing', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden'],
+          stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: options.coin.burn_rate } : {}) }, gold: { extension: GOLD },
+          coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
+          routes: [
+            '/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/k/<address>/standing', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden',
+            ...(options.coin ? ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/state'] : []),
+          ],
         });
         return;
+      }
+      if (path.startsWith('/coin')) {
+        // QX-17: the coin log and what the layer computes from it.
+        if (!options.coin) throw new Refusal(404, 'this tracker carries no coin');
+        if (path === '/coin/events') {
+          if (method === 'POST') {
+            await postEvent(req, res, 'coin');
+            return;
+          }
+          events(res, COIN_LOG, Number(u.searchParams.get('since') ?? 0));
+          return;
+        }
+        if (method !== 'GET') throw new Refusal(405, 'GET');
+        let cm: RegExpExecArray | null;
+        if ((cm = /^\/coin\/lock\/(sha256:[0-9a-f]{64})$/.exec(path))) {
+          const c = coin()!;
+          const lock = c.lock(cm[1] as Hash);
+          if (!lock) throw new Refusal(404, 'no such lock on the coin log');
+          json(res, 200, { ...lock, head: c.head, at: c.now });
+          return;
+        }
+        if ((cm = /^\/coin\/balance\/(0x[0-9a-fA-F]{40})$/.exec(path))) {
+          if (!isAddress(cm[1])) throw new Refusal(400, 'an address with its checksum');
+          const c = coin()!;
+          const layered = layer();
+          const first = layered.problems.values().next().value as ProblemLayer | undefined;
+          const root = first ? first.fold.rootOf(cm[1] as Address, c.now) : (cm[1] as Address);
+          json(res, 200, { ...c.balance(root), at: c.now, head: c.head });
+          return;
+        }
+        if (path === '/coin/epochs') {
+          const since = Number(u.searchParams.get('since') ?? 0);
+          const c = coin()!;
+          json(res, 200, { epochs: c.epochs().filter((e) => e.epoch >= since), at: c.now, head: c.head });
+          return;
+        }
+        if (path === '/coin/state') {
+          const c = coin()!;
+          json(res, 200, { head: c.head, at: c.now, params: { extension: COIN, ...options.coin, home: coinHome() }, balances: Object.fromEntries(c.balances()), dropped: c.dropped });
+          return;
+        }
+        throw new Refusal(404, 'no such route');
       }
       if (path === '/' && method === 'GET') {
         json(res, 200, { quilt: 1, tracker: url, problems: index(u.searchParams) });
@@ -642,5 +775,5 @@ export function createTracker(options: TrackerOptions): Tracker {
     return new Promise((resolve) => server.listen(port, host, () => resolve(server)));
   }
 
-  return { handle, listen, reduceProblem, layer, view };
+  return { handle, listen, reduceProblem, layer, view, coin: () => coin() };
 }

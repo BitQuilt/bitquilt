@@ -270,12 +270,17 @@ export class Resolver {
     return reduce({ envelopes: resolved.envelopes, blobs: resolved.blobs, receipts: resolved.receipts, now });
   }
 
+  /** Where an event goes on a tracker: a problem's log, the identity log, or the coin log (QX-17). */
+  private logUrl(t: string, problem: Hash | null | 'coin'): string {
+    return problem === 'coin' ? `${t}coin/events` : problem ? `${t}p/${problem}/events` : `${t}k/events`;
+  }
+
   /** Posts an event to the trackers in order until one takes it; otherwise queues it. Returns where it went. */
-  async post(event: Event, problem: Hash | null, trackers: string[]): Promise<{ at: string | null; queued: boolean; error?: string }> {
+  async post(event: Event, problem: Hash | null | 'coin', trackers: string[]): Promise<{ at: string | null; queued: boolean; error?: string }> {
     let lastError = '';
     for (const t of trackers.map(withSlash)) {
       try {
-        const r = await this.fetchImpl(problem ? `${t}p/${problem}/events` : `${t}k/events`, { method: 'POST', body: JSON.stringify(event), headers: { 'content-type': 'application/json', ...this.postHeaders }, signal: AbortSignal.timeout(8000) });
+        const r = await this.fetchImpl(this.logUrl(t, problem), { method: 'POST', body: JSON.stringify(event), headers: { 'content-type': 'application/json', ...this.postHeaders }, signal: AbortSignal.timeout(8000) });
         if (r.status === 202 || r.status === 409) return { at: t, queued: false };
         const body = (await r.json().catch(() => ({}))) as { error?: string };
         lastError = body.error ?? `${r.status}`;
@@ -292,14 +297,14 @@ export class Resolver {
   async flush(): Promise<{ sent: number; left: number }> {
     const file = join(this.home, 'queue.jsonl');
     if (!existsSync(file)) return { sent: 0, left: 0 };
-    const items = readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as { problem: Hash | null; event: Event; trackers: string[] });
+    const items = readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as { problem: Hash | null | 'coin'; event: Event; trackers: string[] });
     const left: typeof items = [];
     let sent = 0;
     for (const it of items) {
       let ok = false;
       for (const t of it.trackers.map(withSlash)) {
         try {
-          const r = await this.fetchImpl(it.problem ? `${t}p/${it.problem}/events` : `${t}k/events`, { method: 'POST', body: JSON.stringify(it.event), headers: { 'content-type': 'application/json', ...this.postHeaders }, signal: AbortSignal.timeout(8000) });
+          const r = await this.fetchImpl(this.logUrl(t, it.problem), { method: 'POST', body: JSON.stringify(it.event), headers: { 'content-type': 'application/json', ...this.postHeaders }, signal: AbortSignal.timeout(8000) });
           if (r.status === 202 || r.status === 409 || (r.status >= 400 && r.status < 500 && r.status !== 429)) {
             ok = true;
             break;
