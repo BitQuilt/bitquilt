@@ -1,0 +1,132 @@
+// API.swift: the shapes the node answers with on 127.0.0.1 and the four GET calls the shell makes. The shell reads and
+// never writes: every write stays in the page, which is the person's hand, or in the AI's connector. Requests carry no
+// Origin header, which is what the node's guard expects of a program on this machine.
+
+import Foundation
+
+/// GET /api/me: whose node this is and what it knows.
+struct Me: Decodable {
+    let address: String?
+    let name: String?
+    let model: String
+    let can: [String]
+    let trackers: [String]
+    let mirrors: [String]
+    let relays: [String]
+    let queued: Int
+    let problems: Int
+}
+
+/// GET /api/library: the problems this person opened, published or worked, and the ones they keep.
+struct Library: Decodable {
+    struct Problem: Decodable {
+        let title: String
+        let slug: String
+        let trackers: [String]
+        let first: String
+        let last: String
+    }
+
+    let problems: [String: Problem]
+    /// Problem hash to the date the person began keeping it: the seed event's timestamp.
+    let seeding: [String: String]?
+}
+
+/// One line of GET /api/search?q=: a problem an index or a relay answered with.
+struct SearchResult: Decodable, Identifiable {
+    let problem: String
+    let title: String
+    let slug: String
+    let owner: String
+    let pieces: Int?
+    let counts: [String: Int]?
+    let topics: [String]?
+    let tracker: String?
+    let via: String
+    var id: String { problem }
+}
+
+/// One item of GET /api/attention: something a piece wants from this person in particular.
+struct AttentionItem: Decodable {
+    let problem: String
+    let title: String
+    let piece: String?
+    let name: String?
+    let why: String
+    let tracker: String?
+}
+
+struct API {
+    /// The node's origin, http://127.0.0.1:<port>, with no trailing slash.
+    let base: String
+
+    enum Failure: LocalizedError {
+        case status(Int)
+        case said(String)
+        case badURL
+
+        var errorDescription: String? {
+            switch self {
+            case .status(let code): return "The node answered \(code)."
+            case .said(let message): return message
+            case .badURL: return "The address could not be formed."
+            }
+        }
+    }
+
+    private struct Answer {
+        let data: Data
+        let status: Int
+    }
+
+    private struct Said: Decodable { let error: String }
+    private struct Found: Decodable { let problems: [SearchResult] }
+    private struct Wanted: Decodable { let items: [AttentionItem] }
+
+    func me() async throws -> Me {
+        try decode(await get("/api/me", timeout: 3))
+    }
+
+    func library() async throws -> Library {
+        try decode(await get("/api/library", timeout: 3))
+    }
+
+    /// The trackers and relays this client knows, asked at once; this can take a while.
+    func search(_ words: String) async throws -> [SearchResult] {
+        let found: Found = try decode(await get("/api/search", query: [URLQueryItem(name: "q", value: words)], timeout: 25))
+        return found.problems
+    }
+
+    /// Empty on a node that has no attention route yet (404), so the section stays absent.
+    func attention() async throws -> [AttentionItem] {
+        let answer = try await get("/api/attention", timeout: 10)
+        if answer.status == 404 { return [] }
+        let wanted: Wanted = try decode(answer)
+        return wanted.items
+    }
+
+    /// Whether a quilt node answers at the base: JSON with an address field, null or not.
+    func answers() async -> Bool {
+        guard let answer = try? await get("/api/me", timeout: 1.5), answer.status == 200,
+              let object = try? JSONSerialization.jsonObject(with: answer.data) as? [String: Any] else { return false }
+        return object.keys.contains("address")
+    }
+
+    private func get(_ path: String, query: [URLQueryItem] = [], timeout: TimeInterval) async throws -> Answer {
+        guard var parts = URLComponents(string: base + path) else { throw Failure.badURL }
+        if !query.isEmpty { parts.queryItems = query }
+        guard let url = parts.url else { throw Failure.badURL }
+        let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        return Answer(data: data, status: (response as? HTTPURLResponse)?.statusCode ?? 0)
+    }
+
+    /// The body as the shape asked for; on any other status, the node's own sentence when it gave one.
+    private func decode<T: Decodable>(_ answer: Answer) throws -> T {
+        guard answer.status == 200 else {
+            if let said = try? JSONDecoder().decode(Said.self, from: answer.data) { throw Failure.said(said.error) }
+            throw Failure.status(answer.status)
+        }
+        return try JSONDecoder().decode(T.self, from: answer.data)
+    }
+}

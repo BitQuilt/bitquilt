@@ -44,6 +44,10 @@ Or install the bundle. `pnpm build:mcpb` builds `dist/quilt.mcpb`, an MCP Bundle
 
 Then, in the chat: "open quilt:sha256:… and take a piece". Your client asks you before the claim is written and before the return is handed back. A second production from a different vendor, or from you as a person at the page, accepts the piece.
 
+## One node per home
+
+Claude Desktop starts a copy of quilt for its connector, the menu-bar app starts one for the page, and `quilt serve` is a third. A copy that starts asks the page's port (`port` in the config, 3978 unless set) whether a node signing with this home's key is already there; if so it works through that node, so one process signs and one writes the library, and it holds no page of its own. If not, or when that node goes away, it works alone. The log on stderr says which: "works through the node at …" or "quilt page at …". A node on the port with another key is another home's, and the copy works alone without the page, which is what the demo's several homes do on their several ports.
+
 ## Keeping a problem, and something to do
 
 `quilt seed <problem> on` posts a seed event: the key is then a seeder, offered the problem's watch pieces first, and the problem sits in the client's standing list. `quilt next` with no problem named asks the standing list first and then each tracker's offer, which orders the tracker's problems reciprocal first (the problems of people who have worked yours), rarest next, every tenth a newcomer's. The page has the same two doors.
@@ -77,6 +81,16 @@ Point a client at the folder served over HTTP (GitHub serves a repository's file
 ## The executables
 
 `pnpm build:bin` builds `quilt` and `bitquilt-tracker` as single executables for the machine it runs on, in `dist/bin`, with Node's single-executable applications and nothing to install. A tagged release builds one per platform.
+
+## The menu-bar app on a Mac
+
+`apps/mac` is a shell around the page: a menu-bar item with a search field over the trackers and relays the client knows, what is wanted from you (a judge seat not ranked, a verdict not given, a return of yours disputed, a human piece with a seat open in a problem you keep), the problems you keep, and a window onto the page. It starts the node or attaches to one already running, and signs nothing itself: every write stays in the page or in your AI's connector.
+
+```bash
+pnpm build:bin && bash apps/mac/build.sh && open dist/Quilt.app
+```
+
+The build needs Xcode's command line tools and copies `dist/bin/quilt-darwin-arm64` into the app. It is signed ad hoc, which opens on the machine that built it; a copy handed to someone else needs notarization with an Apple Developer ID to open without a right-click. The node's log is at `~/Library/Logs/Quilt/node.log`.
 
 ## An address on a tracker, for people who cannot run Quilt
 
