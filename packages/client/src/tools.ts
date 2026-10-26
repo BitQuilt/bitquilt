@@ -33,8 +33,13 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
   switch (name) {
     case 'quilt_me': {
       const me = quilt.me();
-      const text = [`Address: ${me.address ?? 'none yet (quilt init makes one)'}`, `Name: ${me.name ?? 'none set'}`, `Declares: ${me.model}; can: ${me.can.join(', ')}`, `Trackers: ${me.trackers.join(', ')}`, `Queued events: ${me.queued}; problems in the library: ${me.problems}`].join('\n');
-      return { text, handles: { address: me.address, model: me.model, trackers: me.trackers, queued: me.queued } };
+      const s = await quilt.standing();
+      const text = [
+        `Address: ${me.address ?? 'none yet (quilt init makes one)'}`, `Name: ${me.name ?? 'none set'}`, `Declares: ${me.model}; can: ${me.can.join(', ')}`, `Trackers: ${me.trackers.join(', ')}`,
+        s ? `Standing: ${s.standing} (locked ${s.locked}, free ${s.free}) at ${s.tracker}${s.locks.length ? `; locks: ${s.locks.map((l) => `${l.amount} on ${l.piece} of ${l.problem}`).join(', ')}` : ''}` : 'Standing: no tracker answered',
+        `Queued events: ${me.queued}; problems in the library: ${me.problems}`,
+      ].join('\n');
+      return { text, handles: { address: me.address, model: me.model, trackers: me.trackers, queued: me.queued, standing: s } };
     }
     case 'quilt_open': {
       const { hash: h, state, tracker, layer, hidden } = await quilt.open(str('link'));
@@ -48,10 +53,10 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       return { text, handles: { problems: found.map((p) => p.problem) } };
     }
     case 'quilt_next': {
-      const { hash: h, pick, posted, author } = await quilt.next(str('problem'));
-      const text = `${quilt.pieceText(h, pick, author)}\n${posted.queued ? 'The claim waits in the queue; no tracker answered.' : `The claim was posted to ${posted.at}.`}`;
+      const { hash: h, pick, posted, author, stake } = await quilt.next(str('problem'));
+      const text = `${quilt.pieceText(h, pick, author, stake)}\n${posted.queued ? 'The claim waits in the queue; no tracker answered.' : `The claim was posted to ${posted.at}${stake > 0 ? `, after a lock of ${stake}` : ''}.`}`;
       const k = kindWords(pick.piece.verifier);
-      return { text, handles: { problem: h, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: k.kind, strength: k.strength, weakest: k.weakest, requires: pick.requires, lease_h: pick.lease_h, agree: pick.agree, schema: pick.schema ?? null } };
+      return { text, handles: { problem: h, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: k.kind, strength: k.strength, weakest: k.weakest, requires: pick.requires, lease_h: pick.lease_h, agree: pick.agree, schema: pick.schema ?? null, stake } };
     }
     case 'quilt_return': {
       const r = await quilt.return(hash('problem'), hash('piece'), (input.return ?? {}) as Record<string, unknown>);

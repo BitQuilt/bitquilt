@@ -8,3 +8,4 @@ export {
   applyVerifiers, describeKind, kindOf, viaOf, rankBodyProblems, rankingProblem, panelSeatProblem, fromPersonSeat, EXTENSIONS, RANK_EVENTS, DEFAULT_CANDIDATES, JUDGE_SEED, STRENGTHS,
   type Kind, type Via, type Strength, type KindInfo, type Layered, type PanelView, type PanelSeat, type PanelOutcome, type Candidate, type RankView, type ExtAccepting, type VerifierOptions,
 } from './verifiers.js';
+export { STAKE, STAKE_EVENTS, PRODUCTION_EVENTS, LOCK_KINDS, stakeRuleBodyProblems, lockBodyProblems, stakeAsked, ruleNames, lockReleasedAt, type StakeRule, type LockView, type LockKind } from './stake.js';

@@ -16,6 +16,7 @@ import {
   commitHash, eventId, eventSignedByKey, hashCanonical, isHash, orderReceipts, reduce, returnProblems,
 } from '@bitquilt/core';
 import { type KindInfo, type Layered, type PanelView, applyVerifiers, panelSeatProblem, rankBodyProblems, rankingProblem, rootFor, viaOf } from './verifiers.js';
+import { type LockView, type StakeRule, lockBodyProblems, lockReleasedAt, ruleNames, stakeAsked, stakeRuleBodyProblems } from './stake.js';
 
 export { rootFor };
 export const EXTENSION = 'QX-1';
@@ -66,6 +67,8 @@ export interface PieceLayer {
   attested: boolean;
   /** The panel sitting or having sat on a judge piece. */
   panel: PanelView | null;
+  /** The stake the rule in force asks of this piece at now (QX-15); 0 where none. */
+  stake: number;
 }
 
 export interface ProblemLayer {
@@ -81,6 +84,10 @@ export interface ProblemLayer {
   /** Pieces `next` is not to offer here: a judge piece whose panel sits or ran out. */
   unoffered: Set<Hash>;
   dropped: { id: Hash; type: string; why: string }[];
+  /** The stake rule in force at now (QX-15), or null. */
+  stake: { min: number; pieces: string[] | null } | null;
+  /** Every standing lock on this problem the layer kept, live or not. */
+  locks: LockView[];
 }
 
 export type Admission = { ok: true } | { ok: false; why: string };
@@ -97,13 +104,27 @@ export interface Layer {
   admitVerdict(problem: Hash, piece: Hash, key: Address, challenge: Hash, body: Record<string, unknown>): Admission;
   /** Whether a rank by this key on this judge piece would count if received now, and why not. */
   admitRank(problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>): Admission;
+  /** QX-15: the sum of a root's live standing locks at a time, `now` when none is given. */
+  locked(root: Address, at?: string): number;
+  /** QX-15: standing less locked, never below zero. */
+  free(root: Address, at?: string): number;
+  /** QX-15: a root's locks live at now. */
+  locks(root: Address): LockView[];
+  /** Whether a stake rule by this key would count if received now, and why not. */
+  admitStakeRule(problem: Hash, key: Address, body: Record<string, unknown>): Admission;
+  /** Whether a lock by this key on this piece would count if received now, and why not. */
+  admitLock(problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>): Admission;
+  /** Whether a claim, commit, reveal or run by this key on this piece is backed as the piece's stake asks, and why not. */
+  admitProduction(problem: Hash, piece: Hash, key: Address): Admission;
+  /** The undone pieces of a problem whose stake the key's free standing cannot cover and on which it holds no lock. */
+  unaffordable(problem: Hash, key: Address): Set<Hash>;
 }
 
 interface Credit { root: Address; problem: Hash; at: string; until: string | null }
 interface Delta { root: Address; at: string; delta: number }
 /** `base` is the core's reduce without the struck events; `fold` is `base` with the verifier kinds decided; `core` is the reduce of everything, kept for the core's states. */
-interface Entry { hash: Hash; input: ReduceInput; core: State; base: State; fold: State; layered: Layered; struck: Set<Hash>; challenges: ChallengeView[]; dropped: ProblemLayer['dropped'] }
-interface Candidate { id: Hash; event: Event; at: string; receipt: Receipt; home: Entry }
+interface Entry { hash: Hash; input: ReduceInput; core: State; base: State; fold: State; layered: Layered; struck: Set<Hash>; challenges: ChallengeView[]; dropped: ProblemLayer['dropped']; rules: StakeRule[] }
+interface Candidate { id: Hash; kind: 'challenge' | 'lock'; event: Event; at: string; receipt: Receipt; home: Entry }
 
 const plusHours = (t: string, h: number): string => new Date(Date.parse(t) + h * 3_600_000).toISOString();
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -186,7 +207,7 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
   for (const p of input.problems) {
     const core = reduce(p);
     if (entries.has(core.problem)) continue;
-    const e: Entry = { hash: core.problem, input: p, core, base: core, fold: core, layered: null as unknown as Layered, struck: new Set(), challenges: [], dropped: [] };
+    const e: Entry = { hash: core.problem, input: p, core, base: core, fold: core, layered: null as unknown as Layered, struck: new Set(), challenges: [], dropped: [], rules: [] };
     entries.set(core.problem, e);
   }
 
@@ -204,6 +225,56 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
     if (next === signature) break;
     signature = next;
   }
+  // QX-15: the stake rules each problem's owner set, in receipt order, and the standing locks the layer keeps.
+  const ownerOf = (e: Entry, at: string): Address => e.fold.rootOf(e.fold.envelope.problem.owner as Address, at);
+  const ruleProblem = (e: Entry, key: Address, body: Record<string, unknown>, at: string): string | null => {
+    const shape = stakeRuleBodyProblems(body);
+    if (shape.length) return shape[0]!;
+    const root = rootFor(e.fold, key, 'stake_rule', at);
+    if (!root || root !== ownerOf(e, at)) return 'the owner alone sets a stake rule';
+    const names = ruleNames(e.fold.pieces.map((v) => v.piece));
+    const pieces = body.pieces as string[] | undefined;
+    if (pieces && !pieces.every((n) => names.has(n))) return 'names a piece or family this problem does not have';
+    return null;
+  };
+  for (const e of entries.values()) for (const { receipt, at, id } of orderReceipts(e.input.receipts)) {
+    const ev = receipt.event;
+    if (ev.type !== 'stake_rule' || ev.problem !== e.hash) continue;
+    if (e.rules.some((r) => r.id === id)) continue;
+    if (!eventSignedByKey(ev)) {
+      e.dropped.push({ id, type: 'stake_rule', why: 'signature is not the key\'s' });
+      continue;
+    }
+    const why = ruleProblem(e, ev.key, ev.body, at);
+    if (why) {
+      e.dropped.push({ id, type: 'stake_rule', why });
+      continue;
+    }
+    e.rules.push({ id, root: ev.key, at, min: ev.body.min as number, pieces: (ev.body.pieces as string[] | undefined) ?? null });
+  }
+  /** The rule in force at a time: the latest kept at or before it. */
+  const ruleAt = (e: Entry, at: string): StakeRule | null => {
+    let found: StakeRule | null = null;
+    for (const r of e.rules) if (r.at <= at) found = r;
+    return found;
+  };
+  const locks: LockView[] = [];
+  /** When a lock ended, or null while it is live: its forfeit, else what the fold says. */
+  const lockEnd = (l: LockView): string | null => {
+    if (l.forfeitedAt !== null) return l.forfeitedAt;
+    const home = entries.get(l.problem);
+    const view = home?.fold.byHash.get(l.piece);
+    if (!home || !view) return l.at;
+    return lockReleasedAt(l, view, view.piece.lease_h ?? home.fold.envelope.problem.settings.lease_h, home.fold.related, now);
+  };
+  const liveAt = (l: LockView, at: string): boolean => {
+    if (l.at > at) return false;
+    const end = lockEnd(l);
+    return end === null || end > at;
+  };
+  const hasLock = (home: Entry, piece: Hash, root: Address, at: string): boolean => locks.some((l) => l.problem === home.hash && l.piece === piece && l.root === root && liveAt(l, at));
+  const locked = (root: Address, at: string = now): number => locks.reduce((sum, l) => (l.root === root && liveAt(l, at) ? sum + l.amount : sum), 0);
+
   const standing = (root: Address, at: string = now): number => {
     const moves: { at: string; delta: number }[] = [];
     for (const c of [...credits, ...struckCredits]) if (c.root === root) {
@@ -215,6 +286,26 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
     let s = 1;
     for (const m of moves) if (m.at <= at) s = Math.max(0, s + m.delta);
     return s;
+  };
+  const free = (root: Address, at: string = now): number => Math.max(0, standing(root, at) - locked(root, at));
+  type LockCheck = { ok: true; root: Address; view: PieceView } | { ok: false; why: string };
+  /** Whether a lock would be kept if received at `at`, by section 1 of QX-15, and why not. */
+  const checkLock = (home: Entry, piece: Hash, key: Address, body: Record<string, unknown>, at: string): LockCheck => {
+    const view = home.fold.byHash.get(piece);
+    if (!view) return { ok: false, why: 'names a piece this problem does not have' };
+    const shape = lockBodyProblems(body);
+    if (shape.length) return { ok: false, why: shape[0]! };
+    if (body.kind === 'coin') return { ok: false, why: 'this tracker honours no coin lock' };
+    const root = rootFor(home.fold, key, 'lock', at);
+    if (!root) return { ok: false, why: 'the key may not sign a lock' };
+    const asked = stakeAsked(ruleAt(home, at), view.piece);
+    if (asked === 0) return { ok: false, why: 'this piece asks no stake' };
+    const amount = body.amount as number;
+    if (amount < asked) return { ok: false, why: `this piece asks for a stake of ${asked}` };
+    if (hasLock(home, piece, root, at)) return { ok: false, why: 'a lock already stands on this piece' };
+    const f = free(root, at);
+    if (f < amount) return { ok: false, why: `free standing ${f} is below the lock of ${amount}` };
+    return { ok: true, root, view };
   };
   const poolFor = (home: Entry, view: PieceView, challenger: Address, parties: Address[], at: string): Address[] => {
     const fold = home.fold;
@@ -244,8 +335,11 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
     if (prior.some((c) => c.outcome === 'open' || (c.decidedAt !== null && c.decidedAt > at))) return { ok: false, why: 'a challenge is open on this piece' };
     const parties = [...acceptingRoots(view), fold.envelope.problem.owner as Address];
     if (parties.some((p) => fold.related(p, root, at))) return { ok: false, why: 'a party to the acceptance cannot challenge it' };
+    // QX-15: standing locked behind a claim is not staked again on a challenge.
     const s = standing(root, at);
-    if (s < stake) return { ok: false, why: `standing ${s} is below the stake of ${stake}` };
+    const l = locked(root, at);
+    const f = Math.max(0, s - l);
+    if (f < stake) return { ok: false, why: l > 0 ? `free standing ${f} is below the stake of ${stake}` : `standing ${s} is below the stake of ${stake}` };
     return { ok: true, root, view, parties, pool: poolFor(home, view, root, parties, at) };
   };
 
@@ -254,10 +348,10 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
   const verdicts = new Map<Hash, { id: Hash; event: Event; at: string }[]>();
   for (const e of entries.values()) for (const { receipt, at, id } of orderReceipts(e.input.receipts)) {
     const ev = receipt.event;
-    if (ev.type === 'challenge') {
+    if (ev.type === 'challenge' || ev.type === 'lock') {
       if (candidates.has(id)) continue;
       const home = (ev.problem && entries.get(ev.problem)) || e;
-      candidates.set(id, { id, event: ev, at, receipt, home });
+      candidates.set(id, { id, kind: ev.type, event: ev, at, receipt, home });
     } else if (ev.type === 'verdict') {
       const of = (ev.body as { challenge?: unknown }).challenge;
       if (!isHash(of)) continue;
@@ -271,7 +365,25 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
 
   for (const c of ordered) {
     const { event: ev, at, home } = c;
-    const drop = (why: string) => home.dropped.push({ id: c.id, type: 'challenge', why });
+    const drop = (why: string) => home.dropped.push({ id: c.id, type: c.kind, why });
+    if (c.kind === 'lock') {
+      // QX-15: a lock is kept or dropped at its receipt, against the free standing and the rule in force then.
+      if (!ev.piece || ev.problem !== home.hash) {
+        drop('names a problem or piece this layer does not hold');
+        continue;
+      }
+      if (!eventSignedByKey(ev)) {
+        drop('signature is not the key\'s');
+        continue;
+      }
+      const r = checkLock(home, ev.piece, ev.key, ev.body, at);
+      if (!r.ok) {
+        drop(r.why);
+        continue;
+      }
+      locks.push({ id: c.id, problem: home.hash, piece: ev.piece, name: r.view.piece.name, key: ev.key, root: r.root, at, kind: 'standing', amount: ev.body.amount as number, forfeitedAt: null });
+      continue;
+    }
     if (!ev.piece || ev.problem !== home.hash) {
       drop('names a problem or piece this layer does not hold');
       continue;
@@ -319,6 +431,17 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
         deltas.push({ root, at: d, delta: -1 });
         struckCredits.push({ root, problem: home.hash, at: view.accepting!.completedAt, until: d });
       }
+      // QX-15: every root of the struck set loses its lock on the piece, from the decision.
+      for (const p of acceptingRoots(view)) {
+        const root = home.fold.rootOf(p, now);
+        for (const l of locks) {
+          if (l.problem !== home.hash || l.piece !== view.piece.hash || l.root !== root || l.forfeitedAt !== null || l.at > d) continue;
+          const end = lockReleasedAt(l, view, lease, home.fold.related, d);
+          if (end !== null && end <= d) continue;
+          l.forfeitedAt = d;
+          deltas.push({ root, at: d, delta: -l.amount });
+        }
+      }
       challenge.struck = setEventIds(view, home.input.receipts);
       const struck = new Set(challenge.struck);
       for (const e of entries.values()) {
@@ -342,11 +465,13 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
       const core = e.core.byHash.get(v.piece.hash)?.state ?? v.state;
       const state: LayerState = last?.outcome === 'open' ? 'challenged' : v.state;
       const kind = e.layered.kinds.get(v.piece.hash)!;
-      return { hash: v.piece.hash, name: v.piece.name, core, state, challenge: last, kind, attested: viaOf(v.accepting) === 'attest', panel: e.layered.byPiece.get(v.piece.hash) ?? null };
+      return { hash: v.piece.hash, name: v.piece.name, core, state, challenge: last, kind, attested: viaOf(v.accepting) === 'attest', panel: e.layered.byPiece.get(v.piece.hash) ?? null, stake: stakeAsked(ruleAt(e, now), v.piece) };
     });
+    const rule = ruleAt(e, now);
     problems.set(e.hash, {
       problem: e.hash, core: e.core, fold: e.fold, pieces, byHash: new Map(pieces.map((p) => [p.hash, p])), challenges: e.challenges,
       panels: e.layered.panels, unoffered: e.layered.unoffered, dropped: [...e.dropped, ...e.layered.dropped],
+      stake: rule ? { min: rule.min, pieces: rule.pieces } : null, locks: locks.filter((l) => l.problem === e.hash),
     });
     all.push(...e.challenges);
   }
@@ -392,7 +517,41 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string }):
     return rp ? { ok: false, why: rp } : { ok: true };
   };
 
-  return { now, problems, challenges: all, standing, admitChallenge, admitVerdict, admitRank };
+  const admitStakeRule = (problem: Hash, key: Address, body: Record<string, unknown>): Admission => {
+    const home = entries.get(problem);
+    if (!home) return { ok: false, why: 'no such problem here' };
+    const why = ruleProblem(home, key, body, now);
+    return why ? { ok: false, why } : { ok: true };
+  };
+  const admitLock = (problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>): Admission => {
+    const home = entries.get(problem);
+    if (!home) return { ok: false, why: 'no such problem here' };
+    const r = checkLock(home, piece, key, body, now);
+    return r.ok ? { ok: true } : r;
+  };
+  const admitProduction = (problem: Hash, piece: Hash, key: Address): Admission => {
+    const home = entries.get(problem);
+    if (!home) return { ok: false, why: 'no such problem here' };
+    const view = home.fold.byHash.get(piece);
+    if (!view) return { ok: false, why: 'names a piece this problem does not have' };
+    const asked = stakeAsked(ruleAt(home, now), view.piece);
+    if (asked === 0 || hasLock(home, piece, home.fold.rootOf(key, now), now)) return { ok: true };
+    return { ok: false, why: `this piece asks for a stake of ${asked}; lock first` };
+  };
+  const UNDONE: ReadonlySet<string> = new Set(['open', 'in_flight', 'sealed', 'needs_verify', 'disputed']);
+  const unaffordable = (problem: Hash, key: Address): Set<Hash> => {
+    const out = new Set<Hash>();
+    const home = entries.get(problem);
+    const pl = problems.get(problem);
+    if (!home || !pl) return out;
+    const root = home.fold.rootOf(key, now);
+    const f = free(root, now);
+    for (const p of pl.pieces) if (UNDONE.has(p.state) && p.stake > f && !hasLock(home, p.hash, root, now)) out.add(p.hash);
+    return out;
+  };
+  const locksOf = (root: Address): LockView[] => locks.filter((l) => l.root === root && liveAt(l, now));
+
+  return { now, problems, challenges: all, standing, admitChallenge, admitVerdict, admitRank, locked, free, locks: locksOf, admitStakeRule, admitLock, admitProduction, unaffordable };
 }
 
 /** Why a root has no live seat on a challenge, or null when it has one. */

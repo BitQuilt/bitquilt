@@ -11,6 +11,7 @@ This repository holds the BitQuilt protocol's reference implementation: the core
 5. **No secrets in the code.** Keys live in the user's config folder or the tracker's environment; nothing reads them into a log or a response.
 6. **The page sets text with `textContent`, never as markup**, loads nothing from another server, and has no free-text box beyond its forms.
 7. **Tests come with the change.** A new rule gets a fixture or a unit test; `pnpm check` and `pnpm conform` pass before a merge.
+8. **A staked piece takes work only from a root with a live lock.** The tracker's door asks the layer's `admitProduction` before it admits a claim, a commit, a reveal or a run (QX-15, `packages/tracker/src/stake.ts` and `challenge.ts`); a lock is kept only against free standing and the rule in force at its receipt, and standing locked behind a claim is not staked again on a challenge. Do not add a way to write on a piece that skips it, and keep the coin (`docs/COIN.md`) out of the reducer: a core client computes the same map with every one of these events ignored.
 
 ## Commands
 

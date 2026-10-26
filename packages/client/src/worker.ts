@@ -60,6 +60,8 @@ export interface LayerPiece {
   attested: boolean;
   panel: string | null;
   challenge: Hash | null;
+  /** The stake of standing the problem asks of a claim on this piece (QX-15); 0 or absent where none. */
+  stake?: number;
 }
 
 export const STATE_MARK: Record<string, string> = { locked: 'l', unknown: '?', open: '.', in_flight: 'i', sealed: 's', needs_verify: 'v', disputed: 'd', accepted_provisional: 'p', accepted: 'a', unreachable: 'u', challenged: 'c', judging: 'j' };
@@ -144,6 +146,8 @@ export interface Pattern {
   /** Blob names to their rows, inline. */
   data?: Record<string, unknown[]>;
   topics?: string[];
+  /** The stake of standing a claim on the pieces is backed by (QX-15): `min` on every piece, or on the families and pieces named. */
+  stake?: { min: number; pieces?: string[] };
 }
 
 export class Quilt {
@@ -183,6 +187,33 @@ export class Quilt {
 
   me() {
     return { address: this.identity?.address ?? null, name: this.config.name ?? null, model: this.model(), can: this.config.can, trackers: this.config.trackers, mirrors: this.config.mirrors, relays: this.config.relays, queued: this.resolver.queued(), problems: Object.keys(this.library.problems).length };
+  }
+
+  /** This key's standing as the first tracker that answers computes it (QX-1, QX-15): what it has, what is locked behind its claims, what is free to stake; null with no key or no tracker. */
+  async standing(): Promise<{ tracker: string; standing: number; locked: number; free: number; locks: { problem: Hash; piece: Hash; amount: number; at: string }[] } | null> {
+    const address = this.identity?.address;
+    if (!address) return null;
+    for (const t of this.config.trackers) {
+      try {
+        const r = await fetch(`${t}k/${address}/standing`, { signal: AbortSignal.timeout(5000) });
+        if (!r.ok) continue;
+        const j = (await r.json()) as { standing: number; locked: number; free: number; locks: { problem: Hash; piece: Hash; amount: number; at: string }[] };
+        return { tracker: t, standing: j.standing, locked: j.locked, free: j.free, locks: j.locks };
+      } catch {
+        /* a tracker that does not answer is skipped */
+      }
+    }
+    return null;
+  }
+
+  /** The stake a problem asks of a claim on its pieces (QX-15): a stake_rule event from the owner on the problem's log, replacing the one before. */
+  async stakeRule(problem: Hash, min: number, pieces?: string[]): Promise<{ at: string | null; queued: boolean; error?: string }> {
+    const id = this.needKey();
+    if (!Number.isInteger(min) || min < 0) throw new Error('the stake is a whole number from 0');
+    const e = this.sign({ quilt: 1, type: 'stake_rule', problem, key: id.address, ts: new Date().toISOString(), body: { min, ...(pieces && pieces.length ? { pieces } : {}) } });
+    const r = await this.resolver.post(e, problem, this.trackersFor(problem));
+    if (r.error && !r.queued) throw new Error(`the tracker refused the stake rule: ${r.error}`);
+    return r;
   }
 
   /** The problem behind a link or hash, resolved and reduced, with the tracker's own view of its pieces where one answered. */
@@ -237,7 +268,14 @@ export class Quilt {
     }).join('; ')}.`;
   }
 
-  /** A problem said as text: title and done_when as the owner's quoted words, the map, the kinds, the trackers. */
+  /** The stake the problem asks (QX-15), as the tracker that answered holds it: one line, or none where nothing is asked. */
+  stakeText(layer: LayerPiece[] | null): string[] {
+    const staked = (layer ?? []).filter((l) => (l.stake ?? 0) > 0);
+    if (staked.length === 0) return [];
+    const amounts = [...new Set(staked.map((l) => l.stake!))].sort((a, b) => a - b);
+    return [`Stake asked (QX-15): ${staked.length} of the pieces ask ${amounts.join(' or ')} of a key's standing, locked before the claim and forfeited if the acceptance is struck.`];
+  }
+
   /** Whether the tracker that answered has taken the problem down (QX-6), and why, in its own word. */
   async takedownOf(hash: Hash, tracker: string): Promise<Takedown | null> {
     try {
@@ -271,6 +309,7 @@ export class Quilt {
       `${state.pieces.length} pieces, version ${state.chain.length} along prev.`,
       this.mapText(state, layer),
       this.kindsText(state),
+      ...this.stakeText(layer),
       `Legend: . open, i in flight, s sealed, v needs a second production, d disputed, p accepted within the window, a accepted, u unreachable, l locked, c challenged, j a panel ranking candidates, ? a kind neither this client nor the tracker that answered implements.`,
       tracker ? `Answered by ${tracker}.` : 'Answered from the cache or a mirror.',
       ...(hidden ? [`Taken down on ${tracker} by ${hidden.by}: "${hidden.why}" (${hidden.at}). The map above is still what the chain says.`] : []),
@@ -300,19 +339,26 @@ export class Quilt {
     return [...out.values()];
   }
 
-  /** The rarest piece for this key: the tracker's assisted next when one answers and names a piece, else computed here from the map; then a claim. */
-  async next(input: string): Promise<{ hash: Hash; pick: Pick; posted: { at: string | null; queued: boolean; error?: string }; author: string }> {
+  /**
+   * The rarest piece for this key: the tracker's assisted next when one answers and names a piece, else computed here
+   * from the map; then a claim, after a lock of standing where the problem asks a stake of the piece (QX-15).
+   */
+  async next(input: string): Promise<{ hash: Hash; pick: Pick; posted: { at: string | null; queued: boolean; error?: string }; author: string; stake: number }> {
     if (!input.trim()) return this.offered();
     const id = this.needKey();
     const { hash, state, tracker } = await this.open(input);
     const trackers = tracker ? [tracker, ...this.config.trackers] : this.config.trackers;
     let pick: Pick | null = null;
     let takenDown: string | null = null;
+    let stake = 0;
+    let unaffordable: Hash[] = [];
     if (tracker) {
       try {
         const r = await fetch(`${tracker}p/${hash}/next?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}`, { signal: AbortSignal.timeout(8000) });
         if (r.ok) {
-          const j = (await r.json()) as { piece: Hash | null; state?: string; agree?: string[]; lease_h?: number };
+          const j = (await r.json()) as { piece: Hash | null; state?: string; agree?: string[]; lease_h?: number; stake?: number; unaffordable?: Hash[] };
+          stake = j.stake ?? 0;
+          unaffordable = Array.isArray(j.unaffordable) ? j.unaffordable : [];
           if (j.piece) {
             const view = state.byHash.get(j.piece);
             if (view) pick = next(state, id.address, { can: this.config.can, model: this.model() }, new Date().toISOString(), { exclude: new Set(state.pieces.filter((v) => v.piece.hash !== j.piece).map((v) => v.piece.hash)) });
@@ -333,18 +379,25 @@ export class Quilt {
       }
     }
     if (takenDown) throw new Error(`${tracker} has taken this problem down: ${takenDown}`);
-    if (!pick) pick = next(state, id.address, { can: this.config.can, model: this.model() }, new Date().toISOString());
-    if (!pick) throw new Error('nothing for this key on that problem right now');
-    const claim = this.sign({ quilt: 1, type: 'claim', problem: hash, piece: pick.piece.hash, key: id.address, ts: new Date().toISOString(), body: { by: this.by() } });
+    // The pieces the tracker left out for their stake are left out here too: a claim on one would be refused at its door.
+    if (!pick) pick = next(state, id.address, { can: this.config.can, model: this.model() }, new Date().toISOString(), { exclude: new Set(unaffordable) });
+    if (!pick) throw new Error(unaffordable.length ? `every piece left on that problem asks a stake this key's free standing cannot cover (${tracker})` : 'nothing for this key on that problem right now');
+    if (stake > 0) {
+      // QX-15: the lock first, then the claim; the person's own client asked once for the pair.
+      const lock = this.sign({ quilt: 1, type: 'lock', problem: hash, piece: pick.piece.hash, key: id.address, ts: new Date().toISOString(), body: { kind: 'standing', amount: stake } });
+      const l = await this.resolver.post(lock, hash, trackers);
+      if (l.error && !l.queued) throw new Error(`the tracker refused the lock of ${stake}: ${l.error}`);
+    }
+    const claim = this.sign({ quilt: 1, type: 'claim', problem: hash, piece: pick.piece.hash, key: id.address, ts: new Date(Date.now() + 1).toISOString(), body: { by: this.by() } });
     const posted = await this.resolver.post(claim, hash, trackers);
     this.library.pieces[pick.piece.hash] = { problem: hash, name: pick.piece.name, when: claim.ts, what: 'claimed', verifier: pick.piece.verifier };
     this.save();
     const owner = state.names.get(state.envelope.problem.owner as `0x${string}`)?.name ?? state.envelope.problem.owner;
-    return { hash, pick, posted, author: owner };
+    return { hash, pick, posted, author: owner, stake };
   }
 
   /** Something to do when no problem is named: the standing list first (QX-4), then each tracker's offer in its order (QX-5). */
-  async offered(): Promise<{ hash: Hash; pick: Pick; posted: { at: string | null; queued: boolean; error?: string }; author: string }> {
+  async offered(): Promise<{ hash: Hash; pick: Pick; posted: { at: string | null; queued: boolean; error?: string }; author: string; stake: number }> {
     const id = this.needKey();
     for (const p of Object.keys(this.library.seeding)) {
       try {
@@ -427,7 +480,7 @@ export class Quilt {
     return { items, checked };
   }
 
-  pieceText(hash: Hash, pick: Pick, author: string): string {
+  pieceText(hash: Hash, pick: Pick, author: string, stake = 0): string {
     const k = kindWords(pick.piece.verifier);
     const lines = [
       `Piece ${pick.piece.name} (${pick.piece.hash}) of problem ${hash}, verifier ${pick.piece.verifier}, state ${pick.state.replace('_', ' ')}.`,
@@ -436,6 +489,7 @@ export class Quilt {
       pick.schema ? `A return is an object with these fields: ${canonical(pick.schema.properties)}; required: ${pick.schema.required.join(', ')}; agreement is on: ${pick.agree.join(', ')}.` : `A return is { patch }: a unified diff against ${pick.piece.workspace?.repo ?? 'the workspace'} at ${pick.piece.workspace?.base ?? 'base'}, or the empty string; the check is ${pick.piece.check?.file ?? 'the check file'}.`,
       pick.requires.length ? `It requires: ${pick.requires.join(', ')}.` : 'It requires nothing in particular.',
       `The lease is ${pick.lease_h} hours.`,
+      ...(stake > 0 ? [`It asks a stake of ${stake} (QX-15): that much of this key's standing is locked behind the claim until the piece's window closes, and forfeited if the acceptance is struck.`] : []),
     ];
     return lines.join('\n');
   }
@@ -651,6 +705,12 @@ export class Quilt {
       if (this.config.relays.length) relays = (await postToRelays(this.config.relays, announcementEvent(announce, id.secret))).posted;
       const version = this.sign({ quilt: 1, type: 'version', problem: hash, key: id.address, ts: new Date().toISOString(), body: { slug: problem.slug, hash } });
       await this.resolver.post(version, hash, posted);
+      if (pattern.stake) {
+        // QX-15: the stake the owner asks, on the problem's log right after the envelope.
+        const rule = this.sign({ quilt: 1, type: 'stake_rule', problem: hash, key: id.address, ts: new Date().toISOString(), body: { min: pattern.stake.min, ...(pattern.stake.pieces?.length ? { pieces: pattern.stake.pieces } : {}) } });
+        const r = await this.resolver.post(rule, hash, posted);
+        if (r.error && !r.queued) refused.push(`stake rule: ${r.error}`);
+      }
     }
     const now = new Date().toISOString();
     this.library.problems[hash] = { title: problem.title, slug: problem.slug, trackers: posted, first: now, last: now };

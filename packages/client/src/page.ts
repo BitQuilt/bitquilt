@@ -116,8 +116,8 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         return json(res, 200, await runTool(forHost, name, b.input ?? {}));
       }
       if (path === '/api/next' && method === 'GET') {
-        const { hash, pick, posted, author } = await person.next(u.searchParams.get('problem') ?? '');
-        return json(res, 200, { problem: hash, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: kindWords(pick.piece.verifier), brief: pick.brief, author, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h, posted });
+        const { hash, pick, posted, author, stake } = await person.next(u.searchParams.get('problem') ?? '');
+        return json(res, 200, { problem: hash, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: kindWords(pick.piece.verifier), brief: pick.brief, author, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h, posted, stake });
       }
       if (path === '/api/seed' && method === 'POST') {
         const b = (await body(req)) as { problem: Hash; on: boolean };

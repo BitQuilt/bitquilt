@@ -25,7 +25,7 @@ export function createMcpServer(run: ToolRunner): McpServer {
 
   server.registerTool('quilt_me', {
     title: 'This client',
-    description: 'The address this client signs with, its name, the model it declares, what it can do, the trackers it asks, and how many events wait in its queue.',
+    description: 'The address this client signs with, its name, the model it declares, what it can do, the trackers it asks, how many events wait in its queue, and, from the first tracker that answers, its standing: what it has, what is locked behind its claims (QX-15), and what is free to stake.',
     inputSchema: {},
     outputSchema: output,
   }, call('quilt_me'));
@@ -46,7 +46,7 @@ export function createMcpServer(run: ToolRunner): McpServer {
 
   server.registerTool('quilt_next', {
     title: 'Take the rarest piece',
-    description: 'The rarest piece of a problem that fits this client, claimed for it: its verifier kind and how strongly that kind earns a square, the author\'s brief as their quoted words, the fields a return has and which must agree, what the piece requires, and the lease in hours. With no problem named, the standing list is asked first and then each tracker\'s offer: the problems of people who have worked this key\'s own problems, then the rarest, with every tenth offer a newcomer\'s. The piece hash and the problem hash come back as handles for quilt_return.',
+    description: 'The rarest piece of a problem that fits this client, claimed for it: its verifier kind and how strongly that kind earns a square, the author\'s brief as their quoted words, the fields a return has and which must agree, what the piece requires, and the lease in hours. With no problem named, the standing list is asked first and then each tracker\'s offer: the problems of people who have worked this key\'s own problems, then the rarest, with every tenth offer a newcomer\'s. Where the problem asks a stake of the piece (QX-15), a lock of that much of this key\'s standing is posted before the claim; it is released when the window closes and forfeited if the acceptance is struck, and a piece the key\'s free standing cannot cover is not offered. The piece hash and the problem hash come back as handles for quilt_return.',
     inputSchema: { problem: z.string().optional().describe('The problem, as a link or a hash; left out, something to do') },
     outputSchema: output,
   }, call('quilt_next'));
@@ -102,13 +102,14 @@ export function createMcpServer(run: ToolRunner): McpServer {
 
   server.registerTool('quilt_publish', {
     title: 'Publish a problem',
-    description: 'Publishes a problem from a pattern signed with this client\'s key as the owner: the title, the statement of when it is done, a slug, the pieces with their briefs, schemas, verifier kinds and what they require, the data rows the briefs\' slots draw on, and topics for the index. Returns the problem\'s hash and link.',
+    description: 'Publishes a problem from a pattern signed with this client\'s key as the owner: the title, the statement of when it is done, a slug, the pieces with their briefs, schemas, verifier kinds and what they require, the data rows the briefs\' slots draw on, topics for the index, and, where the owner asks it, the stake of standing a claim on the pieces is backed by (QX-15). Returns the problem\'s hash and link.',
     inputSchema: {
       pattern: z.object({
         title: z.string(), done_when: z.string(), slug: z.string(),
         prev: z.string().nullable().optional(), from: z.string().nullable().optional(),
         settings: z.record(z.number()).optional(),
         pieces: z.record(z.unknown()), data: z.record(z.array(z.unknown())).optional(), topics: z.array(z.string()).optional(),
+        stake: z.object({ min: z.number().int().min(0).describe('The standing a claim locks; 0 asks nothing'), pieces: z.array(z.string()).optional().describe('The families or pieces it covers; left out, every piece') }).optional(),
       }),
     },
     outputSchema: output,

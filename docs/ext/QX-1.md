@@ -30,6 +30,8 @@ A function of the ledger a reader holds, per root, judged at a time:
 
 Standing is what a root may stake, and nothing else: it weights no draw and gates no piece. A root's first challenge costs it the one point every root has; a root that lost it earns another only by work that is accepted.
 
+Amended 26 October 2026 for [QX-15](QX-15.md): where a problem asks a stake of a piece, standing is also what a root locks to claim it, and the standing a challenge may stake is the root's free standing, its standing less what its live locks hold. A lock forfeited with a struck set is a move of minus its amount on the root's standing from the strike, beside the minus one above. Where no lock is live, nothing here changes.
+
 ## 3. The pool
 
 For a challenge received at `t` on piece `x` of problem `p`, the pool is every root that:

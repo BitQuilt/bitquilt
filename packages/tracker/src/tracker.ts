@@ -15,6 +15,7 @@ import { type Layer, type ProblemLayer, CHALLENGE_EVENTS, EXTENSION, GROUND_MAX,
 import { HIDE, type Hidden, hideBodyProblems, hiddenNow } from './hide.js';
 import { RECIPROCITY, SEEDING, offerOrder, seedBodyProblems, seedInfo, watchExclusions } from './seeding.js';
 import { type PanelView, EXTENSIONS, JUDGE_SEED, RANK_EVENTS, kindOf, rankBodyProblems } from './verifiers.js';
+import { PRODUCTION_EVENTS, STAKE, STAKE_EVENTS, lockBodyProblems, stakeRuleBodyProblems } from './stake.js';
 import type { Store } from './store.js';
 
 export const IDENTITY: Hash = IDENTITY_LOG;
@@ -237,12 +238,13 @@ export function createTracker(options: TrackerOptions): Tracker {
       chainKey = IDENTITY;
     } else {
       if (IDENTITY_EVENTS.has(type)) throw new Refusal(400, 'identity events go to the identity log');
-      if (!PIECE_EVENTS.has(type) && !PROBLEM_EVENTS.has(type) && !CHALLENGE_EVENTS.has(type) && !RANK_EVENTS.has(type)) throw new Refusal(400, `this tracker does not carry ${type} events`);
+      if (!PIECE_EVENTS.has(type) && !PROBLEM_EVENTS.has(type) && !CHALLENGE_EVENTS.has(type) && !RANK_EVENTS.has(type) && !STAKE_EVENTS.has(type)) throw new Refusal(400, `this tracker does not carry ${type} events`);
       if (event.problem !== under) throw new Refusal(400, 'post an event under the problem it names');
       if (hidden().has(under)) throw new Refusal(410, 'this problem is taken down here');
       const state = reduceProblem(under);
       if (!state) throw new Refusal(404, 'no such problem here');
       if (CHALLENGE_EVENTS.has(type)) checkChallengeEvent(event, under);
+      if (STAKE_EVENTS.has(type)) checkStakeEvent(event, under);
       if (type === 'seed') {
         const sp = seedBodyProblems(event.body);
         if (sp.length) throw new Refusal(400, sp[0]!);
@@ -251,6 +253,11 @@ export function createTracker(options: TrackerOptions): Tracker {
       if (PIECE_EVENTS.has(type)) {
         const view = event.piece ? state.byHash.get(event.piece) : undefined;
         if (!view) throw new Refusal(400, 'names a piece this problem does not have');
+        if (PRODUCTION_EVENTS.has(type)) {
+          // QX-15: on a staked piece, work is admitted only from a root with a live lock.
+          const a = layer().admitProduction(under, event.piece!, event.key);
+          if (!a.ok) throw new Refusal(400, a.why);
+        }
         if (type === 'reveal') {
           const ret = (event.body as { return: Record<string, unknown> }).return;
           if (view.piece.schema) {
@@ -295,6 +302,23 @@ export function createTracker(options: TrackerOptions): Tracker {
       if (by.model !== 'human' && !hosted) throw new Refusal(400, 'a human piece takes a return from a person\'s seat');
     }
     if (kind === 'judge' && event.piece && view(under)?.panels.some((p) => p.piece === event.piece)) throw new Refusal(400, 'the candidates for this piece are in');
+  }
+
+  /** The door for QX-15: a stake rule from the owner naming pieces the problem has; a lock a root can cover, on a piece that asks one. */
+  function checkStakeEvent(event: Event, under: Hash): void {
+    if (event.type === 'stake_rule') {
+      if (event.piece !== undefined) throw new Refusal(400, 'a stake rule names a problem and no piece');
+      const shape = stakeRuleBodyProblems(event.body);
+      if (shape.length) throw new Refusal(400, shape[0]!);
+      const a = layer().admitStakeRule(under, event.key, event.body);
+      if (!a.ok) throw new Refusal(400, a.why);
+      return;
+    }
+    if (!event.piece) throw new Refusal(400, 'a lock names a problem and a piece');
+    const shape = lockBodyProblems(event.body);
+    if (shape.length) throw new Refusal(400, shape[0]!);
+    const a = layer().admitLock(under, event.piece, event.key, event.body);
+    if (!a.ok) throw new Refusal(400, a.why);
   }
 
   /** The door for QX-2's rank: from a judge drawn to the piece's panel, naming every candidate once. */
@@ -377,7 +401,8 @@ export function createTracker(options: TrackerOptions): Tracker {
     const model = query.get('model') ?? 'unknown/unknown';
     // The layer's fold: a struck piece is open again, a challenged one is not offered while its panel sits, a judge piece
     // not while its candidates are judged, and a human piece only to a client that declared a person.
-    const pl = view(hash);
+    const layered = layer();
+    const pl = layered.problems.get(hash);
     if (!pl) throw new Refusal(404, 'no such problem here');
     if (hidden().has(hash)) throw new Refusal(410, 'this problem is taken down here');
     const state = pl.fold;
@@ -388,16 +413,20 @@ export function createTracker(options: TrackerOptions): Tracker {
     const exclude = new Set<Hash>([...store.heldByOthers(hash, key, at), ...pl.unoffered]);
     if (!can.includes('person')) for (const p of pl.pieces) if (p.kind.kind === 'human') exclude.add(p.hash);
     for (const h of watchExclusions(pl, input, key, seedInfo(input, state, at).seeders, at)) exclude.add(h);
+    // QX-15: a staked piece the key's free standing cannot cover, and on which it holds no lock, is not offered.
+    const unaffordable = [...layered.unaffordable(hash, key)];
+    for (const h of unaffordable) exclude.add(h);
     const pick = next(state, key, client, at, { exclude });
     if (!pick) {
-      json(res, 200, { piece: null });
+      json(res, 200, { piece: null, unaffordable });
       return;
     }
-    const kind = pl.byHash.get(pick.piece.hash)!.kind;
+    const { kind, stake } = pl.byHash.get(pick.piece.hash)!;
     store.hold(hash, pick.piece.hash, key, new Date(Date.parse(at) + HOLD_SECONDS * 1000).toISOString());
     json(res, 200, {
       piece: pick.piece.hash, name: pick.piece.name, state: pick.state, brief: pick.brief, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h,
       verifier: pick.piece.verifier, kind: kind.kind, extension: kind.extension, strength: kind.strength, says: kind.says, weakest: kind.weakest, workspace: pick.piece.workspace ?? null, check: pick.piece.check ?? null,
+      stake, unaffordable,
     });
   }
 
@@ -421,6 +450,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     const list = offerOrder(layered, inputs, key, { can: can as Capability[], model }, at, count, (h, pl, input) => {
       const exclude = store.heldByOthers(h, key, at);
       for (const x of watchExclusions(pl, input, key, seedInfo(input, pl.fold, at).seeders, at)) exclude.add(x);
+      for (const x of layered.unaffordable(h, key)) exclude.add(x);
       return exclude;
     });
     const first = list[0];
@@ -466,7 +496,8 @@ export function createTracker(options: TrackerOptions): Tracker {
           challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
           verifiers: { human: EXTENSIONS.human, 'judge:n': EXTENSIONS.judge, attest: EXTENSIONS.attest, judge_seed: JUDGE_SEED },
           chain: 'QX-11', seeding: SEEDING, reciprocity: RECIPROCITY, hide: HIDE, maintainers, identity: IDENTITY, hosted: options.extra !== undefined,
-          routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden'],
+          stake: { extension: STAKE, coin: null },
+          routes: ['/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/k/<address>/standing', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden'],
         });
         return;
       }
@@ -499,6 +530,19 @@ export function createTracker(options: TrackerOptions): Tracker {
         return;
       }
       let m: RegExpExecArray | null;
+      if ((m = /^\/k\/(0x[0-9a-fA-F]{40})\/standing$/.exec(path)) && method === 'GET') {
+        // QX-15: a key's standing, what is locked behind its claims, what is free, and the locks themselves.
+        const address = m[1]!;
+        if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
+        const layered = layer();
+        const first = layered.problems.values().next().value as ProblemLayer | undefined;
+        const root = first ? first.fold.rootOf(address, layered.now) : address;
+        json(res, 200, {
+          address, root, standing: layered.standing(root), locked: layered.locked(root), free: layered.free(root),
+          locks: layered.locks(root).map((l) => ({ problem: l.problem, piece: l.piece, amount: l.amount, at: l.at })), at: layered.now,
+        });
+        return;
+      }
       if ((m = /^\/p\/(sha256:[0-9a-f]{64})(?:\/(events|state|scrape|next|challenges|panels))?$/.exec(path))) {
         const hash = m[1] as Hash;
         const sub = m[2];
@@ -521,12 +565,12 @@ export function createTracker(options: TrackerOptions): Tracker {
           // and the kind says how the square is earned and how strongly.
           const pl = view(hash)!;
           const s = pl.fold;
-          json(res, 200, { problem: hash, now: now(), hidden: hidden().get(hash) ?? null, pieces: s.pieces.map((v) => {
+          json(res, 200, { problem: hash, now: now(), hidden: hidden().get(hash) ?? null, stake_rule: pl.stake, pieces: s.pieces.map((v) => {
             const l = pl.byHash.get(v.piece.hash)!;
             return {
               name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l.state, core: l.core, challenge: l.challenge?.id ?? null,
               kind: l.kind.kind, extension: l.kind.extension, strength: l.kind.strength, says: l.kind.says, weakest: l.kind.weakest, attested: l.attested, panel: l.panel?.outcome ?? null,
-              availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length,
+              availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length, stake: l.stake,
             };
           }), complete: s.complete, output: s.output?.hash ?? null, dropped: [...s.dropped, ...pl.dropped] });
           return;

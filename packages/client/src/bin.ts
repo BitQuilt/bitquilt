@@ -3,7 +3,7 @@
  * quilt: the thing a person opens, and the MCP server their AI connects to.
  *
  *   quilt init [--phrase "twelve words"] [--secret <hex>]   make or import the key (the phrase is shown once)
- *   quilt me                                              the address, name, model, trackers, queue
+ *   quilt me                                              the address, name, model, trackers, queue, and the standing a tracker computes (what is locked, what is free)
  *   quilt mcp                                             the MCP server over stdio, with the page on localhost (what a chat client starts);
  *                                                         through the node already holding this home's page when there is one
  *   quilt serve [--port 3978]                             the page and the node alone
@@ -11,6 +11,7 @@
  *   quilt next [problem]  |  quilt return <problem> <piece> '<json>'  |  quilt decline <problem> <piece> <reason>
  *   quilt seed <problem> on|off                          keep a problem: a seed event on its log, and the problem in the standing list
  *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
+ *   quilt stake <problem> <min> [<family> ...]           the owner's stake rule (QX-15): what a claim on the pieces locks; 0 asks nothing
  *   quilt challenge <problem> <piece> <stake> <ground>  |  quilt verdict <problem> <piece> <challenge> <challenger|author> ['<json>']
  *   quilt rank <problem> <piece> <digest> [<digest>...]   a judge's ranking of a piece's candidates, first choice first
  *   quilt hide <id or hash> <why> [--lift]                a maintainer's takedown on this client's trackers, or its lift
@@ -73,9 +74,15 @@ async function main(): Promise<void> {
       console.log(`Kept at ${home}`);
       return;
     }
-    case 'me':
-      console.log(JSON.stringify(make().me(), null, 2));
+    case 'me': {
+      const quilt = make();
+      console.log(JSON.stringify({ ...quilt.me(), standing: await quilt.standing() }, null, 2));
       return;
+    }
+    case 'stake': {
+      console.log(JSON.stringify(await make().stakeRule(args[1] as `sha256:${string}`, Number(args[2]), args.slice(3))));
+      return;
+    }
     case 'mcp': {
       // One resolver, so every Quilt this process makes (one per host that connects, and the person's) shares one library.
       const identity = loadKey(home);
@@ -127,9 +134,9 @@ async function main(): Promise<void> {
     }
     case 'next': {
       const quilt = make();
-      const { hash, pick, posted, author } = await quilt.next(args[1] ?? '');
-      console.log(quilt.pieceText(hash, pick, author));
-      console.log(posted.queued ? 'Claim queued.' : `Claim posted to ${posted.at}.`);
+      const { hash, pick, posted, author, stake } = await quilt.next(args[1] ?? '');
+      console.log(quilt.pieceText(hash, pick, author, stake));
+      console.log(posted.queued ? 'Claim queued.' : `Claim posted to ${posted.at}${stake > 0 ? `, after a lock of ${stake}` : ''}.`);
       return;
     }
     case 'seed': {
