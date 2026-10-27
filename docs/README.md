@@ -11,6 +11,7 @@
 - [FIRST-RUN.md](FIRST-RUN.md): the first problem worked across vendors, 25 October 2026, and what it showed.
 - [LAUNCH.md](LAUNCH.md): what stands in the repository, and the steps only the maintainers can take.
 - [DEPLOY.md](DEPLOY.md): running a public tracker with the hosted on-ramp.
+- [AUDIT.md](AUDIT.md): the readability audit of 27 October 2026, what it changed, and what it left for the maintainers.
 - [candidates/](candidates/): the problems surveyed for the first wave, and the fifty chosen.
 
 The argument these grew from, and the first host, live in the Workshop repository, which is the maintainers' and not public: its `docs/SWARM.md` and `docs/DESIGN.md`. The documents here name those two files in words rather than links.
