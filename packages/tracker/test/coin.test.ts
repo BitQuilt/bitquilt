@@ -7,9 +7,9 @@ import { createTracker } from '../src/tracker.js';
 /**
  * The coin as a layer (QX-17) at its home tracker: the parameters published; an epoch's amount minted to the verified
  * squares by weight after the treasury's share, nothing in an empty epoch, vesting over time; a coin lock on the coin
- * log bound to a stake at the problem's door with the receipt carrying the word; a pay escrowed from free vested coin
+ * log bound to a stake at the problem's door with the receipt carrying the word; a pay escrowed from free coin, vested or not,
  * and paid per square to the credited roots; a burn credited as standing; a forfeit taking the lock and as much again
- * from the unvested, and a held challenge restoring both; transfers and redemption refused while off; every balance
+ * from the unvested, and a held challenge restoring both; a transfer and a redeem from vested free coin, the redeem listed under the head for the bridge; every balance
  * under the head.
  */
 const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
@@ -36,7 +36,7 @@ const HOUR = 3_600_000;
 let tick = Date.parse(T0) + HOUR;
 const coin = {
   genesis: T0, epoch_h: 24, emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 2 }, vesting_h: 48, infra_bp: 1000, treasury: addr(treasury), unit: 1000,
-  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 }, burn_rate: 100, transfers_from: null, redeem_from: null,
+  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 }, burn_rate: 100, transfers_from: T0, redeem_from: T0,
 };
 let server: Server;
 let base: string;
@@ -89,15 +89,15 @@ type CoinLock = { id: Hash; root: Address; problem: Hash; piece: Hash; units: nu
 const coinLock = async (id: Hash) => (await get(`/coin/lock/${id}`)) as CoinLock;
 
 const golden = new Map<Hash, { projection: Record<string, unknown>; nonce: string }>();
-function commitments(pieces: Hash[], verdict = 'supports'): Record<string, Hash> {
-  const out: Record<string, Hash> = {};
+function commitments(pieces: Hash[], verdict = 'supports'): Hash[] {
+  const out: Hash[] = [];
   for (const p of pieces) {
     const projection = { verdict };
     const nonce = newNonce();
     golden.set(p, { projection, nonce });
-    out[p] = commitHash(projection, nonce);
+    out.push(commitHash({ piece: p, projection }, nonce));
   }
-  return out;
+  return out.sort();
 }
 const reveal = (problem: Hash, piece: Hash) => ev(ownerP, 'gold_reveal', { projection: golden.get(piece)!.projection, nonce: golden.get(piece)!.nonce }, problem, piece);
 
@@ -112,10 +112,10 @@ let coinLockId: Hash;
 describe('the coin as a layer', () => {
   it('publishes the parameters, names itself the home, and answers empty balances', async () => {
     const w = await get('/.well-known/quilt');
-    expect(w.coin).toMatchObject({ extension: 'QX-17', home: 'here', genesis: T0, epoch_h: 24, vesting_h: 48, infra_bp: 1000, treasury: addr(treasury), unit: 1000, burn_rate: 100, transfers_from: null, redeem_from: null });
+    expect(w.coin).toMatchObject({ extension: 'QX-17', home: 'here', genesis: T0, epoch_h: 24, vesting_h: 48, infra_bp: 1000, treasury: addr(treasury), unit: 1000, burn_rate: 100, transfers_from: T0, redeem_from: T0 });
     expect(w.stake).toEqual({ extension: 'QX-15', coin: 'here', burn_rate: 100 });
-    for (const r of ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/state']) expect(w.routes).toContain(r);
-    expect(await balanceOf(A)).toEqual({ root: addr(A), balance: 0, vested: 0, unvested: 0, locked: 0, escrowed: 0, free: 0, free_vested: 0, minted: 0, received: 0, burned: 0, forfeited: 0, at: expect.any(String), head: null });
+    for (const r of ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/state']) expect(w.routes).toContain(r);
+    expect(await balanceOf(A)).toEqual({ root: addr(A), balance: 0, vested: 0, unvested: 0, locked: 0, escrowed: 0, free: 0, free_vested: 0, minted: 0, received: 0, burned: 0, forfeited: 0, redeemed: 0, at: expect.any(String), head: null });
     expect((await post('/p', { envelope: P })).status).toBe(201);
     expect((await post('/p', { envelope: Q })).status).toBe(201);
     [p1, p2, p3, p4] = ((await get(`/p/${p}/state`)) as { pieces: PieceState[] }).pieces.map((x) => x.hash) as [Hash, Hash, Hash, Hash];
@@ -179,24 +179,16 @@ describe('the coin as a layer', () => {
     expect(await standingOf(A)).toMatchObject({ standing: 3, locked: 2, free: 1 });
   });
 
-  it('escrows a pay from free vested coin, pays each accepted square to its credited roots, and holds the rest', async () => {
-    expect(await refused('/coin/events', ev(A, 'pay', { problem: q, amount: 300, per_square: 50 }))).toBe('free vested coin 225 is below the pay of 300');
+  it('escrows a pay from free coin, vested or not, pays each accepted square to its credited roots, and holds the rest', async () => {
+    expect(await refused('/coin/events', ev(A, 'pay', { problem: q, amount: 400, per_square: 50 }))).toBe('free coin 350 is below the pay of 400');
     await accepted('/coin/events', ev(A, 'pay', { problem: q, amount: 200, per_square: 50 }));
     expect(await balanceOf(A)).toMatchObject({ balance: 450, locked: 100, escrowed: 200, free: 150, free_vested: 150 });
     await returnOn(q, q3, C, 'anthropic/claude');
     await returnOn(q, q3, D, 'openai/gpt');
     expect(await balanceOf(C)).toMatchObject({ balance: 25, vested: 25, received: 25 });
     expect(await balanceOf(D)).toMatchObject({ balance: 25 });
-    // The square paid left the payer's balance; the rest of the escrow waits for the next.
-    expect(await balanceOf(A)).toMatchObject({ balance: 400, escrowed: 150, free: 150, vested: 175 });
-  });
-
-  it('burns coin for standing within what is free', async () => {
-    expect(await refused('/coin/events', ev(A, 'burn', { amount: 300 }))).toBe('free coin 150 is below the burn of 300');
-    await accepted('/coin/events', ev(A, 'burn', { amount: 100 }));
-    // Taken from the unvested part first: what has vested stays.
-    expect(await balanceOf(A)).toMatchObject({ balance: 300, burned: 100, locked: 100, escrowed: 150, free: 50, vested: 175, unvested: 125 });
-    expect(await standingOf(A)).toMatchObject({ standing: 4, locked: 2, free: 2 });
+    // The square paid left the payer's balance, from the unvested part first; the rest of the escrow waits for the next.
+    expect(await balanceOf(A)).toMatchObject({ balance: 400, escrowed: 150, free: 150, vested: 225, unvested: 175 });
   });
 
   it('forfeits a bound coin lock with the set a miss strikes, taking as much again from the unvested, and a held challenge restores both', async () => {
@@ -207,29 +199,50 @@ describe('the coin as a layer', () => {
     // Struck: the set is gone from the layer's fold (the claim A still holds keeps the piece in flight), and the core still says accepted.
     expect(await pieceOf(p, p3)).toMatchObject({ state: 'in_flight', core: 'accepted_provisional', gold: 'miss', verified: false });
     expect(await coinLock(coinLockId)).toMatchObject({ state: 'forfeited' });
-    // The lock of 100 and as much again from the unvested as there was: 25.
-    expect(await balanceOf(A)).toMatchObject({ balance: 175, locked: 0, forfeited: 125 });
-    const id = await accepted(`/p/${p}/events`, ev(A, 'challenge', { stake: 1, ground: 'The paper says the opposite of the gold.' }, p, p3));
+    // The lock of 100 from the unvested, and as much again from what was left of it: 75.
+    expect(await balanceOf(A)).toMatchObject({ balance: 225, locked: 0, forfeited: 175, unvested: 0 });
+    const id = await accepted(`/p/${p}/events`, ev(A, 'challenge', { stake: 0, ground: 'The paper says the opposite of the gold.' }, p, p3));
     const c = ((await get(`/p/${p}/challenges`)) as { challenges: { id: Hash; seats: { root: Address }[] }[] }).challenges.find((x) => x.id === id)!;
     for (const s of c.seats.slice(0, 2)) await accepted(`/p/${p}/events`, ev(secretOf.get(s.root)!, 'verdict', { challenge: id, for: 'challenger' }, p, p3));
     expect(await pieceOf(p, p3)).toMatchObject({ state: 'accepted_provisional', gold: 'overruled' });
     expect(await coinLock(coinLockId)).toMatchObject({ state: 'live', bound: expect.any(String) });
-    expect(await balanceOf(A)).toMatchObject({ balance: 300, locked: 100, forfeited: 0 });
+    expect(await balanceOf(A)).toMatchObject({ balance: 400, locked: 100, forfeited: 0, unvested: 175 });
   });
 
-  it('refuses transfers and redemption while they are off, and events that are not the coin log\'s', async () => {
-    expect(await refused('/coin/events', ev(A, 'transfer', { to: addr(B), amount: 10 }))).toBe('transfers are off');
-    expect(await refused('/coin/events', ev(A, 'redeem', { amount: 10 }))).toBe('redemption is off');
+  it('burns coin for standing within what is free, from the unvested part first', async () => {
+    expect(await refused('/coin/events', ev(A, 'burn', { amount: 300 }))).toBe('free coin 150 is below the burn of 300');
+    await accepted('/coin/events', ev(A, 'burn', { amount: 100 }));
+    expect(await balanceOf(A)).toMatchObject({ balance: 300, burned: 100, locked: 100, escrowed: 150, free: 50, vested: 225, unvested: 75 });
+    // Four after the held challenge gave back the two the miss took, and one more for the burn.
+    expect(await standingOf(A)).toMatchObject({ standing: 5, locked: 2, free: 3 });
+  });
+
+  it('moves vested free coin by transfer, takes it off the ledger by redeem, and lists the redeem under the head', async () => {
+    expect(await refused('/coin/events', ev(A, 'transfer', { to: addr(B), amount: 100 }))).toBe('free vested coin 50 is below the transfer of 100');
+    await accepted('/coin/events', ev(A, 'transfer', { to: addr(B), amount: 10 }));
+    expect(await balanceOf(A)).toMatchObject({ balance: 290, free: 40, free_vested: 40 });
+    expect(await balanceOf(B)).toMatchObject({ balance: 460, received: 10 });
+    expect(await refused('/coin/events', ev(A, 'redeem', { amount: 100 }))).toBe('free vested coin 40 is below the redeem of 100');
+    await accepted('/coin/events', ev(A, 'redeem', { amount: 20, to: addr(C) }));
+    expect(await balanceOf(A)).toMatchObject({ balance: 270, free: 20, redeemed: 20 });
+    const r = (await get('/coin/redeems')) as { head: { seq: number; hash: string }; redeems: { id: string; seq: number; root: Address; to: Address; amount: number; at: string }[] };
+    expect(r.head.seq).toBe(5);
+    expect(r.redeems).toEqual([{ id: r.head.hash, seq: 5, root: addr(A), to: addr(C), amount: 20, at: expect.any(String) }]);
+    expect(r.redeems[0]!.id).toMatch(/^[0-9a-f]{64}$/);
+    const before = (await get('/coin/redeems?upto=4')) as { head: { seq: number }; redeems: unknown[] };
+    expect(before.head.seq).toBe(4);
+    expect(before.redeems).toEqual([]);
     expect(await refused('/coin/events', ev(A, 'name', { name: 'x' }))).toBe('the coin log takes lock, pay, burn, transfer and redeem');
     expect(await refused('/coin/events', ev(A, 'burn', { amount: 1 }, p))).toBe('a coin event names no problem in its fields');
   });
 
   it('lists every balance under the head', async () => {
     const s = (await get('/coin/state')) as { head: { seq: number; hash: string }; balances: Record<string, Balance> };
-    expect(s.head.seq).toBe(3);
+    expect(s.head.seq).toBe(5);
     expect(Object.keys(s.balances).sort()).toEqual([addr(A), addr(B), addr(C), addr(D), addr(treasury)].sort());
-    expect(s.balances[addr(A)]).toMatchObject({ balance: 300 });
+    expect(s.balances[addr(A)]).toMatchObject({ balance: 270, redeemed: 20 });
+    expect(s.balances[addr(B)]).toMatchObject({ balance: 460 });
     const lines = (await (await fetch(`${base}/coin/events`)).text()).trim().split('\n');
-    expect(lines).toHaveLength(3);
+    expect(lines).toHaveLength(5);
   });
 });

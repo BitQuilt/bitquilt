@@ -15,7 +15,7 @@ import { type Pattern, Quilt } from '../src/worker.js';
 
 /**
  * Gold pieces (QX-16) from the client's side: an owner publishes with the answers to some pieces, which leave the home
- * only as hashes while the projections and nonces stay in the library; attention lists a reveal due once a piece is
+ * only as blind hashes naming no piece while the projections and nonces stay in the library; attention lists a reveal due once a piece is
  * accepted; the reveal through the tool marks the square verified, or strikes the set on a miss and says so; the
  * summary counts the gold; the tools describe and never instruct.
  */
@@ -60,7 +60,7 @@ beforeAll(async () => {
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
-type StateView = { pieces: { hash: Hash; state: string; gold: string | null; verified: boolean }[] };
+type StateView = { pieces: { hash: Hash; state: string; gold: string | null; verified: boolean }[]; gold: { committed: number; pending: number; verified: number; missed: number; overruled: number; lapsed: number } };
 const trackerState = async (problem: Hash) => (await (await fetch(`${base}p/${problem}/state`)).json()) as StateView;
 const pieceOf = async (problem: Hash, n: number): Promise<Hash> => (await a.open(problem)).state.pieces[n]!.piece.hash;
 
@@ -88,10 +88,14 @@ describe('gold pieces, from the client', () => {
     expect(events).toContain('"type":"gold"');
     expect(events).not.toContain('contradicts');
     const s = await trackerState(p);
-    expect(s.pieces.map((x) => x.gold)).toEqual(['pending', 'pending', null]);
+    // Blind: the ledger counts two commitments, names no piece in them, and no piece shows one until the reveal.
+    const goldLine = events.split('\n').find((l) => l.includes('"type":"gold"'))!;
+    for (const x of s.pieces) expect(goldLine).not.toContain(x.hash);
+    expect(s.pieces.map((x) => x.gold)).toEqual([null, null, null]);
+    expect(s.gold).toEqual({ committed: 2, pending: 2, verified: 0, missed: 0, overruled: 0, lapsed: 0 });
     expect(await owner.standing()).toMatchObject({ standing: 4, locked: 4, free: 0 });
     const opened = await a.open(p);
-    expect(a.summary(p, opened.state, opened.tracker, opened.layer)).toContain('Gold (QX-16): 2 of the pieces have an answer the owner committed to before the work; 0 verified, 0 missed, 2 awaiting the owner\'s reveal.');
+    expect(a.summary(p, opened.state, opened.tracker, opened.layer, opened.hidden, opened.gold)).toContain('Gold (QX-16): the owner committed answers for 2 of the pieces before the work, without saying which; 0 verified, 0 missed, 2 awaiting the owner\'s reveal.');
   });
 
   it('lists a reveal due once the piece is accepted, reveals it through the tool, and the square is verified', async () => {
@@ -123,7 +127,8 @@ describe('gold pieces, from the client', () => {
     const r1 = await pieceOf(r, 0);
     const committed = await other.commitGold(r, { 'statement/1': { verdict: 'supports', quote: 'kept at home' } });
     expect(committed).toEqual({ pieces: 1, stake: 2 });
-    expect((await trackerState(r)).pieces.map((x) => x.gold)).toEqual(['pending', null]);
+    expect((await trackerState(r)).pieces.map((x) => x.gold)).toEqual([null, null]);
+    expect((await trackerState(r)).gold).toMatchObject({ committed: 1, pending: 1 });
     const lib = JSON.parse(readFileSync(join(homes.get(8)!, 'library.json'), 'utf8')) as { gold: Record<string, Record<string, { name: string }>> };
     expect(Object.values(lib.gold[r]!).map((k) => k.name)).toEqual(['statement/1']);
     await a.return(r, r1, { verdict: 'supports', quote: 'x' });

@@ -92,7 +92,7 @@ beforeAll(async () => {
   // The owner's gold on the one piece, two workers who agree with it, the reveal, and the epoch's end.
   const projection = { verdict: 'supports' };
   const nonce = newNonce();
-  await accepted(`p/${P}/events`, ev(owner, 'gold', { commitments: { [p1]: commitHash(projection, nonce) }, stake: 2 }, P));
+  await accepted(`p/${P}/events`, ev(owner, 'gold', { commitments: [commitHash({ piece: p1, projection }, nonce)], stake: 2 }, P));
   await returnOn(P, p1, A, 'anthropic/claude');
   await returnOn(P, p1, B, 'openai/gpt');
   await accepted(`p/${P}/events`, ev(owner, 'gold_reveal', { projection, nonce }, P, p1));

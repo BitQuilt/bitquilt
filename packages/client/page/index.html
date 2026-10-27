@@ -276,6 +276,22 @@
       var st = s.standing; var c = s.coin;
       sv.appendChild(el('div', null, st ? 'Standing ' + st.standing + ' (locked ' + st.locked + ', free ' + st.free + ') at ' + st.tracker + (st.locks.length ? '; ' + st.locks.length + (st.locks.length === 1 ? ' lock' : ' locks') + ' behind your claims' : '') : 'Standing: no tracker answered.'));
       sv.appendChild(el('div', null, c ? 'Coin (QX-17): ' + c.balance + ' units, ' + c.vested + ' vested, ' + c.locked + ' locked, ' + c.escrowed + ' escrowed, ' + c.free + ' free, at ' + c.home : 'Coin: no tracker this client knows carries one.'));
+      if (c) {
+        // QX-17: a transfer to an address, and a redeem to the chain, each signed here and posted to the coin's home.
+        var tf = el('form', 'pay'); tf.appendChild(el('span', 'meta', 'Move coin to an address: '));
+        var tto = el('input'); tto.type = 'text'; tto.placeholder = '0x…'; tto.required = true; tto.style.width = '24em'; tf.appendChild(tto);
+        var tam = el('input'); tam.type = 'number'; tam.min = '1'; tam.placeholder = 'units'; tam.required = true; tf.appendChild(tam);
+        var ts = el('button', null, 'Transfer, signed'); ts.type = 'submit'; tf.appendChild(ts);
+        var to = el('span', 'meta', ''); tf.appendChild(to);
+        tf.addEventListener('submit', function (ev) { ev.preventDefault(); to.textContent = 'Signing and posting…'; post('/api/transfer', { to: tto.value.trim(), amount: Number(tam.value) }).then(function (r) { to.textContent = 'Moved ' + tam.value + ' units to ' + tto.value.trim() + ' on ' + r.home + '.'; me(); }).catch(function (e) { to.textContent = e.message; }); });
+        sv.appendChild(tf);
+        var rf = el('form', 'pay'); rf.appendChild(el('span', 'meta', 'Redeem to the chain (the coin leaves the ledger; the Quilt token is minted once the bridge carries the line): '));
+        var ram = el('input'); ram.type = 'number'; ram.min = '1'; ram.placeholder = 'units'; ram.required = true; rf.appendChild(ram);
+        var rs = el('button', null, 'Redeem, signed'); rs.type = 'submit'; rf.appendChild(rs);
+        var ro2 = el('span', 'meta', ''); rf.appendChild(ro2);
+        rf.addEventListener('submit', function (ev) { ev.preventDefault(); ro2.textContent = 'Signing and posting…'; post('/api/redeem', { amount: Number(ram.value) }).then(function (r) { ro2.textContent = 'Redeem of ' + ram.value + ' units posted on ' + r.home + '.'; me(); }).catch(function (e) { ro2.textContent = e.message; }); });
+        sv.appendChild(rf);
+      }
     }).catch(function (e) { sv.textContent = e.message; });
   };
   $('flushBtn').addEventListener('click', function () { api('/api/flush', { method: 'POST' }).then(me); });

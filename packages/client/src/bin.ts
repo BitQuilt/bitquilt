@@ -16,6 +16,8 @@
  *   quilt gold reveal <problem> <piece>                   the owner's reveal of the gold committed on a piece (QX-16), from this home's library
  *   quilt pay <problem> <amount> <per_square>            coin escrowed to a problem on the coin's home (QX-17), paid per accepted square
  *   quilt balance                                         this key's coin at the first tracker that carries one
+ *   quilt transfer <to> <amount>                          coin moved to an address on the coin log, from the time the home's parameters name
+ *   quilt redeem <amount> [to]                            coin taken off the ledger for minting on the chain (the door out)
  *   quilt challenge <problem> <piece> <stake> <ground>  |  quilt verdict <problem> <piece> <challenge> <challenger|author> ['<json>']
  *   quilt rank <problem> <piece> <digest> [<digest>...]   a judge's ranking of a piece's candidates, first choice first
  *   quilt hide <id or hash> <why> [--lift]                a maintainer's takedown on this client's trackers, or its lift
@@ -93,6 +95,14 @@ async function main(): Promise<void> {
     }
     case 'balance': {
       console.log(JSON.stringify(await make().coin(), null, 2));
+      return;
+    }
+    case 'transfer': {
+      console.log(JSON.stringify(await make().transfer(args[1] as `0x${string}`, Number(args[2])), null, 2));
+      return;
+    }
+    case 'redeem': {
+      console.log(JSON.stringify(await make().redeem(Number(args[1]), args[2] ? (args[2] as `0x${string}`) : undefined), null, 2));
       return;
     }
     case 'gold': {

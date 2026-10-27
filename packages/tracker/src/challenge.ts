@@ -17,7 +17,7 @@ import {
 } from '@bitquilt/core';
 import { type KindInfo, type Layered, type PanelView, applyVerifiers, panelSeatProblem, rankBodyProblems, rankingProblem, rootFor, viaOf } from './verifiers.js';
 import { type LockView, type StakeRule, lockBodyProblems, lockReleasedAt, ruleNames, stakeAsked, stakeRuleBodyProblems } from './stake.js';
-import { type GoldCommitment, type GoldOutcome, type GoldState, type GoldView, firstProductionAt, goldBodyProblems, goldMatches, goldRevealBodyProblems, goldShare, hasAgreedFields } from './gold.js';
+import { type GoldCommitment, type GoldCount, type GoldOutcome, type GoldState, type GoldView, firstProductionAt, goldBodyProblems, goldCommitHash, goldCount, goldMatches, goldRevealBodyProblems, goldShareMax, hasAgreedFields } from './gold.js';
 
 export { rootFor };
 export const EXTENSION = 'QX-1';
@@ -97,6 +97,8 @@ export interface ProblemLayer {
   locks: LockView[];
   /** The owner's gold on this problem (QX-16), as kept. */
   gold: GoldView[];
+  /** The gold summed for a reader: how many commitments, and how each stands; which pieces they are on is known only at the reveal. */
+  goldCount: GoldCount;
 }
 
 export type Admission = { ok: true } | { ok: false; why: string };
@@ -310,19 +312,30 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
   // QX-16: the owner's gold, whose stake is locked standing until every commitment is final or the gold is forfeited.
   const golds: GoldView[] = [];
   const windowOf = (home: Entry): number => home.fold.envelope.problem.settings.challenge_window_h;
-  /** A commitment as a reader sees it at now: pending with the piece's window closed has lapsed. */
+  /** When a problem's pieces are all final at now: complete, with every window closed; null until then. */
+  const problemSettledAt = (home: Entry): string | null => {
+    if (!home.fold.complete) return null;
+    let latest: string | null = null;
+    for (const v of home.fold.pieces) {
+      if (v.windowEnd === null) continue;
+      if (v.windowEnd > now) return null;
+      if (latest === null || v.windowEnd > latest) latest = v.windowEnd;
+    }
+    return latest ?? now;
+  };
+  /** A commitment as a reader sees it at now: blind until revealed, and pending once the problem has settled has lapsed. */
   const outcomeOf = (home: Entry, c: GoldCommitment): GoldOutcome => {
     if (c.outcome !== 'pending') return c.outcome;
-    const view = home.fold.byHash.get(c.piece);
-    return view?.accepting && view.windowEnd !== null && view.windowEnd <= now ? 'lapsed' : 'pending';
+    return problemSettledAt(home) !== null ? 'lapsed' : 'pending';
   };
   /** When a commitment is final, or null while the owner's stake is still exposed on it. */
   const commitmentFinalAt = (home: Entry, c: GoldCommitment): string | null => {
-    const view = home.fold.byHash.get(c.piece);
+    const view = c.piece ? home.fold.byHash.get(c.piece) : undefined;
     switch (outcomeOf(home, c)) {
       case 'match':
-      case 'lapsed':
         return view?.windowEnd !== null && view?.windowEnd !== undefined && view.windowEnd <= now ? view.windowEnd : null;
+      case 'lapsed':
+        return problemSettledAt(home);
       case 'miss': {
         const ch = home.challenges.find((x) => x.piece === c.piece && x.against === 'gold' && x.at >= c.revealedAt!);
         if (ch && ch.outcome === 'open') return null;
@@ -404,42 +417,35 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
     }
     return { ok: true, root, view };
   };
-  type GoldCheck = { ok: true; root: Address; kept: GoldCommitment[]; dropped: string[] } | { ok: false; why: string };
-  /** Whether a gold would be kept if received at `at`, by section 1 of QX-16; `strict` refuses the whole for one bad commitment, as the door does, else the one is dropped. */
-  const checkGold = (home: Entry, key: Address, body: Record<string, unknown>, at: string, strict: boolean): GoldCheck => {
+  type GoldCheck = { ok: true; root: Address; kept: GoldCommitment[] } | { ok: false; why: string };
+  /**
+   * Whether a gold would be kept if received at `at`, by section 1 of QX-16: the owner's; commitments not kept already;
+   * a stake of at least the largest share among the pieces a gold can be on, for each commitment, since the ledger cannot
+   * tell which piece a blind commitment names; and the owner's free standing covering the stake.
+   */
+  const checkGold = (home: Entry, key: Address, body: Record<string, unknown>, at: string): GoldCheck => {
     const shape = goldBodyProblems(body);
     if (shape.length) return { ok: false, why: shape[0]! };
     const root = rootFor(home.fold, key, 'gold', at);
     if (!root || root !== ownerOf(home, at)) return { ok: false, why: 'the owner alone commits gold' };
-    const kept: GoldCommitment[] = [];
-    const dropped: string[] = [];
+    const hs = body.commitments as Hash[];
+    for (const g of home.golds) for (const c of g.commitments) if (hs.includes(c.h)) return { ok: false, why: 'a commitment is kept already' };
     const rule = ruleAt(home, at);
-    let required = 0;
-    for (const [piece, h] of Object.entries(body.commitments as Record<string, Hash>)) {
-      const view = home.fold.byHash.get(piece as Hash);
-      const first = view ? firstProductionAt(view) : null;
-      const why = !view ? 'gold names a piece this problem does not have'
-        : !hasAgreedFields(view) ? 'gold applies to a piece whose return has agreed fields'
-        : first !== null && first <= at ? `gold names a piece already worked: ${view.piece.name}`
-        : goldOn(home, piece as Hash) || kept.some((k) => k.piece === piece) ? 'this piece has its gold'
-        : null;
-      if (why) {
-        if (strict) return { ok: false, why };
-        dropped.push(why);
-        continue;
-      }
-      kept.push({ piece: piece as Hash, name: view!.piece.name, h, outcome: 'pending', revealedAt: null, projection: null, struck: [], struckRoots: [] });
-      required += goldShare(view!, stakeAsked(rule, view!.piece));
-    }
-    if (kept.length === 0) return { ok: false, why: dropped[0] ?? 'nothing to commit' };
+    const share = goldShareMax(home.fold.pieces, (v) => stakeAsked(rule, v.piece));
+    if (share === 0) return { ok: false, why: 'gold applies to a piece whose return has agreed fields' };
+    const required = share * hs.length;
     const stake = body.stake as number;
     if (stake < required) return { ok: false, why: `the gold asks a stake of at least ${required}` };
     const f = free(root, at);
     if (f < stake) return { ok: false, why: `free standing ${f} is below the gold stake of ${stake}` };
-    return { ok: true, root, kept, dropped };
+    return { ok: true, root, kept: hs.map((h) => ({ h, piece: null, name: null, outcome: 'pending' as const, revealedAt: null, projection: null, struck: [], struckRoots: [] })) };
   };
-  type RevealCheck = { ok: true; c: GoldCommitment; view: PieceView } | { ok: false; why: string };
-  /** Whether a gold reveal would count if received at `at`, by section 1 of QX-16. */
+  type RevealCheck = { ok: true; g: GoldView; c: GoldCommitment; view: PieceView } | { ok: false; why: string };
+  /**
+   * Whether a gold reveal would count if received at `at`, by section 1 of QX-16: the owner's, naming a piece with no
+   * gold revealed on it, matching a pending commitment of a gold kept before the piece was first worked, on a piece with
+   * an accepting set inside its window.
+   */
   const checkGoldReveal = (home: Entry, piece: Hash, key: Address, body: Record<string, unknown>, at: string): RevealCheck => {
     const view = home.fold.byHash.get(piece);
     if (!view) return { ok: false, why: 'names a piece this problem does not have' };
@@ -447,14 +453,17 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
     if (shape.length) return { ok: false, why: shape[0]! };
     const root = rootFor(home.fold, key, 'gold_reveal', at);
     if (!root || root !== ownerOf(home, at)) return { ok: false, why: 'the owner alone reveals gold' };
-    const all = home.golds.flatMap((g) => g.commitments.filter((c) => c.piece === piece && c.outcome !== 'dropped'));
-    if (all.length === 0) return { ok: false, why: 'no gold on this piece' };
-    const c = all.find((x) => x.outcome === 'pending');
-    if (!c) return { ok: false, why: 'the gold on this piece is revealed' };
-    if (commitHash(body.projection, body.nonce as string) !== c.h) return { ok: false, why: 'the reveal does not match the commitment' };
+    if (goldOn(home, piece)) return { ok: false, why: 'the gold on this piece is revealed' };
+    const h = goldCommitHash(piece, body.projection as Record<string, unknown>, body.nonce as string);
+    let found: { g: GoldView; c: GoldCommitment } | null = null;
+    for (const g of home.golds) if (g.forfeitedAt === null) for (const c of g.commitments) if (c.outcome === 'pending' && c.h === h) found = { g, c };
+    if (!found) return { ok: false, why: 'the reveal matches no commitment kept on this problem' };
+    if (!hasAgreedFields(view)) return { ok: false, why: 'gold applies to a piece whose return has agreed fields' };
+    const first = firstProductionAt(view);
+    if (first !== null && first <= found.g.at) return { ok: false, why: `gold names a piece already worked: ${view.piece.name}` };
     if (!view.accepting || view.accepting.completedAt > at) return { ok: false, why: 'nothing accepted on this piece yet' };
     if (view.windowEnd === null || at >= view.windowEnd) return { ok: false, why: 'the window has closed' };
-    return { ok: true, c, view };
+    return { ok: true, g: found.g, c: found.c, view };
   };
   /** Strikes a piece's accepting set at `d`, as QX-1 section 6 says: the roots docked and their points withdrawn, their locks forfeited (QX-15), the events left out and every fold redone. */
   const strike = (home: Entry, view: PieceView, d: string, lease: number): { ids: Hash[]; roots: Address[] } => {
@@ -498,12 +507,13 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
       refold(e);
     }
     refreshCredits();
-    const view = home.fold.byHash.get(c.piece);
+    const piece = c.piece!;
+    const view = home.fold.byHash.get(piece);
     const credited = view?.accepting ? creditedRoots(view).map((p) => home.fold.rootOf(p, now)) : [];
     for (const root of c.struckRoots) {
       if (credited.includes(root)) deltas.push({ root, at: d, delta: 2 });
       for (const l of locks) {
-        if (l.problem !== home.hash || l.piece !== c.piece || l.root !== root || l.forfeitedAt !== c.revealedAt || l.restoredAt !== null) continue;
+        if (l.problem !== home.hash || l.piece !== piece || l.root !== root || l.forfeitedAt !== c.revealedAt || l.restoredAt !== null) continue;
         l.restoredAt = d;
         if (l.kind === 'standing') deltas.push({ root, at: d, delta: l.amount });
       }
@@ -605,7 +615,7 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
       continue;
     }
     if (c.kind === 'gold') {
-      // QX-16: the owner's commitments, kept at their receipt against the pieces as they stood and the owner's free standing then.
+      // QX-16: the owner's blind commitments, kept at their receipt against the owner's free standing then; the pieces are named at the reveals.
       if (ev.problem !== home.hash || ev.piece !== undefined) {
         drop('names a problem this layer does not hold, or a piece');
         continue;
@@ -614,12 +624,11 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
         drop('signature is not the key\'s');
         continue;
       }
-      const r = checkGold(home, ev.key, ev.body, at, false);
+      const r = checkGold(home, ev.key, ev.body, at);
       if (!r.ok) {
         drop(r.why);
         continue;
       }
-      for (const why of r.dropped) drop(why);
       const g: GoldView = { id: c.id, problem: home.hash, key: ev.key, root: r.root, at, stake: ev.body.stake as number, commitments: r.kept, forfeitedAt: null };
       golds.push(g);
       home.golds.push(g);
@@ -641,6 +650,8 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
         continue;
       }
       const projection = ev.body.projection as Record<string, unknown>;
+      r.c.piece = ev.piece;
+      r.c.name = r.view.piece.name;
       r.c.revealedAt = at;
       r.c.projection = projection;
       if (goldMatches(r.view, projection)) r.c.outcome = 'match';
@@ -726,7 +737,7 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
     problems.set(e.hash, {
       problem: e.hash, core: e.core, fold: e.fold, pieces, byHash: new Map(pieces.map((p) => [p.hash, p])), challenges: e.challenges,
       panels: e.layered.panels, unoffered: e.layered.unoffered, dropped: [...e.dropped, ...e.layered.dropped],
-      stake: rule ? { min: rule.min, pieces: rule.pieces } : null, locks: locks.filter((l) => l.problem === e.hash), gold: e.golds,
+      stake: rule ? { min: rule.min, pieces: rule.pieces } : null, locks: locks.filter((l) => l.problem === e.hash), gold: e.golds, goldCount: goldCount(e.golds, (_g, c) => outcomeOf(e, c)),
     });
     all.push(...e.challenges);
   }
@@ -808,7 +819,7 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
   const admitGold = (problem: Hash, key: Address, body: Record<string, unknown>): Admission => {
     const home = entries.get(problem);
     if (!home) return { ok: false, why: 'no such problem here' };
-    const r = checkGold(home, key, body, now, true);
+    const r = checkGold(home, key, body, now);
     return r.ok ? { ok: true } : r;
   };
   const admitGoldReveal = (problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>): Admission => {

@@ -3,10 +3,7 @@
  * read, publish, challenge an acceptance, give a verdict, rank a judge piece's candidates. The MCP server and the page
  * are thin shells over this. Other people's words come out of here only as quoted text with the signer named.
  */
-import {
-  type Capability, type Envelope, type Event, type Hash, type Pick, type Piece, type PieceView, type Problem, type State, type Unsigned,
-  agreeFields, commitHash, eventId, expandPieces, hashBytes, isHash, newNonce, next, plainTextProblems, problemHash, renderInputs, signEvent, signObject, canonical, envelopeProblems,
-} from '@bitquilt/core';
+import { type Address, type Capability, type Envelope, type Event, type Hash, type Pick, type Piece, type PieceView, type Problem, type State, type Unsigned, agreeFields, commitHash, eventId, expandPieces, hashBytes, isHash, newNonce, next, plainTextProblems, problemHash, renderInputs, signEvent, signObject, canonical, envelopeProblems, isAddress } from '@bitquilt/core';
 import type { Config, Identity } from './config.js';
 import { type Link, makeLink, parseLink } from './link.js';
 import { announcementEvent, postToRelays, searchRelays } from './relay.js';
@@ -62,11 +59,14 @@ export interface LayerPiece {
   challenge: Hash | null;
   /** The stake of standing the problem asks of a claim on this piece (QX-15); 0 or absent where none. */
   stake?: number;
-  /** The piece's gold (QX-16): null or absent with none kept, else pending, match, miss, overruled or lapsed. */
+  /** The piece's gold (QX-16): null or absent while no commitment has been revealed on it, else match, miss or overruled. */
   gold?: string | null;
   /** A square whose accepting set agreed with the owner's gold. */
   verified?: boolean;
 }
+
+/** A problem's gold summed by the tracker (QX-16): how many blind commitments, and how each stands. */
+export interface GoldCount { committed: number; pending: number; verified: number; missed: number; overruled: number; lapsed: number }
 
 export const STATE_MARK: Record<string, string> = { locked: 'l', unknown: '?', open: '.', in_flight: 'i', sealed: 's', needs_verify: 'v', disputed: 'd', accepted_provisional: 'p', accepted: 'a', unreachable: 'u', challenged: 'c', judging: 'j' };
 
@@ -285,6 +285,48 @@ export class Quilt {
     return { id: eventId(e), ...r, home };
   }
 
+  /** The coin's home among this client's trackers: the first that carries the coin, or null. */
+  async coinHome(): Promise<string | null> {
+    for (const t of this.config.trackers) {
+      const at = await this.coinAt(t);
+      if (at) return at.home;
+    }
+    return null;
+  }
+
+  /**
+   * A transfer of this key's coin to an address (QX-17): vested free coin moved on the coin log of the coin's home, from
+   * the time the home's parameters name. The recipient need not be a key anywhere yet.
+   */
+  async transfer(to: Address, amount: number): Promise<{ id: Hash; at: string | null; queued: boolean; error?: string; home: string }> {
+    const id = this.needKey();
+    if (!isAddress(to)) throw new Error('the recipient is an address with its checksum');
+    if (!Number.isInteger(amount) || amount < 1) throw new Error('a transfer is a whole number of units, at least 1');
+    const home = await this.coinHome();
+    if (!home) throw new Error('no tracker this client knows carries the coin');
+    const e = this.sign({ quilt: 1, type: 'transfer', key: id.address, ts: new Date().toISOString(), body: { to, amount } });
+    const r = await this.resolver.post(e, 'coin', [home]);
+    if (r.error && !r.queued) throw new Error(`the coin's home refused the transfer: ${r.error}`);
+    return { id: eventId(e), ...r, home };
+  }
+
+  /**
+   * A redeem of this key's coin (QX-17, the door out): vested free coin taken off the ledger as a signed line on the
+   * coin log, to be minted on the chain to this key's address or the one named once the bridge's poster carries the
+   * line under a posted head. Final on the ledger from its receipt.
+   */
+  async redeem(amount: number, to?: Address): Promise<{ id: Hash; at: string | null; queued: boolean; error?: string; home: string }> {
+    const id = this.needKey();
+    if (to !== undefined && !isAddress(to)) throw new Error('the recipient is an address with its checksum');
+    if (!Number.isInteger(amount) || amount < 1) throw new Error('a redeem is a whole number of units, at least 1');
+    const home = await this.coinHome();
+    if (!home) throw new Error('no tracker this client knows carries the coin');
+    const e = this.sign({ quilt: 1, type: 'redeem', key: id.address, ts: new Date().toISOString(), body: { amount, ...(to ? { to } : {}) } });
+    const r = await this.resolver.post(e, 'coin', [home]);
+    if (r.error && !r.queued) throw new Error(`the coin's home refused the redeem: ${r.error}`);
+    return { id: eventId(e), ...r, home };
+  }
+
   /** The stake a problem asks of a claim on its pieces (QX-15): a stake_rule event from the owner on the problem's log, replacing the one before. */
   async stakeRule(problem: Hash, min: number, pieces?: string[]): Promise<{ at: string | null; queued: boolean; error?: string }> {
     const id = this.needKey();
@@ -296,7 +338,7 @@ export class Quilt {
   }
 
   /** The problem behind a link or hash, resolved and reduced, with the tracker's own view of its pieces where one answered. */
-  async open(input: string): Promise<{ link: Link; hash: Hash; state: State; tracker: string | null; layer: LayerPiece[] | null; hidden: Takedown | null }> {
+  async open(input: string): Promise<{ link: Link; hash: Hash; state: State; tracker: string | null; layer: LayerPiece[] | null; hidden: Takedown | null; gold: GoldCount | null }> {
     const link = parseLink(input);
     const resolved = await this.resolver.resolve(link);
     if (!resolved) throw new Error('no resolver answered for that hash');
@@ -306,9 +348,9 @@ export class Quilt {
     const entry = this.library.problems[resolved.hash];
     this.library.problems[resolved.hash] = { title: state.envelope.problem.title, slug: state.envelope.problem.slug, trackers, first: entry?.first ?? now, last: now };
     this.save();
-    const layer = resolved.tracker ? await this.layerOf(resolved.hash, resolved.tracker) : null;
+    const st = resolved.tracker ? await this.stateOf(resolved.hash, resolved.tracker) : null;
     const hidden = resolved.tracker ? await this.takedownOf(resolved.hash, resolved.tracker) : null;
-    return { link, hash: resolved.hash, state, tracker: resolved.tracker, layer, hidden };
+    return { link, hash: resolved.hash, state, tracker: resolved.tracker, layer: st?.pieces ?? null, hidden, gold: st?.gold ?? null };
   }
 
   /**
@@ -316,11 +358,16 @@ export class Quilt {
    * window, the verifier kinds) says more than the core this client computes. Null when the tracker does not answer.
    */
   async layerOf(hash: Hash, tracker: string): Promise<LayerPiece[] | null> {
+    return (await this.stateOf(hash, tracker))?.pieces ?? null;
+  }
+
+  /** The tracker's state for a problem: its pieces as the layer sees them, and the owner's gold summed (QX-16). Null when the tracker does not answer. */
+  async stateOf(hash: Hash, tracker: string): Promise<{ pieces: LayerPiece[]; gold: GoldCount | null } | null> {
     try {
       const r = await fetch(`${tracker}p/${hash}/state`, { signal: AbortSignal.timeout(8000) });
       if (!r.ok) return null;
-      const j = (await r.json()) as { pieces?: LayerPiece[] };
-      return Array.isArray(j.pieces) ? j.pieces : null;
+      const j = (await r.json()) as { pieces?: LayerPiece[]; gold?: GoldCount };
+      return Array.isArray(j.pieces) ? { pieces: j.pieces, gold: j.gold ?? null } : null;
     } catch {
       return null;
     }
@@ -355,15 +402,18 @@ export class Quilt {
     return [`Stake asked (QX-15): ${staked.length} of the pieces ask ${amounts.join(' or ')} of a key's standing, locked before the claim and forfeited if the acceptance is struck.`];
   }
 
-  /** The owner's gold (QX-16), as the tracker that answered holds it: one line counting the squares, or none where nothing was committed. */
-  goldText(layer: LayerPiece[] | null): string[] {
-    const committed = (layer ?? []).filter((l) => l.gold !== null && l.gold !== undefined);
-    if (committed.length === 0) return [];
-    const count = (s: string) => committed.filter((l) => l.gold === s).length;
-    const parts = [`${count('match')} verified`, `${count('miss')} missed`, `${count('pending')} awaiting the owner's reveal`];
-    if (count('overruled')) parts.push(`${count('overruled')} overruled by a challenge`);
-    if (count('lapsed')) parts.push(`${count('lapsed')} lapsed unrevealed`);
-    return [`Gold (QX-16): ${committed.length} of the pieces have an answer the owner committed to before the work; ${parts.join(', ')}.`];
+  /**
+   * The owner's gold (QX-16), as the tracker that answered sums it: one line counting the commitments, which name no
+   * piece until revealed, or none where nothing was committed. Without the sum, what the pieces show once revealed.
+   */
+  goldText(layer: LayerPiece[] | null, gold: GoldCount | null = null): string[] {
+    const n = (s: string) => (layer ?? []).filter((l) => l.gold === s).length;
+    const g = gold ?? ((layer ?? []).some((l) => l.gold) ? { committed: n('match') + n('miss') + n('overruled'), pending: 0, verified: n('match'), missed: n('miss'), overruled: n('overruled'), lapsed: 0 } : null);
+    if (!g || g.committed === 0) return [];
+    const parts = [`${g.verified} verified`, `${g.missed} missed`, `${g.pending} awaiting the owner's reveal`];
+    if (g.overruled) parts.push(`${g.overruled} overruled by a challenge`);
+    if (g.lapsed) parts.push(`${g.lapsed} lapsed unrevealed`);
+    return [`Gold (QX-16): the owner committed answers for ${g.committed} of the pieces before the work, without saying which; ${parts.join(', ')}.`];
   }
 
   /** Whether the tracker that answered has taken the problem down (QX-6), and why, in its own word. */
@@ -389,7 +439,7 @@ export class Quilt {
     return r;
   }
 
-  summary(hash: Hash, state: State, tracker: string | null, layer: LayerPiece[] | null = null, hidden: Takedown | null = null): string {
+  summary(hash: Hash, state: State, tracker: string | null, layer: LayerPiece[] | null = null, hidden: Takedown | null = null, gold: GoldCount | null = null): string {
     const p = state.envelope.problem;
     const owner = state.names.get(p.owner as `0x${string}`)?.name ?? p.owner;
     const lines = [
@@ -400,7 +450,7 @@ export class Quilt {
       this.mapText(state, layer),
       this.kindsText(state),
       ...this.stakeText(layer),
-      ...this.goldText(layer),
+      ...this.goldText(layer, gold),
       `Legend: . open, i in flight, s sealed, v needs a second production, d disputed, p accepted within the window, a accepted, u unreachable, l locked, c challenged, j a panel ranking candidates, ? a kind neither this client nor the tracker that answered implements.`,
       tracker ? `Answered by ${tracker}.` : 'Answered from the cache or a mirror.',
       ...(hidden ? [`Taken down on ${tracker} by ${hidden.by}: "${hidden.why}" (${hidden.at}). The map above is still what the chain says.`] : []),
@@ -597,7 +647,7 @@ export class Quilt {
         // QX-16: a piece this key committed gold on, accepted and not yet revealed, as the tracker holds it.
         for (const [piece, g] of Object.entries(this.library.gold?.[problem] ?? {})) {
           const l = over.get(piece as Hash);
-          if (l && l.gold === 'pending' && !g.revealed && ['accepted_provisional', 'accepted', 'challenged'].includes(l.state)) item(piece as Hash, g.name, 'gold');
+          if (l && !l.gold && !g.revealed && ['accepted_provisional', 'accepted', 'challenged'].includes(l.state)) item(piece as Hash, g.name, 'gold');
         }
       }
       for (const v of state.pieces) {
@@ -810,18 +860,22 @@ export class Quilt {
 
   /**
    * The owner's gold on a problem (QX-16), posted after publishing or at it: each answer projected to the piece's agreed
-   * fields and committed by hash with its own nonce; the projections and nonces stay in the library. The stake, left out,
-   * is the sum of the pieces' shares: for each root a miss would dock, two for a piece whose set is two reveals, the stake
-   * the rule asks of the piece, or one. A piece already worked takes no gold.
+   * fields and committed by hash together with the piece, under its own nonce, so the ledger shows how many answers are
+   * committed and not which pieces; the projections and nonces stay in the library. The stake, left out, is the largest
+   * share among the pieces a gold can be on, for each commitment: for each root a miss would dock, two for a piece whose
+   * set is two reveals, the stake the rule asks of the piece, or one. A piece already worked takes no gold, since the
+   * reveal on it would be refused.
    */
   async commitGold(problem: Hash, answers: Record<string, Record<string, unknown>>, stakeAsked?: number, pieces?: Piece[], trackers?: string[], rule?: { min: number; pieces?: string[] }): Promise<{ pieces: number; stake: number }> {
     const id = this.needKey();
     let all = pieces;
     let where = trackers;
+    const worked = new Set<Hash>();
     if (!all || !where) {
       const opened = await this.open(problem);
       all ??= opened.state.pieces.map((v) => v.piece);
       where ??= this.trackersFor(problem);
+      for (const v of opened.state.pieces) if (v.claims.length || v.commits.length || v.reveals.length || v.runs.length) worked.add(v.piece.hash);
       if (!rule && opened.layer) {
         // The rule in force, as the tracker shows it per piece: the share of each committed piece follows it.
         const stakes = new Map(opened.layer.map((l) => [l.hash, l.stake ?? 0] as const));
@@ -829,27 +883,31 @@ export class Quilt {
         for (const p of all) if ((stakes.get(p.hash) ?? 0) > 0) rule = { min: Math.max(rule.min, stakes.get(p.hash)!), pieces: [...(rule.pieces ?? []), p.name] };
       }
     }
-    const commitments: Record<string, Hash> = {};
+    const golden = (x: Piece) => x.schema !== undefined && x.verifier !== 'check' && x.verifier !== 'score';
+    const covered = (x: Piece) => rule !== undefined && rule.min > 0 && (!rule.pieces?.length || rule.pieces.includes(x.family) || rule.pieces.includes(x.name));
+    // Each blind commitment costs the largest share among the pieces a gold can be on, since the ledger cannot tell which piece it names.
+    const share = Math.max(0, ...all.filter(golden).map((x) => (x.verifier === 'attest' ? 1 : 2) * Math.max(1, covered(x) ? rule!.min : 0)));
+    const commitments: Hash[] = [];
     const kept: Record<string, { name: string; projection: Record<string, unknown>; nonce: string }> = {};
-    let shares = 0;
     for (const [name, answer] of Object.entries(answers)) {
       const piece = all.find((x) => x.name === name);
       if (!piece) throw new Error(`no piece named ${name}`);
-      if (!piece.schema || piece.verifier === 'check' || piece.verifier === 'score') throw new Error(`${name} has no agreed fields to commit to`);
-      const fields = agreeFields(piece.schema, piece.agree);
+      if (!golden(piece)) throw new Error(`${name} has no agreed fields to commit to`);
+      if (worked.has(piece.hash)) throw new Error(`${name} is already worked, and a reveal on it would be refused`);
+      const fields = agreeFields(piece.schema!, piece.agree);
       const projection: Record<string, unknown> = {};
       for (const f of fields) {
         if (!(f in answer)) throw new Error(`the answer for ${name} lacks ${f}`);
         projection[f] = answer[f];
       }
       const nonce = newNonce();
-      commitments[piece.hash] = commitHash(projection, nonce);
+      commitments.push(commitHash({ piece: piece.hash, projection }, nonce));
       kept[piece.hash] = { name, projection, nonce };
-      const covered = rule && rule.min > 0 && (!rule.pieces?.length || rule.pieces.includes(piece.family) || rule.pieces.includes(piece.name));
-      shares += (piece.verifier === 'attest' ? 1 : 2) * Math.max(1, covered ? rule!.min : 0);
     }
-    if (Object.keys(kept).length === 0) throw new Error('no answers to commit');
-    const stake = stakeAsked ?? shares;
+    if (commitments.length === 0) throw new Error('no answers to commit');
+    // In hash order, so the order of the list says nothing about which piece is which.
+    commitments.sort();
+    const stake = stakeAsked ?? share * commitments.length;
     const g = this.sign({ quilt: 1, type: 'gold', problem, key: id.address, ts: new Date().toISOString(), body: { commitments, stake } });
     const r = await this.resolver.post(g, problem, where);
     if (r.error && !r.queued) throw new Error(r.error);

@@ -76,7 +76,7 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       }
       if (path === '/api/search') return json(res, 200, { problems: await quilt.search(u.searchParams.get('q') ?? '') });
       if (path === '/api/open') {
-        const { hash, state, tracker, layer, hidden } = await quilt.open(u.searchParams.get('link') ?? '');
+        const { hash, state, tracker, layer, hidden, gold } = await quilt.open(u.searchParams.get('link') ?? '');
         const over = new Map((layer ?? []).map((l) => [l.hash, l] as const));
         // The judge panels this person sits on with a seat still live: the page offers a ranking form for each.
         const me = person.identity?.address ?? null;
@@ -108,7 +108,7 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
           }),
           kinds: quilt.kindsText(state),
           judging: judging.map((p) => ({ piece: p.piece, name: p.name, verifier: p.verifier, majority: p.majority, panel: p.panel, candidates: p.candidates.map((c) => ({ digest: c.digest, return: c.return })) })),
-          accepted: quilt.acceptedText(state, layer), summary: quilt.summary(hash, state, tracker, layer, hidden), coin,
+          accepted: quilt.acceptedText(state, layer), summary: quilt.summary(hash, state, tracker, layer, hidden, gold), gold, coin,
         });
       }
       if (path === '/api/reveal' && method === 'POST') {
@@ -118,6 +118,14 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       if (path === '/api/pay' && method === 'POST') {
         const b = (await body(req)) as { problem: Hash; amount: number; per_square: number };
         return json(res, 200, await quilt.pay(b.problem, Number(b.amount), Number(b.per_square)));
+      }
+      if (path === '/api/transfer' && method === 'POST') {
+        const b = (await body(req)) as { to: `0x${string}`; amount: number };
+        return json(res, 200, await quilt.transfer(b.to, Number(b.amount)));
+      }
+      if (path === '/api/redeem' && method === 'POST') {
+        const b = (await body(req)) as { amount: number; to?: `0x${string}` };
+        return json(res, 200, await quilt.redeem(Number(b.amount), b.to || undefined));
       }
       if (path === '/api/rank' && method === 'POST') {
         const b = (await body(req)) as { problem: Hash; piece: Hash; ranking: Hash[] };

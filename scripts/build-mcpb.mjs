@@ -20,7 +20,7 @@ const version = JSON.parse(readFileSync(join(root, 'packages', 'client', 'packag
 // The names of the connector's tools, as the app shows them in its install dialog; the test checks them against what
 // the server lists. The key is not a setting: it stays where quilt keeps it, under QUILT_HOME (~/.config/quilt unless
 // that is set), so the key made by quilt init is the one the extension signs with.
-const tools = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_challenge', 'quilt_verdict', 'quilt_rank', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold', 'quilt_pay'];
+const tools = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_challenge', 'quilt_verdict', 'quilt_rank', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold', 'quilt_pay', 'quilt_transfer', 'quilt_redeem'];
 const manifest = {
   manifest_version: '0.2',
   name: 'quilt',

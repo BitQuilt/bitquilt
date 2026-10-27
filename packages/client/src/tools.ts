@@ -5,7 +5,7 @@
  * say) works through the one holding the page instead of signing and writing the library beside it. Other people's
  * words come out of here only as quoted text with the signer named.
  */
-import type { Hash } from '@bitquilt/core';
+import type { Address, Hash } from '@bitquilt/core';
 import { type Pattern, type Quilt, type Side, kindWords } from './worker.js';
 
 export interface ToolResult {
@@ -18,7 +18,7 @@ export type ToolInput = Record<string, unknown>;
 /** Runs one tool by name for the host that asked (the client's name at connection, which the model declared follows). */
 export type ToolRunner = (name: ToolName, input: ToolInput, host: string | undefined) => Promise<ToolResult>;
 
-export const TOOL_NAMES = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold', 'quilt_pay'] as const;
+export const TOOL_NAMES = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold', 'quilt_pay', 'quilt_transfer', 'quilt_redeem'] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 export function isToolName(s: string): s is ToolName {
@@ -43,8 +43,8 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       return { text, handles: { address: me.address, model: me.model, trackers: me.trackers, queued: me.queued, standing: s, coin: c } };
     }
     case 'quilt_open': {
-      const { hash: h, state, tracker, layer, hidden } = await quilt.open(str('link'));
-      return { text: quilt.summary(h, state, tracker, layer, hidden), handles: { problem: h, pieces: state.pieces.length, complete: state.complete } };
+      const { hash: h, state, tracker, layer, hidden, gold } = await quilt.open(str('link'));
+      return { text: quilt.summary(h, state, tracker, layer, hidden, gold), handles: { problem: h, pieces: state.pieces.length, complete: state.complete } };
     }
     case 'quilt_search': {
       const found = await quilt.search(str('query'));
@@ -70,9 +70,9 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       return { text: `Declined (${reason}); ${where(r)}.`, handles: { problem: input.problem, piece: input.piece } };
     }
     case 'quilt_read': {
-      const { hash: h, state, tracker, layer, hidden } = await quilt.open(str('problem'));
+      const { hash: h, state, tracker, layer, hidden, gold } = await quilt.open(str('problem'));
       const [challenges, panels] = await Promise.all([quilt.challenges(h, tracker), quilt.panels(h, tracker)]);
-      const text = `${quilt.summary(h, state, tracker, layer, hidden)}\n\nAccepted so far:\n${quilt.acceptedText(state, layer)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}\n\nPanels:\n${quilt.panelsText(panels, state)}`;
+      const text = `${quilt.summary(h, state, tracker, layer, hidden, gold)}\n\nAccepted so far:\n${quilt.acceptedText(state, layer)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}\n\nPanels:\n${quilt.panelsText(panels, state)}`;
       return { text, handles: { problem: h, complete: state.complete, output: state.output?.hash ?? null, challenges: challenges.map((c) => ({ id: c.id, piece: c.piece, outcome: c.outcome })), panels: panels.map((p) => ({ piece: p.piece, outcome: p.outcome, candidates: p.candidates.map((c) => c.digest) })) } };
     }
     case 'quilt_rank': {
@@ -105,6 +105,15 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
     case 'quilt_pay': {
       const r = await quilt.pay(hash('problem'), Number(input.amount), Number(input.per_square));
       return { text: `Escrowed ${input.amount} units to ${str('problem')} at ${input.per_square} a square; ${r.queued ? 'the pay waits in the queue' : `posted to the coin log at ${r.home}`}. Each square accepted from now pays the roots of its set from the escrow; what is left comes back when the problem completes.`, handles: { problem: input.problem, pay: r.id, amount: input.amount, per_square: input.per_square, home: r.home } };
+    }
+    case 'quilt_transfer': {
+      const r = await quilt.transfer(str('to') as Address, Number(input.amount));
+      return { text: `Transferred ${input.amount} units to ${str('to')}; ${r.queued ? 'the transfer waits in the queue' : `posted to the coin log at ${r.home}`}. The units are the recipient's on the ledger from the receipt.`, handles: { to: input.to, amount: input.amount, transfer: r.id, home: r.home } };
+    }
+    case 'quilt_redeem': {
+      const to = str('to');
+      const r = await quilt.redeem(Number(input.amount), to ? (to as Address) : undefined);
+      return { text: `Redeem of ${input.amount} units ${r.queued ? 'waits in the queue' : `posted to the coin log at ${r.home}`}${to ? `, to ${to}` : ''}. The coin has left the ledger; the line is minted on the chain once the bridge's poster carries it under a head whose veto window has passed, and the holder claims it with the proof.`, handles: { amount: input.amount, to: to || null, redeem: r.id, home: r.home } };
     }
     case 'quilt_reveal_gold': {
       const r = await quilt.revealGold(hash('problem'), hash('piece'));

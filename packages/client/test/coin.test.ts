@@ -15,7 +15,8 @@ import { type Pattern, Quilt } from '../src/worker.js';
 
 /**
  * The coin (QX-17) from the client's side: a key that earned coin from verified squares sees it in quilt_me once the
- * epoch has ended; a pay is refused until the coin has vested and then escrowed through the tool; a key whose free
+ * epoch has ended; a pay is escrowed through the tool from coin that has not vested; a transfer and a redeem go through
+ * the tools once it has; a key whose free
  * standing cannot cover a stake locks coin on the coin log instead, in one step with the claim; the tools describe and
  * never instruct.
  */
@@ -37,7 +38,7 @@ const HOUR = 3_600_000;
 let tick = Date.parse(T0) + HOUR;
 const coin = {
   genesis: T0, epoch_h: 24, emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 2 }, vesting_h: 48, infra_bp: 1000, treasury: addressOf(key(7)), unit: 1000,
-  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 }, burn_rate: 50, transfers_from: null, redeem_from: null,
+  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 }, burn_rate: 50, transfers_from: T0, redeem_from: T0,
 };
 
 const pattern = (slug: string, count: number): Pattern => ({
@@ -94,18 +95,33 @@ describe('the coin, from the client', () => {
     expect(await a.coin()).toMatchObject({ home: base, balance: 450, free: 450 });
   });
 
-  it('refuses a pay until the coin has vested, then escrows it through the tool', async () => {
-    await expect(a.pay(q, 100, 10)).rejects.toThrow(/free vested coin 0 is below the pay of 100/);
-    tick = Date.parse(T0) + 72 * HOUR;
+  it('escrows a pay from coin that has not vested yet, through the tool', async () => {
+    await expect(a.pay(q, 500, 10)).rejects.toThrow(/free coin 450 is below the pay of 500/);
     const paid = await runTool(a, 'quilt_pay', { problem: q, amount: 100, per_square: 10 });
     expect(paid.text).toContain(`Escrowed 100 units to ${q} at 10 a square; posted to the coin log at ${base}`);
-    expect(await a.coin()).toMatchObject({ balance: 450, vested: 450, escrowed: 100, free: 350 });
+    expect(await a.coin()).toMatchObject({ balance: 450, vested: 0, escrowed: 100, free: 350 });
     await expect(a.pay(q, 0, 10)).rejects.toThrow(/whole amount/);
+  });
+
+  it('moves vested coin to an address and takes it off the ledger, through the tools', async () => {
+    await expect(a.transfer(b.identity!.address, 50)).rejects.toThrow(/free vested coin 0 is below the transfer of 50/);
+    tick = Date.parse(T0) + 72 * HOUR;
+    const moved = await runTool(a, 'quilt_transfer', { to: b.identity!.address, amount: 50 });
+    expect(moved.text).toContain(`Transferred 50 units to ${b.identity!.address}; posted to the coin log at ${base}`);
+    // The escrow on the finished problem came back when its last window closed, before the transfer.
+    expect(await a.coin()).toMatchObject({ balance: 400, vested: 400, escrowed: 0, free: 400 });
+    expect(await b.coin()).toMatchObject({ balance: 500 });
+    await expect(a.transfer(b.identity!.address, 0)).rejects.toThrow(/whole number of units/);
+    const out = await runTool(a, 'quilt_redeem', { amount: 20 });
+    expect(out.text).toContain(`Redeem of 20 units posted to the coin log at ${base}`);
+    expect(await a.coin()).toMatchObject({ balance: 380, free: 380 });
+    const r = (await (await fetch(`${base}coin/redeems`)).json()) as { redeems: { root: string; to: string; amount: number }[] };
+    expect(r.redeems).toEqual([expect.objectContaining({ root: a.identity!.address, to: a.identity!.address, amount: 20 })]);
   });
 
   it('locks coin in place of standing when the standing is short, in one step with the claim', async () => {
     r = (await owner.publish({ ...pattern('staked', 1), stake: { min: 4 } })).hash;
-    // A has three points of standing and none locked; four are asked. Free coin: 350 units, and a point costs 50 at this door.
+    // A has three points of standing and none locked; four are asked. Free coin: 380 units, and a point costs 50 at this door.
     expect(await a.standing()).toMatchObject({ standing: 3, locked: 0, free: 3 });
     const handed = await a.next(r);
     expect(handed.stake).toBe(4);
@@ -114,10 +130,10 @@ describe('the coin, from the client', () => {
     const mine = await eventsBy(r, a.identity!.address);
     expect(mine.map((e) => e.type)).toEqual(['lock', 'claim']);
     expect(mine[0]!.body).toMatchObject({ kind: 'coin', amount: 4 });
-    expect(await a.coin()).toMatchObject({ locked: 200, free: 150 });
+    expect(await a.coin()).toMatchObject({ locked: 200, free: 180 });
     expect(await a.standing()).toMatchObject({ locked: 0, free: 3 });
     const text = (await runTool(b, 'quilt_me', {})).text;
-    expect(text).toContain('Coin (QX-17): 450 units');
+    expect(text).toContain('Coin (QX-17): 500 units');
   });
 
   it('offers the tools over MCP with text that describes', async () => {
@@ -127,7 +143,7 @@ describe('the coin, from the client', () => {
     const client = new Client({ name: 'claude-test', version: '0.0.0' });
     await client.connect(clientTransport);
     const tools = await client.listTools();
-    expect(tools.tools.map((t) => t.name)).toContain('quilt_pay');
+    expect(tools.tools.map((t) => t.name)).toEqual(expect.arrayContaining(['quilt_pay', 'quilt_transfer', 'quilt_redeem']));
     for (const t of tools.tools) expect(t.description ?? '').not.toMatch(/\b(you must|always|never|do not|important|ignore)\b/i);
     const me = await client.callTool({ name: 'quilt_me', arguments: {} });
     expect((me.structuredContent as { text: string }).text).toContain('Coin (QX-17):');

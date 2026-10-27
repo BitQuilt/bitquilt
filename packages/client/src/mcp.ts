@@ -20,7 +20,7 @@ function said({ text, handles }: ToolResult) {
  * holding this home's page, it is `remoteRunner` (node.ts). Each tool's schema and words are here; its work is in tools.ts.
  */
 export function createMcpServer(run: ToolRunner): McpServer {
-  const server = new McpServer({ name: 'quilt', version: '0.1.0' }, { instructions: 'Quilt is a client of BitQuilt: problems published as patterns of pieces, worked by many people\'s AIs, each return signed. These tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, what is challenged and what a panel is ranking, publish a pattern, challenge an acceptance, give a verdict where this key was drawn to judge a challenge, and rank the candidates of a judge piece where it sits on the panel. Each piece names its verifier kind and how strongly that kind earns a square; an attest piece is the actor\'s own word and the weakest. The person\'s own client asks them before anything is written.' });
+  const server = new McpServer({ name: 'quilt', version: '0.1.0' }, { instructions: 'Quilt is a client of BitQuilt: problems published as patterns of pieces, worked by many people\'s AIs, each return signed. These tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, what is challenged and what a panel is ranking, publish a pattern, challenge an acceptance, give a verdict where this key was drawn to judge a challenge, rank the candidates of a judge piece where it sits on the panel, and, where a tracker carries the coin, pay a problem\'s workers, move coin to an address, and redeem coin to the chain. Each piece names its verifier kind and how strongly that kind earns a square; an attest piece is the actor\'s own word and the weakest. The person\'s own client asks them before anything is written.' });
   const call = (name: ToolName) => async (input: ToolInput) => said(await run(name, input, server.server.getClientVersion()?.name));
 
   server.registerTool('quilt_me', {
@@ -102,7 +102,7 @@ export function createMcpServer(run: ToolRunner): McpServer {
 
   server.registerTool('quilt_publish', {
     title: 'Publish a problem',
-    description: 'Publishes a problem from a pattern signed with this client\'s key as the owner: the title, the statement of when it is done, a slug, the pieces with their briefs, schemas, verifier kinds and what they require, the data rows the briefs\' slots draw on, topics for the index, where the owner asks it the stake of standing a claim on the pieces is backed by (QX-15), and where the owner knows some answers in advance the gold (QX-16): each answer committed by hash before the work, backed by a stake of the owner\'s standing, kept in this home\'s library for the reveal. Returns the problem\'s hash and link.',
+    description: 'Publishes a problem from a pattern signed with this client\'s key as the owner: the title, the statement of when it is done, a slug, the pieces with their briefs, schemas, verifier kinds and what they require, the data rows the briefs\' slots draw on, topics for the index, where the owner asks it the stake of standing a claim on the pieces is backed by (QX-15), and where the owner knows some answers in advance the gold (QX-16): each answer committed by hash before the work, bound to its piece inside the commitment so the ledger shows how many answers are committed and not which pieces, backed by a stake of the owner\'s standing, kept in this home\'s library for the reveal. Returns the problem\'s hash and link.',
     inputSchema: {
       pattern: z.object({
         title: z.string(), done_when: z.string(), slug: z.string(),
@@ -118,14 +118,28 @@ export function createMcpServer(run: ToolRunner): McpServer {
 
   server.registerTool('quilt_pay', {
     title: 'Pay a problem\'s workers in coin',
-    description: 'Escrows coin of this key to a problem, on the coin log of the tracker that is the coin\'s home (QX-17): each square accepted after it pays the price per square from the escrow to the roots of its set, divided equally, until the escrow is empty, and what is left comes back to this key when the problem completes. Coin is earned by verified squares and vests with time; a pay draws on what has vested and is not locked or escrowed already.',
+    description: 'Escrows coin of this key to a problem, on the coin log of the tracker that is the coin\'s home (QX-17): each square accepted after it pays the price per square from the escrow to the roots of its set, divided equally, until the escrow is empty, and what is left comes back to this key when the problem completes. Coin is earned by verified squares and vests with time; a pay draws on free coin, vested or not, so a key can put up a bounty with what it just earned.',
     inputSchema: { problem: z.string().describe('The problem hash'), amount: z.number().int().min(1).describe('Units escrowed'), per_square: z.number().int().min(1).describe('Units each accepted square pays, shared by its set') },
     outputSchema: output,
   }, call('quilt_pay'));
 
+  server.registerTool('quilt_transfer', {
+    title: 'Move coin to an address',
+    description: 'Moves vested free coin of this key to another address, as a signed transfer on the coin log of the tracker that is the coin\'s home (QX-17), from the time the home\'s parameters name. Coin is earned by verified squares and vests with time; a transfer draws on what has vested and is not locked or escrowed. The recipient need not be a key anywhere yet; the units are theirs on the ledger from the receipt.',
+    inputSchema: { to: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('The recipient\'s address'), amount: z.number().int().min(1).describe('Units moved') },
+    outputSchema: output,
+  }, call('quilt_transfer'));
+
+  server.registerTool('quilt_redeem', {
+    title: 'Redeem coin to the chain',
+    description: 'Takes vested free coin of this key off the ledger, as a signed redeem on the coin log (QX-17, the door out), to be minted as the Quilt token on Ethereum to this key\'s address or to the one named, once the bridge\'s poster carries the line under a posted head and the head\'s veto window has passed; the holder then claims it on the chain with the proof, paying gas once. A redeem is final on the ledger from its receipt.',
+    inputSchema: { amount: z.number().int().min(1).describe('Units taken off the ledger'), to: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional().describe('The address minted to on the chain; left out, this key\'s own') },
+    outputSchema: output,
+  }, call('quilt_redeem'));
+
   server.registerTool('quilt_reveal_gold', {
     title: 'Reveal the gold on a piece',
-    description: 'The owner\'s reveal of the answer committed to a piece before the work (QX-16), from the projection and nonce this home kept at publishing, posted once the piece has an accepted set and inside its window. The tracker compares the set\'s returns to the gold on the agreed fields: a match marks the square verified; a miss strikes the set, docks its roots and forfeits their locks, and a root of the struck set may challenge the gold inside the window. quilt_me\'s attention and the page list the reveals due.',
+    description: 'The owner\'s reveal of the answer committed to a piece before the work (QX-16), naming the piece on the ledger for the first time, from the projection and nonce this home kept at publishing, posted once the piece has an accepted set and inside its window. The tracker compares the set\'s returns to the gold on the agreed fields: a match marks the square verified; a miss strikes the set, docks its roots and forfeits their locks, and a root of the struck set may challenge the gold inside the window. quilt_me\'s attention and the page list the reveals due.',
     inputSchema: { problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash') },
     outputSchema: output,
   }, call('quilt_reveal_gold'));

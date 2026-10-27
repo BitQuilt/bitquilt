@@ -104,12 +104,12 @@ A pseudo-problem, `hashText('quilt:coin')`, defined beside the layer in `package
 | Type | Signer | Body | Valid when |
 | --- | --- | --- | --- |
 | `lock` | a root (or its delegate with `lock` in scope) | `{ problem, piece, amount }` | The root's free coin at the receipt covers `amount`. Spent when a QX-15 `lock` on the problem names it; released or forfeited with that lock; released untouched after the problem's lease if no claim names it. |
-| `pay` | a root | `{ problem, amount, per_square }` | Free vested coin covers `amount`, which is escrowed to the problem and paid out by the rule below. |
+| `pay` | a root | `{ problem, amount, per_square }` | Free coin, vested or not, covers `amount` (decided 27 October 2026; vested alone before), which is escrowed to the problem and paid out by the rule below. |
 | `burn` | a root | `{ amount }` | Free coin covers `amount`. The coin is gone; the tracker credits standing at its published rate (QX-15). |
 | `transfer` | a root | `{ to, amount }` | Received at or after `transfers_from`, which the home sets to its genesis; free vested coin covers `amount`. `to` is an address and need not be a root anywhere. |
 | `redeem` | a root | `{ amount, to? }` | Received at or after `redeem_from`, null until the door out exists (section 6); free vested coin covers `amount`. The coin leaves the ledger. |
 
-**Free** is a root's balance less what its live locks hold and its escrows hold. **Vested** is what the vesting rule has released of what it was minted. A lock or a burn may draw on unvested coin, so that a new root can stake what it just earned; a pay, a transfer or a redeem draws on vested coin only.
+**Free** is a root's balance less what its live locks hold and its escrows hold. **Vested** is what the vesting rule has released of what it was minted. A lock, a burn or a pay may draw on unvested coin, so that a new root can stake what it just earned and post a bounty with it; a transfer or a redeem draws on vested coin only.
 
 ### What the layer derives from the problem logs
 

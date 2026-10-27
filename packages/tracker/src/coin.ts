@@ -66,6 +66,20 @@ export interface BalanceView {
   received: number;
   burned: number;
   forfeited: number;
+  /** What left the ledger by redeem, for minting on the chain (the door out). */
+  redeemed: number;
+}
+
+/** A redeem line the layer kept: what the bridge's poster puts in its tree, and the ERC-20 mints once, by `id`. */
+export interface RedeemLine {
+  /** The coin log line's hash (QX-11), 64 hex characters: the id the chain mints against, once. */
+  id: string;
+  seq: number;
+  root: Address;
+  /** The address the coin is minted to: the redeem's `to`, or the root itself. */
+  to: Address;
+  amount: number;
+  at: string;
 }
 
 export interface EpochView { epoch: number; start: string; end: string; amount: number; treasury: number; weight: number; minted: number }
@@ -79,6 +93,8 @@ export interface CoinLayer {
   lock(id: Hash): CoinLockView | null;
   locks(root: Address): CoinLockView[];
   epochs(): EpochView[];
+  /** The redeem lines kept, in receipt order, up to a sequence when one is given. */
+  redeems(upto?: number): RedeemLine[];
   /** Whether a coin-log event would be kept if received now, and why not; for a burn that would, the standing it credits. */
   admit(event: Event): Admission & { standing?: number };
   dropped: { id: Hash; type: string; why: string }[];
@@ -159,7 +175,7 @@ type LineKind = 'verified' | 'forfeit' | 'restore' | 'release' | 'bind' | 'accep
 const ORDER: Record<LineKind, number> = { verified: 0, forfeit: 1, restore: 2, release: 3, bind: 4, accepted: 5, complete: 6, mint: 7, posted: 8 };
 interface Line { kind: LineKind; at: string; id: string; problem?: Hash; piece?: Hash; root?: Address; weight?: number; roots?: Address[]; coin?: Hash; lock?: Hash; epoch?: number; receipt?: Receipt }
 
-interface Account { minted: number; received: number; drawnVested: number; drawnUnvested: number; locked: number; escrowed: number; burned: number; forfeited: number; mints: { at: string; amount: number }[] }
+interface Account { minted: number; received: number; drawnVested: number; drawnUnvested: number; locked: number; escrowed: number; burned: number; forfeited: number; redeemed: number; mints: { at: string; amount: number }[] }
 interface Escrow { payer: Address; remaining: number; per_square: number; at: string }
 interface Coin extends CoinLockView { forfeit: { fromUnvested: number; fromVested: number; penalty: number } | null }
 
@@ -170,7 +186,7 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
   const account = (root: Address): Account => {
     let a = accounts.get(root);
     if (!a) {
-      a = { minted: 0, received: 0, drawnVested: 0, drawnUnvested: 0, locked: 0, escrowed: 0, burned: 0, forfeited: 0, mints: [] };
+      a = { minted: 0, received: 0, drawnVested: 0, drawnUnvested: 0, locked: 0, escrowed: 0, burned: 0, forfeited: 0, redeemed: 0, mints: [] };
       accounts.set(root, a);
     }
     return a;
@@ -208,12 +224,13 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
   const epochs: EpochView[] = [];
   const lines: Line[] = [];
   const verified: Line[] = [];
+  const redeemLines: RedeemLine[] = [];
 
   // Derived lines from the problem logs, as the layers fold them.
   for (const pl of layer.problems.values()) {
     const fold = pl.fold;
     for (const g of pl.gold) for (const c of g.commitments) {
-      if (c.outcome !== 'match' || c.revealedAt === null) continue;
+      if (c.outcome !== 'match' || c.revealedAt === null || c.piece === null) continue;
       const view = fold.byHash.get(c.piece);
       const set = view?.accepting;
       if (!set || set.kind !== 'agree') continue;
@@ -296,8 +313,8 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
       }
       case 'pay': {
         if (!layer.problems.has(b.problem as Hash)) return { ok: false, why: 'no such problem here' };
-        const f = freeVestedOf(a, at);
-        if (f < (b.amount as number)) return { ok: false, why: `free vested coin ${f} is below the pay of ${b.amount}` };
+        const f = freeOf(a);
+        if (f < (b.amount as number)) return { ok: false, why: `free coin ${f} is below the pay of ${b.amount}` };
         return { ok: true, root };
       }
       case 'burn': {
@@ -311,9 +328,12 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
         if (f < (b.amount as number)) return { ok: false, why: `free vested coin ${f} is below the transfer of ${b.amount}` };
         return { ok: true, root };
       }
-      case 'redeem':
+      case 'redeem': {
         if (params.redeem_from === null || at < params.redeem_from) return { ok: false, why: 'redemption is off' };
-        return { ok: false, why: 'redemption is not carried by this version' };
+        const f = freeVestedOf(a, at);
+        if (f < (b.amount as number)) return { ok: false, why: `free vested coin ${f} is below the redeem of ${b.amount}` };
+        return { ok: true, root };
+      }
       default:
         return { ok: false, why: 'the coin log takes lock, pay, burn, transfer and redeem' };
     }
@@ -367,7 +387,7 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
         const total = share * roots.length;
         const payer = account(e.payer);
         payer.escrowed -= total;
-        payer.drawnVested += total;
+        drawUnvestedFirst(payer, total, line.at);
         e.remaining -= total;
         for (const r of roots) account(r).received += share;
         break;
@@ -450,6 +470,12 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
         } else if (e.type === 'transfer') {
           a.drawnVested += b.amount as number;
           account(b.to as Address).received += b.amount as number;
+        } else if (e.type === 'redeem') {
+          // The coin leaves the ledger; the line is what the chain mints against, once, by the line's own hash.
+          const amount = b.amount as number;
+          a.drawnVested += amount;
+          a.redeemed += amount;
+          redeemLines.push({ id: r.hash ?? id.replace('sha256:', ''), seq: r.seq ?? 0, root: result.root, to: (b.to as Address | undefined) ?? result.root, amount, at: line.at });
         }
         break;
       }
@@ -464,7 +490,7 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     const vested = vestedOf(a, now);
     return {
       root, balance, vested, unvested: balance - vested, locked: a.locked, escrowed: a.escrowed, free: freeOf(a), free_vested: freeVestedOf(a, now),
-      minted: a.minted, received: a.received, burned: a.burned, forfeited: a.forfeited,
+      minted: a.minted, received: a.received, burned: a.burned, forfeited: a.forfeited, redeemed: a.redeemed,
     };
   };
   const last = receipts[receipts.length - 1];
@@ -478,6 +504,7 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     lock: (id) => { const c = coins.get(id); return c ? strip(c) : null; },
     locks: (root) => [...coins.values()].filter((c) => c.root === root).map(strip),
     epochs: () => epochs,
+    redeems: (upto) => redeemLines.filter((x) => upto === undefined || x.seq <= upto),
     admit: (event) => {
       const r = check(event, now);
       return r.ok ? { ok: true, ...(r.standing !== undefined ? { standing: r.standing } : {}) } : r;

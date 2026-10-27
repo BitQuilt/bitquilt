@@ -488,6 +488,11 @@ export function createTracker(options: TrackerOptions): Tracker {
     if (!Array.isArray(b.topics) || b.topics.length > 8 || !b.topics.every((t) => typeof t === 'string' && t.length <= 40 && textIssues(t).length === 0)) throw new Refusal(400, 'announce: at most eight short topics through the gate');
   }
 
+  /** A chain's head at a sequence: that line's seq and hash, or null where the chain is shorter. */
+  function headAt(hash: Hash, seq: number): { seq: number; hash: string } | null {
+    const line = store.receipts(hash, Math.max(0, seq - 1), 1)[0];
+    return line && line.seq === seq && typeof line.hash === 'string' ? { seq: line.seq, hash: line.hash } : null;
+  }
   function events(res: ServerResponse, hash: Hash, since: number): void {
     const page = 500;
     const lines = store.receipts(hash, since, page + 1);
@@ -606,7 +611,7 @@ export function createTracker(options: TrackerOptions): Tracker {
           coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
           routes: [
             '/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/k/<address>/standing', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden',
-            ...(options.coin ? ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/state'] : []),
+            ...(options.coin ? ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/state'] : []),
           ],
         });
         return;
@@ -644,6 +649,16 @@ export function createTracker(options: TrackerOptions): Tracker {
           const since = Number(u.searchParams.get('since') ?? 0);
           const c = coin()!;
           json(res, 200, { epochs: c.epochs().filter((e) => e.epoch >= since), at: c.now, head: c.head });
+          return;
+        }
+        if (path === '/coin/redeems') {
+          // The door out: the redeem lines the layer kept, each the chain line's hash the ERC-20 mints against once, under the head they stand under.
+          const c = coin()!;
+          const upto = u.searchParams.get('upto');
+          const n = upto === null ? null : Number(upto);
+          if (n !== null && (!Number.isInteger(n) || n < 0)) throw new Refusal(400, 'upto: a whole number');
+          const head = n === null || c.head === null || n >= c.head.seq ? c.head : headAt(COIN_LOG, n);
+          json(res, 200, { head, at: c.now, redeems: c.redeems(n ?? undefined) });
           return;
         }
         if (path === '/coin/state') {
@@ -724,7 +739,7 @@ export function createTracker(options: TrackerOptions): Tracker {
               kind: l.kind.kind, extension: l.kind.extension, strength: l.kind.strength, says: l.kind.says, weakest: l.kind.weakest, attested: l.attested, panel: l.panel?.outcome ?? null,
               availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length, stake: l.stake, gold: l.gold, verified: l.verified,
             };
-          }), complete: s.complete, output: s.output?.hash ?? null, dropped: [...s.dropped, ...pl.dropped] });
+          }), gold: pl.goldCount, complete: s.complete, output: s.output?.hash ?? null, dropped: [...s.dropped, ...pl.dropped] });
           return;
         }
         if (sub === 'challenges') {
