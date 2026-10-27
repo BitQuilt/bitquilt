@@ -10,7 +10,7 @@ Written 26 October 2026. [APP.md](APP.md) names the smallest version: the app wi
 - **The bridge.** `contracts/` (`Anchors` and `Quilt`, Solidity with Foundry, twenty-one tests) and `packages/coin` (the Merkle tree over the redeem lines, the one file that talks to a chain, the poster, the holder's claim, an integration test against a local chain): a redeem line on the coin log is minted as the Quilt token on Ethereum against a head a bonded poster put on the chain, after a veto window.
 - **The mirror.** `packages/mirror` and `.github/workflows/mirror.yml`: every fifteen minutes, every chain pulled, verified, refused if it did anything but grow, the coin's balances reproduced, and every head stamped into Bitcoin through OpenTimestamps.
 - **The words.** [LAYERS.md](LAYERS.md), the whole protocol in plain words; [PROTOCOL.md](PROTOCOL.md), [APP.md](APP.md), [COIN.md](COIN.md), [OPEN-PROBLEM.md](OPEN-PROBLEM.md), the extension documents, [FIRST-RUN.md](FIRST-RUN.md), `examples/README.md`, and the site under `site/`.
-- **The checks.** 211 tests and the conformance run pass on every push (`.github/workflows/ci.yml`); a tagged release builds the executables for five platforms and the bundle (`release.yml`).
+- **The checks.** 226 tests, the conformance run and the twenty-one contract tests pass on every push (`.github/workflows/ci.yml`); a tagged release builds the executables for five platforms and the bundle (`release.yml`).
 
 ## What only the maintainers can do, in order
 
