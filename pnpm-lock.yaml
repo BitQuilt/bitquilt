@@ -63,6 +63,9 @@ importers:
 
   packages/coin:
     dependencies:
+      '@bitquilt/core':
+        specifier: workspace:*
+        version: link:../core
       '@noble/hashes':
         specifier: ^2.0.1
         version: 2.4.0
@@ -102,6 +105,9 @@ importers:
 
   packages/mirror:
     dependencies:
+      '@bitquilt/coin':
+        specifier: workspace:*
+        version: link:../coin
       '@bitquilt/core':
         specifier: workspace:*
         version: link:../core

@@ -9,11 +9,12 @@ import { createTracker } from '../src/tracker.js';
  * squares by weight after the treasury's share, nothing in an empty epoch, vesting over time; a coin lock on the coin
  * log bound to a stake at the problem's door with the receipt carrying the word; a pay escrowed from free coin, vested or not,
  * and paid per square to the credited roots; a burn credited as standing; a forfeit taking the lock and as much again
- * from the unvested, and a held challenge restoring both; a transfer and a redeem from vested free coin, the redeem listed under the head for the bridge; every balance
+ * from the unvested, and a held challenge restoring both; a transfer and a redeem from vested free coin, the redeem listed under the head for the bridge, and a credit from the reader for a deposit burned on the chain; every balance
  * under the head.
  */
 const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
 const ownerP = key(9), ownerQ = key(8), A = key(1), B = key(2), C = key(3), D = key(4), treasury = key(7);
+const reader = key(40);
 const judges = [key(11), key(12)];
 const addr = addressOf;
 const secretOf = new Map<Address, Uint8Array>([ownerP, ownerQ, A, B, C, D, treasury, ...judges].map((k) => [addr(k), k]));
@@ -36,7 +37,7 @@ const HOUR = 3_600_000;
 let tick = Date.parse(T0) + HOUR;
 const coin = {
   genesis: T0, epoch_h: 24, emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 2 }, vesting_h: 48, infra_bp: 1000, treasury: addr(treasury), unit: 1000,
-  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 }, burn_rate: 100, transfers_from: T0, redeem_from: T0,
+  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 }, burn_rate: 100, transfers_from: T0, redeem_from: T0, reader: addr(reader),
 };
 let server: Server;
 let base: string;
@@ -114,8 +115,8 @@ describe('the coin as a layer', () => {
     const w = await get('/.well-known/quilt');
     expect(w.coin).toMatchObject({ extension: 'QX-17', home: 'here', genesis: T0, epoch_h: 24, vesting_h: 48, infra_bp: 1000, treasury: addr(treasury), unit: 1000, burn_rate: 100, transfers_from: T0, redeem_from: T0 });
     expect(w.stake).toEqual({ extension: 'QX-15', coin: 'here', burn_rate: 100 });
-    for (const r of ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/state']) expect(w.routes).toContain(r);
-    expect(await balanceOf(A)).toEqual({ root: addr(A), balance: 0, vested: 0, unvested: 0, locked: 0, escrowed: 0, free: 0, free_vested: 0, minted: 0, received: 0, burned: 0, forfeited: 0, redeemed: 0, at: expect.any(String), head: null });
+    for (const r of ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/credits', '/coin/state']) expect(w.routes).toContain(r);
+    expect(await balanceOf(A)).toEqual({ root: addr(A), balance: 0, vested: 0, unvested: 0, locked: 0, escrowed: 0, free: 0, free_vested: 0, minted: 0, received: 0, burned: 0, forfeited: 0, redeemed: 0, credited: 0, at: expect.any(String), head: null });
     expect((await post('/p', { envelope: P })).status).toBe(201);
     expect((await post('/p', { envelope: Q })).status).toBe(201);
     [p1, p2, p3, p4] = ((await get(`/p/${p}/state`)) as { pieces: PieceState[] }).pieces.map((x) => x.hash) as [Hash, Hash, Hash, Hash];
@@ -232,17 +233,31 @@ describe('the coin as a layer', () => {
     const before = (await get('/coin/redeems?upto=4')) as { head: { seq: number }; redeems: unknown[] };
     expect(before.head.seq).toBe(4);
     expect(before.redeems).toEqual([]);
-    expect(await refused('/coin/events', ev(A, 'name', { name: 'x' }))).toBe('the coin log takes lock, pay, burn, transfer and redeem');
+    expect(await refused('/coin/events', ev(A, 'name', { name: 'x' }))).toBe('the coin log takes lock, pay, burn, transfer, redeem and credit');
     expect(await refused('/coin/events', ev(A, 'burn', { amount: 1 }, p))).toBe('a coin event names no problem in its fields');
+  });
+
+  it('credits a deposit burned on the chain from the reader alone, once per deposit, and lists the credits under the head', async () => {
+    expect(await refused('/coin/events', ev(A, 'credit', { deposit: 1, root: addr(B), amount: 100 }))).toBe('the reader alone credits a deposit');
+    expect(await refused('/coin/events', ev(reader, 'credit', { deposit: 0, root: addr(B), amount: 100 }))).toBe('body.deposit: a whole number of at least 1, the deposit\'s number on the chain');
+    await accepted('/coin/events', ev(reader, 'credit', { deposit: 1, root: addr(B), amount: 100 }));
+    // Credited coin is vested, as received coin is; what B was minted is still vesting.
+    expect(await balanceOf(B)).toMatchObject({ balance: 560, received: 110, credited: 100, vested: 335, free: 560 });
+    expect(await refused('/coin/events', ev(reader, 'credit', { deposit: 1, root: addr(C), amount: 5 }))).toBe('deposit 1 is credited already');
+    const r = (await get('/coin/credits')) as { head: { seq: number; hash: string }; reader: Address; credits: { id: string; seq: number; deposit: number; root: Address; amount: number; at: string }[] };
+    expect(r.head.seq).toBe(6);
+    expect(r.reader).toBe(addr(reader));
+    expect(r.credits).toEqual([{ id: r.head.hash, seq: 6, deposit: 1, root: addr(B), amount: 100, at: expect.any(String) }]);
+    expect(((await get('/coin/credits?upto=5')) as { credits: unknown[] }).credits).toEqual([]);
   });
 
   it('lists every balance under the head', async () => {
     const s = (await get('/coin/state')) as { head: { seq: number; hash: string }; balances: Record<string, Balance> };
-    expect(s.head.seq).toBe(5);
+    expect(s.head.seq).toBe(6);
     expect(Object.keys(s.balances).sort()).toEqual([addr(A), addr(B), addr(C), addr(D), addr(treasury)].sort());
     expect(s.balances[addr(A)]).toMatchObject({ balance: 270, redeemed: 20 });
-    expect(s.balances[addr(B)]).toMatchObject({ balance: 460 });
+    expect(s.balances[addr(B)]).toMatchObject({ balance: 560, credited: 100 });
     const lines = (await (await fetch(`${base}/coin/events`)).text()).trim().split('\n');
-    expect(lines).toHaveLength(5);
+    expect(lines).toHaveLength(6);
   });
 });

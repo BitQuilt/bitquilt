@@ -2,8 +2,11 @@
 /**
  * bitquilt-mirror --trackers https://a/,https://b/ --out ./mirror [--anchor [--calendars https://a.pool.opentimestamps.org,...]]
  * Pulls, verifies, and writes the mirror's files; with --anchor, stamps every chain's head through OpenTimestamps (QX-12).
- * Exits 1 when a tracker's chain is refused, so a job notices.
+ * With QUILT_CHAIN_RPC, QUILT_CHAIN_ID and QUILT_CONTRACTS set, checks every credit line on the coin log against the
+ * deposit the chain holds (the way back); without them a ledger with credits is refused. Exits 1 when a tracker's chain
+ * is refused, so a job notices.
  */
+import { chainFromEnv, depositAt } from '@bitquilt/coin';
 import { mirror } from './mirror.js';
 
 const args = process.argv.slice(2);
@@ -19,7 +22,13 @@ if (!trackers.length) {
   console.error('usage: bitquilt-mirror --trackers <url,...> --out <dir>');
   process.exit(2);
 }
-mirror({ trackers, out, anchor }).then((report) => {
+let chain: Parameters<typeof mirror>[0]['chain'] = null;
+if (process.env.QUILT_CHAIN_RPC) {
+  const c = chainFromEnv().chain;
+  chain = { depositAt: (n) => depositAt(c, n) };
+}
+mirror({ trackers, out, anchor, chain }).then((report) => {
+  if (report.coin?.credits) console.log(`coin: ${report.coin.credits} credit${report.coin.credits === 1 ? '' : 's'} checked against the chain`);
   for (const p of report.problems) console.log(`${p.hash}: ${p.lines} lines, ${p.added} new${p.complete ? ', complete' : ''}`);
   console.log(`identity: ${report.identity.lines} lines, ${report.identity.added} new`);
   for (const r of report.refused) console.log(`refused: ${r}`);

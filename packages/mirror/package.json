@@ -18,6 +18,7 @@
     "start": "tsx src/bin.ts"
   },
   "dependencies": {
+    "@bitquilt/coin": "workspace:*",
     "@bitquilt/core": "workspace:*",
     "@bitquilt/tracker": "workspace:*"
   }

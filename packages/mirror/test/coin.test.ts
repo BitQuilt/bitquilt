@@ -10,10 +10,11 @@ import { mirror } from '../src/mirror.js';
 /**
  * The coin at the mirror (QX-17 section 7): the coin log is pulled, verified from the coin log's hash and anchored
  * beside the problems'; the balances the tracker says it computed are kept only where the mirror reproduces them from
- * the receipts it holds and the parameters the tracker publishes; a tracker whose balances differ is refused.
+ * the receipts it holds and the parameters the tracker publishes; a tracker whose balances differ is refused; and every
+ * credit line on the coin log (the way back) is checked against the deposit the chain holds, or the balances are refused.
  */
 const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
-const owner = key(9), A = key(1), B = key(2), treasury = key(7);
+const owner = key(9), A = key(1), B = key(2), treasury = key(7), reader = key(5);
 const addr = addressOf;
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
 const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } };
@@ -35,7 +36,7 @@ let tick = Date.parse(T0) + HOUR;
 const now = () => new Date(tick).toISOString();
 const coin = {
   genesis: T0, epoch_h: 24, emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 2 }, vesting_h: 48, infra_bp: 1000, treasury: addr(treasury), unit: 1000,
-  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 }, burn_rate: 100, transfers_from: null, redeem_from: null,
+  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 }, burn_rate: 100, transfers_from: null, redeem_from: null, reader: addr(reader),
 };
 const calendarBytes = new Uint8Array([0xf0, 0x10, 0x01, 0x02, 0x03, 0x00, 0x83, 0xdf, 0xe3, 0x0d, 0x2e, 0xf9, 0x0c, 0x8e]);
 /** Real fetch, with a calendar that answers and, when asked, a doctored /coin/state. */
@@ -107,7 +108,7 @@ describe('the coin at the mirror', () => {
     const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(null), anchor: { calendars: ['http://cal.test'] } });
     expect(report.refused).toEqual([]);
     expect(report.errors).toEqual([]);
-    expect(report.coin).toEqual({ lines: 1, added: 1, head: 1, reproduced: true });
+    expect(report.coin).toEqual({ lines: 1, added: 1, head: 1, reproduced: true, credits: 0 });
     const lines = readFileSync(join(out, 'ledger', 'coin.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
     expect(lines).toHaveLength(1);
     expect(lines[0]!.event.type).toBe('lock');
@@ -129,9 +130,26 @@ describe('the coin at the mirror', () => {
       return state;
     };
     const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(doctor) });
-    expect(report.coin).toEqual({ lines: 1, added: 1, head: 1, reproduced: false });
+    expect(report.coin).toEqual({ lines: 1, added: 1, head: 1, reproduced: false, credits: 0 });
     expect(report.refused).toEqual([`coin: the balances at head 1 from ${base} do not reproduce here (${addr(A)})`]);
     expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
     expect(existsSync(join(out, 'ledger', 'coin.jsonl'))).toBe(true);
+  });
+
+  it('checks every credit on the coin log against the chain, and refuses the balances where a credit is not what the chain holds or there is no chain to ask', async () => {
+    await accepted('coin/events', ev(reader, 'credit', { deposit: 1, root: addr(B), amount: 100 }));
+    const chainOf = (amount: number) => ({ depositAt: async (n: number) => ({ root: addr(B), amount, made: n === 1 }) });
+    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-'));
+    const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(null), chain: chainOf(100) });
+    expect(report.refused).toEqual([]);
+    expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: true, credits: 1 });
+    const balances = JSON.parse(readFileSync(join(out, 'coin', 'balances.json'), 'utf8')) as { balances: Record<string, { balance: number; credited: number }> };
+    expect(balances.balances[addr(B)]).toMatchObject({ balance: 550, credited: 100 });
+    const wrong = await mirror({ trackers: [base], out: mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-wrong-')), now, fetchImpl: fetchWith(null), chain: chainOf(99) });
+    expect(wrong.refused).toEqual([`coin: the credit for deposit 1 (100 to ${addr(B)}) is not what the chain holds, at head 2 from ${base}`]);
+    expect(wrong.coin).toMatchObject({ reproduced: false, credits: 1 });
+    const blind = await mirror({ trackers: [base], out: mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-blind-')), now, fetchImpl: fetchWith(null) });
+    expect(blind.refused).toEqual([`coin: 1 credit on the ledger and no chain to check them against, at head 2 from ${base}`]);
+    expect(blind.coin).toMatchObject({ reproduced: false, credits: 1 });
   });
 });

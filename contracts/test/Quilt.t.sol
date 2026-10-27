@@ -9,7 +9,7 @@ import {Fixture} from "./Fixture.sol";
 
 /// @notice Quilt mints only through redeem: refused before the head's window has passed, refused on a wrong proof,
 /// refused twice for one line, refused under a vetoed head; once, with the balance and the supply equal to the
-/// amount; and the coin then moves as an ERC-20 does.
+/// amount; the coin then moves as an ERC-20 does; and a deposit burns it, numbered and recorded for the ledger.
 contract QuiltTest {
     Vm constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
@@ -114,5 +114,38 @@ contract QuiltTest {
         require(quilt.allowance(Fixture.TO_A, Fixture.TO_C) == 0, "spent");
         require(quilt.balanceOf(Fixture.TO_C) == 100_000 && quilt.balanceOf(Fixture.TO_A) == 500_000, "moved again");
         require(quilt.totalSupply() == Fixture.AMOUNT_A, "the supply is what was redeemed");
+    }
+
+    function testADepositBurnsTheCoinAndRecordsTheRoot() public {
+        vm.warp(START + WINDOW);
+        quilt.redeem(SEQ, Fixture.ID_A, Fixture.TO_A, Fixture.AMOUNT_A, proofOfA());
+        require(quilt.depositCount() == 0, "no deposit yet");
+        vm.prank(Fixture.TO_A);
+        uint64 n = quilt.deposit(400_000, Fixture.TO_B);
+        require(n == 1, "the first deposit is number one");
+        require(quilt.depositCount() == 1, "counted");
+        require(quilt.balanceOf(Fixture.TO_A) == 600_000, "burned from the sender");
+        require(quilt.totalSupply() == 600_000, "the supply fell by the deposit");
+        (address from, address root, uint256 amount, uint64 at) = quilt.depositAt(1);
+        require(from == Fixture.TO_A && root == Fixture.TO_B && amount == 400_000 && at == START + WINDOW, "recorded");
+        vm.prank(Fixture.TO_A);
+        require(quilt.deposit(1, Fixture.TO_A) == 2, "the second is number two");
+        (from, root, amount, at) = quilt.depositAt(3);
+        require(from == address(0) && root == address(0) && amount == 0 && at == 0, "nothing at three");
+    }
+
+    function testADepositIsRefusedOverTheBalanceOrToNoRoot() public {
+        vm.warp(START + WINDOW);
+        quilt.redeem(SEQ, Fixture.ID_A, Fixture.TO_A, Fixture.AMOUNT_A, proofOfA());
+        vm.prank(Fixture.TO_A);
+        vm.expectRevert(bytes("more than the balance"));
+        quilt.deposit(Fixture.AMOUNT_A + 1, Fixture.TO_A);
+        vm.prank(Fixture.TO_A);
+        vm.expectRevert(bytes("the coin is credited to a root"));
+        quilt.deposit(1, address(0));
+        vm.prank(Fixture.TO_A);
+        vm.expectRevert(bytes("a deposit is more than nothing"));
+        quilt.deposit(0, Fixture.TO_A);
+        require(quilt.depositCount() == 0 && quilt.totalSupply() == Fixture.AMOUNT_A, "nothing moved");
     }
 }

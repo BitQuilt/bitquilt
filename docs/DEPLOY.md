@@ -56,12 +56,14 @@ To take a key home, open the address with `/key` after it once, run `quilt init 
 
 ## The bridge
 
-The coin leaves the ledger by a `redeem` line and is minted on Ethereum as the Quilt token ([COIN.md](COIN.md), the door out). Two contracts, under `contracts/`, and one job beside the tracker carry it.
+The coin leaves the ledger by a `redeem` line and is minted on Ethereum as the Quilt token, and comes back by a `deposit` on the contract that a reader credits on the ledger ([COIN.md](COIN.md), the door out). Two contracts, under `contracts/`, and two jobs beside the tracker carry it.
 
 1. **Deploy**, once, from a wallet the maintainers hold, with Foundry: `Anchors` with the veto multisig's address, the treasury root's address, the bond a poster must hold in wei and the veto window in seconds, then `Quilt` with the Anchors address. `forge create` from `contracts/` does each; the addresses go into `QUILT_CONTRACTS`.
-2. **Bond** the poster's key by sending the bond to `Anchors.bond()`, and set `redeem_from` in the tracker's `QUILT_COIN` so the ledger takes redeems.
+2. **Bond** the poster's key by sending the bond to `Anchors.bond()`, and set `redeem_from` in the tracker's `QUILT_COIN` so the ledger takes redeems, and `reader` to the same key's address so it takes that key's credits.
 3. **Post**, every anchoring period: `pnpm --filter @bitquilt/coin start`, or the `bitquilt-poster` executable, reads `GET /coin/redeems` from the home, builds the Merkle tree over the redeem lines, and puts the head and the root into `Anchors` when the head is newer than the last posted. It is idempotent, so a cron entry every fifteen minutes is the whole job. The mirror's OpenTimestamps stamp of the same head stands beside it, and anyone can check the one against the other.
 4. **Claim**, by a holder: `bitquilt-claim <line id>` with the holder's key in `QUILT_HOLDER_KEY` finds the line under the last posted head, waits for the head to be final, and calls `Quilt.redeem` with the proof. The gas is the holder's, once.
+5. **Deposit**, by a holder: `bitquilt-deposit <amount> [root]` burns that much of the holder's token on the chain for the ledger root named, the holder's own address when none is.
+6. **Read**, every anchoring period beside the poster: `bitquilt-reader` reads the deposits as of the chain's finalized block and posts a signed `credit` on the coin log for each not credited yet. The mirror, given the chain's address and the contracts, checks every credit against the deposit the chain holds and keeps no balances where one differs; without them it refuses a ledger with credits on it.
 
 | Variable | Required | What it is |
 |---|---|---|
@@ -69,8 +71,11 @@ The coin leaves the ledger by a `redeem` line and is minted on Ethereum as the Q
 | `QUILT_CHAIN_ID` | for the poster and a claim | The chain id (1 for Ethereum mainnet). |
 | `QUILT_CONTRACTS` | for the poster and a claim | `{"anchors":"0x…","quilt":"0x…"}`, the two contracts' addresses. |
 | `QUILT_POSTER_KEY` | for the poster | The bonded poster's private key, hex. On the tracker's host and nowhere else; nothing the job prints carries it. |
+| `QUILT_READER_KEY` | for the reader | The reader's ledger key, hex, the same key as the poster's: what the `credit` lines are signed with. |
 | `QUILT_HOLDER_KEY` | for a claim | The holder's private key, hex, on the holder's own machine. |
-| `QUILT_COIN_HOME` | for the poster and a claim | The home tracker's address, with a trailing slash. |
+| `QUILT_COIN_HOME` | for the poster, the reader and a claim | The home tracker's address, with a trailing slash. |
+
+The mirror reads `QUILT_CHAIN_RPC`, `QUILT_CHAIN_ID` and `QUILT_CONTRACTS` too, and needs no key.
 
 A false head is bonded, not proven: the veto address can strike it within the window and the poster's whole bond goes to the treasury, and a vetoed sequence is posted again. The bond is sized so that a false head costs more than it could mint before it is struck.
 

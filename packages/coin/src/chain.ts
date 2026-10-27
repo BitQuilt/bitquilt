@@ -39,7 +39,20 @@ export const QUILT_ABI = parseAbi([
   'function redeemed(bytes32 id) view returns (bool)',
   'function balanceOf(address who) view returns (uint256)',
   'function totalSupply() view returns (uint256)',
+  'function deposit(uint256 amount, address root) returns (uint64)',
+  'function depositCount() view returns (uint64)',
+  'function depositAt(uint64 n) view returns (address from, address root, uint256 amount, uint64 at)',
 ]);
+
+/** A deposit as `Quilt` records it; `made` is false where there is none at that number. */
+export interface Deposit {
+  n: number;
+  from: Address;
+  root: Address;
+  amount: bigint;
+  at: number;
+  made: boolean;
+}
 
 /** What `Anchors` holds at a sequence; `posted` is false where nothing was. */
 export interface Head {
@@ -127,6 +140,29 @@ export async function redeem(c: Chain, line: { seq: number; id: Hex; to: Address
 /** Whether `Quilt` has minted the redeem line `id`. */
 export async function isRedeemed(c: Chain, id: Hex): Promise<boolean> {
   return reader(c).readContract({ address: c.contracts.quilt, abi: QUILT_ABI, functionName: 'redeemed', args: [id] });
+}
+
+/** The address of the key on the connection: what a deposit credits where the holder names no other root. */
+export function selfAddress(c: Connection): Address {
+  if (!c.key) throw new Error('a key on the connection');
+  return privateKeyToAccount(c.key).address;
+}
+
+/** Burns `amount` of the sender's `Quilt` for the ledger to credit to `root`: the way back. */
+export async function deposit(c: Chain, d: { amount: bigint; root: Address }): Promise<{ tx: Hex }> {
+  return { tx: await write(c, { address: c.contracts.quilt, abi: QUILT_ABI, functionName: 'deposit', args: [d.amount, d.root] }) };
+}
+
+/** How many deposits `Quilt` holds, as of the chain's finalized block unless `finalized` is false. */
+export async function depositCount(c: Chain, finalized = true): Promise<number> {
+  const n = await reader(c).readContract({ address: c.contracts.quilt, abi: QUILT_ABI, functionName: 'depositCount', blockTag: finalized ? 'finalized' : 'latest' });
+  return Number(n);
+}
+
+/** Deposit `n` as `Quilt` records it. */
+export async function depositAt(c: Chain, n: number): Promise<Deposit> {
+  const [from, root, amount, at] = await reader(c).readContract({ address: c.contracts.quilt, abi: QUILT_ABI, functionName: 'depositAt', args: [BigInt(n)] });
+  return { n, from, root, amount, at: Number(at), made: Number(at) !== 0 };
 }
 
 /** The `Quilt` balance of `who`, in base units, which are the ledger's units. */

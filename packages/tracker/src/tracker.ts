@@ -295,7 +295,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     if (under === 'coin') {
       // QX-17: the coin log, admitted against the layer's balances at now.
       if (!options.coin) throw new Refusal(404, 'this tracker carries no coin');
-      if (!COIN_EVENTS.has(type)) throw new Refusal(400, 'the coin log takes lock, pay, burn, transfer and redeem');
+      if (!COIN_EVENTS.has(type)) throw new Refusal(400, 'the coin log takes lock, pay, burn, transfer, redeem and credit');
       if (event.problem !== undefined || event.piece !== undefined) throw new Refusal(400, 'a coin event names no problem in its fields');
       const a = coin()!.admit(event);
       if (!a.ok) throw new Refusal(400, a.why);
@@ -611,7 +611,7 @@ export function createTracker(options: TrackerOptions): Tracker {
           coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
           routes: [
             '/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/k/<address>/standing', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden',
-            ...(options.coin ? ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/state'] : []),
+            ...(options.coin ? ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/credits', '/coin/state'] : []),
           ],
         });
         return;
@@ -659,6 +659,16 @@ export function createTracker(options: TrackerOptions): Tracker {
           if (n !== null && (!Number.isInteger(n) || n < 0)) throw new Refusal(400, 'upto: a whole number');
           const head = n === null || c.head === null || n >= c.head.seq ? c.head : headAt(COIN_LOG, n);
           json(res, 200, { head, at: c.now, redeems: c.redeems(n ?? undefined) });
+          return;
+        }
+        if (path === '/coin/credits') {
+          // The way back: the credit lines the layer kept, each a deposit burned on the chain, under the head they stand under; what the mirror checks against the chain.
+          const c = coin()!;
+          const upto = u.searchParams.get('upto');
+          const n = upto === null ? null : Number(upto);
+          if (n !== null && (!Number.isInteger(n) || n < 0)) throw new Refusal(400, 'upto: a whole number');
+          const head = n === null || c.head === null || n >= c.head.seq ? c.head : headAt(COIN_LOG, n);
+          json(res, 200, { head, at: c.now, reader: options.coin?.reader ?? null, credits: c.credits(n ?? undefined) });
           return;
         }
         if (path === '/coin/state') {

@@ -5,15 +5,18 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Abi, type Address, type Chain, type Hex, balanceOf, bond, deploy, headAt, isFinal, isRedeemed, lastPosted, redeem } from '../src/chain.js';
+import { type Event, addressOf } from '@bitquilt/core';
+import { type Abi, type Address, type Chain, type Hex, balanceOf, bond, deploy, deposit, depositAt, depositCount, headAt, isFinal, isRedeemed, lastPosted, redeem } from '../src/chain.js';
 import { leaf, proof } from '../src/merkle.js';
 import { post } from '../src/post.js';
+import { read } from '../src/read.js';
 
 /**
  * The door out over a local chain, where forge and anvil are on this machine: the contracts are built and deployed
  * through chain.ts, the poster bonds and posts a head over a real tree of two redeems, time moves past the window,
- * one line is redeemed with its proof, the balance is the amount, and the same line is refused a second time. The
- * test goes through chain.ts for every call, so the RPC library stays behind its one door.
+ * one line is redeemed with its proof, the balance is the amount, and the same line is refused a second time; then a
+ * deposit burns some of it back for a ledger root, and the reader credits it on a fake home. The test goes through
+ * chain.ts for every call, so the RPC library stays behind its one door.
  */
 const here = dirname(fileURLToPath(import.meta.url));
 const contracts = join(here, '..', '..', '..', 'contracts');
@@ -146,6 +149,38 @@ describe.skipIf(!forge || !anvil)('the door out over anvil', () => {
     expect(await balanceOf(chain, DEPLOYER)).toBe(1_250_000n);
     expect(await balanceOf(chain, HOLDER)).toBe(0n);
   }, 60_000);
-});
 
+  it('burns a deposit back for a ledger root, numbered, and the reader credits it on the home once', async () => {
+    // A local chain finalizes nothing, so the count is read at the latest block here; on a public chain the reader waits for finality.
+    expect(await depositCount(chain, false)).toBe(0);
+    await expect(deposit(chain, { amount: 2_000_000n, root: HOLDER })).rejects.toThrow(/more than the balance/);
+    const burned = await deposit(chain, { amount: 250_000n, root: HOLDER });
+    expect(burned.tx).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(await balanceOf(chain, DEPLOYER)).toBe(1_000_000n);
+    expect(await depositCount(chain, false)).toBe(1);
+    // The chain door answers addresses in their checksummed form; the test's constants are plain hex.
+    const d = await depositAt(chain, 1);
+    expect(d).toMatchObject({ n: 1, from: DEPLOYER, amount: 250_000n, made: true });
+    expect(d.root.toLowerCase()).toBe(HOLDER);
+    expect((await depositAt(chain, 2)).made).toBe(false);
+    const readerKey = new Uint8Array(32);
+    readerKey[31] = 9;
+    const posted: Event[] = [];
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/coin/credits')) return Response.json({ head: null, reader: addressOf(readerKey), credits: [] });
+      if (url.endsWith('/coin/events') && init?.method === 'POST') {
+        posted.push(JSON.parse(String(init.body)) as Event);
+        return Response.json({ id: `sha256:${'d4'.repeat(32)}` }, { status: 202 });
+      }
+      return new Response('no', { status: 404 });
+    }) as typeof fetch;
+    const report = await read({ home: 'http://home.test', chain, key: readerKey, fetchImpl, finalized: false });
+    expect(report).toMatchObject({ deposits: 1, held: 0, refused: [] });
+    expect(report.posted.map((x) => ({ ...x, root: x.root.toLowerCase() }))).toEqual([{ deposit: 1, root: HOLDER, amount: 250_000, id: `sha256:${'d4'.repeat(32)}` }]);
+    expect(posted).toHaveLength(1);
+    expect({ ...(posted[0]!.body as { root: string }), root: (posted[0]!.body as { root: string }).root.toLowerCase() }).toEqual({ deposit: 1, root: HOLDER, amount: 250_000 });
+    expect(posted[0]!.key).toBe(addressOf(readerKey));
+  }, 60_000);
+});
 if (!forge || !anvil) it.skip('forge and anvil were not found on PATH or under ~/.foundry/bin, so the chain test is skipped', () => {});

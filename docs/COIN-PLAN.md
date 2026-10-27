@@ -171,7 +171,7 @@ A veto multisig can strike a posted head within a window on a published reason a
 
 ### The redeem
 
-A holder posts `redeem { amount, to? }` on the coin log and the layer removes the coin. The poster's next head carries the redeem line in its tree. The holder, or anyone for them, calls `redeem` with the proof, and the ERC-20 mints the amount to `to` or to the root's own address, which is the same key. One way at first: a return path (`deposit`, where the contract burns and the ledger credits after the home reads the chain) is a later decision. The holder's gas is paid once, at the redeem, by choice; the poster's heads, cents on a rollup, are the project's only recurring gas.
+A holder posts `redeem { amount, to? }` on the coin log and the layer removes the coin. The poster's next head carries the redeem line in its tree. The holder, or anyone for them, calls `redeem` with the proof, and the ERC-20 mints the amount to `to` or to the root's own address, which is the same key. Both ways, since 27 October 2026: `deposit` on the contract burns the token and records the ledger root, and a reader under the poster's bond posts a `credit` on the coin log for each finalized deposit, which the mirror checks against the chain. The holder's gas is paid once, at the redeem, by choice; the poster's heads, cents on a rollup, are the project's only recurring gas.
 
 ### One door to the chain
 

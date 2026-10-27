@@ -7,7 +7,8 @@ import {Merkle} from "./Merkle.sol";
 /// @notice Quilt is the coin on the chain: an ERC-20 with six decimals, so that one base unit is one unit of the
 /// ledger's coin. Nobody owns it and nothing mints it but `redeem`: a proof that a redeem line stands under a redeem
 /// root that `Anchors` holds as final, taken once per line. The chain's supply stays at or below what the ledger has
-/// redeemed (docs/COIN.md, "The door out").
+/// redeemed less what was deposited back (docs/COIN.md, "The door out"). `deposit` is the way back: it burns coin and
+/// records the ledger root to credit, numbered, for the ledger's reader to post and the mirror to check.
 contract Quilt {
     string public constant name = "Quilt";
     string public constant symbol = "QUILT";
@@ -21,9 +22,21 @@ contract Quilt {
     /// @notice The redeem lines minted so far, by the coin log line's hash.
     mapping(bytes32 => bool) public redeemed;
 
+    struct Deposit {
+        address from;
+        address root;
+        uint256 amount;
+        uint64 at;
+    }
+
+    /// @notice How many deposits have been made; they are numbered from 1.
+    uint64 public depositCount;
+    mapping(uint64 => Deposit) private deposits;
+
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Redeemed(bytes32 indexed id, address indexed to, uint256 amount, uint64 seq);
+    event Deposited(uint64 indexed n, address indexed from, address indexed root, uint256 amount);
 
     constructor(Anchors anchors_) {
         require(address(anchors_) != address(0), "the anchors are an address");
@@ -62,6 +75,28 @@ contract Quilt {
         balanceOf[to] += amount;
         emit Transfer(address(0), to, amount);
         emit Redeemed(id, to, amount, seq);
+    }
+
+    /// @notice Burns `amount` of the sender's coin for the ledger to credit to `root`, the holder's key there (the same
+    /// curve, so most often the sender's own address). The deposit is numbered and kept for the ledger's reader to
+    /// post as a credit and for the mirror to check that credit against.
+    function deposit(uint256 amount, address root) external returns (uint64 n) {
+        require(root != address(0), "the coin is credited to a root");
+        require(amount > 0, "a deposit is more than nothing");
+        uint256 have = balanceOf[msg.sender];
+        require(have >= amount, "more than the balance");
+        balanceOf[msg.sender] = have - amount;
+        totalSupply -= amount;
+        n = ++depositCount;
+        deposits[n] = Deposit({from: msg.sender, root: root, amount: amount, at: uint64(block.timestamp)});
+        emit Transfer(msg.sender, address(0), amount);
+        emit Deposited(n, msg.sender, root, amount);
+    }
+
+    /// @notice Deposit `n`: who burned, which root is credited, how much, and when; all zero where there is none.
+    function depositAt(uint64 n) external view returns (address from, address root, uint256 amount, uint64 at) {
+        Deposit storage d = deposits[n];
+        return (d.from, d.root, d.amount, d.at);
     }
 
     function _move(address from, address to, uint256 amount) private {

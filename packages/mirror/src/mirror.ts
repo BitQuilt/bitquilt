@@ -28,13 +28,18 @@ export interface MirrorOptions {
   anchor?: boolean | { calendars?: string[] };
   /** QX-17: pull the coin log of a tracker that is the coin's home and reproduce its balances; on unless false. */
   coin?: boolean;
+  /**
+   * The way back: what the chain holds at a deposit number, for checking every credit line the ledger kept. Absent,
+   * a ledger with credits on it is refused, since nothing here can check them.
+   */
+  chain?: { depositAt(n: number): Promise<{ root: string; amount: bigint | number; made: boolean }> } | null;
 }
 
 export interface MirrorReport {
   problems: { hash: Hash; lines: number; added: number; complete: boolean }[];
   identity: { lines: number; added: number };
-  /** QX-17: the coin log held, and whether the tracker's balances at its head reproduced here (null where the head moved between reads). */
-  coin?: { lines: number; added: number; head: number | null; reproduced: boolean | null };
+  /** QX-17: the coin log held, whether the tracker's balances at its head reproduced here (null where the head moved between reads), and how many credits were checked against the chain. */
+  coin?: { lines: number; added: number; head: number | null; reproduced: boolean | null; credits?: number };
   refused: string[];
   errors: string[];
   anchors?: AnchorReport;
@@ -230,10 +235,24 @@ export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
             }
             try {
               const layer = challengeLayer({ problems: inputs, now: state.at, coin: chain.lines });
-              const mine = Object.fromEntries(coinLayer({ layer, params: params as CoinParams, receipts: chain.lines, now: state.at }).balances());
+              const folded = coinLayer({ layer, params: params as CoinParams, receipts: chain.lines, now: state.at });
+              const mine = Object.fromEntries(folded.balances());
               const roots = [...new Set([...Object.keys(mine), ...Object.keys(state.balances)])].sort();
               const differs = roots.find((r) => JSON.stringify(mine[r] ?? null) !== JSON.stringify(state.balances[r] ?? null));
-              if (differs === undefined) {
+              // The way back: every credit the ledger kept is what the chain holds at that deposit, or the balances are not kept.
+              const credits = folded.credits();
+              let wrongCredit: string | null = null;
+              if (credits.length && !options.chain) wrongCredit = `${credits.length} credit${credits.length === 1 ? '' : 's'} on the ledger and no chain to check them against`;
+              for (const c of credits) {
+                if (wrongCredit) break;
+                const d = await options.chain!.depositAt(c.deposit);
+                if (!d.made || d.root.toLowerCase() !== c.root.toLowerCase() || BigInt(d.amount) !== BigInt(c.amount)) wrongCredit = `the credit for deposit ${c.deposit} (${c.amount} to ${c.root}) is not what the chain holds`;
+              }
+              report.coin.credits = credits.length;
+              if (wrongCredit !== null) {
+                report.refused.push(`coin: ${wrongCredit}, at head ${state.head?.seq ?? 0} from ${t}`);
+                report.coin.reproduced = false;
+              } else if (differs === undefined) {
                 mkdirSync(join(out, 'coin'), { recursive: true });
                 writeFileSync(join(out, 'coin', 'balances.json'), JSON.stringify({ head: state.head, at: state.at, params: published, balances: state.balances }, null, 2) + '\n');
                 report.coin.reproduced = true;
