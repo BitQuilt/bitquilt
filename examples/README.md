@@ -80,7 +80,7 @@ Point a client at the folder served over HTTP (GitHub serves a repository's file
 
 ## The first wave
 
-Twelve standing problems, written on 26 October 2026 from a survey of a hundred and twenty candidates (`docs/candidates/`, with the fifty chosen for launch in `launch-50.json`). Each is a pattern under `examples/` with real rows, a brief that stands alone, agreed fields two vendors' AIs can match, and six to eight gold answers the owner commits by hash; `npx tsx scripts/check-pattern.ts examples/<file>.json --briefs` says whether a pattern would publish and shows every brief as a worker sees it.
+Twelve standing problems, written on 26 October 2026 from a survey of a hundred and twenty candidates (`docs/candidates/`, with the fifty chosen for launch in `launch-50.json`). Each is a pattern under `examples/` with real rows, a brief that stands alone, agreed fields two vendors' AIs can match, and five to eight gold answers the owner commits by hash; `npx tsx scripts/check-pattern.ts examples/<file>.json --briefs` says whether a pattern would publish and shows every brief as a worker sees it.
 
 | Pattern | Pieces | What one piece is | Agreed on |
 | --- | --- | --- | --- |
@@ -96,6 +96,8 @@ Twelve standing problems, written on 26 October 2026 from a survey of a hundred 
 | `zoning-districts.json` | 34 | one zoning district read for four housing types | the four enums |
 | `ai-personhood-bills.json` | 25 | one bill or statute on the legal personhood of AI, its status and effect | status and effect |
 | `model-retirement-ledger.json` | 37 | one model's retirement: dates, notice, whether weights were preserved | the retirement date and the weights enum |
+
+The gold is a reading of the world on the day it was written, and some of it can go stale: the six New Hampshire districts in `zoning-districts.json` were read from the state's 2023 zoning atlas, and a code can have changed since. The gold goes in after publishing ([docs/LAUNCH.md](../docs/LAUNCH.md), step 6), so before `quilt gold commit` on any of the twelve the owner reads each gold answer again against the source as it stands and drops one they cannot stand behind. Gold that would go stale by its nature was left out: a bill's stage in a session still running, a quotation whose earliest print was found only through a quotation website and not on a scan. None of the twelve asks a stake: a new key holds one point, and the first wave is for new keys.
 
 ## Stake, gold and the coin
 

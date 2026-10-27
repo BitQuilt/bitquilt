@@ -298,10 +298,6 @@
         "status": "enacted",
         "effect": "deny"
       },
-      "bill/9": {
-        "status": "introduced",
-        "effect": "deny"
-      },
       "bill/10": {
         "status": "passed_one_chamber",
         "effect": "deny"

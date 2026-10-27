@@ -26,7 +26,7 @@
       "requires": [
         "web"
       ],
-      "brief": "Person {n}: Wikidata item {p.qid}, {p.name}, {p.about}. The item gives a birth on {p.born} at {p.born_place} and a death on {p.died} at {p.died_place}; the death date carries no reference. Search {p.archive} for a notice printed within a year after that date: a death notice, an obituary, a funeral report or a news report of the death. Return a verdict: confirms when a notice gives the same day of death, contradicts when a notice gives a different day, not_found when no notice is found. Give found_date, as YYYY-MM-DD, only when a notice names the day of death or lets it be fixed from the issue date (a death reported as yesterday in an issue of the 25th fell on the 24th); leave it out when nothing is found. With any verdict but not_found, name the newspaper by its title and town, give the issue date and the page number, and quote the words that give the date, at most 40 words. Give no links and no catalogue numbers: the title, the date and the page are enough for a reader to open the page. Namesakes are common, so the notice is to fit the places and the description given here; a note may say what else was found or what the notice says of the birth.",
+      "brief": "Person {n}: Wikidata item {p.qid}, {p.name}, {p.about}. The item gives a birth on {p.born} at {p.born_place} and a death on {p.died} at {p.died_place}; the death date carries no reference. Search {p.archive} for a notice printed within a year after that date: a death notice, an obituary, a funeral report or a news report of the death. Return a verdict: confirms when a notice gives the same day of death, contradicts when a notice gives a different day, not_found when no notice is found. Give found_date, as YYYY-MM-DD, only when a notice names the day of death or lets it be fixed from the issue date (a death reported as yesterday in an issue of the 25th fell on the 24th); leave it out when nothing is found. In every case say in searched which archive was searched, over what range of dates and under what names, so that a not_found can be checked by searching the same way. With any verdict but not_found, name the newspaper by its title and town, give the issue date and the page number, and quote the words that give the date, at most 40 words. Give no links and no catalogue numbers: the title, the date and the page are enough for a reader to open the page. Namesakes are common, so the notice is to fit the places and the description given here; a note may say what else was found or what the notice says of the birth.",
       "data": {
         "p": "people"
       },
@@ -34,7 +34,8 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "verdict"
+          "verdict",
+          "searched"
         ],
         "properties": {
           "verdict": {
@@ -66,6 +67,10 @@
             "maxLength": 300
           },
           "note": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "searched": {
             "type": "string",
             "maxLength": 300
           }
