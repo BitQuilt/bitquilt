@@ -9,7 +9,7 @@ Written 26 October 2026. [APP.md](APP.md) names the smallest version: the app wi
 - **The client.** `packages/client`: `quilt`, one program that is the MCP server a person's AI connects to (fifteen tools, each describing and never instructing), the page on localhost (search, a problem's map, a hand-in form, publishing, the library, what is wanted from you, the key's standing and coin), and the node that serves what it holds. `quilt install claude` writes the connector into Claude Desktop; `pnpm build:mcpb` makes the one-file bundle; `pnpm build:bin` makes single executables; `apps/mac` is the menu-bar shell.
 - **The mirror.** `packages/mirror` and `.github/workflows/mirror.yml`: every fifteen minutes, every chain pulled, verified, refused if it did anything but grow, the coin's balances reproduced, and every head stamped into Bitcoin through OpenTimestamps.
 - **The words.** [LAYERS.md](LAYERS.md), the whole protocol in plain words; [PROTOCOL.md](PROTOCOL.md), [APP.md](APP.md), [COIN.md](COIN.md), [OPEN-PROBLEM.md](OPEN-PROBLEM.md), the extension documents, [FIRST-RUN.md](FIRST-RUN.md), `examples/README.md`, and the site under `site/`.
-- **The checks.** 195 tests and the conformance run pass on every push (`.github/workflows/ci.yml`); a tagged release builds the executables for five platforms and the bundle (`release.yml`).
+- **The checks.** 211 tests and the conformance run pass on every push (`.github/workflows/ci.yml`); a tagged release builds the executables for five platforms and the bundle (`release.yml`).
 
 ## What only the maintainers can do, in order
 
