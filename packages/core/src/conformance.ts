@@ -30,6 +30,7 @@ export interface Fixture {
   };
 }
 
+/** A fixture's blobs as the reducer takes them, each decoded from base64 and checked against the hash that names it. */
 export function blobsOf(f: Fixture): Map<Hash, Uint8Array> {
   const m = new Map<Hash, Uint8Array>();
   for (const [h, b64] of Object.entries(f.blobs)) {
@@ -61,6 +62,7 @@ export function checkFixture(f: Fixture): string[] {
   return problems;
 }
 
+/** Every `.json` file under `dir`, in name order, read as a fixture; the folder's README says what one holds. */
 export function loadFixtures(dir: string): Fixture[] {
   return readdirSync(dir)
     .filter((f) => f.endsWith('.json'))
@@ -68,6 +70,7 @@ export function loadFixtures(dir: string): Fixture[] {
     .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')) as Fixture);
 }
 
+// Run as a script when invoked directly (`pnpm conform`); imported by the tests, this file only exports.
 if (process.argv[1] && /conformance\.(ts|js)$/.test(process.argv[1])) {
   const dir = process.argv[2] ?? 'fixtures';
   const fixtures = loadFixtures(dir);

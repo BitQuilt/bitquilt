@@ -1,3 +1,7 @@
+/**
+ * CORE.md section 11, the plain-text gate `gate/1`: what it passes, what it refuses (links and markup, contact details,
+ * text addressed to a model, shouting), what it takes out before judging, and how it says so.
+ */
 import { describe, expect, it } from 'vitest';
 import { addressedToMachines, plainTextProblems, textIssues, visible } from '../src/gate.js';
 

@@ -1,3 +1,7 @@
+/**
+ * CORE.md section 2, the closed schema subset, and section 6, canonicalisation: what a schema may be and nothing else,
+ * how a return fails one with lengths in scalar values, and when two returns agree on the agree fields.
+ */
 import { describe, expect, it } from 'vitest';
 import { agreeFields, canonicaliseField, returnProblems, returnStrings, returnsAgree, scalarLength, schemaProblems, type Schema } from '../src/schema.js';
 

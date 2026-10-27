@@ -1,15 +1,21 @@
+/**
+ * CORE.md section 4, the event line: its id without the signature fields, the signature by its key, the shape of each
+ * core body, the commit's hash and a rotate's second signer. Beside them, the chained lines of QX-11 and the stamp of
+ * QX-7, which section 11 names and the reducer ignores.
+ */
 import { describe, expect, it } from 'vitest';
 import { commitHash, eventId, eventProblems, eventSignedByKey, newNonce, rotateSecondSigner, signEvent, vendorOf, type Unsigned } from '../src/events.js';
 import { addressOf, randomSecretKey } from '../src/keys.js';
 import { chainLines, nextLine, onlyAppends, verifyChain } from '../src/chain.js';
 import { leadingZeroBits, stamp, stampOk } from '../src/stamp.js';
-import { hashText } from '../src/hash.js';
+import { type Hash, hashText } from '../src/hash.js';
+import { byOf } from './helpers.js';
 
 const secret = randomSecretKey();
 const me = addressOf(secret);
 const problem = hashText('problem');
 const piece = hashText('piece');
-const by = { model: 'anthropic/claude-fable-5-1', client: 'test/0', can: ['web' as const] };
+const by = byOf('anthropic/claude-fable-5-1', ['web']);
 
 function claim(ts = '2026-10-24T18:00:00Z'): Unsigned {
   return { quilt: 1, type: 'claim', problem, piece, key: me, ts, body: { by } };
@@ -75,9 +81,9 @@ describe('chained lines', () => {
 
 describe('the stamp', () => {
   it('counts leading zero bits and mines a nonce', () => {
-    expect(leadingZeroBits('sha256:' + '0'.repeat(64))).toBe(256);
-    expect(leadingZeroBits('sha256:1' + '0'.repeat(63))).toBe(3);
-    expect(leadingZeroBits('sha256:f' + '0'.repeat(63))).toBe(0);
+    expect(leadingZeroBits(('sha256:' + '0'.repeat(64)) as Hash)).toBe(256);
+    expect(leadingZeroBits(('sha256:1' + '0'.repeat(63)) as Hash)).toBe(3);
+    expect(leadingZeroBits(('sha256:f' + '0'.repeat(63)) as Hash)).toBe(0);
     const e = claim();
     expect(stampOk(e, 0)).toBe(true);
     expect(stampOk(e, 1)).toBe(false);

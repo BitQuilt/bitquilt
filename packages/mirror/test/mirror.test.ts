@@ -7,6 +7,12 @@ import { type Envelope, type Hash, type Receipt, type Unsigned, IDENTITY_LOG, ad
 import { Store, createTracker } from '@bitquilt/tracker';
 import { mirror } from '../src/mirror.js';
 
+/**
+ * The mirror over two real trackers: it writes the layout from one, with chains that verify and names from version
+ * events; only grows, and writes the output once the problem is complete; refuses a second tracker whose chain for the
+ * problem is not a growth of the one it holds; passes over a chain whose pages have no end, keeping what it holds; and
+ * anchors the head of every chain when asked, keeping a stamp it already has.
+ */
 const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
 const owner = key(9), A = key(1), B = key(2);
 const addr = addressOf;
@@ -60,8 +66,8 @@ beforeAll(async () => {
   one = await startTracker();
   two = await startTracker();
   for (const t of [one, two]) expect((await post(t.base, 'p', { envelope: env, blobs: { [citesHash]: Buffer.from(cites).toString('base64') } })).status).toBe(201);
-  const state = await (await fetch(`${one.base}p/${P}/state`)).json();
-  pieces = state.pieces.map((p: { hash: Hash }) => p.hash);
+  const state = (await (await fetch(`${one.base}p/${P}/state`)).json()) as { pieces: { hash: Hash }[] };
+  pieces = state.pieces.map((p) => p.hash);
 });
 afterAll(async () => {
   await new Promise<void>((r) => one.server.close(() => r()));
@@ -106,7 +112,17 @@ describe('the mirror', () => {
     const lines = readFileSync(join(out, 'ledger', `${P}.jsonl`), 'utf8').split('\n').filter(Boolean);
     expect(lines).toHaveLength(9);
   });
-it('anchors the head of every chain it holds when asked, and keeps a stamp it already has', async () => {
+  it('passes over a chain whose pages have no end, and keeps the one it holds', async () => {
+    const fetchImpl: typeof fetch = async (input, init) => {
+      if (/\/p\/[^/]+\/events\?since=/.test(String(input))) return new Response('', { status: 200, headers: { 'x-quilt-next-since': '1' } });
+      return fetch(input, init);
+    };
+    const report = await mirror({ trackers: [one.base], out, now, fetchImpl });
+    expect(report.problems).toEqual([]);
+    expect(report.refused).toEqual([]);
+    expect(readFileSync(join(out, 'ledger', `${P}.jsonl`), 'utf8').split('\n').filter(Boolean)).toHaveLength(9);
+  });
+  it('anchors the head of every chain it holds when asked, and keeps a stamp it already has', async () => {
     const calendarBytes = new Uint8Array([0xf0, 0x10, 0x01, 0x02, 0x03, 0x00, 0x83, 0xdf, 0xe3, 0x0d, 0x2e, 0xf9, 0x0c, 0x8e]);
     let posts = 0;
     const fetchImpl: typeof fetch = async (input, init) => {

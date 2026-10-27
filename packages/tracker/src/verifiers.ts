@@ -9,8 +9,9 @@
  */
 import {
   type AcceptingSet, type Address, type Event, type Hash, type PieceState, type PieceView, type Receipt, type Return, type Reveal, type State,
-  agreeFields, eventSignedByKey, hashCanonical, inputPieces, isHash, orderReceipts, returnsAgree,
+  agreeFields, byAtThenId, eventSignedByKey, inputPieces, isHash, isRecord, orderReceipts, plusHours, returnsAgree,
 } from '@bitquilt/core';
+import { drawOrder, offerSeats } from './sortition.js';
 
 export const EXTENSIONS = { human: 'QX-3', judge: 'QX-2', attest: 'QX-10' } as const;
 export const RANK_EVENTS: ReadonlySet<string> = new Set(['rank']);
@@ -89,8 +90,20 @@ export interface VerifierOptions {
   pool(problem: Hash, at: string, unrelatedTo: Address[], fold: State): Address[];
 }
 
-const plusHours = (t: string, h: number): string => new Date(Date.parse(t) + h * 3_600_000).toISOString();
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+/** A piece's lease in hours: the piece's `lease_h`, else the problem's (QX-15 section 3 names the rule; the core sets both). */
+export function leaseOf(fold: State, view: PieceView): number {
+  return view.piece.lease_h ?? fold.envelope.problem.settings.lease_h;
+}
+
+/** The problem's challenge window in hours. */
+export function windowOf(fold: State): number {
+  return fold.envelope.problem.settings.challenge_window_h;
+}
+
+/** The owner's root at a time. */
+export function ownerOf(fold: State, at: string): Address {
+  return fold.rootOf(fold.envelope.problem.owner as Address, at);
+}
 
 /** The kind a verifier name is, with n for judge:n, or null. */
 export function kindOf(verifier: string): { kind: Kind; panel: number | null } | null {
@@ -166,15 +179,31 @@ export function fromPersonSeat(reveal: Reveal, receipt: Receipt | undefined): bo
 }
 
 interface Line { receipt: Receipt; id: Hash }
+interface Rank { id: Hash; event: Event; at: string }
 
+/** What deciding a piece of one of these kinds reads: the fold being decided, its owner and window, the receipt line of a reveal, the time, and the caller's pool. */
+interface Context {
+  fold: State;
+  owner: Address;
+  windowH: number;
+  lineOf: (piece: Hash, r: Reveal) => Line | undefined;
+  now: string;
+  options: VerifierOptions;
+}
+
+/**
+ * The verifier kinds decided over a core fold (verifiers.md section 1): the piece views cloned, each attest, human and
+ * judge piece decided from the receipts, every state recomputed so the core's own pieces keep the core's word except
+ * one the core locked behind a piece of these kinds, and `complete` recomputed. `options.pool` is the caller's credits,
+ * from which a judge panel is drawn.
+ */
 export function applyVerifiers(core: State, receipts: Receipt[], now: string, options: VerifierOptions): Layered {
-  const settings = core.envelope.problem.settings;
   const owner = core.envelope.problem.owner as Address;
-  const windowH = settings.challenge_window_h;
+  const windowH = windowOf(core);
 
   // The receipt line of each reveal, by piece, key and time, and the ranks by piece, each once by id.
   const revealLines = new Map<string, Line>();
-  const ranks = new Map<Hash, { id: Hash; event: Event; at: string }[]>();
+  const ranks = new Map<Hash, Rank[]>();
   for (const { receipt, at, id } of orderReceipts(receipts)) {
     const ev = receipt.event;
     if (ev.type === 'reveal' && ev.piece) {
@@ -198,14 +227,15 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
   const dropped: Layered['dropped'] = [];
   /** The reveals that count on a human piece: from a person's seat, unrelated to the owner. */
   const counted = new Map<Hash, Reveal[]>();
+  const cx: Context = { fold, owner, windowH, lineOf, now, options };
 
   for (const v of views) {
     const info = describeKind(v.piece.verifier);
     kinds.set(v.piece.hash, info);
-    if (info.kind === 'attest') decideAttest(v, fold, owner, windowH);
-    else if (info.kind === 'human') counted.set(v.piece.hash, decideHuman(v, fold, owner, windowH, lineOf));
+    if (info.kind === 'attest') decideAttest(v, cx);
+    else if (info.kind === 'human') counted.set(v.piece.hash, decideHuman(v, cx));
     else if (info.kind === 'judge') {
-      const panel = decideJudge(v, fold, owner, windowH, info.panel!, lineOf, ranks.get(v.piece.hash) ?? [], now, options);
+      const panel = decideJudge(v, cx, info.panel!, ranks.get(v.piece.hash) ?? []);
       if (!panel) continue;
       panels.push(panel);
       byPiece.set(v.piece.hash, panel);
@@ -251,8 +281,8 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
   return { fold, panels, byPiece, kinds, unoffered, dropped };
 }
 
-/** The first valid reveal from a root unrelated to the owner accepts the piece at once; the window runs from its receipt. */
-function decideAttest(v: PieceView, fold: State, owner: Address, windowH: number): void {
+/** The first valid reveal from a root unrelated to the owner accepts the piece at once (QX-10); the window runs from its receipt. */
+function decideAttest(v: PieceView, { fold, owner, windowH }: Context): void {
   const r = v.reveals.find((x) => !fold.related(x.root, owner, x.at));
   if (!r) return;
   const set: ExtAccepting = { kind: 'agree', via: 'attest', reveals: [r], completedAt: r.at };
@@ -260,8 +290,8 @@ function decideAttest(v: PieceView, fold: State, owner: Address, windowH: number
   v.windowEnd = plusHours(r.at, windowH);
 }
 
-/** As agree, with the vendor rule replaced by the seat: two reveals from unrelated roots, each from a person's seat, agreeing on the agree fields. */
-function decideHuman(v: PieceView, fold: State, owner: Address, windowH: number, lineOf: (piece: Hash, r: Reveal) => Line | undefined): Reveal[] {
+/** As agree, with the vendor rule replaced by the seat (QX-3): two reveals from unrelated roots, each from a person's seat, agreeing on the agree fields. */
+function decideHuman(v: PieceView, { fold, owner, windowH, lineOf }: Context): Reveal[] {
   const schema = v.piece.schema;
   if (!schema) return [];
   const fields = agreeFields(schema, v.piece.agree);
@@ -284,13 +314,10 @@ function decideHuman(v: PieceView, fold: State, owner: Address, windowH: number,
 
 /**
  * The candidates are the first `candidates` reveals from roots unrelated to the owner and to each other, with distinct
- * digests; once they are in, a panel of n is drawn from the pool at that receipt, seeded by the first candidate's
+ * digests (QX-2); once they are in, a panel of n is drawn from the pool at that receipt, seeded by the first candidate's
  * receipt line, and the ranks are folded in receipt order. Null while the candidates are not yet in.
  */
-function decideJudge(
-  v: PieceView, fold: State, owner: Address, windowH: number, n: number, lineOf: (piece: Hash, r: Reveal) => Line | undefined,
-  ranks: { id: Hash; event: Event; at: string }[], now: string, options: VerifierOptions,
-): PanelView | null {
+function decideJudge(v: PieceView, { fold, owner, windowH, lineOf, now, options }: Context, n: number, ranks: Rank[]): PanelView | null {
   const wanted = v.piece.candidates ?? DEFAULT_CANDIDATES;
   const chosen: Reveal[] = [];
   for (const r of v.reveals) {
@@ -315,12 +342,8 @@ function decideJudge(
     return panel;
   }
   if (seed === null) return panel;
-  panel.order = [...pool].sort((a, b) => {
-    const ha = hashCanonical([seed, a]);
-    const hb = hashCanonical([seed, b]);
-    return ha < hb ? -1 : ha > hb ? 1 : 0;
-  });
-  seatPanel(panel, fold, v.piece.lease_h ?? fold.envelope.problem.settings.lease_h, ranks.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0)), now);
+  panel.order = drawOrder(seed, pool);
+  seatPanel(panel, fold, leaseOf(fold, v), ranks.sort(byAtThenId), now);
   if (panel.outcome === 'decided') {
     const winner = chosen.find((r) => r.digest === panel.winner)!;
     const set: ExtAccepting = { kind: 'agree', via: 'judge', reveals: [winner], completedAt: panel.decidedAt! };
@@ -330,21 +353,10 @@ function decideJudge(
   return panel;
 }
 
-/** Offers the seats, lapses and replaces them by the lease, folds the ranks in receipt order, and decides on a majority's first choice. */
-function seatPanel(panel: PanelView, fold: State, leaseH: number, ranks: { id: Hash; event: Event; at: string }[], now: string): void {
-  const { order, seats } = panel;
-  for (const root of order.slice(0, panel.panel)) seats.push({ root, offeredAt: panel.completedAt, lapsedAt: null, rank: null });
-  let nextIdx = Math.min(panel.panel, order.length);
-  const advance = (to: string) => {
-    for (let i = 0; i < seats.length; i++) {
-      const s = seats[i]!;
-      if (s.rank || s.lapsedAt !== null) continue;
-      const lapse = plusHours(s.offeredAt, leaseH);
-      if (lapse > to) continue;
-      s.lapsedAt = lapse;
-      if (nextIdx < order.length) seats.push({ root: order[nextIdx++]!, offeredAt: lapse, lapsedAt: null, rank: null });
-    }
-  };
+/** Offers the seats, lapses and replaces them by the lease (sortition.ts), folds the ranks in receipt order, and decides on a majority's first choice. */
+function seatPanel(panel: PanelView, fold: State, leaseH: number, ranks: Rank[], now: string): void {
+  const { seats, advance, ranOut, lastLapse } = offerSeats<PanelSeat>(panel.order, panel.panel, panel.completedAt, leaseH, (root, offeredAt) => ({ root, offeredAt, lapsedAt: null, rank: null }), (s) => s.rank !== null);
+  panel.seats = seats;
   const firsts = new Map<Hash, number>();
   for (const r of ranks) {
     const drop = (why: string) => panel.dropped.push({ id: r.id, why });
@@ -392,9 +404,9 @@ function seatPanel(panel: PanelView, fold: State, leaseH: number, ranks: { id: H
   }
   if (panel.outcome === 'open') {
     advance(now);
-    if (nextIdx >= order.length && seats.every((s) => s.rank || s.lapsedAt !== null)) {
+    if (ranOut()) {
       panel.outcome = 'void';
-      panel.decidedAt = seats.reduce<string | null>((m, s) => (s.lapsedAt !== null && (m === null || s.lapsedAt > m) ? s.lapsedAt : m), null) ?? now;
+      panel.decidedAt = lastLapse() ?? now;
     }
   }
 }

@@ -2,12 +2,14 @@
 /**
  * bitquilt-mirror --trackers https://a/,https://b/ --out ./mirror [--anchor [--calendars https://a.pool.opentimestamps.org,...]]
  * Pulls, verifies, and writes the mirror's files; with --anchor, stamps every chain's head through OpenTimestamps (QX-12).
- * With QUILT_CHAIN_RPC, QUILT_CHAIN_ID and QUILT_CONTRACTS set, checks every credit line on the coin log against the
- * deposit the chain holds (the way back); without them a ledger with credits is refused. Exits 1 when a tracker's chain
- * is refused, so a job notices.
+ * Each flag has a variable of the repository job's: BITQUILT_TRACKERS, BITQUILT_MIRROR, BITQUILT_CALENDARS and
+ * BITQUILT_ANCHOR (set to 1). QUILT_CHAIN_RPC, QUILT_CHAIN_ID and QUILT_CONTRACTS are shared with the coin's jobs:
+ * set, the bin opens the connection and the mirror checks every credit line on the coin log against the deposit the
+ * chain holds (the way back); without them a ledger with credits is refused. Exits 1 when a tracker's chain is
+ * refused, so a job notices.
  */
 import { chainFromEnv, depositAt } from '@bitquilt/coin';
-import { mirror } from './mirror.js';
+import { type DepositReader, mirror } from './mirror.js';
 
 const args = process.argv.slice(2);
 const flag = (name: string): string | undefined => {
@@ -22,10 +24,10 @@ if (!trackers.length) {
   console.error('usage: bitquilt-mirror --trackers <url,...> --out <dir>');
   process.exit(2);
 }
-let chain: Parameters<typeof mirror>[0]['chain'] = null;
+let chain: DepositReader | null = null;
 if (process.env.QUILT_CHAIN_RPC) {
-  const c = chainFromEnv().chain;
-  chain = { depositAt: (n) => depositAt(c, n) };
+  const connection = chainFromEnv().chain;
+  chain = { depositAt: (n) => depositAt(connection, n) };
 }
 mirror({ trackers, out, anchor, chain }).then((report) => {
   if (report.coin?.credits) console.log(`coin: ${report.coin.credits} credit${report.coin.credits === 1 ? '' : 's'} checked against the chain`);

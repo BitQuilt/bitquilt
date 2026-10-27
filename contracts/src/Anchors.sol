@@ -18,8 +18,11 @@ contract Anchors {
 
     /// @notice The one address that may veto a post.
     address public immutable vetoer;
+    /// @notice Where a slashed bond goes.
     address public immutable treasury;
+    /// @notice The least a poster holds to post, in wei.
     uint256 public immutable minBond;
+    /// @notice Seconds after a post during which the veto may strike it.
     uint64 public immutable vetoWindow;
 
     /// @notice The highest sequence posted so far.

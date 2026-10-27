@@ -2,15 +2,18 @@
  * The one door to the chain. This is the only file in the repository that imports an RPC library (`viem`), as the
  * rally's gateway is the only file that imports a model SDK; `packages/coin/test/tripwire.test.ts` holds it there.
  * Everything here takes its connection as an argument: the RPC address, the chain id, the two contract addresses, and
- * a key where a write needs one. A read needs no key. The functions are thin: `postHead` and `redeem` send one
- * transaction each and wait for its receipt; the reads answer what `Anchors` and `Quilt` hold. `chainFromEnv` is the
- * one place the environment is read. A key is kept on the connection as a property that neither JSON nor the console
- * shows, and no function here puts one in a message or a report.
+ * a key where a write needs one. A read needs no key. The functions are thin: `postHead`, `redeem` and `deposit` send
+ * one transaction each and wait for its receipt; the reads answer what `Anchors` and `Quilt` hold. `chainFromEnv` is
+ * the one place the environment is read. A key is kept on the connection as a property that neither JSON nor the
+ * console shows, and no function here puts one in a message or a report.
  */
-import { type Abi, type Address, type Hex, createPublicClient, createWalletClient, defineChain, getAddress, http, isAddress, parseAbi } from 'viem';
+import { type Abi, type Address, createPublicClient, createWalletClient, defineChain, getAddress, http, isAddress, parseAbi } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { homeUrl } from './home.js';
+import type { Hex } from './merkle.js';
+import { KEY_HEX_RE } from './shapes.js';
 
-export type { Abi, Address, Hex };
+export type { Abi, Address };
 
 /** Where the contracts are and how to reach them; `key` only where a write is meant. */
 export interface Chain {
@@ -55,7 +58,7 @@ export interface Deposit {
 }
 
 /** What `Anchors` holds at a sequence; `posted` is false where nothing was. */
-export interface Head {
+export interface PostedHead {
   seq: number;
   head: Hex;
   root: Hex;
@@ -74,11 +77,13 @@ function chainOf(c: Connection) {
   });
 }
 
-function reader(c: Connection) {
+/** The client every read goes through; it needs no key. */
+function publicClient(c: Connection) {
   return createPublicClient({ chain: chainOf(c), transport: http(c.rpc) });
 }
 
-function signer(c: Connection) {
+/** The account and wallet of the key on the connection, for a write. */
+function walletOf(c: Connection) {
   if (!c.key) throw new Error('a write needs a key on the connection');
   const account = privateKeyToAccount(c.key);
   return { account, wallet: createWalletClient({ account, chain: chainOf(c), transport: http(c.rpc) }) };
@@ -86,8 +91,8 @@ function signer(c: Connection) {
 
 /** One transaction: simulated first, so a refusal comes back as its reason, then sent and waited for. */
 async function write(c: Connection, call: { address: Address; abi: Abi; functionName: string; args: readonly unknown[]; value?: bigint }): Promise<Hex> {
-  const pub = reader(c);
-  const { account, wallet } = signer(c);
+  const pub = publicClient(c);
+  const { account, wallet } = walletOf(c);
   const { request } = await pub.simulateContract({ account, address: call.address, abi: call.abi, functionName: call.functionName, args: call.args, ...(call.value === undefined ? {} : { value: call.value }) });
   const hash = await wallet.writeContract(request);
   const receipt = await pub.waitForTransactionReceipt({ hash });
@@ -95,10 +100,10 @@ async function write(c: Connection, call: { address: Address; abi: Abi; function
   return hash;
 }
 
-/** Puts a contract on the chain from its compiled ABI and bytecode; answers its address. */
+/** Puts a contract on the chain from its compiled ABI and bytecode and answers its address: for a deployment script and the anvil test. DEPLOY.md deploys with `forge create`. */
 export async function deploy(c: Connection, contract: { abi: Abi; bytecode: Hex; args?: readonly unknown[] }): Promise<Address> {
-  const pub = reader(c);
-  const { wallet } = signer(c);
+  const pub = publicClient(c);
+  const { wallet } = walletOf(c);
   const hash = await wallet.deployContract({ abi: contract.abi, bytecode: contract.bytecode, args: contract.args ?? [] });
   const receipt = await pub.waitForTransactionReceipt({ hash });
   if (receipt.status !== 'success' || !receipt.contractAddress) throw new Error(`the deployment ${hash} did not land`);
@@ -112,19 +117,19 @@ export async function bond(c: Chain, amount: bigint): Promise<{ tx: Hex }> {
 
 /** The highest sequence posted to `Anchors`, 0 before any. */
 export async function lastPosted(c: Chain): Promise<number> {
-  const seq = await reader(c).readContract({ address: c.contracts.anchors, abi: ANCHORS_ABI, functionName: 'lastSeq' });
+  const seq = await publicClient(c).readContract({ address: c.contracts.anchors, abi: ANCHORS_ABI, functionName: 'lastSeq' });
   return Number(seq);
 }
 
 /** What `Anchors` holds at `seq`. */
-export async function headAt(c: Chain, seq: number): Promise<Head> {
-  const [head, root, postedAt, poster, vetoed] = await reader(c).readContract({ address: c.contracts.anchors, abi: ANCHORS_ABI, functionName: 'headAt', args: [BigInt(seq)] });
+export async function headAt(c: Chain, seq: number): Promise<PostedHead> {
+  const [head, root, postedAt, poster, vetoed] = await publicClient(c).readContract({ address: c.contracts.anchors, abi: ANCHORS_ABI, functionName: 'headAt', args: [BigInt(seq)] });
   return { seq, head, root, postedAt: Number(postedAt), poster, vetoed, posted: Number(postedAt) !== 0 };
 }
 
 /** Whether the head at `seq` is posted, not vetoed, and past its window. */
 export async function isFinal(c: Chain, seq: number): Promise<boolean> {
-  return reader(c).readContract({ address: c.contracts.anchors, abi: ANCHORS_ABI, functionName: 'isFinal', args: [BigInt(seq)] });
+  return publicClient(c).readContract({ address: c.contracts.anchors, abi: ANCHORS_ABI, functionName: 'isFinal', args: [BigInt(seq)] });
 }
 
 /** Posts the coin log's head and the redeem root at `seq`, from the key on the connection. */
@@ -139,12 +144,12 @@ export async function redeem(c: Chain, line: { seq: number; id: Hex; to: Address
 
 /** Whether `Quilt` has minted the redeem line `id`. */
 export async function isRedeemed(c: Chain, id: Hex): Promise<boolean> {
-  return reader(c).readContract({ address: c.contracts.quilt, abi: QUILT_ABI, functionName: 'redeemed', args: [id] });
+  return publicClient(c).readContract({ address: c.contracts.quilt, abi: QUILT_ABI, functionName: 'redeemed', args: [id] });
 }
 
 /** The address of the key on the connection: what a deposit credits where the holder names no other root. */
 export function selfAddress(c: Connection): Address {
-  if (!c.key) throw new Error('a key on the connection');
+  if (!c.key) throw new Error('the connection carries no key to take an address from');
   return privateKeyToAccount(c.key).address;
 }
 
@@ -155,27 +160,28 @@ export async function deposit(c: Chain, d: { amount: bigint; root: Address }): P
 
 /** How many deposits `Quilt` holds, as of the chain's finalized block unless `finalized` is false. */
 export async function depositCount(c: Chain, finalized = true): Promise<number> {
-  const n = await reader(c).readContract({ address: c.contracts.quilt, abi: QUILT_ABI, functionName: 'depositCount', blockTag: finalized ? 'finalized' : 'latest' });
+  const n = await publicClient(c).readContract({ address: c.contracts.quilt, abi: QUILT_ABI, functionName: 'depositCount', blockTag: finalized ? 'finalized' : 'latest' });
   return Number(n);
 }
 
 /** Deposit `n` as `Quilt` records it. */
 export async function depositAt(c: Chain, n: number): Promise<Deposit> {
-  const [from, root, amount, at] = await reader(c).readContract({ address: c.contracts.quilt, abi: QUILT_ABI, functionName: 'depositAt', args: [BigInt(n)] });
+  const [from, root, amount, at] = await publicClient(c).readContract({ address: c.contracts.quilt, abi: QUILT_ABI, functionName: 'depositAt', args: [BigInt(n)] });
   return { n, from, root, amount, at: Number(at), made: Number(at) !== 0 };
 }
 
 /** The `Quilt` balance of `who`, in base units, which are the ledger's units. */
 export async function balanceOf(c: Chain, who: Address): Promise<bigint> {
-  return reader(c).readContract({ address: c.contracts.quilt, abi: QUILT_ABI, functionName: 'balanceOf', args: [who] });
+  return publicClient(c).readContract({ address: c.contracts.quilt, abi: QUILT_ABI, functionName: 'balanceOf', args: [who] });
 }
 
 /**
  * The connection from the environment: `QUILT_CHAIN_RPC`, `QUILT_CHAIN_ID`, `QUILT_CONTRACTS` (JSON with `anchors`
- * and `quilt`), `QUILT_POSTER_KEY` (hex, with or without 0x; absent for a read) and `QUILT_COIN_HOME`, the home
- * tracker's address, which is null when unset. An error names the variable and nothing of its value.
+ * and `quilt`), the key named by `keyVar` (`QUILT_POSTER_KEY` unless another is named; hex, with or without 0x; absent
+ * for a read) and `QUILT_COIN_HOME`, the home tracker's address, which is null when unset. An error names the variable
+ * and nothing of its value.
  */
-export function chainFromEnv(env: NodeJS.ProcessEnv = process.env): { chain: Chain; home: string | null } {
+export function chainFromEnv(env: NodeJS.ProcessEnv = process.env, { keyVar = 'QUILT_POSTER_KEY' }: { keyVar?: string } = {}): { chain: Chain; home: string | null } {
   const rpc = env.QUILT_CHAIN_RPC?.trim();
   if (!rpc) throw new Error('QUILT_CHAIN_RPC names the chain RPC address');
   const chainId = Number(env.QUILT_CHAIN_ID);
@@ -191,12 +197,12 @@ export function chainFromEnv(env: NodeJS.ProcessEnv = process.env): { chain: Cha
   const quilt = addresses?.quilt;
   if (typeof anchors !== 'string' || !isAddress(anchors) || typeof quilt !== 'string' || !isAddress(quilt)) throw new Error('QUILT_CONTRACTS is JSON with anchors and quilt, each an address');
   const chain: Chain = { rpc, chainId, contracts: { anchors: getAddress(anchors), quilt: getAddress(quilt) } };
-  const rawKey = env.QUILT_POSTER_KEY?.trim();
+  const rawKey = env[keyVar]?.trim();
   if (rawKey) {
     const hex = rawKey.startsWith('0x') ? rawKey.slice(2) : rawKey;
-    if (!/^[0-9a-fA-F]{64}$/.test(hex)) throw new Error('QUILT_POSTER_KEY is 64 hex characters');
+    if (!KEY_HEX_RE.test(hex)) throw new Error(`${keyVar} is 64 hex characters`);
     Object.defineProperty(chain, 'key', { value: `0x${hex.toLowerCase()}` as Hex, enumerable: false, writable: false });
   }
-  const home = env.QUILT_COIN_HOME?.trim().replace(/\/+$/, '') || null;
+  const home = homeUrl(env.QUILT_COIN_HOME?.trim() ?? '') || null;
   return { chain, home };
 }

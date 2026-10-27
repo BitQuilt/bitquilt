@@ -1,23 +1,21 @@
-import { mkdtempSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { type Hash } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
 import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
-import { createMcpServer } from '../src/mcp.js';
-import { localRunner } from '../src/tools.js';
 import { Resolver } from '../src/resolver.js';
-import { type Pattern, Quilt } from '../src/worker.js';
+import { type Pattern, Quilt } from '../src/quilt.js';
+import { hex, instructs, json, mcpPair, quiltOver, startTracker, tempHome } from './helpers.js';
 
-const hex = (n: number) => '00'.repeat(31) + n.toString(16).padStart(2, '0');
+/**
+ * The whole of BitQuilt from the client's side, against one tracker: an owner publishes a pattern as a signed envelope
+ * with its blobs and announces it; another key opens it, is handed the rarest piece with the author's brief quoted,
+ * and hands a return back as a commit then a reveal, which a second vendor's return accepts; events written while no
+ * tracker answers wait in the queue and go out when one does; and the connector over MCP lists tools whose text
+ * describes, and answers with quoted text and handles.
+ */
 let server: Server;
 let base: string;
 let config: Config;
-const homes = { owner: mkdtempSync(join(tmpdir(), 'quilt-owner-')), a: mkdtempSync(join(tmpdir(), 'quilt-a-')), b: mkdtempSync(join(tmpdir(), 'quilt-b-')) };
 let owner: Quilt, a: Quilt, b: Quilt;
 let problem: Hash;
 
@@ -39,19 +37,17 @@ const pattern: Pattern = {
 };
 
 beforeAll(async () => {
-  const tracker = createTracker({ store: new Store(':memory:'), url: 'http://tracker.test/', ipSalt: 's' });
-  server = await tracker.listen(0);
-  const addr = server.address();
-  base = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}/` : '';
+  ({ server, base } = await startTracker());
   config = { ...DEFAULT_CONFIG, trackers: [base] };
-  createKey(homes.owner, { secretHex: hex(9) });
-  createKey(homes.a, { secretHex: hex(1) });
-  createKey(homes.b, { secretHex: hex(2) });
-  owner = new Quilt({ ...config, name: 'Maya' }, loadKey(homes.owner), new Resolver(config, homes.owner), 'Claude Code');
-  a = new Quilt(config, loadKey(homes.a), new Resolver(config, homes.a), 'Claude Code');
-  b = new Quilt({ ...config, model: 'openai/gpt-5' }, loadKey(homes.b), new Resolver(config, homes.b), 'ChatGPT');
+  const mk = quiltOver(base);
+  owner = quiltOver(base, { name: 'Maya' })(9);
+  a = mk(1);
+  b = mk(2, 'openai/gpt-5', 'ChatGPT');
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
+
+/** A piece's state as the tracker's layer shows it. */
+const trackerState = async (piece: string) => (await json<{ pieces: { hash: string; state: string }[] }>(`${base}p/${problem}/state`)).pieces.find((p) => p.hash === piece)!.state;
 
 describe('Quilt against a tracker', () => {
   it('publishes a pattern as a signed envelope with its blobs, announces it, and names it', async () => {
@@ -62,7 +58,7 @@ describe('Quilt against a tracker', () => {
     expect(r.link).toMatch(/^quilt:sha256:/);
     const found = await a.search('ai-safety');
     expect(found.map((p) => p.problem)).toEqual([problem]);
-    const named = await (await fetch(`${base}n/${owner.identity!.address}/report-2026`)).json();
+    const named = await json<{ hash: string }>(`${base}n/${owner.identity!.address}/report-2026`);
     expect(named.hash).toBe(problem);
   });
   it('opens the problem and says it as the owner\'s quoted words with the map', async () => {
@@ -75,12 +71,11 @@ describe('Quilt against a tracker', () => {
     expect(text).toContain('...\n3 open');
   });
   it('is handed the rarest piece with the author\'s brief quoted, and claims it', async () => {
-    const { pick, posted, author } = await a.next(problem);
+    const { pick, posted, owner: by } = await a.next(problem);
     expect(pick.piece.family).toBe('cite');
     expect(posted.queued).toBe(false);
-    expect(a.pieceText(problem, pick, author)).toContain('wrote this brief: "Citation');
-    const state = await (await fetch(`${base}p/${problem}/state`)).json();
-    expect(state.pieces.find((p: { hash: string }) => p.hash === pick.piece.hash).state).toBe('in_flight');
+    expect(a.pieceText(problem, pick, by)).toContain('wrote this brief: "Citation');
+    expect(await trackerState(pick.piece.hash)).toBe('in_flight');
   });
   it('hands a return back as a commit then a reveal, and a second vendor\'s return accepts the piece', async () => {
     const { state } = await a.open(problem);
@@ -88,13 +83,11 @@ describe('Quilt against a tracker', () => {
     const r = await a.return(problem, piece, { verdict: 'supports', quote: 'the model was found to' });
     expect(r.commit.queued).toBe(false);
     expect(r.reveal.queued).toBe(false);
-    let s = await (await fetch(`${base}p/${problem}/state`)).json();
-    expect(s.pieces.find((p: { hash: string }) => p.hash === piece).state).toBe('needs_verify');
+    expect(await trackerState(piece)).toBe('needs_verify');
     await expect(a.return(problem, piece, { verdict: 'supports', quote: 'see https://x.y/z' })).rejects.toThrow(/no links/);
     const r2 = await b.return(problem, piece, { verdict: 'supports', quote: 'a different twenty words' });
     expect(r2.reveal.queued).toBe(false);
-    s = await (await fetch(`${base}p/${problem}/state`)).json();
-    expect(s.pieces.find((p: { hash: string }) => p.hash === piece).state).toBe('accepted_provisional');
+    expect(await trackerState(piece)).toBe('accepted_provisional');
     const opened = await b.open(problem);
     expect(b.acceptedText(opened.state)).toContain(`cite/`);
     expect(b.acceptedText(opened.state)).toContain('returned: {"quote":"a different twenty words","verdict":"supports"}');
@@ -102,7 +95,7 @@ describe('Quilt against a tracker', () => {
   it('queues events while no tracker answers and posts them when one does', async () => {
     let up = false;
     const flaky: typeof fetch = (input, init) => (up ? fetch(input, init) : Promise.reject(new Error('down')));
-    const home = mkdtempSync(join(tmpdir(), 'quilt-q-'));
+    const home = tempHome('quilt-q-');
     createKey(home, { secretHex: hex(3) });
     const c = new Quilt({ ...config, model: 'google/gemini' }, loadKey(home), new Resolver(config, home, flaky), 'x');
     const { state } = await a.open(problem);
@@ -113,21 +106,16 @@ describe('Quilt against a tracker', () => {
     expect(c.resolver.queued()).toBe(2);
     up = true;
     expect(await c.resolver.flush()).toEqual({ sent: 2, left: 0 });
-    const s = await (await fetch(`${base}p/${problem}/state`)).json();
-    expect(s.pieces.find((p: { hash: string }) => p.hash === piece).state).toBe('needs_verify');
+    expect(await trackerState(piece)).toBe('needs_verify');
   });
 });
 
 describe('the connector over MCP', () => {
   it('lists tools whose text describes and never instructs, and answers with quoted text and handles', async () => {
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    const server = createMcpServer(localRunner(() => a));
-    await server.connect(serverTransport);
-    const client = new Client({ name: 'claude-test', version: '0.0.0' });
-    await client.connect(clientTransport);
+    const { client, close } = await mcpPair(a);
     const tools = await client.listTools();
     expect(tools.tools.map((t) => t.name).sort()).toEqual(['quilt_challenge', 'quilt_decline', 'quilt_me', 'quilt_name', 'quilt_next', 'quilt_open', 'quilt_pay', 'quilt_publish', 'quilt_rank', 'quilt_read', 'quilt_redeem', 'quilt_return', 'quilt_reveal_gold', 'quilt_search', 'quilt_seed', 'quilt_transfer', 'quilt_verdict']);
-    for (const t of tools.tools) expect(t.description ?? '').not.toMatch(/\b(you must|always|never|do not|important|ignore)\b/i);
+    for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
     const me = await client.callTool({ name: 'quilt_me', arguments: {} });
     expect((me.structuredContent as { text: string }).text).toContain(a.identity!.address);
     const opened = await client.callTool({ name: 'quilt_open', arguments: { link: problem } });
@@ -137,7 +125,6 @@ describe('the connector over MCP', () => {
     expect((opened.content as { text: string }[])[0]!.text).toBe(text);
     const read = await client.callTool({ name: 'quilt_read', arguments: { problem } });
     expect((read.structuredContent as { text: string }).text).toContain('Accepted so far:');
-    await client.close();
-    await server.close();
+    await close();
   });
 });

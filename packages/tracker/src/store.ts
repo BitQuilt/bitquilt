@@ -125,21 +125,9 @@ export class Store {
     return rows.map((r) => ({ event: JSON.parse(r.json) as Event, received: JSON.parse(r.received) as Received[], seq: r.seq, prev: r.prev, hash: r.hash }));
   }
 
-  /** Every receipt for a chain of problems, as the reducer wants them. */
-  receiptsForChain(chain: Envelope[], hashes: Hash[]): Receipt[] {
-    const out: Receipt[] = [];
-    for (const h of hashes) out.push(...this.receipts(h));
-    void chain;
-    return out;
-  }
-
+  /** The chain's last line: its seq, hash and time, or null for a chain with no line. */
   head(problem: Hash): { seq: number; hash: string; at: string } | null {
     return this.last(problem);
-  }
-
-  count(problem: Hash): number {
-    const row = this.db.prepare('select count(*) as n from receipts where problem = ?').get(problem) as { n: number };
-    return row.n;
   }
 
   putName(owner: string, slug: string, hash: Hash, at: string): void {
@@ -182,10 +170,6 @@ export class Store {
   getMember(tokenHash: string): { address: string; keyEnc: string; createdAt: string; name: string | null } | null {
     const row = this.db.prepare('select address, key_enc, created_at, name from members where token_hash = ?').get(tokenHash) as { address: string; key_enc: string; created_at: string; name: string | null } | undefined;
     return row ? { address: row.address, keyEnc: row.key_enc, createdAt: row.created_at, name: row.name } : null;
-  }
-
-  memberCount(): number {
-    return (this.db.prepare('select count(*) as n from members').get() as { n: number }).n;
   }
 
   /** A hold is spent once its key has revealed on, or declined, the piece. */

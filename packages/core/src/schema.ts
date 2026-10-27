@@ -4,6 +4,8 @@
  * booleans, enums and arrays of those, with lengths in Unicode scalar values and tolerances absolute, and no other
  * keyword, so that two clients cannot read one schema two ways.
  */
+import { isRecord, unknownKeys } from './plain.js';
+
 export type StringField = { type: 'string'; maxLength: number; minLength?: number; format?: 'date' };
 export type NumberField = { type: 'number' | 'integer'; tolerance?: number };
 export type BooleanField = { type: 'boolean' };
@@ -25,26 +27,19 @@ export function isArrayField(f: Field): f is ArrayField {
   return 'type' in f && f.type === 'array';
 }
 
-const SCHEMA_KEYS = new Set(['type', 'additionalProperties', 'required', 'properties']);
-const STRING_KEYS = new Set(['type', 'maxLength', 'minLength', 'format']);
-const NUMBER_KEYS = new Set(['type', 'tolerance']);
-const BOOLEAN_KEYS = new Set(['type']);
-const ENUM_KEYS = new Set(['enum']);
-const ARRAY_KEYS = new Set(['type', 'maxItems', 'items']);
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
-
-function extraKeys(o: Record<string, unknown>, allowed: Set<string>): string[] {
-  return Object.keys(o).filter((k) => !allowed.has(k));
-}
+/** The keywords each kind of field may carry, and nothing else. */
+const SCHEMA_KEYS: readonly string[] = ['type', 'additionalProperties', 'required', 'properties'];
+const STRING_KEYS: readonly string[] = ['type', 'maxLength', 'minLength', 'format'];
+const NUMBER_KEYS: readonly string[] = ['type', 'tolerance'];
+const BOOLEAN_KEYS: readonly string[] = ['type'];
+const ENUM_KEYS: readonly string[] = ['enum'];
+const ARRAY_KEYS: readonly string[] = ['type', 'maxItems', 'items'];
 
 /** Why a value is not a field of the subset, or nothing. */
 function fieldProblems(f: unknown, at: string, allowArray: boolean): string[] {
   if (!isRecord(f)) return [`${at}: not an object`];
   if ('enum' in f) {
-    const extra = extraKeys(f, ENUM_KEYS);
+    const extra = unknownKeys(f, ENUM_KEYS);
     if (extra.length) return [`${at}: enum fields take no ${extra.join(', ')}`];
     if (!Array.isArray(f.enum) || f.enum.length === 0 || !f.enum.every((x) => typeof x === 'string')) return [`${at}: enum is a non-empty list of strings`];
     if (new Set(f.enum).size !== f.enum.length) return [`${at}: enum repeats a value`];
@@ -52,7 +47,7 @@ function fieldProblems(f: unknown, at: string, allowArray: boolean): string[] {
   }
   switch (f.type) {
     case 'string': {
-      const extra = extraKeys(f, STRING_KEYS);
+      const extra = unknownKeys(f, STRING_KEYS);
       if (extra.length) return [`${at}: string fields take no ${extra.join(', ')}`];
       if (!Number.isInteger(f.maxLength) || (f.maxLength as number) < 1) return [`${at}: maxLength is a whole number from 1`];
       if (f.minLength !== undefined && (!Number.isInteger(f.minLength) || (f.minLength as number) < 0 || (f.minLength as number) > (f.maxLength as number))) return [`${at}: minLength is a whole number up to maxLength`];
@@ -61,18 +56,18 @@ function fieldProblems(f: unknown, at: string, allowArray: boolean): string[] {
     }
     case 'number':
     case 'integer': {
-      const extra = extraKeys(f, NUMBER_KEYS);
+      const extra = unknownKeys(f, NUMBER_KEYS);
       if (extra.length) return [`${at}: number fields take no ${extra.join(', ')}`];
       if (f.tolerance !== undefined && (typeof f.tolerance !== 'number' || !(f.tolerance >= 0) || !Number.isFinite(f.tolerance))) return [`${at}: tolerance is a finite number of at least 0`];
       return [];
     }
     case 'boolean': {
-      const extra = extraKeys(f, BOOLEAN_KEYS);
+      const extra = unknownKeys(f, BOOLEAN_KEYS);
       return extra.length ? [`${at}: boolean fields take no ${extra.join(', ')}`] : [];
     }
     case 'array': {
       if (!allowArray) return [`${at}: an array of arrays is outside the subset`];
-      const extra = extraKeys(f, ARRAY_KEYS);
+      const extra = unknownKeys(f, ARRAY_KEYS);
       if (extra.length) return [`${at}: array fields take no ${extra.join(', ')}`];
       if (!Number.isInteger(f.maxItems) || (f.maxItems as number) < 1) return [`${at}: maxItems is a whole number from 1`];
       return fieldProblems(f.items, `${at}.items`, false);
@@ -85,7 +80,7 @@ function fieldProblems(f: unknown, at: string, allowArray: boolean): string[] {
 /** Why this is not a schema of the subset, or nothing. */
 export function schemaProblems(s: unknown): string[] {
   if (!isRecord(s)) return ['schema: not an object'];
-  const extra = extraKeys(s, SCHEMA_KEYS);
+  const extra = unknownKeys(s, SCHEMA_KEYS);
   if (extra.length) return [`schema: takes no ${extra.join(', ')}`];
   const out: string[] = [];
   if (s.type !== 'object') out.push('schema: type is object');

@@ -1,8 +1,14 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { claudeDesktopConfigPath, installClaude, quiltEntry, withQuilt } from '../src/install.js';
+import { tempHome } from './helpers.js';
+
+/**
+ * `quilt install claude`: where Claude Desktop keeps its config on each platform, the entry this program writes there
+ * (the executable or the development command, the vendor Claude is, only the quilt variables that are set), what the
+ * write keeps of the file, and the refusal while Claude runs.
+ */
 
 describe('quilt install claude', () => {
   it('knows where Claude Desktop keeps its config on each platform', () => {
@@ -22,7 +28,7 @@ describe('quilt install claude', () => {
     expect(Object.keys(out.mcpServers as object)).toEqual(['other', 'quilt']);
   });
   it('refuses while Claude runs, and writes the merged file when it does not', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'quilt-install-'));
+    const dir = tempHome('quilt-install-');
     const file = join(dir, 'Claude', 'claude_desktop_config.json');
     const entry = { command: '/q', args: ['mcp'], env: { QUILT_HOME: '/h', QUILT_MODEL: 'anthropic/claude' } };
     expect(installClaude({ file, entry, claudeRunning: true, anyway: false }).written).toBe(false);

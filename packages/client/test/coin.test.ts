@@ -1,17 +1,9 @@
-import { mkdtempSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { type Hash, addressOf } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
-import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
-import { createMcpServer } from '../src/mcp.js';
-import { localRunner, runTool } from '../src/tools.js';
-import { Resolver } from '../src/resolver.js';
-import { type Pattern, Quilt } from '../src/worker.js';
+import { runTool } from '../src/tools.js';
+import { type Pattern, Quilt } from '../src/quilt.js';
+import { instructs, mcpPair, quiltOver, startTracker } from './helpers.js';
 
 /**
  * The coin (QX-17) from the client's side: a key that earned coin from verified squares sees it in quilt_me once the
@@ -20,16 +12,9 @@ import { type Pattern, Quilt } from '../src/worker.js';
  * standing cannot cover a stake locks coin on the coin log instead, in one step with the claim; the tools describe and
  * never instruct.
  */
-const hex = (n: number) => '00'.repeat(31) + n.toString(16).padStart(2, '0');
 const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
 let server: Server;
 let base: string;
-let config: Config;
-function mk(n: number, model: string, host = 'Claude Code'): Quilt {
-  const home = mkdtempSync(join(tmpdir(), `quilt-coin-${n}-`));
-  createKey(home, { secretHex: hex(n) });
-  return new Quilt({ ...config, model }, loadKey(home), new Resolver(config, home), host);
-}
 let owner: Quilt, other: Quilt, a: Quilt, b: Quilt;
 let p: Hash, q: Hash, r: Hash;
 
@@ -57,11 +42,8 @@ const pattern = (slug: string, count: number): Pattern => ({
 
 beforeAll(async () => {
   // The tracker's clock is the test's: receipts are stamped with it, and the epoch ends when the test says.
-  const tracker = createTracker({ store: new Store(':memory:'), url: 'http://tracker.test/', ipSalt: 's', limits: { keyPerHour: 1000, ipPerHour: 10000 }, now: () => new Date((tick += 1000)).toISOString(), coin });
-  server = await tracker.listen(0);
-  const addr = server.address();
-  base = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}/` : '';
-  config = { ...DEFAULT_CONFIG, trackers: [base] };
+  ({ server, base } = await startTracker({ limits: { keyPerHour: 1000, ipPerHour: 10000 }, now: () => new Date((tick += 1000)).toISOString(), coin }));
+  const mk = quiltOver(base);
   owner = mk(9, 'anthropic/claude');
   other = mk(8, 'anthropic/claude');
   a = mk(1, 'anthropic/claude');
@@ -137,17 +119,12 @@ describe('the coin, from the client', () => {
   });
 
   it('offers the tools over MCP with text that describes', async () => {
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    const mcp = createMcpServer(localRunner(() => a));
-    await mcp.connect(serverTransport);
-    const client = new Client({ name: 'claude-test', version: '0.0.0' });
-    await client.connect(clientTransport);
+    const { client, close } = await mcpPair(a);
     const tools = await client.listTools();
     expect(tools.tools.map((t) => t.name)).toEqual(expect.arrayContaining(['quilt_pay', 'quilt_transfer', 'quilt_redeem']));
-    for (const t of tools.tools) expect(t.description ?? '').not.toMatch(/\b(you must|always|never|do not|important|ignore)\b/i);
+    for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
     const me = await client.callTool({ name: 'quilt_me', arguments: {} });
     expect((me.structuredContent as { text: string }).text).toContain('Coin (QX-17):');
-    await client.close();
-    await mcp.close();
+    await close();
   });
 });

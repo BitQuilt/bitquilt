@@ -5,8 +5,11 @@
  * say) works through the one holding the page instead of signing and writing the library beside it. Other people's
  * words come out of here only as quoted text with the signer named.
  */
-import type { Address, Hash } from '@bitquilt/core';
-import { type Pattern, type Quilt, type Side, kindWords } from './worker.js';
+import type { Address, DeclineReason, Hash } from '@bitquilt/core';
+import type { Side } from './listings.js';
+import type { Pattern, Quilt } from './quilt.js';
+import { kindWords } from './render.js';
+import type { Posted } from './resolver.js';
 
 export interface ToolResult {
   text: string;
@@ -25,7 +28,7 @@ export function isToolName(s: string): s is ToolName {
   return (TOOL_NAMES as readonly string[]).includes(s);
 }
 
-const where = (x: { at: string | null; queued: boolean }) => (x.queued ? 'queued' : `posted to ${x.at}`);
+const where = (x: Posted) => (x.queued ? 'queued' : `posted to ${x.at}`);
 
 export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): Promise<ToolResult> {
   const str = (k: string): string => (typeof input[k] === 'string' ? (input[k] as string) : '');
@@ -54,9 +57,9 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       return { text, handles: { problems: found.map((p) => p.problem) } };
     }
     case 'quilt_next': {
-      const { hash: h, pick, posted, author, stake, lock } = await quilt.next(str('problem'));
+      const { hash: h, pick, posted, owner, stake, lock } = await quilt.next(str('problem'));
       const locked = lock === 'coin' ? `, after a lock of ${stake} backed by coin on the coin log` : lock === 'standing' ? `, after a lock of ${stake}` : '';
-      const text = `${quilt.pieceText(h, pick, author, stake)}\n${posted.queued ? 'The claim waits in the queue; no tracker answered.' : `The claim was posted to ${posted.at}${locked}.`}`;
+      const text = `${quilt.pieceText(h, pick, owner, stake)}\n${posted.queued ? 'The claim waits in the queue; no tracker answered.' : `The claim was posted to ${posted.at}${locked}.`}`;
       const k = kindWords(pick.piece.verifier);
       return { text, handles: { problem: h, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: k.kind, strength: k.strength, weakest: k.weakest, requires: pick.requires, lease_h: pick.lease_h, agree: pick.agree, schema: pick.schema ?? null, stake, lock } };
     }
@@ -65,7 +68,8 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       return { text: `Commit ${where(r.commit)}; reveal ${where(r.reveal)}. ${r.waits}`, handles: { problem: input.problem, piece: input.piece, commit: r.commit, reveal: r.reveal } };
     }
     case 'quilt_decline': {
-      const reason = str('reason') as 'cannot';
+      // One of the core's DECLINE_REASONS; `decline` refuses any other before it is signed.
+      const reason = str('reason') as DeclineReason;
       const r = await quilt.decline(hash('problem'), hash('piece'), reason);
       return { text: `Declined (${reason}); ${where(r)}.`, handles: { problem: input.problem, piece: input.piece } };
     }

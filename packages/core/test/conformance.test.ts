@@ -1,3 +1,7 @@
+/**
+ * CORE.md section 9: the fixtures are the conformance test, and this library passes its own. Each fixture under
+ * `fixtures/` is one test, named by its description; `pnpm conform` runs the same check as a script.
+ */
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';

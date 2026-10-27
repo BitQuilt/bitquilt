@@ -11,8 +11,5 @@ interface Vm {
     function expectRevert(bytes calldata revertData) external;
 }
 
-library Cheats {
-    function vm() internal pure returns (Vm) {
-        return Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-    }
-}
+// Forge's cheatcode address, where `Vm` answers: derived from the same string the reference client uses.
+address constant HEVM = address(uint160(uint256(keccak256("hevm cheat code"))));

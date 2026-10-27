@@ -10,7 +10,6 @@ the result encoded as UTF-8. Standard library only.
 """
 
 import math
-import unicodedata
 
 
 def canonical(value) -> str:
@@ -125,7 +124,3 @@ def _number(x: float) -> str:
     if k == 1:
         return sign + digits + "e" + es
     return sign + digits[0] + "." + digits[1:] + "e" + es
-
-
-def nfc(s: str) -> str:
-    return unicodedata.normalize("NFC", s)

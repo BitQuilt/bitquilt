@@ -19,7 +19,8 @@ describe('the example patterns and the gate', () => {
     it(`${f} passes the gate as written`, () => {
       const d = JSON.parse(readFileSync(join(dir, f), 'utf8')) as { title: string; done_when: string; pieces: Record<string, { brief: string }> };
       const bad: string[] = [];
-      for (const [where, text] of [['title', d.title], ['done_when', d.done_when], ...Object.entries(d.pieces).map(([n, p]) => [`pieces.${n}.brief`, p.brief] as [string, string])]) {
+      const texts: [string, string][] = [['title', d.title], ['done_when', d.done_when], ...Object.entries(d.pieces).map(([n, p]): [string, string] => [`pieces.${n}.brief`, p.brief])];
+      for (const [where, text] of texts) {
         const issues = textIssues(text);
         if (issues.length) bad.push(`${where}: ${issues.join(', ')}`);
       }

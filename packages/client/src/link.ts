@@ -2,7 +2,10 @@
  * The link (CORE.md section 8): `quilt:sha256:<hex>?dn=&tr=&mr=`, `quilt:<owner>/<slug>?tr=`, or a tracker's own
  * `https://<tracker>/p/sha256:<hex>`. A bare hash is a link with no hints.
  */
-import { type Hash, isAddress, isHash } from '@bitquilt/core';
+import { type Hash, isAddress, isHash, withSlash } from '@bitquilt/core';
+
+// The trailing slash a tracker's address carries is the core's rule; it stays reachable from here for what imports it from the link module.
+export { withSlash } from '@bitquilt/core';
 
 export interface Link {
   hash?: Hash;
@@ -41,10 +44,6 @@ export function parseLink(input: string): Link {
     if (n) return { owner: n[1]!, slug: n[2]!, trackers: [withSlash(u.origin + '/')], mirrors: [] };
   }
   throw new Error('not a quilt link');
-}
-
-export function withSlash(url: string): string {
-  return url.endsWith('/') ? url : `${url}/`;
 }
 
 /** A link for a problem, with the trackers it is known at. */

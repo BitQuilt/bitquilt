@@ -1,17 +1,21 @@
+/**
+ * CORE.md section 6, the reducer: a piece's state as the sets of its events grow and the window closes; the accepting
+ * sets for agree, check and score; delegates and rotations; what is dropped and why; an unknown verifier and what it
+ * locks; a return carried across versions by piece hash; the output when every piece is done.
+ */
 import { describe, expect, it } from 'vitest';
 import { type Envelope, problemHash } from '../src/envelope.js';
-import { type Event, type Receipt, type Unsigned, commitHash, newNonce, signEvent } from '../src/events.js';
+import { type Receipt, type Unsigned, commitHash, newNonce, signEvent } from '../src/events.js';
 import { type Hash, hashBytes } from '../src/hash.js';
-import { type Address, addressOf, signObject } from '../src/keys.js';
+import { signObject } from '../src/keys.js';
 import { reduce } from '../src/reduce.js';
+import { addr, byOf, clock, key } from './helpers.js';
 
-const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
 const owner = key(9);
 const A = key(1), B = key(2), C = key(3), D = key(4), E = key(5), F = key(6), G = key(7), H = key(8), B1 = key(10), A2 = key(11), Z = key(12);
-const addr = (k: Uint8Array): Address => addressOf(k);
 const T0 = Date.parse('2026-10-24T18:00:00Z');
-const t = (minutes: number): string => new Date(T0 + minutes * 60_000).toISOString();
-const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const, 'shell' as const] });
+const t = clock('2026-10-24T18:00:00Z');
+const by = (model: string) => byOf(model, ['web', 'shell']);
 
 const cites = new TextEncoder().encode(JSON.stringify([{ s: 'one' }, { s: 'two' }, { s: 'three' }]));
 const citesHash = hashBytes(cites);
@@ -92,7 +96,7 @@ describe('the reducer', () => {
     const two = handIn(B, cite3, t(3), { verdict: 'supports', quote: 'q2' }, 'openai/gpt');
     const decline = ev(B1, 'decline', t(5), { reason: 'cannot' }, cite3);
     const { s, of } = states([delegate, ...one, ...two, decline], t(7));
-    expect(of('cite3'.replace('cite3', 'cite/3'))).toBe('needs_verify');
+    expect(of('cite/3')).toBe('needs_verify');
     expect(s.dropped.map((d) => d.why)).toContain('the delegation does not cover this event');
     const stranger = handIn(C, cite3, t(6), { verdict: 'supports', quote: 'q3' }, 'openai/gpt');
     expect(states([delegate, ...one, ...two, ...stranger], t(9)).of('cite/3')).toBe('accepted_provisional');

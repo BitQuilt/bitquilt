@@ -1,27 +1,24 @@
-import { mkdtempSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
 import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
 import { createPage } from '../src/page.js';
 import { Resolver } from '../src/resolver.js';
-import { type Pattern, Quilt } from '../src/worker.js';
+import { type Pattern, Quilt } from '../src/quilt.js';
+import { baseOf, hex, quiltOver, startTracker, tempHome } from './helpers.js';
 
 /**
  * The page: what a person at http://localhost:3978/ does. They search, open a problem, take the rarest piece and hand
  * a return back as a person (the same key as their AI's, model `human`, capability `person`), and a piece an AI of
  * another vendor returned before them is accepted by their agreement.
  */
-const hex = (n: number) => '00'.repeat(31) + n.toString(16).padStart(2, '0');
 let tracker: Server;
 let page: Server;
 let base: string;
 let site: string;
 let config: Config;
-const homes = { owner: mkdtempSync(join(tmpdir(), 'quilt-owner-')), a: mkdtempSync(join(tmpdir(), 'quilt-a-')), b: mkdtempSync(join(tmpdir(), 'quilt-b-')) };
+/** The person's home, kept by name: the page's Quilt and the person's are built over it, and a later test opens it again. */
+const homeA = tempHome('quilt-a-');
 let owner: Quilt, b: Quilt;
 let problem: Hash;
 let verifying: Hash;
@@ -49,23 +46,18 @@ const api = async (path: string, init?: RequestInit) => {
 };
 
 beforeAll(async () => {
-  const t = createTracker({ store: new Store(':memory:'), url: 'http://tracker.test/', ipSalt: 's' });
-  tracker = await t.listen(0);
-  const addr = tracker.address();
-  base = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}/` : '';
+  ({ server: tracker, base } = await startTracker());
   config = { ...DEFAULT_CONFIG, trackers: [base] };
-  createKey(homes.owner, { secretHex: hex(9) });
-  createKey(homes.a, { secretHex: hex(1) });
-  createKey(homes.b, { secretHex: hex(2) });
-  owner = new Quilt(config, loadKey(homes.owner), new Resolver(config, homes.owner), 'Claude Code');
-  b = new Quilt({ ...config, model: 'openai/gpt-5' }, loadKey(homes.b), new Resolver(config, homes.b), 'ChatGPT');
+  const mk = quiltOver(base);
+  owner = mk(9);
+  b = mk(2, 'openai/gpt-5', 'ChatGPT');
   // As `quilt serve` builds it: the AI's Quilt and the person's share the key and the resolver.
-  const resolver = new Resolver(config, homes.a);
-  const quilt = new Quilt(config, loadKey(homes.a), resolver, 'Claude Code');
-  const person = new Quilt({ ...config, model: 'human', can: ['person', 'web', 'files'] }, loadKey(homes.a), resolver, 'human');
+  createKey(homeA, { secretHex: hex(1) });
+  const resolver = new Resolver(config, homeA);
+  const quilt = new Quilt(config, loadKey(homeA), resolver, 'Claude Code');
+  const person = Quilt.asPerson(config, loadKey(homeA), resolver);
   page = await createPage({ quilt, person, resolver }).listen(0);
-  const p = page.address();
-  site = typeof p === 'object' && p ? `http://127.0.0.1:${p.port}` : '';
+  site = baseOf(page).slice(0, -1);
   problem = (await owner.publish(pattern)).hash;
 });
 afterAll(async () => {
@@ -77,8 +69,8 @@ describe('the page', () => {
   it('refuses a port already taken as a rejection, so a second copy of quilt goes on without its page', async () => {
     const taken = page.address();
     const port = typeof taken === 'object' && taken ? taken.port : 0;
-    const resolver = new Resolver(config, homes.a);
-    const quilt = new Quilt(config, loadKey(homes.a), resolver, 'Claude Code');
+    const resolver = new Resolver(config, homeA);
+    const quilt = new Quilt(config, loadKey(homeA), resolver, 'Claude Code');
     await expect(createPage({ quilt, person: quilt, resolver }).listen(port)).rejects.toThrow(/EADDRINUSE/);
   });
   it('serves one self-contained document that loads nothing from elsewhere', async () => {
@@ -134,7 +126,7 @@ describe('the page', () => {
     expect(view.reveals.map((r) => r.by.model).sort()).toEqual(['human', 'openai/gpt-5']);
     const opened = await api(`/api/open?link=${problem}`);
     expect(opened.body.accepted).toContain('"verdict":"supports"');
-    expect(opened.body.accepted).toContain(loadKey(homes.a)!.address);
+    expect(opened.body.accepted).toContain(loadKey(homeA)!.address);
     // The next take is another piece: the accepted one is done, and a key is never handed a piece it has a reveal on.
     const again = await api(`/api/next?problem=${problem}`);
     expect(again.body.piece).not.toBe(verifying);

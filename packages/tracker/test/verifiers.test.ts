@@ -1,22 +1,19 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Server } from 'node:http';
-import { type Address, type Envelope, type Hash, type Receipt, type Unsigned, addressOf, commitHash, hashCanonical, newNonce, problemHash, reduce, signEvent, signObject } from '@bitquilt/core';
-import { Store } from '../src/store.js';
-import { createTracker } from '../src/tracker.js';
+import { type Address, type Envelope, type Hash, type Receipt, type Unsigned, commitHash, hashCanonical, newNonce, problemHash, reduce, signEvent, signObject } from '@bitquilt/core';
 import { challengeLayer } from '../src/challenge.js';
 import { describeKind, kindOf } from '../src/verifiers.js';
+import { SETTINGS as settings, addr, boot, key } from './helpers.js';
 
 /**
  * The three verifier kinds the core does not know (docs/ext/verifiers.md), as the tracker's layer decides them: an
  * `attest` piece accepted at once on the actor's own record, marked attested, and struck by a challenge; a `human`
  * piece accepted only when both reveals come from a person's seat; a `judge:3` piece whose candidates a panel of three
- * ranks, decided by two first choices. Beside each, the core's own word stays `unknown`.
+ * ranks, decided by two first choices. Beside each, the core's own word stays `unknown`. The envelopes here are signed
+ * by hand, since each names pieces of several kinds.
  */
-const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
 const owner = key(9), A = key(1), B = key(2), C = key(3), D = key(4), E = key(5);
 const judges = [key(11), key(12), key(13), key(14)];
 const persons = [key(21), key(22)];
-const addr = addressOf;
 const secretOf = new Map<Address, Uint8Array>([owner, A, B, C, D, E, ...judges, ...persons].map((k) => [addr(k), k]));
 const by = (model: string, can: ('web' | 'person')[] = ['web']) => ({ model, client: 'test/0', can });
 const verdictSchema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
@@ -27,7 +24,6 @@ function sign(problem: Envelope['problem']): Envelope {
   const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
   return { ...unsigned, sig: signObject(unsigned, owner) };
 }
-const settings = { challenge_window_h: 48, lease_h: 2, endgame_at: 1, budget: 100, patch_max: 10000 };
 /** Two agree pieces for the judges to earn credits on. */
 const Q = sign({ title: 'Statements elsewhere', done_when: 'Every statement has a verdict.', owner: addr(owner), slug: 'elsewhere', prev: null, from: null, settings, data: {}, pieces: {
   'statement/*': { count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema: verdictSchema, agree: ['verdict'] },
@@ -42,39 +38,12 @@ const P = sign({ title: 'Three kinds', done_when: 'Each piece is accepted by its
 const q = problemHash(Q);
 const p = problemHash(P);
 
-let server: Server;
-let base: string;
-const store = new Store(':memory:');
-let tick = Date.parse('2026-10-25T12:00:00Z');
 const CUSTODY = 'custody-test';
-const tracker = createTracker({ store, url: 'http://tracker.test/', now: () => new Date(tick).toISOString(), ipSalt: 's', limits: { keyPerHour: 1000, ipPerHour: 10000 }, custodySecret: CUSTODY });
+const t = boot('2026-10-25T12:00:00Z', { limits: { keyPerHour: 1000, ipPerHour: 10000 }, custodySecret: CUSTODY });
+const { tracker, ev, post, get, accepted, refused } = t;
+beforeAll(() => t.listen());
+afterAll(() => t.close());
 
-beforeAll(async () => {
-  server = await tracker.listen(0);
-  const a = server.address();
-  base = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}` : '';
-});
-afterAll(() => new Promise<void>((r) => server.close(() => r())));
-
-const post = (path: string, body: unknown, headers: Record<string, string> = {}) => fetch(base + path, { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json', ...headers } });
-const get = async (path: string) => (await fetch(base + path)).json();
-function ev(k: Uint8Array, type: string, body: Record<string, unknown>, problem?: Hash, piece?: Hash) {
-  tick += 1000;
-  const u: Unsigned = { quilt: 1, type, key: addr(k), ts: new Date(tick).toISOString(), body };
-  if (problem) u.problem = problem;
-  if (piece) u.piece = piece;
-  return signEvent(u, k);
-}
-async function refused(path: string, event: unknown, headers: Record<string, string> = {}): Promise<string> {
-  const r = await post(path, event, headers);
-  expect(r.status, await r.clone().text()).toBe(400);
-  return ((await r.json()) as { error: string }).error;
-}
-async function accepted(path: string, event: unknown, headers: Record<string, string> = {}): Promise<Hash> {
-  const r = await post(path, event, headers);
-  expect(r.status, await r.clone().text()).toBe(202);
-  return ((await r.json()) as { id: Hash }).id;
-}
 /** A commit and its reveal from one key. */
 async function returnOn(problem: Hash, piece: Hash, k: Uint8Array, model: string, ret: Record<string, unknown>, headers: Record<string, string> = {}): Promise<{ commit: Hash; reveal: Hash; digest: Hash }> {
   const nonce = newNonce();
@@ -106,7 +75,7 @@ describe('the verifier kinds in words', () => {
 
 describe('the verifier kinds at the tracker', () => {
   it('advertises the kinds, holds each piece open where the core says unknown, and keeps the dependent of an attest piece locked', async () => {
-    const w = await get('/.well-known/quilt');
+    const w = await get<{ verifiers: unknown; routes: string[] }>('/.well-known/quilt');
     expect(w.verifiers).toEqual({ human: 'QX-3', 'judge:n': 'QX-2', attest: 'QX-10', judge_seed: 'first-candidate-receipt' });
     expect(w.routes).toContain('/p/<hash>/panels');
     expect((await post('/p', { envelope: Q })).status).toBe(201);
@@ -218,7 +187,7 @@ describe('the verifier kinds at the tracker', () => {
     expect(await refused(`/p/${p}/events`, ev(secretOf.get(drawn[2]!)!, 'rank', { ranking: [a.digest, b.digest] }, p, summary))).toBe('the panel has decided');
     expect(tracker.layer().standing(addr(A))).toBe(2);
     expect(tracker.layer().standing(addr(B))).toBe(1);
-    const scrape = await get(`/p/${p}/scrape`);
+    const scrape = await get<{ panels: number; counts: Record<string, number> }>(`/p/${p}/scrape`);
     expect(scrape.panels).toBe(1);
     expect(scrape.counts).toMatchObject({ accepted_provisional: 2 });
   });

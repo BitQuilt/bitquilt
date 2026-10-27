@@ -4,14 +4,15 @@
  * posted, waits for the head to be final, takes the proof for the line, and calls `Quilt.redeem` through chain.ts
  * with the holder's key. The gas is the holder's, paid once; a line posted after the last head waits for the next.
  */
-import { type Address, type Chain, type Head, type Hex, headAt, isFinal, isRedeemed, lastPosted, redeem } from './chain.js';
-import { leaf, proof as proofOf } from './merkle.js';
+import { type Address, type Chain, type PostedHead, headAt, isFinal, isRedeemed, lastPosted, redeem } from './chain.js';
+import { type Hex, leaf, proof as proofOf } from './merkle.js';
 import { readRedeems, redeemRoot } from './post.js';
+import { HEX64_RE } from './shapes.js';
 
-/** The chain functions the claim uses; a test hands in its own. */
+/** The chain functions the claim calls; a test hands in its own. */
 export interface ClaimDoor {
   lastPosted(chain: Chain): Promise<number>;
-  headAt(chain: Chain, seq: number): Promise<Head>;
+  headAt(chain: Chain, seq: number): Promise<PostedHead>;
   isFinal(chain: Chain, seq: number): Promise<boolean>;
   isRedeemed(chain: Chain, id: Hex): Promise<boolean>;
   redeem(chain: Chain, line: { seq: number; id: Hex; to: Address; amount: bigint; proof: readonly Hex[] }): Promise<{ tx: Hex }>;
@@ -35,16 +36,14 @@ export interface ClaimReport {
   tx: Hex;
 }
 
-const HEX64 = /^[0-9a-f]{64}$/;
-
 /** One claim: the line under the last posted head, minted once the head is final. */
 export async function claim(options: ClaimOptions): Promise<ClaimReport> {
   const door: ClaimDoor = options.door ?? { lastPosted, headAt, isFinal, isRedeemed, redeem };
   const id = options.id.replace(/^0x/i, '').toLowerCase();
-  if (!HEX64.test(id)) throw new Error('the line id is 64 hex characters, the coin log line\'s hash');
+  if (!HEX64_RE.test(id)) throw new Error('the line id is 64 hex characters, the coin log line\'s hash');
   const last = await door.lastPosted(options.chain);
   if (last === 0) throw new Error('nothing is posted yet; the poster carries the line first');
-  const { head, redeems } = await readRedeems(options.home, options.fetchImpl, last);
+  const { head, redeems } = await readRedeems(options.home, { upto: last, agent: 'bitquilt-claim', fetchImpl: options.fetchImpl });
   if (head.seq !== last) throw new Error(`the home answers for sequence ${head.seq}, not the posted ${last}`);
   const line = redeems.find((r) => r.id === id);
   if (!line) throw new Error(`no redeem line ${id} under the posted head ${last}; a line after it waits for the next post`);

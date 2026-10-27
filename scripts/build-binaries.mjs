@@ -45,8 +45,13 @@ for (const t of targets) {
   if (existsSync(out)) rmSync(out);
   copyFileSync(process.execPath, out);
   chmodSync(out, 0o755);
+  // On macOS the copied binary carries Node's signature, which stops matching once the blob is in, and the system
+  // refuses to run a binary whose signature does not match: the signature comes off before the injection and an
+  // ad-hoc one goes on after it.
   if (process.platform === 'darwin') execFileSync('codesign', ['--remove-signature', out]);
   const postject = join(root, 'node_modules', 'postject', 'dist', 'cli.js');
+  // The sentinel fuse is the string Node's single-executable documentation gives: the binary looks for it in itself at
+  // start, and postject flips it as it puts the blob in, which is how the binary knows it carries one to run.
   const args = [postject, out, 'NODE_SEA_BLOB', blob, '--sentinel-fuse', 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2'];
   if (process.platform === 'darwin') args.push('--macho-segment-name', 'NODE_SEA');
   execFileSync(process.execPath, args, { stdio: 'inherit' });

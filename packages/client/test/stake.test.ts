@@ -1,17 +1,9 @@
-import { mkdtempSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { type Hash } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
-import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
-import { createMcpServer } from '../src/mcp.js';
-import { localRunner, runTool } from '../src/tools.js';
-import { Resolver } from '../src/resolver.js';
-import { type Pattern, Quilt } from '../src/worker.js';
+import { runTool } from '../src/tools.js';
+import { type Pattern, Quilt } from '../src/quilt.js';
+import { instructs, json, mcpPair, quiltOver, startTracker } from './helpers.js';
 
 /**
  * Stake at the door (QX-15) from the client's side: an owner publishes a pattern with a stake and the tracker shows it on
@@ -19,15 +11,8 @@ import { type Pattern, Quilt } from '../src/worker.js';
  * much standing, posted before the claim in one step; quilt_me says what is locked and what is free; the owner changes
  * the rule later and nobody else can; the tools describe and never instruct.
  */
-const hex = (n: number) => '00'.repeat(31) + n.toString(16).padStart(2, '0');
 let server: Server;
 let base: string;
-let config: Config;
-function mk(n: number, model: string, host = 'Claude Code'): Quilt {
-  const home = mkdtempSync(join(tmpdir(), `quilt-stake-${n}-`));
-  createKey(home, { secretHex: hex(n) });
-  return new Quilt({ ...config, model }, loadKey(home), new Resolver(config, home), host);
-}
 let owner: Quilt, a: Quilt, b: Quilt, fresh: Quilt;
 let p: Hash, q: Hash;
 
@@ -46,11 +31,8 @@ const pattern = (slug: string, count: number): Pattern => ({
 });
 
 beforeAll(async () => {
-  const tracker = createTracker({ store: new Store(':memory:'), url: 'http://tracker.test/', ipSalt: 's', limits: { keyPerHour: 1000, ipPerHour: 10000 } });
-  server = await tracker.listen(0);
-  const addr = server.address();
-  base = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}/` : '';
-  config = { ...DEFAULT_CONFIG, trackers: [base] };
+  ({ server, base } = await startTracker({ limits: { keyPerHour: 1000, ipPerHour: 10000 } }));
+  const mk = quiltOver(base);
   owner = mk(9, 'anthropic/claude');
   a = mk(1, 'anthropic/claude');
   b = mk(2, 'openai/gpt-5', 'ChatGPT');
@@ -59,7 +41,7 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
 type StateView = { stake_rule: { min: number; pieces: string[] | null } | null; pieces: { hash: Hash; stake: number }[] };
-const trackerState = async (problem: Hash) => (await (await fetch(`${base}p/${problem}/state`)).json()) as StateView;
+const trackerState = (problem: Hash) => json<StateView>(`${base}p/${problem}/state`);
 const typesBy = async (problem: Hash, address: string) => (await (await fetch(`${base}p/${problem}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as { event: { type: string; key: string } }).filter((l) => l.event.key === address).map((l) => l.event.type);
 
 describe('stake at the door, from the client', () => {
@@ -112,18 +94,13 @@ describe('stake at the door, from the client', () => {
     expect((await trackerState(p)).stake_rule).toEqual({ min: 0, pieces: null });
     await owner.stakeRule(p, 1, ['statement']);
     expect((await trackerState(p)).stake_rule).toEqual({ min: 1, pieces: ['statement'] });
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    const mcp = createMcpServer(localRunner(() => fresh));
-    await mcp.connect(serverTransport);
-    const client = new Client({ name: 'gemini-test', version: '0.0.0' });
-    await client.connect(clientTransport);
+    const { client, close } = await mcpPair(fresh, 'gemini-test');
     const tools = await client.listTools();
-    for (const t of tools.tools) expect(t.description ?? '').not.toMatch(/\b(you must|always|never|do not|important|ignore)\b/i);
+    for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
     const publish = tools.tools.find((t) => t.name === 'quilt_publish')!;
     expect(JSON.stringify(publish.inputSchema)).toContain('"stake"');
     const me = await client.callTool({ name: 'quilt_me', arguments: {} });
     expect((me.structuredContent as { text: string }).text).toContain('Standing: 1 (locked 0, free 1)');
-    await client.close();
-    await mcp.close();
+    await close();
   });
 });

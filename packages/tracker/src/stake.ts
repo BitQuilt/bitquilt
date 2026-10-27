@@ -2,10 +2,15 @@
  * Stake at the door, extension QX-15 (docs/ext/QX-15.md): the pure rules, with no HTTP in them. A problem's owner
  * may ask that work on its pieces be backed by a stake; a root backs its work by locking standing before it claims;
  * the lock is released when the work is over without a strike and forfeited with the set a held challenge strikes.
- * The lifecycle is folded in challenge.ts beside standing, since locked and free standing are functions of the whole
- * store and a strike there is a forfeit here; this module holds what each rule says.
+ * This module holds what each rule says (the bodies, the names a rule may use, what a piece asks, when a lock is
+ * released) and the lifecycle challengeLayer runs over the record it folds into: the rules kept in receipt order
+ * (section 1), whether a lock is live at a time (section 3), and whether a lock would be kept (section 1). Locked and
+ * free standing are read from that record (standing.ts), since they are functions of the whole store, and a strike
+ * (challenge.ts) is a forfeit here.
  */
-import type { Address, Hash, Piece, PieceView } from '@bitquilt/core';
+import { type Address, type Hash, type Piece, type PieceView, eventSignedByKey, isRecord, orderReceipts, plusHours } from '@bitquilt/core';
+import { leaseOf, ownerOf, rootFor } from './verifiers.js';
+import type { Folding, ProblemEntry } from './standing.js';
 
 export const STAKE = 'QX-15';
 export const STAKE_EVENTS: ReadonlySet<string> = new Set(['stake_rule', 'lock']);
@@ -16,6 +21,9 @@ export type LockKind = (typeof LOCK_KINDS)[number];
 
 /** A stake rule as the layer keeps it: the latest valid one at a time is the rule in force. */
 export interface StakeRule { id: Hash; root: Address; at: string; min: number; pieces: string[] | null }
+
+/** What the door wrote into a coin-kind lock's receipt (QX-17 section 5): the coin lock it read, and where. */
+export interface CoinLockWord { kind: 'coin'; amount: number; id: Hash; units: number; home: string }
 
 /**
  * A lock as the layer keeps it: of standing, or of coin on the coin log (QX-17) that the door vouched for. Its release
@@ -37,9 +45,6 @@ export interface LockView {
   forfeitedAt: string | null;
   restoredAt: string | null;
 }
-
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
-const plusHours = (t: string, h: number): string => new Date(Date.parse(t) + h * 3_600_000).toISOString();
 
 /** Why this is not a well-formed stake_rule body, or nothing. Whether the names exist is the layer's question. */
 export function stakeRuleBodyProblems(body: unknown): string[] {
@@ -107,4 +112,92 @@ export function lockReleasedAt(lock: LockView, view: PieceView, leaseH: number, 
   }
   const ranOut = claims.every((c) => c.until <= now);
   return ranOut ? claims.map((c) => c.until).sort().reverse()[0]! : null;
+}
+
+// The lifecycle over the layer's record, in the order challengeLayer runs it.
+
+/** Why a stake rule would not be kept at `at` (section 1): malformed, not the owner's, or naming a piece the problem does not have; null when it would. */
+export function ruleProblem(home: ProblemEntry, key: Address, body: Record<string, unknown>, at: string): string | null {
+  const shape = stakeRuleBodyProblems(body);
+  if (shape.length) return shape[0]!;
+  const root = rootFor(home.fold, key, 'stake_rule', at);
+  if (!root || root !== ownerOf(home.fold, at)) return 'the owner alone sets a stake rule';
+  const names = ruleNames(home.fold.pieces.map((v) => v.piece));
+  const pieces = body.pieces as string[] | undefined;
+  if (pieces && !pieces.every((n) => names.has(n))) return 'names a piece or family this problem does not have';
+  return null;
+}
+
+/** Keeps each problem's stake rules in receipt order (section 1), dropping the rest with the reason; the latest kept at a time is the rule in force. */
+export function keepStakeRules(f: Folding): void {
+  for (const e of f.entries.values()) for (const { receipt, at, id } of orderReceipts(e.input.receipts)) {
+    const ev = receipt.event;
+    if (ev.type !== 'stake_rule' || ev.problem !== e.hash) continue;
+    if (e.rules.some((r) => r.id === id)) continue;
+    if (!eventSignedByKey(ev)) {
+      e.dropped.push({ id, type: 'stake_rule', why: 'signature is not the key\'s' });
+      continue;
+    }
+    const why = ruleProblem(e, ev.key, ev.body, at);
+    if (why) {
+      e.dropped.push({ id, type: 'stake_rule', why });
+      continue;
+    }
+    e.rules.push({ id, root: ev.key, at, min: ev.body.min as number, pieces: (ev.body.pieces as string[] | undefined) ?? null });
+  }
+}
+
+/** The rule in force at a time: the latest kept at or before it, or null. */
+export function ruleAt(home: ProblemEntry, at: string): StakeRule | null {
+  let found: StakeRule | null = null;
+  for (const r of home.rules) if (r.at <= at) found = r;
+  return found;
+}
+
+/** When the fold releases a lock, read at `f.now`, or null while it would be live; a forfeit and its undoing are judged in `liveAt`. */
+export function lockEnd(f: Folding, l: LockView): string | null {
+  const home = f.entries.get(l.problem);
+  const view = home?.fold.byHash.get(l.piece);
+  if (!home || !view) return l.at;
+  return lockReleasedAt(l, view, leaseOf(home.fold, view), home.fold.related, f.now);
+}
+
+/** Whether a lock is live at `at` (section 3): received by then, not forfeited then unless restored since, and not yet released. */
+export function liveAt(f: Folding, l: LockView, at: string): boolean {
+  if (l.at > at) return false;
+  if (l.forfeitedAt !== null && at >= l.forfeitedAt && (l.restoredAt === null || at < l.restoredAt)) return false;
+  const end = lockEnd(f, l);
+  return end === null || end > at;
+}
+
+/** Whether the root holds a live lock on the piece at `at`. */
+export function hasLock(f: Folding, home: ProblemEntry, piece: Hash, root: Address, at: string): boolean {
+  return f.locks.some((l) => l.problem === home.hash && l.piece === piece && l.root === root && liveAt(f, l, at));
+}
+
+export type LockCheck = { ok: true; root: Address; view: PieceView } | { ok: false; why: string };
+
+/**
+ * Whether a lock would be kept if received at `at`, by section 1, and why not. A coin-kind lock is kept on the door's
+ * word in its receipt (QX-17 section 5), and its coin is checked there, not here.
+ */
+export function checkLock(f: Folding, home: ProblemEntry, piece: Hash, key: Address, body: Record<string, unknown>, at: string, word: CoinLockWord | null): LockCheck {
+  const view = home.fold.byHash.get(piece);
+  if (!view) return { ok: false, why: 'names a piece this problem does not have' };
+  const shape = lockBodyProblems(body);
+  if (shape.length) return { ok: false, why: shape[0]! };
+  const coin = body.kind === 'coin';
+  if (coin && (!word || word.kind !== 'coin' || word.id !== body.id)) return { ok: false, why: 'this tracker honours no coin lock' };
+  const root = rootFor(home.fold, key, 'lock', at);
+  if (!root) return { ok: false, why: 'the key may not sign a lock' };
+  const asked = stakeAsked(ruleAt(home, at), view.piece);
+  if (asked === 0) return { ok: false, why: 'this piece asks no stake' };
+  const amount = body.amount as number;
+  if (amount < asked) return { ok: false, why: `this piece asks for a stake of ${asked}` };
+  if (hasLock(f, home, piece, root, at)) return { ok: false, why: 'a lock already stands on this piece' };
+  if (!coin) {
+    const free = f.free(root, at);
+    if (free < amount) return { ok: false, why: `free standing ${free} is below the lock of ${amount}` };
+  }
+  return { ok: true, root, view };
 }

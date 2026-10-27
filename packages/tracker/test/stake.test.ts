@@ -1,8 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Server } from 'node:http';
-import { type Address, type Envelope, type Hash, type Unsigned, addressOf, commitHash, newNonce, problemHash, signEvent, signObject } from '@bitquilt/core';
-import { Store } from '../src/store.js';
-import { createTracker } from '../src/tracker.js';
+import { type Address, type Envelope, type Hash, commitHash, newNonce, problemHash } from '@bitquilt/core';
+import { addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * Stake at the door (QX-15), standing only: the owner sets the rule and nobody else; a claim, a commit, a reveal or a
@@ -11,10 +9,8 @@ import { createTracker } from '../src/tracker.js';
  * released when the window closes or when nothing was produced in the lease, and forfeited with the set a held
  * challenge strikes; the offers leave out what a key cannot cover; a coin lock is refused by a tracker with no coin.
  */
-const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
 const owner = key(9), A = key(1), B = key(2), C = key(3), D = key(4), E = key(5), F = key(6);
 const judges = [key(11), key(12), key(13), key(14)];
-const addr = addressOf;
 const secretOf = new Map<Address, Uint8Array>([owner, A, B, C, D, E, F, ...judges].map((k) => [addr(k), k]));
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
 const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } };
@@ -22,48 +18,15 @@ const schema = { type: 'object' as const, additionalProperties: false as const, 
 function envelope(slug: string, count: number, seat = false): Envelope {
   const pieces: Envelope['problem']['pieces'] = { 'statement/*': { count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } };
   if (seat) pieces['seat/*'] = { count: 1, verifier: 'agree', requires: [], brief: 'A second reading of statement {n}.', schema, agree: ['verdict'] };
-  const problem: Envelope['problem'] = {
-    title: `Statements (${slug})`, done_when: 'Every statement has a verdict.', owner: addr(owner), slug, prev: null, from: null,
-    settings: { challenge_window_h: 48, lease_h: 2, endgame_at: 1, budget: 100, patch_max: 10000 },
-    pieces, data: {},
-  };
-  const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
-  return { ...unsigned, sig: signObject(unsigned, owner) };
+  return signed(owner, slug, pieces);
 }
 
-let server: Server;
-let base: string;
-const store = new Store(':memory:');
-let tick = Date.parse('2026-10-26T09:00:00Z');
 const HOUR = 3_600_000;
-const tracker = createTracker({ store, url: 'http://tracker.test/', now: () => new Date(tick).toISOString(), ipSalt: 's', limits: { keyPerHour: 1000, ipPerHour: 10000 } });
+const t = boot('2026-10-26T09:00:00Z', { limits: { keyPerHour: 1000, ipPerHour: 10000 } });
+const { clock, ev, post, get, accepted, refused } = t;
+beforeAll(() => t.listen());
+afterAll(() => t.close());
 
-beforeAll(async () => {
-  server = await tracker.listen(0);
-  const a = server.address();
-  base = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}` : '';
-});
-afterAll(() => new Promise<void>((r) => server.close(() => r())));
-
-const post = (path: string, body: unknown) => fetch(base + path, { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json' } });
-const get = async (path: string) => (await fetch(base + path)).json();
-function ev(k: Uint8Array, type: string, body: Record<string, unknown>, problem?: Hash, piece?: Hash) {
-  tick += 1000;
-  const u: Unsigned = { quilt: 1, type, key: addr(k), ts: new Date(tick).toISOString(), body };
-  if (problem) u.problem = problem;
-  if (piece) u.piece = piece;
-  return signEvent(u, k);
-}
-async function refused(path: string, event: unknown): Promise<string> {
-  const r = await post(path, event);
-  expect(r.status, await r.clone().text()).toBe(400);
-  return ((await r.json()) as { error: string }).error;
-}
-async function accepted(path: string, event: unknown): Promise<Hash> {
-  const r = await post(path, event);
-  expect(r.status, await r.clone().text()).toBe(202);
-  return ((await r.json()) as { id: Hash }).id;
-}
 /** A commit and its reveal from one key. */
 async function returnOn(problem: Hash, piece: Hash, k: Uint8Array, model: string, verdict = 'supports') {
   const ret = { verdict };
@@ -89,7 +52,7 @@ let q1: Hash, q2: Hash, q3: Hash, q4: Hash;
 
 describe('stake at the door', () => {
   it('advertises the extension, takes a rule from the owner alone, and shows the stake on every piece', async () => {
-    const w = await get('/.well-known/quilt');
+    const w = await get<{ stake: unknown; routes: string[] }>('/.well-known/quilt');
     expect(w.stake).toEqual({ extension: 'QX-15', coin: null });
     expect(w.routes).toContain('/k/<address>/standing');
     expect((await post('/p', { envelope: P })).status).toBe(201);
@@ -145,7 +108,7 @@ describe('stake at the door', () => {
     expect(await refused(`/p/${p}/events`, lock(A, p, p2, 2))).toBe('free standing 0 is below the lock of 2');
     await accepted(`/p/${p}/events`, claim(A, p, p1, 'anthropic/claude'));
     await returnOn(p, p1, A, 'anthropic/claude');
-    const lines = (await (await fetch(`${base}/p/${p}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as { event: { type: string; key: string } });
+    const lines = (await (await fetch(`${t.base}/p/${p}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as { event: { type: string; key: string } });
     const types = lines.filter((l) => l.event.key === addr(A)).map((l) => l.event.type);
     expect(types).toEqual(['lock', 'claim', 'commit', 'reveal']);
     expect(lockId).toMatch(/^sha256:/);
@@ -165,10 +128,10 @@ describe('stake at the door', () => {
   it('releases a lock when the window closes, and a lock that backed no production when the lease passes', async () => {
     await accepted(`/p/${p}/events`, lock(D, p, p2, 2));
     expect(await standingOf(D)).toMatchObject({ standing: 2, locked: 2, free: 0 });
-    tick += 2 * HOUR + 1000;
+    clock.tick += 2 * HOUR + 1000;
     expect(await standingOf(D)).toMatchObject({ standing: 2, locked: 0, free: 2 });
     expect(await refused(`/p/${p}/events`, claim(D, p, p2, 'anthropic/claude'))).toBe('this piece asks for a stake of 2; lock first');
-    tick += 47 * HOUR;
+    clock.tick += 47 * HOUR;
     expect((await stateOf(p)).pieces.find((x) => x.hash === p1)!.state).toBe('accepted');
     expect(await standingOf(A)).toMatchObject({ standing: 3, locked: 0, free: 3 });
     expect(await standingOf(B)).toMatchObject({ standing: 3, locked: 0, free: 3 });

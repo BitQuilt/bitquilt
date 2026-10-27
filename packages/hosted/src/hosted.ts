@@ -11,9 +11,10 @@ import { join } from 'node:path';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
-import { type Address, addressOf, randomSecretKey, secretFromHex, secretToHex } from '@bitquilt/core';
+import { type Address, addressOf, randomSecretKey, secretFromHex, secretToHex, withSlash } from '@bitquilt/core';
 import type { Store } from '@bitquilt/tracker';
 import { type Config, DEFAULT_CONFIG, Quilt, Resolver, createMcpServer, localRunner } from 'quilt';
+import { JOIN_PAGE } from './join-page.js';
 
 export interface HostedOptions {
   store: Store;
@@ -25,7 +26,7 @@ export interface HostedOptions {
   home: string;
   /** The secret the tracker recognises as its own connector's, so it marks custody. */
   custodySecret: string;
-  /** How many addresses an address may be handed out to per hour, per network address. */
+  /** How many addresses one network address may be handed in an hour (20). */
   joinsPerHour?: number;
   now?: () => string;
   fetchImpl?: typeof fetch;
@@ -69,22 +70,9 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
   return text ? JSON.parse(text) : undefined;
 }
 
-const JOIN_PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>An address on this tracker</title>
-<style>body{margin:0;font:17px/1.5 system-ui,sans-serif;background:#eef0f3;color:#17213a}main{max-width:620px;margin:0 auto;padding:40px 16px}button{font:inherit;padding:10px 18px;border-radius:6px;border:1.5px solid #2b3f7a;background:#2b3f7a;color:#fff;cursor:pointer}code{font-family:ui-monospace,Menlo,monospace;overflow-wrap:anywhere}pre{background:#e3e6eb;padding:12px;border-radius:6px;white-space:pre-wrap;word-break:break-all}.q{color:#4a546b}</style></head>
-<body><main><h1>An address on this tracker</h1>
-<p>For a person who cannot run Quilt. This tracker makes a key, keeps it encrypted, and signs for you until you take the key home. Every event it writes for you says so.</p>
-<p><button id="go">Make me an address</button></p>
-<div id="out" hidden><p>Your address, to paste into your AI's connectors:</p><pre id="url"></pre><p>Your key's public address: <code id="addr"></code></p><p class="q">The address above is the key to your key. Anyone who has it can act as you here. To take the key home, open the address with <code>/key</code> after it, once, and import the secret into Quilt.</p></div>
-<p id="err" class="q" hidden></p>
-<script>document.getElementById('go').addEventListener('click',function(){fetch('/join',{method:'POST'}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||r.status);return j;});}).then(function(j){document.getElementById('url').textContent=j.url;document.getElementById('addr').textContent=j.address;document.getElementById('out').hidden=false;}).catch(function(e){var p=document.getElementById('err');p.textContent=e.message;p.hidden=false;});});</script>
-</main></body></html>`;
-
 export function createHosted(options: HostedOptions): Hosted {
   const { store, keySecret, custodySecret } = options;
-  const trackerUrl = (): string => {
-    const u = typeof options.trackerUrl === 'function' ? options.trackerUrl() : options.trackerUrl;
-    return u.endsWith('/') ? u : `${u}/`;
-  };
+  const trackerUrl = (): string => withSlash(typeof options.trackerUrl === 'function' ? options.trackerUrl() : options.trackerUrl);
   const now = options.now ?? (() => new Date().toISOString());
   const joinsPerHour = options.joinsPerHour ?? 20;
   mkdirSync(options.home, { recursive: true });
@@ -145,24 +133,34 @@ export function createHosted(options: HostedOptions): Hosted {
       json(res, 400, { error: 'no session with that id; begin with an initialize request' });
       return;
     }
-    let transport: StreamableHTTPServerTransport;
-    let server: McpServer;
-    transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-      onsessioninitialized: (id: string) => {
-        sessions.set(id, { transport, server, token, last: Date.now() });
-      },
-    });
-    server = createMcpServer(localRunner((hostName) => {
+    const server: McpServer = createMcpServer(localRunner((hostName) => {
       const q = quiltFor(token, hostName);
       if (!q) throw new Error('this address is gone');
       return q;
     }));
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => randomUUID(),
+      // the callback runs inside handleRequest, after both exist
+      onsessioninitialized: (id: string) => {
+        sessions.set(id, { transport, server, token, last: Date.now() });
+      },
+    });
     transport.onclose = () => {
       if (transport.sessionId) sessions.delete(transport.sessionId);
     };
     await server.connect(transport);
     await transport.handleRequest(req, res, body);
+  }
+
+  /**
+   * The rate-limit bucket a join from this network address counts in. The address is hashed with the custody secret,
+   * which only this process knows and which changes at each start, so a bucket in the store is not read back to an
+   * address and the tracker's own buckets, salted differently, say nothing about it either.
+   */
+  function bucketFor(req: IncomingMessage): string {
+    const fwd = req.headers['x-forwarded-for'];
+    const ip = (Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0]) ?? req.socket.remoteAddress ?? 'unknown';
+    return `join:${createHash('sha256').update(custodySecret + ip.trim()).digest('hex').slice(0, 16)}`;
   }
 
   async function routes(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
@@ -175,10 +173,7 @@ export function createHosted(options: HostedOptions): Hosted {
         return true;
       }
       if (method === 'POST') {
-        const fwd = req.headers['x-forwarded-for'];
-        const ip = (Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0]) ?? req.socket.remoteAddress ?? 'unknown';
-        const bucket = `join:${createHash('sha256').update(custodySecret + ip.trim()).digest('hex').slice(0, 16)}`;
-        if (store.hit(bucket, now().slice(0, 13), joinsPerHour)) {
+        if (store.hit(bucketFor(req), now().slice(0, 13), joinsPerHour)) {
           json(res, 429, { error: 'over the hour\'s limit for new addresses from here' });
           return true;
         }

@@ -1,19 +1,15 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { type Hash, hashCanonical } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
+import { type Hash, type Schema, hashCanonical } from '@bitquilt/core';
 import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
-import { createMcpServer } from '../src/mcp.js';
-import { localRunner } from '../src/tools.js';
 import { createPage } from '../src/page.js';
 import { Resolver } from '../src/resolver.js';
-import { type Pattern, Quilt, kindWords, waitsText } from '../src/worker.js';
+import { type Pattern, Quilt } from '../src/quilt.js';
+import { kindWords, waitsText } from '../src/render.js';
+import { baseOf, hex, instructs, json, mcpPair, quiltOver, startTracker, tempHome } from './helpers.js';
 
 /**
  * The three verifier kinds from the client's side (docs/ext/verifiers.md): a person's AI is handed an attest piece of
@@ -22,7 +18,6 @@ import { type Pattern, Quilt, kindWords, waitsText } from '../src/worker.js';
  * through the page's form where they are a seated judge, and the majority's first choice is accepted; `read` says it
  * all as quoted text with the kinds and their strengths, and every tool describes.
  */
-const hex = (n: number) => '00'.repeat(31) + n.toString(16).padStart(2, '0');
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 let server: Server;
 let page: Server;
@@ -32,36 +27,28 @@ let config: Config;
 let owner: Quilt, a: Quilt, b: Quilt, c: Quilt, j11: Quilt, j12: Quilt, j13: Quilt;
 let tell: Hash, judged: Hash, elsewhere: Hash;
 
-function mk(n: number, model: string, host = 'Claude Code'): Quilt {
-  const home = mkdtempSync(join(tmpdir(), `quilt-${n}-`));
-  createKey(home, { secretHex: hex(n) });
-  return new Quilt({ ...config, model }, loadKey(home), new Resolver(config, home), host);
-}
 const verdictSchema = { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string', maxLength: 160 } } } as const;
 const agreePattern: Pattern = {
   title: 'Statements elsewhere', done_when: 'Every statement has a verdict.', slug: 'elsewhere', settings: { endgame_at: 1 },
-  pieces: { 'statement/*': { count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema: verdictSchema as unknown as Pattern['pieces'][string]['schema'], agree: ['verdict'] } },
+  pieces: { 'statement/*': { count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema: verdictSchema as unknown as Schema, agree: ['verdict'] } },
 };
 const judgePattern: Pattern = {
   title: 'One sentence for the front page', done_when: 'A panel has picked the sentence.', slug: 'one-sentence', settings: { endgame_at: 1 },
-  pieces: { sentence: { verifier: 'judge:3', candidates: 2, requires: ['web'], brief: 'Say what BitQuilt is in one sentence.', schema: { type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string', maxLength: 200 } } } as unknown as Pattern['pieces'][string]['schema'] } },
+  pieces: { sentence: { verifier: 'judge:3', candidates: 2, requires: ['web'], brief: 'Say what BitQuilt is in one sentence.', schema: { type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string', maxLength: 200 } } } as unknown as Schema } },
 };
 const trackerState = async (problem: Hash, piece: Hash) => {
-  const s = (await (await fetch(`${base}p/${problem}/state`)).json()) as { pieces: { hash: Hash; state: string; core: string; attested: boolean; strength: string | null }[] };
+  const s = await json<{ pieces: { hash: Hash; state: string; core: string; attested: boolean; strength: string | null }[] }>(`${base}p/${problem}/state`);
   return s.pieces.find((x) => x.hash === piece)!;
 };
 const api = async (path: string, init?: RequestInit) => {
   const r = await fetch(`${site}${path}`, init);
   return { status: r.status, body: (await r.json()) as Record<string, unknown> };
 };
-const instructs = /\b(you must|always|never|do not|important|ignore)\b/i;
 
 beforeAll(async () => {
-  const tracker = createTracker({ store: new Store(':memory:'), url: 'http://tracker.test/', ipSalt: 's', limits: { keyPerHour: 1000, ipPerHour: 10000 } });
-  server = await tracker.listen(0);
-  const addr = server.address();
-  base = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}/` : '';
+  ({ server, base } = await startTracker({ limits: { keyPerHour: 1000, ipPerHour: 10000 } }));
   config = { ...DEFAULT_CONFIG, trackers: [base] };
+  const mk = quiltOver(base);
   owner = mk(9, 'anthropic/claude');
   a = mk(1, 'anthropic/claude');
   b = mk(2, 'openai/gpt-5', 'ChatGPT');
@@ -69,14 +56,13 @@ beforeAll(async () => {
   j12 = mk(12, 'openai/gpt-5', 'ChatGPT');
   j13 = mk(13, 'google/gemini', 'Gemini');
   // Judge 11 is the person at the page: their AI's Quilt and their own share the key and the resolver, as quilt serve builds it.
-  const home = mkdtempSync(join(tmpdir(), 'quilt-11-'));
+  const home = tempHome('quilt-11-');
   createKey(home, { secretHex: hex(11) });
   const resolver = new Resolver(config, home);
   j11 = new Quilt(config, loadKey(home), resolver, 'Claude Code');
-  const person = new Quilt({ ...config, model: 'human', can: ['person', 'web', 'files'] }, loadKey(home), resolver, 'human');
+  const person = Quilt.asPerson(config, loadKey(home), resolver);
   page = await createPage({ quilt: j11, person, resolver }).listen(0);
-  const p = page.address();
-  site = typeof p === 'object' && p ? `http://127.0.0.1:${p.port}` : '';
+  site = baseOf(page).slice(0, -1);
   // The three judges earn their credits on a problem of the core's kind first.
   elsewhere = (await owner.publish(agreePattern)).hash;
   const [s1, s2] = (await a.open(elsewhere)).state.pieces.map((v) => v.piece.hash) as [Hash, Hash];
@@ -109,12 +95,12 @@ describe('an attest piece of the promotion pattern', () => {
     const published = await owner.publish(pattern);
     expect(published.refused).toEqual([]);
     tell = published.hash;
-    const { hash, pick, posted, author } = await a.next(tell);
+    const { hash, pick, posted, owner: by } = await a.next(tell);
     expect(hash).toBe(tell);
     expect(pick.piece.verifier).toBe('attest');
     expect(pick.brief).toMatch(/^Telling \d+ of twenty\./);
     expect(posted.queued).toBe(false);
-    const text = a.pieceText(hash, pick, author);
+    const text = a.pieceText(hash, pick, by);
     expect(text).toContain('verifier attest');
     expect(text).toContain('A square of this kind is attested: the actor\'s own signed record is accepted at once and may be challenged for the window; the weakest kind.');
     expect(text).toContain(`The author, ${owner.identity!.address}, wrote this brief: "Telling`);
@@ -155,7 +141,7 @@ describe('a judge piece', () => {
     const pa = await a.next(judged);
     piece = pa.pick.piece.hash;
     expect(pa.pick.piece.verifier).toBe('judge:3');
-    expect(a.pieceText(judged, pa.pick, pa.author)).toContain('A square of this kind is judged: a panel of 3 drawn by sortition ranks the candidates');
+    expect(a.pieceText(judged, pa.pick, pa.owner)).toContain('A square of this kind is judged: a panel of 3 drawn by sortition ranks the candidates');
     const ra = { text: 'A torrent where the pieces are made, not copied.' };
     const rb = { text: 'Problems published as patterns of pieces, each return signed.' };
     first = hashCanonical(ra);
@@ -183,11 +169,7 @@ describe('a judge piece', () => {
   });
 
   it('takes one rank through the connector and one through the page\'s form where the person is a seated judge, and accepts the majority\'s first choice', async () => {
-    const [ct, st] = InMemoryTransport.createLinkedPair();
-    const mcp = createMcpServer(localRunner(() => j12));
-    await mcp.connect(st);
-    const client = new Client({ name: 'judge-test', version: '0.0.0' });
-    await client.connect(ct);
+    const { client, close } = await mcpPair(j12, 'judge-test');
     const tools = await client.listTools();
     expect(tools.tools.map((t) => t.name)).toContain('quilt_rank');
     for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
@@ -203,8 +185,7 @@ describe('a judge piece', () => {
     expect((ranked.structuredContent as { handles: { rank: string } }).handles.rank).toMatch(/^sha256:/);
     const again = await client.callTool({ name: 'quilt_rank', arguments: { problem: judged, piece, ranking: [second, first] } });
     expect(again.isError).toBe(true);
-    await client.close();
-    await mcp.close();
+    await close();
     // The page: the person at it is drawn, so the problem view carries the panel with its candidates, and the form posts the ranking.
     const opened = await api(`/api/open?link=${judged}`);
     const judging = opened.body.judging as { piece: Hash; name: string; candidates: { digest: Hash; return: Record<string, unknown> }[] }[];
@@ -233,18 +214,13 @@ describe('a judge piece', () => {
   });
 
   it('hands the kind and its strength to the AI as handles beside the text', async () => {
-    const [ct, st] = InMemoryTransport.createLinkedPair();
-    const mcp = createMcpServer(localRunner(() => c));
-    await mcp.connect(st);
-    const client = new Client({ name: 'gemini-test', version: '0.0.0' });
-    await client.connect(ct);
+    const { client, close } = await mcpPair(c, 'gemini-test');
     const next = await client.callTool({ name: 'quilt_next', arguments: { problem: tell } });
     const handles = (next.structuredContent as { handles: { verifier: string; kind: string; strength: string; weakest: boolean; piece: Hash } }).handles;
     expect(handles).toMatchObject({ verifier: 'attest', kind: 'attest', strength: 'attested', weakest: true });
     expect((next.structuredContent as { text: string }).text).toContain('A square of this kind is attested');
     const returned = await client.callTool({ name: 'quilt_return', arguments: { problem: tell, piece: handles.piece, return: { who: 'a maintainer of a tracker', how: 'conversation', when: '2026-10-25', said: 'That the pieces are made, not copied.' } } });
     expect((returned.structuredContent as { text: string }).text).toContain('accepted at once as the actor\'s own word');
-    await client.close();
-    await mcp.close();
+    await close();
   });
 });

@@ -1,8 +1,9 @@
 /**
- * Chained ledger lines, extension QX-11: every line a resolver keeps carries `seq`, `prev` and `hash`, in the recipe of
- * the rally's public log, with one change: the first line's `prev` is the problem's hash in hex, so a chain belongs to
- * one problem. A change to any line changes its hash, so the `prev` of the next, so the head. The reducer ignores these
- * three fields; a client that reads a file verifies them.
+ * Chained ledger lines, extension QX-11: every line a resolver keeps carries `seq`, `prev` and `hash`. A line's hash is
+ * sha256 over seq, a newline, prev, a newline, and the canonical JSON of the wrapper without the chain fields; the
+ * first line's `prev` is the problem's hash in hex, so a chain belongs to one problem. A change to any line changes its
+ * hash, so the `prev` of the next, so the head. The reducer ignores these three fields; a client that reads a file
+ * verifies them.
  */
 import { canonical } from './canonical.js';
 import { type Hash, hashHex, sha256Hex } from './hash.js';
@@ -14,12 +15,12 @@ export function lineHash(seq: number, prev: string, r: Pick<Receipt, 'event' | '
   return sha256Hex(new TextEncoder().encode(`${seq}\n${prev}\n${body}`));
 }
 
-/** The head as the rally's room says it: the first sixteen hex characters as two groups of eight joined by a colon. */
+/** The short form of a head: its first sixteen hex characters as two groups of eight joined by a colon. */
 export function shortHead(hash: string): string {
   return `${hash.slice(0, 8)}:${hash.slice(8, 16)}`;
 }
 
-/** The receipts with their chain fields filled, from `genesis` (the problem's hash) on. */
+/** The receipts with their chain fields filled, from `problem`'s hash on. */
 export function chainLines(receipts: Receipt[], problem: Hash): Receipt[] {
   let prev = hashHex(problem);
   return receipts.map((r, i) => {

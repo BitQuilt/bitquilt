@@ -6,10 +6,10 @@
  * the verified squares by weight, vesting with time, locked at a door, escrowed to a problem and paid per square,
  * burned for standing. Everything here is a function of receipts anyone can hold; the tracker orders and decides nothing.
  */
-import { type Address, type Event, type Hash, type Receipt, eventId, hashText, isAddress, isHash } from '@bitquilt/core';
-import { type Admission, type Layer, type ProblemLayer, creditedRoots } from './challenge.js';
-import type { LockView } from './stake.js';
-import { viaOf } from './verifiers.js';
+import { type Address, type Event, type Hash, type Receipt, eventId, hashText, isAddress, isHash, isRecord, isTime, plusHours, whole } from '@bitquilt/core';
+import type { Admission, Layer } from './challenge.js';
+import { creditedRoots } from './standing.js';
+import { leaseOf, viaOf } from './verifiers.js';
 
 export const COIN = 'QX-17';
 /** The pseudo-problem the coin log is chained from, as the identity log is from quilt:identity. */
@@ -117,11 +117,6 @@ export interface CoinLayer {
   admit(event: Event): Admission & { standing?: number };
   dropped: { id: Hash; type: string; why: string }[];
 }
-
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
-const whole = (v: unknown, min: number): v is number => Number.isInteger(v) && (v as number) >= min;
-const isTime = (s: unknown): s is string => typeof s === 'string' && Number.isFinite(Date.parse(s));
-const plusHours = (t: string, h: number): string => new Date(Date.parse(t) + h * 3_600_000).toISOString();
 
 /** Why these are not coin parameters, or nothing: the shape a tracker is started with. */
 export function coinParamsProblems(p: unknown): string[] {
@@ -238,11 +233,6 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     a.drawnVested += x - fromUnvested;
     return { fromUnvested, fromVested: x - fromUnvested };
   };
-  const rootOf = (key: Address, at: string): Address => {
-    const first = layer.problems.values().next().value as ProblemLayer | undefined;
-    return first ? first.fold.rootOf(key, at) : key;
-  };
-
   const dropped: CoinLayer['dropped'] = [];
   const coins = new Map<Hash, Coin>();
   const escrows = new Map<Hash, Escrow[]>();
@@ -256,7 +246,7 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
   // Derived lines from the problem logs, as the layers fold them.
   for (const pl of layer.problems.values()) {
     const fold = pl.fold;
-    for (const g of pl.gold) for (const c of g.commitments) {
+    for (const g of pl.golds) for (const c of g.commitments) {
       if (c.outcome !== 'match' || c.revealedAt === null || c.piece === null) continue;
       const view = fold.byHash.get(c.piece);
       const set = view?.accepting;
@@ -279,7 +269,7 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
       const at = latest ?? now;
       if (at <= now) lines.push({ kind: 'complete', at, id: `complete:${pl.problem}`, problem: pl.problem });
     }
-    for (const l of pl.locks as (LockView & { coinId?: Hash | null })[]) {
+    for (const l of pl.locks) {
       if (l.kind !== 'coin' || !l.coinId) continue;
       lines.push({ kind: 'bind', at: l.at, id: `bind:${l.id}`, coin: l.coinId, lock: l.id });
       if (l.forfeitedAt !== null) lines.push({ kind: 'forfeit', at: l.forfeitedAt, id: `forfeit:${l.id}:${l.forfeitedAt}`, coin: l.coinId });
@@ -313,10 +303,11 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     if (i < 0) i = lines.length;
     lines.splice(i, 0, line);
   };
-  const leaseOf = (problem: Hash, piece: Hash): number => {
+  /** The lease of a piece the layer holds, in hours; 0 for one it does not. */
+  const leaseOfPiece = (problem: Hash, piece: Hash): number => {
     const pl = layer.problems.get(problem);
     const view = pl?.fold.byHash.get(piece);
-    return view?.piece.lease_h ?? pl?.fold.envelope.problem.settings.lease_h ?? 0;
+    return pl && view ? leaseOf(pl.fold, view) : 0;
   };
 
   type Check = { ok: true; root: Address; standing?: number } | { ok: false; why: string };
@@ -326,7 +317,7 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     if (e.problem !== undefined || e.piece !== undefined) return { ok: false, why: 'a coin event names no problem in its fields' };
     const shape = coinBodyProblems(e.type, e.body);
     if (shape.length) return { ok: false, why: shape[0]! };
-    const root = rootOf(e.key, at);
+    const root = layer.rootOf(e.key, at);
     const a = account(root);
     const b = e.body;
     switch (e.type) {
@@ -490,7 +481,7 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
           a.locked += units;
           coins.set(id, { id, key: e.key, root: result.root, problem: b.problem as Hash, piece: b.piece as Hash, units, at: line.at, bound: null, state: 'live', endedAt: null, forfeit: null });
           // Unbound past the piece's lease, it is released; a bind before then stands in the way.
-          const idle = plusHours(line.at, leaseOf(b.problem as Hash, b.piece as Hash));
+          const idle = plusHours(line.at, leaseOfPiece(b.problem as Hash, b.piece as Hash));
           const boundBefore = lines.some((x) => x.kind === 'bind' && x.coin === id && x.at < idle);
           if (!boundBefore && idle <= now) insert({ kind: 'release', at: idle, id: `idle:${id}`, coin: id });
         } else if (e.type === 'pay') {

@@ -4,14 +4,14 @@ pragma solidity ^0.8.24;
 import {Anchors} from "../src/Anchors.sol";
 import {Merkle} from "../src/Merkle.sol";
 import {Quilt} from "../src/Quilt.sol";
-import {Vm} from "./Vm.sol";
+import {Vm, HEVM} from "./Vm.sol";
 import {Fixture} from "./Fixture.sol";
 
 /// @notice Quilt mints only through redeem: refused before the head's window has passed, refused on a wrong proof,
 /// refused twice for one line, refused under a vetoed head; once, with the balance and the supply equal to the
 /// amount; the coin then moves as an ERC-20 does; and a deposit burns it, numbered and recorded for the ledger.
 contract QuiltTest {
-    Vm constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    Vm constant vm = Vm(HEVM);
 
     address constant VETOER = address(0xA11CE);
     address constant TREASURY = address(0x7EA5);

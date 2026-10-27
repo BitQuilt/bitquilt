@@ -1,9 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Server } from 'node:http';
-import { type Address, type Envelope, type Hash, type Unsigned, addressOf, commitHash, newNonce, problemHash, signEvent, signObject } from '@bitquilt/core';
-import { Store } from '../src/store.js';
-import { createTracker } from '../src/tracker.js';
+import { type Address, type Envelope, type Hash, commitHash, newNonce, problemHash } from '@bitquilt/core';
 import { PANEL } from '../src/challenge.js';
+import { addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * The challenge window (QX-1) at the tracker's door and in its layer: a challenge needs standing, a window still open,
@@ -11,58 +9,22 @@ import { PANEL } from '../src/challenge.js';
  * verdict counts only from a seat that is live; two verdicts decide; a held challenge strikes the set and a failed one
  * costs the stake; seats lapse by the lease and pass to the next in the draw; a panel that runs out is void.
  */
-const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
 const owner = key(9), A = key(1), B = key(2), C = key(3), D = key(4), E = key(5);
 const judges = [key(11), key(12), key(13), key(14)];
-const addr = addressOf;
 const secretOf = new Map<Address, Uint8Array>([owner, A, B, C, D, E, ...judges].map((k) => [addr(k), k]));
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
 const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
 
 function envelope(slug: string, count: number): Envelope {
-  const problem: Envelope['problem'] = {
-    title: `Statements (${slug})`, done_when: 'Every statement has a verdict.', owner: addr(owner), slug, prev: null, from: null,
-    settings: { challenge_window_h: 48, lease_h: 2, endgame_at: 1, budget: 100, patch_max: 10000 },
-    pieces: { 'statement/*': { count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } },
-    data: {},
-  };
-  const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
-  return { ...unsigned, sig: signObject(unsigned, owner) };
+  return signed(owner, slug, { 'statement/*': { count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } });
 }
 
-let server: Server;
-let base: string;
-const store = new Store(':memory:');
-let tick = Date.parse('2026-10-25T09:00:00Z');
 const HOUR = 3_600_000;
-const tracker = createTracker({ store, url: 'http://tracker.test/', now: () => new Date(tick).toISOString(), ipSalt: 's', limits: { keyPerHour: 1000, ipPerHour: 10000 } });
+const t = boot('2026-10-25T09:00:00Z', { limits: { keyPerHour: 1000, ipPerHour: 10000 } });
+const { tracker, clock, ev, post, get, accepted, refused } = t;
+beforeAll(() => t.listen());
+afterAll(() => t.close());
 
-beforeAll(async () => {
-  server = await tracker.listen(0);
-  const a = server.address();
-  base = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}` : '';
-});
-afterAll(() => new Promise<void>((r) => server.close(() => r())));
-
-const post = (path: string, body: unknown) => fetch(base + path, { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json' } });
-const get = async (path: string) => (await fetch(base + path)).json();
-function ev(k: Uint8Array, type: string, body: Record<string, unknown>, problem?: Hash, piece?: Hash) {
-  tick += 1000;
-  const u: Unsigned = { quilt: 1, type, key: addr(k), ts: new Date(tick).toISOString(), body };
-  if (problem) u.problem = problem;
-  if (piece) u.piece = piece;
-  return signEvent(u, k);
-}
-async function refused(path: string, event: unknown): Promise<string> {
-  const r = await post(path, event);
-  expect(r.status).toBe(400);
-  return ((await r.json()) as { error: string }).error;
-}
-async function accepted(path: string, event: unknown): Promise<Hash> {
-  const r = await post(path, event);
-  expect(r.status, await r.clone().text()).toBe(202);
-  return ((await r.json()) as { id: Hash }).id;
-}
 /** A commit and its reveal from one key, agreeing on `verdict`. */
 async function returnOn(problem: Hash, piece: Hash, k: Uint8Array, model: string, verdict = 'supports') {
   const ret = { verdict, quote: `as ${addr(k).slice(0, 6)} read it` };
@@ -87,7 +49,7 @@ let p1: Hash, p2: Hash, p3: Hash;
 
 describe('the challenge window at the door', () => {
   it('advertises the seed and the panel, and seats no panel while nobody has accepted work elsewhere', async () => {
-    const w = await get('/.well-known/quilt');
+    const w = await get<{ sortition: string; challenge: unknown; routes: string[] }>('/.well-known/quilt');
     expect(w.sortition).toBe('challenge-receipt');
     expect(w.challenge).toEqual({ extension: 'QX-1', panel: 3, majority: 2, ground_max: 200 });
     expect(w.routes).toContain('/p/<hash>/challenges');
@@ -162,7 +124,7 @@ describe('the challenge window at the door', () => {
     const id = await accepted(`/p/${p}/events`, challenge(C, p, p2, 1, 'Both quote a sentence that supposes, not states.'));
     let [, c] = await challengesOf(p);
     const first = c!.seats[0]!.root;
-    tick += 2 * HOUR + 1000;
+    clock.tick += 2 * HOUR + 1000;
     [, c] = await challengesOf(p);
     expect(c!.seats).toHaveLength(PANEL + 1);
     expect(c!.seats.slice(0, PANEL).every((s) => s.lapsed_at !== null)).toBe(true);
@@ -192,7 +154,7 @@ describe('the challenge window at the door', () => {
   it('refuses a challenge once the window has closed, when the core calls the piece accepted', async () => {
     await returnOn(p, p3, A, 'anthropic/claude');
     await returnOn(p, p3, B, 'openai/gpt');
-    tick += 49 * HOUR;
+    clock.tick += 49 * HOUR;
     expect((await stateOf(p, p3)).state).toBe('accepted');
     expect(await refused(`/p/${p}/events`, challenge(D, p, p3, 1))).toBe('outside the window');
     expect((await stateOf(p, p2)).state).toBe('accepted');

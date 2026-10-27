@@ -71,24 +71,32 @@
 <script>
 (function () {
   'use strict';
+
+  // Helpers: an element by id, an element made with a class and its text (set with textContent, not as markup), the API's GET and POST, the tabs.
   var $ = function (id) { return document.getElementById(id); };
-  var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
-  var api = function (path, opts) { return fetch(path, opts).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; }); }); };
+  var el = function (tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  };
+  var api = function (path, opts) {
+    return fetch(path, opts).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok) throw new Error(j.error || r.status);
+        return j;
+      });
+    });
+  };
+  var post = function (path, data) { return api(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) }); };
   var show = function (tab) {
     document.querySelectorAll('nav a').forEach(function (a) { a.classList.toggle('on', a.dataset.tab === tab); });
     document.querySelectorAll('section').forEach(function (s) { s.classList.toggle('on', s.id === tab); });
   };
-  document.querySelectorAll('nav a').forEach(function (a) { a.addEventListener('click', function () { show(a.dataset.tab); if (a.dataset.tab === 'library') library(); if (a.dataset.tab === 'me') me(); if (a.dataset.tab === 'search') wanted(); }); });
+  var countsOf = function (counts) { return Object.keys(counts).map(function (k) { return counts[k] + ' ' + k.replace('_', ' '); }).join(', '); };
+  var ordinal = function (n) { return n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'); };
 
-  var mapOf = function (pieces) {
-    var m = el('div', 'map');
-    pieces.forEach(function (p) {
-      var s = el('div', 'sq ' + p.state + (p.attested ? ' attested' : '') + (p.verified ? ' verified' : '') + (p.stake ? ' staked' : ''));
-      s.title = p.name + ': ' + p.state.replace('_', ' ') + ' (' + p.verifier + (p.strength ? ', ' + p.strength : '') + (p.weakest ? ', the weakest kind' : '') + (p.attested ? ', attested' : '') + (p.stake ? ', a stake of ' + p.stake : '') + (p.gold ? ', gold ' + p.gold : '') + (p.verified ? ', verified' : '') + ')';
-      m.appendChild(s);
-    });
-    return m;
-  };
+  // Search: the box, the results, what is wanted from this person, and the button that asks for anything to do.
   /** One line for something wanted from this person, in words. */
   var wantedWords = function (item) {
     var reason = { rank: 'you are drawn to judge', verdict: 'a verdict is wanted from you', disputed: 'a return of yours is disputed', person: 'a piece wants a person', gold: 'a reveal of your gold is due' }[item.why] || item.why;
@@ -96,18 +104,61 @@
   };
   var wanted = function () {
     api('/api/attention').then(function (a) {
-      var w = $('wanted'); w.textContent = '';
+      var w = $('wanted');
+      w.textContent = '';
       if (!a.items || !a.items.length) return;
-      var c = el('div', 'card'); c.appendChild(el('h3', null, 'Wanted from you'));
+      var c = el('div', 'card');
+      c.appendChild(el('h3', null, 'Wanted from you'));
       a.items.forEach(function (item) {
         var row = el('div', 'meta', wantedWords(item) + ' ');
-        var b = el('button', null, 'Open'); b.addEventListener('click', function () { openProblem(item.problem); }); row.appendChild(b); c.appendChild(row);
+        var b = el('button', null, 'Open');
+        b.addEventListener('click', function () { openProblem(item.problem); });
+        row.appendChild(b);
+        c.appendChild(row);
       });
       w.appendChild(c);
     }).catch(function () { /* the list stays empty when nothing answers */ });
   };
-  var post = function (path, data) { return api(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) }); };
-  var ordinal = function (n) { return n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'); };
+  $('searchForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var q = $('q').value.trim();
+    if (/^(quilt:|https?:\/\/|sha256:)/.test(q)) { openProblem(q); return; }
+    var r = $('results');
+    r.textContent = 'Searching…';
+    api('/api/search?q=' + encodeURIComponent(q)).then(function (j) {
+      r.textContent = '';
+      if (!j.problems.length) { r.appendChild(el('p', 'quiet', 'Nothing matched on the trackers and relays this client knows.')); return; }
+      j.problems.forEach(function (p) {
+        var c = el('div', 'card');
+        c.appendChild(el('h3', null, p.title));
+        c.appendChild(el('div', 'meta', p.slug + ' · by ' + p.owner + (p.topics.length ? ' · ' + p.topics.join(', ') : '') + ' · at ' + p.tracker));
+        c.appendChild(el('div', 'meta', p.via === 'relay' ? 'found on a relay; its map is read when you open it' : p.pieces + ' pieces: ' + countsOf(p.counts)));
+        var b = el('button', null, 'Open');
+        b.addEventListener('click', function () { openProblem(p.problem); });
+        c.appendChild(b);
+        r.appendChild(c);
+      });
+    }).catch(function (e) { r.textContent = e.message; });
+  });
+  $('anyBtn').addEventListener('click', function () { show('problem'); takePiece(''); });
+
+  // A problem: its map, the lines the API says it in, the reveals due, a pay, the seed button, the panels this person judges, and what is accepted.
+  var mapOf = function (pieces) {
+    var m = el('div', 'map');
+    pieces.forEach(function (p) {
+      var s = el('div', 'sq ' + p.state + (p.attested ? ' attested' : '') + (p.verified ? ' verified' : '') + (p.stake ? ' staked' : ''));
+      var notes = [p.verifier];
+      if (p.strength) notes.push(p.strength);
+      if (p.weakest) notes.push('the weakest kind');
+      if (p.attested) notes.push('attested');
+      if (p.stake) notes.push('a stake of ' + p.stake);
+      if (p.gold) notes.push('gold ' + p.gold);
+      if (p.verified) notes.push('verified');
+      s.title = p.name + ': ' + p.state.replace('_', ' ') + ' (' + notes.join(', ') + ')';
+      m.appendChild(s);
+    });
+    return m;
+  };
   /** A ranking form for a judge piece this person is drawn to: each candidate's return as text, and a place for each. */
   var judgeCard = function (problem, j) {
     var c = el('div', 'card');
@@ -117,69 +168,119 @@
     var selects = [];
     j.candidates.forEach(function (cand, i) {
       var f = el('div', 'field');
-      var label = el('label', null, 'Candidate ' + cand.digest.slice(7, 15) + ' returned:'); f.appendChild(label);
+      f.appendChild(el('label', null, 'Candidate ' + cand.digest.slice(7, 15) + ' returned:'));
       f.appendChild(el('pre', null, JSON.stringify(cand.return, null, 2)));
-      var sel = el('select'); sel.dataset.digest = cand.digest;
-      j.candidates.forEach(function (_, k) { var op = el('option', null, ordinal(k + 1)); op.value = String(k + 1); sel.appendChild(op); });
-      sel.value = String(i + 1); selects.push(sel); f.appendChild(sel); form.appendChild(f);
+      var sel = el('select');
+      sel.dataset.digest = cand.digest;
+      j.candidates.forEach(function (_, k) {
+        var op = el('option', null, ordinal(k + 1));
+        op.value = String(k + 1);
+        sel.appendChild(op);
+      });
+      sel.value = String(i + 1);
+      selects.push(sel);
+      f.appendChild(sel);
+      form.appendChild(f);
     });
-    var submit = el('button', 'primary', 'Post this ranking, signed'); submit.type = 'submit'; form.appendChild(submit);
-    var out = el('pre', 'quiet', ''); form.appendChild(out);
+    var submit = el('button', 'primary', 'Post this ranking, signed');
+    submit.type = 'submit';
+    form.appendChild(submit);
+    var out = el('pre', 'quiet', '');
+    form.appendChild(out);
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
       var places = selects.map(function (s) { return { digest: s.dataset.digest, place: Number(s.value) }; });
-      var seen = {}; var twice = places.some(function (x) { if (seen[x.place]) return true; seen[x.place] = true; return false; });
+      var seen = {};
+      var twice = places.some(function (x) { if (seen[x.place]) return true; seen[x.place] = true; return false; });
       if (twice) { out.textContent = 'Each place once.'; return; }
       places.sort(function (a, b) { return a.place - b.place; });
       out.textContent = 'Signing and posting…';
-      api('/api/rank', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ problem: problem, piece: j.piece, ranking: places.map(function (x) { return x.digest; }) }) })
+      post('/api/rank', { problem: problem, piece: j.piece, ranking: places.map(function (x) { return x.digest; }) })
         .then(function (r) { out.textContent = 'Ranking ' + (r.queued ? 'queued' : 'posted') + '.'; openProblem(problem); })
         .catch(function (e) { out.textContent = e.message; });
     });
     c.appendChild(form);
     return c;
   };
-  var countsOf = function (counts) { return Object.keys(counts).map(function (k) { return counts[k] + ' ' + k.replace('_', ' '); }).join(', '); };
-
-  var currentProblem = null;
   var openProblem = function (link) {
     show('problem');
     $('problemView').textContent = 'Resolving…';
     $('pieceView').textContent = '';
     api('/api/open?link=' + encodeURIComponent(link)).then(function (p) {
-      currentProblem = p.problem;
-      var v = $('problemView'); v.textContent = ''; v.className = '';
+      var v = $('problemView');
+      v.textContent = '';
+      v.className = '';
       v.appendChild(el('h3', null, p.title));
       v.appendChild(el('div', 'meta', 'Published by ' + p.owner + (p.tracker ? ' · answered by ' + p.tracker : ' · from the cache')));
       if (p.hidden) v.appendChild(el('div', 'meta', 'Taken down on this tracker by ' + p.hidden.by + ': ' + p.hidden.why + ' (' + String(p.hidden.at).slice(0, 10) + '). The map below is still what the chain says.'));
       v.appendChild(el('p', null, 'Done when: ' + p.done_when));
       v.appendChild(mapOf(p.pieces));
-      var counts = {}; p.pieces.forEach(function (x) { counts[x.state] = (counts[x.state] || 0) + 1; });
+      var counts = {};
+      p.pieces.forEach(function (x) { counts[x.state] = (counts[x.state] || 0) + 1; });
       v.appendChild(el('div', 'meta', p.pieces.length + ' pieces: ' + countsOf(counts) + (p.complete ? ' · complete' : '')));
       v.appendChild(el('div', 'meta', p.kinds + ' A dotted square is attested: accepted on the actor’s own word. A square ringed in gold is verified: the set agreed with the answer the owner committed to before the work. A square underlined asks a stake.'));
-      var staked = p.pieces.filter(function (x) { return x.stake > 0; });
-      if (staked.length) { var amounts = {}; staked.forEach(function (x) { amounts[x.stake] = true; }); v.appendChild(el('div', 'meta', 'Stake asked (QX-15): ' + staked.length + ' of the pieces ask ' + Object.keys(amounts).join(' or ') + ' of your standing, locked before the claim and forfeited if the acceptance is struck.')); }
-      // QX-16: the gold is blind; the tracker counts the commitments and names no piece until the owner's reveal does.
-      if (p.gold && p.gold.committed) { var g = p.gold; v.appendChild(el('div', 'meta', 'Gold (QX-16): the owner committed answers for ' + g.committed + ' of the pieces before the work, without saying which; ' + g.verified + ' verified, ' + g.missed + ' missed, ' + g.pending + ' awaiting the owner’s reveal' + (g.overruled ? ', ' + g.overruled + ' overruled by a challenge' : '') + (g.lapsed ? ', ' + g.lapsed + ' lapsed unrevealed' : '') + '.')); }
-      var b = el('button', 'primary', 'Hand me a piece'); b.addEventListener('click', function () { takePiece(p.problem); }); v.appendChild(b);
+      // The stake asked (QX-15) and the gold counted (QX-16), in the render module's words; empty where nothing is asked or committed.
+      if (p.stake) v.appendChild(el('div', 'meta', p.stake));
+      if (p.goldLine) v.appendChild(el('div', 'meta', p.goldLine));
+      var b = el('button', 'primary', 'Hand me a piece');
+      b.addEventListener('click', function () { takePiece(p.problem); });
+      v.appendChild(b);
       // QX-16: the reveals due from this key, where it committed the gold here.
       p.pieces.filter(function (x) { return x.mine_gold && !x.gold && (x.state === 'accepted' || x.state === 'accepted_provisional' || x.state === 'challenged'); }).forEach(function (x) {
-        var rb = el('button', null, 'Reveal the gold on ' + x.name); var ro = el('span', 'meta', '');
-        rb.addEventListener('click', function () { rb.disabled = true; post('/api/reveal', { problem: p.problem, piece: x.hash }).then(function (r) { ro.textContent = r.outcome === 'match' ? ' The set agreed with the gold: the square is verified.' : r.outcome === 'miss' ? ' The set differed from the gold: it is struck and the piece is open again.' : ' Revealed.'; openProblem(p.problem); wanted(); }).catch(function (e) { rb.disabled = false; ro.textContent = ' ' + e.message; }); });
-        var line = el('div', 'meta'); line.appendChild(rb); line.appendChild(ro); v.appendChild(line);
+        var revealButton = el('button', null, 'Reveal the gold on ' + x.name);
+        var revealOut = el('span', 'meta', '');
+        revealButton.addEventListener('click', function () {
+          revealButton.disabled = true;
+          post('/api/reveal', { problem: p.problem, piece: x.hash }).then(function (r) {
+            revealOut.textContent = r.outcome === 'match' ? ' The set agreed with the gold: the square is verified.' : r.outcome === 'miss' ? ' The set differed from the gold: it is struck and the piece is open again.' : ' Revealed.';
+            openProblem(p.problem);
+            wanted();
+          }).catch(function (e) { revealButton.disabled = false; revealOut.textContent = ' ' + e.message; });
+        });
+        var line = el('div', 'meta');
+        line.appendChild(revealButton);
+        line.appendChild(revealOut);
+        v.appendChild(line);
       });
       // QX-17: a pay, where the tracker that answered carries the coin.
       if (p.coin) {
-        var pf = el('form', 'pay'); pf.appendChild(el('span', 'meta', 'Pay this problem’s workers in coin: '));
-        var amount = el('input'); amount.type = 'number'; amount.min = '1'; amount.placeholder = 'units'; amount.required = true; pf.appendChild(amount);
-        var per = el('input'); per.type = 'number'; per.min = '1'; per.placeholder = 'a square'; per.required = true; pf.appendChild(per);
-        var ps = el('button', null, 'Escrow, signed'); ps.type = 'submit'; pf.appendChild(ps);
-        var po = el('span', 'meta', ''); pf.appendChild(po);
-        pf.addEventListener('submit', function (ev) { ev.preventDefault(); po.textContent = 'Signing and posting…'; post('/api/pay', { problem: p.problem, amount: Number(amount.value), per_square: Number(per.value) }).then(function (r) { po.textContent = 'Escrowed ' + amount.value + ' at ' + per.value + ' a square on ' + r.home + '. Each square accepted from now pays its set; what is left comes back when the problem completes.'; }).catch(function (e) { po.textContent = e.message; }); });
-        v.appendChild(pf);
+        var payForm = el('form', 'pay');
+        payForm.appendChild(el('span', 'meta', 'Pay this problem’s workers in coin: '));
+        var payAmount = el('input');
+        payAmount.type = 'number';
+        payAmount.min = '1';
+        payAmount.placeholder = 'units';
+        payAmount.required = true;
+        payForm.appendChild(payAmount);
+        var perSquare = el('input');
+        perSquare.type = 'number';
+        perSquare.min = '1';
+        perSquare.placeholder = 'a square';
+        perSquare.required = true;
+        payForm.appendChild(perSquare);
+        var paySubmit = el('button', null, 'Escrow, signed');
+        paySubmit.type = 'submit';
+        payForm.appendChild(paySubmit);
+        var payOut = el('span', 'meta', '');
+        payForm.appendChild(payOut);
+        payForm.addEventListener('submit', function (ev) {
+          ev.preventDefault();
+          payOut.textContent = 'Signing and posting…';
+          post('/api/pay', { problem: p.problem, amount: Number(payAmount.value), per_square: Number(perSquare.value) })
+            .then(function (r) { payOut.textContent = 'Escrowed ' + payAmount.value + ' at ' + perSquare.value + ' a square on ' + r.home + '. Each square accepted from now pays its set; what is left comes back when the problem completes.'; })
+            .catch(function (e) { payOut.textContent = e.message; });
+        });
+        v.appendChild(payForm);
       }
       v.appendChild(el('div', 'meta', (p.seeders || 0) + (p.seeders === 1 ? ' seeder' : ' seeders') + (p.last_seeded ? ' · last seeded ' + String(p.last_seeded).slice(0, 10) : '')));
-      var sb = el('button', null, p.seeding ? 'Stop keeping this problem' : 'Keep this problem'); sb.addEventListener('click', function () { sb.disabled = true; api('/api/seed', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ problem: p.problem, on: !p.seeding }) }).then(function () { openProblem(p.problem); }).catch(function (e) { sb.disabled = false; sb.textContent = e.message; }); }); v.appendChild(sb);
+      var seedButton = el('button', null, p.seeding ? 'Stop keeping this problem' : 'Keep this problem');
+      seedButton.addEventListener('click', function () {
+        seedButton.disabled = true;
+        post('/api/seed', { problem: p.problem, on: !p.seeding })
+          .then(function () { openProblem(p.problem); })
+          .catch(function (e) { seedButton.disabled = false; seedButton.textContent = e.message; });
+      });
+      v.appendChild(seedButton);
       (p.judging || []).forEach(function (j) { v.appendChild(judgeCard(p.problem, j)); });
       v.appendChild(el('h3', null, 'Accepted so far'));
       v.appendChild(el('pre', null, p.accepted));
@@ -187,119 +288,194 @@
     }).catch(function (e) { $('problemView').textContent = e.message; });
   };
 
+  // A piece, handed and handed back: the rarest piece claimed for this person, a form built from its schema, and the return signed here.
   var takePiece = function (problem) {
-    var pv = $('pieceView'); pv.textContent = problem ? 'Asking for the rarest piece…' : 'Asking the standing list, then the trackers, for something to do…';
+    var pv = $('pieceView');
+    pv.textContent = problem ? 'Asking for the rarest piece…' : 'Asking the standing list, then the trackers, for something to do…';
     api('/api/next?problem=' + encodeURIComponent(problem)).then(function (pk) {
       pv.textContent = '';
-      if (!problem) { currentProblem = pk.problem; var pvw = $('problemView'); pvw.textContent = 'From problem ' + pk.problem + '. Its map is in your library.'; pvw.className = 'quiet'; }
+      if (!problem) {
+        var pvw = $('problemView');
+        pvw.textContent = 'From problem ' + pk.problem + '. Its map is in your library.';
+        pvw.className = 'quiet';
+      }
       var c = el('div', 'card');
       c.appendChild(el('h3', null, pk.name + ' · ' + (pk.posted.queued ? 'claim queued' : 'claimed')));
       if (pk.kind) c.appendChild(el('div', 'meta', 'Kind ' + pk.verifier + ', ' + pk.kind.strength + ': ' + pk.kind.says + '.'));
       if (pk.stake) c.appendChild(el('div', 'meta', 'A stake of ' + pk.stake + (pk.lock === 'coin' ? ', backed by coin locked on the coin log in place of standing' : ' of your standing, locked behind the claim') + ': released when the window closes, forfeited if the acceptance is struck.'));
-      c.appendChild(el('div', 'meta', 'The author, ' + pk.author + ', wrote:'));
+      c.appendChild(el('div', 'meta', 'The author, ' + pk.owner + ', wrote:'));
       c.appendChild(el('pre', null, pk.brief));
       var form = el('form');
       var fields = pk.schema ? Object.keys(pk.schema.properties) : ['patch'];
       fields.forEach(function (name) {
         var def = pk.schema ? pk.schema.properties[name] : { type: 'string' };
-        var f = el('div', 'field'); var label = el('label', null, name + (pk.agree.indexOf(name) >= 0 ? ' (agreement is on this)' : ' (evidence)')); label.htmlFor = 'f_' + name; f.appendChild(label);
+        var f = el('div', 'field');
+        var label = el('label', null, name + (pk.agree.indexOf(name) >= 0 ? ' (agreement is on this)' : ' (evidence)'));
+        label.htmlFor = 'f_' + name;
+        f.appendChild(label);
         var input;
-        if (def.enum) { input = el('select'); def.enum.forEach(function (o) { var op = el('option', null, o); op.value = o; input.appendChild(op); }); }
-        else if (def.type === 'boolean') { input = el('select'); ['true', 'false'].forEach(function (o) { var op = el('option', null, o); op.value = o; input.appendChild(op); }); }
-        else if (def.type === 'number' || def.type === 'integer') { input = el('input'); input.type = 'number'; }
-        else { input = el('textarea'); input.rows = name === 'patch' ? 8 : 3; }
-        input.id = 'f_' + name; input.dataset.kind = def.enum ? 'enum' : (def.type || 'string'); f.appendChild(input); form.appendChild(f);
+        if (def.enum) {
+          input = el('select');
+          def.enum.forEach(function (o) { var op = el('option', null, o); op.value = o; input.appendChild(op); });
+        } else if (def.type === 'boolean') {
+          input = el('select');
+          ['true', 'false'].forEach(function (o) { var op = el('option', null, o); op.value = o; input.appendChild(op); });
+        } else if (def.type === 'number' || def.type === 'integer') {
+          input = el('input');
+          input.type = 'number';
+        } else {
+          input = el('textarea');
+          input.rows = name === 'patch' ? 8 : 3;
+        }
+        input.id = 'f_' + name;
+        input.dataset.kind = def.enum ? 'enum' : (def.type || 'string');
+        f.appendChild(input);
+        form.appendChild(f);
       });
-      var submit = el('button', 'primary', 'Hand it back, signed'); submit.type = 'submit'; form.appendChild(submit);
-      var out = el('pre', 'quiet', ''); form.appendChild(out);
+      var submit = el('button', 'primary', 'Hand it back, signed');
+      submit.type = 'submit';
+      form.appendChild(submit);
+      var out = el('pre', 'quiet', '');
+      form.appendChild(out);
       form.addEventListener('submit', function (ev) {
         ev.preventDefault();
         var ret = {};
-        fields.forEach(function (name) { var i = $('f_' + name); var kind = i.dataset.kind; var v = i.value; if (kind === 'number' || kind === 'integer') v = Number(v); if (kind === 'boolean') v = v === 'true'; ret[name] = v; });
+        fields.forEach(function (name) {
+          var i = $('f_' + name);
+          var kind = i.dataset.kind;
+          var v = i.value;
+          if (kind === 'number' || kind === 'integer') v = Number(v);
+          if (kind === 'boolean') v = v === 'true';
+          ret[name] = v;
+        });
         out.textContent = 'Signing and posting…';
-        api('/api/return', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ problem: pk.problem, piece: pk.piece, return: ret }) })
+        post('/api/return', { problem: pk.problem, piece: pk.piece, return: ret })
           .then(function (r) { out.textContent = 'Commit ' + (r.commit.queued ? 'queued' : 'posted') + '; reveal ' + (r.reveal.queued ? 'queued' : 'posted') + '. ' + (r.waits || ''); openProblem(pk.problem); })
           .catch(function (e) { out.textContent = e.message; });
       });
-      c.appendChild(form); pv.appendChild(c);
+      c.appendChild(form);
+      pv.appendChild(c);
     }).catch(function (e) { pv.textContent = e.message; });
   };
 
-  $('searchForm').addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    var q = $('q').value.trim();
-    if (/^(quilt:|https?:\/\/|sha256:)/.test(q)) { openProblem(q); return; }
-    var r = $('results'); r.textContent = 'Searching…';
-    api('/api/search?q=' + encodeURIComponent(q)).then(function (j) {
-      r.textContent = '';
-      if (!j.problems.length) { r.appendChild(el('p', 'quiet', 'Nothing matched on the trackers and relays this client knows.')); return; }
-      j.problems.forEach(function (p) {
-        var c = el('div', 'card');
-        var h = el('h3', null, p.title); c.appendChild(h);
-        c.appendChild(el('div', 'meta', p.slug + ' · by ' + p.owner + (p.topics.length ? ' · ' + p.topics.join(', ') : '') + ' · at ' + p.tracker));
-        c.appendChild(el('div', 'meta', p.via === 'relay' ? 'found on a relay; its map is read when you open it' : p.pieces + ' pieces: ' + countsOf(p.counts)));
-        var b = el('button', null, 'Open'); b.addEventListener('click', function () { openProblem(p.problem); }); c.appendChild(b);
-        r.appendChild(c);
-      });
-    }).catch(function (e) { r.textContent = e.message; });
-  });
-
+  // Publish: the pattern as JSON, signed with this key.
   $('publishBtn').addEventListener('click', function () {
-    var out = $('publishOut'); out.textContent = 'Signing and publishing…';
+    var out = $('publishOut');
+    out.textContent = 'Signing and publishing…';
     var pattern;
     try { pattern = JSON.parse($('pattern').value); } catch (e) { out.textContent = 'The pattern is not JSON: ' + e.message; return; }
-    api('/api/publish', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(pattern) })
+    post('/api/publish', pattern)
       .then(function (r) { out.textContent = 'Published ' + r.hash + '\nLink: ' + r.link + '\nCarried by: ' + (r.posted.join(', ') || 'nobody yet') + (r.refused.length ? '\nRefused: ' + r.refused.join('; ') : ''); openProblem(r.hash); })
       .catch(function (e) { out.textContent = e.message; });
   });
 
+  // Library: the problems this key opened, published or worked, and the pieces it did.
   var library = function () {
     api('/api/library').then(function (lib) {
-      var v = $('libraryView'); v.textContent = '';
+      var v = $('libraryView');
+      v.textContent = '';
       var hashes = Object.keys(lib.problems);
       if (!hashes.length) { v.appendChild(el('p', 'quiet', 'Nothing yet. Problems you open, publish or work appear here.')); return; }
       hashes.forEach(function (h) {
-        var p = lib.problems[h]; var c = el('div', 'card');
-        c.appendChild(el('h3', null, p.title)); c.appendChild(el('div', 'meta', p.slug + ' · last ' + p.last + ' · ' + p.trackers.join(', ')));
-        var b = el('button', null, 'Open'); b.addEventListener('click', function () { openProblem(h); }); c.appendChild(b); v.appendChild(c);
+        var p = lib.problems[h];
+        var c = el('div', 'card');
+        c.appendChild(el('h3', null, p.title));
+        c.appendChild(el('div', 'meta', p.slug + ' · last ' + p.last + ' · ' + p.trackers.join(', ')));
+        var b = el('button', null, 'Open');
+        b.addEventListener('click', function () { openProblem(h); });
+        c.appendChild(b);
+        v.appendChild(c);
       });
       var pieces = Object.keys(lib.pieces);
-      if (pieces.length) { v.appendChild(el('h3', null, 'Pieces')); pieces.forEach(function (ph) { var x = lib.pieces[ph]; v.appendChild(el('div', 'meta', x.name + ' · ' + x.what + ' · ' + x.when)); }); }
+      if (pieces.length) {
+        v.appendChild(el('h3', null, 'Pieces'));
+        pieces.forEach(function (ph) {
+          var x = lib.pieces[ph];
+          v.appendChild(el('div', 'meta', x.name + ' · ' + x.what + ' · ' + x.when));
+        });
+      }
     });
   };
-  $('anyBtn').addEventListener('click', function () { show('problem'); takePiece(''); });
+
+  // Me: this key as the node knows it, its standing and coin as the trackers compute them, a transfer and a redeem, and the queue.
   var me = function () {
     api('/api/me').then(function (m) { $('meView').textContent = JSON.stringify(m, null, 2); });
-    var sv = $('standingView'); sv.textContent = 'Asking the trackers for your standing…';
+    var sv = $('standingView');
+    sv.textContent = 'Asking the trackers for your standing…';
     api('/api/standing').then(function (s) {
       sv.textContent = '';
-      var st = s.standing; var c = s.coin;
-      sv.appendChild(el('div', null, st ? 'Standing ' + st.standing + ' (locked ' + st.locked + ', free ' + st.free + ') at ' + st.tracker + (st.locks.length ? '; ' + st.locks.length + (st.locks.length === 1 ? ' lock' : ' locks') + ' behind your claims' : '') : 'Standing: no tracker answered.'));
+      var st = s.standing;
+      var c = s.coin;
+      var locks = st && st.locks.length ? '; ' + st.locks.length + (st.locks.length === 1 ? ' lock' : ' locks') + ' behind your claims' : '';
+      sv.appendChild(el('div', null, st ? 'Standing ' + st.standing + ' (locked ' + st.locked + ', free ' + st.free + ') at ' + st.tracker + locks : 'Standing: no tracker answered.'));
       sv.appendChild(el('div', null, c ? 'Coin (QX-17): ' + c.balance + ' units, ' + c.vested + ' vested, ' + c.locked + ' locked, ' + c.escrowed + ' escrowed, ' + c.free + ' free, at ' + c.home : 'Coin: no tracker this client knows carries one.'));
       if (c) {
         // QX-17: a transfer to an address, and a redeem to the chain, each signed here and posted to the coin's home.
-        var tf = el('form', 'pay'); tf.appendChild(el('span', 'meta', 'Move coin to an address: '));
-        var tto = el('input'); tto.type = 'text'; tto.placeholder = '0x…'; tto.required = true; tto.style.width = '24em'; tf.appendChild(tto);
-        var tam = el('input'); tam.type = 'number'; tam.min = '1'; tam.placeholder = 'units'; tam.required = true; tf.appendChild(tam);
-        var ts = el('button', null, 'Transfer, signed'); ts.type = 'submit'; tf.appendChild(ts);
-        var to = el('span', 'meta', ''); tf.appendChild(to);
-        tf.addEventListener('submit', function (ev) { ev.preventDefault(); to.textContent = 'Signing and posting…'; post('/api/transfer', { to: tto.value.trim(), amount: Number(tam.value) }).then(function (r) { to.textContent = 'Moved ' + tam.value + ' units to ' + tto.value.trim() + ' on ' + r.home + '.'; me(); }).catch(function (e) { to.textContent = e.message; }); });
-        sv.appendChild(tf);
-        var rf = el('form', 'pay'); rf.appendChild(el('span', 'meta', 'Redeem to the chain (the coin leaves the ledger; the Quilt token is minted once the bridge carries the line): '));
-        var ram = el('input'); ram.type = 'number'; ram.min = '1'; ram.placeholder = 'units'; ram.required = true; rf.appendChild(ram);
-        var rs = el('button', null, 'Redeem, signed'); rs.type = 'submit'; rf.appendChild(rs);
-        var ro2 = el('span', 'meta', ''); rf.appendChild(ro2);
-        rf.addEventListener('submit', function (ev) { ev.preventDefault(); ro2.textContent = 'Signing and posting…'; post('/api/redeem', { amount: Number(ram.value) }).then(function (r) { ro2.textContent = 'Redeem of ' + ram.value + ' units posted on ' + r.home + '.'; me(); }).catch(function (e) { ro2.textContent = e.message; }); });
-        sv.appendChild(rf);
+        var transferForm = el('form', 'pay');
+        transferForm.appendChild(el('span', 'meta', 'Move coin to an address: '));
+        var toAddress = el('input');
+        toAddress.type = 'text';
+        toAddress.placeholder = '0x…';
+        toAddress.required = true;
+        toAddress.style.width = '24em';
+        transferForm.appendChild(toAddress);
+        var transferAmount = el('input');
+        transferAmount.type = 'number';
+        transferAmount.min = '1';
+        transferAmount.placeholder = 'units';
+        transferAmount.required = true;
+        transferForm.appendChild(transferAmount);
+        var transferSubmit = el('button', null, 'Transfer, signed');
+        transferSubmit.type = 'submit';
+        transferForm.appendChild(transferSubmit);
+        var transferOut = el('span', 'meta', '');
+        transferForm.appendChild(transferOut);
+        transferForm.addEventListener('submit', function (ev) {
+          ev.preventDefault();
+          transferOut.textContent = 'Signing and posting…';
+          post('/api/transfer', { to: toAddress.value.trim(), amount: Number(transferAmount.value) })
+            .then(function (r) { transferOut.textContent = 'Moved ' + transferAmount.value + ' units to ' + toAddress.value.trim() + ' on ' + r.home + '.'; me(); })
+            .catch(function (e) { transferOut.textContent = e.message; });
+        });
+        sv.appendChild(transferForm);
+        var redeemForm = el('form', 'pay');
+        redeemForm.appendChild(el('span', 'meta', 'Redeem to the chain (the coin leaves the ledger; the Quilt token is minted once the bridge carries the line): '));
+        var redeemAmount = el('input');
+        redeemAmount.type = 'number';
+        redeemAmount.min = '1';
+        redeemAmount.placeholder = 'units';
+        redeemAmount.required = true;
+        redeemForm.appendChild(redeemAmount);
+        var redeemSubmit = el('button', null, 'Redeem, signed');
+        redeemSubmit.type = 'submit';
+        redeemForm.appendChild(redeemSubmit);
+        var redeemOut = el('span', 'meta', '');
+        redeemForm.appendChild(redeemOut);
+        redeemForm.addEventListener('submit', function (ev) {
+          ev.preventDefault();
+          redeemOut.textContent = 'Signing and posting…';
+          post('/api/redeem', { amount: Number(redeemAmount.value) })
+            .then(function (r) { redeemOut.textContent = 'Redeem of ' + redeemAmount.value + ' units posted on ' + r.home + '.'; me(); })
+            .catch(function (e) { redeemOut.textContent = e.message; });
+        });
+        sv.appendChild(redeemForm);
       }
     }).catch(function (e) { sv.textContent = e.message; });
   };
   $('flushBtn').addEventListener('click', function () { api('/api/flush', { method: 'POST' }).then(me); });
-  me();
-  wanted();
-  /** The address bar's fragment is a door for the menu-bar app and for links: #open=<link>, #search=<words>, #any, or a tab's name. */
+
+  // The tabs, and the address bar's fragment, which is a door for the menu-bar app and for links: #open=<link>, #search=<words>, #any, or a tab's name.
+  document.querySelectorAll('nav a').forEach(function (a) {
+    a.addEventListener('click', function () {
+      show(a.dataset.tab);
+      if (a.dataset.tab === 'library') library();
+      if (a.dataset.tab === 'me') me();
+      if (a.dataset.tab === 'search') wanted();
+    });
+  });
   var fromHash = function () {
-    var h; try { h = decodeURIComponent(location.hash.replace(/^#/, '')); } catch (e) { return; }
+    var h;
+    try { h = decodeURIComponent(location.hash.replace(/^#/, '')); } catch (e) { return; }
     if (!h) return;
     if (h === 'any') { show('problem'); takePiece(''); return; }
     if (h === 'library') { show('library'); library(); return; }
@@ -307,9 +483,15 @@
     var m = /^(open|search)=([\s\S]*)$/.exec(h);
     if (!m) return;
     if (m[1] === 'open') { openProblem(m[2]); return; }
-    show('search'); $('q').value = m[2]; $('searchForm').dispatchEvent(new Event('submit', { cancelable: true }));
+    show('search');
+    $('q').value = m[2];
+    $('searchForm').dispatchEvent(new Event('submit', { cancelable: true }));
   };
   window.addEventListener('hashchange', fromHash);
+
+  // On load: this key, what is wanted from the person, then the address bar's fragment.
+  me();
+  wanted();
   fromHash();
 })();
 </script>

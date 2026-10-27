@@ -49,8 +49,6 @@ pick = bitquilt.next(state, key, {"can": ["web"], "model": "vendor/model"}, now)
 
 ## Score
 
-24 of 24 fixtures pass. `22-complete-with-output` reproduces its states, its
-`complete` and its pick, and not its output hash: CORE.md says what the
-output document contains and not its shape (FINDINGS.md, finding 1).
-
-After the findings were read, CORE.md gained the sentences it lacked (its section 12) and one fixture for verifies-first; with the output document's shape written down, this implementation reproduces all 24 fixtures.
+24 of 24 fixtures pass. Written against the document as it stood on 25
+October, it passed 22 of 23; FINDINGS.md records what was missing and
+section 12 of CORE.md now says it.

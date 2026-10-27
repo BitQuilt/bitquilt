@@ -1,51 +1,24 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Server } from 'node:http';
-import { type Envelope, type Hash, type Unsigned, addressOf, eventId, signEvent, signObject } from '@bitquilt/core';
-import { Store } from '../src/store.js';
-import { createTracker } from '../src/tracker.js';
+import { type Envelope, type Hash, eventId } from '@bitquilt/core';
+import { addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * QX-6 at the tracker: a hide is taken only from a maintainer's key and only well formed; a hidden problem leaves the
  * index, the search and the offer, hands out no piece and takes no event, while its envelope and chain are still
  * served; a lift restores it; a hidden event is listed for renderers to honour.
  */
-const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
 const owner = key(9), M = key(21), X = key(22), A = key(1);
-const addr = addressOf;
 const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
 
 function envelope(slug: string): Envelope {
-  const problem: Envelope['problem'] = {
-    title: `Statements (${slug})`, done_when: 'Every statement has a verdict.', owner: addr(owner), slug, prev: null, from: null,
-    settings: { challenge_window_h: 48, lease_h: 2, endgame_at: 1, budget: 100, patch_max: 10000 },
-    pieces: { 'statement/*': { count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } },
-    data: {},
-  };
-  const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
-  return { ...unsigned, sig: signObject(unsigned, owner) };
+  return signed(owner, slug, { 'statement/*': { count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } });
 }
 
-let server: Server;
-let base: string;
-let tick = Date.parse('2026-10-27T09:00:00Z');
-const tracker = createTracker({ store: new Store(':memory:'), url: 'http://tracker.test/', now: () => new Date(tick).toISOString(), ipSalt: 's', maintainers: [addr(M)], limits: { keyPerHour: 1000, ipPerHour: 10000 } });
+const t = boot('2026-10-27T09:00:00Z', { maintainers: [addr(M)], limits: { keyPerHour: 1000, ipPerHour: 10000 } });
+const { ev, post, get } = t;
+beforeAll(() => t.listen());
+afterAll(() => t.close());
 
-beforeAll(async () => {
-  server = await tracker.listen(0);
-  const a = server.address();
-  base = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}` : '';
-});
-afterAll(() => new Promise<void>((r) => server.close(() => r())));
-
-const post = (path: string, body: unknown) => fetch(base + path, { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json' } });
-const get = async (path: string) => (await fetch(base + path)).json();
-function ev(k: Uint8Array, type: string, body: Record<string, unknown>, problem?: Hash, piece?: Hash) {
-  tick += 1000;
-  const u: Unsigned = { quilt: 1, type, key: addr(k), ts: new Date(tick).toISOString(), body };
-  if (problem) u.problem = problem;
-  if (piece) u.piece = piece;
-  return signEvent(u, k);
-}
 async function publish(e: Envelope): Promise<Hash> {
   const r = await post('/p', { envelope: e, blobs: {} });
   expect(r.status, await r.clone().text()).toBe(201);
@@ -65,7 +38,7 @@ describe('hide and a maintainer\'s key (QX-6)', () => {
     expect(notM.status).toBe(403);
     const bad = await post('/k/events', ev(M, 'hide', { id: 'not a hash', why: 'x' }));
     expect(bad.status).toBe(400);
-    expect(((await bad.json()) as { error: string }).error).toMatch(/hide\.id/);
+    expect(((await bad.json()) as { error: string }).error).toMatch(/body\.id/);
     const link = await post('/k/events', ev(M, 'hide', { id: P, why: 'see https://x.y' }));
     expect(link.status).toBe(400);
     const onProblem = await post(`/p/${P}/events`, ev(M, 'hide', { id: P, why: 'wrong log' }, P));
@@ -78,7 +51,7 @@ describe('hide and a maintainer\'s key (QX-6)', () => {
     expect(((await get('/')) as { problems: { problem: Hash }[] }).problems.map((p) => p.problem)).toEqual([Q]);
     const offer = (await get(`/offer?key=${addr(A)}&can=web&model=meta/llama`)) as { offers: { problem: Hash }[] };
     expect(offer.offers.map((o) => o.problem)).toEqual([Q]);
-    const nextR = await fetch(`${base}/p/${P}/next?key=${addr(A)}&can=web&model=meta/llama`);
+    const nextR = await fetch(`${t.base}/p/${P}/next?key=${addr(A)}&can=web&model=meta/llama`);
     expect(nextR.status).toBe(410);
     const state = (await get(`/p/${P}/state`)) as { pieces: { hash: Hash }[]; hidden: { by: string; why: string } | null };
     expect(state.hidden?.by).toBe(addr(M));
@@ -111,7 +84,7 @@ describe('hide and a maintainer\'s key (QX-6)', () => {
     expect(hidden.hidden.map((h) => h.id)).toEqual([claimId]);
     expect(await listed()).toEqual([P, Q].sort());
     // The chain still carries the hidden event: history keeps everything.
-    const lines = (await (await fetch(`${base}/p/${Q}/events`)).text()).trim().split('\n');
+    const lines = (await (await fetch(`${t.base}/p/${Q}/events`)).text()).trim().split('\n');
     expect(lines.some((l) => eventId((JSON.parse(l) as { event: Parameters<typeof eventId>[0] }).event) === claimId)).toBe(true);
   });
 });

@@ -6,8 +6,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Event, addressOf } from '@bitquilt/core';
-import { type Abi, type Address, type Chain, type Hex, balanceOf, bond, deploy, deposit, depositAt, depositCount, headAt, isFinal, isRedeemed, lastPosted, redeem } from '../src/chain.js';
-import { leaf, proof } from '../src/merkle.js';
+import { type Abi, type Address, type Chain, balanceOf, bond, deploy, deposit, depositAt, depositCount, headAt, isFinal, isRedeemed, lastPosted, redeem } from '../src/chain.js';
+import { type Hex, leaf, proof } from '../src/merkle.js';
 import { post } from '../src/post.js';
 import { read } from '../src/read.js';
 

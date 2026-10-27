@@ -1,13 +1,37 @@
 /**
  * The resolver: given a link or a hash, fetch the envelope, its ancestors, their blobs, their receipts and the identity
  * log from the places that answer, in the link's order, then the config's, then the cache; check every hash; keep a
- * copy; reduce. Posting goes to every tracker known; an event no tracker takes waits in the queue.
+ * copy; reduce. Posting goes to every tracker known; an event no tracker takes waits in the queue. This is the
+ * client's side of PROTOCOL.md's resolvers: it asks them and keeps what they answer; the node in page.ts is the part
+ * of Quilt that is a resolver.
  */
 import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type Envelope, type Event, type Hash, type Receipt, type State, IDENTITY_LOG, blobProblems, envelopeProblems, eventId, hashBytes, problemHash, reduce, verifyChain } from '@bitquilt/core';
+import { type Envelope, type Event, type Hash, type Receipt, type State, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, problemHash, reduce, verifyChain, withSlash } from '@bitquilt/core';
 import { type Config, ensureHome } from './config.js';
-import { type Link, withSlash } from './link.js';
+import type { Link } from './link.js';
+
+/**
+ * Fetches JSON with a timeout: null where the place does not answer in time, answers with an error, or answers with
+ * something that is not JSON. Eight seconds is the wait for every read of a tracker, the time a slow one takes to
+ * answer for a problem with a thousand pieces; the small reads (a key's standing, a well-known document, a scrape)
+ * wait the same, since the wait is for the tracker and not for the answer's size. The receipts pages and a publish
+ * carry a whole log or a whole envelope with its blobs, and get fifteen.
+ */
+export async function askJson<T>(url: string, ms = 8000, fetchImpl: typeof fetch = fetch): Promise<T | null> {
+  try {
+    const r = await fetchImpl(url, { signal: AbortSignal.timeout(ms) });
+    return r.ok ? ((await r.json()) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Where a post went: the tracker that took it, or none and the event queued, with the last error heard where there was one. */
+export type Posted = { at: string | null; queued: boolean; error?: string };
+
+/** One tracker's answer to one event: taken (202, or 409 since it has it already), refused (any other 4xx but 429, with the tracker's reason), or down (no answer, a 5xx or a 429, so the next tracker is tried and the event queued when none takes it). */
+type Offer = { status: 'taken' } | { status: 'refused' | 'down'; error: string };
 
 export interface Resolved {
   hash: Hash;
@@ -18,10 +42,14 @@ export interface Resolved {
   tracker: string | null;
 }
 
-/** What a home has touched: the problems opened, the pieces claimed and returned, and the standing list (QX-4). */
+/**
+ * What a home has touched: the problems opened, the pieces claimed and returned, and the standing list (QX-4). Written
+ * by Quilt after each act it records (opening, claiming, returning, seeding, committing gold) and never by the resolver
+ * on its own; `pieces` is this key's own claims and returns.
+ */
 export interface Library {
   problems: Record<string, { title: string; slug: string; trackers: string[]; first: string; last: string }>;
-  pieces: Record<string, { problem: Hash; name: string; when: string; what: string; verifier?: string }>;
+  pieces: Record<string, { problem: Hash; name: string; when: string; what: 'claimed' | 'returned'; verifier?: string }>;
   /** The standing list (QX-4): the problems this key seeds, by the time it said so. */
   seeding: Record<string, string>;
   /** The owner's gold (QX-16), by problem then piece: the projection and nonce behind each commitment, which never leave the home, and when it was revealed. */
@@ -94,14 +122,8 @@ export class Resolver {
     return out;
   }
 
-  private async getJson(url: string): Promise<unknown | null> {
-    try {
-      const r = await this.fetchImpl(url, { signal: AbortSignal.timeout(8000) });
-      if (!r.ok) return null;
-      return await r.json();
-    } catch {
-      return null;
-    }
+  private getJson(url: string): Promise<unknown | null> {
+    return askJson<unknown>(url, 8000, this.fetchImpl);
   }
 
   private async getText(url: string): Promise<string | null> {
@@ -177,7 +199,7 @@ export class Resolver {
   /** A problem's chained receipts from the first place that serves a chain that verifies, else the cache. */
   async receipts(hash: Hash, link: Link, genesis: Hash = hash): Promise<Receipt[]> {
     for (const p of this.places(link)) {
-      const lines = p.kind === 'mirror' ? await this.getFileLines(`${p.url}ledger/${hash}.jsonl`) : await this.getLines(`${p.url}p/${hash}/events`, p.url);
+      const lines = p.kind === 'mirror' ? await this.getFileLines(`${p.url}ledger/${hash}.jsonl`) : await this.getLines(`${p.url}p/${hash}/events`);
       if (lines && verifyChain(lines, genesis).ok) {
         writeFileSync(this.cachePath('ledger', hash), lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));
         return lines;
@@ -188,7 +210,8 @@ export class Resolver {
     return [];
   }
 
-  private async getLines(url: string, base: string): Promise<Receipt[] | null> {
+  /** A tracker's receipts for a log, page by page as the x-quilt-next-since header leads; null where it does not answer. */
+  private async getLines(url: string): Promise<Receipt[] | null> {
     const out: Receipt[] = [];
     let since = 0;
     for (let page = 0; page < 1000; page++) {
@@ -206,7 +229,6 @@ export class Resolver {
       if (!next) break;
       since = Number(next);
     }
-    void base;
     return out;
   }
 
@@ -224,7 +246,7 @@ export class Resolver {
 
   async identity(link: Link): Promise<Receipt[]> {
     for (const p of this.places(link)) {
-      const lines = p.kind === 'mirror' ? await this.getFileLines(`${p.url}ledger/identity.jsonl`) : await this.getLines(`${p.url}k/events`, p.url);
+      const lines = p.kind === 'mirror' ? await this.getFileLines(`${p.url}ledger/identity.jsonl`) : await this.getLines(`${p.url}k/events`);
       if (lines && verifyChain(lines, IDENTITY_LOG).ok) {
         writeFileSync(join(this.home, 'cache', 'identity.jsonl'), lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));
         return lines;
@@ -275,25 +297,33 @@ export class Resolver {
     return problem === 'coin' ? `${t}coin/events` : problem ? `${t}p/${problem}/events` : `${t}k/events`;
   }
 
-  /** Posts an event to the trackers in order until one takes it; otherwise queues it. Returns where it went. */
-  async post(event: Event, problem: Hash | null | 'coin', trackers: string[]): Promise<{ at: string | null; queued: boolean; error?: string }> {
+  /** One event offered to one tracker's log, and what the tracker said of it (see `Offer`). */
+  private async offer(t: string, log: Hash | null | 'coin', event: Event): Promise<Offer> {
+    let r: Response;
+    try {
+      r = await this.fetchImpl(this.logUrl(t, log), { method: 'POST', body: JSON.stringify(event), headers: { 'content-type': 'application/json', ...this.postHeaders }, signal: AbortSignal.timeout(8000) });
+    } catch (err) {
+      return { status: 'down', error: (err as Error).message };
+    }
+    if (r.status === 202 || r.status === 409) return { status: 'taken' };
+    const error = ((await r.json().catch(() => ({}))) as { error?: string }).error ?? `${r.status}`;
+    return { status: r.status >= 400 && r.status < 500 && r.status !== 429 ? 'refused' : 'down', error };
+  }
+
+  /** Posts an event to the trackers in order until one takes it or one refuses it; none answering, queues it. Returns where it went. */
+  async post(event: Event, problem: Hash | null | 'coin', trackers: string[]): Promise<Posted> {
     let lastError = '';
     for (const t of trackers.map(withSlash)) {
-      try {
-        const r = await this.fetchImpl(this.logUrl(t, problem), { method: 'POST', body: JSON.stringify(event), headers: { 'content-type': 'application/json', ...this.postHeaders }, signal: AbortSignal.timeout(8000) });
-        if (r.status === 202 || r.status === 409) return { at: t, queued: false };
-        const body = (await r.json().catch(() => ({}))) as { error?: string };
-        lastError = body.error ?? `${r.status}`;
-        if (r.status >= 400 && r.status < 500 && r.status !== 429) return { at: null, queued: false, error: lastError };
-      } catch (err) {
-        lastError = (err as Error).message;
-      }
+      const o = await this.offer(t, problem, event);
+      if (o.status === 'taken') return { at: t, queued: false };
+      if (o.status === 'refused') return { at: null, queued: false, error: o.error };
+      lastError = o.error;
     }
     appendFileSync(join(this.home, 'queue.jsonl'), JSON.stringify({ problem, event, trackers }) + '\n');
     return { at: null, queued: true, ...(lastError ? { error: lastError } : {}) };
   }
 
-  /** Tries the queue again; what a tracker takes leaves it. */
+  /** Tries the queue again; what a tracker takes, or refuses, leaves it. */
   async flush(): Promise<{ sent: number; left: number }> {
     const file = join(this.home, 'queue.jsonl');
     if (!existsSync(file)) return { sent: 0, left: 0 };
@@ -303,14 +333,9 @@ export class Resolver {
     for (const it of items) {
       let ok = false;
       for (const t of it.trackers.map(withSlash)) {
-        try {
-          const r = await this.fetchImpl(this.logUrl(t, it.problem), { method: 'POST', body: JSON.stringify(it.event), headers: { 'content-type': 'application/json', ...this.postHeaders }, signal: AbortSignal.timeout(8000) });
-          if (r.status === 202 || r.status === 409 || (r.status >= 400 && r.status < 500 && r.status !== 429)) {
-            ok = true;
-            break;
-          }
-        } catch {
-          /* still down */
+        if ((await this.offer(t, it.problem, it.event)).status !== 'down') {
+          ok = true;
+          break;
         }
       }
       if (ok) sent++;
@@ -339,9 +364,5 @@ export class Resolver {
   cachedBlob(hash: Hash): Uint8Array | null {
     const f = this.cachePath('blob', hash);
     return existsSync(f) ? new Uint8Array(readFileSync(f)) : null;
-  }
-
-  static eventId(e: Event): Hash {
-    return eventId(e);
   }
 }

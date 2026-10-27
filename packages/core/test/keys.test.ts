@@ -1,8 +1,13 @@
+/**
+ * CORE.md section 1: keys are secp256k1, an identity is the EIP-55 address, a phrase gives the address a wallet would
+ * at the Ethereum path, and a signature is EIP-191 over the canonical object without its signature fields, with the
+ * signer recovered from it.
+ */
 import { describe, expect, it } from 'vitest';
 import { addressOf, checksumAddress, isAddress, isPhrase, newPhrase, randomSecretKey, recoverAddress, recoverSigner, secretKeyFromPhrase, signMessage, signObject, signedBy, verifyMessage } from '../src/keys.js';
+import { key } from './helpers.js';
 
-const one = new Uint8Array(32);
-one[31] = 1;
+const one = key(1);
 
 describe('keys and signatures', () => {
   it('derives the address a wallet would, with the EIP-55 checksum', () => {

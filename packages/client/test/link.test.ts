@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import type { Hash } from '@bitquilt/core';
 import { makeLink, parseLink } from '../src/link.js';
-import { modelFor } from '../src/worker.js';
+import { modelFor } from '../src/quilt.js';
 
-const H = 'sha256:' + 'ab'.repeat(32);
+/**
+ * The link forms (CORE.md section 8): a bare hash, `quilt:` with a hash or with an owner and a slug and the tracker
+ * and mirror hints, and a tracker's own address; the link made from a hash with its hints; and the model a host's
+ * name declares, or the override.
+ */
+const H = ('sha256:' + 'ab'.repeat(32)) as Hash;
 
 describe('links', () => {
   it('parses the three forms and a bare hash', () => {

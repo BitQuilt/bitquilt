@@ -1,20 +1,12 @@
-import { mkdtempSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
-import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
-import { Resolver } from '../src/resolver.js';
-import { type Pattern, Quilt } from '../src/worker.js';
+import { type Pattern, Quilt } from '../src/quilt.js';
+import { json, quiltOver, startTracker } from './helpers.js';
 
 /** Quilt's side of QX-4 and QX-5: the seed verb and the standing list, and `next` with no problem named taking the tracker's offer. */
-const hex = (n: number) => '00'.repeat(31) + n.toString(16).padStart(2, '0');
 let server: Server;
 let base: string;
-let config: Config;
-const homes = { owner: mkdtempSync(join(tmpdir(), 'quilt-owner-')), a: mkdtempSync(join(tmpdir(), 'quilt-a-')), b: mkdtempSync(join(tmpdir(), 'quilt-b-')) };
 let owner: Quilt, a: Quilt, b: Quilt;
 let problem: Hash;
 
@@ -41,17 +33,11 @@ const pattern: Pattern = {
 };
 
 beforeAll(async () => {
-  const t = createTracker({ store: new Store(':memory:'), url: 'http://tracker.test/', ipSalt: 's' });
-  server = await t.listen(0);
-  const addr = server.address();
-  base = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}/` : '';
-  config = { ...DEFAULT_CONFIG, trackers: [base] };
-  createKey(homes.owner, { secretHex: hex(9) });
-  createKey(homes.a, { secretHex: hex(1) });
-  createKey(homes.b, { secretHex: hex(2) });
-  owner = new Quilt(config, loadKey(homes.owner), new Resolver(config, homes.owner), 'Claude Code');
-  a = new Quilt(config, loadKey(homes.a), new Resolver(config, homes.a), 'Claude Code');
-  b = new Quilt({ ...config, model: 'openai/gpt-5' }, loadKey(homes.b), new Resolver(config, homes.b), 'ChatGPT');
+  ({ server, base } = await startTracker());
+  const mk = quiltOver(base);
+  owner = mk(9);
+  a = mk(1);
+  b = mk(2, 'openai/gpt-5', 'ChatGPT');
   problem = (await owner.publish(pattern)).hash;
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
@@ -63,7 +49,7 @@ describe('seeding and the offer from Quilt', () => {
     const r = await b.seed(problem, true);
     expect(r.queued).toBe(false);
     expect(Object.keys(b.library.seeding)).toEqual([problem]);
-    const scrape = (await (await fetch(`${base}p/${problem}/scrape`)).json()) as { seeders: number; last_seeded: string | null };
+    const scrape = await json<{ seeders: number; last_seeded: string | null }>(`${base}p/${problem}/scrape`);
     expect(scrape.seeders).toBe(1);
     expect(scrape.last_seeded).not.toBeNull();
     const { pick } = await b.next('');
@@ -71,7 +57,7 @@ describe('seeding and the offer from Quilt', () => {
     const off = await b.seed(problem, false);
     expect(off.queued).toBe(false);
     expect(b.library.seeding).toEqual({});
-    expect(((await (await fetch(`${base}p/${problem}/scrape`)).json()) as { seeders: number }).seeders).toBe(0);
+    expect((await json<{ seeders: number }>(`${base}p/${problem}/scrape`)).seeders).toBe(0);
   });
   it('takes the tracker\'s offer when no problem is named, and never the key\'s own problem', async () => {
     const { hash, pick, posted } = await a.next('');

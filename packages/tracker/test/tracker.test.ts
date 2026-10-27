@@ -1,97 +1,87 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Server } from 'node:http';
-import { type Envelope, type Hash, type Receipt, type Unsigned, addressOf, commitHash, hashBytes, newNonce, problemHash, signEvent, signObject, verifyChain } from '@bitquilt/core';
-import { Store } from '../src/store.js';
-import { createTracker, IDENTITY } from '../src/tracker.js';
+import { type Envelope, type Hash, type Receipt, commitHash, hashBytes, newNonce, problemHash, verifyChain } from '@bitquilt/core';
+import { IDENTITY } from '../src/tracker.js';
+import { addr, boot, envelope, json, key } from './helpers.js';
 
-const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
+/**
+ * The core at the tracker's door: the well-known document; an envelope published with its blobs and served back, or
+ * refused at the gate, unsigned, or with a blob missing; receipts stamped strictly increasing and chained, a duplicate
+ * refused; a reveal refused with no commit, outside the schema, or through the gate; agreement across vendors
+ * accepted and pieces handed out with short holds; the identity log kept apart and announcements in the index; a name
+ * resolved through a version event.
+ */
 const owner = key(9), A = key(1), B = key(2), C = key(3), D = key(4), E = key(5);
-const addr = addressOf;
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
 const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
 const cites = new TextEncoder().encode(JSON.stringify([{ s: 'one' }, { s: 'two' }, { s: 'three' }]));
 const citesHash = hashBytes(cites);
 
-function envelope(brief = 'Citation {n}: {cite.s}', slug = 'report'): Envelope {
-  const problem: Envelope['problem'] = {
-    title: 'A report', done_when: 'Every citation has a verdict.', owner: addr(owner), slug, prev: null, from: null,
-    settings: { challenge_window_h: 48, lease_h: 2, endgame_at: 1, budget: 100, patch_max: 10000 },
-    pieces: { 'cite/*': { count: 3, verifier: 'agree', requires: ['web'], brief, data: { cite: 'cites.json' }, schema, agree: ['verdict'] } },
-    data: { 'cites.json': citesHash },
-  };
-  const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
-  return { ...unsigned, sig: signObject(unsigned, owner) };
+function report(brief = 'Citation {n}: {cite.s}', slug = 'report'): Envelope {
+  return envelope(owner, slug, { 'cite/*': { count: 3, verifier: 'agree', requires: ['web'], brief, data: { cite: 'cites.json' }, schema, agree: ['verdict'] } }, { title: 'A report', done_when: 'Every citation has a verdict.', data: { 'cites.json': citesHash } });
 }
 
-let server: Server;
-let base: string;
-const store = new Store(':memory:');
-let tick = Date.parse('2026-10-24T18:00:00Z');
-const tracker = createTracker({ store, url: 'http://tracker.test/', now: () => new Date(tick).toISOString(), ipSalt: 's' });
+const t = boot('2026-10-24T18:00:00Z');
+const { ev, post, get } = t;
+beforeAll(() => t.listen());
+afterAll(() => t.close());
 
-beforeAll(async () => {
-  server = await tracker.listen(0);
-  const a = server.address();
-  base = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}` : '';
-});
-afterAll(() => new Promise<void>((r) => server.close(() => r())));
+type StateView = { pieces: { hash: Hash; state: string }[] };
+type Next = { piece: Hash | null; brief: string; error?: string };
 
-const post = (path: string, body: unknown) => fetch(base + path, { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json' } });
-const get = (path: string) => fetch(base + path);
-function ev(k: Uint8Array, type: string, body: Record<string, unknown>, problem?: Hash, piece?: Hash) {
-  const u: Unsigned = { quilt: 1, type, key: addr(k), ts: new Date(tick).toISOString(), body };
-  if (problem) u.problem = problem;
-  if (piece) u.piece = piece;
-  return signEvent(u, k);
-}
-
-const env = envelope();
+const env = report();
 const P = problemHash(env);
 let cite1: Hash, cite2: Hash;
 
 describe('the reference tracker', () => {
-  it('describes itself', async () => {
-    const r = await get('/.well-known/quilt');
+  it('serves its well-known document with its name, limits, layers and coin', async () => {
+    const r = await fetch(`${t.base}/.well-known/quilt`);
     expect(r.status).toBe(200);
-    const w = await r.json();
+    const w = await json<{ quilt: number; tracker: string; limits: { keyPerHour: number; ipPerHour: number }; identity: string; challenge: { extension: string }; stake: { extension: string; coin: string | null }; gold: { extension: string }; coin: unknown; routes: string[] }>(r);
     expect(w.quilt).toBe(1);
+    expect(w.tracker).toBe('http://tracker.test/');
+    expect(w.limits).toEqual({ keyPerHour: 120, ipPerHour: 600 });
     expect(w.identity).toBe(IDENTITY);
+    expect(w.challenge.extension).toBe('QX-1');
+    expect(w.stake).toEqual({ extension: 'QX-15', coin: null });
+    expect(w.gold).toEqual({ extension: 'QX-16' });
+    expect(w.coin).toBeNull();
+    expect(w.routes).toContain('/p/<hash>/state');
+    expect(w.routes).not.toContain('/coin/events');
   });
   it('publishes an envelope with its blobs and serves both back', async () => {
     const r = await post('/p', { envelope: env, blobs: { [citesHash]: Buffer.from(cites).toString('base64') } });
     expect(r.status).toBe(201);
-    expect((await r.json()).hash).toBe(P);
-    expect(await (await get(`/p/${P}`)).json()).toEqual(env);
-    expect(new Uint8Array(await (await get(`/b/${citesHash}`)).arrayBuffer())).toEqual(cites);
-    const state = await (await get(`/p/${P}/state`)).json();
-    expect(state.pieces.map((p: { state: string }) => p.state)).toEqual(['open', 'open', 'open']);
-    cite1 = state.pieces[0].hash;
-    cite2 = state.pieces[1].hash;
+    expect((await json<{ hash: Hash }>(r)).hash).toBe(P);
+    expect(await get(`/p/${P}`)).toEqual(env);
+    expect(new Uint8Array(await (await fetch(`${t.base}/b/${citesHash}`)).arrayBuffer())).toEqual(cites);
+    const state = await get<StateView>(`/p/${P}/state`);
+    expect(state.pieces.map((p) => p.state)).toEqual(['open', 'open', 'open']);
+    cite1 = state.pieces[0]!.hash;
+    cite2 = state.pieces[1]!.hash;
   });
   it('refuses an envelope whose brief fails the gate, one not signed by its owner, and one with a missing blob', async () => {
-    const linky = envelope('Read https://example.org/{n}', 'linky');
-    expect((await (await post('/p', { envelope: linky, blobs: { [citesHash]: Buffer.from(cites).toString('base64') } })).json()).error).toMatch(/no links/);
-    const other = envelope('Citation {n}', 'other');
-    expect((await (await post('/p', { envelope: { ...other, sig: envelope().sig } })).json()).error).toMatch(/not signed by its owner/);
-    const missing = { ...envelope('Citation {n}', 'missing') };
-    missing.problem.data = { 'cites.json': hashBytes(new Uint8Array([1])) };
-    const unsigned = { quilt: 1 as const, problem: missing.problem, hints: missing.hints };
-    expect((await (await post('/p', { envelope: { ...unsigned, sig: signObject(unsigned, owner) } })).json()).error).toMatch(/not present/);
+    const linky = report('Read https://example.org/{n}', 'linky');
+    expect((await json<{ error: string }>(post('/p', { envelope: linky, blobs: { [citesHash]: Buffer.from(cites).toString('base64') } }))).error).toMatch(/no links/);
+    const other = report('Citation {n}', 'other');
+    expect((await json<{ error: string }>(post('/p', { envelope: { ...other, sig: report().sig } }))).error).toMatch(/not signed by its owner/);
+    const missing = envelope(owner, 'missing', report('Citation {n}').problem.pieces, { title: 'A report', done_when: 'Every citation has a verdict.', data: { 'cites.json': hashBytes(new Uint8Array([1])) } });
+    expect((await json<{ error: string }>(post('/p', { envelope: missing }))).error).toMatch(/not present/);
   });
   it('stamps receipts strictly increasing, chains them, and refuses a duplicate', async () => {
-    const r1 = await post(`/p/${P}/events`, ev(A, 'claim', { by: by('anthropic/claude') }, P, cite1));
+    const claim = ev(A, 'claim', { by: by('anthropic/claude') }, P, cite1);
+    const r1 = await post(`/p/${P}/events`, claim);
     expect(r1.status).toBe(202);
     const r2 = await post(`/p/${P}/events`, ev(B, 'claim', { by: by('openai/gpt') }, P, cite1));
-    const l1 = await r1.json();
-    const l2 = await r2.json();
+    const l1 = await json<{ seq: number; at: string }>(r1);
+    const l2 = await json<{ seq: number; at: string }>(r2);
     expect(l2.seq).toBe(l1.seq + 1);
     expect(l2.at > l1.at).toBe(true);
-    const dup = await post(`/p/${P}/events`, ev(A, 'claim', { by: by('anthropic/claude') }, P, cite1));
+    const dup = await post(`/p/${P}/events`, claim);
     expect(dup.status).toBe(409);
-    const lines = (await (await get(`/p/${P}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as Receipt);
+    const lines = (await (await fetch(`${t.base}/p/${P}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as Receipt);
     expect(lines).toHaveLength(2);
     expect(verifyChain(lines, P).ok).toBe(true);
-    const scrape = await (await get(`/p/${P}/scrape`)).json();
+    const scrape = await get<{ chain_ok: boolean; head: { seq: number }; counts: Record<string, number> }>(`/p/${P}/scrape`);
     expect(scrape.chain_ok).toBe(true);
     expect(scrape.head.seq).toBe(2);
     expect(scrape.counts.in_flight).toBe(1);
@@ -99,66 +89,61 @@ describe('the reference tracker', () => {
   it('refuses a reveal with no commit, a return outside the schema, and a return the gate refuses', async () => {
     const nonce = newNonce();
     const orphan = ev(A, 'reveal', { return: { verdict: 'supports', quote: 'q' }, nonce, by: by('a/x') }, P, cite1);
-    expect((await (await post(`/p/${P}/events`, orphan)).json()).error).toBe('no unrevealed commit by this key on the piece');
-    tick += 1000;
+    expect(await t.refused(`/p/${P}/events`, orphan)).toBe('no unrevealed commit by this key on the piece');
     const bad = { verdict: 'maybe', quote: 'q' };
-    expect((await post(`/p/${P}/events`, ev(A, 'commit', { h: commitHash(bad, nonce) }, P, cite1))).status).toBe(202);
-    expect((await (await post(`/p/${P}/events`, ev(A, 'reveal', { return: bad, nonce, by: by('a/x') }, P, cite1))).json()).error).toMatch(/return.verdict/);
+    await t.accepted(`/p/${P}/events`, ev(A, 'commit', { h: commitHash(bad, nonce) }, P, cite1));
+    expect(await t.refused(`/p/${P}/events`, ev(A, 'reveal', { return: bad, nonce, by: by('a/x') }, P, cite1))).toMatch(/return.verdict/);
     const linky = { verdict: 'supports', quote: 'see https://x.y/z' };
     const n2 = newNonce();
-    expect((await post(`/p/${P}/events`, ev(C, 'commit', { h: commitHash(linky, n2) }, P, cite1))).status).toBe(202);
-    expect((await (await post(`/p/${P}/events`, ev(C, 'reveal', { return: linky, nonce: n2, by: by('a/x') }, P, cite1))).json()).error).toMatch(/no links/);
+    await t.accepted(`/p/${P}/events`, ev(C, 'commit', { h: commitHash(linky, n2) }, P, cite1));
+    expect(await t.refused(`/p/${P}/events`, ev(C, 'reveal', { return: linky, nonce: n2, by: by('a/x') }, P, cite1))).toMatch(/no links/);
   });
   it('accepts agreement across vendors and hands out pieces with short holds', async () => {
-    tick += 1000;
     for (const [k, model, quote] of [[A, 'anthropic/claude', 'q1'], [B, 'openai/gpt', 'q2']] as const) {
       const ret = { verdict: 'supports', quote };
       const nonce = newNonce();
-      expect((await post(`/p/${P}/events`, ev(k, 'commit', { h: commitHash(ret, nonce) }, P, cite2))).status).toBe(202);
-      tick += 1000;
-      expect((await post(`/p/${P}/events`, ev(k, 'reveal', { return: ret, nonce, by: by(model) }, P, cite2))).status).toBe(202);
-      tick += 1000;
+      await t.accepted(`/p/${P}/events`, ev(k, 'commit', { h: commitHash(ret, nonce) }, P, cite2));
+      await t.accepted(`/p/${P}/events`, ev(k, 'reveal', { return: ret, nonce, by: by(model) }, P, cite2));
     }
-    const state = await (await get(`/p/${P}/state`)).json();
-    expect(state.pieces[1].state).toBe('accepted_provisional');
-    const n1 = await (await get(`/p/${P}/next?key=${addr(C)}&can=web&model=meta/llama`)).json();
-    const n2 = await (await get(`/p/${P}/next?key=${addr(D)}&can=web&model=meta/llama`)).json();
+    const state = await get<StateView>(`/p/${P}/state`);
+    expect(state.pieces[1]!.state).toBe('accepted_provisional');
+    const n1 = await get<Next>(`/p/${P}/next?key=${addr(C)}&can=web&model=meta/llama`);
+    const n2 = await get<Next>(`/p/${P}/next?key=${addr(D)}&can=web&model=meta/llama`);
     expect(n1.piece).not.toBeNull();
     expect(n2.piece).not.toBeNull();
     expect(n1.piece).not.toBe(n2.piece);
     expect(n1.brief).toMatch(/^Citation \d: /);
-    expect((await (await get(`/p/${P}/next?key=${addr(C).toLowerCase()}&can=web`)).json()).error).toMatch(/checksum/);
+    expect((await get<Next>(`/p/${P}/next?key=${addr(C).toLowerCase()}&can=web`)).error).toMatch(/checksum/);
     // A hold is spent by its key's reveal: the piece goes to the next key at once, not when the hold's minute is up.
     const ret = { verdict: 'contradicts', quote: 'q3' };
     const nonce = newNonce();
-    tick += 1000;
-    expect((await post(`/p/${P}/events`, ev(C, 'commit', { h: commitHash(ret, nonce) }, P, n1.piece))).status).toBe(202);
-    tick += 1000;
-    expect((await post(`/p/${P}/events`, ev(C, 'reveal', { return: ret, nonce, by: by('meta/llama') }, P, n1.piece))).status).toBe(202);
-    const n3 = await (await get(`/p/${P}/next?key=${addr(E)}&can=web&model=google/gemini`)).json();
+    await t.accepted(`/p/${P}/events`, ev(C, 'commit', { h: commitHash(ret, nonce) }, P, n1.piece!));
+    await t.accepted(`/p/${P}/events`, ev(C, 'reveal', { return: ret, nonce, by: by('meta/llama') }, P, n1.piece!));
+    const n3 = await get<Next>(`/p/${P}/next?key=${addr(E)}&can=web&model=google/gemini`);
     expect(n3.piece).toBe(n1.piece);
   });
   it('keeps identity events in their own log and announcements in the index', async () => {
     const name = ev(A, 'name', { name: 'Ada' });
     expect((await post('/k/events', name)).status).toBe(202);
-    expect((await (await post(`/p/${P}/events`, ev(A, 'name', { name: 'Ada' }, P))).json()).error).toMatch(/identity log/);
-    const lines = (await (await get('/k/events')).text()).trim().split('\n').map((l) => JSON.parse(l) as Receipt);
+    expect(await t.refused(`/p/${P}/events`, ev(A, 'name', { name: 'Ada' }, P))).toMatch(/identity log/);
+    const lines = (await (await fetch(`${t.base}/k/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as Receipt);
     expect(lines).toHaveLength(1);
     expect(verifyChain(lines, IDENTITY).ok).toBe(true);
     const announce = ev(owner, 'announce', { title: env.problem.title, slug: env.problem.slug, done_when: env.problem.done_when, topics: ['citations', 'ai-safety'], counts: {}, trackers: [], mirrors: [] }, P);
     expect((await post(`/p/${P}/events`, announce)).status).toBe(202);
     const lying = ev(owner, 'announce', { title: 'Something else', slug: env.problem.slug, done_when: env.problem.done_when, topics: [] }, P);
-    expect((await (await post(`/p/${P}/events`, lying)).json()).error).toMatch(/announce: title/);
-    const found = await (await get('/search?q=ai-safety')).json();
-    expect(found.problems.map((p: { problem: string }) => p.problem)).toEqual([P]);
-    expect(found.problems[0].topics).toEqual(['citations', 'ai-safety']);
-    expect((await (await get('/search?q=nothing-like-this')).json()).problems).toEqual([]);
-    const home = await (await get('/')).json();
-    expect(home.problems[0].title).toBe('A report');
+    expect(await t.refused(`/p/${P}/events`, lying)).toMatch(/announce: title/);
+    type Found = { problems: { problem: Hash; topics: string[]; title: string }[] };
+    const found = await get<Found>('/search?q=ai-safety');
+    expect(found.problems.map((p) => p.problem)).toEqual([P]);
+    expect(found.problems[0]!.topics).toEqual(['citations', 'ai-safety']);
+    expect((await get<Found>('/search?q=nothing-like-this')).problems).toEqual([]);
+    const home = await get<Found>('/');
+    expect(home.problems[0]!.title).toBe('A report');
   });
   it('resolves a name through a version event', async () => {
     const version = ev(owner, 'version', { slug: 'report', hash: P }, P);
     expect((await post(`/p/${P}/events`, version)).status).toBe(202);
-    expect((await (await get(`/n/${addr(owner)}/report`)).json()).hash).toBe(P);
+    expect((await get<{ hash: Hash }>(`/n/${addr(owner)}/report`)).hash).toBe(P);
   });
 });

@@ -1,13 +1,13 @@
-import { mkdtempSync, readFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Store, createTracker } from '@bitquilt/tracker';
+import type { Hash } from '@bitquilt/core';
 import { mirror } from '@bitquilt/mirror';
 import { DEFAULT_CONFIG, createKey, loadKey } from '../src/config.js';
 import { Resolver } from '../src/resolver.js';
-import { type Pattern, Quilt } from '../src/worker.js';
+import { type Pattern, Quilt } from '../src/quilt.js';
+import { hex, quiltOver, startTracker, tempHome } from './helpers.js';
 
 /** A mirror as GitHub would serve it: the files, raw, over HTTP. */
 function serveDir(dir: string): Promise<{ server: Server; base: string }> {
@@ -28,19 +28,14 @@ function serveDir(dir: string): Promise<{ server: Server; base: string }> {
 }
 
 let tracker: Server, files: Server, trackerBase: string, mirrorBase: string;
-const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-dir-'));
-const ownerHome = mkdtempSync(join(tmpdir(), 'quilt-o-'));
-const readerHome = mkdtempSync(join(tmpdir(), 'quilt-r-'));
-let hash: string;
+const out = tempHome('bitquilt-mirror-dir-');
+const readerHome = tempHome('quilt-r-');
+let hash: Hash;
 let link: string;
 
 beforeAll(async () => {
-  const t = createTracker({ store: new Store(':memory:'), url: 'http://t.test/', ipSalt: 's' });
-  tracker = await t.listen(0);
-  const a = tracker.address();
-  trackerBase = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}/` : '';
-  createKey(ownerHome, { secretHex: '00'.repeat(31) + '09' });
-  const owner = new Quilt({ ...DEFAULT_CONFIG, trackers: [trackerBase] }, loadKey(ownerHome), new Resolver({ ...DEFAULT_CONFIG, trackers: [trackerBase] }, ownerHome), 'Claude Code');
+  ({ server: tracker, base: trackerBase } = await startTracker({ url: 'http://t.test/' }));
+  const owner = quiltOver(trackerBase)(9);
   const pattern: Pattern = { title: 'Mirrored', done_when: 'Done.', slug: 'mirrored', pieces: { 'cite/*': { count: 2, verifier: 'agree', brief: 'Citation {n}: {cite.s}', data: { cite: 'cites' }, schema: { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } } } }, data: { cites: [{ s: 'one' }, { s: 'two' }] } };
   const r = await owner.publish(pattern);
   hash = r.hash;
@@ -58,7 +53,7 @@ afterAll(async () => {
 describe('reading from a mirror alone', () => {
   it('resolves a problem by hash, and by name, with no tracker answering', async () => {
     const config = { ...DEFAULT_CONFIG, trackers: ['http://127.0.0.1:1/'], mirrors: [mirrorBase] };
-    createKey(readerHome, { secretHex: '00'.repeat(31) + '01' });
+    createKey(readerHome, { secretHex: hex(1) });
     const reader = new Quilt(config, loadKey(readerHome), new Resolver(config, readerHome), 'Claude Code');
     const opened = await reader.open(hash);
     expect(opened.tracker).toBeNull();

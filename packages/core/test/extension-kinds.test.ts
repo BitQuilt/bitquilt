@@ -4,9 +4,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { type Envelope, problemHash } from '../src/envelope.js';
 import { type Receipt, type Unsigned, commitHash, newNonce, signEvent } from '../src/events.js';
-import { type Address, addressOf, signObject } from '../src/keys.js';
+import { signObject } from '../src/keys.js';
 import { next } from '../src/next.js';
 import { reduce } from '../src/reduce.js';
+import { addr, byOf, clock, key } from './helpers.js';
 
 /**
  * The core reads the three extension verifier kinds (human, judge:n, attest; docs/ext/verifiers.md) as `unknown`, and
@@ -14,12 +15,9 @@ import { reduce } from '../src/reduce.js';
  * record. Its dependents stay locked, it is never offered, and the problem has no output. The extension decides on top
  * in the tracker; here is the floor it stands on, and the fixtures that fix it.
  */
-const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
 const owner = key(9), A = key(1), B = key(2), C = key(3);
-const addr = (k: Uint8Array): Address => addressOf(k);
-const T0 = Date.parse('2026-10-25T12:00:00Z');
-const t = (minutes: number): string => new Date(T0 + minutes * 60_000).toISOString();
-const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const, 'person' as const] });
+const t = clock('2026-10-25T12:00:00Z');
+const by = (model: string) => byOf(model, ['web', 'person']);
 const verdict = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
 const text = { type: 'object' as const, additionalProperties: false as const, required: ['text'], properties: { text: { type: 'string' as const, maxLength: 200 } } };
 const told = { type: 'object' as const, additionalProperties: false as const, required: ['who', 'how'], properties: { who: { type: 'string' as const, maxLength: 120 }, how: { enum: ['conversation', 'message'] } } };

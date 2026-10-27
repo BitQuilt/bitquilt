@@ -1,12 +1,14 @@
 /**
  * The reducer (CORE.md section 6): state = reduce(envelopes, blobs, receipts, now). Pure. Two clients with the same
  * inputs produce the same state. Everything a client, a tracker, a mirror or a verify script says about a problem is
- * computed here and nowhere else.
+ * computed here and nowhere else. It is three steps, one function each: `checkChain` reads the envelopes, `fold`
+ * takes the receipts in order, `settle` decides every piece at `now`.
  */
-import { type Blobs, type Envelope, type Piece, blobProblems, envelopeProblems, expandPieces, inputPieces, problemHash } from './envelope.js';
-import { type By, type Event, type Receipt, commitHash, earliestReceipt, eventId, eventProblems, eventSignedByKey, rotateSecondSigner, vendorOf } from './events.js';
+import { type Blobs, type Envelope, type Piece, type Settings, CORE_VERIFIERS, PATCH_VERIFIERS, blobProblems, envelopeProblems, expandPieces, inputPieces, problemHash } from './envelope.js';
+import { type By, type Event, type Receipt, CORE_EVENT_TYPES, PIECE_EVENT_TYPES, ROOT_ONLY_TYPES, commitHash, earliestReceipt, eventId, eventProblems, eventSignedByKey, rotateSecondSigner, vendorOf } from './events.js';
 import { type Hash, hashCanonical } from './hash.js';
 import { type Address, signedBy } from './keys.js';
+import { byAtThenId, plusHours } from './plain.js';
 import { type Return, agreeFields, returnProblems, returnsAgree } from './schema.js';
 
 export type PieceState = 'locked' | 'unknown' | 'open' | 'in_flight' | 'sealed' | 'needs_verify' | 'disputed' | 'accepted_provisional' | 'accepted' | 'unreachable';
@@ -64,68 +66,63 @@ export interface ReduceInput {
   now: string;
 }
 
-const CORE_TYPES: ReadonlySet<string> = new Set(['claim', 'commit', 'reveal', 'decline', 'run', 'name', 'delegate', 'revoke', 'rotate', 'version', 'output']);
-const ROOT_ONLY: ReadonlySet<string> = new Set(['delegate', 'revoke', 'rotate', 'version']);
-const MACHINE: ReadonlySet<string> = new Set(['check', 'score']);
-const CORE_VERIFIERS: ReadonlySet<string> = new Set(['check', 'score', 'agree']);
-
-const ms = (t: string): number => Date.parse(t);
-const plusHours = (t: string, h: number): string => new Date(ms(t) + h * 3_600_000).toISOString();
-
-/** The receipts in the order the reducer folds them: receipted first by earliest receipt then id; the rest by ts then id. */
+/** The receipts in the order the reducer folds them (section 6, Order): receipted first, by earliest receipt then id; the rest by ts then id. */
 export function orderReceipts(receipts: Receipt[]): { receipt: Receipt; at: string; id: Hash }[] {
   const items = receipts.map((receipt) => ({ receipt, at: earliestReceipt(receipt), id: eventId(receipt.event) }));
   const received = items.filter((x) => x.at !== null) as { receipt: Receipt; at: string; id: Hash }[];
-  const bare = items.filter((x) => x.at === null).map((x) => ({ receipt: x.receipt, at: x.receipt.event.ts, id: x.id }));
-  received.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  bare.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  return [...received, ...bare];
+  const withoutWrapper = items.filter((x) => x.at === null).map((x) => ({ receipt: x.receipt, at: x.receipt.event.ts, id: x.id }));
+  received.sort(byAtThenId);
+  withoutWrapper.sort(byAtThenId);
+  return [...received, ...withoutWrapper];
 }
 
+/** Roots, delegates and rotations as the fold builds them (section 6, Roots and delegates). */
 class Roots {
   readonly delegations: Delegation[] = [];
   readonly rotations = new Map<Address, Address>();
-  readonly seen = new Set<Address>();
+  /** Every key with a prior event (section 4): one whose core event passed shape, signature and standing, and one a kept rotate named as `to`. */
+  readonly prior = new Set<Address>();
 
-  /** Whether this key has ever appeared as an event's key. */
   hasPrior(key: Address): boolean {
-    return this.seen.has(key);
+    return this.prior.has(key);
   }
 
+  /** Whether the key has been delegated to or rotated from: then it is no root. */
   isDelegateOfAnyone(key: Address): boolean {
     return this.delegations.some((d) => d.to === key) || this.rotations.has(key);
   }
 
-  /** The delegation under which `key` may sign `type` at `at`, or null. A rotated-from root is a delegate of the new for every type. */
+  /** Whether a delegation stands at `at`: begun by then, not yet expired, and not revoked by then. */
+  private live(d: Delegation, at: string): boolean {
+    return d.since <= at && d.expires > at && (d.revokedAt === null || d.revokedAt > at);
+  }
+
+  /** The delegation under which `key` may sign `type` at `at`, or null. */
   liveDelegation(key: Address, type: string, at: string): Delegation | null {
-    for (const d of this.delegations) {
-      if (d.to !== key) continue;
-      if (d.since > at) continue;
-      if (d.revokedAt !== null && d.revokedAt <= at) continue;
-      if (d.expires <= at) continue;
-      if (!d.scope.has(type)) continue;
-      return d;
-    }
+    for (const d of this.delegations) if (d.to === key && this.live(d, at) && d.scope.has(type)) return d;
     return null;
   }
 
-  /** The root `key` counts for at `at` under any live delegation, or through a rotation, or itself. */
-  rootOfAny(key: Address, at: string): Address {
-    for (const d of this.delegations) {
-      if (d.to !== key || d.since > at || (d.revokedAt !== null && d.revokedAt <= at) || d.expires <= at) continue;
-      return this.final(d.root);
-    }
+  /** The root `key` counts for at `at`: through a live delegation of any scope, or through a rotation, or itself. */
+  rootOf(key: Address, at: string): Address {
+    for (const d of this.delegations) if (d.to === key && this.live(d, at)) return this.final(d.root);
     const rotated = this.rotations.get(key);
     return rotated ? this.final(rotated) : key;
   }
 
-  /** The root an event by `key` of `type` counts for at `at`, or null when the key may not sign it. */
-  rootAt(key: Address, type: string, at: string): Address | null {
+  /**
+   * The standing of `key` to sign an event of `type` at `at`: the root it counts for, or why it counts for nobody
+   * (section 6, Roots and delegates, and the Drop list). A delegate signs within its scope; a root rotated from is a
+   * delegate of the new root for every type (section 4); neither signs what only a root signs.
+   */
+  standing(key: Address, type: string, at: string): { root: Address } | { why: string } {
     const d = this.liveDelegation(key, type, at);
-    if (d) return this.final(d.root);
     const rotated = this.rotations.get(key);
-    if (rotated) return this.final(rotated);
-    return key;
+    if ((d || rotated) && ROOT_ONLY_TYPES.includes(type)) return { why: `a ${type} is signed by a root` };
+    if (d) return { root: this.final(d.root) };
+    if (rotated) return { root: this.final(rotated) };
+    if (this.isDelegateOfAnyone(key)) return { why: 'the delegation does not cover this event' };
+    return { root: key };
   }
 
   /** The root `root` has become through rotations. */
@@ -143,6 +140,8 @@ class Roots {
   related(a: Address, b: Address, at: string): boolean {
     if (this.final(a) === this.final(b)) return true;
     for (const d of this.delegations) {
+      // A delegation begun and not revoked by `at` relates its two keys; its expiry is not read here, where `live` would
+      // read it. Section 6 says "with delegations as live then"; the behaviour is left as it is for the maintainers to decide.
       if (d.since > at || (d.revokedAt !== null && d.revokedAt <= at)) continue;
       if ((d.to === a && this.final(d.root) === this.final(b)) || (d.to === b && this.final(d.root) === this.final(a))) return true;
     }
@@ -150,10 +149,33 @@ class Roots {
   }
 }
 
+/** The envelopes once checked: this problem's, its hash, the chain along `prev`, and the hashes in it. */
+interface Checked { envelope: Envelope; problem: Hash; chain: Envelope[]; chainHashes: Set<Hash> }
+
+/** What the fold leaves for `settle`: the roots as they stand at its end, the names, the versions, and what was dropped. */
+interface Folded { roots: Roots; names: State['names']; versions: State['versions']; dropped: State['dropped'] }
+
 export function reduce(input: ReduceInput): State {
-  const { blobs, now } = input;
-  if (input.envelopes.length === 0) throw new Error('no envelope');
-  const envelope = input.envelopes[0]!;
+  const checked = checkChain(input.envelopes, input.blobs);
+  // Pieces: this problem's expansion, by hash; ancestors' pieces that are not in it are not pieces of this problem.
+  const pieces = expandPieces(checked.envelope.problem, input.blobs);
+  const views = new Map<Hash, PieceView>();
+  for (const piece of pieces) {
+    views.set(piece.hash, { piece, state: 'open', claims: [], commits: [], reveals: [], runs: [], declined: new Set(), accepting: null, windowEnd: null, availability: 0, dependents: 0, frontier: null });
+  }
+  const folded = fold(input.receipts, views, checked.chainHashes, checked.envelope.problem.settings);
+  return settle(checked, pieces, views, folded, input.now);
+}
+
+/**
+ * Section 6, Envelopes: "Each is checked against its hash and its owner's signature; each blob against its hash."
+ * The first envelope is this problem's; the chain follows `prev` through the rest, and stops at an envelope that is
+ * missing, by another owner, invalid, or already in the chain. "An envelope that fails its checks makes the input
+ * invalid: reduce refuses it and produces no state."
+ */
+function checkChain(envelopes: Envelope[], blobs: Blobs): Checked {
+  if (envelopes.length === 0) throw new Error('no envelope');
+  const envelope = envelopes[0]!;
   const envProblems = envelopeProblems(envelope);
   if (envProblems.length) throw new Error(`envelope: ${envProblems[0]}`);
   if (!signedBy(envelope as unknown as Record<string, unknown>, envelope.problem.owner)) throw new Error('envelope: not signed by its owner');
@@ -161,12 +183,11 @@ export function reduce(input: ReduceInput): State {
   if (bp.length) throw new Error(bp[0]);
   const problem = problemHash(envelope);
 
-  // The chain of ancestors along prev, each checked.
-  const byHash = new Map(input.envelopes.map((e) => [problemHash(e), e] as const));
+  const envelopesByHash = new Map(envelopes.map((e) => [problemHash(e), e] as const));
   const chain: Envelope[] = [envelope];
   const chainHashes = new Set<Hash>([problem]);
   for (let cur = envelope; cur.problem.prev; ) {
-    const prev = byHash.get(cur.problem.prev);
+    const prev = envelopesByHash.get(cur.problem.prev);
     if (!prev) break;
     if (prev.problem.owner !== cur.problem.owner) break;
     if (envelopeProblems(prev).length || !signedBy(prev as unknown as Record<string, unknown>, prev.problem.owner) || blobProblems(prev.problem, blobs).length) break;
@@ -175,25 +196,26 @@ export function reduce(input: ReduceInput): State {
     chainHashes.add(cur.problem.prev);
     cur = prev;
   }
+  return { envelope, problem, chain, chainHashes };
+}
 
-  // Pieces: this problem's expansion, by hash; ancestors' pieces that are not in it are not pieces of this problem.
-  const pieces = expandPieces(envelope.problem, blobs);
-  const views = new Map<Hash, PieceView>();
-  for (const piece of pieces) {
-    views.set(piece.hash, { piece, state: 'open', claims: [], commits: [], reveals: [], runs: [], declined: new Set(), accepting: null, windowEnd: null, availability: 0, dependents: 0, frontier: null });
-  }
-  const settings = envelope.problem.settings;
-  const ownerRoot = envelope.problem.owner as Address;
-
+/**
+ * Section 6, Order: "Receipted events sort by the earliest received.at across the wrapper, then by event id. Events
+ * with no wrapper sort after every receipted event, by ts, then by id." Each event in that order is checked for its
+ * shape, its signature and its key's standing, then for what it names, then by its type's own rule; what fails is
+ * dropped with its reason (section 6, Drop). An event of a type the core does not define is passed over: not folded,
+ * not dropped, and no key's prior event (section 4).
+ */
+function fold(receipts: Receipt[], views: Map<Hash, PieceView>, chainHashes: Set<Hash>, settings: Settings): Folded {
   const roots = new Roots();
-  const names = new Map<Address, { name: string; agent: boolean }>();
-  const versions = new Map<string, Hash>();
+  const names: State['names'] = new Map();
+  const versions: State['versions'] = new Map();
   const dropped: State['dropped'] = [];
   const drop = (e: Event, why: string) => dropped.push({ id: eventId(e), type: e.type, why });
 
-  for (const { receipt, at } of orderReceipts(input.receipts)) {
+  for (const { receipt, at } of orderReceipts(receipts)) {
     const e = receipt.event;
-    if (!CORE_TYPES.has(e.type)) continue;
+    if (!(CORE_EVENT_TYPES as readonly string[]).includes(e.type)) continue;
     const shape = eventProblems(e);
     if (shape.length) {
       drop(e, shape[0]!);
@@ -203,25 +225,19 @@ export function reduce(input: ReduceInput): State {
       drop(e, 'signature is not the key\'s');
       continue;
     }
-    const isDelegate = roots.liveDelegation(e.key, e.type, at) !== null || roots.rotations.has(e.key);
-    if (ROOT_ONLY.has(e.type) && isDelegate) {
-      drop(e, `a ${e.type} is signed by a root`);
+    const s = roots.standing(e.key, e.type, at);
+    if ('why' in s) {
+      drop(e, s.why);
       continue;
     }
-    const root = roots.rootAt(e.key, e.type, at);
-    if (root === null) {
-      drop(e, 'the key may not sign this type');
-      continue;
-    }
-    if (roots.isDelegateOfAnyone(e.key) && roots.liveDelegation(e.key, e.type, at) === null && !roots.rotations.has(e.key)) {
-      drop(e, 'the delegation does not cover this event');
-      continue;
-    }
-    roots.seen.add(e.key);
+    const { root } = s;
+    // Section 4, A prior event: "A key has a prior event once a core event signed by it has passed the checks of shape,
+    // signature and standing as a root or live delegate, whether or not it was then dropped for what it names." So the
+    // key is recorded here, before the problem and piece checks and before the type's own.
+    roots.prior.add(e.key);
 
     const view = e.piece ? views.get(e.piece) : undefined;
-    const aboutPiece = ['claim', 'commit', 'reveal', 'decline', 'run'].includes(e.type);
-    if (aboutPiece) {
+    if (PIECE_EVENT_TYPES.includes(e.type)) {
       if (!e.problem || !chainHashes.has(e.problem)) {
         drop(e, 'names a problem outside the chain');
         continue;
@@ -264,7 +280,7 @@ export function reduce(input: ReduceInput): State {
           drop(e, 'the commit was abandoned before the reveal');
           break;
         }
-        if (MACHINE.has(v.piece.verifier)) {
+        if (PATCH_VERIFIERS.includes(v.piece.verifier)) {
           const keys = Object.keys(ret);
           if (keys.length !== 1 || typeof ret.patch !== 'string' || ret.patch.length > settings.patch_max) {
             drop(e, 'a check or score return is { patch } within patch_max');
@@ -288,7 +304,7 @@ export function reduce(input: ReduceInput): State {
       }
       case 'run': {
         const v = view!;
-        if (!MACHINE.has(v.piece.verifier)) {
+        if (!PATCH_VERIFIERS.includes(v.piece.verifier)) {
           drop(e, 'a run belongs to a check or score piece');
           break;
         }
@@ -354,7 +370,8 @@ export function reduce(input: ReduceInput): State {
           break;
         }
         roots.rotations.set(e.key, to);
-        roots.seen.add(to);
+        // Section 4: a key has a prior event "once a kept rotate names it as to".
+        roots.prior.add(to);
         break;
       }
       case 'version': {
@@ -365,15 +382,30 @@ export function reduce(input: ReduceInput): State {
         break;
     }
   }
+  return { roots, names, versions, dropped };
+}
 
-  // Accepting sets, states, weights, availability.
-  for (const v of views.values()) decideAccepting(v, roots, ownerRoot, now, settings.challenge_window_h);
+/**
+ * Section 6, Per piece: "A piece's state is a function of the sets of its live claims, its unabandoned commits, its
+ * valid reveals and its runs at now, not a token moved by transitions." Each piece's accepting set and window first,
+ * then the roots' weights, the dependents, the states (a piece's inputs before it), the availabilities, and, when
+ * every piece is accepted or unreachable, the output.
+ */
+function settle(checked: Checked, pieces: Piece[], views: Map<Hash, PieceView>, folded: Folded, now: string): State {
+  const { envelope, problem, chain } = checked;
+  const { roots, names, versions, dropped } = folded;
+  const settings = envelope.problem.settings;
+  const ownerRoot = envelope.problem.owner as Address;
+
+  for (const v of views.values()) decideAccepting(v, roots, ownerRoot, settings.challenge_window_h);
   const weights = computeWeights(views, roots);
-  const stateMemo = new Map<Hash, PieceState>();
   const list = pieces.map((p) => views.get(p.hash)!);
   for (const v of list) v.dependents = 0;
   for (const v of list) for (const entry of v.piece.inputs) for (const dep of inputPieces(entry, pieces)) views.get(dep.hash)!.dependents++;
-  const stateOf = (v: PieceView, trail: Set<Hash>): PieceState => {
+
+  const stateMemo = new Map<Hash, PieceState>();
+  /** The state of one piece at `now`, its inputs' states first; memoised, and a cycle of inputs is locked. */
+  function stateOf(v: PieceView, trail: Set<Hash>): PieceState {
     const memo = stateMemo.get(v.piece.hash);
     if (memo) return memo;
     if (trail.has(v.piece.hash)) return 'locked';
@@ -384,7 +416,7 @@ export function reduce(input: ReduceInput): State {
       return ds === 'accepted' || ds === 'unreachable';
     }));
     if (!inputsDone) s = 'locked';
-    else if (!CORE_VERIFIERS.has(v.piece.verifier)) s = 'unknown';
+    else if (!(CORE_VERIFIERS as readonly string[]).includes(v.piece.verifier)) s = 'unknown';
     else if (v.accepting) {
       if (v.windowEnd !== null && now < v.windowEnd) s = 'accepted_provisional';
       else s = isUnreachable(v) ? 'unreachable' : 'accepted';
@@ -395,65 +427,122 @@ export function reduce(input: ReduceInput): State {
     else s = 'open';
     stateMemo.set(v.piece.hash, s);
     return s;
-  };
+  }
   for (const v of list) v.state = stateOf(v, new Set());
-  for (const v of list) v.availability = availabilityOf(v, weights, roots, now, false);
+  for (const v of list) v.availability = availabilityOf(v, now, (r) => weights.get(roots.final(r)) ?? 1);
 
   const complete = list.length > 0 && list.every((v) => v.state === 'accepted' || v.state === 'unreachable');
   const output = complete ? assembleOutput(problem, list) : null;
 
   return {
     problem, envelope, chain, pieces: list, byHash: views, names, versions, delegations: roots.delegations, rotations: roots.rotations, weights, output, dropped, complete,
-    rootOf: (key, at) => roots.rootOfAny(key, at),
+    rootOf: (key, at) => roots.rootOf(key, at),
     related: (a, b, at) => roots.related(a, b, at),
   };
 }
 
-function decideAccepting(v: PieceView, roots: Roots, owner: Address, now: string, windowH: number): void {
+/** The piece's accepting set by its verifier's rule, its frontier for a score piece, and its window from the set's completion. */
+function decideAccepting(v: PieceView, roots: Roots, owner: Address, windowH: number): void {
   const p = v.piece;
-  if (MACHINE.has(p.verifier)) {
-    // A revealed patch and two runs with exit 0 (scores within tolerance) from roots unrelated to each other and to the author.
-    const tolerance = p.check?.tolerance ?? 0;
-    const better = p.check?.better ?? 'higher';
-    let best: AcceptingSet | null = null;
-    for (const patch of v.reveals) {
-      const runs = v.runs.filter((r) => r.digest === patch.digest && !roots.related(r.root, owner, r.at));
-      for (let j = 0; j < runs.length; j++) {
-        const b = runs[j]!;
-        if (b.exit !== 0) continue;
-        for (let i = 0; i < j; i++) {
-          const a = runs[i]!;
-          if (a.exit !== 0 || roots.related(a.root, b.root, b.at)) continue;
-          if (p.verifier === 'score') {
-            if (a.score === undefined || b.score === undefined || Math.abs(a.score - b.score) > tolerance) continue;
-            const score = better === 'higher' ? Math.max(a.score, b.score) : Math.min(a.score, b.score);
-            if (!v.frontier || (better === 'higher' ? score > v.frontier.score : score < v.frontier.score)) v.frontier = { score, run: b };
-            if (!best || b.at < best.completedAt) best = { kind: 'score', patch, runs: [a, b], completedAt: b.at, score };
-          } else if (!best || b.at < best.completedAt) best = { kind: 'check', patch, runs: [a, b], completedAt: b.at };
-        }
-      }
-    }
-    v.accepting = best;
+  if (PATCH_VERIFIERS.includes(p.verifier)) {
+    v.accepting = acceptingRuns(v, roots, owner);
+    if (p.verifier === 'score') v.frontier = frontierOf(v, roots, owner);
   } else if (p.verifier === 'agree' && p.schema) {
-    const fields = agreeFields(p.schema, p.agree);
-    const reveals = v.reveals.filter((r) => !roots.related(r.root, owner, r.at));
-    for (let j = 0; j < reveals.length && !v.accepting; j++) {
-      const b = reveals[j]!;
-      // b counts only if unrelated to every earlier revealer.
-      if (reveals.slice(0, j).some((a) => roots.related(a.root, b.root, b.at))) continue;
-      for (let i = 0; i < j; i++) {
-        const a = reveals[i]!;
-        if (a.vendor === b.vendor) continue;
-        if (returnsAgree(p.schema, fields, a.return, b.return)) {
-          v.accepting = { kind: 'agree', reveals: [a, b], completedAt: b.at };
-          break;
-        }
-      }
-    }
+    v.accepting = acceptingReveals(v, roots, owner);
   }
+  // Section 6: "A window runs from the receipt c of the event that completed the set while now < c + challenge_window_h."
   v.windowEnd = v.accepting ? plusHours(v.accepting.completedAt, windowH) : null;
 }
 
+/** A pair of runs that could accept a check or score piece, with the patch they ran and, for a score piece, the pair's score by `better`. */
+interface RunPair { patch: Reveal; a: Run; b: Run; score?: number }
+
+/**
+ * The pairs of runs that qualify (section 6), in search order: the patches in receipt order, then the later run, then
+ * the earlier. A run counts at the patch's digest, "with exit 0", "from roots unrelated to each other" and "unrelated
+ * to the owner" (the patch's author's own run was dropped at the fold); for a score piece, "two run events whose score
+ * values are within the check's tolerance of each other", the pair's score the better of the two.
+ */
+function qualifyingRuns(v: PieceView, roots: Roots, owner: Address): RunPair[] {
+  const p = v.piece;
+  const tolerance = p.check?.tolerance ?? 0;
+  const better = p.check?.better ?? 'higher';
+  const out: RunPair[] = [];
+  for (const patch of v.reveals) {
+    const runs = v.runs.filter((r) => r.digest === patch.digest && !roots.related(r.root, owner, r.at));
+    for (let j = 0; j < runs.length; j++) {
+      const b = runs[j]!;
+      if (b.exit !== 0) continue;
+      for (let i = 0; i < j; i++) {
+        const a = runs[i]!;
+        if (a.exit !== 0 || roots.related(a.root, b.root, b.at)) continue;
+        if (p.verifier !== 'score') {
+          out.push({ patch, a, b });
+          continue;
+        }
+        if (a.score === undefined || b.score === undefined || Math.abs(a.score - b.score) > tolerance) continue;
+        out.push({ patch, a, b, score: better === 'higher' ? Math.max(a.score, b.score) : Math.min(a.score, b.score) });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Section 6: "for check: a revealed { patch }, and two run events with exit 0 at that patch's digest, in the declared
+ * image, from roots unrelated to each other and to the root that revealed the patch"; "for score: as check, with two
+ * run events whose score values are within the check's tolerance of each other. The accepting set is the pair
+ * completed first."
+ */
+function acceptingRuns(v: PieceView, roots: Roots, owner: Address): AcceptingSet | null {
+  let best: AcceptingSet | null = null;
+  for (const { patch, a, b, score } of qualifyingRuns(v, roots, owner)) {
+    if (best && b.at >= best.completedAt) continue;
+    // A check piece's pairs carry no score; a score piece's every one does.
+    best = score === undefined ? { kind: 'check', patch, runs: [a, b], completedAt: b.at } : { kind: 'score', patch, runs: [a, b], completedAt: b.at, score };
+  }
+  return best;
+}
+
+/**
+ * Section 6: "the frontier is the best score, by the check's better, among every pair of qualifying runs within
+ * tolerance, whether or not that pair is the set." The run kept is the later of the first pair to reach that score.
+ */
+function frontierOf(v: PieceView, roots: Roots, owner: Address): { score: number; run: Run } | null {
+  const better = v.piece.check?.better ?? 'higher';
+  let frontier: { score: number; run: Run } | null = null;
+  for (const { b, score } of qualifyingRuns(v, roots, owner)) {
+    if (score === undefined) continue;
+    if (!frontier || (better === 'higher' ? score > frontier.score : score < frontier.score)) frontier = { score, run: b };
+  }
+  return frontier;
+}
+
+/**
+ * Section 6: "for agree: two valid reveals from unrelated roots of different vendors that agree on the agree fields
+ * after canonicalisation. Reveals are taken in receipt order, and a reveal counts only when its root is unrelated to
+ * the owner and to the root of every earlier reveal on the piece; among counting reveals, the first pair in receipt
+ * order whose vendors differ and whose agree fields agree is the accepting set, completed at the receipt of its later
+ * reveal." The earlier reveals a reveal is held against are the counting ones, the owner's left out.
+ */
+function acceptingReveals(v: PieceView, roots: Roots, owner: Address): AcceptingSet | null {
+  const p = v.piece;
+  if (!p.schema) return null;
+  const fields = agreeFields(p.schema, p.agree);
+  const reveals = v.reveals.filter((r) => !roots.related(r.root, owner, r.at));
+  for (let j = 0; j < reveals.length; j++) {
+    const b = reveals[j]!;
+    if (reveals.slice(0, j).some((a) => roots.related(a.root, b.root, b.at))) continue;
+    for (let i = 0; i < j; i++) {
+      const a = reveals[i]!;
+      if (a.vendor === b.vendor) continue;
+      if (returnsAgree(p.schema, fields, a.return, b.return)) return { kind: 'agree', reveals: [a, b], completedAt: b.at };
+    }
+  }
+  return null;
+}
+
+/** Section 6: "disputed: two reveals from unrelated roots that differ on an agree field, and no accepting set." The set is the caller's question. */
 function hasDispute(v: PieceView, roots: Roots): boolean {
   const p = v.piece;
   if (p.verifier !== 'agree' || !p.schema) return false;
@@ -466,6 +555,7 @@ function hasDispute(v: PieceView, roots: Roots): boolean {
   return false;
 }
 
+/** Section 6: "where the accepting set's first reveal has the value unreachable in an agree field whose schema is an enum that lists it". */
 function isUnreachable(v: PieceView): boolean {
   if (!v.accepting || v.accepting.kind !== 'agree' || !v.piece.schema) return false;
   const fields = agreeFields(v.piece.schema, v.piece.agree);
@@ -476,6 +566,7 @@ function isUnreachable(v: PieceView): boolean {
   });
 }
 
+/** Section 6: "A root's weight is (its reveals in accepting sets in this chain + 1) / (its claims in this chain + 1), bounded to [0.1, 1]." */
 function computeWeights(views: Map<Hash, PieceView>, roots: Roots): Map<Address, number> {
   const claims = new Map<Address, number>();
   const accepted = new Map<Address, number>();
@@ -501,15 +592,19 @@ function computeWeights(views: Map<Hash, PieceView>, roots: Roots): Map<Address,
   return weights;
 }
 
-/** Live claims weighted by the claimant's record, plus unabandoned commits and reveals. In endgame, live claims count zero. */
-export function availabilityOf(v: PieceView, weights: Map<Address, number>, roots: Roots | null, now: string, endgame: boolean): number {
+/**
+ * Section 6: "Availability of a piece is the sum over its live claims of the claimant root's weight, plus its
+ * unabandoned commits and its reveals." `claimWeight` gives a claimant root's weight; `next` passes zero in endgame.
+ */
+export function availabilityOf(v: PieceView, now: string, claimWeight: (root: Address) => number): number {
   let a = 0;
-  if (!endgame) for (const c of v.claims) if (c.until > now) a += weights.get(roots ? roots.final(c.root) : c.root) ?? 1;
+  for (const c of v.claims) if (c.until > now) a += claimWeight(c.root);
   for (const c of v.commits) if (!c.revealed && c.abandonAt > now) a += 1;
   a += v.reveals.length;
   return a;
 }
 
+/** Section 6, Output: the document and its hash, one entry per piece in file order. */
 function assembleOutput(problem: Hash, list: PieceView[]): { document: unknown; hash: Hash } {
   const pieces = list.map((v) => {
     const base = { name: v.piece.name, piece: v.piece.hash, state: v.state };
@@ -530,5 +625,3 @@ function assembleOutput(problem: Hash, list: PieceView[]): { document: unknown; 
   const document = { quilt: 1, problem, pieces };
   return { document, hash: hashCanonical(document) };
 }
-
-export { Roots };

@@ -5,7 +5,7 @@
  * index, its search and its offers, hands out none of its pieces, and refuses new events on it, while still serving
  * its envelope and its chain to anyone who asks by hash.
  */
-import { type Address, type Receipt, plainTextProblems } from '@bitquilt/core';
+import { type Address, type Receipt, isHash, isRecord, plainTextProblems } from '@bitquilt/core';
 
 export const HIDE = 'QX-6';
 export const WHY_MAX = 200;
@@ -18,16 +18,16 @@ export interface Hidden {
   at: string;
 }
 
+/** Why this is not a well-formed hide body, or nothing. */
 export function hideBodyProblems(body: unknown): string[] {
-  const b = body as { id?: unknown; why?: unknown; on?: unknown } | null;
-  if (!b || typeof b !== 'object' || Array.isArray(b)) return ['hide: a body with id and why'];
-  if (typeof b.id !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(b.id)) return ['hide.id: an event id or a problem hash'];
-  if (typeof b.why !== 'string' || !b.why.trim() || b.why.length > WHY_MAX) return [`hide.why: text of at most ${WHY_MAX} characters`];
-  const issues = plainTextProblems(b.why, 'hide.why');
-  if (issues.length) return issues;
-  if (b.on !== undefined && typeof b.on !== 'boolean') return ['hide.on: true or false'];
-  for (const k of Object.keys(b)) if (!['id', 'why', 'on'].includes(k)) return [`hide.${k}: not a field of a hide`];
-  return [];
+  if (!isRecord(body)) return ['body: an object'];
+  const out: string[] = [];
+  if (!isHash(body.id)) out.push('body.id: an event id or a problem hash');
+  if (typeof body.why !== 'string' || !body.why.trim() || body.why.length > WHY_MAX) out.push(`body.why: text of at most ${WHY_MAX} characters`);
+  else out.push(...plainTextProblems(body.why, 'body.why'));
+  if (body.on !== undefined && typeof body.on !== 'boolean') out.push('body.on: true or false');
+  for (const k of Object.keys(body)) if (!['id', 'why', 'on'].includes(k)) out.push(`body.${k}: not a field of a hide`);
+  return out;
 }
 
 /**

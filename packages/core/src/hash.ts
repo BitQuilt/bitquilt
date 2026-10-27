@@ -5,7 +5,6 @@ import { canonicalBytes } from './canonical.js';
 
 export type Hash = `sha256:${string}`;
 export const HASH_RE = /^sha256:[0-9a-f]{64}$/;
-export const HEX64_RE = /^[0-9a-f]{64}$/;
 
 export function sha256Hex(bytes: Uint8Array): string {
   return bytesToHex(sha256(bytes));

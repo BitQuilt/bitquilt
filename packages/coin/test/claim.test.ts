@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Chain, Head, Hex } from '../src/chain.js';
+import type { Chain, PostedHead } from '../src/chain.js';
 import { type ClaimDoor, claim } from '../src/claim.js';
-import { leaf, root, verify } from '../src/merkle.js';
+import { type Hex, leaf, root, verify } from '../src/merkle.js';
 import { type Redeems, redeemRoot } from '../src/post.js';
 
 /**
@@ -22,7 +22,7 @@ function door(over: Partial<ClaimDoor> & { final?: boolean; redeemed?: boolean; 
   const d: ClaimDoor & { calls: unknown[] } = {
     calls,
     async lastPosted() { return 5; },
-    async headAt(_c: Chain, seq: number): Promise<Head> { return { seq, head: `0x${hex(0xaaaa)}`, root: over.root ?? redeemRoot(answer.redeems), postedAt: 1, poster: HOLDER, vetoed: false, posted: true }; },
+    async headAt(_c: Chain, seq: number): Promise<PostedHead> { return { seq, head: `0x${hex(0xaaaa)}`, root: over.root ?? redeemRoot(answer.redeems), postedAt: 1, poster: HOLDER, vetoed: false, posted: true }; },
     async isFinal() { return over.final ?? true; },
     async isRedeemed() { return over.redeemed ?? false; },
     async redeem(_c: Chain, line) { calls.push(line); return { tx: `0x${hex(7)}` as Hex }; },

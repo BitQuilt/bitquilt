@@ -2,13 +2,13 @@
 pragma solidity ^0.8.24;
 
 import {Anchors} from "../src/Anchors.sol";
-import {Vm, Cheats} from "./Vm.sol";
+import {Vm, HEVM} from "./Vm.sol";
 
 /// @notice Anchors: a bond makes a poster allowed; a post needs the bond and a newer sequence; the veto strikes a
 /// head inside the window, takes the bond for the treasury, and can do so once; a vetoed sequence may be posted
 /// again; a bond stays while a post is inside the window; a head is final once the window has passed.
 contract AnchorsTest {
-    Vm constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    Vm constant vm = Vm(HEVM);
 
     address constant VETOER = address(0xA11CE);
     address constant TREASURY = address(0x7EA5);

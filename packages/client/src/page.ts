@@ -11,9 +11,10 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type Hash, IDENTITY_LOG, isHash } from '@bitquilt/core';
+import { type Pattern, Quilt } from './quilt.js';
+import { goldText, kindWords, kindsText, layerByHash, stakeText } from './render.js';
 import type { Resolver } from './resolver.js';
 import { isToolName, runTool } from './tools.js';
-import { type Pattern, Quilt, kindWords } from './worker.js';
 
 /** The page's HTML: an asset of the single executable when this runs as one, else the file beside the source. */
 function pageHtml(): string {
@@ -48,7 +49,7 @@ async function body(req: IncomingMessage): Promise<unknown> {
 
 export interface PageOptions {
   quilt: Quilt;
-  /** The person at the page hands in as a person: the same key, model `human`, capability `person`. */
+  /** The person at the page hands in as a person (`Quilt.asPerson`): the same key, model `human`, capability `person`. */
   person: Quilt;
   resolver: Resolver;
 }
@@ -70,34 +71,24 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       }
       if (path === '/api/me') return json(res, 200, quilt.me());
       if (path === '/api/standing') {
-        // Apart from /api/me, which a probe reads in a moment: this one asks the trackers.
+        // Unlike /api/me, which answers from memory so a probe (node.ts) can read it at once, this one asks the trackers.
         const [standing, coin] = await Promise.all([quilt.standing(), quilt.coin()]);
         return json(res, 200, { standing, coin });
       }
       if (path === '/api/search') return json(res, 200, { problems: await quilt.search(u.searchParams.get('q') ?? '') });
       if (path === '/api/open') {
-        const { hash, state, tracker, layer, hidden, gold } = await quilt.open(u.searchParams.get('link') ?? '');
-        const over = new Map((layer ?? []).map((l) => [l.hash, l] as const));
+        // Everything the problem tab draws, in one answer: the problem and its map, the lines said in the render module's words, the panels this person judges, who keeps it, and the forms to offer.
+        const opened = await quilt.open(u.searchParams.get('link') ?? '');
+        const { hash, state, tracker, layer, hidden, gold, scrape } = opened;
+        const over = layerByHash(layer);
         // The judge panels this person sits on with a seat still live: the page offers a ranking form for each.
         const me = person.identity?.address ?? null;
         const judging = me === null ? [] : (await person.panels(hash, tracker)).filter((p) => p.outcome === 'open' && p.seats.some((s) => s.root === me && s.lapsed_at === null && !s.rank));
-        let seed: { seeders: number; last_seeded: string | null } = { seeders: 0, last_seeded: null };
-        if (tracker) {
-          try {
-            const r = await fetch(`${tracker}p/${hash}/scrape`, { signal: AbortSignal.timeout(5000) });
-            if (r.ok) {
-              const j = (await r.json()) as { seeders?: number; last_seeded?: string | null };
-              seed = { seeders: j.seeders ?? 0, last_seeded: j.last_seeded ?? null };
-            }
-          } catch {
-            /* the map is shown without the seeders */
-          }
-        }
         // QX-16: the gold this key committed here, by piece, so the page can offer the reveal; QX-17: where the coin lives, so it can offer a pay.
         const mineGold = Object.keys(quilt.library.gold?.[hash] ?? {});
         const coin = tracker ? await quilt.coinAt(tracker) : null;
         return json(res, 200, {
-          problem: hash, tracker, hidden, seeders: seed.seeders, last_seeded: seed.last_seeded, seeding: Boolean(quilt.library.seeding[hash]), title: state.envelope.problem.title, done_when: state.envelope.problem.done_when, owner: state.envelope.problem.owner, complete: state.complete,
+          problem: hash, tracker, hidden, seeders: scrape?.seeders ?? 0, last_seeded: scrape?.last_seeded ?? null, seeding: Boolean(quilt.library.seeding[hash]), title: state.envelope.problem.title, done_when: state.envelope.problem.done_when, owner: state.envelope.problem.owner, complete: state.complete,
           pieces: state.pieces.map((v) => {
             const l = over.get(v.piece.hash);
             const k = kindWords(v.piece.verifier);
@@ -106,7 +97,7 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
               stake: l?.stake ?? 0, gold: l?.gold ?? null, verified: l?.verified ?? false, mine_gold: mineGold.includes(v.piece.hash),
             };
           }),
-          kinds: quilt.kindsText(state),
+          kinds: kindsText(state), stake: stakeText(layer), goldLine: goldText(layer, gold),
           judging: judging.map((p) => ({ piece: p.piece, name: p.name, verifier: p.verifier, majority: p.majority, panel: p.panel, candidates: p.candidates.map((c) => ({ digest: c.digest, return: c.return })) })),
           accepted: quilt.acceptedText(state, layer), summary: quilt.summary(hash, state, tracker, layer, hidden, gold), gold, coin,
         });
@@ -143,8 +134,8 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         return json(res, 200, await runTool(forHost, name, b.input ?? {}));
       }
       if (path === '/api/next' && method === 'GET') {
-        const { hash, pick, posted, author, stake, lock } = await person.next(u.searchParams.get('problem') ?? '');
-        return json(res, 200, { problem: hash, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: kindWords(pick.piece.verifier), brief: pick.brief, author, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h, posted, stake, lock });
+        const { hash, pick, posted, owner, stake, lock } = await person.next(u.searchParams.get('problem') ?? '');
+        return json(res, 200, { problem: hash, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: kindWords(pick.piece.verifier), brief: pick.brief, owner, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h, posted, stake, lock });
       }
       if (path === '/api/seed' && method === 'POST') {
         const b = (await body(req)) as { problem: Hash; on: boolean };

@@ -65,6 +65,7 @@ await build({
   entryPoints: [join(root, 'packages', 'client', 'src', 'bin.ts')],
   bundle: true,
   platform: 'node',
+  // The Node the desktop app ships and runs the bundle on; the binaries script targets the Node it copies instead.
   target: 'node22',
   format: 'cjs',
   outfile: entry,

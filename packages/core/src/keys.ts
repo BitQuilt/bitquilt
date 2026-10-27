@@ -14,8 +14,11 @@ import { generateMnemonic, mnemonicToSeedSync, validateMnemonic } from '@scure/b
 import { wordlist } from '@scure/bip39/wordlists/english.js';
 import { canonicalBytes } from './canonical.js';
 
+/** An identity: the key's Ethereum address with its EIP-55 checksum, as every `key` and `owner` is written. */
 export type Address = `0x${string}`;
+/** A recoverable signature as 0x, r, s and v in hex: 132 characters. */
 export type Signature = `0x${string}`;
+/** The standard Ethereum derivation path, so a phrase gives the address a wallet would show for it. */
 export const ETH_PATH = "m/44'/60'/0'/0/0";
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const SIG_RE = /^0x[0-9a-f]{130}$/;
@@ -25,10 +28,12 @@ export function secretToHex(secret: Uint8Array): string {
   return bytesToHex(secret);
 }
 
+/** The secret key read back from the key file, with or without its 0x. */
 export function secretFromHex(hex: string): Uint8Array {
   return hexToBytes(hex.trim().replace(/^0x/, ''));
 }
 
+/** A fresh secret key, for a client making a root or a delegate. */
 export function randomSecretKey(): Uint8Array {
   return secp256k1.utils.randomSecretKey();
 }
@@ -38,6 +43,7 @@ export function newPhrase(): string {
   return generateMnemonic(wordlist, 128);
 }
 
+/** Whether the words are a phrase of the English list, for a client restoring a root. */
 export function isPhrase(phrase: string): boolean {
   return validateMnemonic(phrase.trim().toLowerCase(), wordlist);
 }
@@ -68,11 +74,13 @@ export function checksumAddress(hex40: string): Address {
   return out as Address;
 }
 
+/** The address of a public key, compressed or not, for a client that holds a wallet's key and no secret. */
 export function addressFromPublicKey(pub: Uint8Array): Address {
   const uncompressed = pub.length === 65 ? pub : secp256k1.Point.fromBytes(pub).toBytes(false);
   return checksumAddress(bytesToHex(keccak_256(uncompressed.subarray(1)).subarray(12)));
 }
 
+/** The address of a secret key: what a client writes as its `key`. */
 export function addressOf(secret: Uint8Array): Address {
   return addressFromPublicKey(publicKey(secret));
 }
@@ -110,29 +118,32 @@ export function recoverAddress(message: Uint8Array, sig: string): Address | null
   }
 }
 
+/** Whether `sig` over these bytes is `address`'s, for a caller that holds bytes rather than an object. */
 export function verifyMessage(message: Uint8Array, sig: string, address: string): boolean {
   const who = recoverAddress(message, sig);
   return who !== null && who === address;
 }
 
+/** The fields a signature leaves out of what it covers (section 1): its own, and a rotate's second. */
 export const SIGNATURE_FIELDS = ['sig', 'sig_to'] as const;
 
 /** The bytes an object's signature covers: its canonical JSON without the signature fields. */
-export function signedBytes(obj: Record<string, unknown>, omit: readonly string[] = SIGNATURE_FIELDS): Uint8Array {
+export function signedBytes(obj: Record<string, unknown>): Uint8Array {
   const copy: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(obj)) if (!omit.includes(k)) copy[k] = v;
+  for (const [k, v] of Object.entries(obj)) if (!(SIGNATURE_FIELDS as readonly string[]).includes(k)) copy[k] = v;
   return canonicalBytes(copy);
 }
 
-export function signObject(obj: Record<string, unknown>, secret: Uint8Array, omit: readonly string[] = SIGNATURE_FIELDS): Signature {
-  return signMessage(signedBytes(obj, omit), secret);
+/** The signature of an object by a secret, for a client signing an envelope or an event. */
+export function signObject(obj: Record<string, unknown>, secret: Uint8Array): Signature {
+  return signMessage(signedBytes(obj), secret);
 }
 
 /** Who signed this object's `field`, or null. */
-export function recoverSigner(obj: Record<string, unknown>, field: 'sig' | 'sig_to' = 'sig', omit: readonly string[] = SIGNATURE_FIELDS): Address | null {
+export function recoverSigner(obj: Record<string, unknown>, field: 'sig' | 'sig_to' = 'sig'): Address | null {
   const sig = obj[field];
   if (typeof sig !== 'string') return null;
-  return recoverAddress(signedBytes(obj, omit), sig);
+  return recoverAddress(signedBytes(obj), sig);
 }
 
 /** Whether the object's `field` was signed by `address`. */
@@ -140,6 +151,7 @@ export function signedBy(obj: Record<string, unknown>, address: string, field: '
   return recoverSigner(obj, field) === address;
 }
 
+/** Whether a value has a signature's form, for the shape checks; whether it recovers is `recoverSigner`'s question. */
 export function isSignature(s: unknown): s is Signature {
   return typeof s === 'string' && SIG_RE.test(s);
 }

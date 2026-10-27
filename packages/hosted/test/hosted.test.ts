@@ -11,6 +11,11 @@ import { Store, createTracker } from '@bitquilt/tracker';
 import { DEFAULT_CONFIG, Quilt, Resolver, createKey, loadKey, type Pattern } from 'quilt';
 import { createHosted } from '../src/hosted.js';
 
+/**
+ * The hosted on-ramp beside a tracker: an address handed out with a key the tracker holds, the join page served; the
+ * connector served at that address over MCP, declaring the host and marking custody on every event it posts; the key
+ * taken home by its address, and a session from one address refused at another.
+ */
 let server: Server;
 let base: string;
 let problem: string;
@@ -38,7 +43,7 @@ describe('the hosted on-ramp', () => {
   it('hands out an address with a key it holds', async () => {
     const r = await fetch(`${base}join`, { method: 'POST' });
     expect(r.status).toBe(201);
-    const j = await r.json();
+    const j = (await r.json()) as { address: string; url: string };
     address = j.address;
     url = j.url;
     expect(address).toMatch(/^0x[0-9a-fA-F]{40}$/);
@@ -67,11 +72,11 @@ describe('the hosted on-ramp', () => {
     await client.close();
   });
   it('lets the person take the key home, and refuses a session from another address', async () => {
-    const k = await (await fetch(`${url}/key`)).json();
+    const k = (await (await fetch(`${url}/key`)).json()) as { address: string; secret: string };
     expect(k.address).toBe(address);
     expect(addressOf(secretFromHex(k.secret))).toBe(address);
-    const other = await (await fetch(`${base}join`, { method: 'POST' })).json();
-    const otherUrl = other.url as string;
+    const other = (await (await fetch(`${base}join`, { method: 'POST' })).json()) as { url: string };
+    const otherUrl = other.url;
     const client = new Client({ name: 'claude-ai', version: '1.0' });
     const transport = new StreamableHTTPClientTransport(new URL(url));
     await client.connect(transport);

@@ -23,7 +23,7 @@ REQUIRES = ("web", "files", "shell", "person")
 CORE_VERIFIERS = ("check", "score", "agree")
 HASH_FIELDS = ("family", "n", "brief", "schema", "verifier", "agree", "requires",
                "inputs", "lease_h", "workspace", "check")
-_SLOT = re.compile(r"\{([^{}]+)\}")
+SLOT = re.compile(r"\{([^{}]+)\}")  # a brief's slot: `{n}`, `{name.field}`, or `{entry}` for an input
 
 
 class EnvelopeError(ValueError):
@@ -91,13 +91,14 @@ def render_data_slots(template: str, spec: dict, problem: dict, blobs: dict, n: 
                     return v if isinstance(v, str) else canonical(v)
         return m.group(0)
 
-    return _SLOT.sub(fill, template)
+    return SLOT.sub(fill, template)
 
 
 def expand(envelope: dict, blobs: dict) -> list:
     """Every piece of an envelope in file order, each a dict with its `name`,
-    `hash`, the hashed fields, `key` (the file key), `template` (the brief
-    as written) and `data` (the slot names)."""
+    `hash`, the hashed fields, `key` (the file key), `data` (the slot names)
+    and `position` (its place in the file, from 0; the last tie-break of
+    section 7)."""
     problem = envelope["problem"]
     out = []
     for key, spec in (problem.get("pieces") or {}).items():
@@ -113,7 +114,6 @@ def expand(envelope: dict, blobs: dict) -> list:
             piece["name"] = piece_name(key, n, is_family)
             piece["key"] = key
             piece["hash"] = piece_hash(fields)
-            piece["template"] = spec.get("brief", "")
             piece["data"] = spec.get("data") or {}
             piece["position"] = len(out)
             out.append(piece)

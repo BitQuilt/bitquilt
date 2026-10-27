@@ -5,25 +5,31 @@
  * credit against the chain, and a false one is answered by vetoing the reader's post in `Anchors`, which takes its
  * bond. The chain is reached only through chain.ts, which the caller may stand in for, as it may stand in for fetch.
  */
-import { type Event, addressOf, signEvent } from '@bitquilt/core';
+import { type Event, addressOf, isRecord, signEvent } from '@bitquilt/core';
 import { type Chain, type Deposit, depositAt, depositCount } from './chain.js';
+import { type HomeRead, fromHome, homeUrl } from './home.js';
+import { address, checkLine, hex64, wholeNumber } from './shapes.js';
 
-/** One credit line as the home serves it at `GET /coin/credits`. */
-export interface Credit {
+/** One credit line as the home serves it at `GET /coin/credits`: the shape `packages/tracker/src/coin.ts` serves there; keep the two the same. */
+export interface CreditLine {
+  /** The coin log line's hash, 64 lowercase hex characters. */
   id: string;
   seq: number;
+  /** The deposit's number on the chain, from 1. */
   deposit: number;
+  /** The ledger root the deposit credits, an address. */
   root: string;
+  /** Whole units. */
   amount: number;
 }
 
 export interface Credits {
   head: { seq: number; hash: string } | null;
   reader: string | null;
-  credits: Credit[];
+  credits: CreditLine[];
 }
 
-/** The chain functions the job uses; a test hands in its own. */
+/** The chain functions the reader calls; a test hands in its own. */
 export interface ReaderDoor {
   depositCount(chain: Chain, finalized?: boolean): Promise<number>;
   depositAt(chain: Chain, n: number): Promise<Deposit>;
@@ -51,39 +57,30 @@ export interface ReadReport {
   refused: { deposit: number; why: string }[];
 }
 
-const HEX64 = /^[0-9a-f]{64}$/;
-const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
-
 /** The home's answer checked for shape; anything else is refused with what was wrong. */
 export function checkCredits(answer: unknown): Credits {
-  const a = answer as { head?: unknown; reader?: unknown; credits?: unknown } | null;
-  if (!a || typeof a !== 'object') throw new Error('the home answered with something other than an object');
-  if (!Array.isArray(a.credits)) throw new Error('the credits are not a list');
-  const head = a.head as { seq?: unknown; hash?: unknown } | null;
-  const credits = a.credits.map((c: unknown, i: number): Credit => {
-    const x = c as Partial<Credit> | null;
-    const at = `credit ${i + 1}`;
-    if (!x || typeof x !== 'object') throw new Error(`${at} is not an object`);
-    if (typeof x.id !== 'string' || !HEX64.test(x.id)) throw new Error(`${at} has no id of 64 lowercase hex characters`);
-    if (typeof x.seq !== 'number' || !Number.isSafeInteger(x.seq) || x.seq < 1) throw new Error(`${at} has no sequence`);
-    if (typeof x.deposit !== 'number' || !Number.isSafeInteger(x.deposit) || x.deposit < 1) throw new Error(`${at} has no deposit number`);
-    if (typeof x.root !== 'string' || !ADDRESS.test(x.root)) throw new Error(`${at} has no root address`);
-    if (typeof x.amount !== 'number' || !Number.isSafeInteger(x.amount) || x.amount < 1) throw new Error(`${at} has no whole amount`);
-    return { id: x.id, seq: x.seq, deposit: x.deposit, root: x.root, amount: x.amount };
-  });
+  if (!isRecord(answer)) throw new Error('the home answered with something other than an object');
+  if (!Array.isArray(answer.credits)) throw new Error('the credits are not a list');
+  const head = isRecord(answer.head) ? answer.head : null;
+  const credits = answer.credits.map((c: unknown, i: number) =>
+    checkLine<CreditLine>(c, `credit ${i + 1}`, {
+      id: (v, at) => hex64(v, at, 'id'),
+      seq: (v, at) => wholeNumber(v, at, 'sequence', 1),
+      deposit: (v, at) => wholeNumber(v, at, 'deposit number', 1),
+      root: (v, at) => address(v, at, 'root address'),
+      amount: (v, at) => wholeNumber(v, at, 'whole amount', 1),
+    }),
+  );
   return {
-    head: head && typeof head === 'object' && typeof head.seq === 'number' && typeof head.hash === 'string' ? { seq: head.seq, hash: head.hash } : null,
-    reader: typeof a.reader === 'string' ? a.reader : null,
+    head: head && typeof head.seq === 'number' && typeof head.hash === 'string' ? { seq: head.seq, hash: head.hash } : null,
+    reader: typeof answer.reader === 'string' ? answer.reader : null,
     credits,
   };
 }
 
-/** `GET /coin/credits` at the home, checked. */
-export async function readCredits(home: string, fetchImpl: typeof fetch = fetch, upto?: number): Promise<Credits> {
-  const url = `${home.replace(/\/+$/, '')}/coin/credits${upto === undefined ? '' : `?upto=${upto}`}`;
-  const r = await fetchImpl(url, { headers: { accept: 'application/json', 'user-agent': 'bitquilt-reader' }, signal: AbortSignal.timeout(20000) });
-  if (!r.ok) throw new Error(`the home answered ${r.status} at /coin/credits`);
-  return checkCredits(await r.json());
+/** `GET /coin/credits` at the home, checked; `agent` names the job asking. */
+export function readCredits(home: string, options: HomeRead): Promise<Credits> {
+  return fromHome(home, '/coin/credits', options, checkCredits);
 }
 
 /** One run of the reader: every finalized deposit the home has not credited yet goes up as a signed credit line, in order. */
@@ -91,12 +88,11 @@ export async function read(options: ReadOptions): Promise<ReadReport> {
   const door: ReaderDoor = options.door ?? { depositCount, depositAt };
   const fetchImpl = options.fetchImpl ?? fetch;
   const now = options.now ?? (() => new Date().toISOString());
-  const base = options.home.replace(/\/+$/, '');
   const deposits = await door.depositCount(options.chain, options.finalized ?? true);
-  const held = await readCredits(options.home, fetchImpl);
+  const held = await readCredits(options.home, { agent: 'bitquilt-reader', fetchImpl });
   const done = new Set(held.credits.map((c) => c.deposit));
   const report: ReadReport = { deposits, held: held.credits.length, posted: [], refused: [] };
-  const address = addressOf(options.key);
+  const reader = addressOf(options.key);
   for (let n = 1; n <= deposits; n++) {
     if (done.has(n)) continue;
     const d = await door.depositAt(options.chain, n);
@@ -106,8 +102,8 @@ export async function read(options: ReadOptions): Promise<ReadReport> {
       report.refused.push({ deposit: n, why: 'the amount is beyond what the ledger counts' });
       continue;
     }
-    const event: Event = signEvent({ quilt: 1, type: 'credit', key: address, ts: now(), body: { deposit: n, root: d.root, amount } }, options.key);
-    const r = await fetchImpl(`${base}/coin/events`, { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': 'bitquilt-reader' }, body: JSON.stringify(event), signal: AbortSignal.timeout(20000) });
+    const event: Event = signEvent({ quilt: 1, type: 'credit', key: reader, ts: now(), body: { deposit: n, root: d.root, amount } }, options.key);
+    const r = await fetchImpl(`${homeUrl(options.home)}/coin/events`, { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': 'bitquilt-reader' }, body: JSON.stringify(event), signal: AbortSignal.timeout(20000) });
     if (r.status === 202) {
       const { id } = (await r.json()) as { id: string };
       report.posted.push({ deposit: n, root: d.root, amount, id });

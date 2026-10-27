@@ -1,16 +1,15 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
 import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
 import { probeNode, remoteRunner } from '../src/node.js';
 import { createPage } from '../src/page.js';
 import { Resolver } from '../src/resolver.js';
 import { localRunner, runTool } from '../src/tools.js';
-import { type Pattern, Quilt } from '../src/worker.js';
+import { type Pattern, Quilt } from '../src/quilt.js';
+import { hex, quiltOver, startTracker, tempHome } from './helpers.js';
 
 /**
  * One node per home. A second copy of quilt finds the node holding this home's page by its key and works through it:
@@ -19,13 +18,13 @@ import { type Pattern, Quilt } from '../src/worker.js';
  * refuses a browser's request from another site, and a one-shot command's write to the library is seen, not written
  * over.
  */
-const hex = (n: number) => '00'.repeat(31) + n.toString(16).padStart(2, '0');
 let tracker: Server;
 let node: Server;
 let port: number;
 let site: string;
 let config: Config;
-const homes = { owner: mkdtempSync(join(tmpdir(), 'quilt-owner-')), a: mkdtempSync(join(tmpdir(), 'quilt-a-')) };
+/** The node's home, kept by name: the tests read its library file and probe the node with its key. */
+const homeA = tempHome('quilt-a-');
 let owner: Quilt;
 let problem: Hash;
 
@@ -48,20 +47,17 @@ const pattern: Pattern = {
 };
 
 beforeAll(async () => {
-  const t = createTracker({ store: new Store(':memory:'), url: 'http://tracker.test/', ipSalt: 's' });
-  tracker = await t.listen(0);
-  const addr = tracker.address();
-  const base = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}/` : '';
-  config = { ...DEFAULT_CONFIG, trackers: [base] };
-  createKey(homes.owner, { secretHex: hex(9) });
-  createKey(homes.a, { secretHex: hex(1) });
-  owner = new Quilt(config, loadKey(homes.owner), new Resolver(config, homes.owner), 'Claude Code');
+  const t = await startTracker();
+  tracker = t.server;
+  config = { ...DEFAULT_CONFIG, trackers: [t.base] };
+  owner = quiltOver(t.base)(9);
   problem = (await owner.publish(pattern)).hash;
   // The node of home a: one resolver, the page's Quilt and the person's over it.
-  const resolver = new Resolver(config, homes.a);
-  const identity = loadKey(homes.a);
+  createKey(homeA, { secretHex: hex(1) });
+  const resolver = new Resolver(config, homeA);
+  const identity = loadKey(homeA);
   const quilt = new Quilt(config, identity, resolver, undefined);
-  const person = new Quilt({ ...config, model: 'human', can: ['person', 'web', 'files'] }, identity, resolver, 'human');
+  const person = Quilt.asPerson(config, identity, resolver);
   node = await createPage({ quilt, person, resolver }).listen(0);
   const na = node.address();
   port = typeof na === 'object' && na ? na.port : 0;
@@ -75,13 +71,13 @@ afterAll(async () => {
 
 describe('one node per home', () => {
   it('is found by its key: mine with this home\'s address, other with another\'s, none where nothing listens', async () => {
-    expect(await probeNode(port, loadKey(homes.a)!.address)).toEqual({ found: 'mine' });
-    expect(await probeNode(port, loadKey(homes.owner)!.address)).toEqual({ found: 'other', address: loadKey(homes.a)!.address });
-    expect(await probeNode(port, null)).toEqual({ found: 'other', address: loadKey(homes.a)!.address });
+    expect(await probeNode(port, loadKey(homeA)!.address)).toEqual({ found: 'mine' });
+    expect(await probeNode(port, owner.identity!.address)).toEqual({ found: 'other', address: loadKey(homeA)!.address });
+    expect(await probeNode(port, null)).toEqual({ found: 'other', address: loadKey(homeA)!.address });
     const ta = tracker.address();
-    expect(await probeNode(typeof ta === 'object' && ta ? ta.port : 0, loadKey(homes.a)!.address)).toEqual({ found: 'other', address: null });
+    expect(await probeNode(typeof ta === 'object' && ta ? ta.port : 0, loadKey(homeA)!.address)).toEqual({ found: 'other', address: null });
     // A port with nothing on it: the node's own, once closed, would do, but any free port serves; 1 is never ours.
-    expect(await probeNode(1, loadKey(homes.a)!.address)).toEqual({ found: 'none' });
+    expect(await probeNode(1, loadKey(homeA)!.address)).toEqual({ found: 'none' });
   });
 
   it('runs the tools through the node under the host named, signing there, and the one library records the claim', async () => {
@@ -91,16 +87,16 @@ describe('one node per home', () => {
       return localRunner(() => owner);
     });
     const me = await run('quilt_me', {}, 'Claude Desktop');
-    expect(me.text).toContain(`Address: ${loadKey(homes.a)!.address}`);
+    expect(me.text).toContain(`Address: ${loadKey(homeA)!.address}`);
     expect(me.text).toContain('Declares: anthropic/claude-desktop');
-    expect(me.handles.address).toBe(loadKey(homes.a)!.address);
+    expect(me.handles.address).toBe(loadKey(homeA)!.address);
     const found = await run('quilt_search', { query: 'headers' }, 'Claude Desktop');
     expect(found.text).toContain('Headers, read twice');
     const next = await run('quilt_next', { problem }, 'Claude Desktop');
     expect(next.text).toContain('The claim was posted to');
     expect(typeof next.handles.piece).toBe('string');
     // The library on disk, the node's, has the claim; the copy that asked holds no library of its own.
-    const lib = JSON.parse(readFileSync(join(homes.a, 'library.json'), 'utf8')) as { pieces: Record<string, { what: string }> };
+    const lib = JSON.parse(readFileSync(join(homeA, 'library.json'), 'utf8')) as { pieces: Record<string, { what: string }> };
     expect(lib.pieces[next.handles.piece as string]?.what).toBe('claimed');
     // The tracker saw the claim under the host's model.
     const events = await (await fetch(`${config.trackers[0]}p/${problem}/events`)).text();
@@ -121,7 +117,7 @@ describe('one node per home', () => {
       return localRunner(() => owner);
     });
     const me = await run('quilt_me', {}, undefined);
-    expect(me.text).toContain(`Address: ${loadKey(homes.owner)!.address}`);
+    expect(me.text).toContain(`Address: ${owner.identity!.address}`);
     await run('quilt_me', {}, undefined);
     expect(made).toBe(1);
   });
@@ -145,7 +141,7 @@ describe('one node per home', () => {
 
   it('sees a one-shot command\'s write to the library rather than writing over it', async () => {
     // Another process (a one-shot `quilt seed`) writes the standing list while the node runs.
-    const file = join(homes.a, 'library.json');
+    const file = join(homeA, 'library.json');
     const lib = JSON.parse(readFileSync(file, 'utf8')) as { seeding: Record<string, string> };
     await new Promise((r) => setTimeout(r, 20));
     lib.seeding[problem] = '2026-10-27T10:00:00.000Z';
@@ -161,14 +157,14 @@ describe('one node per home', () => {
     expect(persons.map((i) => i.name)).toEqual(['seat/1']);
     expect(persons[0]!.problem).toBe(problem);
     // Reading attention left the library's dates alone.
-    const lib = JSON.parse(readFileSync(join(homes.a, 'library.json'), 'utf8')) as { problems: Record<string, { last: string }> };
+    const lib = JSON.parse(readFileSync(join(homeA, 'library.json'), 'utf8')) as { problems: Record<string, { last: string }> };
     const before = lib.problems[problem]!.last;
     await fetch(`${site}api/attention`);
-    expect((JSON.parse(readFileSync(join(homes.a, 'library.json'), 'utf8')) as typeof lib).problems[problem]!.last).toBe(before);
+    expect((JSON.parse(readFileSync(join(homeA, 'library.json'), 'utf8')) as typeof lib).problems[problem]!.last).toBe(before);
   });
 
   it('runs the same tools alone, through runTool', async () => {
     const r = await runTool(owner, 'quilt_me', {});
-    expect(r.text).toContain(`Address: ${loadKey(homes.owner)!.address}`);
+    expect(r.text).toContain(`Address: ${owner.identity!.address}`);
   });
 });

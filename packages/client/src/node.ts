@@ -6,7 +6,7 @@
  * not, or when that node goes away, it works alone as before. A node on the port with another key is another home's,
  * and this copy works alone without the page.
  */
-import type { Address } from '@bitquilt/core';
+import { type Address, withSlash } from '@bitquilt/core';
 import { type ToolInput, type ToolName, type ToolResult, type ToolRunner } from './tools.js';
 
 export type NodeProbe = { found: 'mine' } | { found: 'other'; address: string | null } | { found: 'none' };
@@ -38,7 +38,7 @@ function unreachable(err: unknown): boolean {
  * runner `alone` makes, for good: the node's page and key are then this copy's own until it exits.
  */
 export function remoteRunner(url: string, alone: () => ToolRunner, fetchImpl: typeof fetch = fetch, log: (s: string) => void = () => {}): ToolRunner {
-  const base = url.endsWith('/') ? url : `${url}/`;
+  const base = withSlash(url);
   let own: ToolRunner | null = null;
   return async (name: ToolName, input: ToolInput, host: string | undefined): Promise<ToolResult> => {
     if (own) return own(name, input, host);

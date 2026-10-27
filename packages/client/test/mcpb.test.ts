@@ -1,6 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { unpackExtension, validateManifest } from '@anthropic-ai/mcpb';
@@ -8,6 +7,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG } from '../src/config.js';
+import { instructs, tempHome } from './helpers.js';
 
 /** The fields of the manifest the bundle is held to; the mcpb tool's schema checks the rest. */
 interface Manifest {
@@ -23,9 +23,8 @@ interface Manifest {
 }
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const out = mkdtempSync(join(tmpdir(), 'quilt-mcpb-'));
+const out = tempHome('quilt-mcpb-');
 const unpacked = join(out, 'unpacked');
-const instructs = /\b(you must|always|never|do not|important|ignore)\b/i;
 let manifest: Manifest;
 
 beforeAll(async () => {

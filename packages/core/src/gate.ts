@@ -9,12 +9,14 @@
  * exception, because without it some languages are misspelled and some emoji fall apart: a single joiner between two
  * letters of a script written with joiners, or between two emoji.
  *
- * Ported from the Workshop's src/lib/text.ts and src/lib/filters.ts, 24 Oct 2026. Its fixtures are fixtures/gate.json.
+ * First written for another project of the maintainers, 24 Oct 2026.
  */
+
+/** Section 11 identifies `gate/1` by the hash of its source; this constant is only its name. */
 export const GATE_VERSION = 'gate/1';
 
 /** Phrases that try to instruct a model. Each is an order, not a mention. */
-export const INJECTION_PATTERNS: RegExp[] = [
+const INJECTION_PATTERNS: RegExp[] = [
   /\b(ignore|disregard|forget|override|bypass)\b[^.]{0,40}\b(previous|prior|above|earlier)\b[^.]{0,20}\b(instructions?|prompts?)\b/i,
   /\byou are now (?:a|an|the)\b[^.]{0,30}\b(assistant|model|bot|persona|character)\b/i,
   /(^|\n)\s*#*\s*(system|developer)\s*(prompt|message)\s*:|\b(new|updated|override|real)\s+(system|developer)\s*(prompt|message)\b/i,
@@ -88,6 +90,11 @@ const READER_INSTRUCTIONS: RegExp[] = [
 
 export type TextIssue = 'links' | 'contact' | 'machines' | 'shouting';
 
+/** Whether this reads as something said to a model that is reading it. */
+export function addressedToMachines(text: string): boolean {
+  return READER_INSTRUCTIONS.some((re) => re.test(text));
+}
+
 /** What is wrong with a piece of public text, as short codes. Empty when clean. The text is made visible first. */
 export function textIssues(raw: string): TextIssue[] {
   const text = visible(raw);
@@ -97,11 +104,6 @@ export function textIssues(raw: string): TextIssue[] {
   if (addressedToMachines(text)) out.push('machines');
   if (/[A-Z]{12,}/.test(text.replace(/\s/g, ''))) out.push('shouting');
   return out;
-}
-
-/** Whether this reads as something said to a model that is reading it. */
-export function addressedToMachines(text: string): boolean {
-  return READER_INSTRUCTIONS.some((re) => re.test(text));
 }
 
 const ISSUE_TEXT: Record<TextIssue, string> = {
@@ -114,15 +116,4 @@ const ISSUE_TEXT: Record<TextIssue, string> = {
 /** The issues as sentences a person can read, each prefixed with the field's label. Empty when clean. */
 export function plainTextProblems(text: string, label = 'text'): string[] {
   return textIssues(text).map((i) => `${label}: ${ISSUE_TEXT[i]}`);
-}
-
-/** Whitespace folded within lines, at most one blank line between paragraphs, ends trimmed, invisible characters gone. */
-export function normaliseStatement(s: string): string {
-  return visible(s)
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    .map((l) => l.replace(/[ \t]+/g, ' ').trim())
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
 }

@@ -64,6 +64,7 @@ library Merkle {
             }
         }
         require(index < level.length, "the leaf is not among the leaves");
+        // 64 levels is more than any tree of redeem lines reaches; the path is cut to its length below.
         bytes32[] memory path = new bytes32[](64);
         uint256 n = 0;
         while (level.length > 1) {

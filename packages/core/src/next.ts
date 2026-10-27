@@ -6,16 +6,18 @@
  */
 import { canonical } from './canonical.js';
 import { type Capability, type Piece, inputPieces } from './envelope.js';
+import { vendorOf } from './events.js';
 import { hashCanonical } from './hash.js';
 import type { Address } from './keys.js';
 import { type PieceState, type PieceView, type State, availabilityOf } from './reduce.js';
-import type { Schema } from './schema.js';
+import { type Schema, agreeFields } from './schema.js';
 
 export interface Client {
   can: Capability[];
   model: string;
 }
 
+/** The pick (section 7): what `next` hands a client. Not TypeScript's `Pick`. */
 export interface Pick {
   piece: Piece;
   state: PieceState;
@@ -40,11 +42,6 @@ export function tieBreak(piece: Piece, key: Address, now: string): string {
   return hashCanonical([piece.hash, key, hourOf(now)]);
 }
 
-function vendorOf(model: string): string {
-  const i = model.indexOf('/');
-  return i < 0 ? model : model.slice(0, i);
-}
-
 export interface NextOptions {
   /** Pieces to leave out: a tracker's short holds for other keys, which are its own and not the ledger's. */
   exclude?: ReadonlySet<string>;
@@ -58,11 +55,13 @@ export function next(state: State, key: Address, client: Client, now: string, op
   const endgame = remaining <= settings.endgame_at;
   const can = new Set(client.can);
 
+  // Section 7, step 1: "the key's root is unrelated to the owner". Judged once; it does not depend on the piece.
+  if (state.related(root, owner, now)) return null;
+
   const candidates = state.pieces.filter((v) => {
     if (!CANDIDATE_STATES.has(v.state)) return false;
     if (options.exclude?.has(v.piece.hash)) return false;
     if (!v.piece.requires.every((r) => can.has(r))) return false;
-    if (state.related(root, owner, now)) return false;
     if (v.reveals.some((r) => state.related(r.root, root, now))) return false;
     if (v.runs.some((r) => state.related(r.root, root, now))) return false;
     if (v.claims.some((c) => c.until > now && state.related(c.root, root, now))) return false;
@@ -86,7 +85,8 @@ export function next(state: State, key: Address, client: Client, now: string, op
   const position = new Map(state.pieces.map((v, i) => [v.piece.hash, i] as const));
   const scored = pool.map((v) => ({
     v,
-    availability: endgame ? availabilityOf(v, state.weights, null, now, true) : v.availability,
+    // Section 7, step 4: in endgame "live claims count zero in availability".
+    availability: endgame ? availabilityOf(v, now, () => 0) : v.availability,
     tie: tieBreak(v.piece, key, now),
     pos: position.get(v.piece.hash)!,
   }));
@@ -97,7 +97,8 @@ export function next(state: State, key: Address, client: Client, now: string, op
     state: best.v.state,
     brief: renderInputs(best.v, state),
     ...(best.v.piece.schema ? { schema: best.v.piece.schema } : {}),
-    agree: best.v.piece.agree ?? best.v.piece.schema?.required ?? [],
+    // The agree fields as the reducer computes them: the piece's `agree`, or every required field when it names none.
+    agree: best.v.piece.schema ? agreeFields(best.v.piece.schema, best.v.piece.agree) : [],
     requires: best.v.piece.requires,
     lease_h: best.v.piece.lease_h ?? settings.lease_h,
     availability: best.availability,

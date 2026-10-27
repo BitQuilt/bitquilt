@@ -1,8 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Server } from 'node:http';
-import { type Address, type Envelope, type Hash, type Unsigned, addressOf, commitHash, newNonce, problemHash, signEvent, signObject } from '@bitquilt/core';
-import { Store } from '../src/store.js';
-import { createTracker } from '../src/tracker.js';
+import { type Address, type Envelope, type Hash, commitHash, newNonce, problemHash } from '@bitquilt/core';
+import { addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * The coin as a layer (QX-17) at its home tracker: the parameters published; an epoch's amount minted to the verified
@@ -12,64 +10,28 @@ import { createTracker } from '../src/tracker.js';
  * from the unvested, and a held challenge restoring both; a transfer and a redeem from vested free coin, the redeem listed under the head for the bridge, and a credit from the reader for a deposit burned on the chain; every balance
  * under the head.
  */
-const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
 const ownerP = key(9), ownerQ = key(8), A = key(1), B = key(2), C = key(3), D = key(4), treasury = key(7);
 const reader = key(40);
 const judges = [key(11), key(12)];
-const addr = addressOf;
 const secretOf = new Map<Address, Uint8Array>([ownerP, ownerQ, A, B, C, D, treasury, ...judges].map((k) => [addr(k), k]));
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
 const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
 
 function envelope(owner: Uint8Array, slug: string, count: number): Envelope {
-  const problem: Envelope['problem'] = {
-    title: `Statements (${slug})`, done_when: 'Every statement has a verdict.', owner: addr(owner), slug, prev: null, from: null,
-    settings: { challenge_window_h: 48, lease_h: 2, endgame_at: 1, budget: 100, patch_max: 10000 },
-    pieces: { 'statement/*': { count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } },
-    data: {},
-  };
-  const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
-  return { ...unsigned, sig: signObject(unsigned, owner) };
+  return signed(owner, slug, { 'statement/*': { count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } });
 }
 
 const T0 = '2026-10-27T00:00:00.000Z';
 const HOUR = 3_600_000;
-let tick = Date.parse(T0) + HOUR;
 const coin = {
   genesis: T0, epoch_h: 24, emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 2 }, vesting_h: 48, infra_bp: 1000, treasury: addr(treasury), unit: 1000,
   weights: { cross_vendor: 2, same_vendor: 1, attest: 0 }, burn_rate: 100, transfers_from: T0, redeem_from: T0, reader: addr(reader),
 };
-let server: Server;
-let base: string;
-const store = new Store(':memory:');
-const tracker = createTracker({ store, url: 'http://tracker.test/', now: () => new Date(tick).toISOString(), ipSalt: 's', limits: { keyPerHour: 1000, ipPerHour: 10000 }, coin });
+const t = boot(new Date(Date.parse(T0) + HOUR).toISOString(), { limits: { keyPerHour: 1000, ipPerHour: 10000 }, coin });
+const { clock, ev, post, get, accepted, refused } = t;
+beforeAll(() => t.listen());
+afterAll(() => t.close());
 
-beforeAll(async () => {
-  server = await tracker.listen(0);
-  const a = server.address();
-  base = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}` : '';
-});
-afterAll(() => new Promise<void>((r) => server.close(() => r())));
-
-const post = (path: string, body: unknown) => fetch(base + path, { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json' } });
-const get = async (path: string) => (await fetch(base + path)).json();
-function ev(k: Uint8Array, type: string, body: Record<string, unknown>, problem?: Hash, piece?: Hash) {
-  tick += 1000;
-  const u: Unsigned = { quilt: 1, type, key: addr(k), ts: new Date(tick).toISOString(), body };
-  if (problem) u.problem = problem;
-  if (piece) u.piece = piece;
-  return signEvent(u, k);
-}
-async function refused(path: string, event: unknown): Promise<string> {
-  const r = await post(path, event);
-  expect(r.status, await r.clone().text()).toBe(400);
-  return ((await r.json()) as { error: string }).error;
-}
-async function accepted(path: string, event: unknown): Promise<Hash> {
-  const r = await post(path, event);
-  expect(r.status, await r.clone().text()).toBe(202);
-  return ((await r.json()) as { id: Hash }).id;
-}
 async function returnOn(problem: Hash, piece: Hash, k: Uint8Array, model: string, verdict = 'supports') {
   const ret = { verdict, quote: `as ${addr(k).slice(0, 6)} read it` };
   const nonce = newNonce();
@@ -112,7 +74,7 @@ let coinLockId: Hash;
 
 describe('the coin as a layer', () => {
   it('publishes the parameters, names itself the home, and answers empty balances', async () => {
-    const w = await get('/.well-known/quilt');
+    const w = await get<{ coin: unknown; stake: unknown; routes: string[] }>('/.well-known/quilt');
     expect(w.coin).toMatchObject({ extension: 'QX-17', home: 'here', genesis: T0, epoch_h: 24, vesting_h: 48, infra_bp: 1000, treasury: addr(treasury), unit: 1000, burn_rate: 100, transfers_from: T0, redeem_from: T0 });
     expect(w.stake).toEqual({ extension: 'QX-15', coin: 'here', burn_rate: 100 });
     for (const r of ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/credits', '/coin/state']) expect(w.routes).toContain(r);
@@ -146,13 +108,13 @@ describe('the coin as a layer', () => {
     await accepted(`/p/${p}/events`, reveal(p, p2));
     expect(await pieceOf(p, p1)).toMatchObject({ verified: true });
     expect((await balanceOf(A)).balance).toBe(0);
-    tick = Date.parse(T0) + 24 * HOUR + 1000;
+    clock.tick = Date.parse(T0) + 24 * HOUR + 1000;
     const epochs = (await get('/coin/epochs')) as { epochs: { epoch: number; amount: number; treasury: number; weight: number; minted: number }[] };
     expect(epochs.epochs).toEqual([{ epoch: 0, start: T0, end: new Date(Date.parse(T0) + 24 * HOUR).toISOString(), amount: 1000, treasury: 100, weight: 8, minted: 1000 }]);
     expect(await balanceOf(A)).toMatchObject({ balance: 450, vested: 0, unvested: 450, locked: 0, escrowed: 0, free: 450, minted: 450 });
     expect(await balanceOf(B)).toMatchObject({ balance: 450 });
     expect(await balanceOf(treasury)).toMatchObject({ balance: 100 });
-    tick = Date.parse(T0) + 48 * HOUR + 1000;
+    clock.tick = Date.parse(T0) + 48 * HOUR + 1000;
     expect(await balanceOf(A)).toMatchObject({ balance: 450, vested: 225, unvested: 225, free: 450, free_vested: 225 });
     const later = (await get('/coin/epochs')) as { epochs: { epoch: number; minted: number; weight: number }[] };
     expect(later.epochs).toHaveLength(2);
@@ -170,7 +132,7 @@ describe('the coin as a layer', () => {
     expect(await refused(`/p/${p}/events`, ev(A, 'lock', { kind: 'coin', amount: 1, id: 'sha256:' + 'cd'.repeat(32) }, p, p3))).toBe('no such lock on the coin log');
     expect(await refused(`/p/${p}/events`, ev(A, 'lock', { kind: 'coin', amount: 1, id: coinLockId }, p, p4))).toBe('the lock names another piece');
     const bound = await accepted(`/p/${p}/events`, ev(A, 'lock', { kind: 'coin', amount: 1, id: coinLockId }, p, p3));
-    const lines = (await (await fetch(`${base}/p/${p}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as { event: { type: string; key: string }; received: { stake?: Record<string, unknown> }[] });
+    const lines = (await (await fetch(`${t.base}/p/${p}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as { event: { type: string; key: string }; received: { stake?: Record<string, unknown> }[] });
     const last = lines[lines.length - 1]!;
     expect(last.event.type).toBe('lock');
     expect(last.received[0]!.stake).toMatchObject({ kind: 'coin', amount: 1, id: coinLockId, units: 100, home: 'here' });
@@ -257,7 +219,7 @@ describe('the coin as a layer', () => {
     expect(Object.keys(s.balances).sort()).toEqual([addr(A), addr(B), addr(C), addr(D), addr(treasury)].sort());
     expect(s.balances[addr(A)]).toMatchObject({ balance: 270, redeemed: 20 });
     expect(s.balances[addr(B)]).toMatchObject({ balance: 560, credited: 100 });
-    const lines = (await (await fetch(`${base}/coin/events`)).text()).trim().split('\n');
+    const lines = (await (await fetch(`${t.base}/coin/events`)).text()).trim().split('\n');
     expect(lines).toHaveLength(6);
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Chain, Hex } from '../src/chain.js';
-import { leaf, root } from '../src/merkle.js';
-import { type Door, type Redeems, checkRedeems, post, redeemRoot } from '../src/post.js';
+import type { Chain } from '../src/chain.js';
+import { type Hex, leaf, root } from '../src/merkle.js';
+import { type PosterDoor, type Redeems, checkRedeems, post, redeemRoot } from '../src/post.js';
 
 /**
  * The poster over a fake home and a fake chain: it posts the head and the root over the redeem lines once, reports
@@ -22,7 +22,7 @@ function home(answer: () => Redeems | number, calls: string[]): typeof fetch {
   }) as typeof fetch;
 }
 
-function door(): Door & { last: number; posts: { seq: number; head: Hex; root: Hex }[] } {
+function door(): PosterDoor & { last: number; posts: { seq: number; head: Hex; root: Hex }[] } {
   const d = {
     last: 0,
     posts: [] as { seq: number; head: Hex; root: Hex }[],

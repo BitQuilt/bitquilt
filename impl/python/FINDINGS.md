@@ -262,3 +262,35 @@ its `sha3_256` pads differently) and secp256k1 recovery are implemented in
 `bitquilt/hashes.py` and `bitquilt/secp256k1.py`, checked against the Keccak
 test vectors and the known addresses of the private keys 1 and 2
 (`0x7E5F…Bdf`, `0x2B5A…6cF`), which the fixtures use.
+
+## Where this code and the sentences of 26 October differ, 27 October 2026
+
+Read against section 12's sentences after the fact, by an audit of the
+code. None changes a fixture; each is marked in the code with the sentence
+and left as it is for the maintainers to decide.
+
+- **The frontier** (section 6): "the best score ... among every pair of
+  qualifying runs within tolerance, whether or not that pair is the set."
+  `reducer._settle` reads the accepting set's two runs alone.
+- **A reveal and every earlier reveal** (section 6): "a reveal counts only
+  when its root is unrelated to the owner and to the root of every earlier
+  reveal on the piece." `reducer._try_complete_agree` applies that only once
+  the piece is disputed; before that a reveal related to one earlier reveal
+  may still pair with another.
+- **Declines in the chain** (section 7, step 1): "counting events on this
+  piece in this chain." `picker._declined` counts a decline only when its
+  `problem` is this problem's hash, not an ancestor's.
+- **The owner's reveals and runs** (section 6): a root related to the owner
+  "is not otherwise related to anyone." `Identity.cannot_pair` folds the
+  owner rule in, so an owner's reveal disputes nothing
+  (`reducer._two_unrelated_differ`) and an owner's reveal or run bars the
+  piece to every key (`picker._related_to_piece`); the reference does
+  neither.
+- **Unabandoned commits in availability** (section 6): "plus its unabandoned
+  commits." `reducer.commits_in_force` keeps a revealed commit whatever the
+  time, so a reveal counts twice in availability; the reference counts
+  unrevealed commits alone.
+- **A run's image and host in the output** (section 6, Output): "score",
+  "image", "host" "with absent values left out." The fold keeps neither
+  image nor host on a run, so `reducer.output_document` writes neither; the
+  reference writes both when the run carried them.

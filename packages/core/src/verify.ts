@@ -10,14 +10,17 @@ import { verifyChain } from './chain.js';
 import type { Envelope } from './envelope.js';
 import { type Receipt, eventSignedByKey, IDENTITY_LOG } from './events.js';
 import { type Hash, hashBytes, isHash } from './hash.js';
+import type { Address } from './keys.js';
 import { reduce } from './reduce.js';
 
+/** The chain checked from the problem's hash, and how many events are not signed by their key. */
 export function verifyFile(lines: Receipt[], problem: Hash): { chain: ReturnType<typeof verifyChain>; unsigned: number } {
   const chain = verifyChain(lines, problem);
   const unsigned = lines.filter((l) => !eventSignedByKey(l.event)).length;
   return { chain, unsigned };
 }
 
+// Run as a script when invoked directly (`pnpm verify`); imported by the tests, this file only exports.
 if (process.argv[1] && /verify\.(ts|js)$/.test(process.argv[1])) {
   const args = process.argv.slice(2);
   const file = args[0];
@@ -35,8 +38,10 @@ if (process.argv[1] && /verify\.(ts|js)$/.test(process.argv[1])) {
   let identity: Receipt[] = [];
   for (let i = 2; i < args.length; i++) {
     const a = args[i]!;
-    if (a === '--blob') blobs.set(hashBytes(new Uint8Array(readFileSync(args[++i]!))), new Uint8Array(readFileSync(args[i]!)));
-    else if (a === '--identity') identity = readFileSync(args[++i]!, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
+    if (a === '--blob') {
+      const bytes = new Uint8Array(readFileSync(args[++i]!));
+      blobs.set(hashBytes(bytes), bytes);
+    } else if (a === '--identity') identity = readFileSync(args[++i]!, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
     else envelopes.push(JSON.parse(readFileSync(a, 'utf8')) as Envelope);
   }
   if (envelopes.length) {
@@ -46,7 +51,12 @@ if (process.argv[1] && /verify\.(ts|js)$/.test(process.argv[1])) {
     }
     const state = reduce({ envelopes, blobs, receipts: [...lines, ...identity], now: new Date().toISOString() });
     console.log(`"${state.envelope.problem.title}" by ${state.envelope.problem.owner}`);
-    for (const v of state.pieces) console.log(`  ${v.piece.name.padEnd(12)} ${v.state.padEnd(20)} claims ${v.claims.length} reveals ${v.reveals.length}${v.accepting ? ' accepted by ' + (v.accepting.kind === 'agree' ? v.accepting.reveals.map((r) => r.root).join(' and ') : v.accepting.runs.map((r) => r.root).join(' and ')) : ''}`);
+    for (const v of state.pieces) {
+      const set = v.accepting;
+      const signers: { root: Address }[] = set ? (set.kind === 'agree' ? set.reveals : set.runs) : [];
+      const acceptedBy = set ? ` accepted by ${signers.map((r) => r.root).join(' and ')}` : '';
+      console.log(`  ${v.piece.name.padEnd(12)} ${v.state.padEnd(20)} claims ${v.claims.length} reveals ${v.reveals.length}${acceptedBy}`);
+    }
     if (state.dropped.length) for (const d of state.dropped) console.log(`  dropped ${d.type}: ${d.why}`);
     console.log(state.complete ? `complete; output ${state.output?.hash}` : 'not complete');
   }

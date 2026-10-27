@@ -10,8 +10,8 @@ a total and exits non-zero when any fixture differs.
 
 A fixture is a JSON object with `envelopes`, `blobs` (hash -> base64),
 `receipts`, `now` and `expect` (`states` by piece name, `dropped`,
-`complete`, `output`, `picks`). This format is read from the fixtures
-themselves; nothing I may read documents it (FINDINGS.md).
+`complete`, `output`, `picks`). The file format is described in
+`packages/core/fixtures/README.md`.
 """
 
 import base64

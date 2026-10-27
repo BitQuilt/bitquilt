@@ -4,8 +4,10 @@
  * already keeps; and the order problems are offered in when a worker names none: reciprocal first, rarest next, every
  * tenth offer to a newcomer. Nothing here changes what the core accepts; it changes who is asked first.
  */
-import { type Address, type Client, type Hash, type Pick, type ReduceInput, type State, next } from '@bitquilt/core';
-import { type Layer, type ProblemLayer, acceptingRoots } from './challenge.js';
+import { type Address, type Client, type Hash, type Pick, type ReduceInput, type State, isRecord, next } from '@bitquilt/core';
+import type { Layer, ProblemLayer } from './challenge.js';
+import { acceptingRoots } from './standing.js';
+import { leaseOf } from './verifiers.js';
 
 export const SEEDING = 'QX-4';
 export const RECIPROCITY = 'QX-5';
@@ -38,12 +40,13 @@ export function seedInfo(input: ReduceInput, fold: State, now: string): SeedInfo
   return { seeders, last_seeded: last };
 }
 
+/** Why this is not a well-formed seed body, or nothing. */
 export function seedBodyProblems(body: unknown): string[] {
-  const b = body as { on?: unknown } | null;
-  if (!b || typeof b !== 'object' || Array.isArray(b)) return ['seed: a body with on'];
-  if (typeof b.on !== 'boolean') return ['seed.on: true or false'];
-  for (const k of Object.keys(b)) if (k !== 'on') return [`seed.${k}: not a field of a seed`];
-  return [];
+  if (!isRecord(body)) return ['body: an object'];
+  const out: string[] = [];
+  if (typeof body.on !== 'boolean') out.push('body.on: true or false');
+  for (const k of Object.keys(body)) if (k !== 'on') out.push(`body.${k}: not a field of a seed`);
+  return out;
 }
 
 /** When the pieces of the current version became open: the latest version receipt, else the first receipt, else now. */
@@ -75,10 +78,8 @@ export function watchExclusions(pl: ProblemLayer, input: ReduceInput, key: Addre
     return out;
   }
   const since = Date.parse(openSince(input, now));
-  const defaultLease = fold.envelope.problem.settings.lease_h;
   for (const p of openWatch) {
-    const v = fold.byHash.get(p.hash)!;
-    const leaseMs = (v.piece.lease_h ?? defaultLease) * 3_600_000;
+    const leaseMs = leaseOf(fold, fold.byHash.get(p.hash)!) * 3_600_000;
     if (Date.parse(now) - since < leaseMs) out.add(p.hash);
   }
   return out;

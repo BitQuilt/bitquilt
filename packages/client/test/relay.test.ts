@@ -1,25 +1,20 @@
-import { mkdtempSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
 import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
 import { KIND, announcementEvent, readAnnouncement } from '../src/relay.js';
 import { Resolver } from '../src/resolver.js';
-import { type Pattern, Quilt } from '../src/worker.js';
+import { type Pattern, Quilt } from '../src/quilt.js';
+import { hex, quiltOver, startTracker, tempHome } from './helpers.js';
 import { startRelay } from './relay-server.js';
 
 /**
  * QX-14: a publish reaches the relays as a signed event of its own; a client with no tracker finds the problem there
  * and can open it from the tracker the announce named; a relay event that fails any check is dropped.
  */
-const hex = (n: number) => '00'.repeat(31) + n.toString(16).padStart(2, '0');
 let server: Server;
 let base: string;
 let relay: Awaited<ReturnType<typeof startRelay>>;
-const homes = { owner: mkdtempSync(join(tmpdir(), 'quilt-owner-')), finder: mkdtempSync(join(tmpdir(), 'quilt-finder-')) };
 let owner: Quilt, finder: Quilt;
 let problem: Hash;
 
@@ -41,18 +36,14 @@ const pattern: Pattern = {
 };
 
 beforeAll(async () => {
-  const t = createTracker({ store: new Store(':memory:'), url: 'http://tracker.test/', ipSalt: 's' });
-  server = await t.listen(0);
-  const addr = server.address();
-  base = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}/` : '';
+  ({ server, base } = await startTracker());
   relay = await startRelay();
-  createKey(homes.owner, { secretHex: hex(9) });
-  createKey(homes.finder, { secretHex: hex(1) });
-  const ownerConfig: Config = { ...DEFAULT_CONFIG, trackers: [base], relays: [relay.url] };
-  owner = new Quilt(ownerConfig, loadKey(homes.owner), new Resolver(ownerConfig, homes.owner), 'Claude Code');
+  owner = quiltOver(base, { relays: [relay.url] })(9);
   // The finder knows no tracker at all: only the relay.
+  const finderHome = tempHome('quilt-finder-');
+  createKey(finderHome, { secretHex: hex(1) });
   const finderConfig: Config = { ...DEFAULT_CONFIG, trackers: [], relays: [relay.url] };
-  finder = new Quilt(finderConfig, loadKey(homes.finder), new Resolver(finderConfig, homes.finder), 'Claude Code');
+  finder = new Quilt(finderConfig, loadKey(finderHome), new Resolver(finderConfig, finderHome), 'Claude Code');
 });
 afterAll(async () => {
   await relay.close();
@@ -94,7 +85,7 @@ describe('discovery over relays (QX-14)', () => {
     expect(readAnnouncement({ ...good, content: good.content.replace('"topics"', '"topicz"') }, relay.url)).toBeNull();
     // A later event for the same problem from the same key replaces the earlier one on the relay.
     const announce = JSON.parse(good.content);
-    const later = announcementEvent(announce, loadKey(homes.owner)!.secret, good.created_at + 60);
+    const later = announcementEvent(announce, owner.identity!.secret, good.created_at + 60);
     const ws = new WebSocket(relay.url);
     await new Promise<void>((resolve) => { ws.addEventListener('open', () => { ws.send(JSON.stringify(['EVENT', later])); }); ws.addEventListener('message', () => { ws.close(); resolve(); }); });
     expect(relay.events.size).toBe(1);

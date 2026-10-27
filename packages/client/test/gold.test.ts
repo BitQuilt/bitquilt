@@ -1,17 +1,11 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { type Hash } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
-import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
-import { createMcpServer } from '../src/mcp.js';
-import { localRunner, runTool } from '../src/tools.js';
-import { Resolver } from '../src/resolver.js';
-import { type Pattern, Quilt } from '../src/worker.js';
+import { runTool } from '../src/tools.js';
+import { type Pattern, Quilt } from '../src/quilt.js';
+import { instructs, json, mcpPair, quiltOver, startTracker } from './helpers.js';
 
 /**
  * Gold pieces (QX-16) from the client's side: an owner publishes with the answers to some pieces, which leave the home
@@ -19,17 +13,8 @@ import { type Pattern, Quilt } from '../src/worker.js';
  * accepted; the reveal through the tool marks the square verified, or strikes the set on a miss and says so; the
  * summary counts the gold; the tools describe and never instruct.
  */
-const hex = (n: number) => '00'.repeat(31) + n.toString(16).padStart(2, '0');
 let server: Server;
 let base: string;
-let config: Config;
-const homes = new Map<number, string>();
-function mk(n: number, model: string, host = 'Claude Code'): Quilt {
-  const home = mkdtempSync(join(tmpdir(), `quilt-gold-${n}-`));
-  homes.set(n, home);
-  createKey(home, { secretHex: hex(n) });
-  return new Quilt({ ...config, model }, loadKey(home), new Resolver(config, home), host);
-}
 let owner: Quilt, other: Quilt, a: Quilt, b: Quilt;
 let p: Hash, q: Hash;
 
@@ -48,11 +33,8 @@ const pattern = (slug: string, count: number): Pattern => ({
 });
 
 beforeAll(async () => {
-  const tracker = createTracker({ store: new Store(':memory:'), url: 'http://tracker.test/', ipSalt: 's', limits: { keyPerHour: 1000, ipPerHour: 10000 } });
-  server = await tracker.listen(0);
-  const addr = server.address();
-  base = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}/` : '';
-  config = { ...DEFAULT_CONFIG, trackers: [base] };
+  ({ server, base } = await startTracker({ limits: { keyPerHour: 1000, ipPerHour: 10000 } }));
+  const mk = quiltOver(base);
   owner = mk(9, 'anthropic/claude');
   other = mk(8, 'anthropic/claude');
   a = mk(1, 'anthropic/claude');
@@ -61,7 +43,7 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
 type StateView = { pieces: { hash: Hash; state: string; gold: string | null; verified: boolean }[]; gold: { committed: number; pending: number; verified: number; missed: number; overruled: number; lapsed: number } };
-const trackerState = async (problem: Hash) => (await (await fetch(`${base}p/${problem}/state`)).json()) as StateView;
+const trackerState = (problem: Hash) => json<StateView>(`${base}p/${problem}/state`);
 const pieceOf = async (problem: Hash, n: number): Promise<Hash> => (await a.open(problem)).state.pieces[n]!.piece.hash;
 
 describe('gold pieces, from the client', () => {
@@ -79,7 +61,7 @@ describe('gold pieces, from the client', () => {
     expect(r.refused).toEqual([]);
     // Two a piece where no stake rule applies: one for each root a miss would dock.
     expect(r.gold).toEqual({ pieces: 2, stake: 4 });
-    const lib = JSON.parse(readFileSync(join(homes.get(9)!, 'library.json'), 'utf8')) as { gold: Record<string, Record<string, { name: string; projection: Record<string, unknown>; nonce: string }>> };
+    const lib = JSON.parse(readFileSync(join(owner.resolver.home, 'library.json'), 'utf8')) as { gold: Record<string, Record<string, { name: string; projection: Record<string, unknown>; nonce: string }>> };
     const kept = Object.values(lib.gold[p]!);
     expect(kept.map((k) => k.name).sort()).toEqual(['statement/1', 'statement/2']);
     expect(kept.find((k) => k.name === 'statement/1')!.projection).toEqual({ verdict: 'supports' });
@@ -129,7 +111,7 @@ describe('gold pieces, from the client', () => {
     expect(committed).toEqual({ pieces: 1, stake: 2 });
     expect((await trackerState(r)).pieces.map((x) => x.gold)).toEqual([null, null]);
     expect((await trackerState(r)).gold).toMatchObject({ committed: 1, pending: 1 });
-    const lib = JSON.parse(readFileSync(join(homes.get(8)!, 'library.json'), 'utf8')) as { gold: Record<string, Record<string, { name: string }>> };
+    const lib = JSON.parse(readFileSync(join(other.resolver.home, 'library.json'), 'utf8')) as { gold: Record<string, Record<string, { name: string }>> };
     expect(Object.values(lib.gold[r]!).map((k) => k.name)).toEqual(['statement/1']);
     await a.return(r, r1, { verdict: 'supports', quote: 'x' });
     await expect(other.commitGold(r, { 'statement/2': { verdict: 'supports', quote: '' }, 'statement/1': { verdict: 'supports', quote: '' } })).rejects.toThrow(/already worked/);
@@ -148,17 +130,12 @@ describe('gold pieces, from the client', () => {
     // A struck root's challenge on the miss stakes nothing: 0 passes the client and the door, which on this small tracker then finds no panel to seat.
     await expect(a.challenge(p, p2, -1, 'The gold is wrong.')).rejects.toThrow(/whole number from 0/);
     await expect(a.challenge(p, p2, 0, 'The gold is wrong.')).rejects.toThrow(/no panel can be seated/);
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    const mcp = createMcpServer(localRunner(() => owner));
-    await mcp.connect(serverTransport);
-    const client = new Client({ name: 'claude-test', version: '0.0.0' });
-    await client.connect(clientTransport);
+    const { client, close } = await mcpPair(owner);
     const tools = await client.listTools();
     expect(tools.tools.map((t) => t.name)).toContain('quilt_reveal_gold');
-    for (const t of tools.tools) expect(t.description ?? '').not.toMatch(/\b(you must|always|never|do not|important|ignore)\b/i);
+    for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
     expect(JSON.stringify(tools.tools.find((t) => t.name === 'quilt_publish')!.inputSchema)).toContain('"gold"');
     expect(JSON.stringify(tools.tools.find((t) => t.name === 'quilt_challenge')!.inputSchema)).toContain('"minimum":0');
-    await client.close();
-    await mcp.close();
+    await close();
   });
 });

@@ -1,61 +1,29 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Server } from 'node:http';
-import { type Address, type Envelope, type Hash, type Unsigned, addressOf, commitHash, newNonce, signEvent, signObject } from '@bitquilt/core';
-import { Store } from '../src/store.js';
-import { createTracker } from '../src/tracker.js';
+import { type Address, type Envelope, type Hash, commitHash, newNonce } from '@bitquilt/core';
 import { TENTH } from '../src/seeding.js';
+import { addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * QX-4 and QX-5 at the tracker: seeders and the last seed read off `seed` events; a watch piece offered to a seeder
  * first and kept from others for its lease; and the offer: the problems of people who have worked for the asker
  * first, the rest rarest first, every tenth offer a newcomer's, and never the asker's own.
  */
-const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
 const A = key(1), O1 = key(2), O2 = key(3), O3 = key(4), X = key(5), S = key(6), B = key(7);
-const addr = addressOf;
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
 const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
 
 function envelope(owner: Uint8Array, slug: string, count: number, watch = 0): Envelope {
   const pieces: Envelope['problem']['pieces'] = { 'statement/*': { count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } };
   if (watch) pieces['watch/*'] = { count: watch, verifier: 'agree', requires: ['web'], brief: 'Watch {n}: is the paper still where it was, and does it still say so?', schema, agree: ['verdict'] };
-  const problem: Envelope['problem'] = {
-    title: `Statements (${slug})`, done_when: 'Every statement has a verdict.', owner: addr(owner), slug, prev: null, from: null,
-    settings: { challenge_window_h: 48, lease_h: 2, endgame_at: 1, budget: 100, patch_max: 10000 },
-    pieces, data: {},
-  };
-  const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
-  return { ...unsigned, sig: signObject(unsigned, owner) };
+  return signed(owner, slug, pieces);
 }
 
-let server: Server;
-let base: string;
-const store = new Store(':memory:');
-let tick = Date.parse('2026-10-26T09:00:00Z');
 const HOUR = 3_600_000;
-const tracker = createTracker({ store, url: 'http://tracker.test/', now: () => new Date(tick).toISOString(), ipSalt: 's', limits: { keyPerHour: 1000, ipPerHour: 10000 } });
+const t = boot('2026-10-26T09:00:00Z', { limits: { keyPerHour: 1000, ipPerHour: 10000 } });
+const { clock, ev, post, get, accepted } = t;
+beforeAll(() => t.listen());
+afterAll(() => t.close());
 
-beforeAll(async () => {
-  server = await tracker.listen(0);
-  const a = server.address();
-  base = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}` : '';
-});
-afterAll(() => new Promise<void>((r) => server.close(() => r())));
-
-const post = (path: string, body: unknown) => fetch(base + path, { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json' } });
-const get = async (path: string) => (await fetch(base + path)).json();
-function ev(k: Uint8Array, type: string, body: Record<string, unknown>, problem?: Hash, piece?: Hash) {
-  tick += 1000;
-  const u: Unsigned = { quilt: 1, type, key: addr(k), ts: new Date(tick).toISOString(), body };
-  if (problem) u.problem = problem;
-  if (piece) u.piece = piece;
-  return signEvent(u, k);
-}
-async function accepted(path: string, event: unknown): Promise<Hash> {
-  const r = await post(path, event);
-  expect(r.status, await r.clone().text()).toBe(202);
-  return ((await r.json()) as { id: Hash }).id;
-}
 async function publish(e: Envelope): Promise<Hash> {
   const r = await post('/p', { envelope: e, blobs: {} });
   expect(r.status, await r.clone().text()).toBe(201);
@@ -125,9 +93,9 @@ describe('seeding (QX-4)', () => {
     expect(before.last_seeded).toBeNull();
     const r = await post(`/p/${P1}/events`, ev(S, 'seed', { on: 'yes' }, P1));
     expect(r.status).toBe(400);
-    expect(((await r.json()) as { error: string }).error).toMatch(/seed\.on/);
+    expect(((await r.json()) as { error: string }).error).toMatch(/body\.on/);
     await accepted(`/p/${P1}/events`, ev(S, 'seed', { on: true }, P1));
-    const seededAt = new Date(tick).toISOString();
+    const seededAt = new Date(clock.tick).toISOString();
     const on = (await get(`/p/${P1}/scrape`)) as { seeders: number; last_seeded: string | null };
     expect(on.seeders).toBe(1);
     expect(on.last_seeded).toBe(seededAt);
@@ -139,7 +107,7 @@ describe('seeding (QX-4)', () => {
     const watch = await pieceNamed(P1, 'watch/1');
     expect((await nextFor(P1, S)).piece).toBe(watch);
     expect((await nextFor(P1, B)).piece).not.toBe(watch);
-    tick += 3 * HOUR;
+    clock.tick += 3 * HOUR;
     const seen = new Set<Hash>();
     for (let i = 0; i < 4; i++) {
       const n = await nextFor(P1, B);

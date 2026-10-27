@@ -1,3 +1,7 @@
+/**
+ * CORE.md section 1, Forms: canonical JSON is RFC 8785, and a hash is `sha256:` over the UTF-8 bytes of the canonical
+ * form. The RFC's own example, the key order, what is refused, and that one value gives one byte string.
+ */
 import { describe, expect, it } from 'vitest';
 import { canonical, canonicalBytes } from '../src/canonical.js';
 import { hashCanonical, hashText, isHash } from '../src/hash.js';

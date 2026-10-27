@@ -30,20 +30,23 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type { DeclineReason } from '@bitquilt/core';
 import { type Config, createKey, ensureHome, loadConfig, loadKey, quiltHome, saveConfig } from './config.js';
 import { claudeDesktopConfigPath, installClaude, quiltEntry } from './install.js';
+import type { Side } from './listings.js';
 import { createMcpServer } from './mcp.js';
 import { probeNode, remoteRunner } from './node.js';
 import { createPage } from './page.js';
+import { type Pattern, Quilt } from './quilt.js';
 import { Resolver } from './resolver.js';
 import { type ToolRunner, localRunner } from './tools.js';
-import { type Pattern, type Side, Quilt } from './worker.js';
 
 const args = process.argv.slice(2);
 const flag = (name: string): string | undefined => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
 };
+// The command is the first argument that is neither a flag nor the value after one; none at a terminal means `me`, none under a chat client (no TTY) means `mcp`.
 const command = args.find((a) => !a.startsWith('--') && args[args.indexOf(a) - 1]?.startsWith('--') !== true) ?? (process.stdin.isTTY ? 'me' : 'mcp');
 const home = ensureHome(quiltHome());
 const config: Config = loadConfig(home);
@@ -61,11 +64,9 @@ function claudeRunning(): boolean {
   }
 }
 
-function make(hostName?: string, person = false): Quilt {
-  const identity = loadKey(home);
-  const resolver = new Resolver(config, home);
-  if (person) return new Quilt({ ...config, model: 'human', can: ['person', 'web', 'files'] }, identity, resolver, 'human');
-  return new Quilt(config, identity, resolver, hostName);
+/** A Quilt over this home for one command, declaring the host named. */
+function make(hostName?: string): Quilt {
+  return new Quilt(config, loadKey(home), new Resolver(config, home), hostName);
 }
 
 async function main(): Promise<void> {
@@ -126,7 +127,7 @@ async function main(): Promise<void> {
       const quiltFor = (hostName?: string) => new Quilt(config, identity, resolver, hostName);
       const alone = (): ToolRunner => {
         const quilt = quiltFor();
-        const person = new Quilt({ ...config, model: 'human', can: ['person', 'web', 'files'] }, identity, resolver, 'human');
+        const person = Quilt.asPerson(config, identity, resolver);
         createPage({ quilt, person, resolver }).listen(config.port).then(() => log(`quilt page at http://localhost:${config.port}/`)).catch((e) => log(`page not started: ${(e as Error).message}`));
         return localRunner(quiltFor);
       };
@@ -147,7 +148,7 @@ async function main(): Promise<void> {
     case 'serve': {
       const quilt = make();
       const port = Number(flag('--port') ?? config.port);
-      await createPage({ quilt, person: make(undefined, true), resolver: quilt.resolver }).listen(port);
+      await createPage({ quilt, person: Quilt.asPerson(config, quilt.identity, quilt.resolver), resolver: quilt.resolver }).listen(port);
       console.log(`quilt page at http://localhost:${port}/`);
       return;
     }
@@ -170,8 +171,8 @@ async function main(): Promise<void> {
     }
     case 'next': {
       const quilt = make();
-      const { hash, pick, posted, author, stake, lock } = await quilt.next(args[1] ?? '');
-      console.log(quilt.pieceText(hash, pick, author, stake));
+      const { hash, pick, posted, owner, stake, lock } = await quilt.next(args[1] ?? '');
+      console.log(quilt.pieceText(hash, pick, owner, stake));
       console.log(posted.queued ? 'Claim queued.' : `Claim posted to ${posted.at}${lock ? `, after a lock of ${stake}${lock === 'coin' ? ' backed by coin' : ''}` : ''}.`);
       return;
     }
@@ -185,7 +186,8 @@ async function main(): Promise<void> {
       return;
     }
     case 'decline': {
-      const r = await make().decline(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, (args[3] ?? 'cannot') as 'cannot');
+      // One of the core's DECLINE_REASONS; `decline` refuses any other before it is signed.
+      const r = await make().decline(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, (args[3] ?? 'cannot') as DeclineReason);
       console.log(JSON.stringify(r));
       return;
     }
