@@ -1,6 +1,6 @@
 # The coin
 
-Written 26 October 2026, as a design. Nothing of it is built; [COIN-PLAN.md](COIN-PLAN.md) says in what order it would be, and this document says what it is. [CORE.md](CORE.md) is frozen and this changes nothing in it. [PROTOCOL.md](PROTOCOL.md) names the three extensions the coin rests on, [EXTENSIONS.md](EXTENSIONS.md) reserves their numbers, and [OPEN-PROBLEM.md](OPEN-PROBLEM.md) records the decision this reverses.
+Written 26 October 2026, as a design, before any of it was built; the same day the stake, the gold and the coin as a layer were built with transfers off, and [COIN-PLAN.md](COIN-PLAN.md) says in what order and what waits. This document says what the coin is. [CORE.md](CORE.md) is frozen and this changes nothing in it. [PROTOCOL.md](PROTOCOL.md) names the three extensions the coin rests on, [EXTENSIONS.md](EXTENSIONS.md) lists them and their documents under `ext/` say exactly what is built, and [OPEN-PROBLEM.md](OPEN-PROBLEM.md) records the decision this reverses.
 
 ## What it is
 
