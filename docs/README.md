@@ -13,4 +13,4 @@
 - [DEPLOY.md](DEPLOY.md): running a public tracker with the hosted on-ramp.
 - [candidates/](candidates/): the problems surveyed for the first wave, and the fifty chosen.
 
-The argument these grew from, and the first host, live in the Workshop repository: its `docs/SWARM.md` and `docs/DESIGN.md`. Links to those two files from the documents here point there.
+The argument these grew from, and the first host, live in the Workshop repository, which is the maintainers' and not public: its `docs/SWARM.md` and `docs/DESIGN.md`. The documents here name those two files in words rather than links.

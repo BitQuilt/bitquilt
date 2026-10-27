@@ -14,11 +14,11 @@ Six commitments the design rests on, each of which, given up, is a reason to sto
 
 ## 1. What stays as it is
 
-- `docs/CORE.md`, the 23 fixtures under `packages/core/fixtures`, and `impl/python`: untouched. No new setting (the envelope's settings are closed, `envelope.ts` line 136), no new field on a core event, nothing added to the piece hash or the problem hash. Every rule below is an extension in the sense of `docs/EXTENSIONS.md`: new event types the core ignores, functions of the ledger, admission policies at the door.
+- `docs/CORE.md`, the fixtures under `packages/core/fixtures`, and `impl/python`: untouched. No new setting (the envelope's settings are closed, `envelope.ts` line 136), no new field on a core event, nothing added to the piece hash or the problem hash. Every rule below is an extension in the sense of `docs/EXTENSIONS.md`: new event types the core ignores, functions of the ledger, admission policies at the door.
 - `reduce` and `next`: unchanged. Stake and the coin are layers over the fold, as the challenge window is (`packages/tracker/src/challenge.ts`), and the door asks the layers before it admits, as it asks `admitChallenge` today.
 - The identity log's pattern: events about no problem live on a pseudo-problem of their own (`IDENTITY_LOG` in `packages/core/src/events.ts`), chained under QX-11 and anchored under QX-12 like any problem's log. The coin gets a log of its own in the same shape, defined in the tracker package so the core package is not touched.
 - Keys: a root is already an Ethereum account (secp256k1, EIP-55, EIP-191 signatures, BIP-39 phrase on the Ethereum path, `packages/core/src/keys.ts`). The same address holds coin in the ledger and, once redeemed, on Ethereum. No new key, and no wallet software to earn, hold, lock or pay; a wallet is needed only to redeem.
-- The 160 tests pass at the end of every phase, and the phases are ordered so that each is useful alone.
+- The tests pass at the end of every phase, and the phases are ordered so that each is useful alone.
 
 ## 2. The documents, and what each has to say afterwards
 

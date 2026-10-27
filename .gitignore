@@ -6,3 +6,6 @@ coverage/
 .quilt/
 .env
 .env.*
+
+# the example is the one env file that belongs in the repository
+!.env.example

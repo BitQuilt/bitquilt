@@ -1,6 +1,6 @@
 # BitQuilt: a problem by its hash
 
-Written 24 Oct 2026 and revised the same day after a reader's review; the last section says what changed. [CORE.md](CORE.md) is the short specification a client follows, frozen as version 1: the envelope, the piece hash, the event line, the reducer for three verifiers, and the link. This document is everything around it: why each part is as it is, the reference tracker and mirror, identity, governance, the lineage, where it is weak, and the build. [SWARM.md](SWARM.md) is the argument this grew from; [DESIGN.md](DESIGN.md) is what the Workshop had built when this was written; [EXTENSIONS.md](EXTENSIONS.md) is how everything outside the core changes; [OPEN-PROBLEM.md](OPEN-PROBLEM.md) is the gap version 1 does not close, stated for anyone to attack; [APP.md](APP.md) is the thing a person opens, a search box over the world's problems, a click that hands their AI a piece, and a map filling in from strangers. Nothing in this document was built when it was written; by 27 October 2026 the core, the tracker, the mirror, Quilt and every extension but the reserved numbers were. [LAYERS.md](LAYERS.md) tells the result in plain words, and [LAUNCH.md](LAUNCH.md) what stands and what remains.
+Written 24 Oct 2026 and revised the same day after a reader's review; the last section says what changed. [CORE.md](CORE.md) is the short specification a client follows, frozen as version 1: the envelope, the piece hash, the event line, the reducer for three verifiers, and the link. This document is everything around it: why each part is as it is, the reference tracker and mirror, identity, governance, the lineage, where it is weak, and the build. the Workshop's SWARM.md is the argument this grew from; the Workshop's DESIGN.md is what the Workshop had built when this was written; [EXTENSIONS.md](EXTENSIONS.md) is how everything outside the core changes; [OPEN-PROBLEM.md](OPEN-PROBLEM.md) is the gap version 1 does not close, stated for anyone to attack; [APP.md](APP.md) is the thing a person opens, a search box over the world's problems, a click that hands their AI a piece, and a map filling in from strangers. Nothing in this document was built when it was written; by 27 October 2026 the core, the tracker, the mirror, Quilt and every extension but the reserved numbers were. [LAYERS.md](LAYERS.md) tells the result in plain words, and [LAUNCH.md](LAUNCH.md) what stands and what remains.
 
 One sentence carries the design: **a torrent where the pieces are made, not copied.** A torrent names a file by the hash of its pieces, and any peer can check a piece against its hash. Here the file does not exist yet; the pieces are produced by strangers' AIs; and since a piece that is made has no hash to check against, a verifier stands where the hash stood. Everything else follows from taking that sentence seriously. The names are layered as BitTorrent's were. **BitQuilt** is the protocol, this specification and the organisation that keeps it. **Quilt** is the app a person opens ([APP.md](APP.md)). A **quilt** is the thing: a problem's map of squares, made of pieces by many hands to a pattern. A problem file is the pattern, its pieces are the squares, the finished map is the quilt, and the link begins `quilt:`, the noun's name, kept short.
 
@@ -324,16 +324,20 @@ problems/<hash>.json       the envelope
 blobs/<hash>               the data blobs
 ledger/<hash>.jsonl        receipts in receipt order, append-only
 ledger/identity.jsonl      the identity log, chained from the hash of quilt:identity
+ledger/coin.jsonl          the coin log, chained from the hash of quilt:coin (QX-17)
 names/<owner>/<slug>       the latest version hash
 outputs/<hash>/            the assembled output when the reducer says complete
 keys.json                  address, latest name event, delegations in force
+index.json                 every problem held, with its title, slug and counts
+coin/balances.json         the balances the tracker published, kept only where the mirror reproduces them
+anchors/<problem>/<seq>.ots  the OpenTimestamps stamp of each chain's head (QX-12)
 ```
 
 GitHub serves these raw over HTTPS, so a client with the repository's address resolves a hash with no tracker. The verify script takes a clone and a hash, checks the chain, every signature and the envelope's hash, runs the reducer, and prints the head and the map: clone and compute, with no trust in the site. The site's database holds the same receipts and is a cache of them; if it were lost, the mirror rebuilds it.
 
 ### Chained lines
 
-A ledger file is never edited or reordered, and the file itself has to show it, with no git around it and no site to ask. So every line a resolver keeps carries three fields beyond the wrapper, in the recipe of the rally's public log (`docs/log/RULES.md` in that repository), with one change: the chain begins at the problem.
+A ledger file is never edited or reordered, and the file itself has to show it, with no git around it and no site to ask. So every line a resolver keeps carries three fields beyond the wrapper, in a recipe first used for the maintainers' public log, with one change: the chain begins at the problem.
 
 | Field | What it is |
 | --- | --- |
@@ -341,7 +345,7 @@ A ledger file is never edited or reordered, and the file itself has to show it, 
 | `prev` | The `hash` of the line before; for the first line, the problem's hash in hex, so a chain belongs to one problem |
 | `hash` | SHA-256, in hex, over `seq`, a newline, `prev`, a newline, and the canonical JSON of the wrapper without these three fields |
 
-A change to any line changes its hash, so the `prev` of the next, so every hash after it, so the head. The head is the last line's hash, written beside the file as `ledger/<hash>.head` with its `seq` and the short form the rally's room uses (the first sixteen hex characters as two groups of eight joined by a colon), served by the tracker's scrape, and shown on the problem's page. The mirror job copies the maintainers' tracker's chain line for line, verifies it, checks that the file only grew since the commit before (a chain rewritten whole, every hash recomputed, is refused all the same), and only then commits.
+A change to any line changes its hash, so the `prev` of the next, so every hash after it, so the head. The head is the last line's hash, with its `seq` and a short form (the first sixteen hex characters as two groups of eight joined by a colon), served by the tracker's scrape and shown on the problem's page; the mirror writes no separate head file, since the head is the ledger file's last line, and stamps it under `anchors/` (QX-12). The mirror job copies the maintainers' tracker's chain line for line, verifies it, checks that the file only grew since the commit before (a chain rewritten whole, every hash recomputed, is refused all the same), and only then commits.
 
 A chain is a resolver's own: two trackers hold the same events in different orders under different chains, and a client that reads from both verifies each file and merges the events by id. What a chain proves is that the resolver has not rewritten or reordered what it served since its head was last seen. What it does not prove is completeness: an event a tracker declined to receive leaves no gap. Publishing the head where the ledger has no hand, by anchoring it in a public chain through OpenTimestamps, is QX-12, built in the mirror job on 26 Oct 2026 ([ext/QX-12.md](ext/QX-12.md)).
 
