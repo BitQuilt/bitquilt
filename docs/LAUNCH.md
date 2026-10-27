@@ -24,13 +24,13 @@ Written 26 October 2026. [APP.md](APP.md) names the smallest version: the app wi
      -e QUILT_MAINTAINERS=0x… bitquilt-hosted
    ```
 
-   Keep `QUILT_KEY_SECRET` somewhere safe: every address the tracker hands out is lost without it. Leave `QUILT_COIN` unset for the first problem; the coin can be switched on later with the parameters below, and nothing before it changes.
+   Keep `QUILT_KEY_SECRET` somewhere safe: every address the tracker hands out is lost without it. Set `QUILT_COIN` from the first day with the parameters below (decided 27 October 2026: the coin is on at launch and transfers with it, as Bitcoin's was); switched on later instead, nothing before it changes.
 4. **The defaults a release carries.** Two one-line changes once the domain exists: `DEFAULT_CONFIG.trackers` in `packages/client/src/config.ts` from `http://localhost:3977/` to the public tracker, and `DEFAULT_CONFIG.relays` to two public Nostr relays the maintainers choose, so that search reaches announcements on relays and a stranger's Quilt finds the problem with nothing set. The bundle's settings (`scripts/build-mcpb.mjs`) carry the same tracker.
 5. **The mirror.** In the repository's settings, the variable `BITQUILT_TRACKERS` set to the public tracker; the workflow then writes the ledger to `main` every fifteen minutes and anchors every head. The repository is the public copy a client falls back to.
 6. **The first standing problems.** From the maintainers' machine, with the public tracker in `~/.config/quilt/config.json`: `quilt publish examples/tell-someone.json`, then `quilt seed <hash> on`, and the same for the first wave of twelve patterns under `examples/` (`docs/candidates/launch-50.json` names them). A gold is backed by the owner's standing, two points a piece where no stake rule applies (one for each root a miss would dock), and a new key has one point, so publish the patterns first without their gold (strip `gold` from the file, or let the tracker refuse it, which leaves the problem published) and bring the gold in with `quilt gold commit` as standing is earned: a second maintainers' key that works accepted pieces on the first key's problems, and the first on the second's, earns a point a square. The patterns' gold answers stay in the files until then.
 7. **The release.** `git tag v0.1.0 && git push --tags`: the workflow builds `quilt` and `bitquilt-tracker` for five platforms and `quilt.mcpb`, and attaches them. The Mac app (`bash apps/mac/build.sh`) is signed ad hoc and opens on the machine that built it; a copy for others needs an Apple Developer ID and notarization, which can follow the first problem.
 8. **The site.** Serve `site/` at `bitquilt.com` (GitHub Pages or any file server), with its links pointed at the tracker, the release and the first problem's `quilt:` link.
-9. **Counsel, before two switches.** Before `transfers_from` is ever set in `QUILT_COIN`, and before any contract exists on a public chain (phase 4 of [COIN-PLAN.md](COIN-PLAN.md)). Nothing in the first problem needs either.
+9. **Counsel, beside the launch rather than before it.** The founder decided on 27 October 2026 that transfers are on from genesis, so counsel reads the design as launched; the one switch that still waits on counsel is a contract on a public chain (phase 4 of [COIN-PLAN.md](COIN-PLAN.md)). Nothing in the first problem needs the chain.
 
 ## The coin's parameters, when the time comes
 
@@ -41,10 +41,10 @@ A draft in the units [COIN.md](COIN.md) names, for `QUILT_COIN` on the tracker t
   "emission": { "per_epoch": 1000000, "decline_bp": 2500, "period_epochs": 365 },
   "vesting_h": 8760, "infra_bp": 1000, "treasury": "0x…", "unit": 1000000,
   "weights": { "cross_vendor": 2, "same_vendor": 1, "attest": 0 }, "burn_rate": 1000,
-  "transfers_from": null, "redeem_from": null }
+  "transfers_from": "2026-11-01T00:00:00Z", "redeem_from": null }
 ```
 
-A coin a day of a million units, falling by a quarter each year; a year's vesting; a tenth to the treasury; a point of standing for a thousand units at the door; transfers and redemption off.
+A coin a day of a million units, falling by a quarter each year; a year's vesting; a tenth to the treasury; a point of standing for a thousand units at the door; transfers on from genesis; redemption off.
 
 ## The stranger's path, to walk before announcing
 

@@ -114,10 +114,10 @@ Three extensions sit over the ledger ([docs/COIN.md](../docs/COIN.md) says why; 
 A tracker carries the coin when it is started with `QUILT_COIN`, the parameters as one JSON object:
 
 ```bash
-QUILT_COIN='{"genesis":"2026-11-01T00:00:00Z","epoch_h":24,"emission":{"per_epoch":1000000,"decline_bp":2500,"period_epochs":365},"vesting_h":8760,"infra_bp":1000,"treasury":"0x…","unit":1000000,"weights":{"cross_vendor":2,"same_vendor":1,"attest":0},"burn_rate":1000,"transfers_from":null,"redeem_from":null}' QUILT_DB=/tmp/quilt-tracker.db pnpm --filter @bitquilt/tracker start
+QUILT_COIN='{"genesis":"2026-11-01T00:00:00Z","epoch_h":24,"emission":{"per_epoch":1000000,"decline_bp":2500,"period_epochs":365},"vesting_h":8760,"infra_bp":1000,"treasury":"0x…","unit":1000000,"weights":{"cross_vendor":2,"same_vendor":1,"attest":0},"burn_rate":1000,"transfers_from":"2026-11-01T00:00:00Z","redeem_from":null}' QUILT_DB=/tmp/quilt-tracker.db pnpm --filter @bitquilt/tracker start
 ```
 
-Verified squares then earn the epoch's minting by weight; `quilt balance` prints a key's coin; `quilt pay <problem> <amount> <per_square>` escrows coin a problem's workers are paid from per accepted square; a worker whose standing cannot cover a stake locks coin in its place at the tracker's burn rate. Transfers and redemption are off until the maintainers set a time, and the mirror keeps the tracker's balances only where it reproduces them from the receipts.
+Verified squares then earn the epoch's minting by weight; `quilt balance` prints a key's coin; `quilt pay <problem> <amount> <per_square>` escrows coin a problem's workers are paid from per accepted square; a worker whose standing cannot cover a stake locks coin in its place at the tracker's burn rate. Transfers are on from the genesis the parameters name, redemption is off until the maintainers set a time, and the mirror keeps the tracker's balances only where it reproduces them from the receipts.
 
 ## The executables
 

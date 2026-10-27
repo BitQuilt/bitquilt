@@ -1,6 +1,6 @@
 # The coin
 
-Written 26 October 2026, as a design, before any of it was built; the same day the stake, the gold and the coin as a layer were built with transfers off, and [COIN-PLAN.md](COIN-PLAN.md) says in what order and what waits. This document says what the coin is. [CORE.md](CORE.md) is frozen and this changes nothing in it. [PROTOCOL.md](PROTOCOL.md) names the three extensions the coin rests on, [EXTENSIONS.md](EXTENSIONS.md) lists them and their documents under `ext/` say exactly what is built, and [OPEN-PROBLEM.md](OPEN-PROBLEM.md) records the decision this reverses.
+Written 26 October 2026, as a design, before any of it was built; the same day the stake, the gold and the coin as a layer were built, with transfers off until the founder's decision the next day, and [COIN-PLAN.md](COIN-PLAN.md) says in what order and what waits. This document says what the coin is. [CORE.md](CORE.md) is frozen and this changes nothing in it. [PROTOCOL.md](PROTOCOL.md) names the three extensions the coin rests on, [EXTENSIONS.md](EXTENSIONS.md) lists them and their documents under `ext/` say exactly what is built, and [OPEN-PROBLEM.md](OPEN-PROBLEM.md) records the decision this reverses.
 
 ## What it is
 
@@ -35,7 +35,7 @@ Verified means, in this version, a gold match: an owner knew the answer in advan
 - **A lock** at a tracker's door backs a claim. A struck set forfeits it. The forfeit takes the lock and as much again from the root's unvested coin as there is, so that what a fake earned inside the window is what a miss costs.
 - **A payment.** Anyone may escrow coin to a problem with a price per square. Each accepted set is paid from the escrow, divided among its credited roots, until the escrow is empty; when the problem completes, or its endgame passes with nothing left to pay, the rest goes back to the payer. An owner paying for their own problem is the ordinary case.
 - **A burn** removes coin and the tracker credits standing at the rate it publishes. This is how a newcomer with coin and no history enters a staked problem, and it is a tracker's policy, not the protocol's.
-- **A transfer** moves vested free coin to any address, from the date the parameters name. The date is null until the founder sets it with counsel. Turning transfers on changes no history: the ledger before and after is the same ledger.
+- **A transfer** moves vested free coin to any address, from the date the parameters name. The founder set it to genesis on 27 October 2026, so the coin moves from its first epoch, as Bitcoin's did. Turning transfers on at any date changes no history: the ledger before and after is the same ledger.
 - **A redeem** removes coin from the ledger for minting on the chain, from the date the parameters name, once the door out exists.
 
 ## Who is paid
@@ -58,7 +58,7 @@ The layer publishes its parameters in the tracker's well-known document, and the
 | `unit` | a coin is a million units; whole-unit arithmetic, remainders unminted | rounding |
 | `weights` | 1 across vendors, 1/2 within one vendor, 0 for attest | what farming earns |
 | `forfeit` | the lock, and as much again from unvested coin | what a fake costs |
-| `transfers_from` | null | when the coin can move, and the law's view of it |
+| `transfers_from` | genesis | when the coin can move, and the law's view of it |
 | `redeem_from` | null | whether and when there is a door out |
 | continuation | the maintainers' key names a successor, which continues the coin log from the last head the mirror anchored | what happens if the home halts |
 
@@ -77,15 +77,15 @@ Until it is bridged, the coin is as decentralized as its home tracker. The home 
 - Not in the reducer. A client that ignores every line of this computes the same map.
 - Not a gate. Standing earned by work satisfies any stake; a problem with no stake asked is open to a key with nothing; a tracker may honour no coin at all.
 - Not for sale. No premine, no sale, no allocation but the small public one counsel may allow.
-- Not transferable until the founder says so, with counsel, by a published date.
+- Transferable from genesis, by the founder's decision of 27 October 2026, at the published date the parameters name.
 - Not a ranking. A balance is public in effect, as standing is, since anyone with the receipts computes it; the site's pages show a holder their own and nobody else's, as they do with standing.
 - Not held by anyone. A tracker keeps a record and never money; a custodial root holds coin as a record like any other and redeems it after taking the key home.
 - Not a solution to the open problem. A stake prices a wrong square for the root that holds one; the square of a worker who staked nothing is the problem it was.
 
 ## The law
 
-A unit earned by work and transferable is a security to some regulators, whether it lives in a ledger or on a chain. The design's answers are that nothing is sold, that emission is fixed and earned, that the coin's first use is as a stake and a wage inside the thing it is earned in, and that it does not move until a lawyer has read this. These are arguments, not conclusions, and counsel comes before `transfers_from` is set, not before the first contract.
+A unit earned by work and transferable is a security to some regulators, whether it lives in a ledger or on a chain. The design's answers are that nothing is sold, that emission is fixed and earned, that the coin's first use is as a stake and a wage inside the thing it is earned in, and that it is mined, never sold. These are arguments, not conclusions. The founder decided on 27 October 2026 that transfers are on from genesis, as a fair launch has them, and that counsel reads the design as launched rather than gating it; counsel still comes before the first contract on a chain.
 
 ## Status
 
-A design, 26 October 2026, and by the evening of the same day built through phase 3 of the plan: QX-15 ([ext/QX-15.md](ext/QX-15.md)), QX-16 ([ext/QX-16.md](ext/QX-16.md)) and QX-17 ([ext/QX-17.md](ext/QX-17.md)) stand in the reference tracker, the mirror and the client, with transfers and redemption off and no chain anywhere. The documents amended the same day to carry it: `EXTENSIONS.md` (what an extension may not do; QX-15 to QX-17 reserved), `OPEN-PROBLEM.md` (condition 1, the money paragraph, direction 7, a dated note), `PROTOCOL.md` (the trust claim, the tip paragraph, a fourth thing a tracker decides, what is not here, where it is weak). The order of building is in [COIN-PLAN.md](COIN-PLAN.md); its first three phases make the coin with no chain at all, and the fourth is the door out.
+A design, 26 October 2026, and by the evening of the same day built through phase 3 of the plan: QX-15 ([ext/QX-15.md](ext/QX-15.md)), QX-16 ([ext/QX-16.md](ext/QX-16.md)) and QX-17 ([ext/QX-17.md](ext/QX-17.md)) stand in the reference tracker, the mirror and the client, with redemption off and no chain anywhere; transfers were set on from genesis by the founder's decision the next day. The documents amended the same day to carry it: `EXTENSIONS.md` (what an extension may not do; QX-15 to QX-17 reserved), `OPEN-PROBLEM.md` (condition 1, the money paragraph, direction 7, a dated note), `PROTOCOL.md` (the trust claim, the tip paragraph, a fourth thing a tracker decides, what is not here, where it is weak). The order of building is in [COIN-PLAN.md](COIN-PLAN.md); its first three phases make the coin with no chain at all, and the fourth is the door out.

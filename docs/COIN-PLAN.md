@@ -10,7 +10,7 @@ What the revision moved: emission, vesting, slashing, locks and payments were on
 
 The reducer reads no chain, and neither does anything a worker needs. Stake enters at the tracker's door, where the protocol already puts cost (the gate, the stamp, a challenge's stake against standing). A problem may ask for stake on its claims; standing earned by work satisfies it, and so does coin locked in the ledger. Gold pieces, whose answers the owner committed to before the work, slash the stake of a wrong square without a jury. The coin is a layer over the ledger in the shape standing already has: a fixed emission per epoch is divided among that epoch's verified squares, vests with time, is slashed while unvested when a set is struck, is locked at the door, pays owners' bills, and moves between roots once transfers are turned on. Balances are a function of the receipts and the published parameters, computed by the tracker, by every mirror that holds its chains, and by anyone with the receipts; the home tracker orders the lines and decides nothing, and the mirror stamps its heads into Bitcoin. Nobody needs a wallet, a gas token or a node to earn, hold, lock or pay. A chain enters once, later, as a door out: a holder burns ledger coin and redeems the same amount as an ERC-20 on Ethereum against an anchored head, paying gas once, by choice, when the coin is worth it.
 
-Six commitments the design rests on, each of which, given up, is a reason to stop and re-argue: the map in the ledger and the coin as a layer over it, never in the reducer and never on a chain the protocol has to read; fixed emission, never a coin per square; minting only for verified squares; no sale of any kind at launch; transfers off until the founder turns them on with counsel; no gas and no wallet to work or earn, ever.
+Six commitments the design rests on, each of which, given up, is a reason to stop and re-argue: the map in the ledger and the coin as a layer over it, never in the reducer and never on a chain the protocol has to read; fixed emission, never a coin per square; minting only for verified squares; no sale of any kind at launch; transfers on from genesis, decided by the founder on 27 October 2026 where the plan as written had them off until counsel; no gas and no wallet to work or earn, ever.
 
 ## 1. What stays as it is
 
@@ -106,7 +106,7 @@ A pseudo-problem, `hashText('quilt:coin')`, defined beside the layer in `package
 | `lock` | a root (or its delegate with `lock` in scope) | `{ problem, piece, amount }` | The root's free coin at the receipt covers `amount`. Spent when a QX-15 `lock` on the problem names it; released or forfeited with that lock; released untouched after the problem's lease if no claim names it. |
 | `pay` | a root | `{ problem, amount, per_square }` | Free vested coin covers `amount`, which is escrowed to the problem and paid out by the rule below. |
 | `burn` | a root | `{ amount }` | Free coin covers `amount`. The coin is gone; the tracker credits standing at its published rate (QX-15). |
-| `transfer` | a root | `{ to, amount }` | Received at or after `transfers_from`, which is null until the founder sets it; free vested coin covers `amount`. `to` is an address and need not be a root anywhere. |
+| `transfer` | a root | `{ to, amount }` | Received at or after `transfers_from`, which the home sets to its genesis; free vested coin covers `amount`. `to` is an address and need not be a root anywhere. |
 | `redeem` | a root | `{ amount, to? }` | Received at or after `redeem_from`, null until the door out exists (section 6); free vested coin covers `amount`. The coin leaves the ledger. |
 
 **Free** is a root's balance less what its live locks hold and its escrows hold. **Vested** is what the vesting rule has released of what it was minted. A lock or a burn may draw on unvested coin, so that a new root can stake what it just earned; a pay, a transfer or a redeem draws on vested coin only.
@@ -224,7 +224,7 @@ Phases 1 to 3 stand with no chain at all: the coin is earned, staked, slashed, p
 | Independence weights | full weight for an agree set across different declared vendors, less for the same vendor, none for attest | what farming earns |
 | Infrastructure share | a published fraction of each epoch to the treasury root, which pays the home and the mirrors by a published rule | how the infrastructure, and the founder, are paid |
 | Foundation allocation | none, or small, vested over years, public | the securities question's weight; credibility |
-| Transfers from | null at launch; a date set with counsel | when the coin can move, and the law's view of it |
+| Transfers from | genesis, by the founder's decision of 27 October 2026 | when the coin can move, and the law's view of it |
 | Redeem from, and the chain | null; the chain undecided, a testnet first | whether and when there is a door out |
 | Return path | none in version 1 | one way or two |
 | Veto multisig and window | the maintainers plus two outsiders; a week | how long a bad head stands before it is struck |
@@ -240,7 +240,7 @@ Phases 1 to 3 stand with no chain at all: the coin is earned, staked, slashed, p
 - **Gold reaches only what an owner can answer in advance.** Everything else is verified by nothing yet; audits by sortition are the next number.
 - **The wash.** An owner with a crowd of roots publishes gold they also answer, and mints. The owner's lock, the vendor rule on weights, and the fixed emission that a wash only dilutes are the bounds; none removes it.
 - **Price.** While transfers are off there is no price. When they turn on there will be one, the protocol cannot bound it, and most tokens fall to the price of their float. Holding demand from locks and payers buying coin to pay are the supports.
-- **Law.** A unit earned by work and transferable is a security to some regulators whether it lives in a ledger or on a chain. Counsel before transfers turn on, not before the first contract; the design's answers (no sale, fixed emission, utility first, off until judged) are arguments, not conclusions.
+- **Law.** A unit earned by work and transferable is a security to some regulators whether it lives in a ledger or on a chain. The founder decided on 27 October 2026 that transfers are on from genesis and that counsel reads the design as launched rather than before it; counsel still comes before the first contract. The design's answers (no sale, fixed emission, utility first) are arguments, not conclusions.
 - **Gas.** None for anyone to work, earn, lock, pay or hold. A holder pays once to redeem; the poster's heads are the project's only recurring gas, and only once the door out exists.
 - **Home coupling at the door.** A tracker that honours coin locks depends on the home for that one read; when the home is unreachable it admits standing locks and refuses coin locks with the reason, and the map is unaffected.
 - **Availability.** A balance is reproducible only from receipts someone holds; the mirror holds every chain of the home and anchors it, and refuses a head it cannot reproduce.
