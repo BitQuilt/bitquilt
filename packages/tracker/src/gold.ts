@@ -68,9 +68,21 @@ export function hasAgreedFields(view: PieceView): boolean {
   return view.piece.schema !== undefined && !MACHINE.has(view.piece.verifier);
 }
 
-/** A piece's share of the owner's stake: its stake under the rule in force, or 1 where none is asked. */
-export function goldShare(asked: number): number {
-  return Math.max(1, asked);
+/**
+ * The roots a strike of the piece's accepting set would dock: two for a piece whose set is two reveals (agree, human,
+ * judge), counted as one for an attest piece, whose set is the actor's own word and credits nobody.
+ */
+export function goldDocked(verifier: string): number {
+  return verifier === 'attest' ? 1 : 2;
+}
+
+/**
+ * A piece's share of the owner's stake: for each root a strike would dock, its stake under the rule in force, or 1 where
+ * none is asked. Where no stake is asked an agree piece's share is 2, what a miss takes from the two roots it docks
+ * (amended 27 October 2026; it was 1 a piece).
+ */
+export function goldShare(view: PieceView, asked: number): number {
+  return goldDocked(view.piece.verifier) * Math.max(1, asked);
 }
 
 /** Whether every reveal of the piece's accepting set agrees with the projection on the agreed fields, as the core compares two returns. */

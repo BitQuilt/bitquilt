@@ -80,7 +80,8 @@ describe('challenge and verdict from the client', () => {
     expect((await trackerState(p, p1)).state).toBe('accepted_provisional');
     await expect(c.challenge(p, p1, 1, 'Both quote a sentence the paper only supposes.')).rejects.toThrow(/no panel can be seated: 0 roots/);
     await expect(c.challenge(p, p1, 1, 'See https://example.org')).rejects.toThrow(/no links/);
-    await expect(c.challenge(p, p1, 0, 'Nothing staked.')).rejects.toThrow(/whole number/);
+    await expect(c.challenge(p, p1, 0, 'Nothing staked.')).rejects.toThrow(/a challenge on an acceptance stakes at least 1/);
+    await expect(c.challenge(p, p1, -1, 'Nothing staked.')).rejects.toThrow(/whole number from 0/);
     const [q1, q2] = [await pieceOf(q, 0), await pieceOf(q, 1)];
     await judges[0]!.return(q, q1, { verdict: 'contradicts', quote: 'one' });
     await judges[1]!.return(q, q1, { verdict: 'contradicts', quote: 'two' });

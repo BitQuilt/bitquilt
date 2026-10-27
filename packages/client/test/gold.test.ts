@@ -67,15 +67,18 @@ const pieceOf = async (problem: Hash, n: number): Promise<Hash> => (await a.open
 describe('gold pieces, from the client', () => {
   it('publishes with gold: the commitments on the ledger, the answers only in the library, every piece pending, the stake locked', async () => {
     // The owner earns standing on another owner's problem first: a gold's stake is the owner's standing.
-    q = (await other.publish(pattern('elsewhere', 1))).hash;
-    const q1 = await pieceOf(q, 0);
-    await owner.return(q, q1, { verdict: 'supports', quote: 'it says so' });
-    await b.return(q, q1, { verdict: 'supports', quote: 'indeed' });
-    expect(await owner.standing()).toMatchObject({ standing: 2, free: 2 });
-    const r = await owner.publish({ ...pattern('golden', 2), gold: { answers: { 'statement/1': { verdict: 'supports', quote: 'the quote is not committed' }, 'statement/2': { verdict: 'contradicts', quote: 'nor this one' } } } });
+    q = (await other.publish(pattern('elsewhere', 3))).hash;
+    for (let i = 0; i < 3; i++) {
+      const qi = await pieceOf(q, i);
+      await owner.return(q, qi, { verdict: 'supports', quote: 'it says so' });
+      await b.return(q, qi, { verdict: 'supports', quote: 'indeed' });
+    }
+    expect(await owner.standing()).toMatchObject({ standing: 4, free: 4 });
+    const r = await owner.publish({ ...pattern('golden', 3), gold: { answers: { 'statement/1': { verdict: 'supports', quote: 'the quote is not committed' }, 'statement/2': { verdict: 'contradicts', quote: 'nor this one' } } } });
     p = r.hash;
     expect(r.refused).toEqual([]);
-    expect(r.gold).toEqual({ pieces: 2, stake: 2 });
+    // Two a piece where no stake rule applies: one for each root a miss would dock.
+    expect(r.gold).toEqual({ pieces: 2, stake: 4 });
     const lib = JSON.parse(readFileSync(join(homes.get(9)!, 'library.json'), 'utf8')) as { gold: Record<string, Record<string, { name: string; projection: Record<string, unknown>; nonce: string }>> };
     const kept = Object.values(lib.gold[p]!);
     expect(kept.map((k) => k.name).sort()).toEqual(['statement/1', 'statement/2']);
@@ -85,8 +88,8 @@ describe('gold pieces, from the client', () => {
     expect(events).toContain('"type":"gold"');
     expect(events).not.toContain('contradicts');
     const s = await trackerState(p);
-    expect(s.pieces.map((x) => x.gold)).toEqual(['pending', 'pending']);
-    expect(await owner.standing()).toMatchObject({ standing: 2, locked: 2, free: 0 });
+    expect(s.pieces.map((x) => x.gold)).toEqual(['pending', 'pending', null]);
+    expect(await owner.standing()).toMatchObject({ standing: 4, locked: 4, free: 0 });
     const opened = await a.open(p);
     expect(a.summary(p, opened.state, opened.tracker, opened.layer)).toContain('Gold (QX-16): 2 of the pieces have an answer the owner committed to before the work; 0 verified, 0 missed, 2 awaiting the owner\'s reveal.');
   });
@@ -111,10 +114,15 @@ describe('gold pieces, from the client', () => {
   });
 
   it('commits gold after publishing, on a piece nobody has worked, and refuses one already worked', async () => {
+    // The other owner earns a point on the plain third piece of the golden problem: a gold's share is two a piece.
+    const p3 = await pieceOf(p, 2);
+    await other.return(p, p3, { verdict: 'supports', quote: 'read it' });
+    await b.return(p, p3, { verdict: 'supports', quote: 'so did we' });
+    expect(await other.standing()).toMatchObject({ standing: 2, free: 2 });
     const r = (await other.publish(pattern('later', 2))).hash;
     const r1 = await pieceOf(r, 0);
     const committed = await other.commitGold(r, { 'statement/1': { verdict: 'supports', quote: 'kept at home' } });
-    expect(committed).toEqual({ pieces: 1, stake: 1 });
+    expect(committed).toEqual({ pieces: 1, stake: 2 });
     expect((await trackerState(r)).pieces.map((x) => x.gold)).toEqual(['pending', null]);
     const lib = JSON.parse(readFileSync(join(homes.get(8)!, 'library.json'), 'utf8')) as { gold: Record<string, Record<string, { name: string }>> };
     expect(Object.values(lib.gold[r]!).map((k) => k.name)).toEqual(['statement/1']);
@@ -132,6 +140,9 @@ describe('gold pieces, from the client', () => {
     expect(r.outcome).toBe('miss');
     expect((await trackerState(p)).pieces[1]).toMatchObject({ state: 'open', gold: 'miss', verified: false });
     await expect(owner.revealGold(p, p2)).rejects.toThrow(/the gold on this piece is revealed/);
+    // A struck root's challenge on the miss stakes nothing: 0 passes the client and the door, which on this small tracker then finds no panel to seat.
+    await expect(a.challenge(p, p2, -1, 'The gold is wrong.')).rejects.toThrow(/whole number from 0/);
+    await expect(a.challenge(p, p2, 0, 'The gold is wrong.')).rejects.toThrow(/no panel can be seated/);
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const mcp = createMcpServer(localRunner(() => owner));
     await mcp.connect(serverTransport);
@@ -141,6 +152,7 @@ describe('gold pieces, from the client', () => {
     expect(tools.tools.map((t) => t.name)).toContain('quilt_reveal_gold');
     for (const t of tools.tools) expect(t.description ?? '').not.toMatch(/\b(you must|always|never|do not|important|ignore)\b/i);
     expect(JSON.stringify(tools.tools.find((t) => t.name === 'quilt_publish')!.inputSchema)).toContain('"gold"');
+    expect(JSON.stringify(tools.tools.find((t) => t.name === 'quilt_challenge')!.inputSchema)).toContain('"minimum":0');
     await client.close();
     await mcp.close();
   });

@@ -152,7 +152,7 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 export function challengeBodyProblems(body: unknown): string[] {
   if (!isRecord(body)) return ['body: an object'];
   const out: string[] = [];
-  if (!Number.isInteger(body.stake) || (body.stake as number) < 1) out.push('body.stake: a whole number of at least 1');
+  if (!Number.isInteger(body.stake) || (body.stake as number) < 0) out.push('body.stake: a whole number from 0');
   if (typeof body.ground !== 'string' || !body.ground.trim() || body.ground.length > GROUND_MAX) out.push(`body.ground: a sentence of at most ${GROUND_MAX} characters`);
   return out;
 }
@@ -429,7 +429,7 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
         continue;
       }
       kept.push({ piece: piece as Hash, name: view!.piece.name, h, outcome: 'pending', revealedAt: null, projection: null, struck: [], struckRoots: [] });
-      required += goldShare(stakeAsked(rule, view!.piece));
+      required += goldShare(view!, stakeAsked(rule, view!.piece));
     }
     if (kept.length === 0) return { ok: false, why: dropped[0] ?? 'nothing to commit' };
     const stake = body.stake as number;
@@ -532,7 +532,8 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
     if (!root) return { ok: false, why: 'the key may not sign a challenge' };
     const prior = home.challenges.filter((c) => c.piece === piece);
     if (prior.some((c) => c.outcome === 'held')) return { ok: false, why: 'this piece has had its challenge' };
-    // QX-16: a miss on the piece inside its window is challenged by a root of the struck set, against the gold.
+    // QX-16: a miss on the piece inside its window is challenged by a root of the struck set, against the gold. The stake
+    // may be 0: the strike may have left the root with nothing (amended 27 October 2026).
     const miss = missOn(home, piece);
     if (!view.accepting && miss) {
       if (prior.some((c) => c.outcome === 'open' || (c.decidedAt !== null && c.decidedAt > at))) return { ok: false, why: 'a challenge is open on this piece' };
@@ -551,6 +552,7 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
     if (prior.some((c) => c.outcome === 'open' || (c.decidedAt !== null && c.decidedAt > at))) return { ok: false, why: 'a challenge is open on this piece' };
     const parties = [...acceptingRoots(view), fold.envelope.problem.owner as Address];
     if (parties.some((p) => fold.related(p, root, at))) return { ok: false, why: 'a party to the acceptance cannot challenge it' };
+    if (stake < 1) return { ok: false, why: 'a challenge on an acceptance stakes at least 1' };
     // QX-15: standing locked behind a claim is not staked again on a challenge.
     const s = standing(root, at);
     const l = locked(root, at);

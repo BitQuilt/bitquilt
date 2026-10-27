@@ -73,10 +73,13 @@ const eventsBy = async (problem: Hash, address: string) => (await (await fetch(`
 
 describe('the coin, from the client', () => {
   it('shows coin in quilt_me once an epoch has minted it to the verified squares', async () => {
-    q = (await other.publish(pattern('elsewhere', 1))).hash;
-    const q1 = await pieceOf(q, 0);
-    await owner.return(q, q1, { verdict: 'supports', quote: 'x' });
-    await b.return(q, q1, { verdict: 'supports', quote: 'y' });
+    // Four points of standing for two gold pieces where no stake rule applies: two a piece, one for each root a miss would dock.
+    q = (await other.publish(pattern('elsewhere', 3))).hash;
+    for (let i = 0; i < 3; i++) {
+      const qi = await pieceOf(q, i);
+      await owner.return(q, qi, { verdict: 'supports', quote: 'x' });
+      await b.return(q, qi, { verdict: 'supports', quote: 'y' });
+    }
     p = (await owner.publish({ ...pattern('golden', 2), gold: { answers: { 'statement/1': { verdict: 'supports', quote: '' }, 'statement/2': { verdict: 'supports', quote: '' } } } })).hash;
     const [p1, p2] = [await pieceOf(p, 0), await pieceOf(p, 1)];
     for (const piece of [p1, p2]) {

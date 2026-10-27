@@ -102,11 +102,11 @@ function commitments(pieces: Hash[], verdict = 'supports'): Record<string, Hash>
 const reveal = (problem: Hash, piece: Hash) => ev(ownerP, 'gold_reveal', { projection: golden.get(piece)!.projection, nonce: golden.get(piece)!.nonce }, problem, piece);
 
 const P = envelope(ownerP, 'golden', 4);
-const Q = envelope(ownerQ, 'elsewhere', 5);
+const Q = envelope(ownerQ, 'elsewhere', 6);
 const p = problemHash(P);
 const q = problemHash(Q);
 let p1: Hash, p2: Hash, p3: Hash, p4: Hash;
-let q1: Hash, q2: Hash, q3: Hash;
+let q1: Hash, q2: Hash, q3: Hash, q4: Hash, q5: Hash, q6: Hash;
 let coinLockId: Hash;
 
 describe('the coin as a layer', () => {
@@ -119,13 +119,21 @@ describe('the coin as a layer', () => {
     expect((await post('/p', { envelope: P })).status).toBe(201);
     expect((await post('/p', { envelope: Q })).status).toBe(201);
     [p1, p2, p3, p4] = ((await get(`/p/${p}/state`)) as { pieces: PieceState[] }).pieces.map((x) => x.hash) as [Hash, Hash, Hash, Hash];
-    [q1, q2, q3] = ((await get(`/p/${q}/state`)) as { pieces: PieceState[] }).pieces.map((x) => x.hash) as [Hash, Hash, Hash];
+    [q1, q2, q3, q4, q5, q6] = ((await get(`/p/${q}/state`)) as { pieces: PieceState[] }).pieces.map((x) => x.hash) as [Hash, Hash, Hash, Hash, Hash, Hash];
     await accepted(`/p/${p}/events`, ev(ownerP, 'stake_rule', { min: 1 }, p));
     await returnOn(q, q1, ownerP, 'anthropic/claude');
     await returnOn(q, q1, judges[0]!, 'openai/gpt');
     await returnOn(q, q2, ownerP, 'anthropic/claude');
     await returnOn(q, q2, judges[1]!, 'google/gemini');
-    await accepted(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: commitments([p1, p2, p3]), stake: 3 }, p));
+    await returnOn(q, q4, ownerP, 'anthropic/claude');
+    await returnOn(q, q4, judges[0]!, 'openai/gpt');
+    await returnOn(q, q5, ownerP, 'anthropic/claude');
+    await returnOn(q, q5, judges[1]!, 'google/gemini');
+    await returnOn(q, q6, ownerP, 'anthropic/claude');
+    await returnOn(q, q6, C, 'openai/gpt');
+    // Six points of standing for three gold pieces: a share of two each under a rule of 1, one for each root a miss would dock.
+    expect(await standingOf(ownerP)).toMatchObject({ standing: 6, free: 6 });
+    await accepted(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: commitments([p1, p2, p3]), stake: 6 }, p));
   });
 
   it('mints an epoch\'s amount to the verified squares by weight after the treasury\'s share, nothing in an empty epoch, and vests it over time', async () => {

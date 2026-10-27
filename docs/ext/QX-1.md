@@ -10,7 +10,7 @@ Two event types, both about one piece: they name `problem` and `piece` as a `rev
 
 | Type | Body | Valid when |
 | --- | --- | --- |
-| `challenge` | `{ stake, ground }` | `stake` is a whole number of at least 1 and at most the signer's root's standing at the event's receipt. `ground` is text of at most 200 characters through the plain-text gate. At the receipt, the piece has an accepting set, completed at or before the receipt, whose window has not closed; no earlier challenge on the piece is open or has held; and the signer's root is unrelated to every party: the roots of the accepting set and the problem's owner. |
+| `challenge` | `{ stake, ground }` | `stake` is a whole number of at least 1 and at most the signer's root's standing at the event's receipt; amended 27 October 2026 for [QX-16](QX-16.md) section 4, it is 0 or more where the challenge is against a gold miss, and at least 1 against an acceptance. `ground` is text of at most 200 characters through the plain-text gate. At the receipt, the piece has an accepting set, completed at or before the receipt, whose window has not closed; no earlier challenge on the piece is open or has held; and the signer's root is unrelated to every party: the roots of the accepting set and the problem's owner. |
 | `verdict` | `{ challenge, for, return? }` | `challenge` is the id of a challenge on the same piece that is still open. `for` is `challenger` or `author`. The signer's root holds a live seat on that challenge's panel at the receipt and has not answered. `return`, if present, fits the piece's schema; a verdict on a `check` or `score` piece carries none. |
 
 A delegate signs either type only with it in `scope`. An event that fails a rule is dropped silently, as the core drops, and the reference tracker refuses it at the door with the reason.
@@ -76,7 +76,7 @@ Where this layer says a piece is accepted, the core says accepted; the core's `a
 
 ## 8. The reference tracker
 
-- Carries `challenge` and `verdict` under `POST /p/<hash>/events` with the checks of section 1, refusing with the reason: `nothing accepted on this piece yet`, `outside the window`, `a challenge is open on this piece`, `this piece has had its challenge`, `a party to the acceptance cannot challenge it`, `standing N is below the stake of M`, `no panel can be seated: N roots with an accepted return on another problem, 3 needed`, `names no open challenge on this piece`, `not a judge drawn for this challenge`, `this seat lapsed`, `this judge has answered`.
+- Carries `challenge` and `verdict` under `POST /p/<hash>/events` with the checks of section 1, refusing with the reason: `nothing accepted on this piece yet`, `outside the window`, `a challenge is open on this piece`, `this piece has had its challenge`, `a party to the acceptance cannot challenge it`, `a challenge on an acceptance stakes at least 1`, `standing N is below the stake of M`, `no panel can be seated: N roots with an accepted return on another problem, 3 needed`, `names no open challenge on this piece`, `not a judge drawn for this challenge`, `this seat lapsed`, `this judge has answered`.
 - `GET /p/<hash>/challenges`: every challenge on the problem with its seats, verdicts and outcome as the tracker computes them at `now`.
 - `GET /p/<hash>/state` and `/next` use this layer's states, so a struck piece is offered again and a challenged one is not.
 - `GET /.well-known/quilt` says `sortition: "challenge-receipt"` and `challenge: { extension: "QX-1", panel: 3, majority: 2, ground_max: 200 }`.

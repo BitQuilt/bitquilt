@@ -111,7 +111,8 @@ describe('the challenge window at the door', () => {
     expect(await refused(`/p/${p}/events`, challenge(A, p, p1, 1))).toBe('a party to the acceptance cannot challenge it');
     expect(await refused(`/p/${p}/events`, challenge(owner, p, p1, 1))).toBe('a party to the acceptance cannot challenge it');
     expect(await refused(`/p/${p}/events`, challenge(C, p, p1, 1, 'See https://example.org/proof'))).toMatch(/no links/);
-    expect(await refused(`/p/${p}/events`, challenge(C, p, p1, 0))).toBe('body.stake: a whole number of at least 1');
+    expect(await refused(`/p/${p}/events`, challenge(C, p, p1, 0))).toBe('a challenge on an acceptance stakes at least 1');
+    expect(await refused(`/p/${p}/events`, challenge(C, p, p1, -1))).toBe('body.stake: a whole number from 0');
     expect(await refused(`/p/${p}/events`, challenge(C, p, p1, 2))).toBe('standing 1 is below the stake of 2');
     expect(await refused(`/p/${p}/events`, challenge(C, p, p2, 1))).toBe('nothing accepted on this piece yet');
   });

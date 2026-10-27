@@ -110,7 +110,7 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       const r = await quilt.revealGold(hash('problem'), hash('piece'));
       const said: Record<string, string> = {
         match: 'The set agreed with the gold: the square is verified.',
-        miss: 'The set differed from the gold: it is struck, its roots are docked and their locks forfeited, and the piece is open again; a struck root may challenge the gold inside the window.',
+        miss: 'The set differed from the gold: it is struck, its roots are docked and their locks forfeited, and the piece is open again; a struck root may challenge the gold inside the window, staking nothing.',
       };
       return { text: `Gold on ${r.name} revealed; ${where(r)}. ${r.outcome && said[r.outcome] ? said[r.outcome] : 'The tracker has not said what it decided yet.'}`, handles: { problem: input.problem, piece: input.piece, reveal: r.id, outcome: r.outcome } };
     }

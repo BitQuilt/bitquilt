@@ -152,7 +152,7 @@ export interface Pattern {
   topics?: string[];
   /** The stake of standing a claim on the pieces is backed by (QX-15): `min` on every piece, or on the families and pieces named. */
   stake?: { min: number; pieces?: string[] };
-  /** The owner's gold (QX-16): the answers to some pieces by name, committed by hash before the work; the stake, left out, is the sum of the pieces' shares. */
+  /** The owner's gold (QX-16): the answers to some pieces by name, committed by hash before the work; the stake, left out, is the sum of the pieces' shares (two a piece where no stake rule applies). */
   gold?: { answers: Record<string, Record<string, unknown>>; stake?: number };
 }
 
@@ -700,10 +700,10 @@ export class Quilt {
     return this.resolver.post(e, problem, this.trackersFor(problem));
   }
 
-  /** A challenge of a piece's provisional acceptance (QX-1): a stake of this key's standing and one sentence of ground, signed and posted. */
+  /** A challenge of a piece's provisional acceptance (QX-1), or of a gold miss by a root it struck (QX-16): a stake of this key's standing, 0 allowed against a miss, and one sentence of ground, signed and posted. */
   async challenge(problem: Hash, piece: Hash, stake: number, ground: string): Promise<{ id: Hash; at: string | null; queued: boolean; error?: string }> {
     const id = this.needKey();
-    if (!Number.isInteger(stake) || stake < 1) throw new Error('the stake is a whole number of at least 1');
+    if (!Number.isInteger(stake) || stake < 0) throw new Error('the stake is a whole number from 0: at least 1 against an acceptance, and nothing need be staked against a gold miss');
     const issues = plainTextProblems(ground, 'ground');
     if (issues.length) throw new Error(issues[0]);
     const e = this.sign({ quilt: 1, type: 'challenge', problem, piece, key: id.address, ts: new Date().toISOString(), body: { stake, ground } });
@@ -811,7 +811,8 @@ export class Quilt {
   /**
    * The owner's gold on a problem (QX-16), posted after publishing or at it: each answer projected to the piece's agreed
    * fields and committed by hash with its own nonce; the projections and nonces stay in the library. The stake, left out,
-   * is the sum of the pieces' shares: the stake the rule asks of the piece, or one. A piece already worked takes no gold.
+   * is the sum of the pieces' shares: for each root a miss would dock, two for a piece whose set is two reveals, the stake
+   * the rule asks of the piece, or one. A piece already worked takes no gold.
    */
   async commitGold(problem: Hash, answers: Record<string, Record<string, unknown>>, stakeAsked?: number, pieces?: Piece[], trackers?: string[], rule?: { min: number; pieces?: string[] }): Promise<{ pieces: number; stake: number }> {
     const id = this.needKey();
@@ -845,7 +846,7 @@ export class Quilt {
       commitments[piece.hash] = commitHash(projection, nonce);
       kept[piece.hash] = { name, projection, nonce };
       const covered = rule && rule.min > 0 && (!rule.pieces?.length || rule.pieces.includes(piece.family) || rule.pieces.includes(piece.name));
-      shares += Math.max(1, covered ? rule!.min : 0);
+      shares += (piece.verifier === 'attest' ? 1 : 2) * Math.max(1, covered ? rule!.min : 0);
     }
     if (Object.keys(kept).length === 0) throw new Error('no answers to commit');
     const stake = stakeAsked ?? shares;

@@ -18,15 +18,15 @@ const addr = addressOf;
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
 const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } };
 
-function envelope(): Envelope {
+function envelope(by: Uint8Array = owner, slug = 'statement'): Envelope {
   const problem: Envelope['problem'] = {
-    title: 'A statement', done_when: 'Done.', owner: addr(owner), slug: 'statement', prev: null, from: null,
+    title: `A statement (${slug})`, done_when: 'Done.', owner: addr(by), slug, prev: null, from: null,
     settings: { challenge_window_h: 48, lease_h: 2, endgame_at: 1, budget: 10, patch_max: 0 },
     pieces: { 'statement/*': { count: 1, verifier: 'agree', requires: ['web'], brief: 'Statement {n}.', schema, agree: ['verdict'] } },
     data: {},
   };
   const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
-  return { ...unsigned, sig: signObject(unsigned, owner) };
+  return { ...unsigned, sig: signObject(unsigned, by) };
 }
 
 const T0 = '2026-10-27T00:00:00.000Z';
@@ -73,6 +73,8 @@ async function returnOn(problem: Hash, piece: Hash, k: Uint8Array, model: string
 
 const env = envelope();
 const P = problemHash(env);
+const elsewhere = envelope(A, 'elsewhere');
+const Q = problemHash(elsewhere);
 let p1: Hash;
 
 beforeAll(async () => {
@@ -82,10 +84,15 @@ beforeAll(async () => {
   base = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}/` : '';
   expect((await post('p', { envelope: env })).status).toBe(201);
   p1 = ((await (await fetch(`${base}p/${P}/state`)).json()) as { pieces: { hash: Hash }[] }).pieces[0]!.hash;
+  // The owner earns the point a gold's share of two asks, on a problem of A's with no gold and so no coin in it.
+  expect((await post('p', { envelope: elsewhere })).status).toBe(201);
+  const q1 = ((await (await fetch(`${base}p/${Q}/state`)).json()) as { pieces: { hash: Hash }[] }).pieces[0]!.hash;
+  await returnOn(Q, q1, owner, 'anthropic/claude');
+  await returnOn(Q, q1, B, 'openai/gpt');
   // The owner's gold on the one piece, two workers who agree with it, the reveal, and the epoch's end.
   const projection = { verdict: 'supports' };
   const nonce = newNonce();
-  await accepted(`p/${P}/events`, ev(owner, 'gold', { commitments: { [p1]: commitHash(projection, nonce) }, stake: 1 }, P));
+  await accepted(`p/${P}/events`, ev(owner, 'gold', { commitments: { [p1]: commitHash(projection, nonce) }, stake: 2 }, P));
   await returnOn(P, p1, A, 'anthropic/claude');
   await returnOn(P, p1, B, 'openai/gpt');
   await accepted(`p/${P}/events`, ev(owner, 'gold_reveal', { projection, nonce }, P, p1));

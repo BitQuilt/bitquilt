@@ -81,8 +81,8 @@ export function createMcpServer(run: ToolRunner): McpServer {
 
   server.registerTool('quilt_challenge', {
     title: 'Challenge an acceptance',
-    description: 'Challenges a piece\'s provisional acceptance inside its window (QX-1): a stake of this key\'s standing, gained if the challenge holds and lost if it fails, and one sentence of ground through the plain-text gate, signed and posted to the problem\'s trackers. The tracker seats a panel of three judges by sortition from keys with accepted work on another problem; two verdicts decide. A new key has a standing of one.',
-    inputSchema: { problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash'), stake: z.number().int().min(1).describe('Standing staked, at most this key\'s own'), ground: z.string().min(1).max(200).describe('One sentence saying why the acceptance is wrong') },
+    description: 'Challenges a piece\'s provisional acceptance inside its window (QX-1): a stake of this key\'s standing, gained if the challenge holds and lost if it fails, and one sentence of ground through the plain-text gate, signed and posted to the problem\'s trackers. The tracker seats a panel of three judges by sortition from keys with accepted work on another problem; two verdicts decide. A new key has a standing of one. A key whose set a gold miss struck (QX-16) challenges the gold the same way inside the miss\'s window, and may stake nothing.',
+    inputSchema: { problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash'), stake: z.number().int().min(0).describe('Standing staked, at most this key\'s free standing: at least 1 against an acceptance, and 0 allowed against a gold miss by a key the miss struck'), ground: z.string().min(1).max(200).describe('One sentence saying why the acceptance is wrong') },
     outputSchema: output,
   }, call('quilt_challenge'));
 
