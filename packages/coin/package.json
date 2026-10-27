@@ -1,0 +1,25 @@
+{
+  "name": "@bitquilt/coin",
+  "version": "0.1.0",
+  "description": "The door out of the BitQuilt coin: the Merkle tree over the coin log's redeem lines, the one file that talks to a chain, and the poster job that puts the coin log's head and redeem root into Anchors on Ethereum, and the holder's claim that mints a redeemed line with its proof.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "bitquilt-poster": "./src/bin.ts",
+    "bitquilt-claim": "./src/claim-bin.ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "tsx src/bin.ts"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.0.1",
+    "viem": "^2.57.12"
+  }
+}

@@ -54,6 +54,26 @@ Once the name resolves: open `https://tracker.example.org/join`, take an address
 
 To take a key home, open the address with `/key` after it once, run `quilt init --secret <hex>` on your own machine, and treat the address as spent.
 
+## The bridge
+
+The coin leaves the ledger by a `redeem` line and is minted on Ethereum as the Quilt token ([COIN.md](COIN.md), the door out). Two contracts, under `contracts/`, and one job beside the tracker carry it.
+
+1. **Deploy**, once, from a wallet the maintainers hold, with Foundry: `Anchors` with the veto multisig's address, the treasury root's address, the bond a poster must hold in wei and the veto window in seconds, then `Quilt` with the Anchors address. `forge create` from `contracts/` does each; the addresses go into `QUILT_CONTRACTS`.
+2. **Bond** the poster's key by sending the bond to `Anchors.bond()`, and set `redeem_from` in the tracker's `QUILT_COIN` so the ledger takes redeems.
+3. **Post**, every anchoring period: `pnpm --filter @bitquilt/coin start`, or the `bitquilt-poster` executable, reads `GET /coin/redeems` from the home, builds the Merkle tree over the redeem lines, and puts the head and the root into `Anchors` when the head is newer than the last posted. It is idempotent, so a cron entry every fifteen minutes is the whole job. The mirror's OpenTimestamps stamp of the same head stands beside it, and anyone can check the one against the other.
+4. **Claim**, by a holder: `bitquilt-claim <line id>` with the holder's key in `QUILT_HOLDER_KEY` finds the line under the last posted head, waits for the head to be final, and calls `Quilt.redeem` with the proof. The gas is the holder's, once.
+
+| Variable | Required | What it is |
+|---|---|---|
+| `QUILT_CHAIN_RPC` | for the poster and a claim | The chain's RPC address. |
+| `QUILT_CHAIN_ID` | for the poster and a claim | The chain id (1 for Ethereum mainnet). |
+| `QUILT_CONTRACTS` | for the poster and a claim | `{"anchors":"0x…","quilt":"0x…"}`, the two contracts' addresses. |
+| `QUILT_POSTER_KEY` | for the poster | The bonded poster's private key, hex. On the tracker's host and nowhere else; nothing the job prints carries it. |
+| `QUILT_HOLDER_KEY` | for a claim | The holder's private key, hex, on the holder's own machine. |
+| `QUILT_COIN_HOME` | for the poster and a claim | The home tracker's address, with a trailing slash. |
+
+A false head is bonded, not proven: the veto address can strike it within the window and the poster's whole bond goes to the treasury, and a vetoed sequence is posted again. The bond is sized so that a false head costs more than it could mint before it is struck.
+
 ## Keeping it
 
 - **Back up `/data`.** It holds the chain, the names, the announcements and the encrypted keys. Copy the volume; a tracker restored from a copy is behind by what came after it, and clients that kept their receipts will show the difference.

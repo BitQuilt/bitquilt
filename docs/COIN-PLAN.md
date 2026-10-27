@@ -2,7 +2,7 @@
 
 Written 26 October 2026, before any of it is built, from the code as it stands at `07eae21`, and revised the same day so that the coin is a layer over the ledger first and a chain is a door out of it later. This is a plan to read and decide on, not a specification; the specifications are the extension documents it says to write. Nothing here changes a fixture, and every phase leaves the repository working.
 
-Where it stands: phases 0 to 3 were built on 26 October 2026 (commits `c21512f`, `5255e32`, `f6bd774`, `486bd1f`), with the page's coin panel and the Mac line following the same day. Phase 4, the door out, waits on counsel and the founder; phase 5 on phase 4.
+Where it stands: phases 0 to 3 were built on 26 October 2026 (commits `c21512f`, `5255e32`, `f6bd774`, `486bd1f`), with the page's coin panel and the Mac line following the same day. Phase 4, the door out, was built on 27 October 2026 (`contracts/`, `packages/coin`, the redeem line on the ledger), and the founder decided the same day that it goes live on Ethereum mainnet on the first day, with counsel and the audit beside the launch rather than before it; what phase 5 lists is what remains for the maintainers' hands.
 
 What the revision moved: emission, vesting, slashing, locks and payments were on contracts and are now rules of a layer the tracker computes, as standing is; the seven contracts became two, and they are the last phase instead of the middle; a worker needs no wallet, gas token or node for anything but the one step of redeeming ledger coin as an ERC-20, by choice, later. The three extensions stand as they were, with QX-17 changed from a bridge into the coin itself.
 
@@ -158,7 +158,7 @@ Holds the coin log beside the problem logs, verifies its chain, recomputes the l
 
 ## 6. The door out: the coin on Ethereum, last
 
-Not an extension. Described in `docs/COIN.md`, built in `packages/coin` (TypeScript: the poster, and the client's one redeem call) and `contracts/` (Solidity, Foundry). Built only when the founder decides, after the coin has a history worth bridging and counsel has read the design; the ledger coin works without it for good.
+Not an extension. Described in `docs/COIN.md`, built on 27 October 2026 in `packages/coin` (TypeScript: the Merkle tree, the one chain door, the poster and the holder's claim) and `contracts/` (Solidity, Foundry, twenty-one tests); the client's `quilt redeem` posts the ledger line. The founder decided the same day that it goes live on mainnet on the first day; the ledger coin works without it for good.
 
 ### Contracts
 

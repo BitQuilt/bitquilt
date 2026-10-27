@@ -21,6 +21,8 @@ The core is frozen and has two implementations: the reference in TypeScript, and
 | `packages/client` | Quilt: one program that is the MCP server your AI connects to, a page on localhost, and a node that serves what it holds; found on relays as well as trackers |
 | `packages/hosted` | The hosted on-ramp: the tracker with Quilt's connector mounted beside it, holding an encrypted key for anyone who cannot run Quilt, at an address they paste into their AI |
 | `packages/mirror` | The mirror job: pulls from a tracker, verifies every envelope, blob and chain, refuses a chain that did anything but grow, recomputes the coin's balances and keeps them only where they reproduce, writes the files a repository holds and anyone serves raw, and anchors each chain's head through OpenTimestamps |
+| `packages/coin` | The door out: the Merkle tree over the coin log's redeem lines, the one file that talks to a chain (`viem`, held there by a tripwire test), the poster job that puts each head and its redeem root into `Anchors`, and the holder's claim that mints a redeemed line |
+| `contracts/` | `Anchors` and `Quilt` (Solidity, Foundry): a bonded poster's heads with a veto inside a window, and the ERC-20 that mints only against a final head, once per line |
 | `impl/python` | The second implementation of the core, from the document alone |
 
 ## Commands
