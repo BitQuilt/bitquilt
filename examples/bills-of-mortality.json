@@ -25,7 +25,7 @@
       "requires": [
         "web"
       ],
-      "brief": "Bill {n}: the London weekly bill of mortality for the week from {b.from} to {b.to} {b.year}, Old Style, as its heading prints it. The photographs are in the Bills of Mortality image collection of the Death by Numbers project at the Roy Rosenzweig Center for History and New Media, item {b.item}, titled {b.title}: the Wellcome Collection copy, shelfmark 62791/B volume 2, under a Creative Commons Attribution licence. The bill is one leaf: the parish table on the front, and on the back the table headed The Diseases and Casualties this Week, with the totals for the week at its foot. Read the back and return whole numbers for christened in all, buried in all, plague, and the counts printed against Aged, Consumption, Convulsion, Dropsie, Feaver, and Flox and Small-pox; a line not printed that week counts 0. The plague total stands at the foot of the back beside the burials; where the photograph hides it in the gutter, take the sum of the Plague lines on the front. The fields are christened, buried, plague, aged, consumption, convulsion, dropsy, fever and smallpox; as evidence, copy the dates of the heading, give the increase or decrease in the burials as a signed number under change, and note anything torn, hidden or doubtful.",
+      "brief": "Bill {n}: the London weekly bill of mortality for the week from {b.from} to {b.until} {b.year}, Old Style, as its heading prints it. The photographs are in the Bills of Mortality image collection of the Death by Numbers project at the Roy Rosenzweig Center for History and New Media, item {b.item}, titled {b.title}: the Wellcome Collection copy, shelfmark 62791/B volume 2, under a Creative Commons Attribution licence. The bill is one leaf: the parish table on the front, and on the back the table headed The Diseases and Casualties this Week, with the totals for the week at its foot. Read the back and return whole numbers for christened in all, buried in all, plague, and the counts printed against Aged, Consumption, Convulsion, Dropsie, Feaver, and Flox and Small-pox; a line not printed that week counts 0. The plague total stands at the foot of the back beside the burials; where the photograph hides it in the gutter, take the sum of the Plague lines on the front. The fields are christened, buried, plague, aged, consumption, convulsion, dropsy, fever and smallpox; as evidence, copy the dates of the heading, give the increase or decrease in the burials as a signed number under change, and note anything torn, hidden or doubtful.",
       "data": {
         "b": "bills"
       },
@@ -103,224 +103,224 @@
         "item": 16241,
         "title": "1671-32-Wellcome",
         "from": "25 July",
-        "to": "1 August",
+        "until": "1 August",
         "year": 1671
       },
       {
         "item": 16238,
         "title": "1671-29-Wellcome",
         "from": "4 July",
-        "to": "11 July",
+        "until": "11 July",
         "year": 1671
       },
       {
         "item": 16236,
         "title": "1671-27-Wellcome",
         "from": "20 June",
-        "to": "27 June",
+        "until": "27 June",
         "year": 1671
       },
       {
         "item": 16101,
         "title": "1673-36-Wellcome",
         "from": "19 August",
-        "to": "26 August",
+        "until": "26 August",
         "year": 1673
       },
       {
         "item": 16209,
         "title": "1671-20-Wellcome",
         "from": "2 May",
-        "to": "9 May",
+        "until": "9 May",
         "year": 1671
       },
       {
         "item": 16138,
         "title": "1673-43-Wellcome",
         "from": "7 October",
-        "to": "14 October",
+        "until": "14 October",
         "year": 1673
       },
       {
         "item": 16240,
         "title": "1671-31-Wellcome",
         "from": "18 July",
-        "to": "25 July",
+        "until": "25 July",
         "year": 1671
       },
       {
         "item": 16212,
         "title": "1671-23-Wellcome",
         "from": "23 May",
-        "to": "30 May",
+        "until": "30 May",
         "year": 1671
       },
       {
         "item": 16107,
         "title": "1673-42-Wellcome",
         "from": "30 September",
-        "to": "7 October",
+        "until": "7 October",
         "year": 1673
       },
       {
         "item": 16104,
         "title": "1673-39-Wellcome",
         "from": "9 September",
-        "to": "16 September",
+        "until": "16 September",
         "year": 1673
       },
       {
         "item": 16105,
         "title": "1673-40-Wellcome",
         "from": "16 September",
-        "to": "23 September",
+        "until": "23 September",
         "year": 1673
       },
       {
         "item": 15855,
         "title": "1669-42-Wellcome",
         "from": "5 October",
-        "to": "12 October",
+        "until": "12 October",
         "year": 1669
       },
       {
         "item": 16210,
         "title": "1671-21-Wellcome",
         "from": "9 May",
-        "to": "16 May",
+        "until": "16 May",
         "year": 1671
       },
       {
         "item": 15860,
         "title": "1669-47-Wellcome",
         "from": "9 November",
-        "to": "16 November",
+        "until": "16 November",
         "year": 1669
       },
       {
         "item": 16244,
         "title": "1671-35-Wellcome",
         "from": "15 August",
-        "to": "22 August",
+        "until": "22 August",
         "year": 1671
       },
       {
         "item": 16214,
         "title": "1671-25-Wellcome",
         "from": "6 June",
-        "to": "13 June",
+        "until": "13 June",
         "year": 1671
       },
       {
         "item": 16239,
         "title": "1671-30-Wellcome",
         "from": "11 July",
-        "to": "18 July",
+        "until": "18 July",
         "year": 1671
       },
       {
         "item": 16213,
         "title": "1671-24-Wellcome",
         "from": "30 May",
-        "to": "6 June",
+        "until": "6 June",
         "year": 1671
       },
       {
         "item": 16237,
         "title": "1671-28-Wellcome",
         "from": "27 June",
-        "to": "4 July",
+        "until": "4 July",
         "year": 1671
       },
       {
         "item": 15819,
         "title": "1669-36-Wellcome",
         "from": "24 August",
-        "to": "31 August",
+        "until": "31 August",
         "year": 1669
       },
       {
         "item": 16235,
         "title": "1671-26-Wellcome",
         "from": "13 June",
-        "to": "20 June",
+        "until": "20 June",
         "year": 1671
       },
       {
         "item": 16102,
         "title": "1673-37-Wellcome",
         "from": "26 August",
-        "to": "2 September",
+        "until": "2 September",
         "year": 1673
       },
       {
         "item": 16139,
         "title": "1673-44-Wellcome",
         "from": "14 October",
-        "to": "21 October",
+        "until": "21 October",
         "year": 1673
       },
       {
         "item": 16103,
         "title": "1673-38-Wellcome",
         "from": "2 September",
-        "to": "9 September",
+        "until": "9 September",
         "year": 1673
       },
       {
         "item": 16243,
         "title": "1671-34-Wellcome",
         "from": "8 August",
-        "to": "15 August",
+        "until": "15 August",
         "year": 1671
       },
       {
         "item": 15737,
         "title": "1669-14-Wellcome",
         "from": "23 March",
-        "to": "30 March",
+        "until": "30 March",
         "year": 1669
       },
       {
         "item": 16242,
         "title": "1671-33-Wellcome",
         "from": "1 August",
-        "to": "8 August",
+        "until": "8 August",
         "year": 1671
       },
       {
         "item": 16211,
         "title": "1671-22-Wellcome",
         "from": "16 May",
-        "to": "23 May",
+        "until": "23 May",
         "year": 1671
       },
       {
         "item": 15782,
         "title": "1669-29-Wellcome",
         "from": "6 July",
-        "to": "13 July",
+        "until": "13 July",
         "year": 1669
       },
       {
         "item": 16100,
         "title": "1673-35-Wellcome",
         "from": "12 August",
-        "to": "19 August",
+        "until": "19 August",
         "year": 1673
       },
       {
         "item": 15777,
         "title": "1669-24-Wellcome",
         "from": "1 June",
-        "to": "8 June",
+        "until": "8 June",
         "year": 1669
       },
       {
         "item": 16106,
         "title": "1673-41-Wellcome",
         "from": "23 September",
-        "to": "30 September",
+        "until": "30 September",
         "year": 1673
       }
     ]
