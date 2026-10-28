@@ -1,6 +1,12 @@
 # Quilt.app
 
-A menu-bar window onto the node. The icon in the menu bar opens a popover: a search field over the world's problems, what is wanted from you, the problems you keep and opened lately, whose node this is, and three buttons. Everything that is an act opens the page in a window, where your own hand does it. The app signs nothing and writes nothing of its own: every write stays in the page or in your AI's connector.
+A menu-bar window onto the node, for a person whose AI does the work. The person sits in a chat and their AI holds the connector, so what this window gives them is a sentence to say, not a button to press. The icon opens a popover that shows one of three screens, by the state the node reports (`GET /api/phrases`, from `phrases.ts` in the client):
+
+- **No key.** One button, "Make my key", which runs `quilt init` and shows the twelve words once.
+- **A key, and no AI has connected.** The install instructions: a button that asks the node to write the connector into Claude Desktop's config (`POST /api/install`, what `quilt install claude` does; refused while Claude runs, with a second button to write it anyway), the word to quit Claude and open it again, and the first phrase to say in a new chat. The node records the AI that connects, and the screen changes on its own.
+- **Connected.** The sheet: the coin as it rises, lit when it just did and with what was gained since the app opened, the standing beside it; a search whose results are phrases ("Open quilt:… on Quilt and take a piece."); what is wanted from the person, each as the phrase that answers it; the two phrases to start with; the problems kept and opened lately; the gold still to reveal. A click on a phrase copies it. The same phrases are the connector's prompts, so a chat that shows them as slash commands needs no copying.
+
+Under More: the page in a window, for what stays a person's own hand (a piece whose verifier is a person's word, a finished problem read in full, the key taken off the Mac), the coin's prompts by name, and Quit. The app signs nothing and writes to no ledger: the two acts it does are the key, made by `quilt init`, and the connector, written into Claude's config by the node.
 
 On launch it reads the port from `$QUILT_HOME/config.json` (`QUILT_HOME` defaults to `~/.config/quilt`; the port to 3978) and asks `http://127.0.0.1:<port>/api/me`. When a node answers, the app attaches to it and starts nothing. When none does, it starts one, `quilt serve --port <port>`, with its output in `~/Library/Logs/Quilt/node.log`, and quitting the app stops that node and no other. Every thirty seconds it asks again, and starts a node when the one it had is gone.
 
@@ -34,9 +40,9 @@ Ad hoc signing is for the machine that built it. A copy of `Quilt.app` downloade
 ```
 Package.swift                   one executable target, macOS 14, no dependencies
 Sources/Quilt/QuiltApp.swift    the App: the MenuBarExtra in its window style
-Sources/Quilt/Node.swift        the port, the executable, probing, starting and stopping the child, polling
-Sources/Quilt/API.swift         the shapes the node answers with, and the four GET calls
-Sources/Quilt/MenuView.swift    the popover
+Sources/Quilt/Node.swift        the port, the executable, the child, polling; the sheet, the balance and what it gained, the key, the install
+Sources/Quilt/API.swift         the shapes the node answers with (the sheet among them), the GET calls, and the one POST
+Sources/Quilt/MenuView.swift    the popover: the three screens, the phrase rows, the balance
 Sources/Quilt/PageWindow.swift  the web view and its window
 Resources/Info.plist            the bundle's identity, LSUIElement, and the loopback exception
 build.sh                        the app at dist/Quilt.app

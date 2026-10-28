@@ -132,3 +132,30 @@ describe('the page', () => {
     expect(again.body.piece).not.toBe(verifying);
   });
 });
+
+describe('the sheet the menu bar draws', () => {
+  it('is in the no-connector state until an AI connects through this node, and connected after, with the phrases that fit', async () => {
+    const before = await api('/api/phrases');
+    expect(before.status).toBe(200);
+    expect(before.body.state).toBe('no_connector');
+    expect((before.body.first as { say: string }).say).toBe('Open Quilt and tell me who I am: my address, my standing and my coin.');
+    expect(before.body.groups).toEqual([]);
+    expect((before.body.templates as Record<string, string>).take_piece).toBe('Open {link} on Quilt and take a piece.');
+    const said = await api('/api/connector', { method: 'POST', body: JSON.stringify({ host: 'Claude Desktop' }) });
+    expect((said.body.connector as { host: string }).host).toBe('Claude Desktop');
+    const after = await api('/api/phrases');
+    expect(after.body.state).toBe('connected');
+    const groups = after.body.groups as { title: string; phrases: { say: string; problem?: { hash: string } }[] }[];
+    expect(groups.map((g) => g.title)).toContain('To start');
+    expect(groups.find((g) => g.title === 'Opened lately')?.phrases.some((p) => p.problem?.hash === problem)).toBe(true);
+    // A tool run through the node is the connector's latest, under the host that ran it.
+    const first = (after.body.connector as { last: string }).last;
+    await api('/api/tool/quilt_me', { method: 'POST', body: JSON.stringify({ input: {}, host: 'ChatGPT' }) });
+    const later = await api('/api/phrases');
+    expect((later.body.connector as { host: string }).host).toBe('ChatGPT');
+    expect((later.body.connector as { last: string }).last >= first).toBe(true);
+    // A search result carries its link, for a phrase about it.
+    const found = await api('/api/search?q=citations');
+    expect((found.body.problems as { link: string }[])[0]!.link).toMatch(/^quilt:sha256:/);
+  });
+});

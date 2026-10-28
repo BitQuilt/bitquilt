@@ -11,6 +11,9 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type Hash, IDENTITY_LOG, isHash } from '@bitquilt/core';
+import { claudeDesktopConfigPath, claudeHasQuilt, claudeRunning, installHere } from './install.js';
+import { makeLink } from './link.js';
+import { sheetOf } from './phrases.js';
 import { type Pattern, Quilt } from './quilt.js';
 import { goldText, kindWords, kindsText, layerByHash, stakeText } from './render.js';
 import type { Resolver } from './resolver.js';
@@ -75,7 +78,8 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         const [standing, coin] = await Promise.all([quilt.standing(), quilt.coin()]);
         return json(res, 200, { standing, coin });
       }
-      if (path === '/api/search') return json(res, 200, { problems: await quilt.search(u.searchParams.get('q') ?? '') });
+      // Each result with its link, so the menu bar can say a phrase about it (phrases.ts).
+      if (path === '/api/search') return json(res, 200, { problems: (await quilt.search(u.searchParams.get('q') ?? '')).map((r) => ({ ...r, link: makeLink(r.problem, r.tracker ? [r.tracker] : [], r.slug) })) });
       if (path === '/api/open') {
         // Everything the problem tab draws, in one answer: the problem and its map, the lines said in the render module's words, the panels this person judges, who keeps it, and the forms to offer.
         const opened = await quilt.open(u.searchParams.get('link') ?? '');
@@ -124,13 +128,33 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       }
       if (path === '/api/library') return json(res, 200, quilt.library);
       if (path === '/api/attention') return json(res, 200, await person.attention());
-      // The tools, for a second copy of quilt on this home that works through this node rather than beside it (node.ts).
+      if (path === '/api/phrases') {
+        // The sheet the menu bar draws (phrases.ts): the home's state, the first phrase to say, and the phrases for what this person keeps, has worked and is wanted for. The trackers are asked only once an AI has connected.
+        const connected = quilt.identity !== null && quilt.library.connector !== undefined;
+        const attention = connected ? (await person.attention()).items : [];
+        const file = claudeDesktopConfigPath();
+        return json(res, 200, sheetOf({ address: quilt.identity?.address ?? null, name: quilt.config.name ?? null, library: quilt.library, attention, claude: { installed: claudeHasQuilt(file), config: file, running: claudeRunning() } }));
+      }
+      if (path === '/api/connector' && method === 'POST') {
+        // A copy of quilt working through this node says an AI has connected to it (bin.ts, mcp): the record moves the menu bar from the install instructions to the phrases.
+        const b = (await body(req)) as { host?: string | null };
+        resolver.sawConnector(typeof b.host === 'string' ? b.host : null);
+        return json(res, 200, { connector: quilt.library.connector });
+      }
+      if (path === '/api/install' && method === 'POST') {
+        // The menu bar's button: the connector written into Claude Desktop's config for this very program, as `quilt install claude` does; refused while Claude runs unless told to go ahead.
+        const b = (await body(req)) as { anyway?: boolean };
+        return json(res, 200, installHere(resolver.home, b.anyway === true));
+      }
+      // The tools, for a second copy of quilt on this home that works through this node rather than beside it (node.ts). Each run is an AI's, and is recorded as the connector's latest.
       let tool: RegExpExecArray | null;
       if ((tool = /^\/api\/tool\/([a-z_]+)$/.exec(path)) && method === 'POST') {
         const name = tool[1] ?? '';
         if (!isToolName(name)) return json(res, 404, { error: 'no such tool' });
         const b = (await body(req)) as { input?: Record<string, unknown>; host?: string | null };
-        const forHost = new Quilt(quilt.config, quilt.identity, quilt.resolver, typeof b.host === 'string' ? b.host : undefined);
+        const host = typeof b.host === 'string' ? b.host : null;
+        resolver.sawConnector(host);
+        const forHost = new Quilt(quilt.config, quilt.identity, quilt.resolver, host ?? undefined);
         return json(res, 200, await runTool(forHost, name, b.input ?? {}));
       }
       if (path === '/api/next' && method === 'GET') {

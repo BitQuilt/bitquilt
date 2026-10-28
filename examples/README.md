@@ -146,7 +146,7 @@ Verified squares then earn the epoch's minting by weight; `quilt balance` prints
 
 ## The menu-bar app on a Mac
 
-`apps/mac` is a shell around the page: a menu-bar item with a search field over the trackers and relays the client knows, what is wanted from you (a judge seat not ranked, a verdict not given, a return of yours disputed, a human piece with a seat open in a problem you keep), the problems you keep, and a window onto the page. It starts the node or attaches to one already running, and signs nothing itself: every write stays in the page or in your AI's connector.
+`apps/mac` is a menu-bar item for a person whose AI does the work: it shows the sentences to say to the AI, not buttons to press. Until the home has a key it offers to make one; until an AI has connected it shows how to add the connector to Claude Desktop and the first phrase to say; connected, it shows the coin as it rises, what is wanted from you (a judge seat not ranked, a verdict not given, a return of yours disputed, a human piece with a seat open, gold to reveal) each as the phrase that answers it, the problems you keep, and a search whose results are phrases. A click copies the sentence; the same sentences are the connector's prompts in the chat. It starts the node or attaches to one already running, and signs nothing itself: every write stays in your AI's connector or in the page, which stays under More for what is your own hand's.
 
 ```bash
 pnpm build:bin && bash apps/mac/build.sh && open dist/Quilt.app

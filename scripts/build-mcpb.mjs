@@ -21,6 +21,25 @@ const version = JSON.parse(readFileSync(join(root, 'packages', 'client', 'packag
 // the server lists. The key is not a setting: it stays where quilt keeps it, under QUILT_HOME (~/.config/quilt unless
 // that is set), so the key made by quilt init is the one the extension signs with.
 const tools = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_challenge', 'quilt_verdict', 'quilt_rank', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold', 'quilt_pay', 'quilt_transfer', 'quilt_redeem'];
+// The prompts are the phrases (packages/client/src/phrases.ts), one each, their text with the arguments in braces; the test
+// checks each against what the server says with those words filled in.
+const prompts = [
+  { name: 'find_something_to_do', text: 'Find me something to do on Quilt.' },
+  { name: 'who_am_i', text: 'Open Quilt and tell me who I am: my address, my standing and my coin.' },
+  { name: 'search_quilt', arguments: ['words'], text: 'Search Quilt for {words} and tell me what you find.' },
+  { name: 'open_problem', arguments: ['link'], text: 'Open {link} on Quilt and tell me what it asks.' },
+  { name: 'take_piece', arguments: ['link'], text: 'Open {link} on Quilt and take a piece.' },
+  { name: 'keep_problem', arguments: ['link'], text: 'Keep {link} on Quilt: seed it, so its pieces come to me first.' },
+  { name: 'give_verdict', arguments: ['link'], text: 'Open {link} on Quilt and give my verdict on the challenge I was drawn to judge.' },
+  { name: 'rank_panel', arguments: ['link'], text: 'Open {link} on Quilt and rank the candidates of the panel I sit on.' },
+  { name: 'my_disputed_return', arguments: ['link'], text: 'Open {link} on Quilt and show me the return of mine that is disputed.' },
+  { name: 'piece_for_a_person', arguments: ['link'], text: 'Open {link} on Quilt and tell me which piece wants a person, so I can hand it in myself at the page.' },
+  { name: 'reveal_my_gold', arguments: ['link'], text: 'Open {link} on Quilt and reveal my gold on every piece of it that has been accepted.' },
+  { name: 'publish_pattern', arguments: ['path'], text: 'Publish the pattern at {path} on Quilt.' },
+  { name: 'pay_workers', arguments: ['link', 'amount', 'per_square'], text: 'Pay the workers of {link} on Quilt: escrow {amount} coin, {per_square} a square.' },
+  { name: 'transfer_coin', arguments: ['to', 'amount'], text: 'Transfer {amount} of my Quilt coin to {to}.' },
+  { name: 'redeem_coin', arguments: ['amount'], text: 'Redeem {amount} of my Quilt coin to the chain.' },
+];
 const manifest = {
   manifest_version: '0.2',
   name: 'quilt',
@@ -45,6 +64,7 @@ const manifest = {
     },
   },
   tools: tools.map((name) => ({ name })),
+  prompts,
   user_config: {
     trackers: {
       type: 'string',

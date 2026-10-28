@@ -1,7 +1,10 @@
-// Node.swift: owning or attaching to the node. On launch the shell reads the port from $QUILT_HOME/config.json, asks
-// /api/me, attaches when a node answers and otherwise starts one as a child with its output in
-// ~/Library/Logs/Quilt/node.log. Every thirty seconds it asks again, and starts a node when the one it had is gone.
-// Quitting stops only a node this app started. The views read this object; nothing here signs or writes anything.
+// Node.swift: owning or attaching to the node, and what the popover reads of it. On launch the shell reads the port from
+// $QUILT_HOME/config.json, asks /api/me, attaches when a node answers and otherwise starts one as a child with its output
+// in ~/Library/Logs/Quilt/node.log. Every thirty seconds it asks again, and starts a node when the one it had is gone.
+// Quitting stops only a node this app started. The popover reads this object: the sheet (which state the home is in and
+// the phrases to say), the coin as it rises, what is wanted. Two things here act: `makeKey` runs `quilt init` once for a
+// home with no key, and `installConnector` asks the node to write the connector into Claude Desktop's config. Nothing
+// here signs, and nothing writes to a ledger.
 
 import AppKit
 import Foundation
@@ -13,18 +16,27 @@ final class Node: ObservableObject {
         case failed(String)
     }
 
-    /// A problem from the library as the popover lists it.
-    struct Entry: Identifiable {
-        let hash: String
-        let title: String
-        var id: String { hash }
+    /// Which screen the popover shows: the sheet's state; that the node is not up yet; or that the node answering is an older one with no sheet to give.
+    enum Screen: Equatable {
+        case down, old, noKey, noConnector, connected
     }
 
     @Published private(set) var status: Status = .probing
     @Published private(set) var me: Me?
-    @Published private(set) var library: Library?
+    @Published private(set) var sheet: Sheet?
+    /// True when the node answered the sheet's route with nothing: a node from before the sheet, started by something else.
+    @Published private(set) var sheetMissing = false
     @Published private(set) var attention: [AttentionItem] = []
     @Published private(set) var standing: Standing?
+    /// Units of coin gained since this app was opened: every rise of the balance, summed, so the person sees the day pay.
+    @Published private(set) var gained = 0
+    /// When the balance last rose, for the popover to light the rise for a moment.
+    @Published private(set) var risenAt: Date?
+    /// The recovery phrase `quilt init` printed, shown once and then let go.
+    @Published private(set) var newPhrase: String?
+    @Published private(set) var keyNote: String?
+    @Published private(set) var installed: Installed?
+    @Published private(set) var installNote: String?
 
     let home: URL
     let port: Int
@@ -33,6 +45,8 @@ final class Node: ObservableObject {
     private var child: Process?
     private var startingNow = false
     private var timers: [Timer] = []
+    private var balanceTimer: Timer?
+    private var lastBalance: Int?
 
     init() {
         home = Node.quiltHome()
@@ -48,15 +62,26 @@ final class Node: ObservableObject {
                 Task { @MainActor in await self?.tick() }
             },
             Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { [weak self] _ in
-                Task { @MainActor in await self?.refreshAttention() }
+                Task { @MainActor in await self?.refreshSheet() }
             },
         ]
+        watchBalance(open: false)
         Task { await connect() }
     }
 
     // MARK: What the views read
 
     var isUp: Bool { status == .attached || status == .started }
+
+    var screen: Screen {
+        guard isUp else { return .down }
+        guard let sheet else { return sheetMissing ? .old : .down }
+        switch sheet.state {
+        case "no_key": return .noKey
+        case "no_connector": return .noConnector
+        default: return .connected
+        }
+    }
 
     var statusText: String {
         switch status {
@@ -68,34 +93,23 @@ final class Node: ObservableObject {
         }
     }
 
-    /// The name the person chose, else the start of their address, else that there is no key yet.
+    /// The name the person chose, else the start of their address, else nothing.
     var who: String {
         if let name = me?.name, !name.isEmpty { return name }
         if let address = me?.address { return String(address.prefix(10)) }
-        return me == nil ? "" : "no key yet"
+        return ""
     }
 
-    /// One quiet line: the standing and the coin the trackers compute for this key, where they answer.
-    var holdings: String {
-        var parts: [String] = []
-        if let s = standing?.standing { parts.append("standing \(s.standing), \(s.free) free") }
-        if let c = standing?.coin { parts.append("\(c.balance) units of coin, \(c.free) free") }
-        return parts.joined(separator: " · ")
-    }
+    /// The coin this key holds at the coin's home, as the tracker last said; nil where no tracker carries one.
+    var coin: Standing.Coin? { standing?.coin }
 
-    /// The problems the person keeps, newest first by when they began keeping them.
-    var keeping: [Entry] {
-        guard let library else { return [] }
-        return (library.seeding ?? [:]).sorted { $0.value > $1.value }
-            .compactMap { hash, _ in library.problems[hash].map { Entry(hash: hash, title: $0.title) } }
-    }
+    /// The standing in points, as the tracker last said.
+    var points: Standing.Points? { standing?.standing }
 
-    /// Up to eight other problems from the library, by when they were last touched.
-    var openedLately: [Entry] {
-        guard let library else { return [] }
-        let kept = library.seeding ?? [:]
-        return library.problems.filter { kept[$0.key] == nil }.sorted { $0.value.last > $1.value.last }
-            .prefix(8).map { Entry(hash: $0.key, title: $0.value.title) }
+    /// Whether the balance rose in the last ten seconds, so the rise can be lit.
+    var risenLately: Bool {
+        guard let risenAt else { return false }
+        return Date().timeIntervalSince(risenAt) < 10
     }
 
     /// The page's address with a fragment the page reads: open=<link>, any, or none.
@@ -129,14 +143,40 @@ final class Node: ObservableObject {
     func refresh() async {
         guard isUp else { return }
         if let answer = try? await api.me() { me = answer }
-        if let answer = try? await api.library() { library = answer }
-        if let answer = try? await api.standing() { standing = answer }
-        await refreshAttention()
+        await refreshSheet()
+        await refreshBalance()
     }
 
-    func refreshAttention() async {
-        guard isUp, let items = try? await api.attention() else { return }
-        attention = items
+    /// The sheet and, with it, what is wanted (the sheet's first group is drawn from the same list the badge counts).
+    func refreshSheet() async {
+        guard isUp else { return }
+        if let answer = try? await api.sheet() {
+            sheet = answer
+            sheetMissing = answer == nil
+        }
+        if sheet?.state == "connected", let items = try? await api.attention() { attention = items } else if sheet?.state != "connected" { attention = [] }
+    }
+
+    /// The standing and the coin, with every rise of the balance added to what was gained since the app opened.
+    func refreshBalance() async {
+        guard isUp, sheet?.state == "connected", let answer = try? await api.standing() else { return }
+        standing = answer
+        if let balance = answer.coin?.balance {
+            if let last = lastBalance, balance > last {
+                gained += balance - last
+                risenAt = Date()
+            }
+            lastBalance = balance
+        }
+    }
+
+    /// The balance is asked every fifteen seconds while the popover is open and every minute while it is closed.
+    func watchBalance(open: Bool) {
+        balanceTimer?.invalidate()
+        balanceTimer = Timer.scheduledTimer(withTimeInterval: open ? 15 : 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.refreshBalance() }
+        }
+        if open { Task { await refreshBalance() } }
     }
 
     /// Stops a node this app started; a node it attached to is left running.
@@ -145,6 +185,66 @@ final class Node: ObservableObject {
         child.terminationHandler = nil
         child.terminate()
         self.child = nil
+    }
+
+    // MARK: The two acts
+
+    /// `quilt init` for a home with no key: the phrase it prints is kept for the popover to show once, and the node this app
+    /// started is started again so it signs with the new key; a node this app attached to is told about.
+    func makeKey() async {
+        keyNote = nil
+        guard let executable = Node.executable() else {
+            keyNote = "The quilt executable was not found, so no key could be made."
+            return
+        }
+        let process = Process()
+        process.executableURL = executable
+        process.arguments = ["init"]
+        var environment = ProcessInfo.processInfo.environment
+        environment["QUILT_HOME"] = home.path
+        process.environment = environment
+        let out = Pipe()
+        process.standardOutput = out
+        process.standardError = out
+        do {
+            try process.run()
+        } catch {
+            keyNote = "quilt init could not be run: \(error.localizedDescription)"
+            return
+        }
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        let text = String(decoding: data, as: UTF8.self)
+        guard process.terminationStatus == 0 else {
+            keyNote = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return
+        }
+        // The phrase is on the line after "Phrase (shown once …):", indented.
+        let lines = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+        if let i = lines.firstIndex(where: { $0.hasPrefix("Phrase") }), i + 1 < lines.count { newPhrase = lines[i + 1] }
+        if child?.isRunning == true {
+            stop()
+            await startNode()
+        } else {
+            keyNote = "The key is made. The node running here was started by something else and still signs with no key; start it again to sign with this one."
+            await refresh()
+        }
+    }
+
+    /// The phrase has been written down: it is shown no more.
+    func forgetPhrase() {
+        newPhrase = nil
+    }
+
+    /// Asks the node to write the connector into Claude Desktop's config; the answer, written or why not, is kept for the popover.
+    func installConnector(anyway: Bool = false) async {
+        installNote = nil
+        do {
+            installed = try await api.install(anyway: anyway)
+        } catch {
+            installNote = error.localizedDescription
+        }
+        await refreshSheet()
     }
 
     private func startNode() async {

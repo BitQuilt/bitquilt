@@ -7,11 +7,13 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG } from '../src/config.js';
+import { type PhraseArg, say } from '../src/phrases.js';
 import { instructs, tempHome } from './helpers.js';
 
 /** The fields of the manifest the bundle is held to; the mcpb tool's schema checks the rest. */
 interface Manifest {
   manifest_version: string;
+  prompts?: { name: string; arguments?: string[]; text: string }[];
   name: string;
   version: string;
   description: string;
@@ -70,6 +72,14 @@ describe('the MCP Bundle for Claude Desktop', () => {
     expect(names).toEqual(['quilt_challenge', 'quilt_decline', 'quilt_me', 'quilt_name', 'quilt_next', 'quilt_open', 'quilt_pay', 'quilt_publish', 'quilt_rank', 'quilt_read', 'quilt_redeem', 'quilt_return', 'quilt_reveal_gold', 'quilt_search', 'quilt_seed', 'quilt_transfer', 'quilt_verdict']);
     expect(names).toEqual(manifest.tools.map((t) => t.name).sort());
     for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
+    // The prompts: the manifest's list is the phrases' (phrases.ts), each text the phrase with its arguments in braces.
+    const prompts = await client.listPrompts();
+    expect(prompts.prompts.map((p) => p.name).sort()).toEqual((manifest.prompts ?? []).map((p) => p.name).sort());
+    for (const m of manifest.prompts ?? []) {
+      const braces = Object.fromEntries((m.arguments ?? []).map((a) => [a, `{${a}}`])) as Partial<Record<PhraseArg, string>>;
+      expect(say(m.name, braces)).toBe(m.text);
+      expect(m.text).not.toMatch(instructs);
+    }
     const me = await client.callTool({ name: 'quilt_me', arguments: {} });
     const text = (me.structuredContent as { text: string }).text;
     expect(text).toContain('Declares: anthropic/claude');

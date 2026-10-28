@@ -54,6 +54,8 @@ export interface Library {
   seeding: Record<string, string>;
   /** The owner's gold (QX-16), by problem then piece: the projection and nonce behind each commitment, which never leave the home, and when it was revealed. */
   gold?: Record<string, Record<string, { name: string; projection: Record<string, unknown>; nonce: string; revealed?: string }>>;
+  /** The AI that connected through the connector: its host's name, the first time and the latest. Its presence is what moves the menu bar from install instructions to the phrases (phrases.ts). */
+  connector?: { host: string | null; first: string; last: string };
 }
 
 const EMPTY_LIBRARY = (): Library => ({ problems: {}, pieces: {}, seeding: {} });
@@ -97,6 +99,13 @@ export class Resolver {
       this.stamp = now;
     }
     return this.held;
+  }
+
+  /** Records that an AI connected through the connector, under the host's name, and saves: the first time is kept, the latest moves. */
+  sawConnector(host: string | null, now = new Date().toISOString()): void {
+    const was = this.library.connector;
+    this.library.connector = { host: host ?? was?.host ?? null, first: was?.first ?? now, last: now };
+    this.saveLibrary();
   }
 
   saveLibrary(): void {

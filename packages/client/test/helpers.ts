@@ -51,9 +51,9 @@ export function quiltOver(tracker: string, extra: Partial<Config> = {}): (n: num
 }
 
 /** The connector over this Quilt, connected to a client by an in-memory pair; `close` ends both. */
-export async function mcpPair(quilt: Quilt, clientName = 'claude-test'): Promise<{ client: Client; close: () => Promise<void> }> {
+export async function mcpPair(quilt: Quilt, clientName = 'claude-test', connected?: (host: string | null) => void): Promise<{ client: Client; close: () => Promise<void> }> {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  const server = createMcpServer(localRunner(() => quilt));
+  const server = createMcpServer(localRunner(() => quilt), connected ? { connected } : {});
   await server.connect(serverTransport);
   const client = new Client({ name: clientName, version: '0.0.0' });
   await client.connect(clientTransport);

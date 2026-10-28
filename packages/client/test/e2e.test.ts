@@ -4,6 +4,7 @@ import { type Hash } from '@bitquilt/core';
 import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
 import { Resolver } from '../src/resolver.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
+import { PHRASES } from '../src/phrases.js';
 import { hex, instructs, json, mcpPair, quiltOver, startTracker, tempHome } from './helpers.js';
 
 /**
@@ -125,6 +126,22 @@ describe('the connector over MCP', () => {
     expect((opened.content as { text: string }[])[0]!.text).toBe(text);
     const read = await client.callTool({ name: 'quilt_read', arguments: { problem } });
     expect((read.structuredContent as { text: string }).text).toContain('Accepted so far:');
+    await close();
+  });
+  it('offers the phrases as prompts, each said in the person\'s words with what it takes filled in, and records the AI that connected', async () => {
+    let seen: string | null | undefined;
+    const { client, close } = await mcpPair(a, 'claude-test', (host) => { seen = host; });
+    expect(seen).toBe('claude-test');
+    const prompts = await client.listPrompts();
+    expect(prompts.prompts.map((p) => p.name).sort()).toEqual([...PHRASES.map((p) => p.name)].sort());
+    for (const p of prompts.prompts) {
+      expect(p.description ?? '').not.toMatch(instructs);
+      for (const arg of p.arguments ?? []) expect(arg.required).toBe(true);
+    }
+    const taken = await client.getPrompt({ name: 'take_piece', arguments: { link: problem } });
+    expect(taken.messages).toEqual([{ role: 'user', content: { type: 'text', text: `Open ${problem} on Quilt and take a piece.` } }]);
+    const start = await client.getPrompt({ name: 'find_something_to_do' });
+    expect((start.messages[0]!.content as { text: string }).text).toBe('Find me something to do on Quilt.');
     await close();
   });
 });

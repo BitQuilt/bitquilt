@@ -1,6 +1,8 @@
-// API.swift: the shapes the node answers with on 127.0.0.1 and the four GET calls the shell makes. The shell reads and
-// never writes: every write stays in the page, which is the person's hand, or in the AI's connector. Requests carry no
-// Origin header, which is what the node's guard expects of a program on this machine.
+// API.swift: the shapes the node answers with on 127.0.0.1 and the calls the shell makes. The shell reads, and writes
+// two things that are not the ledger's: it asks the node to write the connector into Claude Desktop's config
+// (POST /api/install), and it runs `quilt init` to make the key. Every write to a ledger stays in the person's AI's
+// connector, or in the page, which is the person's hand. Requests carry no Origin header, which is what the node's guard
+// expects of a program on this machine.
 
 import Foundation
 
@@ -17,22 +19,7 @@ struct Me: Decodable {
     let problems: Int
 }
 
-/// GET /api/library: the problems this person opened, published or worked, and the ones they keep.
-struct Library: Decodable {
-    struct Problem: Decodable {
-        let title: String
-        let slug: String
-        let trackers: [String]
-        let first: String
-        let last: String
-    }
-
-    let problems: [String: Problem]
-    /// Problem hash to the date the person began keeping it: the seed event's timestamp.
-    let seeding: [String: String]?
-}
-
-/// One line of GET /api/search?q=: a problem an index or a relay answered with.
+/// One line of GET /api/search?q=: a problem an index or a relay answered with, and its link for a phrase.
 struct SearchResult: Decodable, Identifiable {
     let problem: String
     let title: String
@@ -43,6 +30,7 @@ struct SearchResult: Decodable, Identifiable {
     let topics: [String]?
     let tracker: String?
     let via: String
+    let link: String
     var id: String { problem }
 }
 
@@ -78,6 +66,61 @@ struct AttentionItem: Decodable {
     let tracker: String?
 }
 
+/// GET /api/phrases: the sheet (phrases.ts in the client). Which of three states the home is in, the first phrase to say,
+/// the phrases that fit this person, every prompt the connector offers, and each phrase as a template with its arguments in braces.
+struct Sheet: Decodable {
+    struct Problem: Decodable { let hash: String; let title: String }
+
+    struct Phrase: Decodable, Identifiable {
+        let name: String
+        let title: String
+        let say: String
+        let about: String
+        let problem: Problem?
+        var id: String { say }
+    }
+
+    struct Group: Decodable, Identifiable {
+        let title: String
+        let phrases: [Phrase]
+        var id: String { title }
+    }
+
+    struct Connector: Decodable { let host: String?; let first: String; let last: String }
+    struct Claude: Decodable { let installed: Bool; let config: String; let running: Bool }
+
+    struct Prompt: Decodable, Identifiable {
+        let name: String
+        let title: String
+        let about: String
+        let args: [String]
+        var id: String { name }
+    }
+
+    /// no_key, no_connector or connected.
+    let state: String
+    let address: String?
+    let name: String?
+    let connector: Connector?
+    let claude: Claude
+    let first: Phrase
+    let groups: [Group]
+    let prompts: [Prompt]
+    let templates: [String: String]
+
+    /// A template said about a link: `{link}` filled, as the node's own `say` would fill it.
+    func say(_ name: String, link: String) -> String? {
+        templates[name]?.replacingOccurrences(of: "{link}", with: link)
+    }
+}
+
+/// POST /api/install: whether the node wrote the connector into Claude Desktop's config, and where, or why not.
+struct Installed: Decodable {
+    let file: String
+    let written: Bool
+    let reason: String?
+}
+
 struct API {
     /// The node's origin, http://127.0.0.1:<port>, with no trailing slash.
     let base: String
@@ -109,10 +152,6 @@ struct API {
         try decode(await get("/api/me", timeout: 3))
     }
 
-    func library() async throws -> Library {
-        try decode(await get("/api/library", timeout: 3))
-    }
-
     /// The trackers and relays this client knows, asked at once; this can take a while.
     func search(_ words: String) async throws -> [SearchResult] {
         let found: Found = try decode(await get("/api/search", query: [URLQueryItem(name: "q", value: words)], timeout: 25))
@@ -126,12 +165,24 @@ struct API {
         return try decode(answer)
     }
 
-    /// Empty on a node that has no attention route yet (404), so the section stays absent.
+    /// Empty on a node that has no attention route yet (404), so the count stays absent.
     func attention() async throws -> [AttentionItem] {
         let answer = try await get("/api/attention", timeout: 10)
         if answer.status == 404 { return [] }
         let wanted: Wanted = try decode(answer)
         return wanted.items
+    }
+
+    /// The sheet; nil on a node from before the sheet existed (404). Once an AI has connected the node asks the trackers for what is wanted, so this can take a while.
+    func sheet() async throws -> Sheet? {
+        let answer = try await get("/api/phrases", timeout: 20)
+        if answer.status == 404 { return nil }
+        return try decode(answer)
+    }
+
+    /// Asks the node to write the connector into Claude Desktop's config; the node refuses while Claude runs unless told to go ahead anyway.
+    func install(anyway: Bool) async throws -> Installed {
+        try decode(await post("/api/install", body: ["anyway": anyway], timeout: 10))
     }
 
     /// Whether a quilt node answers at the base: JSON with an address field, null or not.
@@ -146,6 +197,16 @@ struct API {
         if !query.isEmpty { parts.queryItems = query }
         guard let url = parts.url else { throw Failure.badURL }
         let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        return Answer(data: data, status: (response as? HTTPURLResponse)?.statusCode ?? 0)
+    }
+
+    private func post(_ path: String, body: [String: Any], timeout: TimeInterval) async throws -> Answer {
+        guard let url = URL(string: base + path) else { throw Failure.badURL }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try await URLSession.shared.data(for: request)
         return Answer(data: data, status: (response as? HTTPURLResponse)?.statusCode ?? 0)
     }

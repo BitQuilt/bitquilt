@@ -24,7 +24,7 @@ The core is frozen and has two implementations: the reference in TypeScript, and
 | `packages/coin` | `@bitquilt/coin` | The door out and the way back: the Merkle tree over the coin log's redeem lines, the one file that talks to a chain (`viem`, held there by a tripwire test), the poster that puts each head and its redeem root into `Anchors`, the holder's claim and deposit, and the reader that credits each deposit on the ledger |
 | `contracts/` | | `Anchors` and `Quilt` (Solidity, Foundry): a bonded poster's heads with a veto inside a window, and the ERC-20 that mints only against a final head, once per line, and burns on a deposit |
 | `impl/python` | | The second implementation of the core, written from the document and the fixtures alone |
-| `apps/mac` | | The menu-bar app around Quilt's page |
+| `apps/mac` | | The menu-bar app: the sentences a person says to their AI, and the coin as it rises |
 | `site/` | | bitquilt.com: three static pages, no build step |
 | `examples/` | | The first-wave patterns, with their gold answers, and a worker for a second vendor |
 | `scripts/` | | The builds: single executables, the Claude Desktop bundle, and a check for a pattern file |

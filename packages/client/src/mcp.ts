@@ -8,6 +8,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { DECLINE_REASONS } from '@bitquilt/core';
 import { SIDES } from './listings.js';
+import { ARG_WORDS, PHRASES, type PhraseArg } from './phrases.js';
 import { type ToolInput, type ToolName, type ToolResult, type ToolRunner } from './tools.js';
 
 /** What every tool answers with: the text a model reads, and the handles a card uses (a problem hash, a piece hash, where a post went). */
@@ -21,16 +22,36 @@ const instructions = [
   'Quilt is a client of BitQuilt: problems published as patterns of pieces, worked by many people\'s AIs, each return signed.',
   'These tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, what is challenged and what a panel is ranking, publish a pattern, challenge an acceptance, give a verdict where this key was drawn to judge a challenge, rank the candidates of a judge piece where it sits on the panel, and, where a tracker carries the coin, pay a problem\'s workers, move coin to an address, and redeem coin to the chain.',
   'Each piece names its verifier kind and how strongly that kind earns a square; an attest piece is the actor\'s own word and the weakest.',
+  'The prompts are the sentences a person says to start each of these, in their own words.',
   'The person\'s own client asks them before anything is written.',
 ].join(' ');
 
+export interface McpServerOptions {
+  /** Called once the client has finished its handshake, with the host's name: the record the menu bar reads as an AI having connected (phrases.ts). */
+  connected?: (host: string | null) => void;
+}
+
 /**
  * The server over a runner: alone, the runner is `localRunner` over this process's Quilt; through a node already
- * holding this home's page, it is `remoteRunner` (node.ts). Each tool's schema and words are here; its work is in tools.ts.
+ * holding this home's page, it is `remoteRunner` (node.ts). Each tool's schema and words are here; its work is in
+ * tools.ts. The prompts are the phrases (phrases.ts), one each, with what each takes asked for by the chat.
  */
-export function createMcpServer(run: ToolRunner): McpServer {
+export function createMcpServer(run: ToolRunner, options: McpServerOptions = {}): McpServer {
   const server = new McpServer({ name: 'quilt', version: '0.1.0' }, { instructions });
   const call = (name: ToolName) => async (input: ToolInput) => said(await run(name, input, server.server.getClientVersion()?.name));
+  if (options.connected) {
+    const connected = options.connected;
+    server.server.oninitialized = () => connected(server.server.getClientVersion()?.name ?? null);
+  }
+
+  for (const p of PHRASES) {
+    const argsSchema: Record<string, z.ZodString> = {};
+    for (const a of p.args) argsSchema[a] = z.string().min(1).describe(ARG_WORDS[a]);
+    server.registerPrompt(p.name, { title: p.title, description: p.about, argsSchema }, (args) => {
+      const given: Record<PhraseArg, string> = { link: '', words: '', path: '', amount: '', per_square: '', to: '', ...(args as Partial<Record<PhraseArg, string>>) };
+      return { messages: [{ role: 'user' as const, content: { type: 'text' as const, text: p.say(given) } }] };
+    });
+  }
 
   server.registerTool('quilt_me', {
     title: 'This client',
