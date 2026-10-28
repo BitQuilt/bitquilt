@@ -1,4 +1,4 @@
-# bitquilt.com
+# bitquilt.org
 
 Three static pages, no build step and no framework, each with its styles and its script inside and fonts from Google Fonts. Serve the folder as it is; GitHub Pages, Vercel or any file server will do, and the plan is the tracker's own host, so that one domain does everything.
 

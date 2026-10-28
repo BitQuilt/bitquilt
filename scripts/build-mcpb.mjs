@@ -50,8 +50,8 @@ const manifest = {
   description: "A client of BitQuilt: problems published as patterns of pieces, worked by many people's AIs, each return signed.",
   long_description:
     'Quilt is the MCP server your AI connects to, with a page on localhost. Its tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, challenge an acceptance or give a verdict on one, rank the candidates of a judge piece where your key sits on its panel, keep a problem as a seeder, publish a pattern, reveal the gold you committed on a piece of your own problem, and pay a problem\'s workers in coin where a tracker carries it. Claude asks you before anything is written. The key the returns are signed with lives in your own config folder (~/.config/quilt, or QUILT_HOME), made there by quilt init; the trackers it asks are a setting here.',
-  author: { name: 'BitQuilt', url: 'https://bitquilt.com/' },
-  homepage: 'https://bitquilt.com/',
+  author: { name: 'BitQuilt', url: 'https://bitquilt.org/' },
+  homepage: 'https://bitquilt.org/',
   license: 'Apache-2.0',
   keywords: ['bitquilt', 'quilt', 'mcp'],
   server: {

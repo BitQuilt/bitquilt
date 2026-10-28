@@ -1,0 +1,8 @@
+# TLS for the tracker's name, and every request handed to the tracker. The MCP transport streams, so nothing is
+# buffered and idle connections are left alone: flush_interval -1 streams each response as it is written.
+tracker.bitquilt.org {
+    encode zstd gzip
+    reverse_proxy tracker:3977 {
+        flush_interval -1
+    }
+}

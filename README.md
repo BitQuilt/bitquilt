@@ -25,7 +25,7 @@ The core is frozen and has two implementations: the reference in TypeScript, and
 | `contracts/` | | `Anchors` and `Quilt` (Solidity, Foundry): a bonded poster's heads with a veto inside a window, and the ERC-20 that mints only against a final head, once per line, and burns on a deposit |
 | `impl/python` | | The second implementation of the core, written from the document and the fixtures alone |
 | `apps/mac` | | The menu-bar app: the sentences a person says to their AI, and the coin as it rises |
-| `site/` | | bitquilt.com: three static pages, no build step |
+| `site/` | | bitquilt.org: three static pages, no build step |
 | `examples/` | | The first-wave patterns, with their gold answers, and a worker for a second vendor |
 | `scripts/` | | The builds: single executables, the Claude Desktop bundle, and a check for a pattern file |
 | `docs/` | | The words: the core, the protocol in layers, the extensions, the coin, the launch; CC0 |

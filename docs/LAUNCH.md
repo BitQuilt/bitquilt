@@ -16,12 +16,12 @@ Written 26 October 2026. [APP.md](APP.md) names the smallest version: the app wi
 
 1. **A home for the code.** Make the GitHub organization and repository, add it as `origin`, push `main`. The checks run on the push. Decide whether the repository is public now or at the first problem; the words are CC0 and the code Apache-2.0 either way.
 2. **The maintainers' key.** On a machine the maintainers trust, `quilt init`, and keep the phrase offline: it is the key that signs `hide` events and the first problems. Its address goes into `QUILT_MAINTAINERS`.
-3. **A tracker in public.** A host with Docker and a domain, `tracker.bitquilt.com` say, with TLS in front (a reverse proxy such as Caddy terminates it in one line). Then, as [DEPLOY.md](DEPLOY.md) says:
+3. **A tracker in public.** A host with Docker and the domain's tracker name, `tracker.bitquilt.org` (bitquilt.org was registered on 28 October 2026; its DNS is in Vercel, where the site is served), with TLS in front (a reverse proxy such as Caddy terminates it in one line; `deploy/` holds the compose file and the Caddyfile). Then, as [DEPLOY.md](DEPLOY.md) says:
 
    ```bash
    docker build -t bitquilt-hosted .
    docker run -d --name bitquilt --restart unless-stopped -p 127.0.0.1:3977:3977 -v bitquilt-data:/data \
-     -e QUILT_KEY_SECRET=$(openssl rand -hex 32) -e QUILT_URL=https://tracker.bitquilt.com/ -e QUILT_IP_SALT=$(openssl rand -hex 16) \
+     -e QUILT_KEY_SECRET=$(openssl rand -hex 32) -e QUILT_URL=https://tracker.bitquilt.org/ -e QUILT_IP_SALT=$(openssl rand -hex 16) \
      -e QUILT_MAINTAINERS=0x… bitquilt-hosted
    ```
 
@@ -31,7 +31,7 @@ Written 26 October 2026. [APP.md](APP.md) names the smallest version: the app wi
 6. **The mirror.** In the repository's settings, the variable `BITQUILT_TRACKERS` set to the public tracker; the workflow then writes the ledger to `main` every fifteen minutes and anchors every head. The repository is the public copy a client falls back to.
 7. **The first standing problems.** From the maintainers' machine, with the public tracker in `~/.config/quilt/config.json`: `quilt publish examples/tell-someone.json`, then `quilt seed <hash> on`, and the same for the two waves of twelve patterns each under `examples/` (`docs/candidates/launch-50.json` names both). A gold is backed by the owner's standing, two points a piece where no stake rule applies (one for each root a miss would dock), and a new key has one point, so publish the patterns first without their gold (strip `gold` from the file, or let the tracker refuse it, which leaves the problem published) and bring the gold in with `quilt gold commit` as standing is earned: a second maintainers' key that works accepted pieces on the first key's problems, and the first on the second's, earns a point a square. The patterns' gold answers stay in the files until then.
 8. **The release.** `git tag v0.1.0 && git push --tags`: the workflow builds `quilt` and `bitquilt-tracker` for five platforms and `quilt.mcpb`, and attaches them. The Mac app is signed with the Developer ID and notarized by the same workflow's `mac-app` job once the repository's variable `APPLE_SIGNING` is `on` and the six secrets `apps/mac/README.md` names are set; by hand, `QUILT_SIGN_IDENTITY=… bash apps/mac/build.sh` then `scripts/notarize.sh` (28 October 2026). Without them it is signed ad hoc and opens only on the machine that built it.
-9. **The site.** Serve `site/` at `bitquilt.com` (GitHub Pages or any file server), with its links pointed at the tracker, the release and the first problem's `quilt:` link.
+9. **The site.** Serve `site/` at `bitquilt.org` from Vercel, where the domain's DNS already is (a static deployment of the folder, no build), with its links pointed at the tracker, the release and the first problem's `quilt:` link.
 10. **Counsel, beside the launch rather than before it.** The founder decided on 27 October 2026 that transfers are on from genesis, so counsel reads the design as launched; the founder decided the same day that the bridge is live on mainnet on the first day as well (step 4), so counsel and a contract audit read the whole of it beside the launch. Nothing in the first problem needs the chain to be worked.
 
 ## The coin's parameters, when the time comes

@@ -12,7 +12,7 @@ This file is for contributors of every kind: a person with an editor, or an AI w
 - **`packages/coin`** (`@bitquilt/coin`) is the door out and the way back: `merkle.ts` the tree over the redeem lines, `chain.ts` the one file in the repository that imports `viem`, `post.ts` the poster, `claim.ts` the holder's claim, `read.ts` the reader, `shapes.ts` and `home.ts` the checks on what the home serves, `cli.ts` what the four commands share, and one small file per command (`poster-bin.ts`, `claim-bin.ts`, `reader-bin.ts`, `deposit-bin.ts`). It imports the core only.
 - **`contracts/`** holds `Anchors.sol`, `Quilt.sol` and `Merkle.sol`, with Foundry tests; `Merkle.sol` and `merkle.ts` are one recipe held to one fixture.
 - **`impl/python`** is the second implementation of the core, written from the document and the fixtures alone; it imports nothing from the TypeScript on purpose, and reads every clarified sentence of section 12 as the reference does (`FINDINGS.md`, the last section).
-- **`apps/mac`** is the menu-bar app around Quilt's page; **`site/`** is bitquilt.com; **`examples/`** the first-wave patterns; **`scripts/`** the builds; **`docs/`** the words, CC0.
+- **`apps/mac`** is the menu-bar app around Quilt's page; **`site/`** is bitquilt.org; **`examples/`** the first-wave patterns; **`scripts/`** the builds; **`docs/`** the words, CC0.
 
 The arrows: the core imports nothing; the tracker, the client and the coin import the core; hosted imports the tracker and the client; the mirror imports the tracker, and its binary the coin. Nothing in the tracker or the core knows the coin package exists.
 

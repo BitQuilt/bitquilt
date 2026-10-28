@@ -1,0 +1,31 @@
+# The public tracker with the hosted on-ramp, behind Caddy, on one small host (docs/DEPLOY.md says what each variable
+# is; docs/JOURNEY-AUDIT.md section 4 says the order it is brought up in). Everything the tracker keeps is the volume.
+#   cp deploy/env.example deploy/.env   # then fill it in; the file stays on the host and never in the repository
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+services:
+  tracker:
+    build:
+      context: ..
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - data:/data
+    expose:
+      - "3977"
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - tracker
+volumes:
+  data:
+  caddy_data:
+  caddy_config:

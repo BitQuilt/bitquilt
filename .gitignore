@@ -12,3 +12,6 @@ coverage/
 
 # The desktop app's worktrees and session files beside the checkout
 .claude/
+
+# Vercel project links made by the CLI
+.vercel/
