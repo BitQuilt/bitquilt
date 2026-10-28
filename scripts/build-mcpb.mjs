@@ -72,7 +72,7 @@ const manifest = {
       type: 'string',
       title: 'Trackers',
       description: 'The trackers this client asks, as addresses separated by commas.',
-      default: 'http://localhost:3977/',
+      default: 'https://tracker.bitquilt.org/',
       required: false,
     },
   },

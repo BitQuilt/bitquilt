@@ -23,7 +23,8 @@ export interface Config {
 }
 
 export const DEFAULT_CONFIG: Config = {
-  trackers: ['http://localhost:3977/'],
+  // The public tracker (docs/LAUNCH.md step 5, 28 October 2026); a config file or QUILT_TRACKERS says otherwise, as the examples do for a tracker on this machine.
+  trackers: ['https://tracker.bitquilt.org/'],
   mirrors: [],
   relays: [],
   can: ['web', 'files', 'shell'],
