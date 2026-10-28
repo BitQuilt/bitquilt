@@ -173,6 +173,9 @@ struct MenuView: View {
                 }
                 Spacer()
                 Text("\(coin.free_vested) transferable now · \(coin.free) free to stake or pay").font(.caption).foregroundStyle(.secondary)
+                if let pending = coin.pending, pending.amount > 0 {
+                    Text("\(pending.amount) owed from today, pays at \(Self.clock(pending.pays_at))").font(.caption).foregroundStyle(.secondary)
+                }
             } else if let points = node.points {
                 Text("standing \(points.standing), earned by work · \(points.free) free to stake").font(.callout)
                 Spacer()
@@ -256,6 +259,12 @@ struct MenuView: View {
     }
 
     /// The sentence onto the clipboard, and the row says so for a moment.
+    /// An ISO time as the local clock reads it, for "pays at".
+    static func clock(_ iso: String) -> String {
+        guard let date = ISO8601DateFormatter().date(from: iso) ?? ISO8601DateFormatter.withFractions.date(from: iso) else { return iso }
+        return date.formatted(date: .omitted, time: .shortened)
+    }
+
     private func copy(_ text: String) {
         let board = NSPasteboard.general
         board.clearContents()
@@ -290,4 +299,13 @@ struct MenuView: View {
             }
         }
     }
+}
+
+extension ISO8601DateFormatter {
+    /// The tracker's times carry fractional seconds; the plain formatter refuses them.
+    static let withFractions: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
 }

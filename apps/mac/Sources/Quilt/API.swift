@@ -43,9 +43,16 @@ struct Standing: Decodable {
         let tracker: String
     }
 
+    /// What the open epoch would mint to this key if it ended now, and when it ends.
+    struct Pending: Decodable {
+        let amount: Int
+        let pays_at: String
+    }
+
     struct Coin: Decodable {
         let balance: Int
         let vested: Int
+        let pending: Pending?
         /// What a transfer or a redeem could move now: the smaller of free and vested.
         let free_vested: Int
         let unvested: Int

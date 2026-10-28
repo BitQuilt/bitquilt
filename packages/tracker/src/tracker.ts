@@ -858,7 +858,8 @@ export function createTracker(options: TrackerOptions): Tracker {
           if (!isAddress(cm[1])) throw new Refusal(400, 'an address with its checksum');
           const layered = layer();
           const c = coin(layered)!;
-          json(res, 200, { ...c.balance(layered.rootOf(cm[1], c.now)), at: c.now, head: c.head });
+          const root = layered.rootOf(cm[1], c.now);
+          json(res, 200, { ...c.balance(root), pending: c.pending(root), at: c.now, head: c.head });
           return;
         }
         if (path === '/coin/epochs') {

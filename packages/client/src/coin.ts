@@ -17,6 +17,8 @@ export interface CoinBalance {
   escrowed: number;
   free: number;
   free_vested: number;
+  /** What the open epoch would mint to this key if it ended now, and when it ends: what is owed today. Absent from an older tracker. */
+  pending?: { amount: number; pays_at: string; epoch: number };
 }
 
 /** Where a tracker's coin lives, as its well-known says under stake: the coin's home, the tracker that keeps the coin log, and the burn rate a point of standing costs there; null where it honours none. */
@@ -39,7 +41,7 @@ export async function coinBalance(door: Door, home: string): Promise<CoinBalance
   const address = door.identity?.address;
   if (!address) return null;
   const j = await askJson<Omit<CoinBalance, 'home'>>(`${home}coin/balance/${address}`);
-  return j && { home, balance: j.balance, vested: j.vested, unvested: j.unvested, locked: j.locked, escrowed: j.escrowed, free: j.free, free_vested: j.free_vested };
+  return j && { home, balance: j.balance, vested: j.vested, unvested: j.unvested, locked: j.locked, escrowed: j.escrowed, free: j.free, free_vested: j.free_vested, ...(j.pending ? { pending: j.pending } : {}) };
 }
 
 /** This key's coin at the first of this client's trackers that carries one, or null. */

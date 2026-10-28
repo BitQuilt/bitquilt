@@ -73,11 +73,15 @@ describe('the emission schedule', () => {
     await stakedReturn(p, p1, A, 'anthropic/claude');
     await stakedReturn(p, p1, B, 'openai/gpt');
     await accepted(`/p/${p}/events`, ev(ownerP, 'gold_reveal', gold, p, p1));
+    // Before the epoch ends, the balance says what is owed: the share the mint will give, and when.
+    const end0 = new Date(Date.parse(T0) + 24 * HOUR).toISOString();
+    expect(await get(`/coin/balance/${addr(A)}`)).toMatchObject({ balance: 0, pending: { amount: 90, pays_at: end0, epoch: 0 } });
+    expect(await get(`/coin/balance/${addr(treasury)}`)).toMatchObject({ pending: { amount: 20, pays_at: end0 } });
     clock.tick = Date.parse(T0) + 24 * HOUR + 1000;
     const { epochs } = (await get('/coin/epochs')) as { epochs: unknown[] };
     // Four units of weight at 50 each: 200 of the curve's 1000, a tenth to the treasury, 90 to each reveal.
     expect(epochs).toEqual([{ epoch: 0, start: T0, end: new Date(Date.parse(T0) + 24 * HOUR).toISOString(), ceiling: 1000, amount: 200, treasury: 20, weight: 4, minted: 200 }]);
-    expect(await get(`/coin/balance/${addr(A)}`)).toMatchObject({ balance: 90, minted: 90, free: 90 });
+    expect(await get(`/coin/balance/${addr(A)}`)).toMatchObject({ balance: 90, minted: 90, free: 90, pending: { amount: 0, epoch: 1 } });
     expect(await get(`/coin/balance/${addr(B)}`)).toMatchObject({ balance: 90 });
     expect(await get(`/coin/balance/${addr(treasury)}`)).toMatchObject({ balance: 20 });
   });

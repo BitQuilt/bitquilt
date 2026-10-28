@@ -115,6 +115,9 @@ export interface RedeemLine {
 /** An ended epoch: `ceiling` is the curve's amount, `amount` what the epoch could mint once the cap on a unit of weight is applied, `minted` what it did. */
 export interface EpochView { epoch: number; start: string; end: string; ceiling: number; amount: number; treasury: number; weight: number; minted: number }
 
+/** A root's share of the open epoch so far, and when the epoch ends and pays. */
+export interface PendingView { amount: number; pays_at: string; epoch: number }
+
 export interface CoinLayer {
   params: CoinParams;
   now: string;
@@ -132,6 +135,8 @@ export interface CoinLayer {
   admit(event: Event): Admission & { standing?: number };
   /** The units a point of standing costs at the door at `at`: `burn_rate`, or with `burn_indexed` the greater of it and what a reveal in a verified cross-vendor square earned in the latest epoch ended by then. */
   burnRateAt(at: string): number;
+  /** What the open epoch would mint to this root if it ended now, from the squares verified in it so far, and when it ends: what the person is owed today. The share can still fall as others verify before the end. */
+  pending(root: Address): PendingView;
   dropped: { id: Hash; type: string; why: string }[];
 }
 
@@ -552,6 +557,26 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     }
   }
 
+  /** The open epoch's minting as it stands at `now`, by the rule of the mint line, for one root; the treasury's share where the root is the treasury. */
+  const pending = (root: Address): PendingView => {
+    const nowMs = Date.parse(now);
+    const n = Math.max(0, Math.floor((nowMs - genesis) / epochMs));
+    const start = new Date(genesis + n * epochMs).toISOString();
+    const end = new Date(genesis + (n + 1) * epochMs).toISOString();
+    const inEpoch = verified.filter((v) => v.at >= start && v.at < end && v.at <= now);
+    const weight = inEpoch.reduce((s, v) => s + (v.weight ?? 0), 0);
+    if (weight <= 0) return { amount: 0, pays_at: end, epoch: n };
+    const ceiling = epochAmount(params, n);
+    const cap = params.emission.max_per_weight;
+    const amount = cap === undefined ? ceiling : Math.min(ceiling, cap * weight);
+    const treasury = Math.floor((amount * params.infra_bp) / 10000);
+    const rest = amount - treasury;
+    let share = 0;
+    for (const v of inEpoch) if (v.root === root) share += Math.floor((rest * (v.weight ?? 0)) / weight);
+    if (root === params.treasury) share += treasury;
+    return { amount: share, pays_at: end, epoch: n };
+  };
+
   const view = (root: Address): BalanceView => {
     const a = accounts.get(root) ?? account(root);
     const balance = balanceOf(a);
@@ -579,5 +604,6 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
       return r.ok ? { ok: true, ...(r.standing !== undefined ? { standing: r.standing } : {}) } : r;
     },
     burnRateAt,
+    pending,
   };
 }

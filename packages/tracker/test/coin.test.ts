@@ -78,7 +78,7 @@ describe('the coin as a layer', () => {
     expect(w.coin).toMatchObject({ extension: 'QX-17', home: 'here', genesis: T0, epoch_h: 24, vesting_h: 48, infra_bp: 1000, treasury: addr(treasury), unit: 1000, burn_rate: 100, transfers_from: T0, redeem_from: T0 });
     expect(w.stake).toEqual({ extension: 'QX-15', coin: 'here', burn_rate: 100 });
     for (const r of ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/credits', '/coin/state']) expect(w.routes).toContain(r);
-    expect(await balanceOf(A)).toEqual({ root: addr(A), balance: 0, vested: 0, unvested: 0, locked: 0, escrowed: 0, free: 0, free_vested: 0, minted: 0, received: 0, burned: 0, forfeited: 0, redeemed: 0, credited: 0, at: expect.any(String), head: null });
+    expect(await balanceOf(A)).toEqual({ root: addr(A), balance: 0, vested: 0, unvested: 0, locked: 0, escrowed: 0, free: 0, free_vested: 0, minted: 0, received: 0, burned: 0, forfeited: 0, redeemed: 0, credited: 0, pending: { amount: 0, pays_at: expect.any(String), epoch: 0 }, at: expect.any(String), head: null });
     expect((await post('/p', { envelope: P })).status).toBe(201);
     expect((await post('/p', { envelope: Q })).status).toBe(201);
     [p1, p2, p3, p4] = ((await get(`/p/${p}/state`)) as { pieces: PieceState[] }).pieces.map((x) => x.hash) as [Hash, Hash, Hash, Hash];
