@@ -69,6 +69,8 @@ header.top { padding-block: 22px 8px; display: flex; align-items: baseline; just
 nav.site { display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.95rem; }
 nav.site a { color: var(--ink-2); text-decoration: none; }
 nav.site a:hover { color: var(--ink); text-decoration: underline; }
+nav.site a.small { color: var(--act-ink); background: var(--act); padding: 8px 14px; border-radius: 6px; font-weight: 700; }
+nav.site a.small:hover, nav.site a.small:focus-visible { text-decoration: none; filter: brightness(1.08); }
 .hero { padding-block: 44px 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
 .hero .lede { font-size: 1.2rem; color: var(--ink-2); max-width: 60ch; }
 .doors { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
@@ -108,7 +110,7 @@ footer .cols { gap: 16px 36px; }
   <header class="top">
     <a class="brand" href="index.html">BitQuilt</a>
     <nav class="site" aria-label="Sections">
-      <a href="problems.html">Problems</a><a href="#quilt">Quilt</a><a href="#hold">Hold your own key</a><a href="#how">How it works</a><a href="#accepted">What accepted means</a><a href="#build">Build a client</a><a href="#problem">The open problem</a>
+      <a href="index.html">Quilt</a><a href="#how">How it works</a><a href="#accepted">What accepted means</a><a href="#build">Build a client</a><a href="problems.html">Problems</a><a href="https://github.com/BitQuilt/bitquilt">GitHub</a><a class="small" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.app.zip">Download for Mac</a>
     </nav>
   </header>
 

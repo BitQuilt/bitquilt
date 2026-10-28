@@ -1,8 +1,4 @@
-# bitquilt.org
-
-Three static pages, no build step and no framework, each with its styles and its script inside and fonts from Google Fonts. Serve the folder as it is; GitHub Pages, Vercel or any file server will do, and the plan is the tracker's own host, so that one domain does everything.
-
-- `index.html` is the first screen: the newest problems a tracker carries, each as its strip (a square a piece, a colour a state), read live from the tracker's `/search` route; under them the one button, Get an address, which opens the tracker's `/join` page, and a quieter link to holding your own key.
+- `index.html`: one job, the download. The headline, one button for the Mac app (the release's `Quilt.app.zip`), and under it the quilt: a grid of squares filling in, each colour a state of a piece, read live from the tracker when it carries a problem and scripted from a seed when it does not. Then three numbered steps, the ways in for everyone not on a Mac (the Claude Desktop bundle, an address on the tracker, the executables), and a footer.
 - `problems.html` is every problem the tracker carries, read live: a search box, each problem's map, its counts, and the `quilt:` link to hand to an AI.
 - `how.html` is the long form: what Quilt is, holding your own key (the bundle and the Mac app), how a piece is done, what accepted means, building a client (where Quilt's build-from-source block lives, under `#build`), and the open problem.
 
