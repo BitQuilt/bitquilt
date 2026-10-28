@@ -22,13 +22,27 @@ export interface CoinParams {
   home?: string;
   genesis: string;
   epoch_h: number;
-  emission: { per_epoch: number; decline_bp: number; period_epochs: number };
+  /**
+   * `per_epoch` units in an epoch of the first period, falling by `decline_bp` basis points after every `period_epochs`
+   * epochs; `floor_per_epoch`, where present, is the tail the curve never falls below; `max_per_weight`, where present,
+   * caps what an epoch mints at that many units a unit of verified weight, so a square in a thin epoch earns a known
+   * wage and the rest of the curve's amount is unminted (28 October 2026).
+   */
+  emission: { per_epoch: number; decline_bp: number; period_epochs: number; floor_per_epoch?: number; max_per_weight?: number };
   vesting_h: number;
   infra_bp: number;
   treasury: Address;
   unit: number;
   weights: { cross_vendor: number; same_vendor: number; attest: number };
+  /** The units of coin a point of standing costs at the door; with `burn_indexed`, the floor under the rate `burnRateAt` gives. */
   burn_rate: number;
+  /**
+   * Where true, a point costs what a reveal in a verified cross-vendor square earned in the latest epoch ended by then
+   * (its payout a unit of weight times `weights.cross_vendor`), and never less than `burn_rate` (28 October 2026).
+   */
+  burn_indexed?: boolean;
+  /** The longest challenge window, in hours, of a problem the home admits, so that a strike inside any window can still take back coin not yet vested; absent, no bound. */
+  window_max_h?: number;
   transfers_from: string | null;
   redeem_from: string | null;
   /** The root whose `credit` lines the ledger keeps: the bridge's reader, bonded in Anchors as the poster is; absent or null, no credit is kept. */
@@ -98,7 +112,8 @@ export interface RedeemLine {
   at: string;
 }
 
-export interface EpochView { epoch: number; start: string; end: string; amount: number; treasury: number; weight: number; minted: number }
+/** An ended epoch: `ceiling` is the curve's amount, `amount` what the epoch could mint once the cap on a unit of weight is applied, `minted` what it did. */
+export interface EpochView { epoch: number; start: string; end: string; ceiling: number; amount: number; treasury: number; weight: number; minted: number }
 
 export interface CoinLayer {
   params: CoinParams;
@@ -115,6 +130,8 @@ export interface CoinLayer {
   credits(upto?: number): CreditLine[];
   /** Whether a coin-log event would be kept if received now, and why not; for a burn that would, the standing it credits. */
   admit(event: Event): Admission & { standing?: number };
+  /** The units a point of standing costs at the door at `at`: `burn_rate`, or with `burn_indexed` the greater of it and what a reveal in a verified cross-vendor square earned in the latest epoch ended by then. */
+  burnRateAt(at: string): number;
   dropped: { id: Hash; type: string; why: string }[];
 }
 
@@ -127,6 +144,10 @@ export function coinParamsProblems(p: unknown): string[] {
   if (!(typeof p.epoch_h === 'number' && p.epoch_h > 0)) out.push('coin.epoch_h: hours above 0');
   const e = p.emission;
   if (!isRecord(e) || !whole(e.per_epoch, 0) || !whole(e.decline_bp, 0) || (e.decline_bp as number) > 10000 || !whole(e.period_epochs, 1)) out.push('coin.emission: per_epoch, decline_bp (0 to 10000) and period_epochs (at least 1), whole');
+  if (isRecord(e)) {
+    if (e.floor_per_epoch !== undefined && !whole(e.floor_per_epoch, 0)) out.push('coin.emission.floor_per_epoch: units from 0, whole');
+    if (e.max_per_weight !== undefined && !whole(e.max_per_weight, 1)) out.push('coin.emission.max_per_weight: units a unit of weight, at least 1, whole');
+  }
   if (!(typeof p.vesting_h === 'number' && p.vesting_h >= 0)) out.push('coin.vesting_h: hours from 0');
   if (!whole(p.infra_bp, 0) || (p.infra_bp as number) > 10000) out.push('coin.infra_bp: 0 to 10000');
   if (!isAddress(p.treasury)) out.push('coin.treasury: an address with its checksum');
@@ -134,6 +155,8 @@ export function coinParamsProblems(p: unknown): string[] {
   const w = p.weights;
   if (!isRecord(w) || !whole(w.cross_vendor, 0) || !whole(w.same_vendor, 0) || !whole(w.attest, 0)) out.push('coin.weights: cross_vendor, same_vendor and attest, whole');
   if (!whole(p.burn_rate, 1)) out.push('coin.burn_rate: units a point, at least 1');
+  if (p.burn_indexed !== undefined && typeof p.burn_indexed !== 'boolean') out.push('coin.burn_indexed: true or false');
+  if (p.window_max_h !== undefined && !(typeof p.window_max_h === 'number' && p.window_max_h > 0)) out.push('coin.window_max_h: hours above 0');
   for (const k of ['transfers_from', 'redeem_from']) if (p[k] !== null && !isTime(p[k])) out.push(`coin.${k}: a time or null`);
   if (p.reader !== undefined && p.reader !== null && !isAddress(p.reader)) out.push('coin.reader: an address with its checksum, or null');
   return out;
@@ -183,12 +206,12 @@ export function coinBodyProblems(type: string, body: unknown): string[] {
   return out;
 }
 
-/** The amount an epoch mints before the division: per_epoch, reduced once per period by decline_bp, each reduction floored. */
+/** The curve's amount for an epoch, the most it can mint: per_epoch, reduced once per period by decline_bp, each reduction floored, and never below floor_per_epoch, the tail. */
 export function epochAmount(params: CoinParams, epoch: number): number {
   let amount = params.emission.per_epoch;
   const reductions = Math.floor(epoch / params.emission.period_epochs);
   for (let i = 0; i < reductions; i++) amount = Math.floor((amount * (10000 - params.emission.decline_bp)) / 10000);
-  return amount;
+  return Math.max(amount, params.emission.floor_per_epoch ?? 0);
 }
 
 type LineKind = 'verified' | 'forfeit' | 'restore' | 'release' | 'bind' | 'accepted' | 'complete' | 'mint' | 'posted';
@@ -310,6 +333,15 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     return pl && view ? leaseOf(pl.fold, view) : 0;
   };
 
+  /** QX-17 section 4, the burn rate at a time. `epochs` holds every epoch ended by the line being folded, since mint lines sort before posted ones at one instant. */
+  const burnRateAt = (at: string): number => {
+    if (!params.burn_indexed) return params.burn_rate;
+    let last: EpochView | undefined;
+    for (const e of epochs) if (e.end <= at) last = e;
+    if (!last || last.weight <= 0) return params.burn_rate;
+    return Math.max(params.burn_rate, Math.floor((last.minted - last.treasury) / last.weight) * params.weights.cross_vendor);
+  };
+
   type Check = { ok: true; root: Address; standing?: number } | { ok: false; why: string };
   /** Whether a posted event would be kept at `at`, by section 2 of QX-17. */
   const check = (e: Event, at: string): Check => {
@@ -338,7 +370,7 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
       case 'burn': {
         const f = freeOf(a);
         if (f < (b.amount as number)) return { ok: false, why: `free coin ${f} is below the burn of ${b.amount}` };
-        return { ok: true, root, standing: Math.floor((b.amount as number) / params.burn_rate) };
+        return { ok: true, root, standing: Math.floor((b.amount as number) / burnRateAt(at)) };
       }
       case 'transfer': {
         if (params.transfers_from === null || at < params.transfers_from) return { ok: false, why: 'transfers are off' };
@@ -371,9 +403,12 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
         const n = line.epoch!;
         const start = new Date(genesis + n * epochMs).toISOString();
         const end = line.at;
-        const amount = epochAmount(params, n);
+        const ceiling = epochAmount(params, n);
         const inEpoch = verified.filter((v) => v.at >= start && v.at < end);
         const weight = inEpoch.reduce((s, v) => s + (v.weight ?? 0), 0);
+        // The cap: a unit of weight earns at most max_per_weight, and the rest of the curve's amount is unminted, not carried.
+        const cap = params.emission.max_per_weight;
+        const amount = cap === undefined ? ceiling : Math.min(ceiling, cap * weight);
         let minted = 0;
         let treasury = 0;
         if (weight > 0 && amount > 0) {
@@ -398,7 +433,7 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
             minted += share;
           }
         }
-        epochs.push({ epoch: n, start, end, amount, treasury, weight, minted });
+        epochs.push({ epoch: n, start, end, ceiling, amount, treasury, weight, minted });
         break;
       }
       case 'accepted': {
@@ -543,5 +578,6 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
       const r = check(event, now);
       return r.ok ? { ok: true, ...(r.standing !== undefined ? { standing: r.standing } : {}) } : r;
     },
+    burnRateAt,
   };
 }

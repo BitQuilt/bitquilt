@@ -16,11 +16,11 @@ export const addr = addressOf;
 /** The settings every test problem uses: a two-day window and a two-hour lease. */
 export const SETTINGS: Envelope['problem']['settings'] = { challenge_window_h: 48, lease_h: 2, endgame_at: 1, budget: 100, patch_max: 10000 };
 
-/** An envelope signed by its owner with the settings above; the title and done_when default to the statements the tests pose. */
-export function envelope(owner: Uint8Array, slug: string, pieces: Envelope['problem']['pieces'], extra: Partial<Pick<Envelope['problem'], 'title' | 'done_when' | 'data'>> = {}): Envelope {
+/** An envelope signed by its owner with the settings above, any of them overridden by `extra.settings`; the title and done_when default to the statements the tests pose. */
+export function envelope(owner: Uint8Array, slug: string, pieces: Envelope['problem']['pieces'], extra: Partial<Pick<Envelope['problem'], 'title' | 'done_when' | 'data'>> & { settings?: Partial<Envelope['problem']['settings']> } = {}): Envelope {
   const problem: Envelope['problem'] = {
     title: extra.title ?? `Statements (${slug})`, done_when: extra.done_when ?? 'Every statement has a verdict.', owner: addr(owner), slug, prev: null, from: null,
-    settings: SETTINGS, pieces, data: extra.data ?? {},
+    settings: { ...SETTINGS, ...extra.settings }, pieces, data: extra.data ?? {},
   };
   const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
   return { ...unsigned, sig: signObject(unsigned, owner) };

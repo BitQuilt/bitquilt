@@ -210,6 +210,11 @@ export function createTracker(options: TrackerOptions): Tracker {
       const issues = plainTextProblems(d.brief, `pieces.${name}.brief`);
       if (issues.length) throw new Refusal(400, issues[0]!);
     }
+    // QX-17: at the coin's home, a window longer than the home admits would leave a fake's coin vested before a late challenge decides.
+    const windowMax = options.coin?.window_max_h;
+    if (windowMax !== undefined && coinHome() === 'here' && e.problem.settings.challenge_window_h > windowMax) {
+      throw new Refusal(400, `the challenge window of ${e.problem.settings.challenge_window_h} hours is beyond the ${windowMax} this home admits (QX-17)`);
+    }
     if (e.problem.prev) {
       const prev = store.getEnvelope(e.problem.prev);
       if (!prev) throw new Refusal(400, 'prev: not a problem this tracker holds');
@@ -441,25 +446,33 @@ export function createTracker(options: TrackerOptions): Tracker {
     let head: { seq: number; hash: string } | null = null;
     if (home === 'here') {
       const c = coin()!;
-      return { lock: c.lock(id), rate: c.params.burn_rate, head: c.head };
+      return { lock: c.lock(id), rate: c.burnRateAt(c.now), head: c.head };
     }
     let lock: CoinLockView | null = null;
+    let rate: number | null = null;
     try {
-      if (homeRate === null) {
-        const w = (await (await fetchImpl(`${home}.well-known/quilt`, { signal: AbortSignal.timeout(8000) })).json()) as { coin?: { burn_rate?: number } };
-        if (typeof w.coin?.burn_rate !== 'number') throw new Error('no coin');
-        homeRate = w.coin.burn_rate;
-      }
       const r = await fetchImpl(`${home}coin/lock/${id}`, { signal: AbortSignal.timeout(8000) });
       if (r.ok) {
-        const { head: h, ...rest } = (await r.json()) as CoinLockView & { head: { seq: number; hash: string } | null; at: string };
+        const { head: h, rate: read, ...rest } = (await r.json()) as CoinLockView & { head: { seq: number; hash: string } | null; at: string; rate?: number };
         lock = rest;
         head = h;
+        // The rate in force at the home when it answered; an indexed one moves with the epochs.
+        if (typeof read === 'number') rate = read;
       } else if (r.status !== 404) throw new Error(`${r.status}`);
+      if (rate === null) {
+        // An older home answers no rate with the lock; the one its well-known publishes is read once.
+        if (homeRate === null) {
+          const w = (await (await fetchImpl(`${home}.well-known/quilt`, { signal: AbortSignal.timeout(8000) })).json()) as { stake?: { burn_rate?: number }; coin?: { burn_rate?: number } };
+          const published = w.stake?.burn_rate ?? w.coin?.burn_rate;
+          if (typeof published !== 'number') throw new Error('no coin');
+          homeRate = published;
+        }
+        rate = homeRate;
+      }
     } catch {
       throw new Refusal(400, 'the home did not answer');
     }
-    return { lock, rate: homeRate, head };
+    return { lock, rate, head };
   }
 
   /**
@@ -498,7 +511,8 @@ export function createTracker(options: TrackerOptions): Tracker {
       challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
       verifiers: { human: EXTENSIONS.human, 'judge:n': EXTENSIONS.judge, attest: EXTENSIONS.attest, judge_seed: JUDGE_SEED },
       chain: 'QX-11', seeding: SEEDING, reciprocity: RECIPROCITY, hide: HIDE, maintainers, identity: IDENTITY, hosted: options.extra !== undefined,
-      stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: options.coin.burn_rate } : {}) }, gold: { extension: GOLD },
+      // `stake.burn_rate` is the rate in force now, which with `burn_indexed` moves with the epochs; `coin.burn_rate` is the parameter, its floor.
+      stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: coin()!.burnRateAt(now()) } : {}) }, gold: { extension: GOLD },
       coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
       // The list a client reads; the dispatcher in `handle` is kept in this order by hand.
       routes: [
@@ -837,7 +851,7 @@ export function createTracker(options: TrackerOptions): Tracker {
           const c = coin()!;
           const lock = c.lock(cm[1] as Hash);
           if (!lock) throw new Refusal(404, 'no such lock on the coin log');
-          json(res, 200, { ...lock, head: c.head, at: c.now });
+          json(res, 200, { ...lock, head: c.head, at: c.now, rate: c.burnRateAt(c.now) });
           return;
         }
         if ((cm = /^\/coin\/balance\/(0x[0-9a-fA-F]{40})$/.exec(path))) {

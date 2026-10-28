@@ -61,7 +61,7 @@ describe('stake at the door, from the client', () => {
     await expect(fresh.next(p)).rejects.toThrow(/asks a stake this key's free standing cannot cover/);
     expect(await typesBy(p, fresh.identity!.address)).toEqual([]);
     const me = await runTool(fresh, 'quilt_me', {});
-    expect(me.text).toContain(`Standing: 1 (locked 0, free 1) at ${base}`);
+    expect(me.text).toContain(`Standing: 1, earned by work and not for sale (locked 0, free to stake 1) at ${base}`);
   });
 
   it('locks then claims for a key with standing, in one step, and quilt_me says what is locked', async () => {
@@ -79,7 +79,7 @@ describe('stake at the door, from the client', () => {
     expect(s).toMatchObject({ standing: 2, locked: 2, free: 0 });
     expect(s!.locks).toEqual([{ problem: p, piece: r.pick.piece.hash, amount: 2, at: expect.any(String) }]);
     const me = await runTool(a, 'quilt_me', {});
-    expect(me.text).toContain(`Standing: 2 (locked 2, free 0) at ${base}; locks: 2 on ${r.pick.piece.hash} of ${p}`);
+    expect(me.text).toContain(`Standing: 2, earned by work and not for sale (locked 2, free to stake 0) at ${base}; locks: 2 on ${r.pick.piece.hash} of ${p}`);
     // The other piece is beyond what is free now.
     await expect(a.next(p)).rejects.toThrow(/free standing cannot cover/);
     const next = await runTool(b, 'quilt_next', { problem: p });
@@ -100,7 +100,7 @@ describe('stake at the door, from the client', () => {
     const publish = tools.tools.find((t) => t.name === 'quilt_publish')!;
     expect(JSON.stringify(publish.inputSchema)).toContain('"stake"');
     const me = await client.callTool({ name: 'quilt_me', arguments: {} });
-    expect((me.structuredContent as { text: string }).text).toContain('Standing: 1 (locked 0, free 1)');
+    expect((me.structuredContent as { text: string }).text).toContain('Standing: 1, earned by work and not for sale (locked 0, free to stake 1)');
     await close();
   });
 });

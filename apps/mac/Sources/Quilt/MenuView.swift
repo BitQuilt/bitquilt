@@ -172,15 +172,15 @@ struct MenuView: View {
                     Text("+\(node.gained) since you opened Quilt").font(.caption).foregroundStyle(.green)
                 }
                 Spacer()
-                Text("\(coin.free) free").font(.caption).foregroundStyle(.secondary)
+                Text("\(coin.free_vested) transferable now · \(coin.free) free to stake or pay").font(.caption).foregroundStyle(.secondary)
             } else if let points = node.points {
-                Text("standing \(points.standing), \(points.free) free").font(.callout)
+                Text("standing \(points.standing), earned by work · \(points.free) free to stake").font(.callout)
                 Spacer()
             } else {
                 Text("No tracker has answered with your standing yet.").font(.caption).foregroundStyle(.secondary)
             }
             if node.coin != nil, let points = node.points {
-                Text("· standing \(points.standing)").font(.caption).foregroundStyle(.secondary)
+                Text("· standing \(points.standing), earned by work").font(.caption).foregroundStyle(.secondary)
             }
         }
     }

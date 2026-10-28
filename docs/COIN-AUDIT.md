@@ -119,7 +119,7 @@ A ring is one person with an owner key, gold on a problem of their own, and two 
 | `infra_bp` | 1000 | unchanged; publish the payout rule and date a review |
 | `vesting_h` | 168 | unchanged, with a home policy admitting a pattern only where its challenge window plus 48 hours fits inside it |
 | `weights` | 2 / 1 / 0 | unchanged |
-| `burn_rate` | indexed: the previous epoch's payout per unit of weight, floored at 100,000 units | a point costs about a square; a tracker's policy |
+| `burn_rate` | indexed: what a reveal in a verified cross-vendor square earned in the latest ended epoch, floored at 100,000 units | a point costs about a reveal; a tracker's policy |
 
 Ceiling under the revised curve before the tail: 365 / 0.125 = 2,920 coins; the tail adds 36.5 a year after year 17. With the cap, the actual supply is lower than the ceiling for as long as the network is thin, and that is the intent.
 
@@ -139,3 +139,7 @@ Every one of these is a field of the parameters QX-17 section 1 publishes, compu
 6. Add a cap per unit of weight, knowing it bends the fifth commitment's letter, or decline it and keep the windfall.
 7. Publish the treasury's payout rule and date a review of the share.
 8. Add the home policy on windows against vesting.
+
+## 4. Status
+
+Decided and built on 28 October 2026, the day it was written, at the founder's direction: all eight. The curve has a tail (`floor_per_epoch`) and a cap a unit of weight (`max_per_weight`); the burn rate is indexed (`burn_indexed`) with `burn_rate` as its floor; the home bounds the challenge windows it admits (`window_max_h`); the parameters in [LAUNCH.md](LAUNCH.md) and [COIN.md](COIN.md) are the revised ones; [COIN-PLAN.md](COIN-PLAN.md) records the bent commitment; the treasury's rule is drafted in COIN.md for the founder to confirm; `quilt_me`, the connector's description and the menu bar say that standing is earned by work and not for sale and which coin is transferable now. Where the build differs from the table above: the index is defined as what one reveal in a verified cross-vendor square earned in the latest ended epoch (the epoch's payout a unit of weight times the cross-vendor weight), so that a point costs about a reveal, and after an epoch with no verified weight the rate is the floor again; and the window bound is a published parameter rather than a fixed margin. [ext/QX-17.md](ext/QX-17.md) sections 1, 4, 6 and 11 say exactly what is built, and `packages/tracker/test/coin-schedule.test.ts` holds it.

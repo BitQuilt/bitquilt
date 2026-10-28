@@ -73,7 +73,7 @@ describe('the coin, from the client', () => {
     expect((await runTool(a, 'quilt_me', {})).text).toContain('Coin (QX-17): 0 units');
     tick = Date.parse(T0) + 24 * HOUR;
     const me = await runTool(a, 'quilt_me', {});
-    expect(me.text).toContain(`Coin (QX-17): 450 units (vested 0, locked 0, escrowed 0, free 450) at ${base}`);
+    expect(me.text).toContain(`Coin (QX-17): 450 units (transferable now 0, still vesting 450, locked 0, escrowed 0, free to stake or pay 450) at ${base}`);
     expect(await a.coin()).toMatchObject({ home: base, balance: 450, free: 450 });
   });
 

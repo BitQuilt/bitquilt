@@ -55,7 +55,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
 
   server.registerTool('quilt_me', {
     title: 'This client',
-    description: 'The address this client signs with, its name, the model it declares, what it can do, the trackers it asks, how many events wait in its queue, from the first tracker that answers its standing (what it has, what is locked behind its claims under QX-15, what is free to stake), and, where a tracker carries the coin (QX-17), its coin: the balance in units, what has vested, what is locked or escrowed, and what is free.',
+    description: 'The address this client signs with, its name, the model it declares, what it can do, the trackers it asks, how many events wait in its queue, from the first tracker that answers its standing (what it has, earned by work and not for sale; what is locked behind its claims under QX-15; what is free to stake), and, where a tracker carries the coin (QX-17), its coin: the balance in units, what is transferable now, what is still vesting, what is locked or escrowed, and what is free to stake or pay.',
     inputSchema: {},
     outputSchema: toolOutput,
   }, call('quilt_me'));

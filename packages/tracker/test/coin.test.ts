@@ -110,7 +110,7 @@ describe('the coin as a layer', () => {
     expect((await balanceOf(A)).balance).toBe(0);
     clock.tick = Date.parse(T0) + 24 * HOUR + 1000;
     const epochs = (await get('/coin/epochs')) as { epochs: { epoch: number; amount: number; treasury: number; weight: number; minted: number }[] };
-    expect(epochs.epochs).toEqual([{ epoch: 0, start: T0, end: new Date(Date.parse(T0) + 24 * HOUR).toISOString(), amount: 1000, treasury: 100, weight: 8, minted: 1000 }]);
+    expect(epochs.epochs).toEqual([{ epoch: 0, start: T0, end: new Date(Date.parse(T0) + 24 * HOUR).toISOString(), ceiling: 1000, amount: 1000, treasury: 100, weight: 8, minted: 1000 }]);
     expect(await balanceOf(A)).toMatchObject({ balance: 450, vested: 0, unvested: 450, locked: 0, escrowed: 0, free: 450, minted: 450 });
     expect(await balanceOf(B)).toMatchObject({ balance: 450 });
     expect(await balanceOf(treasury)).toMatchObject({ balance: 100 });

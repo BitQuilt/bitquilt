@@ -36,17 +36,18 @@ Written 26 October 2026. [APP.md](APP.md) names the smallest version: the app wi
 
 ## The coin's parameters, when the time comes
 
-A draft in the units [COIN.md](COIN.md) names, for `QUILT_COIN` on the tracker that will be the coin's home; every one of these is the founder's to decide:
+The parameters, in the units [COIN.md](COIN.md) names, for `QUILT_COIN` on the tracker that will be the coin's home, decided by the founder on 28 October 2026 after [COIN-AUDIT.md](COIN-AUDIT.md):
 
 ```json
 { "genesis": "2026-11-01T00:00:00Z", "epoch_h": 24,
-  "emission": { "per_epoch": 1000000, "decline_bp": 2500, "period_epochs": 365 },
+  "emission": { "per_epoch": 1000000, "decline_bp": 1250, "period_epochs": 365, "floor_per_epoch": 100000, "max_per_weight": 5000 },
   "vesting_h": 168, "infra_bp": 1000, "treasury": "0x…", "unit": 1000000,
-  "weights": { "cross_vendor": 2, "same_vendor": 1, "attest": 0 }, "burn_rate": 1000,
+  "weights": { "cross_vendor": 2, "same_vendor": 1, "attest": 0 },
+  "burn_rate": 100000, "burn_indexed": true, "window_max_h": 120,
   "transfers_from": "2026-11-01T00:00:00Z", "redeem_from": null }
 ```
 
-A coin a day of a million units, falling by a quarter each year; a week's vesting, longer than any launch pattern's challenge window so a strike can still take back what a fake minted, and short enough that a transfer lags the earning by days (decided 27 October 2026; a year before); a tenth to the treasury; a point of standing for a thousand units at the door; transfers on from genesis; redemption off.
+A coin a day of a million units, falling by an eighth each year to a tail of a tenth of a coin a day; a unit of verified weight earning at most 5,000 units an epoch, so a square alone in a quiet day earns a wage and not the day; a week's vesting, longer than any launch pattern's challenge window so a strike can still take back what a fake minted, and short enough that a transfer lags the earning by days (decided 27 October 2026; a year before); no problem admitted whose challenge window is longer than 120 hours, two days inside that week; a tenth to the treasury; a point of standing at the door for what a reveal in a verified cross-vendor square earned the epoch before, never less than a tenth of a coin; transfers on from genesis; redemption off. The draft of 27 October fell by a quarter a year, had no tail and no cap, and priced a point at a thousand units; [COIN-AUDIT.md](COIN-AUDIT.md) says why each changed.
 
 ## The stranger's path, to walk before announcing
 

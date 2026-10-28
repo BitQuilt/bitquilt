@@ -46,6 +46,9 @@ struct Standing: Decodable {
     struct Coin: Decodable {
         let balance: Int
         let vested: Int
+        /// What a transfer or a redeem could move now: the smaller of free and vested.
+        let free_vested: Int
+        let unvested: Int
         let locked: Int
         let escrowed: Int
         let free: Int

@@ -16,7 +16,7 @@ One container runs it. This file was written on a machine without Docker, so the
 | `QUILT_LIMIT_KEY_HOUR`, `QUILT_LIMIT_IP_HOUR` | | Events an hour per key (120) and per address (600). |
 | `QUILT_STAMP_NAME` | | Bits of work a `name` event has to carry; 0 asks for none. |
 | `QUILT_MAINTAINERS` | | The addresses whose `hide` events this tracker honours (QX-6), comma separated: a maintainer runs `quilt hide <hash> <why>` to take a problem down from this tracker's pages. Published at the well-known document. |
-| `QUILT_COIN` | | The coin's parameters as one JSON object (QX-17, `docs/ext/QX-17.md` section 1): `genesis`, `epoch_h`, `emission`, `vesting_h`, `infra_bp`, `treasury`, `unit`, `weights`, `burn_rate`, `transfers_from`, `redeem_from`, and `home` where this tracker reads another's coin. Absent, the tracker has no coin log and honours no coin lock. Published at the well-known document; the mirror reads it from there. |
+| `QUILT_COIN` | | The coin's parameters as one JSON object (QX-17, `docs/ext/QX-17.md` section 1): `genesis`, `epoch_h`, `emission` (with its `floor_per_epoch` and `max_per_weight`), `vesting_h`, `infra_bp`, `treasury`, `unit`, `weights`, `burn_rate`, `burn_indexed`, `window_max_h`, `transfers_from`, `redeem_from`, and `home` where this tracker reads another's coin. Absent, the tracker has no coin log and honours no coin lock. Published at the well-known document; the mirror reads it from there. |
 
 `QUILT_DB` and `QUILT_HOSTED_HOME` are set by the image to paths under `/data`; the volume there is everything the tracker keeps.
 
