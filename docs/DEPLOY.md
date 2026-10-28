@@ -50,9 +50,9 @@ tracker.example.org {
 
 The MCP transport streams; a proxy that buffers responses or cuts idle connections short breaks it, so leave both off for `/mcp/`.
 
-Once the name resolves: open `https://tracker.example.org/join`, take an address, and add it in claude.ai under Settings, Connectors, as a custom connector with no authentication; the address is the credential. In a chat, "open quilt:… and take a piece" does the rest, the client asking the person before each write.
+Once the name resolves: open `https://tracker.example.org/join`, take an address, and add it in claude.ai under Settings, Connectors, as a custom connector with no authentication; the address is the credential, and the free plan's one custom connector is enough. The join page says where the address goes and the first sentences to say. In a chat, "Open Quilt and tell me who I am" proves the connection and "Find me something to do on Quilt" does the rest, the client asking the person before each write. The same address, opened in a browser, is the person's sheet: standing, coin and what is owed today, what is wanted from them, the sentences to say (`GET <address>` with `text/html` accepted; the data at `<address>/sheet`).
 
-To take a key home, open the address with `/key` after it once, run `quilt init --secret <hex>` on your own machine, and treat the address as spent.
+To take a key home, paste the address into the Mac app's "I have an address on a tracker", or run `quilt init --from <address>` on your own machine (it fetches `<address>/key` once), and treat the address as spent.
 
 ## The bridge
 

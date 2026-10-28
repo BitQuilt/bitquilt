@@ -110,6 +110,8 @@ export function createHosted(options: HostedOptions): Hosted {
       json(res, 404, { error: 'no such address here' });
       return;
     }
+    // The funnel (counts.ts): the day this address was first used by an AI; the mark moves once and nothing else.
+    store.markMemberUsed(tokenHash(token), now());
     sweep();
     const sid = req.headers['mcp-session-id'];
     const sessionId = Array.isArray(sid) ? sid[0] : sid;
@@ -237,7 +239,9 @@ export function createHosted(options: HostedOptions): Hosted {
           json(res, 404, { error: 'no such address here' });
           return true;
         }
-        json(res, 200, { address: member.address, secret: decrypt(keySecret, member.keyEnc), note: 'This is the key itself. Import it into Quilt with quilt init --secret, and treat this address as spent.' });
+        // The funnel (counts.ts): the day the key went home.
+        store.markMemberKeyTaken(tokenHash(token), now());
+        json(res, 200, { address: member.address, secret: decrypt(keySecret, member.keyEnc), note: 'This is the key itself. Import it into Quilt with quilt init --secret or --from, and treat this address as spent.' });
         return true;
       }
       await mcp(req, res, token);

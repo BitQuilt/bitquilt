@@ -112,3 +112,7 @@ If any step takes twice its time, or needs a terminal, the launch is not ready.
 4. Which second vendor's key the standing workers run with, and on what machine.
 5. Whether a key is made on first use with the backup deferred, or shown first. (Recommended: first use.)
 6. Whether to count the funnel on the tracker, naming nobody. (Recommended: yes.)
+
+## 7. Status
+
+Built on 28 October 2026, the day it was written, at the founder's direction, in the order given: the join page as the sheet with the data at the address (fix 1); a key at first use with the words shown once on the page and the menu bar's row until then (fix 2); the Mac app handing the connector bundle to Claude Desktop in place of writing its config (fix 3); what is owed today on the balance route, in `quilt_me`, on the menu bar and on the hosted sheet (fix 4); the site's first screen as the live strips above Get an address (fix 5); an address imported in the Mac app and `quilt init --from` (fix 6); the name offered on the sheet once there is work behind the address (fix 7); `publish` refusing a draft with every fault at once from one checker the maintainers' script shares, and the phrase "Turn this into a problem" (fix 8); `GET /counts` on the tracker, by day and naming nobody, with the hosted on-ramp marking first use and a key taken home (fix 9). Not built: notarization (fix 10), which needs the Apple developer account; and nothing in section 4, which is the maintainers' hands. The stranger's path in [LAUNCH.md](LAUNCH.md) is the one in section 5.

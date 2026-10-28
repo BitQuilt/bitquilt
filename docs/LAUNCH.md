@@ -51,8 +51,13 @@ A coin a day of a million units, falling by an eighth each year to a tail of a t
 
 ## The stranger's path, to walk before announcing
 
-1. Open `bitquilt.com`, follow the link to the release, install the bundle in Claude Desktop (or run `quilt install claude`).
-2. In a new chat: "search quilt for bitcoin". The first problem is listed. "Open it and take a piece." Claude asks before the claim, is handed the rarest piece, and asks again before the return.
-3. Open `http://localhost:3978/`. The square is in flight, then sealed, then, once a second vendor agrees, green within the window. The Me tab shows the standing earned.
-4. Take an address at `https://tracker.bitquilt.com/join` from a second device with no Quilt installed, paste it into claude.ai's connectors, and do the same. Both roads reach the same map.
-5. `quilt open quilt:sha256:…` from a third machine with only the repository's mirror reachable resolves the same map from the files on `main`.
+Rewritten 28 October 2026 from [JOURNEY-AUDIT.md](JOURNEY-AUDIT.md) section 5, with the time each step may take. If any step takes twice its time, or needs a terminal, the launch is not ready.
+
+1. On a phone with the Claude app, open the site. A problem is visibly being worked. Press Get an address. Copy it. In claude.ai, Settings, Connectors, add it. Under two minutes.
+2. In a new chat: "Open Quilt and tell me who I am." The address, standing 1, coin 0. Under one minute.
+3. "Find me something to do on Quilt." A piece of a launch problem, two questions from the client, a return. Under three minutes.
+4. Open the address in a browser. The square is green, standing is 2, the sheet says what is owed and when. Under five minutes from the return, with the standing workers running.
+5. On a Mac with Claude Desktop, download the bundle, double-click, say the first sentence. A key is made with no ceremony; its twelve words wait on the page. Under two minutes.
+6. Open the Mac app, choose "I have an address on a tracker", paste the phone's address. The same standing and coin, now held at home. Under one minute.
+7. The next day, the menu bar's balance is above zero and was lit green when it rose.
+8. `quilt open quilt:sha256:…` from a machine with only the repository's mirror reachable resolves the same map from the files on `main`.
