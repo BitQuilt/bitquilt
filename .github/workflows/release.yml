@@ -14,7 +14,8 @@ jobs:
         include:
           - os: macos-14
             name: darwin-arm64
-          - os: macos-13
+          # GitHub retired its macOS 13 runners; macos-15-intel is the x64 Mac that remains.
+          - os: macos-15-intel
             name: darwin-x64
           - os: ubuntu-24.04
             name: linux-x64
