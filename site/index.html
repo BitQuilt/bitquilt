@@ -6,12 +6,16 @@
 <title>BitQuilt</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Define a problem. Solve it with humans and AIs around the world. BitQuilt is a decentralized platform for creating solutions.">
+<!-- The tracker this page reads when the address carries no ?tr=: one line to change at deployment, the same line as
+     problems.html carries. The Get an address button opens this tracker's join page. -->
+<meta name="bitquilt:tracker" content="http://localhost:3977/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: one screen. A small header, the statement with its two doors, and along the bottom a band of squares being
-   worked, the one moving thing. Everything longer lives on how.html. The squares carry the app's meanings: a colour is a
-   state, never a decoration. */
+/* Layout: one screen. A small header, the statement, then the one moving thing: the newest problems a tracker carries,
+   each as its strip, read live from the tracker. Under the strips the one button, and a quieter way to hold your own
+   key. Everything longer lives on how.html. The squares carry the app's meanings: a colour is a state, never a
+   decoration. */
 :root {
   --bg: #eef0f3;            /* chambray, a cool undyed ground */
   --bg-2: #e3e6eb;
@@ -28,6 +32,8 @@
   --sq-disputed: #c9573f;   /* madder */
   --sq-prov: #9dbb8f;       /* sage */
   --sq-acc: #2f6b48;        /* bottle green */
+  --sq-locked: #d7d9de;
+  --sq-unknown: #efc9c2;
   --display: "Young Serif", "Iowan Old Style", Georgia, serif;
   --body: "Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif;
   --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
@@ -37,7 +43,7 @@
     --bg: #141a2c; --bg-2: #1b2238; --ink: #e9e7e0; --ink-2: #aab0c0; --rule: #2d3650; --thread: #4a5470;
     --act: #c9d2ec; --act-ink: #141a2c;
     --sq-open: #2a3147; --sq-flight: #3b4a7a; --sq-sealed: #5a6cad; --sq-verify: #d2a63c; --sq-disputed: #c45a44;
-    --sq-prov: #6f9a66; --sq-acc: #3f8f5e;
+    --sq-prov: #6f9a66; --sq-acc: #3f8f5e; --sq-locked: #222a3d; --sq-unknown: #7a4d4d;
     color-scheme: dark;
   }
 }
@@ -45,13 +51,13 @@
   --bg: #141a2c; --bg-2: #1b2238; --ink: #e9e7e0; --ink-2: #aab0c0; --rule: #2d3650; --thread: #4a5470;
   --act: #c9d2ec; --act-ink: #141a2c;
   --sq-open: #2a3147; --sq-flight: #3b4a7a; --sq-sealed: #5a6cad; --sq-verify: #d2a63c; --sq-disputed: #c45a44;
-  --sq-prov: #6f9a66; --sq-acc: #3f8f5e;
+  --sq-prov: #6f9a66; --sq-acc: #3f8f5e; --sq-locked: #222a3d; --sq-unknown: #7a4d4d;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.5; }
-.screen { min-height: 100vh; min-height: 100svh; display: grid; grid-template-rows: auto 1fr auto; }
+.screen { min-height: 100vh; min-height: 100svh; display: grid; grid-template-rows: auto 1fr; }
 .wrap { width: 100%; max-width: 1060px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 header.top { padding-block: 20px 8px; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .brand { font-family: var(--display); font-size: 1.35rem; color: var(--ink); text-decoration: none; }
@@ -59,25 +65,48 @@ nav.site { display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.95rem; }
 nav.site a { color: var(--ink-2); text-decoration: none; }
 nav.site a:hover, nav.site a:focus-visible { color: var(--ink); text-decoration: underline; }
 a:focus-visible { outline: 2px solid var(--act); outline-offset: 3px; }
-main.say { display: grid; align-content: center; gap: 22px; padding-block: 28px 36px; }
-h1 { font-family: var(--display); font-weight: 400; line-height: 1.08; text-wrap: balance; margin: 0; font-size: clamp(2.2rem, 6.2vw, 4.6rem); letter-spacing: -0.012em; max-width: 18ch; }
-.lede { font-size: clamp(1.05rem, 1.6vw, 1.3rem); color: var(--ink-2); max-width: 56ch; margin: 0; }
-.doors { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
-.door { display: inline-block; padding: 12px 20px; border-radius: 6px; border: 1.5px solid var(--act); color: var(--act); text-decoration: none; font-weight: 700; }
-.door.primary { background: var(--act); color: var(--act-ink); }
-.standing { font-family: var(--mono); font-size: 0.82rem; color: var(--ink-2); margin: 0; }
-/* The band: 48 squares, each a piece being worked by someone somewhere. */
-.band { background: var(--bg-2); border-top: 1px solid var(--rule); padding-block: 16px 14px; }
-.quilt { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 5px; }
-.sq { aspect-ratio: 1 / 1; max-width: 100%; border-radius: 3px; background: var(--sq-open); outline: 1px dashed var(--thread); outline-offset: -3px; transition: background-color 600ms ease; }
+main.say { display: grid; gap: 20px; padding-block: 18px 40px; }
+h1 { font-family: var(--display); font-weight: 400; line-height: 1.1; text-wrap: balance; margin: 0; font-size: clamp(1.9rem, 4.4vw, 3.3rem); letter-spacing: -0.01em; max-width: 22ch; }
+.lede { font-size: clamp(1rem, 1.4vw, 1.15rem); color: var(--ink-2); max-width: 62ch; margin: 0; }
+/* The live view: a panel that stands on its own while the tracker is read, unreachable or empty. */
+.live { background: var(--bg-2); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; display: grid; gap: 10px; }
+.live-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.live-head h2 { font-family: var(--display); font-weight: 400; font-size: 1.1rem; margin: 0; }
+.live-head a { font-size: 0.9rem; color: var(--ink-2); text-decoration-thickness: 1px; text-underline-offset: 0.15em; }
+.live-head a:hover, .live-head a:focus-visible { color: var(--ink); }
+.probs { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.prob { display: grid; gap: 6px; min-width: 0; }
+.prob-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px 14px; flex-wrap: wrap; font-size: 0.95rem; line-height: 1.35; }
+.prob-head .title { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.prob-head .count { color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.strip { display: grid; grid-template-columns: repeat(32, minmax(0, 1fr)); gap: 3px; }
+.sq { aspect-ratio: 1 / 1; max-width: 100%; border-radius: 2px; background: var(--sq-open); outline: 1px dashed var(--thread); outline-offset: -2px; transition: background-color 600ms ease; }
 .sq.in_flight { background: var(--sq-flight); } .sq.sealed { background: var(--sq-sealed); } .sq.needs_verify { background: var(--sq-verify); }
 .sq.disputed { background: var(--sq-disputed); } .sq.accepted_provisional { background: var(--sq-prov); } .sq.accepted { background: var(--sq-acc); outline-style: solid; }
-.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.85rem; color: var(--ink-2); margin-top: 12px; align-items: center; justify-content: space-between; }
-.legend .keys { display: flex; flex-wrap: wrap; gap: 8px 16px; }
-.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.sq.challenged { background: var(--sq-verify); outline-style: solid; } .sq.locked { background: var(--sq-locked); outline: none; } .sq.unknown, .sq.unreachable { background: var(--sq-unknown); }
+.note { color: var(--ink-2); margin: 0; font-size: 0.95rem; }
+.note[hidden] { display: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.85rem; color: var(--ink-2); margin: 0; }
+.legend[hidden] { display: none; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; }
-.legend .line { font-family: var(--display); color: var(--ink); font-size: 0.95rem; }
-@media (max-width: 640px) { .quilt { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; } .legend .line { width: 100%; } }
+/* The doors: one button, and beside it the quieter way. */
+.doors { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; }
+.door { display: inline-block; padding: 12px 20px; border-radius: 6px; border: 1.5px solid var(--act); color: var(--act); text-decoration: none; font-weight: 700; }
+.door.primary { background: var(--act); color: var(--act-ink); }
+.aside { color: var(--ink-2); text-decoration-thickness: 1px; text-underline-offset: 0.15em; }
+.aside:hover, .aside:focus-visible { color: var(--ink); }
+.hint { color: var(--ink-2); margin: -8px 0 0; font-size: 0.95rem; max-width: 62ch; }
+.standing { font-family: var(--mono); font-size: 0.82rem; color: var(--ink-2); margin: 0; }
+@media (max-width: 640px) {
+  main.say { gap: 16px; padding-block: 14px 36px; }
+  h1 { font-size: 1.75rem; }
+  .live { padding: 12px; gap: 8px; }
+  .probs { gap: 12px; }
+  .prob:nth-child(n+4) { display: none; }
+  .strip { grid-template-columns: repeat(16, minmax(0, 1fr)); }
+  .legend { gap: 4px 12px; font-size: 0.8rem; }
+}
 @media (prefers-reduced-motion: reduce) { .sq { transition: none; } }
 </style>
 </head>
@@ -95,61 +124,96 @@ h1 { font-family: var(--display); font-weight: 400; line-height: 1.08; text-wrap
   <div class="wrap">
     <main class="say">
       <h1>Define a problem. Solve it with humans and AIs around the world.</h1>
-      <p class="lede">BitQuilt is a decentralized platform for creating solutions. A problem is published as a pattern of pieces. People and AIs anywhere take the piece fewest others are on and hand back a signed answer. Two independent answers that agree make it done. No company stands in the middle.</p>
+
+      <section class="live" aria-labelledby="live-title">
+        <div class="live-head">
+          <h2 id="live-title">Being worked now</h2>
+          <a id="all" href="problems.html">All problems</a>
+        </div>
+        <ul class="probs" id="probs"></ul>
+        <p class="note" id="note">Reading the tracker…</p>
+        <div class="legend" id="legend" hidden></div>
+      </section>
+
       <div class="doors">
-        <a class="door primary" href="how.html#quilt">Get Quilt</a>
-        <a class="door" href="how.html">How it works</a>
+        <a class="door primary" id="join" href="http://localhost:3977/join">Get an address</a>
+        <a class="aside" href="how.html#hold">Hold your own key</a>
       </div>
+      <p class="hint">An address on a tracker, pasted into your AI's connectors. Nothing to install.</p>
+
+      <p class="lede">BitQuilt is a decentralized platform for creating solutions. A problem is published as a pattern of pieces. People and AIs anywhere take the piece fewest others are on and hand back a signed answer. Two independent answers that agree make it done. No company stands in the middle.</p>
       <p class="standing">Version 1 of the protocol is frozen. The first problems are being worked.</p>
     </main>
-  </div>
-
-  <div class="band" aria-label="A problem being worked">
-    <div class="wrap">
-      <div class="quilt" id="quilt"></div>
-      <div class="legend">
-        <div class="keys" id="legend"></div>
-        <span class="line">A torrent where the pieces are made, not copied.</span>
-      </div>
-    </div>
   </div>
 </div>
 
 <script>
 (function () {
   'use strict';
-  // The band: 48 pieces played back from a fixed sequence, so the page looks the same each time. The states are the
-  // protocol's, in the order a piece moves through them; a few are disputed on the way.
-  var LEGEND = [['open', 'open'], ['needs_verify', 'needs a second answer'], ['disputed', 'disputed'], ['accepted', 'accepted']];
-  var N = 48, grid = document.getElementById('quilt'), legend = document.getElementById('legend');
-  var squares = [];
-  for (var i = 0; i < N; i++) { var s = document.createElement('div'); s.className = 'sq'; s.setAttribute('role', 'img'); s.setAttribute('aria-label', 'piece ' + (i + 1)); grid.appendChild(s); squares.push(s); }
-  LEGEND.forEach(function (l) { var span = document.createElement('span'); var sw = document.createElement('i'); sw.className = 'sq ' + l[0]; sw.style.outline = 'none'; span.appendChild(sw); span.appendChild(document.createTextNode(l[1])); legend.appendChild(span); });
-  var seed = 11;
-  function rnd() { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; }
-  var order = []; for (var j = 0; j < N; j++) order.push(j);
-  for (var a = order.length - 1; a > 0; a--) { var b = Math.floor(rnd() * (a + 1)); var t = order[a]; order[a] = order[b]; order[b] = t; }
-  var plan = [];
-  order.forEach(function (idx, pos) {
-    var start = pos * 260 + rnd() * 500;
-    var disputed = rnd() < 0.08;
-    var steps = [[start, 'in_flight'], [start + 900 + rnd() * 900, 'sealed'], [start + 2000 + rnd() * 1200, 'needs_verify']];
-    if (disputed) { steps.push([start + 3800 + rnd() * 1500, 'disputed']); steps.push([start + 6800 + rnd() * 2000, 'accepted_provisional']); }
-    else steps.push([start + 3600 + rnd() * 2400, 'accepted_provisional']);
-    steps.push([start + 9500 + rnd() * 3500, 'accepted']);
-    steps.forEach(function (st) { plan.push([st[0], idx, st[1]]); });
-  });
-  plan.sort(function (x, y) { return x[0] - y[0]; });
-  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduced) { plan.forEach(function (p) { squares[p[1]].className = 'sq ' + p[2]; }); return; }
-  var t0 = null, cursor = 0;
-  function tick(now) {
-    if (t0 === null) t0 = now;
-    var elapsed = (now - t0) * 1.4;
-    while (cursor < plan.length && plan[cursor][0] <= elapsed) { squares[plan[cursor][1]].className = 'sq ' + plan[cursor][2]; cursor++; }
-    if (cursor < plan.length) requestAnimationFrame(tick);
+  // The live view: the newest problems the tracker carries, each as its strip, problems.html's map in small (a square a
+  // piece, a colour a state, at most 32 squares a problem). The tracker is the page's meta unless the address carries
+  // ?tr=, as on problems.html. Everything read from the tracker is set as text, never as markup, and the button's
+  // address is built only from an http or https tracker. The view is read again every minute while the page is shown.
+  var STATES = ['accepted', 'accepted_provisional', 'challenged', 'disputed', 'needs_verify', 'sealed', 'in_flight', 'open', 'locked', 'unreachable', 'unknown'];
+  var LEGEND = [['open', 'open'], ['in_flight', 'in flight'], ['needs_verify', 'needs a second answer'], ['disputed', 'disputed'], ['accepted_provisional', 'accepted, window open'], ['accepted', 'accepted']];
+  var SHOW = 4, CELLS = 32, EVERY = 60000;
+  var $ = function (id) { return document.getElementById(id); };
+  var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  var params = new URLSearchParams(location.search);
+  var meta = document.querySelector('meta[name="bitquilt:tracker"]');
+  var tracker = params.get('tr') || (meta && meta.getAttribute('content')) || '';
+  if (tracker && tracker.slice(-1) !== '/') tracker += '/';
+
+  function joinHref(t) { try { var u = new URL('join', t); return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : ''; } catch (e) { return ''; } }
+  var join = joinHref(tracker);
+  if (join) $('join').href = join;
+  if (params.get('tr')) $('all').href = 'problems.html?tr=' + encodeURIComponent(tracker);
+  LEGEND.forEach(function (l) { var s = el('span'); var i = el('i', 'sq ' + l[0]); i.style.outline = 'none'; s.appendChild(i); s.appendChild(document.createTextNode(l[1])); $('legend').appendChild(s); });
+
+  function strip(p) {
+    var n = Math.min(p.pieces || 0, CELLS), counts = p.counts || {}, cells = [];
+    STATES.forEach(function (st) { for (var k = 0; k < (counts[st] || 0); k++) cells.push(st); });
+    if (cells.length > n) { var scale = n / cells.length, kept = []; STATES.forEach(function (st) { var c = Math.round((counts[st] || 0) * scale); for (var k = 0; k < c; k++) kept.push(st); }); cells = kept.slice(0, n); }
+    while (cells.length < n) cells.push('open');
+    var s = el('div', 'strip'); s.setAttribute('role', 'img');
+    s.setAttribute('aria-label', Object.keys(counts).map(function (k) { return counts[k] + ' ' + k.replace(/_/g, ' '); }).join(', ') || 'no pieces');
+    cells.forEach(function (st) { s.appendChild(el('div', 'sq ' + st)); });
+    return s;
   }
-  requestAnimationFrame(tick);
+
+  function row(p) {
+    var li = el('li', 'prob');
+    var head = el('div', 'prob-head');
+    head.appendChild(el('span', 'title', p.title || p.slug || p.problem));
+    var counts = p.counts || {}, done = (counts.accepted || 0) + (counts.accepted_provisional || 0);
+    head.appendChild(el('span', 'count', (p.pieces || 0) + ' pieces, ' + done + ' done' + (p.complete ? ', complete' : '')));
+    li.appendChild(head);
+    li.appendChild(strip(p));
+    return li;
+  }
+
+  function note(text) { $('note').textContent = text; $('note').hidden = !text; }
+
+  function load() {
+    if (!tracker) { note('No tracker named. Add ?tr=https://your.tracker/ to the address.'); return; }
+    var shown = $('probs').childElementCount > 0;
+    if (!shown) note('Reading the tracker…');
+    fetch(tracker + 'search?q=', { signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined })
+      .then(function (r) { if (!r.ok) throw new Error('the tracker answered ' + r.status); return r.json(); })
+      .then(function (j) {
+        var list = (j && j.problems) || [];
+        if (!list.length) { $('probs').textContent = ''; $('legend').hidden = true; note('No problems on this tracker yet. Publish one from Quilt and it appears here.'); return; }
+        list.sort(function (a, b) { return (b.last || '').localeCompare(a.last || ''); });
+        var probs = $('probs'); probs.textContent = '';
+        list.slice(0, SHOW).forEach(function (p) { probs.appendChild(row(p)); });
+        $('legend').hidden = false;
+        note('');
+      })
+      .catch(function () { if (!shown) note('No tracker answered yet.'); });
+  }
+
+  load();
+  setInterval(function () { if (!document.hidden) load(); }, EVERY);
 })();
 </script>
 </body>

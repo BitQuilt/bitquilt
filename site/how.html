@@ -108,14 +108,14 @@ footer .cols { gap: 16px 36px; }
   <header class="top">
     <a class="brand" href="index.html">BitQuilt</a>
     <nav class="site" aria-label="Sections">
-      <a href="problems.html">Problems</a><a href="#quilt">Quilt</a><a href="#how">How it works</a><a href="#accepted">What accepted means</a><a href="#build">Build a client</a><a href="#problem">The open problem</a>
+      <a href="problems.html">Problems</a><a href="#quilt">Quilt</a><a href="#hold">Hold your own key</a><a href="#how">How it works</a><a href="#accepted">What accepted means</a><a href="#build">Build a client</a><a href="#problem">The open problem</a>
     </nav>
   </header>
 
 </div>
 
 <div class="wrap">
-  <p class="lede" style="margin-top:28px;max-width:60ch;color:var(--ink-2);font-size:1.15rem">A torrent where the pieces are made, not copied. This page is the long form: what Quilt is, how a piece is done, what accepted means, and the problem left open.</p>
+  <p class="lede" style="margin-top:28px;max-width:60ch;color:var(--ink-2);font-size:1.15rem">A torrent where the pieces are made, not copied. This page is the long form: what Quilt is, how to hold your own key, how a piece is done, what accepted means, and the problem left open.</p>
   <section id="quilt">
     <h2>Quilt is the thing a person opens.</h2>
     <div class="cols">
@@ -123,10 +123,7 @@ footer .cols { gap: 16px 36px; }
         <p>One program on your own machine does three jobs. It is the connector your AI talks to, over the Model Context Protocol, with the verbs of the protocol and nothing else. It is a page on localhost with a search box over the world's problems, each with its map, a form that publishes a problem of your own, and your library. And it is a node that keeps what you have touched and serves it to anyone who asks, so every Quilt is a small mirror.</p>
         <p>Your key lives in your own folder, made from a phrase shown once, or imported from a wallet you already have. Its address is your identity on every tracker, and the address a tip would go to. There is no account.</p>
         <p>If you cannot run anything, a tracker that holds keys gives you an address at its join page. Paste it into your AI's connectors and the tracker signs for you, marking every event as held in its custody, until you take the key home.</p>
-        <p>Releases will carry one executable per platform. Until then it builds from source in a minute:</p>
-        <pre>pnpm install
-pnpm build:bin                    # quilt and bitquilt-tracker, in dist/bin
-claude mcp add quilt -- ./dist/bin/quilt-darwin-arm64 mcp</pre>
+        <p class="quiet">The two ways to keep the key on your own machine are under <a href="#hold">Hold your own key</a>; building Quilt from source is under <a href="#build">Build a client</a>.</p>
       </div>
       <div class="prose">
         <h3>In the chat</h3>
@@ -135,6 +132,23 @@ claude mcp add quilt -- ./dist/bin/quilt-darwin-arm64 mcp</pre>
         <p>"Open quilt:sha256:8b57c018… and take a piece."</p>
         <p>"Hand it back: supports, with the quote."</p>
         <p class="quiet">The AI is shown the author's brief as the author's quoted words. Your client asks you before the claim is written and before the return is handed back. Nothing on the page can speak; it can only publish, take, return, decline and challenge.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="hold">
+    <h2>Hold your own key</h2>
+    <div class="cols">
+      <div class="prose">
+        <p>An address from a tracker is the quick way in: the tracker holds the key and signs for you, and says so on every event. Two ways put the key on your own machine instead, where nothing signs but you.</p>
+        <h3>The bundle, for Claude Desktop</h3>
+        <p><code>quilt.mcpb</code> is Quilt as one file for Claude Desktop. Double-click it and Claude adds the connector, with no restart and no config file to edit; your key and your library live in your own folder.</p>
+        <h3>The Mac app</h3>
+        <p>A menu-bar app around Quilt's page. It makes your key, showing the twelve words once, connects Quilt to Claude Desktop, and then gives you the sentences to say to your AI and shows your coin as it rises.</p>
+      </div>
+      <div class="prose">
+        <h3>Where to get them</h3>
+        <p class="quiet">Both are attached to each <a href="#releases">release</a>, beside one executable per platform. An address made on a tracker comes home with you: the key is yours to take, and the standing and coin earned under it come with it.</p>
       </div>
     </div>
   </section>
@@ -193,6 +207,11 @@ claude mcp add quilt -- ./dist/bin/quilt-darwin-arm64 mcp</pre>
         <p>The reference library ships twenty-four fixtures: envelopes, blobs, receipts, a time, and the state and the pick each must produce. A client is a client when it reproduces them all. A second implementation, in Python, was written from the core and the fixtures alone with no sight of the reference, and reproduces them all; where it found the text silent, the text now says what the reference did (CORE.md, section 12). The milestone that matters is the next one, by someone else.</p>
         <pre>pnpm conform        # 24 of 24 fixtures pass
 bitquilt-verify events.jsonl sha256:…   # chain ok; every signature its key's</pre>
+        <h3>Quilt from source</h3>
+        <p id="releases">Releases will carry one executable per platform, the bundle and the Mac app. Until then it builds from source in a minute:</p>
+        <pre>pnpm install
+pnpm build:bin                    # quilt and bitquilt-tracker, in dist/bin
+claude mcp add quilt -- ./dist/bin/quilt-darwin-arm64 mcp</pre>
       </div>
       <div class="prose">
         <h3>What is in the lineage</h3>
