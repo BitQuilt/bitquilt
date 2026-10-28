@@ -2,7 +2,7 @@
 /**
  * quilt: the thing a person opens, and the MCP server their AI connects to.
  *
- *   quilt init [--phrase "twelve words"] [--secret <hex>]   make or import the key (the phrase is shown once)
+ *   quilt init [--phrase "twelve words"] [--secret <hex>] [--from <address>]   make or import the key (the phrase is shown once); --from brings a hosted address's key home
  *   quilt me                                              the address, name, model, trackers, queue, and the standing a tracker computes (what is locked, what is free)
  *   quilt mcp                                             the MCP server over stdio, with the page on localhost (what a chat client starts);
  *                                                         through the node already holding this home's page when there is one
@@ -58,11 +58,21 @@ async function main(): Promise<void> {
   switch (command) {
     case 'init': {
       const phrase = flag('--phrase');
-      const secret = flag('--secret');
+      const from = flag('--from');
+      let secret = flag('--secret');
+      if (from) {
+        // An address on a tracker (the hosted on-ramp, /join): its key, fetched once from <address>/key, comes home with the standing and coin it earned; the address is spent from then.
+        const r = await fetch(`${from.replace(/\/+$/, '')}/key`, { signal: AbortSignal.timeout(15000) });
+        if (!r.ok) throw new Error(`the tracker did not hand over the key: ${r.status}`);
+        const j = (await r.json()) as { secret?: string };
+        if (typeof j.secret !== 'string') throw new Error('the address answered without a key');
+        secret = j.secret;
+      }
       const { identity, phrase: shown } = createKey(home, { ...(phrase ? { phrase } : {}), ...(secret ? { secretHex: secret } : {}) });
       saveConfig(config, home);
       console.log(`Address: ${identity.address}`);
       if (shown) console.log(`Phrase (shown once; it is the key, write it down and keep it to yourself):\n  ${shown}`);
+      if (from) console.log('The key came home from the address; that address is spent now.');
       console.log(`Kept at ${home}`);
       return;
     }

@@ -37,6 +37,10 @@ final class Node: ObservableObject {
     @Published private(set) var keyNote: String?
     @Published private(set) var installed: Installed?
     @Published private(set) var installNote: String?
+    /// The bundle was handed to Claude Desktop this session: it is asking, or has asked, to install Quilt.
+    @Published private(set) var bundleOpened = false
+    /// Claude Desktop is not on this Mac, so there is nothing to hand the bundle to.
+    @Published private(set) var claudeMissing = false
 
     let home: URL
     let port: Int
@@ -191,15 +195,30 @@ final class Node: ObservableObject {
 
     /// `quilt init` for a home with no key: the phrase it prints is kept for the popover to show once, and the node this app
     /// started is started again so it signs with the new key; a node this app attached to is told about.
+    /// A new key on this Mac: `quilt init`, the twelve words kept for the popover to show once.
     func makeKey() async {
+        await runInit(["init"], failing: "no key could be made")
+    }
+
+    /// The key of an address on a tracker brought home: `quilt init --from <address>` fetches it once; the address is spent from then.
+    func importAddress(_ address: String) async {
+        let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") else {
+            keyNote = "That is not an address: it begins with https:// and ends in /mcp/ and a long code."
+            return
+        }
+        await runInit(["init", "--from", trimmed], failing: "the key could not be brought home")
+    }
+
+    private func runInit(_ arguments: [String], failing: String) async {
         keyNote = nil
         guard let executable = Node.executable() else {
-            keyNote = "The quilt executable was not found, so no key could be made."
+            keyNote = "The quilt executable was not found, so \(failing)."
             return
         }
         let process = Process()
         process.executableURL = executable
-        process.arguments = ["init"]
+        process.arguments = arguments
         var environment = ProcessInfo.processInfo.environment
         environment["QUILT_HOME"] = home.path
         process.environment = environment
@@ -219,9 +238,10 @@ final class Node: ObservableObject {
             keyNote = text.trimmingCharacters(in: .whitespacesAndNewlines)
             return
         }
-        // The phrase is on the line after "Phrase (shown once …):", indented.
+        // The phrase is on the line after "Phrase (shown once …):", indented; a key brought home has none to show.
         let lines = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
         if let i = lines.firstIndex(where: { $0.hasPrefix("Phrase") }), i + 1 < lines.count { newPhrase = lines[i + 1] }
+        if lines.contains(where: { $0.hasPrefix("The key came home") }) { keyNote = "The key is home, with the standing and coin it earned. The address on the tracker is spent." }
         if child?.isRunning == true {
             stop()
             await startNode()
@@ -236,15 +256,42 @@ final class Node: ObservableObject {
         newPhrase = nil
     }
 
-    /// Asks the node to write the connector into Claude Desktop's config; the answer, written or why not, is kept for the popover.
-    func installConnector(anyway: Bool = false) async {
+    /// Hands the connector bundle to Claude Desktop, which installs it with no restart and no config file; what happened is kept for the popover.
+    func installConnector() async {
         installNote = nil
+        claudeMissing = false
+        guard let bundle = Node.bundle() else {
+            installNote = "The connector bundle quilt.mcpb is not in this app, so Claude Desktop cannot be handed it. The README beside the executable says how to add the connector by hand."
+            return
+        }
+        guard let claude = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Node.claudeBundleId) else {
+            claudeMissing = true
+            return
+        }
         do {
-            installed = try await api.install(anyway: anyway)
+            try await NSWorkspace.shared.open([bundle], withApplicationAt: claude, configuration: NSWorkspace.OpenConfiguration())
+            bundleOpened = true
         } catch {
-            installNote = error.localizedDescription
+            installNote = "Claude Desktop could not be opened with the bundle: \(error.localizedDescription)"
         }
         await refreshSheet()
+    }
+
+    /// Claude Desktop's bundle identifier, for handing it the connector bundle.
+    static let claudeBundleId = "com.anthropic.claudefordesktop"
+
+    /// The connector bundle: in the app, else, in development, at dist/quilt.mcpb above it.
+    static func bundle() -> URL? {
+        var candidates: [URL] = []
+        if let resources = Bundle.main.resourceURL { candidates.append(resources.appendingPathComponent("quilt.mcpb")) }
+        if let executable = Bundle.main.executableURL {
+            var directory = executable.deletingLastPathComponent()
+            while directory.path.count > 1 {
+                candidates.append(directory.appendingPathComponent("dist/quilt.mcpb"))
+                directory.deleteLastPathComponent()
+            }
+        }
+        return candidates.first { FileManager.default.isReadableFile(atPath: $0.path) }
     }
 
     private func startNode() async {

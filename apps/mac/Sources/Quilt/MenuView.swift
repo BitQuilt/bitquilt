@@ -19,6 +19,9 @@ struct MenuView: View {
     @State private var copied: String?
     @State private var more = false
     @State private var busy = false
+    /// The no-key screen's second door: an address on a tracker whose key comes home.
+    @State private var importing = false
+    @State private var address = ""
     @FocusState private var searchFocused: Bool
 
     var body: some View {
@@ -94,6 +97,22 @@ struct MenuView: View {
                     Task { await node.makeKey(); busy = false }
                 }
                 .buttonStyle(.borderedProminent).disabled(busy)
+                DisclosureGroup("I have an address on a tracker", isExpanded: $importing) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Paste the long address your AI's connector uses, from the tracker's join page. The key moves to this Mac with the standing and coin it earned, and the address is spent.")
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        HStack {
+                            TextField("https://…/mcp/…", text: $address).textFieldStyle(.roundedBorder)
+                            Button(busy ? "Bringing it home…" : "Bring my key home") {
+                                busy = true
+                                Task { await node.importAddress(address); busy = false }
+                            }
+                            .disabled(busy || address.trimmingCharacters(in: .whitespaces).isEmpty)
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+                .font(.callout)
                 if let keyNote = node.keyNote { Text(keyNote).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
             }
         }
@@ -105,24 +124,21 @@ struct MenuView: View {
         VStack(alignment: .leading, spacing: 8) {
             if let claude = node.sheet?.claude, claude.installed {
                 Text("Quilt is in Claude Desktop's connectors. Open Claude, start a new chat, and say:").font(.callout).fixedSize(horizontal: false, vertical: true)
+            } else if node.bundleOpened {
+                Text("Claude Desktop is asking to install Quilt. Say yes there; nothing restarts. Then, in a new chat, say:").font(.callout).fixedSize(horizontal: false, vertical: true)
             } else {
-                Text("Your AI works Quilt through its connector. Add it to Claude Desktop, then quit Claude and open it again.")
+                Text("Your AI works Quilt through its connector. Add it to Claude Desktop: Claude opens and asks once, and nothing restarts.")
                     .font(.callout).fixedSize(horizontal: false, vertical: true)
-                HStack {
-                    Button(busy ? "Adding…" : "Add Quilt to Claude Desktop") {
-                        busy = true
-                        Task { await node.installConnector(); busy = false }
-                    }
-                    .buttonStyle(.borderedProminent).disabled(busy)
-                    if node.installed?.written == false, node.installed?.reason?.contains("running") == true {
-                        Button("Write it anyway") { Task { await node.installConnector(anyway: true) } }
-                    }
+                Button(busy ? "Opening Claude…" : "Add Quilt to Claude Desktop") {
+                    busy = true
+                    Task { await node.installConnector(); busy = false }
                 }
-                if let result = node.installed {
-                    Text(result.written ? "Written to \(result.file). Quit Claude Desktop and open it again." : (result.reason ?? "Not written."))
+                .buttonStyle(.borderedProminent).disabled(busy)
+                if node.claudeMissing {
+                    Text("Claude Desktop is not on this Mac. It is at claude.ai/download. An address on a tracker, pasted into claude.ai's connectors, needs no install at all.")
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
-                if let installNote = node.installNote { Text(installNote).font(.caption).foregroundStyle(.secondary) }
+                if let installNote = node.installNote { Text(installNote).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
                 Text("Then, in a new chat, say:").font(.callout)
             }
             if let first = node.sheet?.first { phraseRow(first) }

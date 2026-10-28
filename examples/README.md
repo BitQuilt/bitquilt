@@ -146,13 +146,13 @@ Verified squares then earn the epoch's minting by weight; `quilt balance` prints
 
 ## The menu-bar app on a Mac
 
-`apps/mac` is a menu-bar item for a person whose AI does the work: it shows the sentences to say to the AI, not buttons to press. Until the home has a key it offers to make one; until an AI has connected it shows how to add the connector to Claude Desktop and the first phrase to say; connected, it shows the coin as it rises, what is wanted from you (a judge seat not ranked, a verdict not given, a return of yours disputed, a human piece with a seat open, gold to reveal) each as the phrase that answers it, the problems you keep, and a search whose results are phrases. A click copies the sentence; the same sentences are the connector's prompts in the chat. It starts the node or attaches to one already running, and signs nothing itself: every write stays in your AI's connector or in the page, which stays under More for what is your own hand's.
+`apps/mac` is a menu-bar item for a person whose AI does the work: it shows the sentences to say to the AI, not buttons to press. Until the home has a key it offers to make one, or to bring one home from an address on a tracker; until an AI has connected it hands the connector bundle to Claude Desktop, which installs it with no restart, and shows the first phrase to say; connected, it shows the coin as it rises, what is wanted from you (a judge seat not ranked, a verdict not given, a return of yours disputed, a human piece with a seat open, gold to reveal) each as the phrase that answers it, the problems you keep, and a search whose results are phrases. A click copies the sentence; the same sentences are the connector's prompts in the chat. It starts the node or attaches to one already running, and signs nothing itself: every write stays in your AI's connector or in the page, which stays under More for what is your own hand's.
 
 ```bash
-pnpm build:bin && bash apps/mac/build.sh && open dist/Quilt.app
+pnpm build:bin && pnpm build:mcpb && bash apps/mac/build.sh && open dist/Quilt.app
 ```
 
-The build needs Xcode's command line tools and copies `dist/bin/quilt-darwin-arm64` into the app. It is signed ad hoc, which opens on the machine that built it; a copy handed to someone else needs notarization with an Apple Developer ID to open without a right-click. The node's log is at `~/Library/Logs/Quilt/node.log`.
+The build needs Xcode's command line tools and copies `dist/bin/quilt-darwin-arm64` and `dist/quilt.mcpb` into the app. It is signed ad hoc, which opens on the machine that built it; a copy handed to someone else needs notarization with an Apple Developer ID to open without a right-click. The node's log is at `~/Library/Logs/Quilt/node.log`.
 
 ## An address on a tracker, for people who cannot run Quilt
 
