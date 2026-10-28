@@ -30,6 +30,20 @@ export function isToolName(s: string): s is ToolName {
 
 const where = (x: Posted) => (x.queued ? 'queued' : `posted to ${x.at}`);
 
+/**
+ * Why no tracker gave a standing: one that answered its well-known without the standing route (QX-15) is an older
+ * tracker and is named as such; otherwise none answered at all.
+ */
+async function noStanding(quilt: Quilt): Promise<string> {
+  for (const t of quilt.config.trackers) {
+    const wk = await quilt.wellKnown(t);
+    if (!wk) continue;
+    const routes = Array.isArray(wk.routes) ? (wk.routes as string[]) : [];
+    if (!routes.some((r) => r.endsWith('/standing'))) return `Standing: none; the tracker at ${t} answered but is an older one without the standing route (QX-15)`;
+  }
+  return 'Standing: no tracker answered';
+}
+
 export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): Promise<ToolResult> {
   const str = (k: string): string => (typeof input[k] === 'string' ? (input[k] as string) : '');
   const hash = (k: string): Hash => str(k) as Hash;
@@ -39,7 +53,7 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       const [s, c] = await Promise.all([quilt.standing(), quilt.coin()]);
       const text = [
         `Address: ${me.address ?? 'none yet (quilt init makes one)'}`, `Name: ${me.name ?? 'none set'}`, `Declares: ${me.model}; can: ${me.can.join(', ')}`, `Trackers: ${me.trackers.join(', ')}`,
-        s ? `Standing: ${s.standing} (locked ${s.locked}, free ${s.free}) at ${s.tracker}${s.locks.length ? `; locks: ${s.locks.map((l) => `${l.amount} on ${l.piece} of ${l.problem}`).join(', ')}` : ''}` : 'Standing: no tracker answered',
+        s ? `Standing: ${s.standing} (locked ${s.locked}, free ${s.free}) at ${s.tracker}${s.locks.length ? `; locks: ${s.locks.map((l) => `${l.amount} on ${l.piece} of ${l.problem}`).join(', ')}` : ''}` : await noStanding(quilt),
         ...(c ? [`Coin (QX-17): ${c.balance} units (vested ${c.vested}, locked ${c.locked}, escrowed ${c.escrowed}, free ${c.free}) at ${c.home}`] : []),
         `Queued events: ${me.queued}; problems in the library: ${me.problems}`,
       ].join('\n');

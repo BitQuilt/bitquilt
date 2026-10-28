@@ -101,8 +101,8 @@ function isDeclineReason(s: string): s is DeclineReason {
  */
 export class Quilt {
   readonly hostName: string | undefined;
-  /** A tracker's well-known document, read once per Quilt. */
-  private readonly wellKnownCache = new Map<string, Promise<Record<string, unknown> | null>>();
+  /** A tracker's well-known document, kept for ten minutes: long enough to spare the tracker, short enough that one restarted with the coin is seen. */
+  private readonly wellKnownCache = new Map<string, { at: number; answer: Promise<Record<string, unknown> | null> }>();
   /** What coin.ts and gold.ts are handed (door.ts): the key, the config, the library, and this Quilt's own signing, posting and reading. */
   private readonly door: Door;
 
@@ -222,15 +222,16 @@ export class Quilt {
     });
   }
 
-  /** A tracker's well-known document, read once per Quilt; null when it does not answer. */
+  /** A tracker's well-known document, asked again after ten minutes or when the last answer was nothing; null when it does not answer. */
   wellKnown(tracker: string): Promise<Record<string, unknown> | null> {
     const t = tracker.endsWith('/') ? tracker : `${tracker}/`;
-    let p = this.wellKnownCache.get(t);
-    if (!p) {
-      p = askJson<Record<string, unknown>>(`${t}.well-known/quilt`);
-      this.wellKnownCache.set(t, p);
-    }
-    return p;
+    const kept = this.wellKnownCache.get(t);
+    if (kept && Date.now() - kept.at < 10 * 60_000) return kept.answer;
+    const answer = askJson<Record<string, unknown>>(`${t}.well-known/quilt`);
+    this.wellKnownCache.set(t, { at: Date.now(), answer });
+    // A tracker that did not answer is asked again next time.
+    answer.then((a) => { if (a === null) this.wellKnownCache.delete(t); }, () => this.wellKnownCache.delete(t));
+    return answer;
   }
 
   /** The tracker's state for a problem: its pieces as the layer sees them, and the owner's gold summed (QX-16). Null when the tracker does not answer. */
