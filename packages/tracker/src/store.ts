@@ -5,6 +5,7 @@
  */
 import { DatabaseSync } from 'node:sqlite';
 import { type Envelope, type Event, type Hash, type Receipt, type Received, lineHash, hashHex } from '@bitquilt/core';
+import type { MemberTimes } from './counts.js';
 
 export interface StoredEnvelope {
   hash: Hash;
@@ -34,6 +35,10 @@ export class Store {
       create table if not exists members (token_hash text primary key, address text not null, key_enc text not null, created_at text not null, name text);
       create table if not exists offers (key text primary key, n integer not null);
     `);
+    // SQLite has no "add column if not exists": a column the members table gained after the first databases were made is
+    // added here when it is missing, so a database made before it upgrades on open. Every store, new or old, takes this path.
+    const columns = new Set((this.db.prepare('pragma table_info(members)').all() as { name: string }[]).map((c) => c.name));
+    for (const column of ['first_used_at', 'key_taken_at']) if (!columns.has(column)) this.db.exec(`alter table members add column ${column} text`);
   }
 
   close(): void {
@@ -170,6 +175,22 @@ export class Store {
   getMember(tokenHash: string): { address: string; keyEnc: string; createdAt: string; name: string | null } | null {
     const row = this.db.prepare('select address, key_enc, created_at, name from members where token_hash = ?').get(tokenHash) as { address: string; key_enc: string; created_at: string; name: string | null } | undefined;
     return row ? { address: row.address, keyEnc: row.key_enc, createdAt: row.created_at, name: row.name } : null;
+  }
+
+  /** The first time a member's address was used, kept once: a later call changes nothing. What the funnel counts as addresses first used (counts.ts). */
+  markMemberUsed(tokenHash: string, at: string): void {
+    this.db.prepare('update members set first_used_at = ? where token_hash = ? and first_used_at is null').run(at, tokenHash);
+  }
+
+  /** When a member took the key home, kept once: a later call changes nothing. What the funnel counts as keys taken home (counts.ts). */
+  markMemberKeyTaken(tokenHash: string, at: string): void {
+    this.db.prepare('update members set key_taken_at = ? where token_hash = ? and key_taken_at is null').run(at, tokenHash);
+  }
+
+  /** When each member was made, first used and took the key home, and nothing else about them: what the funnel reads (counts.ts). */
+  memberTimes(): MemberTimes[] {
+    const rows = this.db.prepare('select created_at, first_used_at, key_taken_at from members order by created_at').all() as { created_at: string; first_used_at: string | null; key_taken_at: string | null }[];
+    return rows.map((r) => ({ createdAt: r.created_at, firstUsedAt: r.first_used_at, keyTakenAt: r.key_taken_at }));
   }
 
   /** A hold is spent once its key has revealed on, or declined, the piece. */

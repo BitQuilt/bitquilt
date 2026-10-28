@@ -21,6 +21,7 @@ import { EXTENSIONS, JUDGE_SEED, RANK_EVENTS, kindOf, rankBodyProblems } from '.
 import { type CoinLockWord, PRODUCTION_EVENTS, STAKE, STAKE_EVENTS, lockBodyProblems, stakeRuleBodyProblems } from './stake.js';
 import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems } from './gold.js';
 import { type CoinLayer, type CoinLockView, type CoinParams, type CoinWord, COIN, COIN_EVENTS, COIN_LOG, coinLayer } from './coin.js';
+import { DAYS_MAX, daysFrom, funnel } from './counts.js';
 import type { Store } from './store.js';
 
 /** The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under. */
@@ -516,7 +517,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
       // The list a client reads; the dispatcher in `handle` is kept in this order by hand.
       routes: [
-        '/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/k/<address>/standing', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden',
+        '/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/k/<address>/standing', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden', '/counts',
         ...(options.coin ? ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/credits', '/coin/state'] : []),
       ],
     };
@@ -832,6 +833,13 @@ export function createTracker(options: TrackerOptions): Tracker {
       }
       if (path === '/hidden' && method === 'GET') {
         json(res, 200, { hidden: [...hidden().values()] });
+        return;
+      }
+      // The launch funnel by the UTC day (JOURNEY-AUDIT.md section 3, item 9): counts with nobody in them, so the route is public.
+      if (path === '/counts' && method === 'GET') {
+        const days = daysFrom(u.searchParams.get('days'));
+        if (days === null) throw new Refusal(400, `days: a whole number from 1 to ${DAYS_MAX}`);
+        json(res, 200, funnel({ members: store.memberTimes(), logs: store.listEnvelopes().map((e) => store.receipts(e.hash)), layer: layer(), now: now(), days }));
         return;
       }
       // The coin (QX-17): its log, and what the layer computes from it.
