@@ -7,6 +7,8 @@ on:
   workflow_dispatch:
 jobs:
   mirror:
+    # Until the variable names a tracker there is nothing to mirror: the job is skipped, which costs no minutes on a private repository.
+    if: ${{ vars.BITQUILT_TRACKERS != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
