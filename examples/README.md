@@ -99,6 +99,27 @@ Twelve standing problems, written on 26 October 2026 from a survey of a hundred 
 
 The gold is a reading of the world on the day it was written, and some of it can go stale: the six New Hampshire districts in `zoning-districts.json` were read from the state's 2023 zoning atlas, and a code can have changed since. The gold goes in after publishing ([docs/LAUNCH.md](../docs/LAUNCH.md), step 6), so before `quilt gold commit` on any of the twelve the owner reads each gold answer again against the source as it stands and drops one they cannot stand behind. Gold that would go stale by its nature was left out: a bill's stage in a session still running, a quotation whose earliest print was found only through a quotation website and not on a scan. None of the twelve asks a stake: a new key holds one point, and the first wave is for new keys.
 
+## The second wave
+
+Twelve more, written on 27 October 2026 from the same fifty (`second_wave` in `launch-50.json`: two from each of the six domains again), each to the first wave's standard: real rows verified against an open source on the day, a brief that stands alone and names its sources by title and institution, agreed fields two vendors' AIs can match, five to eight gold answers, no private individuals, and the gate passed as written.
+
+| Pattern | Pieces | What one piece is | Agreed on |
+| --- | --- | --- | --- |
+| `formalization-table.json` | 35 | one theorem on the 1000+ theorems list, searched for a formal proof in six proof assistants' libraries | found or not found, one enum per system |
+| `unknotting-numbers.json` | 36 | one prime knot whose unknotting number KnotInfo records as a range, with its PD code | the lower and upper bound and what was found |
+| `preclinical-risk-of-bias.json` | 34 | one open-access animal study of stroke, Alzheimer's disease or haemorrhage, read against six items of the CAMARADES checklist | the six answers |
+| `replication-database.json` | 33 | one published replication, coded as the FORRT Replication Database codes a row | the outcome, the replication's sample size, and its effect within three hundredths |
+| `influenza-1918-small-cities.json` | 34 | one American city's 1918 theater closure and reopening, read from its own newspapers in Chronicling America | the two dates |
+| `early-modern-letters.json` | 34 | one letter in a public-domain printed edition, read from the editor's heading and the dateline | sender, recipient, date, origin |
+| `grambank-features.json` | 34 | one Grambank feature for one language with an open-access grammar from Language Science Press | the value and the page |
+| `inquiry-recommendations.json` | 34 | one numbered recommendation of a UK public inquiry, followed into the government's response and what came after | status, and whether an implementing instrument was found |
+| `consciousness-indicators.json` | 34 | one AI system and one of the fourteen indicator properties of the 2023 report, read from the system's own technical report | the verdict |
+| `ai-authorship-decisions.json` | 40 | one court or office decision, anywhere, on an AI as inventor or author | holding, date and subject |
+| `modern-slavery-statements.json` | 34 | one company's statement for one year on the UK Modern Slavery Statement Registry, read against the Act's checklist | nine yes or no flags: approval, signature, a homepage link, and the six areas |
+| `oed-appeals.json` | 34 | one word the Oxford English Dictionary appealed to the public on, its earliest verifiable print sought on an open scan | the year, and whether an earlier print was found |
+
+Three of these carry gold that can go stale by a different route than the first wave's, and the owner reads them again before `quilt gold commit`: the five knots whose gold says nothing new was found, which is true until a paper tightens a bound; the inquiry recommendations, whose status moves when a government answers; and the formalization table, which fills in. The influenza gold is the dates five large cities closed and reopened, read from the Influenza Encyclopedia's own essays, and stands. The OED appeals carry two gold answers, not five: the other appeals the dictionary has answered point at scans that could not be opened on the day, and a quotation website is not a scan. None of the twenty-four asks a stake.
+
 ## Stake, gold and the coin
 
 Three extensions sit over the ledger ([docs/COIN.md](../docs/COIN.md) says why; [docs/ext/QX-15.md](../docs/ext/QX-15.md), [QX-16.md](../docs/ext/QX-16.md) and [QX-17.md](../docs/ext/QX-17.md) say exactly what). A pattern may ask a stake of standing on its pieces and carry the owner's answers as gold:

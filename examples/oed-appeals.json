@@ -1,0 +1,374 @@
+{
+  "title": "Find earlier printed evidence for words the Oxford English Dictionary has appealed on",
+  "done_when": "Every appealed word and sense has the year of the earliest printed use that two AIs of different vendors found on an open scan and agree on, and whether that year is earlier than the dictionary's, with the source, the date and page, the quotation and the search that found it kept as evidence for a reader to open the scan; an earlier use found later, read on its page, supersedes an accepted answer through a challenge.",
+  "slug": "oed-appeals",
+  "topics": [
+    "lexicography",
+    "oed",
+    "first-attestations",
+    "antedating",
+    "newspapers",
+    "digitized-books",
+    "english-language"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 3,
+    "endgame_at": 2,
+    "budget": 34,
+    "patch_max": 0
+  },
+  "pieces": {
+    "word/*": {
+      "count": 34,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Word {n}: {word.word}, {word.pos}, in the sense: {word.sense}. The Oxford English Dictionary asked the public for earlier evidence of this word in this sense on its OED Appeals pages, which ran from 2012 to 2018 and are kept today by the Internet Archive's Wayback Machine; when it asked, the earliest evidence in its entry was {word.then_date}: {word.then_source}. Find the earliest printed use of the word in this sense that can be read on an open scan: the Internet Archive, HathiTrust in full view, Chronicling America at the Library of Congress, Google Books in full view, Trove at the National Library of Australia, Papers Past at the National Library of New Zealand, or another library's scan that opens without a login; read the words on the page image or in its full text. A quotation website, a dictionary, an encyclopedia, a snippet view that hides the page, or a database behind a login is not evidence, though any of them may point to a scan. The use counts only in the sense above: an earlier use of the same spelling in another sense does not. Return year, a whole number: the year of the earliest use found this way, taken from the issue's masthead or dateline for a newspaper or a periodical and from the title page for a book, a reprint dated by the reprint unless the scan is of the original edition; when nothing earlier than the dictionary's date is found, year is the dictionary's year, {word.then_year}. Return found_earlier, yes when year is less than {word.then_year}, and no otherwise, including when the earliest use found falls in the same year as the dictionary's. Then return source, the newspaper, periodical or book, with its author or editor where there is one; place, the date of the issue or the edition and the page or column; quotation, the words on the page in which the word appears, at most sixty words, copied as they stand; where_seen, the archive and the identifier or title of the scan, named in words; how_found, the search that led to it, in a sentence; and notes, anything uncertain, including a hit that may be a misreading in the scan's text layer. When nothing earlier is found, source, place, quotation and where_seen each give the word none and how_found says what was searched. Every field is plain text with no links; sources are named by title.",
+      "data": {
+        "word": "words"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "year",
+          "found_earlier",
+          "source",
+          "place",
+          "quotation",
+          "where_seen",
+          "how_found"
+        ],
+        "properties": {
+          "year": {
+            "type": "integer"
+          },
+          "found_earlier": {
+            "enum": [
+              "yes",
+              "no"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "place": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "quotation": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "where_seen": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "how_found": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 800
+          }
+        }
+      },
+      "agree": [
+        "year",
+        "found_earlier"
+      ]
+    }
+  },
+  "data": {
+    "words": [
+      {
+        "word": "disco",
+        "pos": "noun",
+        "sense": "a nightclub where recorded music is played for dancing, shortened from discotheque",
+        "then_date": "September 1964",
+        "then_year": 1964,
+        "then_source": "Playboy, September 1964"
+      },
+      {
+        "word": "Bellini",
+        "pos": "noun",
+        "sense": "a cocktail of peach juice mixed with Prosecco or champagne",
+        "then_date": "1965",
+        "then_year": 1965,
+        "then_source": "Harper's Bazaar, December 1965"
+      },
+      {
+        "word": "FAQ",
+        "pos": "noun",
+        "sense": "a list of frequently asked questions with their answers",
+        "then_date": "1989",
+        "then_year": 1989,
+        "then_source": "a posting to a Usenet newsgroup in June 1989"
+      },
+      {
+        "word": "cootie",
+        "pos": "noun",
+        "sense": "in North American children's talk, an imaginary germ that a disliked person is said to carry",
+        "then_date": "1967",
+        "then_year": 1967,
+        "then_source": "Beverly Cleary, Mitch and Amy, 1967"
+      },
+      {
+        "word": "paranormal",
+        "pos": "adjective",
+        "sense": "designating phenomena beyond the normal, as the word is used in psychical research",
+        "then_date": "1920",
+        "then_year": 1920,
+        "then_source": "a dictionary of 1920"
+      },
+      {
+        "word": "bookmobile",
+        "pos": "noun",
+        "sense": "a motor vehicle fitted out as a travelling library",
+        "then_date": "1924",
+        "then_year": 1924,
+        "then_source": "Bakersfield Californian, 5 July 1924"
+      },
+      {
+        "word": "jackalope",
+        "pos": "noun",
+        "sense": "an imaginary animal of the American West, a jackrabbit with the horns of an antelope",
+        "then_date": "1950",
+        "then_year": 1950,
+        "then_source": "a newspaper article of 1950"
+      },
+      {
+        "word": "doorbuster",
+        "pos": "noun",
+        "sense": "an item sold for a short time at a very low price to draw customers into a store",
+        "then_date": "1917",
+        "then_year": 1917,
+        "then_source": "Cedar Rapids Republican (Iowa), 28 August 1917, an advertisement"
+      },
+      {
+        "word": "gangster",
+        "pos": "noun",
+        "sense": "a member of a gang of criminals",
+        "then_date": "1886",
+        "then_year": 1886,
+        "then_source": "the appeal gave 1886 as the earliest date then in the entry"
+      },
+      {
+        "word": "demon bowler",
+        "pos": "noun",
+        "sense": "in cricket, an exceptionally fast or skilful bowler",
+        "then_date": "1861",
+        "then_year": 1861,
+        "then_source": "Birmingham Daily Post, 5 September 1861"
+      },
+      {
+        "word": "disc jockey",
+        "pos": "noun",
+        "sense": "a person who introduces and plays recorded popular music on the radio",
+        "then_date": "1941",
+        "then_year": 1941,
+        "then_source": "Variety, August 1941"
+      },
+      {
+        "word": "conchie",
+        "pos": "noun",
+        "sense": "a conscientious objector, in the colloquial and usually scornful form of the word",
+        "then_date": "October 1917",
+        "then_year": 1917,
+        "then_source": "Daily Mail, 9 October 1917"
+      },
+      {
+        "word": "demob",
+        "pos": "noun and verb",
+        "sense": "demobilization, and to demobilize, in the shortened form the troops used at the end of the First World War",
+        "then_date": "1919",
+        "then_year": 1919,
+        "then_source": "an advertisement and a novel of 1919"
+      },
+      {
+        "word": "Sam Browne",
+        "pos": "noun",
+        "sense": "a commissioned officer, in United States military slang, from the Sam Browne belt officers wore",
+        "then_date": "1919",
+        "then_year": 1919,
+        "then_source": "Company Fund, 1919"
+      },
+      {
+        "word": "trench mouth",
+        "pos": "noun",
+        "sense": "an infection of the mouth and gums named for the trenches of the First World War",
+        "then_date": "1917",
+        "then_year": 1917,
+        "then_source": "a medical source of 1917"
+      },
+      {
+        "word": "Zeppelins in a cloud",
+        "pos": "noun phrase",
+        "sense": "sausage and mashed potato, in soldiers' slang, with variants such as Zepps in a smoke screen",
+        "then_date": "1925",
+        "then_year": 1925,
+        "then_source": "Edward Fraser and John Gibbons, Soldier and Sailor Words, 1925"
+      },
+      {
+        "word": "the Trade",
+        "pos": "noun",
+        "sense": "the Royal Navy's Submarine Service, in naval slang",
+        "then_date": "1916",
+        "then_year": 1916,
+        "then_source": "Rudyard Kipling in The Times, 21 June 1916"
+      },
+      {
+        "word": "tank",
+        "pos": "verb",
+        "sense": "to attack with tanks or to travel by tank, the military sense of the verb",
+        "then_date": "1930",
+        "then_year": 1930,
+        "then_source": "American Mercury, December 1930"
+      },
+      {
+        "word": "Eyetie",
+        "pos": "noun",
+        "sense": "an Italian, in the offensive shortened form of Eyetalian",
+        "then_date": "August 1919",
+        "then_year": 1919,
+        "then_source": "The Athenaeum, 22 August 1919"
+      },
+      {
+        "word": "headhunter",
+        "pos": "noun",
+        "sense": "a person who recruits skilled or senior staff away from other employers",
+        "then_date": "1960",
+        "then_year": 1960,
+        "then_source": "Wentworth and Flexner, Dictionary of American Slang, 1960"
+      },
+      {
+        "word": "legless",
+        "pos": "adjective",
+        "sense": "very drunk",
+        "then_date": "1975",
+        "then_year": 1975,
+        "then_source": "Andy Fairweather-Low, the song Wide Eyed and Legless, 1975"
+      },
+      {
+        "word": "the Company",
+        "pos": "noun",
+        "sense": "the Central Intelligence Agency, as its own people called it",
+        "then_date": "1966",
+        "then_year": 1966,
+        "then_source": "a slang dictionary of the 1960s"
+      },
+      {
+        "word": "mochaccino",
+        "pos": "noun",
+        "sense": "a cappuccino flavoured with chocolate",
+        "then_date": "1971",
+        "then_year": 1971,
+        "then_source": "New York Times, 12 November 1971"
+      },
+      {
+        "word": "Kwanzaa",
+        "pos": "noun",
+        "sense": "the African American festival held at the turn of the year, begun in 1966",
+        "then_date": "1971",
+        "then_year": 1971,
+        "then_source": "Pittsburgh Courier, 9 January 1971"
+      },
+      {
+        "word": "rock paper scissors",
+        "pos": "noun",
+        "sense": "the hand game in which rock, paper and scissors beat one another in turn",
+        "then_date": "1954",
+        "then_year": 1954,
+        "then_source": "Lima News (Ohio), 27 July 1954"
+      },
+      {
+        "word": "carbo-loading",
+        "pos": "noun",
+        "sense": "eating large amounts of carbohydrate before an endurance event",
+        "then_date": "1978",
+        "then_year": 1978,
+        "then_source": "Yoga Journal, July 1978"
+      },
+      {
+        "word": "party animal",
+        "pos": "noun",
+        "sense": "an exuberant reveller",
+        "then_date": "1982",
+        "then_year": 1982,
+        "then_source": "New York Times, 2 July 1982"
+      },
+      {
+        "word": "numpty",
+        "pos": "noun",
+        "sense": "a foolish person, in British and originally Scottish use",
+        "then_date": "1988",
+        "then_year": 1988,
+        "then_source": "Michael Munro, The Patter: Another Blast, 1988"
+      },
+      {
+        "word": "baked Alaska",
+        "pos": "noun",
+        "sense": "a dessert of ice cream covered in meringue and browned in a hot oven",
+        "then_date": "1882",
+        "then_year": 1882,
+        "then_source": "George A. Sala, America Revisited, 1882, where the dish is called an Alaska"
+      },
+      {
+        "word": "Earl Grey",
+        "pos": "noun",
+        "sense": "a tea flavoured with bergamot",
+        "then_date": "1929",
+        "then_year": 1929,
+        "then_source": "J. Swift, Chronicles of a Gigolo, 1929"
+      },
+      {
+        "word": "DIY",
+        "pos": "abbreviation",
+        "sense": "do it yourself, of work done about the home by the householder",
+        "then_date": "1955",
+        "then_year": 1955,
+        "then_source": "Titusville Herald (Pennsylvania), 22 July 1955, an advertisement"
+      },
+      {
+        "word": "Hold 'Em",
+        "pos": "noun",
+        "sense": "the form of poker played with community cards, also called Texas Hold 'Em",
+        "then_date": "1964",
+        "then_year": 1964,
+        "then_source": "San Antonio Express and News, 17 October 1964"
+      },
+      {
+        "word": "low rider",
+        "pos": "noun",
+        "sense": "a car lowered to ride close to the ground, or a person who drives one",
+        "then_date": "1968",
+        "then_year": 1968,
+        "then_source": "Eldridge Cleaver, Soul on Ice, 1968"
+      },
+      {
+        "word": "header",
+        "pos": "noun",
+        "sense": "in football, a shot, pass or clearance made by heading the ball",
+        "then_date": "1891",
+        "then_year": 1891,
+        "then_source": "Heads and Tales, a Scottish Football League annual, 1891"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "word/5": {
+        "year": 1905,
+        "found_earlier": "yes"
+      },
+      "word/15": {
+        "year": 1916,
+        "found_earlier": "yes"
+      }
+    }
+  }
+}

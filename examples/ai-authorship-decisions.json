@@ -1,0 +1,429 @@
+{
+  "title": "Court and office decisions on an AI as inventor or author, worldwide",
+  "done_when": "Every decision listed has its holding, its date and its subject agreed by two AIs of different vendors, each return naming the court or office, the citation, the provision relied on and one sentence quoted from the decision, with its later history, so that the table reads against the decisions themselves.",
+  "slug": "ai-authorship-decisions",
+  "topics": [
+    "ai-authorship",
+    "ai-inventorship",
+    "dabus",
+    "copyright",
+    "patents",
+    "case-law",
+    "law"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 2,
+    "endgame_at": 2,
+    "budget": 40,
+    "patch_max": 0
+  },
+  "pieces": {
+    "decision/*": {
+      "count": 40,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Decision {n}: in {d.jurisdiction}, the {d.forum} decided {d.matter}, a {d.kind} matter, in {d.when}. Open the decision itself where it is published: the court's or office's own site or register, a national case law service such as Find Case Law of The National Archives, the EPO's boards of appeal database, the Federal Court of Australia's judgments site, the Copyright Office's review board letters, China Judgements Online or a court's own published text, or a full translation or a detailed report when the original is behind a login. Read it and return the holding as one of five words. ai_may_be_named: the decision allows an AI system to be named as the inventor or author, or grants or registers on an application that names one. ai_may_not_be_named: the decision holds that an inventor or author is a natural person, or a person, so the AI cannot be named, and the application, registration or claim fails on that ground; it stays ai_may_not_be_named when the same decision lets a human be named instead, with or without a note that an AI was used. protected_with_human_contribution: the decision protects a work, or part of a work, made with an AI because of a human's choices, with the human as author, even where the AI-made parts are excluded. refused: protection or registration of AI-made material is refused because the human contribution was found too small or not shown, without the decision turning on whether the AI itself can be named. mixed: a registration or grant was made and then questioned or withdrawn by the same office, or the decision splits so that none of the other words fits; say how in notes. Give decision_date as YYYY-MM-DD: for a judgment or office decision, the date printed on it; for a grant with no reasoned decision, the date of the office journal in which it was published; for a registration, the effective date of registration on the certificate. Give subject as inventor, author or both, by what the decision decided, not by what the parties argued. Then the evidence: body, the court or office as the decision names itself; citation, the neutral citation, case number, docket or application number as printed; provision, the statute and the article or section the decision rests on, as cited; quote, one sentence of the decision in its own words, at most 60 words, translated where the decision is not in English; history, what happened to it afterwards as far as is published, such as an appeal, a refusal of leave, a petition denied, or nothing found; accessed, the day you read it. The parties appear only inside the case name, as the court prints it; no other person is named, and judges and officials are named by office only. Give titles and identifiers, never links.",
+      "data": {
+        "d": "decisions"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "holding",
+          "decision_date",
+          "subject",
+          "body",
+          "citation",
+          "provision",
+          "quote",
+          "history",
+          "accessed"
+        ],
+        "properties": {
+          "holding": {
+            "enum": [
+              "ai_may_be_named",
+              "ai_may_not_be_named",
+              "protected_with_human_contribution",
+              "refused",
+              "mixed"
+            ]
+          },
+          "decision_date": {
+            "type": "string",
+            "maxLength": 10,
+            "format": "date"
+          },
+          "subject": {
+            "enum": [
+              "inventor",
+              "author",
+              "both"
+            ]
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "citation": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "provision": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 450
+          },
+          "history": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "accessed": {
+            "type": "string",
+            "maxLength": 10,
+            "format": "date"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 400
+          }
+        }
+      },
+      "agree": [
+        "holding",
+        "decision_date",
+        "subject"
+      ]
+    }
+  },
+  "data": {
+    "decisions": [
+      {
+        "jurisdiction": "the United Kingdom",
+        "forum": "Intellectual Property Office, a hearing officer acting for the Comptroller",
+        "matter": "decision BL O/741/19 on patent applications GB1816909.4 and GB1818161.0, which named the machine DABUS as inventor",
+        "kind": "patent",
+        "when": "December 2019"
+      },
+      {
+        "jurisdiction": "the United Kingdom",
+        "forum": "High Court of England and Wales, Patents Court",
+        "matter": "Thaler v Comptroller-General of Patents, Designs and Trade Marks, [2020] EWHC 2412 (Pat), the appeal from decision BL O/741/19",
+        "kind": "patent",
+        "when": "September 2020"
+      },
+      {
+        "jurisdiction": "the United Kingdom",
+        "forum": "Court of Appeal of England and Wales, Civil Division",
+        "matter": "Thaler v Comptroller-General of Patents, Designs and Trade Marks, [2021] EWCA Civ 1374",
+        "kind": "patent",
+        "when": "September 2021"
+      },
+      {
+        "jurisdiction": "the United Kingdom",
+        "forum": "Supreme Court of the United Kingdom",
+        "matter": "Thaler v Comptroller-General of Patents, Designs and Trade Marks, [2023] UKSC 49",
+        "kind": "patent",
+        "when": "December 2023"
+      },
+      {
+        "jurisdiction": "the European Patent Organisation",
+        "forum": "European Patent Office, Receiving Section",
+        "matter": "the refusals of European patent applications EP 18 275 163 and EP 18 275 174, which named DABUS as inventor, after consolidated oral proceedings",
+        "kind": "patent",
+        "when": "January 2020"
+      },
+      {
+        "jurisdiction": "the European Patent Organisation",
+        "forum": "Legal Board of Appeal of the European Patent Office",
+        "matter": "J 8/20, with the parallel case J 9/20, the appeals against the refusals of applications EP 18 275 163 and EP 18 275 174",
+        "kind": "patent",
+        "when": "December 2021"
+      },
+      {
+        "jurisdiction": "the United States",
+        "forum": "United States Patent and Trademark Office, deciding a petition",
+        "matter": "the decision on the petition in application 16/524,350, a food container, which named DABUS as inventor",
+        "kind": "patent",
+        "when": "April 2020"
+      },
+      {
+        "jurisdiction": "the United States",
+        "forum": "Court of Appeals for the Federal Circuit",
+        "matter": "Thaler v. Vidal, No. 2021-2347, reported at 43 F.4th 1207",
+        "kind": "patent",
+        "when": "August 2022"
+      },
+      {
+        "jurisdiction": "Australia",
+        "forum": "Commissioner of Patents, a delegate",
+        "matter": "Stephen L. Thaler [2021] APO 5, on the Australian patent application for a food container and devices and methods for attracting enhanced attention, which named DABUS as inventor",
+        "kind": "patent",
+        "when": "February 2021"
+      },
+      {
+        "jurisdiction": "Australia",
+        "forum": "Federal Court of Australia, a single judge",
+        "matter": "Thaler v Commissioner of Patents [2021] FCA 879",
+        "kind": "patent",
+        "when": "July 2021"
+      },
+      {
+        "jurisdiction": "Australia",
+        "forum": "Full Court of the Federal Court of Australia",
+        "matter": "Commissioner of Patents v Thaler [2022] FCAFC 62",
+        "kind": "patent",
+        "when": "April 2022"
+      },
+      {
+        "jurisdiction": "Germany",
+        "forum": "Federal Patent Court (Bundespatentgericht), 11th Senate",
+        "matter": "11 W (pat) 5/21, the appeal on the inventor designation for the German DABUS application, a food container",
+        "kind": "patent",
+        "when": "November 2021"
+      },
+      {
+        "jurisdiction": "Germany",
+        "forum": "Federal Court of Justice (Bundesgerichtshof), 10th Civil Senate",
+        "matter": "X ZB 5/22, the appeal on points of law from 11 W (pat) 5/21",
+        "kind": "patent",
+        "when": "June 2024"
+      },
+      {
+        "jurisdiction": "South Africa",
+        "forum": "Companies and Intellectual Property Commission",
+        "matter": "the grant of patent 2021/03242, a food container and devices and methods for attracting enhanced attention, naming DABUS as inventor, as published in the Patent Journal",
+        "kind": "patent",
+        "when": "July 2021"
+      },
+      {
+        "jurisdiction": "New Zealand",
+        "forum": "Intellectual Property Office of New Zealand, an Assistant Commissioner of Patents",
+        "matter": "Thaler [2022] NZIPOPAT 2, on patent application 776029, which named DABUS as inventor",
+        "kind": "patent",
+        "when": "January 2022"
+      },
+      {
+        "jurisdiction": "New Zealand",
+        "forum": "High Court of New Zealand",
+        "matter": "Thaler v Commissioner of Patents [2023] NZHC 554, the appeal from [2022] NZIPOPAT 2",
+        "kind": "patent",
+        "when": "March 2023"
+      },
+      {
+        "jurisdiction": "South Korea",
+        "forum": "Seoul Administrative Court",
+        "matter": "case 2022GuHap89524, the suit against the Korean Intellectual Property Office's invalidation of the DABUS patent application",
+        "kind": "patent",
+        "when": "June 2023"
+      },
+      {
+        "jurisdiction": "South Korea",
+        "forum": "Seoul High Court",
+        "matter": "the appeal from case 2022GuHap89524 of the Seoul Administrative Court, on the DABUS patent application",
+        "kind": "patent",
+        "when": "May 2024"
+      },
+      {
+        "jurisdiction": "Japan",
+        "forum": "Tokyo District Court, 40th Civil Division",
+        "matter": "case 2023 (Gyo-U) No. 5001, the suit to rescind the Japan Patent Office's dismissal of the DABUS patent application",
+        "kind": "patent",
+        "when": "May 2024"
+      },
+      {
+        "jurisdiction": "Japan",
+        "forum": "Intellectual Property High Court",
+        "matter": "case 2024 (Gyo-Ko) No. 10006, the appeal from case 2023 (Gyo-U) No. 5001",
+        "kind": "patent",
+        "when": "January 2025"
+      },
+      {
+        "jurisdiction": "Taiwan",
+        "forum": "Intellectual Property and Commercial Court",
+        "matter": "110 Xing Zhuan Su 3 (110年度行專訴字第3號), the suit against the Intellectual Property Office's dismissal of the DABUS patent application, devices and methods for attracting enhanced attention",
+        "kind": "patent",
+        "when": "August 2021"
+      },
+      {
+        "jurisdiction": "Taiwan",
+        "forum": "Supreme Administrative Court",
+        "matter": "111 Shang 55 (111年度上字第55號), the appeal from 110 Xing Zhuan Su 3",
+        "kind": "patent",
+        "when": "July 2022"
+      },
+      {
+        "jurisdiction": "India",
+        "forum": "Indian Patent Office, an Assistant Controller of Patents",
+        "matter": "the order refusing the Indian national-phase application of the DABUS food container and attention-attracting devices invention, which named DABUS as inventor, under section 15 of the Patents Act 1970",
+        "kind": "patent",
+        "when": "April 2026"
+      },
+      {
+        "jurisdiction": "Brazil",
+        "forum": "National Institute of Industrial Property (INPI)",
+        "matter": "the withdrawal from the national phase of the DABUS food container application, published in the official gazette after the opinion of the Federal Attorney's Office at the institute",
+        "kind": "patent",
+        "when": "September 2022"
+      },
+      {
+        "jurisdiction": "Switzerland",
+        "forum": "Federal Administrative Court (Bundesverwaltungsgericht)",
+        "matter": "B-2532/2024, Thaler against the Swiss Federal Institute of Intellectual Property, on the inventor designation of the DABUS application",
+        "kind": "patent",
+        "when": "June 2025"
+      },
+      {
+        "jurisdiction": "Israel",
+        "forum": "Tel Aviv District Court",
+        "matter": "Thaler v Commissioner of Patents, the appeal from the Registrar of Patents' decision of March 2023 on patent applications 268604 and 268605, which named DABUS as inventor",
+        "kind": "patent",
+        "when": "December 2025"
+      },
+      {
+        "jurisdiction": "the United States",
+        "forum": "United States Copyright Office, Review Board",
+        "matter": "the second request for reconsideration of the refusal to register A Recent Entrance to Paradise, a work the application attributed to the Creativity Machine",
+        "kind": "copyright",
+        "when": "February 2022"
+      },
+      {
+        "jurisdiction": "the United States",
+        "forum": "District Court for the District of Columbia",
+        "matter": "Thaler v. Perlmutter, Civil Action No. 22-1564, the memorandum opinion on summary judgment",
+        "kind": "copyright",
+        "when": "August 2023"
+      },
+      {
+        "jurisdiction": "the United States",
+        "forum": "Court of Appeals for the District of Columbia Circuit",
+        "matter": "Thaler v. Perlmutter, No. 23-5233",
+        "kind": "copyright",
+        "when": "March 2025"
+      },
+      {
+        "jurisdiction": "the United States",
+        "forum": "United States Copyright Office",
+        "matter": "the letter deciding the registration of Zarya of the Dawn, a comic book whose images were made with Midjourney",
+        "kind": "copyright",
+        "when": "February 2023"
+      },
+      {
+        "jurisdiction": "the United States",
+        "forum": "United States Copyright Office, Review Board",
+        "matter": "the second request for reconsideration of the refusal to register Théâtre D'opéra Spatial, an image made with Midjourney",
+        "kind": "copyright",
+        "when": "September 2023"
+      },
+      {
+        "jurisdiction": "the United States",
+        "forum": "United States Copyright Office, Review Board",
+        "matter": "the second request for reconsideration of the refusal to register SURYAST, a work the application attributed in part to the RAGHAV painting app",
+        "kind": "copyright",
+        "when": "December 2023"
+      },
+      {
+        "jurisdiction": "the United States",
+        "forum": "United States Copyright Office",
+        "matter": "the registration of A Single Piece of American Cheese, an image made and edited with the Invoke tool, granted after an earlier refusal",
+        "kind": "copyright",
+        "when": "January 2025"
+      },
+      {
+        "jurisdiction": "China",
+        "forum": "Beijing Internet Court",
+        "matter": "Beijing Feilin Law Firm v Baidu, on an article containing a report generated by a database's software, judgment (2018) Jing 0491 Min Chu 239",
+        "kind": "copyright",
+        "when": "April 2019"
+      },
+      {
+        "jurisdiction": "China",
+        "forum": "Shenzhen Nanshan District People's Court",
+        "matter": "Shenzhen Tencent Computer System v Shanghai Yingxun Technology, on an article written with the Dreamwriter software, judgment (2019) Yue 0305 Min Chu 14010",
+        "kind": "copyright",
+        "when": "late 2019"
+      },
+      {
+        "jurisdiction": "China",
+        "forum": "Beijing Internet Court",
+        "matter": "Li v Liu, on an image made with Stable Diffusion, judgment (2023) Jing 0491 Min Chu 11279",
+        "kind": "copyright",
+        "when": "November 2023"
+      },
+      {
+        "jurisdiction": "China",
+        "forum": "Changshu People's Court, Jiangsu",
+        "matter": "the half heart case, on an image made with Midjourney and edited by hand, judgment (2024) Su 0581 Min Chu 6697",
+        "kind": "copyright",
+        "when": "October 2024"
+      },
+      {
+        "jurisdiction": "China",
+        "forum": "Zhangjiagang People's Court, Jiangsu",
+        "matter": "the butterfly chairs case, on images of a child's chair made with Midjourney",
+        "kind": "copyright",
+        "when": "March 2025"
+      },
+      {
+        "jurisdiction": "the Czech Republic",
+        "forum": "Municipal Court in Prague",
+        "matter": "case 10 C 13/2023, on an image made with an AI image tool and used by a law firm",
+        "kind": "copyright",
+        "when": "October 2023"
+      },
+      {
+        "jurisdiction": "India",
+        "forum": "Copyright Office",
+        "matter": "the registration of the artwork SURYAST naming the RAGHAV painting app as co-author, diary number 13646/2020-CO/A, registration A-135120/2020, and the notice of withdrawal that followed",
+        "kind": "copyright",
+        "when": "November 2020 to December 2021"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "decision/4": {
+        "holding": "ai_may_not_be_named",
+        "decision_date": "2023-12-20",
+        "subject": "inventor"
+      },
+      "decision/6": {
+        "holding": "ai_may_not_be_named",
+        "decision_date": "2021-12-21",
+        "subject": "inventor"
+      },
+      "decision/8": {
+        "holding": "ai_may_not_be_named",
+        "decision_date": "2022-08-05",
+        "subject": "inventor"
+      },
+      "decision/11": {
+        "holding": "ai_may_not_be_named",
+        "decision_date": "2022-04-13",
+        "subject": "inventor"
+      },
+      "decision/14": {
+        "holding": "ai_may_be_named",
+        "decision_date": "2021-07-28",
+        "subject": "inventor"
+      },
+      "decision/29": {
+        "holding": "ai_may_not_be_named",
+        "decision_date": "2025-03-18",
+        "subject": "author"
+      },
+      "decision/36": {
+        "holding": "protected_with_human_contribution",
+        "decision_date": "2023-11-27",
+        "subject": "author"
+      }
+    }
+  }
+}

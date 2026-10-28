@@ -1,0 +1,409 @@
+{
+  "title": "Code published replications into the FORRT Replication Database",
+  "done_when": "Every replication paper has its named finding coded as the Replication Database codes a row: the outcome in the database's four categories, the replication's sample size and its effect as a signed correlation, agreed by two AIs of different vendors, with the original study's numbers and the sentences the numbers were read from kept as evidence for a reader who can check them against the papers.",
+  "slug": "replication-database",
+  "topics": [
+    "replication",
+    "psychology",
+    "metascience",
+    "forrt",
+    "effect-sizes",
+    "open-science",
+    "coding"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 2,
+    "endgame_at": 2,
+    "budget": 33,
+    "patch_max": 0
+  },
+  "pieces": {
+    "paper/*": {
+      "count": 33,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Paper {n}: {p.title} ({p.journal}, {p.year}; {p.ref}), a replication of {p.original}. The finding to code: {p.effect}. The FORRT Replication Database (Roeseler and colleagues, Journal of Open Psychology Data, 2024; the data and codebook are on the Open Science Framework) holds one row per original-and-replication pair. Code this pair as the database would. Open the replication paper by its title in the journal named; it is open access. Open the original study where you need its direction or its numbers. Return outcome as one of the database's four categories, spelled exactly: success, when the replication confirmed the original result, both effects significant in the same direction or the authors' preregistered criterion met; informative failure to replicate, when the study ran as planned, the planned sample reached, but did not confirm the original result, including a null result or a significant effect in the opposite direction; practical failure to replicate, when a problem in running the study (a manipulation that failed, too few participants recruited, measures that did not work, technical errors) means the result cannot be read as evidence either way; inconclusive, when some of the results for this finding confirm the original and some do not, or the test is too unclear to call. Where the replication authors say which of these their result is, follow them; where they do not, apply the definitions to the finding named above. Return replication_n as the number of participants in the replication's test of this finding after the authors' exclusions, as a whole number; for a multi-site report use the pooled number. Return replication_effect as a Pearson correlation to two decimals, signed positive when the replication's effect runs in the direction the original reported and negative when it runs the other way; 0 when the paper gives no number from which it can be computed, and say so in notes. Convert in this order and stop at the first that applies: a correlation the paper reports is used as it is; Cohen d, Hedges g, dz or Cohen h gives r = d divided by the square root of d squared plus 4; two group means with standard deviations give d as their difference over the pooled standard deviation, then the same conversion; a t statistic gives r as the square root of t squared over t squared plus the degrees of freedom; an F with one numerator degree of freedom gives r as the square root of F over F plus the error degrees of freedom; a chi-square with one degree of freedom gives r as the square root of chi-square over the sample size; eta squared or partial eta squared gives r as its square root; an odds ratio gives d as its natural logarithm times the square root of 3 over pi, then the conversion from d. Round only at the end. As evidence return original_n and original_effect (the original study's sample size and effect, the effect converted to r the same way, 0 when not available), effect_metric (the statistic the replication reported for this finding, one of r, d, g, dz, h, means, t, F, chi_square, eta_squared, odds_ratio, other, none), n_quote and effect_quote (the sentences or table cells the numbers come from, copied), outcome_quote (the authors' own words on whether the finding replicated), and notes. Numbers as digits, dates as YYYY-MM-DD, quotes trimmed; identifiers and titles, never links.",
+      "data": {
+        "p": "papers"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "outcome",
+          "replication_n",
+          "replication_effect",
+          "original_n",
+          "original_effect",
+          "effect_metric",
+          "n_quote",
+          "effect_quote",
+          "outcome_quote",
+          "notes"
+        ],
+        "properties": {
+          "outcome": {
+            "enum": [
+              "success",
+              "informative failure to replicate",
+              "practical failure to replicate",
+              "inconclusive"
+            ]
+          },
+          "replication_n": {
+            "type": "integer"
+          },
+          "replication_effect": {
+            "type": "number",
+            "tolerance": 0.03
+          },
+          "original_n": {
+            "type": "integer"
+          },
+          "original_effect": {
+            "type": "number",
+            "tolerance": 0.03
+          },
+          "effect_metric": {
+            "enum": [
+              "r",
+              "d",
+              "g",
+              "dz",
+              "h",
+              "means",
+              "t",
+              "F",
+              "chi_square",
+              "eta_squared",
+              "odds_ratio",
+              "other",
+              "none"
+            ]
+          },
+          "n_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "effect_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "outcome_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 700
+          }
+        }
+      },
+      "agree": [
+        "outcome",
+        "replication_n",
+        "replication_effect"
+      ]
+    }
+  },
+  "data": {
+    "papers": [
+      {
+        "title": "Revisiting the psychology of waste: Replication and extensions Registered Report of Arkes (1996)",
+        "journal": "Royal Society Open Science",
+        "year": 2025,
+        "ref": "DOI 10.1098/rsos.250367",
+        "original": "Arkes (1996), Journal of Behavioral Decision Making, studies 1 to 3",
+        "effect": "Study 1, the movie package scenario: wastefulness avoidance, the effect of waste on evaluations of the decision, reported as Cohen h; treat h as d"
+      },
+      {
+        "title": "Revisiting partition priming in judgement under uncertainty: replication and extension Registered Report of Fox and Rottenstreich (2003)",
+        "journal": "Royal Society Open Science",
+        "year": 2025,
+        "ref": "DOI 10.1098/rsos.250669",
+        "original": "Fox and Rottenstreich (2003), Psychological Science, studies 1a, 1b, 3 and 4",
+        "effect": "Study 1a: partition priming, the shift in participants' probability estimates with the framing of the partition"
+      },
+      {
+        "title": "Revisiting the effects of helper intentions on gratitude and indebtedness: Replication and extensions Registered Report of Tsang (2006)",
+        "journal": "Royal Society Open Science",
+        "year": 2025,
+        "ref": "DOI 10.1098/rsos.250508",
+        "original": "Tsang (2006), Motivation and Emotion, studies 2 and 3",
+        "effect": "Study 2: the effect of the helper's intention (benevolent versus selfish) on gratitude"
+      },
+      {
+        "title": "The Effect of Concrete Wording on Truth Judgements: A Preregistered Replication and Extension of Hansen and Wanke (2010)",
+        "journal": "Collabra: Psychology",
+        "year": 2019,
+        "ref": "DOI 10.1525/collabra.192",
+        "original": "Hansen and Wanke (2010), Personality and Social Psychology Bulletin, Experiment 1",
+        "effect": "Experiment 1a, the linguistic concreteness effect: truth ratings for concretely worded trivia statements compared with abstractly worded ones over the original 52 items, the paired one-sided test (H1)"
+      },
+      {
+        "title": "Do infants use cues of saliva-sharing to infer close relationships? A replication of Thomas et al. (2022)",
+        "journal": "Royal Society Open Science",
+        "year": 2025,
+        "ref": "DOI 10.1098/rsos.240229",
+        "original": "Thomas and colleagues (2022), Science, experiment 2B",
+        "effect": "the looking-time preference for the saliva-sharer when the puppet cried (the first confirmatory test), in the infant sample"
+      },
+      {
+        "title": "Factors impacting effective altruism: revisiting heuristics and biases in charity in a replication and extension registered report of Baron and Szymanska (2011)",
+        "journal": "Royal Society Open Science",
+        "year": 2025,
+        "ref": "DOI 10.1098/rsos.250290",
+        "original": "Baron and Szymanska (2011), chapter in The Science of Giving, studies 1 to 4",
+        "effect": "Study 1: the preference for charities with lower perceived waste, reported as Cohen d"
+      },
+      {
+        "title": "Revisiting the link between true-self and morality: Replication and extension Registered Report of Newman, Bloom, and Knobe (2014) Studies 1 and 2",
+        "journal": "Royal Society Open Science",
+        "year": 2025,
+        "ref": "DOI 10.1098/rsos.250908",
+        "original": "Newman, Bloom and Knobe (2014), Personality and Social Psychology Bulletin, studies 1 and 2",
+        "effect": "Study 1, forced choice: morally positive changes in others judged more reflective of the true self than morally negative changes"
+      },
+      {
+        "title": "Does learning more about others impact liking them? Replication and extension Registered Report of Norton et al.'s (2007) lure of ambiguity",
+        "journal": "Royal Society Open Science",
+        "year": 2025,
+        "ref": "DOI 10.1098/rsos.250441",
+        "original": "Norton, Frost and Ariely (2007), Journal of Personality and Social Psychology, studies 1a, 1b and 2",
+        "effect": "Study 1a: participants' belief that they would like a person more the more they knew about them, reported as Cohen h; treat h as d"
+      },
+      {
+        "title": "A very public replication of the temporal pattern to people's regrets",
+        "journal": "Royal Society Open Science",
+        "year": 2023,
+        "ref": "DOI 10.1098/rsos.221574",
+        "original": "Gilovich and Medvec (1994), Journal of Personality and Social Psychology",
+        "effect": "the primary test: whether people's biggest regrets are more often regrets of inaction than regrets of action, from the proportions in the main sample"
+      },
+      {
+        "title": "Age biases the judgment rather than the perception of an ambiguous figure",
+        "journal": "Scientific Reports",
+        "year": 2021,
+        "ref": "Scientific Reports volume 11, article 8627, 2021",
+        "original": "Nicholls, Churches and Loetscher (2018), Scientific Reports",
+        "effect": "the own-age bias as a group difference: older participants' age estimates of the ambiguous my-wife-or-my-mother-in-law figure compared with younger participants', in the full sample"
+      },
+      {
+        "title": "Emotion Regulation Choice and Psychosis Proneness: A Replication and Extension Study",
+        "journal": "Collabra: Psychology",
+        "year": 2023,
+        "ref": "DOI 10.1525/collabra.73755",
+        "original": "Sheppes and colleagues (2011), Psychological Science",
+        "effect": "the replication task: participants choose disengagement (distraction) more often for high-intensity than for low-intensity stimuli"
+      },
+      {
+        "title": "Revisiting the Differential Centrality of Experiential and Material Purchases to the Self: Replication and Extension of Carter and Gilovich (2012)",
+        "journal": "Collabra: Psychology",
+        "year": 2023,
+        "ref": "DOI 10.1525/collabra.57785",
+        "original": "Carter and Gilovich (2012), Journal of Personality and Social Psychology, studies 3A, 3B, 3C and 5",
+        "effect": "Study 3A: experiential purchases judged more reflective of the true self than material purchases, for the self"
+      },
+      {
+        "title": "Order Effects on the Rubber Hand Illusion Expectancy: A Replication and Extension of Lush (2020)",
+        "journal": "Collabra: Psychology",
+        "year": 2024,
+        "ref": "DOI 10.1525/collabra.116190",
+        "original": "Lush (2020), Collabra: Psychology",
+        "effect": "Experiment 2 (the larger sample): expectancy ratings for the illusion higher in the synchronous than in the asynchronous condition"
+      },
+      {
+        "title": "Revisiting and Rethinking the Identifiable Victim Effect: Replication and Extension of Small, Loewenstein, and Slovic (2007)",
+        "journal": "Collabra: Psychology",
+        "year": 2024,
+        "ref": "DOI 10.1525/collabra.90203",
+        "original": "Small, Loewenstein and Slovic (2007), Organizational Behavior and Human Decision Processes, studies 1 and 3",
+        "effect": "Study 1: the identifiable victim effect, hypothetical donations to an identified victim versus statistical victims"
+      },
+      {
+        "title": "Outcome Bias in Evaluations of Ethical Decisions: Replication and Extensions of Gino, Moore, and Bazerman (2009)",
+        "journal": "Collabra: Psychology",
+        "year": 2024,
+        "ref": "DOI 10.1525/collabra.126266",
+        "original": "Gino, Moore and Bazerman (2009), Study 1, three scenarios",
+        "effect": "Study 1 scenarios (replication 1 to 3): outcome bias in ratings of punishment, negative outcomes rated as more punishable, reported as generalized eta squared"
+      },
+      {
+        "title": "Processing the Word Red and Intellectual Performance: Four Replication Attempts",
+        "journal": "Collabra: Psychology",
+        "year": 2020,
+        "ref": "DOI 10.1525/collabra.277",
+        "original": "Lichtenfeld, Maier, Elliot and Pekrun (2009), Journal of Experimental Social Psychology, Experiment 2",
+        "effect": "Experiment 1 of the replication (the first direct replication): analogy test scores after reading the word red compared with the word gray"
+      },
+      {
+        "title": "Theoretical Maturation of the Bias Blind Spot: A Preregistered Replication Study of Pronin, Lin, and Ross (2002) in a Brazilian Sample",
+        "journal": "Collabra: Psychology",
+        "year": 2024,
+        "ref": "DOI 10.1525/collabra.122158",
+        "original": "Pronin, Lin and Ross (2002), Personality and Social Psychology Bulletin, Study 1",
+        "effect": "the bias blind spot: participants rate themselves as less susceptible to biases than their peers (self versus other ratings for biases)"
+      },
+      {
+        "title": "The Efficacy of Attentional Bias Modification for Anxiety: A Registered Replication",
+        "journal": "Collabra: Psychology",
+        "year": 2025,
+        "ref": "DOI 10.1525/collabra.147691",
+        "original": "Hazen and colleagues (2009), Journal of Psychiatric Research",
+        "effect": "the reduction in anxiety symptoms after multi-session attention bias modification compared with the control condition"
+      },
+      {
+        "title": "Collaborative Registered Replication of Griskevicius et al. (2010): Can Pro-environmental Behavior Be Promoted by Priming Status Motivation?",
+        "journal": "Collabra: Psychology",
+        "year": 2025,
+        "ref": "DOI 10.1525/collabra.143773",
+        "original": "Griskevicius, Tybur and Van den Bergh (2010), Journal of Personality and Social Psychology, Experiment 1",
+        "effect": "the effect of the status prime on choosing green over luxurious products, in the pooled multi-site sample"
+      },
+      {
+        "title": "Do People Really Think They Are Alone in a Crowd of Sheep? Replication and Extension of Pronin et al. (2007)",
+        "journal": "Collabra: Psychology",
+        "year": 2026,
+        "ref": "DOI 10.1525/collabra.170644",
+        "original": "Pronin, Berger and Molouki (2007), Journal of Personality and Social Psychology, Study 2",
+        "effect": "students judge themselves as less likely than their peers to be influenced by social pressures (the average conformity judgment against the midpoint)"
+      },
+      {
+        "title": "Conspiracy Theories as a Source of Social Stigma in the Age of Corona: A Replication of a Study by Lantian et al. (2018)",
+        "journal": "Collabra: Psychology",
+        "year": 2025,
+        "ref": "DOI 10.1525/collabra.147230",
+        "original": "Lantian and colleagues (2018), European Journal of Social Psychology",
+        "effect": "Study 1: anticipated social exclusion higher in the conspiracy-endorsement condition than in the rejection condition"
+      },
+      {
+        "title": "Behavioral priming: it's all in the mind, but whose mind?",
+        "journal": "PLOS ONE",
+        "year": 2012,
+        "ref": "DOI 10.1371/journal.pone.0029081",
+        "original": "Bargh, Chen and Burrows (1996), Journal of Personality and Social Psychology, Experiment 2a",
+        "effect": "Experiment 1 of the replication: walking time of participants primed with the elderly stereotype compared with unprimed participants"
+      },
+      {
+        "title": "Do Consumers of All Social Classes Prefer Best Sellers? Three Preregistered Replication Studies of Na et al. (2016)",
+        "journal": "Collabra: Psychology",
+        "year": 2026,
+        "ref": "DOI 10.1525/collabra.154998",
+        "original": "Na and colleagues (2016), Psychological Science",
+        "effect": "Study 1: working-class participants conform to the majority's product choice more than middle-class participants"
+      },
+      {
+        "title": "Registered Replication Report: A Large Multilab Cross-Cultural Conceptual Replication of Turri et al. (2015)",
+        "journal": "Advances in Methods and Practices in Psychological Science",
+        "year": 2024,
+        "ref": "volume 7, issue 4, October 2024",
+        "original": "Turri, Buckwalter and Blouw (2015), Experiment 1",
+        "effect": "the Gettier intuition: knowledge attributed less often in the Gettier-type case than in the matched justified-true-belief case, reported as an odds ratio"
+      },
+      {
+        "title": "Registered Replication Report: Study 3 From Trafimow and Hughes (2012)",
+        "journal": "Advances in Methods and Practices in Psychological Science",
+        "year": 2025,
+        "ref": "volume 8, issue 2, April 2025",
+        "original": "Trafimow and Hughes (2012), Social Psychological and Personality Science, Study 3",
+        "effect": "the primary test: mortality salience increases death-thought accessibility compared with the control condition, pooled across labs"
+      },
+      {
+        "title": "Registered Replication Report: Johns et al. (2005)",
+        "journal": "Advances in Methods and Practices in Psychological Science",
+        "year": 2026,
+        "ref": "volume 9, issue 4, October 2026",
+        "original": "Johns, Schmader and Martens (2005), Psychological Science",
+        "effect": "the stereotype-threat interaction: women underperform men on the mathematics test in the threat condition but not in the control condition, pooled across the nine replications"
+      },
+      {
+        "title": "Inaction Inertia Effect: Foregoing Opportunities as a Consequence of an Initial Failure to Act, a Replication-Extension Study in the Brazilian Population",
+        "journal": "Meta-Psychology",
+        "year": 2026,
+        "ref": "DOI 10.15626/MP.2023.3960",
+        "original": "Tykocinski, Pittman and Tuttle (1995), Journal of Personality and Social Psychology",
+        "effect": "the first original scenario (the hotel): likelihood of accepting the second offer lower after a large missed difference than after a small one"
+      },
+      {
+        "title": "No Evidence of the Ego-Depletion Effect across Task Characteristics and Individual Differences: A Pre-Registered Study",
+        "journal": "PLOS ONE",
+        "year": 2016,
+        "ref": "DOI 10.1371/journal.pone.0147770",
+        "original": "Schmeichel (2007), Journal of Experimental Psychology: General, Study 1",
+        "effect": "the pre-registered primary test: working memory (operation span) performance of the depletion group compared with the control group"
+      },
+      {
+        "title": "Does willpower mindset really moderate the ego-depletion effect? A preregistered replication of Job, Dweck, and Walton (2010)",
+        "journal": "PLOS ONE",
+        "year": 2023,
+        "ref": "DOI 10.1371/journal.pone.0287911",
+        "original": "Job, Dweck and Walton (2010), Psychological Science, Study 1",
+        "effect": "the moderation of the ego-depletion effect by willpower mindset: the depletion by mindset interaction on the self-control task"
+      },
+      {
+        "title": "The impact of gender-exclusive language on women's anticipated ostracism: A preregistered replication of Stout and Dasgupta (2011)",
+        "journal": "PLOS ONE",
+        "year": 2023,
+        "ref": "DOI 10.1371/journal.pone.0290709",
+        "original": "Stout and Dasgupta (2011), Personality and Social Psychology Bulletin",
+        "effect": "women's anticipated job-based ostracism after gender-exclusive compared with gender-inclusive language"
+      },
+      {
+        "title": "Darkness promotes dishonesty in a coin toss task: A pre-registered conceptual replication of Experiment 1 of Zhong, Bohns, and Gino (2010)",
+        "journal": "PLOS ONE",
+        "year": 2023,
+        "ref": "DOI 10.1371/journal.pone.0294484",
+        "original": "Zhong, Bohns and Gino (2010), Psychological Science, Experiment 1",
+        "effect": "dishonesty (over-reporting in the coin toss task) in the dim room compared with the well-lit room"
+      },
+      {
+        "title": "Replication of Procrastination, Deadlines, and Performance: Self-Control by Precommitment",
+        "journal": "Psychological Science",
+        "year": 2026,
+        "ref": "volume 37, issue 8, pages 557 to 571",
+        "original": "Ariely and Wertenbroch (2002), Psychological Science, Study 2",
+        "effect": "the effect of evenly spaced externally imposed deadlines on the first performance metric (errors detected), compared with the end deadline condition"
+      },
+      {
+        "title": "Registered Report: A Replication Examining Occupational Experience and Performance on the Water-Level Task",
+        "journal": "Psychological Science",
+        "year": 2026,
+        "ref": "volume 37, issue 2, pages 125 to 135",
+        "original": "Hecht and Proffitt (1995), Psychological Science",
+        "effect": "the difference in water-level task performance between people whose occupations involve handling liquids in containers and people whose occupations do not"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "paper/4": {
+        "outcome": "informative failure to replicate",
+        "replication_n": 246,
+        "replication_effect": 0.04
+      },
+      "paper/10": {
+        "outcome": "success",
+        "replication_n": 246,
+        "replication_effect": 0.23
+      },
+      "paper/16": {
+        "outcome": "informative failure to replicate",
+        "replication_n": 69,
+        "replication_effect": 0.02
+      },
+      "paper/22": {
+        "outcome": "informative failure to replicate",
+        "replication_n": 120,
+        "replication_effect": -0.04
+      },
+      "paper/28": {
+        "outcome": "informative failure to replicate",
+        "replication_n": 200,
+        "replication_effect": -0.11
+      }
+    }
+  }
+}

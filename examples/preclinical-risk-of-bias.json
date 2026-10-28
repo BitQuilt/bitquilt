@@ -1,0 +1,462 @@
+{
+  "title": "Risk-of-bias reporting in open-access preclinical studies of stroke, Alzheimer's disease and intracerebral haemorrhage",
+  "done_when": "Every paper has six answers two AIs of different vendors read the same way: whether it reports random allocation to group, blinded assessment of outcome, a sample-size calculation, allocation concealment, a conflict-of-interest statement, and animal welfare or ethics approval, each backed by a quoted sentence, with the species and model kept as evidence, so that the CAMARADES living evidence summaries can take the annotations in.",
+  "slug": "preclinical-risk-of-bias",
+  "topics": [
+    "preclinical",
+    "risk-of-bias",
+    "camarades",
+    "stroke",
+    "alzheimers-disease",
+    "intracerebral-haemorrhage",
+    "meta-research",
+    "animal-studies"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 2,
+    "endgame_at": 2,
+    "budget": 34,
+    "patch_max": 0
+  },
+  "pieces": {
+    "paper/*": {
+      "count": 34,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Paper {n}: {paper.title}, published in {paper.journal} in {paper.year}, PubMed Central id {paper.pmcid}, an open-access animal study of {paper.area}. Open the full text in PubMed Central or Europe PMC by its PMC id and read the whole paper: the methods, the declarations at the end, and any supplementary methods it points to. Answer six questions from the CAMARADES risk-of-bias checklist, as the Collaborative Approach to Meta-Analysis and Review of Animal Data from Experimental Studies describes it in its methods papers in PubMed Central: the 2019 PLOS Biology machine-assisted review of animal models of chemotherapy-induced peripheral neuropathy and the 2015 PLOS Biology paper on risk of bias in reports of in vivo research. Each answer is yes, no or unclear, and each is about what the paper reports, not about what the authors may have done without saying so. randomization: yes when the paper states that animals were allocated to the experimental groups at random (randomly allocated, assigned, divided or randomized into groups); random choice of microscope fields, random order of testing, random primers, and the word randomized in the title of a cited trial do not count. blinding: yes when the paper states that whoever assessed an outcome (behaviour scoring, lesion or infarct measurement, histology, imaging, cell counts or other readouts) did not know the animal's group; blinded surgery or blinded drug preparation alone does not count. sample_size: yes when the paper states that the number of animals was set by a sample-size or power calculation made before the experiment; a post hoc power analysis alone, or numbers based on previous experience, is no. concealment: yes when the paper states that the person allocating animals to groups or giving the intervention could not foresee or did not know the allocation, for example coded or sealed treatments or allocation by someone not involved in the experiment. conflict: yes when the paper carries a statement of whether or not the authors have a conflict or competing interest, in either direction. welfare: yes when the paper states that the work was approved by an animal ethics committee or institutional animal care body, licensed by an authority, or carried out in compliance with named animal welfare laws, directives or guidelines. For every item, no means the paper says nothing about it or says it was not done. unclear is narrow: the paper mentions the item but it cannot be told whether it applies to the animal experiment reported, for example a statement that applies only to cell culture or to one of several experiments, or wording so vague that it may not mean the item (blinded without saying who or to what). Silence is no, not unclear. Quote for each item the sentence that decides it, at most 400 characters, copied from the paper; for a no, quote the nearest sentence on the subject or leave that quote empty. Give species (mouse, rat or other) and the model in a few words, for example transient middle cerebral artery occlusion by intraluminal filament, APP/PS1 transgenic mice, or collagenase-induced intracerebral haemorrhage. Give the day the paper was read as YYYY-MM-DD. Name the paper by its PMC id and give no links.",
+      "data": {
+        "paper": "papers"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "randomization",
+          "blinding",
+          "sample_size",
+          "concealment",
+          "conflict",
+          "welfare",
+          "randomization_quote",
+          "blinding_quote",
+          "sample_size_quote",
+          "concealment_quote",
+          "conflict_quote",
+          "welfare_quote",
+          "species",
+          "model",
+          "accessed"
+        ],
+        "properties": {
+          "randomization": {
+            "enum": [
+              "yes",
+              "no",
+              "unclear"
+            ]
+          },
+          "blinding": {
+            "enum": [
+              "yes",
+              "no",
+              "unclear"
+            ]
+          },
+          "sample_size": {
+            "enum": [
+              "yes",
+              "no",
+              "unclear"
+            ]
+          },
+          "concealment": {
+            "enum": [
+              "yes",
+              "no",
+              "unclear"
+            ]
+          },
+          "conflict": {
+            "enum": [
+              "yes",
+              "no",
+              "unclear"
+            ]
+          },
+          "welfare": {
+            "enum": [
+              "yes",
+              "no",
+              "unclear"
+            ]
+          },
+          "randomization_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "blinding_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "sample_size_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "concealment_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "conflict_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "welfare_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "species": {
+            "enum": [
+              "mouse",
+              "rat",
+              "other"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "accessed": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 400
+          }
+        }
+      },
+      "agree": [
+        "randomization",
+        "blinding",
+        "sample_size",
+        "concealment",
+        "conflict",
+        "welfare"
+      ]
+    }
+  },
+  "data": {
+    "papers": [
+      {
+        "pmcid": "PMC11432279",
+        "title": "The Neuroprotective Effects of Peripheral Nerve Microcurrent Stimulation Therapy in a Rat Model of Middle Cerebral Artery Occlusion",
+        "journal": "International Journal of Molecular Sciences",
+        "year": 2024,
+        "area": "ischaemic stroke"
+      },
+      {
+        "pmcid": "PMC10527786",
+        "title": "CCA repair or ECA ligation—Which middle cerebral artery occlusion is better in the reperfusion mouse model?",
+        "journal": "Ibrain",
+        "year": 2023,
+        "area": "ischaemic stroke"
+      },
+      {
+        "pmcid": "PMC10940479",
+        "title": "Pretreatment with a dual antiplatelet and anticoagulant (APAC) reduces ischemia–reperfusion injury in a mouse model of temporary middle cerebral artery occlusion—implications for neurovascular procedures",
+        "journal": "Acta Neurochirurgica",
+        "year": 2024,
+        "area": "ischaemic stroke"
+      },
+      {
+        "pmcid": "PMC11430743",
+        "title": "Brain Ischemic Tolerance Triggered by Preconditioning Involves Modulation of Tumor Necrosis Factor-α-Stimulated Gene 6 (TSG-6) in Mice Subjected to Transient Middle Cerebral Artery Occlusion",
+        "journal": "Current Issues in Molecular Biology",
+        "year": 2024,
+        "area": "ischaemic stroke"
+      },
+      {
+        "pmcid": "PMC10871490",
+        "title": "Therapeutic effect of Sanhua decoction on rats with middle cerebral artery occlusion and the associated changes in gut microbiota and short-chain fatty acids",
+        "journal": "PLOS ONE",
+        "year": 2024,
+        "area": "ischaemic stroke"
+      },
+      {
+        "pmcid": "PMC9910575",
+        "title": "Photothrombotic Middle Cerebral Artery Occlusion in Mice: A Novel Model of Ischemic Stroke",
+        "journal": "eNeuro",
+        "year": 2023,
+        "area": "ischaemic stroke"
+      },
+      {
+        "pmcid": "PMC10234012",
+        "title": "Effects of isoflurane and xylazine on inducing cerebral ischemia by the model of middle cerebral artery occlusion in mice",
+        "journal": "Laboratory Animal Research",
+        "year": 2023,
+        "area": "ischaemic stroke"
+      },
+      {
+        "pmcid": "PMC10993527",
+        "title": "Neuroprotective effects of methanolic extract from Chuanxiong Rhizoma in mice with middle cerebral artery occlusion-induced ischemic stroke: suppression of astrocyte- and microglia-related inflammatory response",
+        "journal": "BMC Complementary Medicine and Therapies",
+        "year": 2024,
+        "area": "ischaemic stroke"
+      },
+      {
+        "pmcid": "PMC10406860",
+        "title": "Astrocyte-neuron lactate shuttle plays a pivotal role in sensory-based neuroprotection in a rat model of permanent middle cerebral artery occlusion",
+        "journal": "Scientific Reports",
+        "year": 2023,
+        "area": "ischaemic stroke"
+      },
+      {
+        "pmcid": "PMC9139097",
+        "title": "Protective Effects of Nuciferine in Middle Cerebral Artery Occlusion Rats Based on Transcriptomics",
+        "journal": "Brain Sciences",
+        "year": 2022,
+        "area": "ischaemic stroke"
+      },
+      {
+        "pmcid": "PMC9326608",
+        "title": "Changes in Brain Electrical Activity after Transient Middle Cerebral Artery Occlusion in Rats",
+        "journal": "Neurology International",
+        "year": 2022,
+        "area": "ischaemic stroke"
+      },
+      {
+        "pmcid": "PMC9409377",
+        "title": "Blockade of Platelet Glycoprotein Ibα Augments Neuroprotection in Orai2-Deficient Mice during Middle Cerebral Artery Occlusion",
+        "journal": "International Journal of Molecular Sciences",
+        "year": 2022,
+        "area": "ischaemic stroke"
+      },
+      {
+        "pmcid": "PMC11408156",
+        "title": "The GLP-1 medicines semaglutide and tirzepatide do not alter disease-related pathology, behaviour or cognitive function in 5XFAD and APP/PS1 mice",
+        "journal": "Molecular Metabolism",
+        "year": 2024,
+        "area": "Alzheimer's disease"
+      },
+      {
+        "pmcid": "PMC11719106",
+        "title": "Thermotherapy has sexually dimorphic responses in APP/PS1 mice",
+        "journal": "Aging (Albany NY)",
+        "year": 2024,
+        "area": "Alzheimer's disease"
+      },
+      {
+        "pmcid": "PMC11546851",
+        "title": "High-Salt Diet Accelerates Neuron Loss and Anxiety in APP/PS1 Mice Through Serpina3n",
+        "journal": "International Journal of Molecular Sciences",
+        "year": 2024,
+        "area": "Alzheimer's disease"
+      },
+      {
+        "pmcid": "PMC11006716",
+        "title": "Dynamic changes in lysosome‐related pathways in APP/PS1 mice with aging",
+        "journal": "MedComm",
+        "year": 2024,
+        "area": "Alzheimer's disease"
+      },
+      {
+        "pmcid": "PMC11567857",
+        "title": "Deletion of miR‐33, a regulator of the ABCA1–APOE pathway, ameliorates neuropathological phenotypes in APP/PS1 mice",
+        "journal": "Alzheimer's & Dementia",
+        "year": 2024,
+        "area": "Alzheimer's disease"
+      },
+      {
+        "pmcid": "PMC11475322",
+        "title": "Treadmill Exercise Facilitates Synaptic Plasticity in APP/PS1 Mice by Regulating Hippocampal AMPAR Activity",
+        "journal": "Cells",
+        "year": 2024,
+        "area": "Alzheimer's disease"
+      },
+      {
+        "pmcid": "PMC11094339",
+        "title": "Testosterone deficiency worsens mitochondrial dysfunction in APP/PS1 mice",
+        "journal": "Frontiers in Aging Neuroscience",
+        "year": 2024,
+        "area": "Alzheimer's disease"
+      },
+      {
+        "pmcid": "PMC11476258",
+        "title": "The Potential Related Genes and Mechanisms Involved in Improving the Treadmill Exercise Ability of APP/PS1 Mice",
+        "journal": "International Journal of Molecular Sciences",
+        "year": 2024,
+        "area": "Alzheimer's disease"
+      },
+      {
+        "pmcid": "PMC11548031",
+        "title": "Xanthohumol Protects Against Neuronal Excitotoxicity and Mitochondrial Dysfunction in APP/PS1 Mice: An Omics-Based Study",
+        "journal": "Nutrients",
+        "year": 2024,
+        "area": "Alzheimer's disease"
+      },
+      {
+        "pmcid": "PMC11576489",
+        "title": "9‐Methylfascaplysin Prevents Neuroinflammation and Synaptic Damage via Cell‐Specific Inhibition of Kinases in APP/PS1 Transgenic Mice",
+        "journal": "CNS Neuroscience & Therapeutics",
+        "year": 2024,
+        "area": "Alzheimer's disease"
+      },
+      {
+        "pmcid": "PMC11292904",
+        "title": "Neuronal A2A receptor exacerbates synapse loss and memory deficits in APP/PS1 mice",
+        "journal": "Brain",
+        "year": 2024,
+        "area": "Alzheimer's disease"
+      },
+      {
+        "pmcid": "PMC10958843",
+        "title": "Carbon quantum dots of ginsenoside Rb1 for application in a mouse model of intracerebral Hemorrhage",
+        "journal": "Journal of Nanobiotechnology",
+        "year": 2024,
+        "area": "intracerebral haemorrhage"
+      },
+      {
+        "pmcid": "PMC10999083",
+        "title": "Extracellular vesicle encapsulated Homer1a as novel nanotherapeutics against intracerebral hemorrhage in a mouse model",
+        "journal": "Journal of Neuroinflammation",
+        "year": 2024,
+        "area": "intracerebral haemorrhage"
+      },
+      {
+        "pmcid": "PMC11652676",
+        "title": "Esketamine Provides Neuroprotection After Intracerebral Hemorrhage in Mice via the NTF3/PI3K/AKT Pathway",
+        "journal": "CNS Neuroscience & Therapeutics",
+        "year": 2024,
+        "area": "intracerebral haemorrhage"
+      },
+      {
+        "pmcid": "PMC11649584",
+        "title": "Baihui‐Penetrating‐Qubin Acupuncture Attenuates Neurological Deficits Through SIRT1/FOXO1 Reducing Oxidative Stress and Neuronal Apoptosis in Intracerebral Hemorrhage Rats",
+        "journal": "Brain and Behavior",
+        "year": 2024,
+        "area": "intracerebral haemorrhage"
+      },
+      {
+        "pmcid": "PMC11087128",
+        "title": "Activating transcription factor 6 alleviates secondary brain injury by increasing cystathionine γ-lyase expression in a rat model of intracerebral hemorrhage",
+        "journal": "Aging (Albany NY)",
+        "year": 2024,
+        "area": "intracerebral haemorrhage"
+      },
+      {
+        "pmcid": "PMC10380515",
+        "title": "MIC19 Exerts Neuroprotective Role via Maintaining the Mitochondrial Structure in a Rat Model of Intracerebral Hemorrhage",
+        "journal": "International Journal of Molecular Sciences",
+        "year": 2023,
+        "area": "intracerebral haemorrhage"
+      },
+      {
+        "pmcid": "PMC11305294",
+        "title": "Nurr1 overexpression in the primary motor cortex alleviates motor dysfunction induced by intracerebral hemorrhage in the striatum in mice",
+        "journal": "Neurotherapeutics",
+        "year": 2024,
+        "area": "intracerebral haemorrhage"
+      },
+      {
+        "pmcid": "PMC10963940",
+        "title": "Pink1 deficiency enhances neurological deficits and inflammatory responses after intracerebral hemorrhage in mice",
+        "journal": "Neurotherapeutics",
+        "year": 2024,
+        "area": "intracerebral haemorrhage"
+      },
+      {
+        "pmcid": "PMC10958402",
+        "title": "Intracerebral hemorrhage‐induced brain injury in mice: The role of peroxiredoxin 2‐Toll‐like receptor 4 inflammatory axis",
+        "journal": "CNS Neuroscience & Therapeutics",
+        "year": 2024,
+        "area": "intracerebral haemorrhage"
+      },
+      {
+        "pmcid": "PMC10678901",
+        "title": "MSCs overexpressing GDNF restores brain structure and neurological function in rats with intracerebral hemorrhage",
+        "journal": "Molecular Biomedicine",
+        "year": 2023,
+        "area": "intracerebral haemorrhage"
+      },
+      {
+        "pmcid": "PMC10805394",
+        "title": "RIPK3 activation promotes DAXX‐dependent neuronal necroptosis after intracerebral hemorrhage in mice",
+        "journal": "CNS Neuroscience & Therapeutics",
+        "year": 2023,
+        "area": "intracerebral haemorrhage"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "paper/3": {
+        "randomization": "yes",
+        "blinding": "yes",
+        "sample_size": "yes",
+        "concealment": "no",
+        "conflict": "yes",
+        "welfare": "yes"
+      },
+      "paper/4": {
+        "randomization": "yes",
+        "blinding": "yes",
+        "sample_size": "yes",
+        "concealment": "no",
+        "conflict": "yes",
+        "welfare": "yes"
+      },
+      "paper/7": {
+        "randomization": "yes",
+        "blinding": "yes",
+        "sample_size": "no",
+        "concealment": "no",
+        "conflict": "yes",
+        "welfare": "yes"
+      },
+      "paper/11": {
+        "randomization": "yes",
+        "blinding": "no",
+        "sample_size": "no",
+        "concealment": "no",
+        "conflict": "yes",
+        "welfare": "yes"
+      },
+      "paper/14": {
+        "randomization": "no",
+        "blinding": "no",
+        "sample_size": "no",
+        "concealment": "no",
+        "conflict": "yes",
+        "welfare": "yes"
+      },
+      "paper/15": {
+        "randomization": "yes",
+        "blinding": "no",
+        "sample_size": "no",
+        "concealment": "no",
+        "conflict": "yes",
+        "welfare": "yes"
+      },
+      "paper/27": {
+        "randomization": "yes",
+        "blinding": "yes",
+        "sample_size": "no",
+        "concealment": "no",
+        "conflict": "yes",
+        "welfare": "yes"
+      },
+      "paper/31": {
+        "randomization": "no",
+        "blinding": "no",
+        "sample_size": "no",
+        "concealment": "no",
+        "conflict": "yes",
+        "welfare": "yes"
+      }
+    }
+  }
+}

@@ -1,0 +1,409 @@
+{
+  "title": "UK public inquiry recommendations: accepted, implemented or dropped",
+  "done_when": "Every recommendation listed has its status in the formal response and whether an implementing instrument was found agreed by two AIs of different vendors, each return naming the responding body, the response document and its date, the instrument and its date, and quoting a sentence from each, so that the ledger can be read against the inquiries' reports, the government's published responses and the UK legislation site line by line.",
+  "slug": "inquiry-recommendations",
+  "topics": [
+    "public-inquiries",
+    "united-kingdom",
+    "recommendations",
+    "accountability",
+    "legislation",
+    "government-response",
+    "civic-records"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 3,
+    "endgame_at": 2,
+    "budget": 34,
+    "patch_max": 0
+  },
+  "pieces": {
+    "recommendation/*": {
+      "count": 34,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Recommendation {n}: made by the {rec.inquiry} in its {rec.report}, published {rec.published}, as {rec.number}, addressed to {rec.directed}. Its words: {rec.text} Find what the body it is addressed to said in reply, and what has been done since. Look first for the formal response: the written response to the report on the government's publications site, GOV dot UK, from the responsible department or the Cabinet Office, the collection on that site titled Public Inquiries: Recommendations and the Government Response with its dashboard for each inquiry, written ministerial statements in Hansard, and, where the recommendation is addressed to another body, that body's published response on its own site. Where a response answers by theme rather than by number, as the Home Office's response to the Brook House Inquiry does, read the passage on this recommendation's subject. status is what the response says about this recommendation: accepted when it says it accepts the recommendation, or that it will do or has done what the recommendation asks (accept in full is accepted); accepted_in_principle when it says it accepts the aim, principle, spirit or need behind the recommendation but commits only to consider, consult, explore or review, or to something other than what was asked, or accepts it in part (accept in principle is accepted_in_principle); rejected when it declines: it says it does not accept the recommendation, will not do it, or that what the recommendation asks to end will continue; no_response_found when no published response from the body addressed can be found. Then look for an implementing instrument: an Act or statutory instrument on the UK legislation site (legislation dot gov dot uk), statutory guidance, a scheme, order, published policy or appointment that carries out the recommendation, together with the dashboards' and progress reports' word on completion. implemented is yes when a named instrument has been enacted, made, published or put in place that does what the recommendation asks, whether or not it is yet in force; partly when an instrument does part of it; no when the body has said it will not do it, which is the answer for every rejected recommendation unless an instrument was found anyway; not_found when nothing of the kind can be found. Give the responding body by name, the response document's title and its date, the implementing instrument's title and its date (the day it was made, received Royal Assent or was published), and one quoted sentence from each, at most 500 characters; leave out the fields for which nothing was found, and say in notes what was searched. Name bodies, documents, instruments and recommendation numbers only, never a person. Dates are YYYY-MM-DD, titles are trimmed, and nothing is a link.",
+      "data": {
+        "rec": "recommendations"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "implemented",
+          "responding_body",
+          "accessed"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "accepted",
+              "accepted_in_principle",
+              "rejected",
+              "no_response_found"
+            ]
+          },
+          "implemented": {
+            "enum": [
+              "yes",
+              "partly",
+              "no",
+              "not_found"
+            ]
+          },
+          "responding_body": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "response_title": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "response_date": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          },
+          "response_quote": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "instrument_title": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "instrument_date": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          },
+          "instrument_quote": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "accessed": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          }
+        }
+      },
+      "agree": [
+        "status",
+        "implemented"
+      ]
+    }
+  },
+  "data": {
+    "recommendations": [
+      {
+        "inquiry": "Grenfell Tower Inquiry",
+        "report": "Phase 2 report, Volume 7, Part 14 (Recommendations), chapter 113",
+        "published": "2024-09-04",
+        "number": "paragraph 113.6 (recommendation 1 in the government response)",
+        "directed": "the government",
+        "text": "We therefore recommend that the government draw together under a single regulator all the functions relating to the construction industry to which we have referred."
+      },
+      {
+        "inquiry": "Grenfell Tower Inquiry",
+        "report": "Phase 2 report, Volume 7, Part 14 (Recommendations), chapter 113",
+        "published": "2024-09-04",
+        "number": "paragraph 113.7 (recommendation 2 in the government response)",
+        "directed": "the government",
+        "text": "We therefore recommend that the definition of a higher-risk building for the purposes of the Building Safety Act be reviewed urgently."
+      },
+      {
+        "inquiry": "Grenfell Tower Inquiry",
+        "report": "Phase 2 report, Volume 7, Part 14 (Recommendations), chapter 113",
+        "published": "2024-09-04",
+        "number": "paragraph 113.8 (recommendation 3 in the government response)",
+        "directed": "the government",
+        "text": "We therefore recommend that the government bring responsibility for the functions relating to fire safety currently exercised by MHCLG, the Home Office and the Department for Business and Trade into one department under a single Secretary of State."
+      },
+      {
+        "inquiry": "Grenfell Tower Inquiry",
+        "report": "Phase 2 report, Volume 7, Part 14 (Recommendations), chapter 113",
+        "published": "2024-09-04",
+        "number": "paragraph 113.9 (recommendation 4 in the government response)",
+        "directed": "the Secretary of State",
+        "text": "We therefore recommend that the Secretary of State appoint a Chief Construction Adviser with a sufficient budget and staff to provide advice on all matters affecting the construction industry, including: monitoring all aspects of the department's work relating to the Building Regulations and statutory guidance; providing advice to the Secretary of State on request; bringing to the attention of the Secretary of State any matters affecting the Building Regulations and statutory guidance or matters affecting the construction industry more generally of which the government should be aware."
+      },
+      {
+        "inquiry": "Grenfell Tower Inquiry",
+        "report": "Phase 2 report, Volume 7, Part 14 (Recommendations), chapter 113",
+        "published": "2024-09-04",
+        "number": "paragraph 113.15 (recommendation 10 in the government response)",
+        "directed": "the government",
+        "text": "We therefore recommend that it be made a statutory requirement that a fire safety strategy produced by a registered fire engineer (see below) to be submitted with building control applications (at Gateway 2) for the construction or refurbishment of any higher-risk building and for it to be reviewed and re-submitted at the stage of completion (Gateway 3)."
+      },
+      {
+        "inquiry": "Grenfell Tower Inquiry",
+        "report": "Phase 2 report, Volume 7, Part 14 (Recommendations), chapter 113",
+        "published": "2024-09-04",
+        "number": "paragraph 113.31 (recommendation 20 in the government response)",
+        "directed": "the government",
+        "text": "We also recommend that it be made a statutory requirement that an application for building control approval in relation to the construction or refurbishment of a higher-risk building (Gateway 2) be supported by a statement from a senior manager of the principal designer under the Building Safety Act 2022 that all reasonable steps have been taken to ensure that on completion the building as designed will be as safe as is required by the Building Regulations."
+      },
+      {
+        "inquiry": "Grenfell Tower Inquiry",
+        "report": "Phase 2 report, Volume 7, Part 14 (Recommendations), chapter 113",
+        "published": "2024-09-04",
+        "number": "paragraph 113.40 (recommendation 25 in the government response)",
+        "directed": "the government",
+        "text": "We therefore recommend that it be made a legal requirement for the government to maintain a publicly accessible record of recommendations made by select committees, coroners and public inquiries together with a description of the steps taken in response."
+      },
+      {
+        "inquiry": "Infected Blood Inquiry",
+        "report": "The Report, Volume 1, chapter 1.5 (Recommendations)",
+        "published": "2024-05-20",
+        "number": "Recommendation 1 (Compensation)",
+        "directed": "the UK Government",
+        "text": "My principal recommendation remains that a compensation scheme should be set up now."
+      },
+      {
+        "inquiry": "Infected Blood Inquiry",
+        "report": "The Report, Volume 1, chapter 1.5 (Recommendations)",
+        "published": "2024-05-20",
+        "number": "Recommendation 2(a) (Recognising and remembering what happened to people)",
+        "directed": "the UK Government and the governments of the nations of the UK",
+        "text": "A permanent memorial be established in the UK and consideration be given to memorials in each of Northern Ireland, Wales and Scotland. The nature of the memorial(s), their design and location should be determined by a memorial committee consisting of people infected and affected and representatives of the governments. It should be funded by the UK government."
+      },
+      {
+        "inquiry": "Infected Blood Inquiry",
+        "report": "The Report, Volume 1, chapter 1.5 (Recommendations)",
+        "published": "2024-05-20",
+        "number": "Recommendation 2(b) (Recognising and remembering what happened to people)",
+        "directed": "the UK Government",
+        "text": "A memorial be established at public expense, dedicated specifically to the children infected at Treloar's school. The memorial should be such as is agreed with those who were pupils at Treloar's."
+      },
+      {
+        "inquiry": "Infected Blood Inquiry",
+        "report": "The Report, Volume 1, chapter 1.5 (Recommendations)",
+        "published": "2024-05-20",
+        "number": "Recommendation 2(c) (Recognising and remembering what happened to people)",
+        "directed": "the UK Government",
+        "text": "There should be at least three events, approximately six months apart, drawing together those infected and affected, the nature and timing of which should be determined by a working party as described above, facilitated by some central funding."
+      },
+      {
+        "inquiry": "Infected Blood Inquiry",
+        "report": "The Report, Volume 1, chapter 1.5 (Recommendations)",
+        "published": "2024-05-20",
+        "number": "Recommendation 3(a) (Learning from the Inquiry)",
+        "directed": "the General Medical Council, NHS Education for Scotland, Health Education and Improvement Wales, the Northern Ireland Medical and Dental Training Agency and NHS England",
+        "text": "The General Medical Council, and NHS Education for Scotland, Health Education and Improvement Wales, Northern Ireland Medical and Dental Training Agency and NHS England, should take steps to ensure that those \"lessons to be learned\" which relate to clinical practice should be incorporated in every doctor's training."
+      },
+      {
+        "inquiry": "Infected Blood Inquiry",
+        "report": "The Report, Volume 1, chapter 1.5 (Recommendations)",
+        "published": "2024-05-20",
+        "number": "Recommendation 3(c) (Learning from the Inquiry)",
+        "directed": "the UK Government",
+        "text": "The Inquiry website is maintained online."
+      },
+      {
+        "inquiry": "Post Office Horizon IT Inquiry",
+        "report": "Final Report, Volume 1, section 2 (Recommendations)",
+        "published": "2025-07-08",
+        "number": "Recommendation 2",
+        "directed": "the Minister and the Department for Business and Trade, with the Post Office",
+        "text": "The Minister and/or the Department in conjunction with the Post Office shall make a public announcement explaining what is meant by the phrase \"full and fair financial redress\". Such an explanation should indicate that claimants should be awarded sums which are equivalent to those which they would receive in civil litigation brought before a judge in England and Wales, assuming that the judge hearing the civil claims awarded damages at the top end of the appropriate range of damages."
+      },
+      {
+        "inquiry": "Post Office Horizon IT Inquiry",
+        "report": "Final Report, Volume 1, section 2 (Recommendations)",
+        "published": "2025-07-08",
+        "number": "Recommendation 4",
+        "directed": "the Department for Business and Trade",
+        "text": "All claimants in HSS shall be entitled to obtain legal advice funded by the Department prior to choosing between accepting the Fixed Sum Offer or seeking financial redress which is assessed. The remuneration for such advice shall be in accordance with a scale of fees commensurate with the scale which is operative in GLOS."
+      },
+      {
+        "inquiry": "Post Office Horizon IT Inquiry",
+        "report": "Final Report, Volume 1, section 2 (Recommendations)",
+        "published": "2025-07-08",
+        "number": "Recommendation 5",
+        "directed": "the Department for Business and Trade and the Post Office",
+        "text": "Any claimant who opts to have a claim assessed when the claim is submitted to the Post Office or the Department may decide to accept the Fixed Sum Offer at any time thereafter up to and including the date which is three calendar months following the receipt by the claimant of a first assessed offer."
+      },
+      {
+        "inquiry": "Post Office Horizon IT Inquiry",
+        "report": "Final Report, Volume 1, section 2 (Recommendations)",
+        "published": "2025-07-08",
+        "number": "Recommendation 8",
+        "directed": "the Post Office and the Department for Business and Trade",
+        "text": "In HSS the Post Office shall be obliged to make, and the Department shall be obliged to approve (when necessary) a first offer to a claimant which is no less than the sum recommended by the Independent Advisory Panel."
+      },
+      {
+        "inquiry": "Post Office Horizon IT Inquiry",
+        "report": "Final Report, Volume 1, section 2 (Recommendations)",
+        "published": "2025-07-08",
+        "number": "Recommendation 9",
+        "directed": "the Department for Business and Trade",
+        "text": "The Department following consultation with the Advisory Board, claimants' representatives and any other persons or bodies it thinks appropriate, shall give urgent consideration to whether claimants who have accepted the Fixed Sum Offer in HSS should be afforded the opportunity to appeal against their acceptance of such an offer if they are granted permission so to do."
+      },
+      {
+        "inquiry": "Independent Inquiry into Child Sexual Abuse",
+        "report": "The Report of the Independent Inquiry into Child Sexual Abuse, Part I (Recommendations)",
+        "published": "2022-10-20",
+        "number": "Recommendation 2 (Child Protection Authorities for England and Wales)",
+        "directed": "the UK Government and the Welsh Government",
+        "text": "The Inquiry recommends that the UK Government establishes a child protection authority for England, and the Welsh Government establishes a child protection authority for Wales."
+      },
+      {
+        "inquiry": "Independent Inquiry into Child Sexual Abuse",
+        "report": "The Report of the Independent Inquiry into Child Sexual Abuse, Part I (Recommendations)",
+        "published": "2022-10-20",
+        "number": "Recommendation 3 (A cabinet minister for children)",
+        "directed": "the UK Government",
+        "text": "The Inquiry recommends that the UK Government creates a cabinet-level ministerial position for children."
+      },
+      {
+        "inquiry": "Independent Inquiry into Child Sexual Abuse",
+        "report": "The Report of the Independent Inquiry into Child Sexual Abuse, Part I (Recommendations)",
+        "published": "2022-10-20",
+        "number": "Recommendation 5 (Pain compliance)",
+        "directed": "the UK Government",
+        "text": "The Inquiry recommends that the UK Government prohibits the use of any technique that deliberately induces pain (previously referred to by the Inquiry as 'pain compliance techniques') by withdrawing all policy permitting its use in custodial institutions in which children are detained, and setting out that this practice is prohibited by way of regulation."
+      },
+      {
+        "inquiry": "Independent Inquiry into Child Sexual Abuse",
+        "report": "The Report of the Independent Inquiry into Child Sexual Abuse, Part I (Recommendations)",
+        "published": "2022-10-20",
+        "number": "Recommendation 13 (Mandatory reporting)",
+        "directed": "the UK Government and the Welsh Government",
+        "text": "The Inquiry recommends that the UK Government and Welsh Government introduce legislation which places certain individuals, 'mandated reporters', under a statutory duty to report child sexual abuse where they: receive a disclosure of child sexual abuse from a child or perpetrator; or witness a child being sexually abused; or observe recognised indicators of child sexual abuse."
+      },
+      {
+        "inquiry": "Independent Inquiry into Child Sexual Abuse",
+        "report": "The Report of the Independent Inquiry into Child Sexual Abuse, Part I (Recommendations)",
+        "published": "2022-10-20",
+        "number": "Recommendation 15 (Limitation)",
+        "directed": "the UK Government",
+        "text": "The Inquiry recommends that the UK Government makes the necessary changes to legislation in order to ensure: the removal of the three-year limitation period for personal injury claims brought by victims and survivors of child sexual abuse in respect of their abuse; and the express protection of the right to a fair trial, with the burden falling on defendants to show that a fair trial is not possible."
+      },
+      {
+        "inquiry": "Independent Inquiry into Child Sexual Abuse",
+        "report": "The Report of the Independent Inquiry into Child Sexual Abuse, Part I (Recommendations)",
+        "published": "2022-10-20",
+        "number": "Recommendation 19 (Redress scheme)",
+        "directed": "the UK Government",
+        "text": "The Inquiry recommends that the UK Government establishes a single redress scheme in England and Wales, taking into account devolved responsibilities."
+      },
+      {
+        "inquiry": "UK Covid-19 Inquiry",
+        "report": "Module 1 report, The resilience and preparedness of the United Kingdom, chapter 7 (Recommendations)",
+        "published": "2024-07-18",
+        "number": "Recommendation 1 (A simplified structure for whole-system civil emergency preparedness and resilience)",
+        "directed": "the governments of the UK, Scotland, Wales and Northern Ireland",
+        "text": "The governments of the UK, Scotland, Wales and Northern Ireland should each simplify and reduce the number of structures with responsibility for preparing for and building resilience to whole-system civil emergencies."
+      },
+      {
+        "inquiry": "UK Covid-19 Inquiry",
+        "report": "Module 1 report, The resilience and preparedness of the United Kingdom, chapter 7 (Recommendations)",
+        "published": "2024-07-18",
+        "number": "Recommendation 2 (Cabinet Office leadership for whole-system civil emergencies in the UK)",
+        "directed": "the UK government",
+        "text": "The UK government should: abolish the lead government department model for whole-system civil emergency preparedness and resilience; and require the Cabinet Office to lead on preparing for and building resilience to whole-system civil emergencies across UK government departments, including monitoring the preparedness and resilience of other departments, supporting departments to correct problems, and escalating issues to the UK Cabinet-level ministerial committee and group of senior officials in Recommendation 1."
+      },
+      {
+        "inquiry": "UK Covid-19 Inquiry",
+        "report": "Module 1 report, The resilience and preparedness of the United Kingdom, chapter 7 (Recommendations)",
+        "published": "2024-07-18",
+        "number": "Recommendation 9 (Regular use of red teams)",
+        "directed": "the governments of the UK, Scotland, Wales and Northern Ireland",
+        "text": "The governments of the UK, Scotland, Wales and Northern Ireland should each introduce the use of red teams in the Civil Service to scrutinise and challenge the principles, evidence, policies and advice relating to preparedness for and resilience to whole-system civil emergencies. The red teams should be brought in from outside of government and the Civil Service."
+      },
+      {
+        "inquiry": "UK Covid-19 Inquiry",
+        "report": "Module 1 report, The resilience and preparedness of the United Kingdom, chapter 7 (Recommendations)",
+        "published": "2024-07-18",
+        "number": "Recommendation 10 (A UK-wide independent statutory body for whole-system civil emergency preparedness and resilience)",
+        "directed": "the UK government",
+        "text": "The UK government should, in consultation with the devolved administrations, create a statutory independent body for whole-system civil emergency preparedness and resilience."
+      },
+      {
+        "inquiry": "Brook House Inquiry",
+        "report": "The Brook House Inquiry Report, Volume II, Recommendations to prevent recurrence of mistreatment",
+        "published": "2023-09-19",
+        "number": "Recommendation 7 (A time limit on detention)",
+        "directed": "the government",
+        "text": "The government must introduce in legislation a maximum 28-day time limit on any individual's detention within an immigration removal centre."
+      },
+      {
+        "inquiry": "Brook House Inquiry",
+        "report": "The Brook House Inquiry Report, Volume II, Recommendations to prevent recurrence of mistreatment",
+        "published": "2023-09-19",
+        "number": "Recommendation 14 (Handcuffing behind backs while seated)",
+        "directed": "the Home Office and contractors operating immigration removal centres",
+        "text": "The Home Office and contractors operating immigration removal centres must ensure that all staff are aware that the technique of handcuffing detained people with their hands behind their back while seated is not permitted, given its association with positional asphyxia."
+      },
+      {
+        "inquiry": "Brook House Inquiry",
+        "report": "The Brook House Inquiry Report, Volume II, Recommendations to prevent recurrence of mistreatment",
+        "published": "2023-09-19",
+        "number": "Recommendation 15 (A new detention services order about the use of force)",
+        "directed": "the Home Office",
+        "text": "The Home Office must introduce, as a matter of urgency, a new and comprehensive detention services order to address use of force in immigration removal centres."
+      },
+      {
+        "inquiry": "Manchester Arena Inquiry",
+        "report": "Volume 1: Security for the Arena, Part 8, Monitored recommendations",
+        "published": "2021-06-17",
+        "number": "Monitored recommendation MR4",
+        "directed": "HM Government (the Home Office)",
+        "text": "A Protect Duty, as set out above, should be enacted into law by primary legislation."
+      },
+      {
+        "inquiry": "Manchester Arena Inquiry",
+        "report": "Volume 1: Security for the Arena, Part 8, Monitored recommendations",
+        "published": "2021-06-17",
+        "number": "Monitored recommendation MR5",
+        "directed": "HM Government (the Home Office) and the National Counter Terrorism Security Office",
+        "text": "NaCTSO should create a centralised library of training materials."
+      },
+      {
+        "inquiry": "Manchester Arena Inquiry",
+        "report": "Volume 1: Security for the Arena, Part 8, Monitored recommendations",
+        "published": "2021-06-17",
+        "number": "Monitored recommendation MR7",
+        "directed": "HM Government (the Home Office) and the Security Industry Authority",
+        "text": "The requirement that only those monitoring CCTV under a contract for services need to hold an SIA licence should be reviewed."
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "recommendation/8": {
+        "status": "accepted",
+        "implemented": "yes"
+      },
+      "recommendation/21": {
+        "status": "rejected",
+        "implemented": "no"
+      },
+      "recommendation/22": {
+        "status": "accepted",
+        "implemented": "yes"
+      },
+      "recommendation/23": {
+        "status": "accepted_in_principle",
+        "implemented": "yes"
+      },
+      "recommendation/29": {
+        "status": "rejected",
+        "implemented": "no"
+      },
+      "recommendation/32": {
+        "status": "accepted",
+        "implemented": "yes"
+      }
+    }
+  }
+}

@@ -1,0 +1,492 @@
+{
+  "title": "Grambank features for languages with an open-access grammar, one cell at a time",
+  "done_when": "Every cell has a value (1, 0 or unknown, as Grambank codes them) and the printed page where the grammar's section on the feature begins, agreed by two AIs of different vendors, with the deciding passage quoted as evidence, so that the cells for languages Grambank does not yet list can be offered to the project as coding sheets and the cells for languages it does list can be read against its released values.",
+  "slug": "grambank-features",
+  "topics": [
+    "grambank",
+    "linguistic-typology",
+    "grammar",
+    "language-science-press",
+    "glottolog",
+    "open-access",
+    "linguistics"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 3,
+    "endgame_at": 2,
+    "budget": 34,
+    "patch_max": 0
+  },
+  "pieces": {
+    "cell/*": {
+      "count": 34,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Cell {n}: the language {cell.language} (Glottocode {cell.glottocode}) and the Grambank feature {cell.feature}, which asks: {cell.question} Grambank's coding notes for this feature: {cell.notes} The source is the grammar {cell.grammar} by {cell.author} ({cell.year}), published open access by Language Science Press under a Creative Commons Attribution licence and deposited on Zenodo; find it by its title. Open it at {cell.section} (the table of contents gives the page), read that section and the passages it points to, and code the feature from the grammar alone, as a Grambank coder would: 1 when the feature is present as the question and notes define it, 0 when it is absent, and unknown (Grambank's question mark) when the grammar gives no information on it, or gives information that does not settle the coding. Grambank's rule on silence: that a grammar does not mention a construction is not the same as evidence that it does not exist. For high-frequency matters that even a basic sketch would describe, such as core case marking, gender agreement and constituent order, an otherwise comprehensive grammar that is silent supports 0; for less obvious matters silence supports unknown; and a coding that rests on lack of evidence is said so in the comment. Inference from related languages or from the language family does not count; only what this grammar says about this language does. Return value, one of 1, 0 or unknown; page, the page number printed on the page where the named section begins (the number printed on the page, not the position in the file); quote, the sentence or sentences from that section, or from the passages it points to, that decide the value, at most 1200 characters, copied as printed; section_found, the heading as the grammar prints it; comment, anything a Grambank reviewer would want to know, such as a construction that comes close to the feature but does not fit its definition, a value that differs between dialects, or a decision that rests on silence; and accessed, the day the grammar was read, as YYYY-MM-DD. Name the grammar by title, author and year, and give no links.",
+      "data": {
+        "cell": "cells"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "page",
+          "quote",
+          "section_found",
+          "accessed"
+        ],
+        "properties": {
+          "value": {
+            "enum": [
+              "1",
+              "0",
+              "unknown"
+            ]
+          },
+          "page": {
+            "type": "integer"
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 1200
+          },
+          "section_found": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "accessed": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          }
+        }
+      },
+      "agree": [
+        "value",
+        "page"
+      ]
+    }
+  },
+  "data": {
+    "cells": [
+      {
+        "language": "Palula",
+        "glottocode": "phal1254",
+        "grammar": "A grammar of Palula",
+        "author": "Henrik Liljegren",
+        "year": 2016,
+        "feature": "GB070",
+        "question": "Are there morphological cases for non-pronominal core arguments (i.e. S, A or P)?",
+        "notes": "Morphological case is any phonologically bound marking (affix, clitic, tone, alternation) on a noun phrase. Code 1 if core case (S, A or P) is at least sometimes marked on noun phrases by bound markers, including optional, differential or portmanteau marking; 0 if core functions are marked only by free adpositions or only by constituent order, or if case marking is not mentioned in the grammar or its examples (say so in the comment); unknown only if the author may have missed case markers.",
+        "section": "section 5.5, Case, in chapter 5 on nouns"
+      },
+      {
+        "language": "Yakkha",
+        "glottocode": "yakk1236",
+        "grammar": "A grammar of Yakkha",
+        "author": "Diana Schackow",
+        "year": 2015,
+        "feature": "GB057",
+        "question": "Are there numeral classifiers?",
+        "notes": "Code 1 if at least some cardinal numerals must be accompanied by a marker that varies with the semantic class of the noun, for nouns of high countability (people, animals, objects), and that marker is not the same as a noun class or gender marker used on other modifiers or on predicates; 0 if numeral classifiers are not mentioned and their absence is clear from the data in the grammar.",
+        "section": "section 4.5.2, Numerals and classifiers, in chapter 4"
+      },
+      {
+        "language": "Pichi",
+        "glottocode": "fern1234",
+        "grammar": "A grammar of Pichi",
+        "author": "Kofi Yakpo",
+        "year": 2019,
+        "feature": "GB020",
+        "question": "Are there definite or specific articles?",
+        "notes": "An article marks definiteness or specificity without a spatial deictic meaning; demonstratives are not articles, and the form (free, bound or tonal) does not matter. Code 1 if there is such a morpheme; 0 if the source mentions no definite or specific article and none appears in the examples or texts of an otherwise comprehensive grammar; unknown if the grammar has too little analysis to tell.",
+        "section": "section 5.1.1, Definiteness and specificity, in chapter 5 on the noun phrase"
+      },
+      {
+        "language": "Yauyos Quechua",
+        "glottocode": "yauy1235",
+        "grammar": "A grammar of Yauyos Quechua",
+        "author": "Aviva Shimelman",
+        "year": 2017,
+        "feature": "GB070",
+        "question": "Are there morphological cases for non-pronominal core arguments (i.e. S, A or P)?",
+        "notes": "Morphological case is any phonologically bound marking (affix, clitic, tone, alternation) on a noun phrase. Code 1 if core case (S, A or P) is at least sometimes marked on noun phrases by bound markers, including optional, differential or portmanteau marking; 0 if core functions are marked only by free adpositions or only by constituent order, or if case marking is not mentioned in the grammar or its examples (say so in the comment); unknown only if the author may have missed case markers.",
+        "section": "section 3.3.3, Case, in chapter 3 on nominal morphology"
+      },
+      {
+        "language": "Mandan",
+        "glottocode": "mand1446",
+        "grammar": "A grammar of Mandan",
+        "author": "Ryan Kasak",
+        "year": 2024,
+        "feature": "GB020",
+        "question": "Are there definite or specific articles?",
+        "notes": "An article marks definiteness or specificity without a spatial deictic meaning; demonstratives are not articles, and the form (free, bound or tonal) does not matter. Code 1 if there is such a morpheme; 0 if the source mentions no definite or specific article and none appears in the examples or texts of an otherwise comprehensive grammar; unknown if the grammar has too little analysis to tell.",
+        "section": "section 5.7.1, Articles, in chapter 5"
+      },
+      {
+        "language": "Papuan Malay",
+        "glottocode": "papu1250",
+        "grammar": "A grammar of Papuan Malay",
+        "author": "Angela Kluge",
+        "year": 2017,
+        "feature": "GB333",
+        "question": "Is there a decimal numeral system?",
+        "notes": "Code 1 if multiples of ten from 30 upward are formed on a decimal base (30 as three tens, and so on) in the numerals the grammar presents, coding the earliest attested stage where a pre-borrowing system is attested; 0 if the source says there is no decimal system and the numerals bear this out, or if the language has no numerals beyond 20; unknown if a clearly borrowed system is the only one attested, or the source gives too few numerals to tell.",
+        "section": "section 5.9.1, Cardinal numerals, in chapter 5 on word classes"
+      },
+      {
+        "language": "Fwe",
+        "glottocode": "fwee1238",
+        "grammar": "A grammar of Fwe",
+        "author": "Hilde Gunnink",
+        "year": 2022,
+        "feature": "GB051",
+        "question": "Is there a noun class/gender system where masculine and feminine categories are a factor in class assignment?",
+        "notes": "A noun class or gender system groups nouns for agreement within the noun phrase, inflection of the noun, or indexing. Code 1 if such a system exists, its markers are used beyond numerals, demonstratives and possessors, and the categories masculine and feminine (or one of them against the rest) play a part in assigning nouns to classes; 0 if there is no such system, or assignment has no masculine or feminine part; unknown if the system encodes some other sex-related distinction.",
+        "section": "section 4.1, Noun classes, in chapter 4"
+      },
+      {
+        "language": "Sanzhi Dargwa",
+        "glottocode": "sanz1248",
+        "grammar": "A grammar of Sanzhi Dargwa",
+        "author": "Diana Forker",
+        "year": 2019,
+        "feature": "GB051",
+        "question": "Is there a noun class/gender system where masculine and feminine categories are a factor in class assignment?",
+        "notes": "A noun class or gender system groups nouns for agreement within the noun phrase, inflection of the noun, or indexing. Code 1 if such a system exists, its markers are used beyond numerals, demonstratives and possessors, and the categories masculine and feminine (or one of them against the rest) play a part in assigning nouns to classes; 0 if there is no such system, or assignment has no masculine or feminine part; unknown if the system encodes some other sex-related distinction.",
+        "section": "section 3.1, Gender, in chapter 3"
+      },
+      {
+        "language": "Cayuga",
+        "glottocode": "cayu1261",
+        "grammar": "A grammar and dictionary of Gayogo̱hó:nǫˀ (Cayuga)",
+        "author": "Carrie Dyck, Frances Froman, Alfred Keye and Lottie Keye",
+        "year": 2024,
+        "feature": "GB074",
+        "question": "Are there prepositions?",
+        "notes": "A preposition precedes the noun phrase whose relation to the clause it marks; proclitics count, a circumposition counts as a preposition too, and a relational noun counts only when visibly grammaticalized. Code 1 if the grammar mentions prepositions or prepositional proclitics, or examples show them; 0 if it mentions only postpositions, says there are no prepositions, or is comprehensive and mentions none in its sections on noun phrases, argument marking, adverbials or adpositions; unknown if a short grammar may have missed them.",
+        "section": "section 36.5, No prepositions, in chapter 36"
+      },
+      {
+        "language": "Yakkha",
+        "glottocode": "yakk1236",
+        "grammar": "A grammar of Yakkha",
+        "author": "Diana Schackow",
+        "year": 2015,
+        "feature": "GB070",
+        "question": "Are there morphological cases for non-pronominal core arguments (i.e. S, A or P)?",
+        "notes": "Morphological case is any phonologically bound marking (affix, clitic, tone, alternation) on a noun phrase. Code 1 if core case (S, A or P) is at least sometimes marked on noun phrases by bound markers, including optional, differential or portmanteau marking; 0 if core functions are marked only by free adpositions or only by constituent order, or if case marking is not mentioned in the grammar or its examples (say so in the comment); unknown only if the author may have missed case markers.",
+        "section": "section 5.2.2, Core case markers (Group I), in chapter 5 on nominal morphology"
+      },
+      {
+        "language": "Ruuli (Ruruuli-Lunyala)",
+        "glottocode": "ruul1235",
+        "grammar": "A dictionary and grammatical sketch of Ruruuli-Lunyala",
+        "author": "Saudah Namyalo, Alena Witzlack-Makarevich, Anatole Kiriggwajjo, Amos Atuhairwe, Zarina Molochieva, Ruth Gimbo Mukama and Margaret Zellers",
+        "year": 2021,
+        "feature": "GB132",
+        "question": "Is a pragmatically unmarked constituent order verb-medial for transitive clauses?",
+        "notes": "Consider the pragmatically unmarked order of full noun phrase arguments and the lexical verb in transitive clauses, ignoring auxiliaries and other constituents. Code 1 if the unmarked order is consistently SVO or OVS, or if order is free and the author states, or examples show, a pragmatically unmarked order with the verb between subject and object; 0 if the grammar states a fixed order that is not verb-medial, or if verb-medial order occurs only with pragmatic marking; unknown if the unmarked order is not mentioned and cannot be determined from examples.",
+        "section": "section 4.1, Basic verbal clause and constituent order, in chapter 4 on syntax"
+      },
+      {
+        "language": "Vamale",
+        "glottocode": "vama1243",
+        "grammar": "A grammar of Vamale",
+        "author": "Jean Rohleder",
+        "year": 2024,
+        "feature": "GB020",
+        "question": "Are there definite or specific articles?",
+        "notes": "An article marks definiteness or specificity without a spatial deictic meaning; demonstratives are not articles, and the form (free, bound or tonal) does not matter. Code 1 if there is such a morpheme; 0 if the source mentions no definite or specific article and none appears in the examples or texts of an otherwise comprehensive grammar; unknown if the grammar has too little analysis to tell.",
+        "section": "section 6.3, Articles, in chapter 6"
+      },
+      {
+        "language": "Palula",
+        "glottocode": "phal1254",
+        "grammar": "A grammar of Palula",
+        "author": "Henrik Liljegren",
+        "year": 2016,
+        "feature": "GB051",
+        "question": "Is there a noun class/gender system where masculine and feminine categories are a factor in class assignment?",
+        "notes": "A noun class or gender system groups nouns for agreement within the noun phrase, inflection of the noun, or indexing. Code 1 if such a system exists, its markers are used beyond numerals, demonstratives and possessors, and the categories masculine and feminine (or one of them against the rest) play a part in assigning nouns to classes; 0 if there is no such system, or assignment has no masculine or feminine part; unknown if the system encodes some other sex-related distinction.",
+        "section": "section 5.3, Gender, in chapter 5 on nouns"
+      },
+      {
+        "language": "Rapa Nui",
+        "glottocode": "rapa1244",
+        "grammar": "A grammar of Rapa Nui",
+        "author": "Paulus Kieviet",
+        "year": 2017,
+        "feature": "GB333",
+        "question": "Is there a decimal numeral system?",
+        "notes": "Code 1 if multiples of ten from 30 upward are formed on a decimal base (30 as three tens, and so on) in the numerals the grammar presents, coding the earliest attested stage where a pre-borrowing system is attested; 0 if the source says there is no decimal system and the numerals bear this out, or if the language has no numerals beyond 20; unknown if a clearly borrowed system is the only one attested, or the source gives too few numerals to tell.",
+        "section": "section 4.3, Numerals, in chapter 4 on word classes"
+      },
+      {
+        "language": "Pichi",
+        "glottocode": "fern1234",
+        "grammar": "A grammar of Pichi",
+        "author": "Kofi Yakpo",
+        "year": 2019,
+        "feature": "GB117",
+        "question": "Is there a copula for predicate nominals?",
+        "notes": "Code 1 if an element (a verb, a pronoun or demonstrative used as a copula, an affix or a clitic) can link a subject to a nominal predicate in an equative clause, even if optional or restricted to some contexts; 0 if the grammar describes such clauses as using a zero copula or no copula, even when a copula is used with locational or adjectival predicates.",
+        "section": "section 7.6.1, Core copulas, in chapter 7 on the verb phrase"
+      },
+      {
+        "language": "Yauyos Quechua",
+        "glottocode": "yauy1235",
+        "grammar": "A grammar of Yauyos Quechua",
+        "author": "Aviva Shimelman",
+        "year": 2017,
+        "feature": "GB133",
+        "question": "Is a pragmatically unmarked constituent order verb-final for transitive clauses?",
+        "notes": "Consider the pragmatically unmarked order of full noun phrase arguments and the lexical verb in transitive clauses, ignoring auxiliaries and other constituents. Code 1 if the unmarked order is consistently SOV or OSV, or if order is free and the author states, or examples show, a pragmatically unmarked verb-final order; 0 if the grammar states a fixed order that is not verb-final, or if verb-final order occurs only with pragmatic marking; unknown if the unmarked order is not mentioned and cannot be determined from examples.",
+        "section": "section 7.1, Constituent order, in chapter 7 on the clause"
+      },
+      {
+        "language": "Mandan",
+        "glottocode": "mand1446",
+        "grammar": "A grammar of Mandan",
+        "author": "Ryan Kasak",
+        "year": 2024,
+        "feature": "GB075",
+        "question": "Are there postpositions?",
+        "notes": "A postposition follows the noun phrase whose relation to the clause it marks; enclitics count, a circumposition counts as a postposition too, and a relational noun counts only when visibly grammaticalized. Code 1 if the grammar mentions postpositions or postpositional enclitics, or examples show them; 0 if it mentions only prepositions, says there are no postpositions, or is comprehensive and mentions none in its sections on noun phrases, argument marking, adverbials or adpositions; unknown if a short grammar may have missed them.",
+        "section": "section 5.6, Postpositions, in chapter 5"
+      },
+      {
+        "language": "Papuan Malay",
+        "glottocode": "papu1250",
+        "grammar": "A grammar of Papuan Malay",
+        "author": "Angela Kluge",
+        "year": 2017,
+        "feature": "GB327",
+        "question": "Can the relative clause follow the noun?",
+        "notes": "Consider only relative clauses that immediately follow the noun with no anaphoric pronoun in the main clause (a correlative does not count, and a bare participle is not a relative clause). Code 1 if the source says relative clauses are or can be postnominal, or examples show them; 0 if the source says they cannot be, or describes only prenominal or internally headed relative clauses; unknown if examples are inconclusive or the source treats relative clauses only briefly.",
+        "section": "section 8.2.8, Relative clauses, in chapter 8 on noun phrases"
+      },
+      {
+        "language": "Fwe",
+        "glottocode": "fwee1238",
+        "grammar": "A grammar of Fwe",
+        "author": "Hilde Gunnink",
+        "year": 2022,
+        "feature": "GB147",
+        "question": "Is there a morphological passive marked on the lexical verb?",
+        "notes": "A passive promotes the P argument to S and drops or demotes the A; mediopassives and anticausatives count. Code 1 if the source mentions, or examples show, a phonologically bound passive marker on the lexical verb (an orthographically bound marker counts, with a comment); 0 if the source says there is no passive, mentions only a free passive marker or other means, or treats valency change in depth without mentioning a passive; unknown if candidate examples are inconclusive or valency change is barely treated.",
+        "section": "section 6.1, Passive, in chapter 6 on verbal derivation"
+      },
+      {
+        "language": "Sanzhi Dargwa",
+        "glottocode": "sanz1248",
+        "grammar": "A grammar of Sanzhi Dargwa",
+        "author": "Diana Forker",
+        "year": 2019,
+        "feature": "GB075",
+        "question": "Are there postpositions?",
+        "notes": "A postposition follows the noun phrase whose relation to the clause it marks; enclitics count, a circumposition counts as a postposition too, and a relational noun counts only when visibly grammaticalized. Code 1 if the grammar mentions postpositions or postpositional enclitics, or examples show them; 0 if it mentions only prepositions, says there are no postpositions, or is comprehensive and mentions none in its sections on noun phrases, argument marking, adverbials or adpositions; unknown if a short grammar may have missed them.",
+        "section": "chapter 8, Postpositions"
+      },
+      {
+        "language": "Cayuga",
+        "glottocode": "cayu1261",
+        "grammar": "A grammar and dictionary of Gayogo̱hó:nǫˀ (Cayuga)",
+        "author": "Carrie Dyck, Frances Froman, Alfred Keye and Lottie Keye",
+        "year": 2024,
+        "feature": "GB051",
+        "question": "Is there a noun class/gender system where masculine and feminine categories are a factor in class assignment?",
+        "notes": "A noun class or gender system groups nouns for agreement within the noun phrase, inflection of the noun, or indexing. Code 1 if such a system exists, its markers are used beyond numerals, demonstratives and possessors, and the categories masculine and feminine (or one of them against the rest) play a part in assigning nouns to classes; 0 if there is no such system, or assignment has no masculine or feminine part; unknown if the system encodes some other sex-related distinction.",
+        "section": "section 20.3, Gender, in chapter 20 on pronominal prefixes"
+      },
+      {
+        "language": "Pite Saami",
+        "glottocode": "pite1240",
+        "grammar": "A grammar of Pite Saami",
+        "author": "Joshua Wilbur",
+        "year": 2014,
+        "feature": "GB070",
+        "question": "Are there morphological cases for non-pronominal core arguments (i.e. S, A or P)?",
+        "notes": "Morphological case is any phonologically bound marking (affix, clitic, tone, alternation) on a noun phrase. Code 1 if core case (S, A or P) is at least sometimes marked on noun phrases by bound markers, including optional, differential or portmanteau marking; 0 if core functions are marked only by free adpositions or only by constituent order, or if case marking is not mentioned in the grammar or its examples (say so in the comment); unknown only if the author may have missed case markers.",
+        "section": "section 5.2, The nominal case system, in chapter 5 on nouns"
+      },
+      {
+        "language": "Ruuli (Ruruuli-Lunyala)",
+        "glottocode": "ruul1235",
+        "grammar": "A dictionary and grammatical sketch of Ruruuli-Lunyala",
+        "author": "Saudah Namyalo, Alena Witzlack-Makarevich, Anatole Kiriggwajjo, Amos Atuhairwe, Zarina Molochieva, Ruth Gimbo Mukama and Margaret Zellers",
+        "year": 2021,
+        "feature": "GB147",
+        "question": "Is there a morphological passive marked on the lexical verb?",
+        "notes": "A passive promotes the P argument to S and drops or demotes the A; mediopassives and anticausatives count. Code 1 if the source mentions, or examples show, a phonologically bound passive marker on the lexical verb (an orthographically bound marker counts, with a comment); 0 if the source says there is no passive, mentions only a free passive marker or other means, or treats valency change in depth without mentioning a passive; unknown if candidate examples are inconclusive or valency change is barely treated.",
+        "section": "section 4.4.3, Passive, in chapter 4 on syntax"
+      },
+      {
+        "language": "Vamale",
+        "glottocode": "vama1243",
+        "grammar": "A grammar of Vamale",
+        "author": "Jean Rohleder",
+        "year": 2024,
+        "feature": "GB132",
+        "question": "Is a pragmatically unmarked constituent order verb-medial for transitive clauses?",
+        "notes": "Consider the pragmatically unmarked order of full noun phrase arguments and the lexical verb in transitive clauses, ignoring auxiliaries and other constituents. Code 1 if the unmarked order is consistently SVO or OVS, or if order is free and the author states, or examples show, a pragmatically unmarked order with the verb between subject and object; 0 if the grammar states a fixed order that is not verb-medial, or if verb-medial order occurs only with pragmatic marking; unknown if the unmarked order is not mentioned and cannot be determined from examples.",
+        "section": "section 13.1, Word order, in chapter 13"
+      },
+      {
+        "language": "Palula",
+        "glottocode": "phal1254",
+        "grammar": "A grammar of Palula",
+        "author": "Henrik Liljegren",
+        "year": 2016,
+        "feature": "GB075",
+        "question": "Are there postpositions?",
+        "notes": "A postposition follows the noun phrase whose relation to the clause it marks; enclitics count, a circumposition counts as a postposition too, and a relational noun counts only when visibly grammaticalized. Code 1 if the grammar mentions postpositions or postpositional enclitics, or examples show them; 0 if it mentions only prepositions, says there are no postpositions, or is comprehensive and mentions none in its sections on noun phrases, argument marking, adverbials or adpositions; unknown if a short grammar may have missed them.",
+        "section": "section 8.2, Postpositions, in chapter 8 on adverbs and postpositions"
+      },
+      {
+        "language": "Yakkha",
+        "glottocode": "yakk1236",
+        "grammar": "A grammar of Yakkha",
+        "author": "Diana Schackow",
+        "year": 2015,
+        "feature": "GB131",
+        "question": "Is a pragmatically unmarked constituent order verb-initial for transitive clauses?",
+        "notes": "Consider the pragmatically unmarked order of full noun phrase arguments and the lexical verb in transitive clauses, ignoring auxiliaries and other constituents. Code 1 if the unmarked order is consistently VSO or VOS, or if order is free and the author states, or examples show, a pragmatically unmarked verb-initial order; 0 if the grammar states a fixed order that is not verb-initial, or if verb-initial order occurs only with pragmatic marking; unknown if the unmarked order is not mentioned and cannot be determined from examples.",
+        "section": "section 12.2, Constituent order, in chapter 12 on simple clauses"
+      },
+      {
+        "language": "Pichi",
+        "glottocode": "fern1234",
+        "grammar": "A grammar of Pichi",
+        "author": "Kofi Yakpo",
+        "year": 2019,
+        "feature": "GB107",
+        "question": "Can standard negation be marked by an affix, clitic or modification of the verb?",
+        "notes": "Standard negation is the negation of declarative clauses with dynamic verbs. Code 1 if a negator forms a phonological unit with the verb root (affix, bound clitic, tone, reduplication or suppletion), including when a particle appears as well; a free particle, or a clitic that attaches to anything nearby, does not count, and a marker bound to an auxiliary belongs to another feature; if there are several constructions, code for all of them.",
+        "section": "section 7.2.1, Verb negation, in chapter 7 on the verb phrase"
+      },
+      {
+        "language": "Yauyos Quechua",
+        "glottocode": "yauy1235",
+        "grammar": "A grammar of Yauyos Quechua",
+        "author": "Aviva Shimelman",
+        "year": 2017,
+        "feature": "GB107",
+        "question": "Can standard negation be marked by an affix, clitic or modification of the verb?",
+        "notes": "Standard negation is the negation of declarative clauses with dynamic verbs. Code 1 if a negator forms a phonological unit with the verb root (affix, bound clitic, tone, reduplication or suppletion), including when a particle appears as well; a free particle, or a clitic that attaches to anything nearby, does not count, and a marker bound to an auxiliary belongs to another feature; if there are several constructions, code for all of them.",
+        "section": "section 7.5, Negation, in chapter 7 on the clause"
+      },
+      {
+        "language": "Mandan",
+        "glottocode": "mand1446",
+        "grammar": "A grammar of Mandan",
+        "author": "Ryan Kasak",
+        "year": 2024,
+        "feature": "GB107",
+        "question": "Can standard negation be marked by an affix, clitic or modification of the verb?",
+        "notes": "Standard negation is the negation of declarative clauses with dynamic verbs. Code 1 if a negator forms a phonological unit with the verb root (affix, bound clitic, tone, reduplication or suppletion), including when a particle appears as well; a free particle, or a clitic that attaches to anything nearby, does not count, and a marker bound to an auxiliary belongs to another feature; if there are several constructions, code for all of them.",
+        "section": "section 6.2.3, Negation, in chapter 6"
+      },
+      {
+        "language": "Yakkha",
+        "glottocode": "yakk1236",
+        "grammar": "A grammar of Yakkha",
+        "author": "Diana Schackow",
+        "year": 2015,
+        "feature": "GB133",
+        "question": "Is a pragmatically unmarked constituent order verb-final for transitive clauses?",
+        "notes": "Consider the pragmatically unmarked order of full noun phrase arguments and the lexical verb in transitive clauses, ignoring auxiliaries and other constituents. Code 1 if the unmarked order is consistently SOV or OSV, or if order is free and the author states, or examples show, a pragmatically unmarked verb-final order; 0 if the grammar states a fixed order that is not verb-final, or if verb-final order occurs only with pragmatic marking; unknown if the unmarked order is not mentioned and cannot be determined from examples.",
+        "section": "section 12.2, Constituent order, in chapter 12 on simple clauses"
+      },
+      {
+        "language": "Fwe",
+        "glottocode": "fwee1238",
+        "grammar": "A grammar of Fwe",
+        "author": "Hilde Gunnink",
+        "year": 2022,
+        "feature": "GB132",
+        "question": "Is a pragmatically unmarked constituent order verb-medial for transitive clauses?",
+        "notes": "Consider the pragmatically unmarked order of full noun phrase arguments and the lexical verb in transitive clauses, ignoring auxiliaries and other constituents. Code 1 if the unmarked order is consistently SVO or OVS, or if order is free and the author states, or examples show, a pragmatically unmarked order with the verb between subject and object; 0 if the grammar states a fixed order that is not verb-medial, or if verb-medial order occurs only with pragmatic marking; unknown if the unmarked order is not mentioned and cannot be determined from examples.",
+        "section": "section 13.1, Canonical word order, in chapter 13 on syntax"
+      },
+      {
+        "language": "Sanzhi Dargwa",
+        "glottocode": "sanz1248",
+        "grammar": "A grammar of Sanzhi Dargwa",
+        "author": "Diana Forker",
+        "year": 2019,
+        "feature": "GB333",
+        "question": "Is there a decimal numeral system?",
+        "notes": "Code 1 if multiples of ten from 30 upward are formed on a decimal base (30 as three tens, and so on) in the numerals the grammar presents, coding the earliest attested stage where a pre-borrowing system is attested; 0 if the source says there is no decimal system and the numerals bear this out, or if the language has no numerals beyond 20; unknown if a clearly borrowed system is the only one attested, or the source gives too few numerals to tell.",
+        "section": "section 6.1, Cardinal numerals, in chapter 6 on numerals"
+      },
+      {
+        "language": "Cayuga",
+        "glottocode": "cayu1261",
+        "grammar": "A grammar and dictionary of Gayogo̱hó:nǫˀ (Cayuga)",
+        "author": "Carrie Dyck, Frances Froman, Alfred Keye and Lottie Keye",
+        "year": 2024,
+        "feature": "GB107",
+        "question": "Can standard negation be marked by an affix, clitic or modification of the verb?",
+        "notes": "Standard negation is the negation of declarative clauses with dynamic verbs. Code 1 if a negator forms a phonological unit with the verb root (affix, bound clitic, tone, reduplication or suppletion), including when a particle appears as well; a free particle, or a clitic that attaches to anything nearby, does not count, and a marker bound to an auxiliary belongs to another feature; if there are several constructions, code for all of them.",
+        "section": "chapter 17, Negation"
+      },
+      {
+        "language": "Ruuli (Ruruuli-Lunyala)",
+        "glottocode": "ruul1235",
+        "grammar": "A dictionary and grammatical sketch of Ruruuli-Lunyala",
+        "author": "Saudah Namyalo, Alena Witzlack-Makarevich, Anatole Kiriggwajjo, Amos Atuhairwe, Zarina Molochieva, Ruth Gimbo Mukama and Margaret Zellers",
+        "year": 2021,
+        "feature": "GB327",
+        "question": "Can the relative clause follow the noun?",
+        "notes": "Consider only relative clauses that immediately follow the noun with no anaphoric pronoun in the main clause (a correlative does not count, and a bare participle is not a relative clause). Code 1 if the source says relative clauses are or can be postnominal, or examples show them; 0 if the source says they cannot be, or describes only prenominal or internally headed relative clauses; unknown if examples are inconclusive or the source treats relative clauses only briefly.",
+        "section": "section 4.3.5, Relative clauses, in chapter 4 on syntax"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "cell/2": {
+        "value": "1",
+        "page": 105
+      },
+      "cell/6": {
+        "value": "1",
+        "page": 302
+      },
+      "cell/10": {
+        "value": "1",
+        "page": 125
+      },
+      "cell/14": {
+        "value": "1",
+        "page": 147
+      },
+      "cell/18": {
+        "value": "1",
+        "page": 414
+      },
+      "cell/22": {
+        "value": "1",
+        "page": 84
+      },
+      "cell/26": {
+        "value": "0",
+        "page": 387
+      },
+      "cell/30": {
+        "value": "1",
+        "page": 387
+      }
+    }
+  }
+}

@@ -1,0 +1,464 @@
+{
+  "title": "Fill the 1000+ theorems formalization table: which proof assistants have proved each theorem",
+  "done_when": "Every theorem on the list has, for each of Isabelle, HOL Light, Rocq, Lean, Metamath and Mizar, a found or not_found that two AIs of different vendors returned alike, with the declaration names and library versions behind every found kept as evidence a reader can open and check against the theorem as Wikipedia states it.",
+  "slug": "formalization-table",
+  "topics": [
+    "formalization",
+    "proof-assistants",
+    "lean",
+    "isabelle",
+    "hol-light",
+    "rocq",
+    "metamath",
+    "mizar"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 3,
+    "endgame_at": 2,
+    "budget": 35,
+    "patch_max": 0
+  },
+  "pieces": {
+    "theorem/*": {
+      "count": 35,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Theorem {n}: {t.title}, Wikidata item {t.qid}, Wikipedia page {t.wikipedia}, MSC class {t.msc}, an entry on the 1000+ theorems list that the 1000-plus-theorems project keeps on GitHub, one YAML file per theorem named by its Wikidata item. The project's table shows for it today: {t.table}. Find out, for each of six proof assistants, whether a complete formal proof of this theorem exists in public, and where. Look in these places and in what they point to. For Isabelle, the Isabelle distribution (HOL, HOL-Analysis, HOL-Algebra, HOL-Number_Theory and the other sessions) and the Archive of Formal Proofs, with the Isabelle page of Freek Wiedijk's list Formalizing 100 Theorems as a second index. For HOL Light, the HOL Light repository, including its 100, Multivariate and Library directories. For Rocq, formerly Coq, the Rocq standard library, Mathematical Components, coq-contribs and the coq-100-theorems repository. For Lean, mathlib, whose docs folder holds 1000.yaml and 100.yaml listing what it has from these two lists, and the Lean community's pages for them. For Metamath, set.mm and iset.mm as the Metamath Proof Explorer shows them, with its page Formalizing 100 Theorems as an index. For Mizar, the Mizar Mathematical Library, searched with MML Query, and the Mizar project's page for the 100 theorems. Return, for each system, found when a complete formal proof of the theorem as the Wikipedia page states it exists in a public library or repository you can name, in its full generality or in a form the page itself gives as the theorem; not_found when you found none, or only a statement without its proof, or only a special case: say which in notes. A proof counts wherever it lives, in the standard library, in the main library or in a separate public repository. For every found give the declaration names as the library spells them in isabelle_names, hol_light_names, rocq_names, lean_names, metamath_names or mizar_names, and in versions name the library and the version, release, commit or date you read it at, one system per sentence. In searched say which indexes and libraries you looked in for each system you returned not_found, so a not_found can be checked by searching the same way. Names are copied as printed and trimmed; nothing else is normalized. Give identifiers and titles, never links.",
+      "data": {
+        "t": "theorems"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "isabelle",
+          "hol_light",
+          "rocq",
+          "lean",
+          "metamath",
+          "mizar",
+          "versions",
+          "searched"
+        ],
+        "properties": {
+          "isabelle": {
+            "enum": [
+              "found",
+              "not_found"
+            ]
+          },
+          "hol_light": {
+            "enum": [
+              "found",
+              "not_found"
+            ]
+          },
+          "rocq": {
+            "enum": [
+              "found",
+              "not_found"
+            ]
+          },
+          "lean": {
+            "enum": [
+              "found",
+              "not_found"
+            ]
+          },
+          "metamath": {
+            "enum": [
+              "found",
+              "not_found"
+            ]
+          },
+          "mizar": {
+            "enum": [
+              "found",
+              "not_found"
+            ]
+          },
+          "isabelle_names": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          "hol_light_names": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          "rocq_names": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          "lean_names": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          "metamath_names": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          "mizar_names": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          "versions": {
+            "type": "string",
+            "maxLength": 900
+          },
+          "searched": {
+            "type": "string",
+            "maxLength": 900
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 600
+          }
+        }
+      },
+      "agree": [
+        "isabelle",
+        "hol_light",
+        "rocq",
+        "lean",
+        "metamath",
+        "mizar"
+      ]
+    }
+  },
+  "data": {
+    "theorems": [
+      {
+        "qid": "Q253214",
+        "title": "Heine–Borel theorem",
+        "msc": "26",
+        "wikipedia": "Heine–Borel theorem",
+        "table": "Lean (a proof in the main library)"
+      },
+      {
+        "qid": "Q468391",
+        "title": "Bolzano–Weierstrass theorem",
+        "msc": "26",
+        "wikipedia": "Bolzano–Weierstrass theorem",
+        "table": "Lean (a proof in the main library)"
+      },
+      {
+        "qid": "Q192760",
+        "title": "Fundamental theorem of algebra",
+        "msc": "30",
+        "wikipedia": "Fundamental theorem of algebra",
+        "table": "Lean (a proof in the main library), Metamath (a proof in the main library)"
+      },
+      {
+        "qid": "Q656772",
+        "title": "Cayley–Hamilton theorem",
+        "msc": "15",
+        "wikipedia": "Cayley–Hamilton theorem",
+        "table": "Lean (a proof in the main library), Metamath (a proof in the main library)"
+      },
+      {
+        "qid": "Q536640",
+        "title": "Hall's marriage theorem",
+        "msc": "05",
+        "wikipedia": "Hall's marriage theorem",
+        "table": "Lean (a proof in the main library), Metamath (a proof in the main library)"
+      },
+      {
+        "qid": "Q1134776",
+        "title": "Dilworth's theorem",
+        "msc": "05",
+        "wikipedia": "Dilworth's theorem",
+        "table": "Lean (a proof in a separate repository)"
+      },
+      {
+        "qid": "Q260928",
+        "title": "Jordan curve theorem",
+        "msc": "54",
+        "wikipedia": "Jordan curve theorem",
+        "table": "no entry in any of the six columns"
+      },
+      {
+        "qid": "Q11518",
+        "title": "Pythagorean theorem",
+        "msc": "51",
+        "wikipedia": "Pythagorean theorem",
+        "table": "Lean (a proof in the main library), Metamath (a proof in the main library)"
+      },
+      {
+        "qid": "Q184410",
+        "title": "Four color theorem",
+        "msc": "05",
+        "wikipedia": "Four color theorem",
+        "table": "Rocq (a proof in a separate repository)"
+      },
+      {
+        "qid": "Q1144897",
+        "title": "Brouwer fixed-point theorem",
+        "msc": "54",
+        "wikipedia": "Brouwer fixed-point theorem",
+        "table": "Lean (a proof in a separate repository)"
+      },
+      {
+        "qid": "Q1137014",
+        "title": "Tychonoff's theorem",
+        "msc": "54",
+        "wikipedia": "Tychonoff's theorem",
+        "table": "Lean (a proof in the main library)"
+      },
+      {
+        "qid": "Q220680",
+        "title": "Banach fixed-point theorem",
+        "msc": "54",
+        "wikipedia": "Banach fixed-point theorem",
+        "table": "Lean (a proof in the main library)"
+      },
+      {
+        "qid": "Q472883",
+        "title": "Quadratic reciprocity theorem",
+        "msc": "11",
+        "wikipedia": "Quadratic reciprocity theorem",
+        "table": "Lean (a proof in the main library), Metamath (a proof in the main library)"
+      },
+      {
+        "qid": "Q1052678",
+        "title": "Baire category theorem",
+        "msc": "54",
+        "wikipedia": "Baire category theorem",
+        "table": "Lean (a proof in the main library), Metamath (a proof in the main library)"
+      },
+      {
+        "qid": "Q1166774",
+        "title": "Stone's representation theorem for Boolean algebras",
+        "msc": "03",
+        "wikipedia": "Stone's representation theorem for Boolean algebras",
+        "table": "no entry in any of the six columns"
+      },
+      {
+        "qid": "Q657482",
+        "title": "Abel–Ruffini theorem",
+        "msc": "12",
+        "wikipedia": "Abel–Ruffini theorem",
+        "table": "Lean (a proof in the main library)"
+      },
+      {
+        "qid": "Q943246",
+        "title": "Wedderburn's little theorem",
+        "msc": "13",
+        "wikipedia": "Wedderburn's little theorem",
+        "table": "Lean (a proof in the main library)"
+      },
+      {
+        "qid": "Q276082",
+        "title": "Wilson's theorem",
+        "msc": "11",
+        "wikipedia": "Wilson's theorem",
+        "table": "Lean (a proof in the main library), Metamath (a proof in the main library)"
+      },
+      {
+        "qid": "Q2525646",
+        "title": "Jordan–Hölder theorem",
+        "msc": "20",
+        "wikipedia": "Jordan–Hölder theorem",
+        "table": "Lean (a proof in the main library)"
+      },
+      {
+        "qid": "Q1564541",
+        "title": "Perron–Frobenius theorem",
+        "msc": "15",
+        "wikipedia": "Perron–Frobenius theorem",
+        "table": "no entry in any of the six columns"
+      },
+      {
+        "qid": "Q321237",
+        "title": "Green's theorem",
+        "msc": "26",
+        "wikipedia": "Green's theorem",
+        "table": "no entry in any of the six columns"
+      },
+      {
+        "qid": "Q530152",
+        "title": "Picard–Lindelöf theorem",
+        "msc": "34",
+        "wikipedia": "Picard–Lindelöf theorem",
+        "table": "Lean (a proof in the main library)"
+      },
+      {
+        "qid": "Q670235",
+        "title": "Fundamental theorem of arithmetic",
+        "msc": "11",
+        "wikipedia": "Fundamental theorem of arithmetic",
+        "table": "Lean (a proof in the main library), Metamath (a proof in the main library)"
+      },
+      {
+        "qid": "Q830513",
+        "title": "Residue theorem",
+        "msc": "30",
+        "wikipedia": "Residue theorem",
+        "table": "no entry in any of the six columns"
+      },
+      {
+        "qid": "Q927051",
+        "title": "Riemann mapping theorem",
+        "msc": "30",
+        "wikipedia": "Riemann mapping theorem",
+        "table": "Lean (a proof in a separate repository)"
+      },
+      {
+        "qid": "Q1191862",
+        "title": "Rouché's theorem",
+        "msc": "30",
+        "wikipedia": "Rouché's theorem",
+        "table": "no entry in any of the six columns"
+      },
+      {
+        "qid": "Q1068976",
+        "title": "Hilbert's Nullstellensatz",
+        "msc": "14",
+        "wikipedia": "Hilbert's Nullstellensatz",
+        "table": "Lean (a proof in the main library)"
+      },
+      {
+        "qid": "Q1506253",
+        "title": "Euclid's theorem",
+        "msc": "11",
+        "wikipedia": "Euclid's theorem",
+        "table": "Lean (a proof in the main library), Metamath (a proof in the main library)"
+      },
+      {
+        "qid": "Q1572474",
+        "title": "Lindemann–Weierstrass theorem",
+        "msc": "11",
+        "wikipedia": "Lindemann–Weierstrass theorem",
+        "table": "no entry in any of the six columns"
+      },
+      {
+        "qid": "Q913447",
+        "title": "Morley's trisector theorem",
+        "msc": "51",
+        "wikipedia": "Morley's trisector theorem",
+        "table": "no entry in any of the six columns"
+      },
+      {
+        "qid": "Q841893",
+        "title": "Desargues's theorem",
+        "msc": "51",
+        "wikipedia": "Desargues's theorem",
+        "table": "no entry in any of the six columns"
+      },
+      {
+        "qid": "Q848092",
+        "title": "Borsuk–Ulam theorem",
+        "msc": "54",
+        "wikipedia": "Borsuk–Ulam theorem",
+        "table": "no entry in any of the six columns"
+      },
+      {
+        "qid": "Q756946",
+        "title": "Lagrange's four-square theorem",
+        "msc": "11",
+        "wikipedia": "Lagrange's four-square theorem",
+        "table": "Lean (a proof in the main library), Metamath (a proof in the main library)"
+      },
+      {
+        "qid": "Q2226786",
+        "title": "Sperner's theorem",
+        "msc": "05",
+        "wikipedia": "Sperner's theorem",
+        "table": "Lean (a proof in the main library)"
+      },
+      {
+        "qid": "Q1259814",
+        "title": "Nielsen–Schreier theorem",
+        "msc": "20",
+        "wikipedia": "Nielsen–Schreier theorem",
+        "table": "Lean (a proof in the main library)"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "theorem/3": {
+        "isabelle": "found",
+        "hol_light": "found",
+        "rocq": "found",
+        "lean": "found",
+        "metamath": "found",
+        "mizar": "found"
+      },
+      "theorem/8": {
+        "isabelle": "found",
+        "hol_light": "found",
+        "rocq": "found",
+        "lean": "found",
+        "metamath": "found",
+        "mizar": "found"
+      },
+      "theorem/13": {
+        "isabelle": "found",
+        "hol_light": "found",
+        "rocq": "found",
+        "lean": "found",
+        "metamath": "found",
+        "mizar": "found"
+      },
+      "theorem/18": {
+        "isabelle": "found",
+        "hol_light": "found",
+        "rocq": "found",
+        "lean": "found",
+        "metamath": "found",
+        "mizar": "found"
+      },
+      "theorem/23": {
+        "isabelle": "found",
+        "hol_light": "found",
+        "rocq": "found",
+        "lean": "found",
+        "metamath": "found",
+        "mizar": "found"
+      },
+      "theorem/28": {
+        "isabelle": "found",
+        "hol_light": "found",
+        "rocq": "found",
+        "lean": "found",
+        "metamath": "found",
+        "mizar": "found"
+      },
+      "theorem/33": {
+        "isabelle": "found",
+        "hol_light": "found",
+        "rocq": "found",
+        "lean": "found",
+        "metamath": "found",
+        "mizar": "found"
+      }
+    }
+  }
+}

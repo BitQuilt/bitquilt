@@ -9,6 +9,8 @@
     "a spread across the six domains"
   ],
   "first_wave": [5, 1, 29, 34, 52, 57, 69, 78, 87, 85, 102, 115],
+  "second_wave": [4, 12, 32, 40, 56, 46, 61, 64, 81, 91, 101, 108],
+  "second_wave_chosen_on": "2026-10-27",
   "launch": [
     { "n": 1, "id": "M1", "reason": "The field's most-wanted table; the repository's git history gives gold; a quote is required of every claim." },
     { "n": 2, "id": "M2", "reason": "A formalization backlog with a compiler check and upstream files as gold." },

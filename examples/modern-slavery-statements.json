@@ -1,0 +1,506 @@
+{
+  "title": "Modern slavery statements read against the Act's checklist",
+  "done_when": "Every statement on the registry has nine yes or no answers agreed by two AIs of different vendors: whether it states board approval, a director's signature and publication on the website, and whether it addresses each of the six areas section 54 of the Modern Slavery Act 2015 recommends, with a quoted passage for each yes kept as evidence for a reader who can check it against the statement.",
+  "slug": "modern-slavery-statements",
+  "topics": [
+    "modern-slavery",
+    "supply-chains",
+    "uk",
+    "corporate-reporting",
+    "human-rights",
+    "registry",
+    "reading"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 2,
+    "endgame_at": 2,
+    "budget": 34,
+    "patch_max": 0
+  },
+  "pieces": {
+    "statement/*": {
+      "count": 34,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Statement {n}: the modern slavery statement of {s.company}, UK company number {s.number}, for its financial year {s.start} to {s.end}, filed under registry year {s.year} on the UK Modern Slavery Statement Registry (the Home Office's service), listed under {s.sector}, turnover {s.turnover}. On the registry, search the name or company number, open the statement summary for registry year {s.year}, and download the file the organisation uploaded. Read that document itself, not the registry's summary of the organisation's answers and not another year's statement; if its period differs from the one above, say so in notes. Section 54 of the Modern Slavery Act 2015 asks that a statement be approved by the board, signed by a director and linked from the homepage, and names six things it may describe: structure and supply chains, policies, due diligence, risk, effectiveness and training. Return nine flags, each the word yes or no, on what the document says. approved: yes when the statement says it was approved by the board of directors or an equivalent governing body (a board of management, trustees, the partners or members of a partnership); no when it names only one person's approval or says nothing. signed: yes when it carries the signature or name of a director, chief executive, managing director, chair, partner or member of the organisation, or says it is signed on the board's behalf; no when it is unsigned or signed only by someone in another role, such as a company secretary. Record the role, never the name. website: yes when it says the statement is published on the organisation's website or linked from its homepage; no otherwise, including when only a policy is said to be on the website. structure: yes when it describes the organisation's structure or business (legal form, group, subsidiaries, what it does, its size, where it operates) or its supply chains (what it buys, from where, or named suppliers). policies: yes when it names at least one policy or code of its own bearing on slavery, trafficking or labour standards that it has (an anti-slavery policy, a supplier code, a human rights, whistleblowing or recruitment policy, contract clauses); one only planned does not count. due_diligence: yes when it describes checks it makes on suppliers or on its own operations: audits or site visits by itself or a third party, supplier questionnaires or self-assessments, screening or vetting of new suppliers, requirements it enforces in contracts, or steps taken to put an incident right; a policy alone, or a commitment, does not count. risk: yes when it names parts of its business or supply chain as higher risk by sector, product, country or kind of worker, or names a method it uses to assess risk (supplier risk assessment, risk mapping, a register, risk-based questionnaires, software, indices, research); a bare claim that risk is low, or that the approach is risk-based, does not count. effectiveness: yes when it says how it measures, or will measure, whether its steps work: named key performance indicators or other measures (numbers trained, audits done, concerns raised) presented as measures of effectiveness or progress, or results reported against them; counts of activities not presented as measures, and awards, do not count. training: yes when it says it provides or has provided training or awareness sessions on modern slavery or human rights to any group (staff, procurement, leadership, suppliers); plans alone do not count. As evidence return quotes, up to nine short passages copied from the statement, one per flag answered yes, each starting with the flag's name and a colon (for signed, the role words only); pages, the page count; period, as the statement states it; and notes on anything that needed judgment. Plain text only, no links, no names of people.",
+      "data": {
+        "s": "statements"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "approved",
+          "signed",
+          "website",
+          "structure",
+          "policies",
+          "due_diligence",
+          "risk",
+          "effectiveness",
+          "training",
+          "quotes",
+          "notes"
+        ],
+        "properties": {
+          "approved": {
+            "enum": [
+              "yes",
+              "no"
+            ]
+          },
+          "signed": {
+            "enum": [
+              "yes",
+              "no"
+            ]
+          },
+          "website": {
+            "enum": [
+              "yes",
+              "no"
+            ]
+          },
+          "structure": {
+            "enum": [
+              "yes",
+              "no"
+            ]
+          },
+          "policies": {
+            "enum": [
+              "yes",
+              "no"
+            ]
+          },
+          "due_diligence": {
+            "enum": [
+              "yes",
+              "no"
+            ]
+          },
+          "risk": {
+            "enum": [
+              "yes",
+              "no"
+            ]
+          },
+          "effectiveness": {
+            "enum": [
+              "yes",
+              "no"
+            ]
+          },
+          "training": {
+            "enum": [
+              "yes",
+              "no"
+            ]
+          },
+          "quotes": {
+            "type": "array",
+            "maxItems": 9,
+            "items": {
+              "type": "string",
+              "maxLength": 300
+            }
+          },
+          "pages": {
+            "type": "integer"
+          },
+          "period": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 600
+          }
+        }
+      },
+      "agree": [
+        "approved",
+        "signed",
+        "website",
+        "structure",
+        "policies",
+        "due_diligence",
+        "risk",
+        "effectiveness",
+        "training"
+      ]
+    }
+  },
+  "data": {
+    "statements": [
+      {
+        "company": "Grattan Public Limited Company",
+        "number": "00249001",
+        "year": 2025,
+        "start": "2024-03-03",
+        "end": "2025-03-01",
+        "sector": "Durable consumer goods, including electronics and appliances, home furnishings and other accessories",
+        "turnover": "£100 million to £500 million"
+      },
+      {
+        "company": "MWH Treatment Limited",
+        "number": "01535477",
+        "year": 2025,
+        "start": "2024-04-01",
+        "end": "2025-03-31",
+        "sector": "Construction, civil engineering and building products",
+        "turnover": "Over £500 million"
+      },
+      {
+        "company": "Greencoat UK Wind Plc",
+        "number": "08318092",
+        "year": 2024,
+        "start": "2023-01-01",
+        "end": "2023-12-31",
+        "sector": "Utilities: gas, water and electricity",
+        "turnover": "£100 million to £500 million"
+      },
+      {
+        "company": "Ruddy Joinery Limited",
+        "number": "01352763",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Construction, civil engineering and building products",
+        "turnover": "£60 million to £100 million"
+      },
+      {
+        "company": "Breedon Group Plc",
+        "number": "14739556",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Construction, civil engineering and building products",
+        "turnover": "£100 million to £500 million"
+      },
+      {
+        "company": "Duo Operations Limited",
+        "number": "07505341",
+        "year": 2025,
+        "start": "2024-07-01",
+        "end": "2025-06-30",
+        "sector": "Construction, civil engineering and building products",
+        "turnover": "£60 million to £100 million"
+      },
+      {
+        "company": "Prosum Medical Limited",
+        "number": "08681398",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Healthcare and pharmaceuticals",
+        "turnover": "Under £36 million"
+      },
+      {
+        "company": "OSB Group Plc",
+        "number": "11976839",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Financial, insurance and real estate activities",
+        "turnover": "Over £500 million"
+      },
+      {
+        "company": "Canon (UK) Limited",
+        "number": "01264300",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Information technology and telecommunication",
+        "turnover": "£100 million to £500 million"
+      },
+      {
+        "company": "KMG Systems Limited",
+        "number": "01357835",
+        "year": 2025,
+        "start": "2024-07-01",
+        "end": "2025-06-30",
+        "sector": "Other",
+        "turnover": "£36 million to £60 million"
+      },
+      {
+        "company": "Pertemps Network Group Limited",
+        "number": "07776671",
+        "year": 2025,
+        "start": "2024-04-01",
+        "end": "2025-03-31",
+        "sector": "Other",
+        "turnover": "Over £500 million"
+      },
+      {
+        "company": "On The Beach Group Plc",
+        "number": "09736592",
+        "year": 2025,
+        "start": "2023-10-01",
+        "end": "2024-09-30",
+        "sector": "Consumer services, including accommodation, hospitality, tourism and leisure",
+        "turnover": "£100 million to £500 million"
+      },
+      {
+        "company": "Thwaites Limited",
+        "number": "00387579",
+        "year": 2025,
+        "start": "2023-09-01",
+        "end": "2024-08-31",
+        "sector": "Other",
+        "turnover": "£60 million to £100 million"
+      },
+      {
+        "company": "Moog Controls Limited",
+        "number": "01171948",
+        "year": 2025,
+        "start": "2023-10-01",
+        "end": "2024-09-30",
+        "sector": "Defence and aerospace",
+        "turnover": "Over £500 million"
+      },
+      {
+        "company": "Chanel Limited",
+        "number": "00203669",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Cosmetics and toiletries",
+        "turnover": "Over £500 million"
+      },
+      {
+        "company": "Potter and Moore Innovations Limited",
+        "number": "04645119",
+        "year": 2025,
+        "start": "2024-04-01",
+        "end": "2025-03-31",
+        "sector": "Cosmetics and toiletries",
+        "turnover": "£36 million to £60 million"
+      },
+      {
+        "company": "Radius Systems Limited",
+        "number": "01585669",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Construction, civil engineering and building products",
+        "turnover": "£100 million to £500 million"
+      },
+      {
+        "company": "Bow Street Group Plc",
+        "number": "05826464",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Food and beverages, agriculture and fishing",
+        "turnover": "£36 million to £60 million"
+      },
+      {
+        "company": "Carrier Ltd",
+        "number": "02671002",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Other",
+        "turnover": "£36 million to £60 million"
+      },
+      {
+        "company": "C R Macdonald Limited",
+        "number": "04581005",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2025-01-01",
+        "sector": "Construction, civil engineering and building products",
+        "turnover": "£36 million to £60 million"
+      },
+      {
+        "company": "Jojo Maman Bebe Ltd",
+        "number": "02737508",
+        "year": 2025,
+        "start": "2024-02-01",
+        "end": "2025-01-31",
+        "sector": "Fashion, textiles, apparel and luxury goods",
+        "turnover": "£36 million to £60 million"
+      },
+      {
+        "company": "Oliver Agriculture Limited",
+        "number": "06612313",
+        "year": 2025,
+        "start": "2023-10-01",
+        "end": "2024-09-30",
+        "sector": "Automotive, machinery and heavy electrical equipment",
+        "turnover": "£60 million to £100 million"
+      },
+      {
+        "company": "Advance Construction (Scotland) Limited",
+        "number": "SC202570",
+        "year": 2025,
+        "start": "2024-04-01",
+        "end": "2025-03-31",
+        "sector": "Construction, civil engineering and building products",
+        "turnover": "£100 million to £500 million"
+      },
+      {
+        "company": "WJEC CBAC Limited",
+        "number": "03150875",
+        "year": 2025,
+        "start": "2023-10-01",
+        "end": "2024-09-30",
+        "sector": "Education and research",
+        "turnover": "£60 million to £100 million"
+      },
+      {
+        "company": "Wilkin and Sons Limited",
+        "number": "00026233",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Food and beverages, agriculture and fishing",
+        "turnover": "£36 million to £60 million"
+      },
+      {
+        "company": "Investigo Limited",
+        "number": "04803377",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Professional and administrative services and supplies, including legal, consulting and accounting services",
+        "turnover": "£36 million to £60 million"
+      },
+      {
+        "company": "John Wood Group Limited",
+        "number": "SC036219",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Construction, civil engineering and building products",
+        "turnover": "Over £500 million"
+      },
+      {
+        "company": "Exelby Services Limited",
+        "number": "01292114",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Other",
+        "turnover": "£60 million to £100 million"
+      },
+      {
+        "company": "Geda Construction Company Limited",
+        "number": "NI016265",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Construction, civil engineering and building products",
+        "turnover": "£60 million to £100 million"
+      },
+      {
+        "company": "Macmillan Publishers International Limited",
+        "number": "02063302",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Media, publishing, arts and entertainment",
+        "turnover": "£36 million to £60 million"
+      },
+      {
+        "company": "Rightmove Plc",
+        "number": "06426485",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Media, publishing, arts and entertainment",
+        "turnover": "£100 million to £500 million"
+      },
+      {
+        "company": "UK Test Instruments Limited",
+        "number": "02529960",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Other",
+        "turnover": "Under £36 million"
+      },
+      {
+        "company": "Blue Skies Holdings Limited",
+        "number": "04049445",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Food and beverages, agriculture and fishing",
+        "turnover": "£100 million to £500 million"
+      },
+      {
+        "company": "Killgerm Group Limited",
+        "number": "01272745",
+        "year": 2025,
+        "start": "2024-01-01",
+        "end": "2024-12-31",
+        "sector": "Other",
+        "turnover": "£60 million to £100 million"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "statement/3": {
+        "approved": "yes",
+        "signed": "yes",
+        "website": "no",
+        "structure": "yes",
+        "policies": "yes",
+        "due_diligence": "yes",
+        "risk": "yes",
+        "effectiveness": "yes",
+        "training": "yes"
+      },
+      "statement/9": {
+        "approved": "yes",
+        "signed": "yes",
+        "website": "no",
+        "structure": "yes",
+        "policies": "yes",
+        "due_diligence": "yes",
+        "risk": "yes",
+        "effectiveness": "no",
+        "training": "yes"
+      },
+      "statement/15": {
+        "approved": "yes",
+        "signed": "yes",
+        "website": "no",
+        "structure": "yes",
+        "policies": "yes",
+        "due_diligence": "yes",
+        "risk": "yes",
+        "effectiveness": "yes",
+        "training": "yes"
+      },
+      "statement/21": {
+        "approved": "yes",
+        "signed": "yes",
+        "website": "no",
+        "structure": "yes",
+        "policies": "yes",
+        "due_diligence": "yes",
+        "risk": "yes",
+        "effectiveness": "yes",
+        "training": "yes"
+      },
+      "statement/27": {
+        "approved": "yes",
+        "signed": "yes",
+        "website": "no",
+        "structure": "yes",
+        "policies": "yes",
+        "due_diligence": "yes",
+        "risk": "yes",
+        "effectiveness": "yes",
+        "training": "yes"
+      }
+    }
+  }
+}

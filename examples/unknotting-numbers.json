@@ -1,0 +1,440 @@
+{
+  "title": "Tighten the undetermined unknotting numbers in KnotInfo",
+  "done_when": "Every knot whose unknotting number KnotInfo records only as a range has a lower and upper bound agreed by two AIs of different vendors, each either the recorded range or a tighter one backed by a verified crossing-change certificate or a published lower bound, with the certificate, the check and the source kept as evidence for a reader who can rerun them.",
+  "slug": "unknotting-numbers",
+  "topics": [
+    "knot-theory",
+    "unknotting-number",
+    "knotinfo",
+    "topology",
+    "certificates",
+    "open-problems"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 3,
+    "endgame_at": 2,
+    "budget": 36,
+    "patch_max": 0
+  },
+  "pieces": {
+    "knot/*": {
+      "count": 36,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Knot {n}: {k.name} in KnotInfo, a prime knot with {k.crossings} crossings, {k.alternating}, signature {k.signature}. KnotInfo's table records its unknotting number as {k.recorded}: the first number is the best proven lower bound, the second the fewest crossing changes anyone has shown to unknot it, and the true value is not known. A PD code for a minimal diagram, as KnotInfo gives it, each crossing as four strand labels in counterclockwise order starting from the incoming under-strand: {k.pd}.{k.note} The unknotting number is the smallest number of crossing changes, in any diagram of the knot, that turns it into the unknot. The question is whether this range can be tightened. Start at KnotInfo (the knot table kept by Charles Livingston and Allison Moore at Indiana University): the knot's own page, the unknotting number description page with its notes on specific knots and its references, and Mark Brittenham's letters linked from that page. Then the literature: Gebel and Prangley, Obstructing unknotting number two for some alternating knots (arXiv, 2026); Dranowski, Kabkov and Tubbenhauer, RL unknotter, hard unknots and unknotting number (arXiv, 2026); Owens, Unknotting information from Heegaard Floer homology (2008); McCoy, Alternating knots with unknotting number one (2017); Borodzik and Friedl's Knotorious tables of the algebraic unknotting number; Lewark's work on the Nakanishi index; and any paper that cites these for this knot by name. Two things can tighten the range. An upper bound is tightened by a certificate: a list of crossing changes, fewer than the recorded upper bound, in the given diagram or in another diagram of this knot, after which the result is the unknot; apply the changes yourself and check the result with software (SnapPy, Regina, KnotTheory or any unknot recognizer) before you count it. A lower bound is tightened by a published proof that the unknotting number is at least some number above the recorded lower bound: a signature bound (half the absolute signature is a lower bound), the algebraic unknotting number, the Nakanishi index, the Rasmussen s-invariant, the Ozsvath-Szabo tau invariant, Owens' obstruction, or a theorem naming this knot. A search that reports a bound without a checkable certificate, a result that assumes an unproved conjecture such as additivity, and a conditional statement (if the value is 2 then the crossings have the same sign) do not count. Return lower and upper as whole numbers: the tightest range you can support, with lower not above upper, and equal to the recorded range when nothing better is found. Return found as one of four words: upper_bound_certificate when you verified a certificate with fewer changes than the recorded upper bound; lower_bound_source when a published proof raises the lower bound; both when both happened; nothing_new otherwise. If KnotInfo's table records a different range or a single value today, work from that and say so in notes. As evidence return changes (the diagram used and the crossings changed, counted from zero in the order of the PD code, or none), check (the software and the result of the unknot check, or none), source (the published result relied on, by authors, title and year, or none) and notes. Plain text only, no links.",
+      "data": {
+        "k": "knots"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lower",
+          "upper",
+          "found",
+          "changes",
+          "check",
+          "source",
+          "notes"
+        ],
+        "properties": {
+          "lower": {
+            "type": "integer"
+          },
+          "upper": {
+            "type": "integer"
+          },
+          "found": {
+            "enum": [
+              "upper_bound_certificate",
+              "lower_bound_source",
+              "both",
+              "nothing_new"
+            ]
+          },
+          "changes": {
+            "type": "string",
+            "maxLength": 800
+          },
+          "check": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 800
+          }
+        }
+      },
+      "agree": [
+        "lower",
+        "upper",
+        "found"
+      ]
+    }
+  },
+  "data": {
+    "knots": [
+      {
+        "name": "10_6",
+        "crossings": 10,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": -4,
+        "pd": "[[2,11,3,12],[4,16,5,15],[6,18,7,17],[8,20,9,19],[10,14,11,13],[12,1,13,2],[14,10,15,9],[16,6,17,5],[18,8,19,7],[20,4,1,3]]",
+        "note": " KnotInfo's unknotting number page thanks Mark Brittenham for pointing out that this value is [2,3], correcting an error in earlier published tables, and Gebel and Prangley write in 2026 that the value is still unknown."
+      },
+      {
+        "name": "10_11",
+        "crossings": 10,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": -2,
+        "pd": "[[2,15,3,16],[4,13,5,14],[6,2,7,1],[8,18,9,17],[10,20,11,19],[12,5,13,6],[14,3,15,4],[16,12,17,11],[18,10,19,9],[20,8,1,7]]",
+        "note": ""
+      },
+      {
+        "name": "10_47",
+        "crossings": 10,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": 4,
+        "pd": "[[2,9,3,10],[4,11,5,12],[6,17,7,18],[8,1,9,2],[10,3,11,4],[12,5,13,6],[14,20,15,19],[16,14,17,13],[18,7,19,8],[20,16,1,15]]",
+        "note": ""
+      },
+      {
+        "name": "10_51",
+        "crossings": 10,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": 2,
+        "pd": "[[2,18,3,17],[4,11,5,12],[6,13,7,14],[8,15,9,16],[10,19,11,20],[12,7,13,8],[14,5,15,6],[16,2,17,1],[18,9,19,10],[20,4,1,3]]",
+        "note": ""
+      },
+      {
+        "name": "10_54",
+        "crossings": 10,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": 2,
+        "pd": "[[2,16,3,15],[4,9,5,10],[6,11,7,12],[8,19,9,20],[10,5,11,6],[12,18,13,17],[14,2,15,1],[16,14,17,13],[18,7,19,8],[20,4,1,3]]",
+        "note": ""
+      },
+      {
+        "name": "10_61",
+        "crossings": 10,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": -4,
+        "pd": "[[1,9,2,8],[3,16,4,17],[5,14,6,15],[7,1,8,20],[9,3,10,2],[11,19,12,18],[13,6,14,7],[15,4,16,5],[17,11,18,10],[19,13,20,12]]",
+        "note": ""
+      },
+      {
+        "name": "10_76",
+        "crossings": 10,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": -4,
+        "pd": "[[2,11,3,12],[4,18,5,17],[6,20,7,19],[8,14,9,13],[10,16,11,15],[12,1,13,2],[14,10,15,9],[16,8,17,7],[18,6,19,5],[20,4,1,3]]",
+        "note": ""
+      },
+      {
+        "name": "10_77",
+        "crossings": 10,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": 2,
+        "pd": "[[1,7,2,6],[3,14,4,15],[5,9,6,8],[7,3,8,2],[9,18,10,19],[11,20,12,1],[13,16,14,17],[15,4,16,5],[17,12,18,13],[19,10,20,11]]",
+        "note": ""
+      },
+      {
+        "name": "10_79",
+        "crossings": 10,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": 0,
+        "pd": "[[6,2,7,1],[8,4,9,3],[12,6,13,5],[18,13,19,14],[16,9,17,10],[10,17,11,18],[20,15,1,16],[14,19,15,20],[2,8,3,7],[4,12,5,11]]",
+        "note": ""
+      },
+      {
+        "name": "10_100",
+        "crossings": 10,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": 4,
+        "pd": "[[2,9,3,10],[4,17,5,18],[6,12,7,11],[8,1,9,2],[10,16,11,15],[12,19,13,20],[14,8,15,7],[16,3,17,4],[18,5,19,6],[20,13,1,14]]",
+        "note": ""
+      },
+      {
+        "name": "11a_14",
+        "crossings": 11,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": 0,
+        "pd": "[[4,2,5,1],[8,4,9,3],[14,9,15,10],[12,5,13,6],[6,13,7,14],[18,11,19,12],[22,20,1,19],[20,16,21,15],[16,22,17,21],[10,17,11,18],[2,8,3,7]]",
+        "note": ""
+      },
+      {
+        "name": "11a_126",
+        "crossings": 11,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": 0,
+        "pd": "[[4,2,5,1],[10,4,11,3],[16,11,17,12],[8,15,9,16],[6,20,7,19],[14,5,15,6],[20,8,21,7],[18,22,19,21],[22,13,1,14],[12,17,13,18],[2,10,3,9]]",
+        "note": ""
+      },
+      {
+        "name": "11a_291",
+        "crossings": 11,
+        "alternating": "alternating",
+        "recorded": "[3,4]",
+        "signature": -6,
+        "pd": "[[6,2,7,1],[16,6,17,5],[22,8,1,7],[8,18,9,17],[10,4,11,3],[4,10,5,9],[14,22,15,21],[18,12,19,11],[20,14,21,13],[12,20,13,19],[2,16,3,15]]",
+        "note": ""
+      },
+      {
+        "name": "11a_361",
+        "crossings": 11,
+        "alternating": "alternating",
+        "recorded": "[3,4]",
+        "signature": -4,
+        "pd": "[[8,2,9,1],[16,8,17,7],[18,6,19,5],[20,10,21,9],[22,12,1,11],[10,22,11,21],[6,18,7,17],[12,20,13,19],[2,16,3,15],[14,4,15,3],[4,14,5,13]]",
+        "note": " Gebel and Prangley note in 2026 that Brittenham showed this knot is one crossing change away from 11a_365, whose unknotting number is 4, so its value is 3 or 4."
+      },
+      {
+        "name": "11a_362",
+        "crossings": 11,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": -2,
+        "pd": "[[8,2,9,1],[16,8,17,7],[18,6,19,5],[22,10,1,9],[20,12,21,11],[6,18,7,17],[12,20,13,19],[10,22,11,21],[2,16,3,15],[14,4,15,3],[4,14,5,13]]",
+        "note": " KnotInfo's unknotting number page says Kobayashi showed this knot has unknotting number greater than 1; Gebel and Prangley add in 2026 that if its value is 2 the two crossings changed must have the same sign."
+      },
+      {
+        "name": "11n_3",
+        "crossings": 11,
+        "alternating": "non-alternating",
+        "recorded": "[1,2]",
+        "signature": 2,
+        "pd": "[[4,2,5,1],[10,6,11,5],[8,3,9,4],[2,9,3,10],[11,16,12,17],[7,15,8,14],[15,7,16,6],[13,20,14,21],[17,22,18,1],[21,18,22,19],[19,12,20,13]]",
+        "note": ""
+      },
+      {
+        "name": "11n_23",
+        "crossings": 11,
+        "alternating": "non-alternating",
+        "recorded": "[2,3]",
+        "signature": -4,
+        "pd": "[[4,2,5,1],[8,4,9,3],[9,15,10,14],[5,13,6,12],[13,7,14,6],[11,19,12,18],[19,22,20,1],[15,20,16,21],[21,16,22,17],[17,11,18,10],[2,8,3,7]]",
+        "note": ""
+      },
+      {
+        "name": "11n_51",
+        "crossings": 11,
+        "alternating": "non-alternating",
+        "recorded": "[1,2]",
+        "signature": 0,
+        "pd": "[[4,2,5,1],[8,4,9,3],[14,6,15,5],[15,22,16,1],[9,16,10,17],[17,20,18,21],[11,19,12,18],[19,11,20,10],[21,12,22,13],[6,14,7,13],[2,8,3,7]]",
+        "note": ""
+      },
+      {
+        "name": "11n_65",
+        "crossings": 11,
+        "alternating": "non-alternating",
+        "recorded": "[2,3]",
+        "signature": 0,
+        "pd": "[[4,2,5,1],[8,4,9,3],[16,11,17,12],[14,5,15,6],[6,15,7,16],[18,9,19,10],[10,17,11,18],[19,1,20,22],[13,20,14,21],[21,12,22,13],[2,8,3,7]]",
+        "note": ""
+      },
+      {
+        "name": "11n_141",
+        "crossings": 11,
+        "alternating": "non-alternating",
+        "recorded": "[2,3]",
+        "signature": 0,
+        "pd": "[[4,2,5,1],[7,14,8,15],[12,3,13,4],[2,13,3,14],[5,16,6,17],[15,6,16,7],[17,22,18,1],[11,19,12,18],[9,21,10,20],[19,11,20,10],[21,9,22,8]]",
+        "note": " KnotInfo's unknotting number page says this knot cannot have unknotting number 1, as Stoimenow identified from Kobayashi's work."
+      },
+      {
+        "name": "11n_169",
+        "crossings": 11,
+        "alternating": "non-alternating",
+        "recorded": "[3,4]",
+        "signature": -6,
+        "pd": "[[6,2,7,1],[12,8,13,7],[5,17,6,16],[3,11,4,10],[11,3,12,2],[17,5,18,4],[19,9,20,8],[9,19,10,18],[20,14,21,13],[22,16,1,15],[14,22,15,21]]",
+        "note": ""
+      },
+      {
+        "name": "11n_182",
+        "crossings": 11,
+        "alternating": "non-alternating",
+        "recorded": "[1,2]",
+        "signature": 0,
+        "pd": "[[6,2,7,1],[18,8,19,7],[2,17,3,18],[11,4,12,5],[3,12,4,13],[16,5,17,6],[20,13,21,14],[10,21,11,22],[14,10,15,9],[22,16,1,15],[8,20,9,19]]",
+        "note": ""
+      },
+      {
+        "name": "12a_41",
+        "crossings": 12,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": 4,
+        "pd": "[[1,5,2,4],[3,9,4,8],[5,12,6,13],[7,3,8,2],[9,14,10,15],[11,20,12,21],[13,6,14,7],[15,22,16,23],[17,24,18,1],[19,10,20,11],[21,18,22,19],[23,16,24,17]]",
+        "note": ""
+      },
+      {
+        "name": "12a_107",
+        "crossings": 12,
+        "alternating": "alternating",
+        "recorded": "[3,4]",
+        "signature": -6,
+        "pd": "[[1,5,2,4],[3,9,4,8],[5,15,6,14],[7,3,8,2],[9,21,10,20],[11,17,12,16],[13,7,14,6],[15,23,16,22],[17,11,18,10],[19,1,20,24],[21,13,22,12],[23,19,24,18]]",
+        "note": ""
+      },
+      {
+        "name": "12a_150",
+        "crossings": 12,
+        "alternating": "alternating",
+        "recorded": "[2,4]",
+        "signature": 2,
+        "pd": "[[1,5,2,4],[3,9,4,8],[5,16,6,17],[7,3,8,2],[9,18,10,19],[11,20,12,21],[13,24,14,1],[15,22,16,23],[17,6,18,7],[19,12,20,13],[21,10,22,11],[23,14,24,15]]",
+        "note": " Gebel and Prangley note in 2026 that if this knot has unknotting number 2 the two crossings changed must have the same sign."
+      },
+      {
+        "name": "12a_667",
+        "crossings": 12,
+        "alternating": "alternating",
+        "recorded": "[2,4]",
+        "signature": 0,
+        "pd": "[[1,5,2,4],[3,13,4,12],[5,20,6,21],[7,15,8,14],[9,17,10,16],[11,3,12,2],[13,11,14,10],[15,9,16,8],[17,22,18,23],[19,24,20,1],[21,6,22,7],[23,18,24,19]]",
+        "note": ""
+      },
+      {
+        "name": "12a_815",
+        "crossings": 12,
+        "alternating": "alternating",
+        "recorded": "[2,4]",
+        "signature": 2,
+        "pd": "[[1,7,2,6],[3,9,4,8],[5,13,6,12],[7,3,8,2],[9,18,10,19],[11,5,12,4],[13,20,14,21],[15,22,16,23],[17,24,18,1],[19,10,20,11],[21,14,22,15],[23,16,24,17]]",
+        "note": ""
+      },
+      {
+        "name": "12a_1162",
+        "crossings": 12,
+        "alternating": "alternating",
+        "recorded": "[2,3]",
+        "signature": -4,
+        "pd": "[[1,7,2,6],[3,16,4,17],[5,14,6,15],[7,21,8,20],[9,23,10,22],[11,1,12,24],[13,19,14,18],[15,4,16,5],[17,2,18,3],[19,13,20,12],[21,9,22,8],[23,11,24,10]]",
+        "note": ""
+      },
+      {
+        "name": "12n_47",
+        "crossings": 12,
+        "alternating": "non-alternating",
+        "recorded": "[1,2]",
+        "signature": -2,
+        "pd": "[[1,5,2,4],[3,8,4,9],[5,11,6,10],[16,8,17,7],[9,2,10,3],[11,19,12,18],[13,22,14,23],[15,20,16,21],[6,18,7,17],[19,1,20,24],[21,14,22,15],[23,12,24,13]]",
+        "note": ""
+      },
+      {
+        "name": "12n_90",
+        "crossings": 12,
+        "alternating": "non-alternating",
+        "recorded": "[2,3]",
+        "signature": 4,
+        "pd": "[[1,5,2,4],[3,9,4,8],[12,5,13,6],[7,3,8,2],[9,16,10,17],[6,11,7,12],[13,20,14,21],[15,10,16,11],[17,22,18,23],[19,24,20,1],[21,14,22,15],[23,18,24,19]]",
+        "note": ""
+      },
+      {
+        "name": "12n_258",
+        "crossings": 12,
+        "alternating": "non-alternating",
+        "recorded": "[1,2]",
+        "signature": -2,
+        "pd": "[[1,5,2,4],[3,9,4,8],[5,17,6,16],[7,3,8,2],[20,9,21,10],[11,18,12,19],[22,13,23,14],[15,7,16,6],[17,12,18,13],[19,1,20,24],[14,21,15,22],[10,23,11,24]]",
+        "note": ""
+      },
+      {
+        "name": "12n_642",
+        "crossings": 12,
+        "alternating": "non-alternating",
+        "recorded": "[3,4]",
+        "signature": 2,
+        "pd": "[[1,5,2,4],[3,14,4,15],[18,5,19,6],[16,7,17,8],[20,9,21,10],[24,11,1,12],[22,13,23,14],[15,2,16,3],[6,17,7,18],[10,19,11,20],[8,21,9,22],[12,23,13,24]]",
+        "note": " Brittenham's letter on KnotInfo records a lower bound of 3 from Borodzik and Friedl's algebraic unknotting number."
+      },
+      {
+        "name": "12n_805",
+        "crossings": 12,
+        "alternating": "non-alternating",
+        "recorded": "[2,3]",
+        "signature": 0,
+        "pd": "[[1,7,2,6],[10,4,11,3],[18,5,19,6],[7,1,8,24],[16,9,17,10],[2,12,3,11],[22,14,23,13],[20,16,21,15],[4,17,5,18],[8,19,9,20],[14,22,15,21],[12,24,13,23]]",
+        "note": " KnotInfo's unknotting number page says Ana Wright showed this knot has unknotting number greater than 1, which constrains it to 2 or 3."
+      },
+      {
+        "name": "12n_814",
+        "crossings": 12,
+        "alternating": "non-alternating",
+        "recorded": "[2,3]",
+        "signature": -2,
+        "pd": "[[1,7,2,6],[3,10,4,11],[20,6,21,5],[7,13,8,12],[16,10,17,9],[11,2,12,3],[24,13,1,14],[22,16,23,15],[8,18,9,17],[14,20,15,19],[4,22,5,21],[18,24,19,23]]",
+        "note": " KnotInfo's unknotting number page says Ana Wright showed this knot has unknotting number greater than 1, which constrains it to 2 or 3."
+      },
+      {
+        "name": "12n_844",
+        "crossings": 12,
+        "alternating": "non-alternating",
+        "recorded": "[2,3]",
+        "signature": 2,
+        "pd": "[[1,7,2,6],[12,3,13,4],[5,10,6,11],[7,1,8,24],[9,15,10,14],[20,11,21,12],[13,18,14,19],[15,9,16,8],[17,23,18,22],[4,19,5,20],[21,2,22,3],[23,17,24,16]]",
+        "note": " KnotInfo's unknotting number page says Ana Wright showed this knot has unknotting number greater than 1, which constrains it to 2 or 3."
+      },
+      {
+        "name": "12n_856",
+        "crossings": 12,
+        "alternating": "non-alternating",
+        "recorded": "[2,3]",
+        "signature": 2,
+        "pd": "[[1,7,2,6],[3,12,4,13],[5,16,6,17],[7,23,8,22],[9,21,10,20],[11,19,12,18],[13,4,14,5],[24,15,1,16],[17,2,18,3],[19,11,20,10],[21,9,22,8],[14,23,15,24]]",
+        "note": " KnotInfo's unknotting number page says Ana Wright showed this knot has unknotting number greater than 1, which constrains it to 2 or 3."
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "knot/1": {
+        "lower": 2,
+        "upper": 3,
+        "found": "nothing_new"
+      },
+      "knot/33": {
+        "lower": 2,
+        "upper": 3,
+        "found": "nothing_new"
+      },
+      "knot/34": {
+        "lower": 2,
+        "upper": 3,
+        "found": "nothing_new"
+      },
+      "knot/35": {
+        "lower": 2,
+        "upper": 3,
+        "found": "nothing_new"
+      },
+      "knot/36": {
+        "lower": 2,
+        "upper": 3,
+        "found": "nothing_new"
+      }
+    }
+  }
+}

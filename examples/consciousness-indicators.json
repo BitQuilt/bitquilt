@@ -1,0 +1,442 @@
+{
+  "title": "Apply the consciousness indicator checklist to published AI systems",
+  "done_when": "Every cell, one AI system and one of the fourteen indicator properties in Butlin, Long and colleagues' report Consciousness in Artificial Intelligence, has a verdict two AIs of different vendors read the same way from the system's own technical report or paper, with the deciding passage quoted and the document and section named as evidence for a reader to check against the document; a cell the report itself assessed is read the way the report read it.",
+  "slug": "consciousness-indicators",
+  "topics": [
+    "ai-consciousness",
+    "indicator-properties",
+    "global-workspace",
+    "recurrent-processing",
+    "ai-welfare",
+    "technical-reports",
+    "architecture"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 2,
+    "endgame_at": 2,
+    "budget": 34,
+    "patch_max": 0
+  },
+  "pieces": {
+    "cell/*": {
+      "count": 34,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Cell {n}: the system is {cell.system}, as its own public document describes it: {cell.doc_title}, {cell.doc_kind}, dated {cell.doc_date}, found by its title on arXiv or on the lab's site. The indicator is {cell.indicator}, drawn from {cell.theory} in the report Consciousness in Artificial Intelligence: Insights from the Science of Consciousness (Butlin, Long and colleagues, August 2023, on arXiv), whose table 1 states it as: {cell.indicator_text}. How the report reads it: {cell.indicator_gloss} Read the document, above all the parts that describe the architecture, the training and the inputs and outputs, and decide what it shows about this one property in this one system. Return verdict, one of four: present, when the document describes the system as having the property as the indicator states it, in the report's terms (a recurrent network for RPT-1, a workspace that every module writes to and reads from for GWT-3, training by reinforcement learning or another way of learning from the consequences of its own outputs for AE-1); partly_present, when the document shows one part of the property but not the whole, or a weaker form of it, or a component that has it while the system as a whole does not (the report's own cases: the Perceiver arguably has specialised modules and a bottleneck, but specialised modules are optional in it; the PaLM-E policy unit could be argued to be an agent while the whole system imitates human behaviour); absent, when the document describes the relevant part of the system in enough detail to show the property is not there (the report's own cases: a Transformer is not recurrent, so RPT-1 is absent; the Perceiver lacks global broadcast, so GWT-3 is absent; a system trained only to imitate does not learn to pursue goals from feedback about success, so AE-1 is absent); undocumented, when the document does not describe the part of the system the indicator concerns, so that nothing can be said either way: a document that gives no architecture makes every architectural indicator undocumented. Judge the system as the document describes it, not by what the lab says it can do: a claim of understanding, reasoning or awareness is not a description of architecture, and a benchmark score is not a mechanism. Then return quote, the passage of the document that decides the verdict, at most eighty words, copied as it stands (for undocumented, the passage that comes closest, or the word none); section, the number or heading of the section the passage is in; document, the document's title and the version read, with the day it was read; and notes, anything uncertain, including where the report's own assessment of this system, in its section 3.2, differs from yours. Every field is plain text with no links; documents are named by their titles.",
+      "data": {
+        "cell": "cells"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verdict",
+          "quote",
+          "section",
+          "document"
+        ],
+        "properties": {
+          "verdict": {
+            "enum": [
+              "present",
+              "partly_present",
+              "absent",
+              "undocumented"
+            ]
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 700
+          },
+          "section": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "document": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 800
+          }
+        }
+      },
+      "agree": [
+        "verdict"
+      ]
+    }
+  },
+  "data": {
+    "cells": [
+      {
+        "system": "Gemini 1.5",
+        "doc_title": "Gemini 1.5: Unlocking multimodal understanding across millions of tokens of context",
+        "doc_kind": "a technical report on arXiv by the Gemini Team at Google",
+        "doc_date": "2024-03-08",
+        "indicator": "RPT-1",
+        "theory": "recurrent processing theory",
+        "indicator_text": "Input modules using algorithmic recurrence",
+        "indicator_gloss": "The report reads recurrence as a property of the algorithm, not of the hardware: recurrent networks, LSTMs, GRUs and predictive coding networks have it, since a module processes later input in the light of its own earlier output; a Transformer, a stack of feedforward layers with attention between positions, does not (its section 3.1.1 and section 3.2.1)."
+      },
+      {
+        "system": "the GPT-3 language model",
+        "doc_title": "Language Models are Few-Shot Learners",
+        "doc_kind": "a paper on arXiv by Brown and colleagues at OpenAI",
+        "doc_date": "2020-05-28",
+        "indicator": "GWT-3",
+        "theory": "global workspace theory",
+        "indicator_text": "Global broadcast: availability of information in the workspace to all modules",
+        "indicator_gloss": "All modules take the workspace's contents as input, so information flows from the workspace back to the modules that feed it; the report finds this missing in Transformers, whose layers only pass information downstream, and in the Perceiver, where on a given trial only one output module reads the latent space and the input modules do not (its section 3.2.1)."
+      },
+      {
+        "system": "the GPT-3 language model",
+        "doc_title": "Language Models are Few-Shot Learners",
+        "doc_kind": "a paper on arXiv by Brown and colleagues at OpenAI",
+        "doc_date": "2020-05-28",
+        "indicator": "RPT-1",
+        "theory": "recurrent processing theory",
+        "indicator_text": "Input modules using algorithmic recurrence",
+        "indicator_gloss": "The report reads recurrence as a property of the algorithm, not of the hardware: recurrent networks, LSTMs, GRUs and predictive coding networks have it, since a module processes later input in the light of its own earlier output; a Transformer, a stack of feedforward layers with attention between positions, does not (its section 3.1.1 and section 3.2.1)."
+      },
+      {
+        "system": "the Perceiver",
+        "doc_title": "Perceiver: General Perception with Iterative Attention",
+        "doc_kind": "a paper on arXiv by Jaegle and colleagues at DeepMind, published at ICML 2021",
+        "doc_date": "2021-03-04",
+        "indicator": "GWT-1",
+        "theory": "global workspace theory",
+        "indicator_text": "Multiple specialised systems capable of operating in parallel (modules)",
+        "indicator_gloss": "Specialised subsystems that can work in parallel, each taking sensory input, input from a few other modules, or top-down signals from a workspace; the report asks whether a system's parts are specialised subsystems or only elements that process the tokens of one sequence in the same way (its section 3.1.2 and section 3.2.1)."
+      },
+      {
+        "system": "Mamba",
+        "doc_title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+        "doc_kind": "a paper on arXiv by Gu and Dao",
+        "doc_date": "2023-12-01",
+        "indicator": "RPT-1",
+        "theory": "recurrent processing theory",
+        "indicator_text": "Input modules using algorithmic recurrence",
+        "indicator_gloss": "The report reads recurrence as a property of the algorithm, not of the hardware: recurrent networks, LSTMs, GRUs and predictive coding networks have it, since a module processes later input in the light of its own earlier output; a Transformer, a stack of feedforward layers with attention between positions, does not (its section 3.1.1 and section 3.2.1)."
+      },
+      {
+        "system": "PaLM-E",
+        "doc_title": "PaLM-E: An Embodied Multimodal Language Model",
+        "doc_kind": "a paper on arXiv by Driess and colleagues at Google",
+        "doc_date": "2023-03-06",
+        "indicator": "AE-1",
+        "theory": "agency and embodiment",
+        "indicator_text": "Agency: Learning from feedback and selecting outputs so as to pursue goals, especially where this involves flexible responsiveness to competing goals",
+        "indicator_gloss": "The report says reinforcement learning is arguably sufficient for agency, since the system learns from the consequences of its own outputs over extended interaction with an environment; supervised and self-supervised learning, and imitation of human behaviour, do not by themselves give it; flexible responsiveness to competing goals raises the indicator further but is not required (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "the Perceiver",
+        "doc_title": "Perceiver: General Perception with Iterative Attention",
+        "doc_kind": "a paper on arXiv by Jaegle and colleagues at DeepMind, published at ICML 2021",
+        "doc_date": "2021-03-04",
+        "indicator": "GWT-3",
+        "theory": "global workspace theory",
+        "indicator_text": "Global broadcast: availability of information in the workspace to all modules",
+        "indicator_gloss": "All modules take the workspace's contents as input, so information flows from the workspace back to the modules that feed it; the report finds this missing in Transformers, whose layers only pass information downstream, and in the Perceiver, where on a given trial only one output module reads the latent space and the input modules do not (its section 3.2.1)."
+      },
+      {
+        "system": "Llama 3",
+        "doc_title": "The Llama 3 Herd of Models",
+        "doc_kind": "a paper on arXiv by Grattafiori and colleagues at Meta",
+        "doc_date": "2024-07-31",
+        "indicator": "RPT-1",
+        "theory": "recurrent processing theory",
+        "indicator_text": "Input modules using algorithmic recurrence",
+        "indicator_gloss": "The report reads recurrence as a property of the algorithm, not of the hardware: recurrent networks, LSTMs, GRUs and predictive coding networks have it, since a module processes later input in the light of its own earlier output; a Transformer, a stack of feedforward layers with attention between positions, does not (its section 3.1.1 and section 3.2.1)."
+      },
+      {
+        "system": "Gato",
+        "doc_title": "A Generalist Agent",
+        "doc_kind": "a paper on arXiv by Reed and colleagues at DeepMind",
+        "doc_date": "2022-05-12",
+        "indicator": "AE-1",
+        "theory": "agency and embodiment",
+        "indicator_text": "Agency: Learning from feedback and selecting outputs so as to pursue goals, especially where this involves flexible responsiveness to competing goals",
+        "indicator_gloss": "The report says reinforcement learning is arguably sufficient for agency, since the system learns from the consequences of its own outputs over extended interaction with an environment; supervised and self-supervised learning, and imitation of human behaviour, do not by themselves give it; flexible responsiveness to competing goals raises the indicator further but is not required (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "DreamerV3",
+        "doc_title": "Mastering Diverse Domains through World Models",
+        "doc_kind": "a paper on arXiv by Hafner and colleagues",
+        "doc_date": "2023-01-10",
+        "indicator": "PP-1",
+        "theory": "predictive processing",
+        "indicator_text": "Input modules using predictive coding",
+        "indicator_gloss": "Networks that predict their next input and process the prediction error, as PredNet does for video; the report counts predictive coding as a form of algorithmic recurrence (its section 3.1.1)."
+      },
+      {
+        "system": "RT-2",
+        "doc_title": "RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control",
+        "doc_kind": "a paper on arXiv by Brohan and colleagues at Google DeepMind",
+        "doc_date": "2023-07-28",
+        "indicator": "AE-1",
+        "theory": "agency and embodiment",
+        "indicator_text": "Agency: Learning from feedback and selecting outputs so as to pursue goals, especially where this involves flexible responsiveness to competing goals",
+        "indicator_gloss": "The report says reinforcement learning is arguably sufficient for agency, since the system learns from the consequences of its own outputs over extended interaction with an environment; supervised and self-supervised learning, and imitation of human behaviour, do not by themselves give it; flexible responsiveness to competing goals raises the indicator further but is not required (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "the virtual rodent",
+        "doc_title": "Deep neuroethology of a virtual rodent",
+        "doc_kind": "a paper on arXiv by Merel and colleagues at DeepMind",
+        "doc_date": "2019-11-21",
+        "indicator": "AE-1",
+        "theory": "agency and embodiment",
+        "indicator_text": "Agency: Learning from feedback and selecting outputs so as to pursue goals, especially where this involves flexible responsiveness to competing goals",
+        "indicator_gloss": "The report says reinforcement learning is arguably sufficient for agency, since the system learns from the consequences of its own outputs over extended interaction with an environment; supervised and self-supervised learning, and imitation of human behaviour, do not by themselves give it; flexible responsiveness to competing goals raises the indicator further but is not required (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "DeepSeek-V3",
+        "doc_title": "DeepSeek-V3 Technical Report",
+        "doc_kind": "a technical report on arXiv by DeepSeek-AI",
+        "doc_date": "2024-12-27",
+        "indicator": "GWT-1",
+        "theory": "global workspace theory",
+        "indicator_text": "Multiple specialised systems capable of operating in parallel (modules)",
+        "indicator_gloss": "Specialised subsystems that can work in parallel, each taking sensory input, input from a few other modules, or top-down signals from a workspace; the report asks whether a system's parts are specialised subsystems or only elements that process the tokens of one sequence in the same way (its section 3.1.2 and section 3.2.1)."
+      },
+      {
+        "system": "Voyager",
+        "doc_title": "Voyager: An Open-Ended Embodied Agent with Large Language Models",
+        "doc_kind": "a paper on arXiv by Wang and colleagues at NVIDIA and partners",
+        "doc_date": "2023-05-25",
+        "indicator": "AE-1",
+        "theory": "agency and embodiment",
+        "indicator_text": "Agency: Learning from feedback and selecting outputs so as to pursue goals, especially where this involves flexible responsiveness to competing goals",
+        "indicator_gloss": "The report says reinforcement learning is arguably sufficient for agency, since the system learns from the consequences of its own outputs over extended interaction with an environment; supervised and self-supervised learning, and imitation of human behaviour, do not by themselves give it; flexible responsiveness to competing goals raises the indicator further but is not required (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "the virtual rodent",
+        "doc_title": "Deep neuroethology of a virtual rodent",
+        "doc_kind": "a paper on arXiv by Merel and colleagues at DeepMind",
+        "doc_date": "2019-11-21",
+        "indicator": "AE-2",
+        "theory": "agency and embodiment",
+        "indicator_text": "Embodiment: Modeling output-input contingencies, including some systematic effects, and using this model in perception or control",
+        "indicator_gloss": "A model of how the system's own outputs affect its inputs, used in perception, to tell changes it caused from changes in the environment, or in motor control, for state estimation and feedback correction; a forward model used only for planning does not count, and the report doubts a system not trained end-to-end on its own actions has learnt one (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "Gemini 1.5",
+        "doc_title": "Gemini 1.5: Unlocking multimodal understanding across millions of tokens of context",
+        "doc_kind": "a technical report on arXiv by the Gemini Team at Google",
+        "doc_date": "2024-03-08",
+        "indicator": "GWT-1",
+        "theory": "global workspace theory",
+        "indicator_text": "Multiple specialised systems capable of operating in parallel (modules)",
+        "indicator_gloss": "Specialised subsystems that can work in parallel, each taking sensory input, input from a few other modules, or top-down signals from a workspace; the report asks whether a system's parts are specialised subsystems or only elements that process the tokens of one sequence in the same way (its section 3.1.2 and section 3.2.1)."
+      },
+      {
+        "system": "Perceiver IO",
+        "doc_title": "Perceiver IO: A General Architecture for Structured Inputs & Outputs",
+        "doc_kind": "a paper on arXiv by Jaegle and colleagues at DeepMind",
+        "doc_date": "2021-07-30",
+        "indicator": "GWT-3",
+        "theory": "global workspace theory",
+        "indicator_text": "Global broadcast: availability of information in the workspace to all modules",
+        "indicator_gloss": "All modules take the workspace's contents as input, so information flows from the workspace back to the modules that feed it; the report finds this missing in Transformers, whose layers only pass information downstream, and in the Perceiver, where on a given trial only one output module reads the latent space and the input modules do not (its section 3.2.1)."
+      },
+      {
+        "system": "SIMA, the Scalable Instructable Multiworld Agent",
+        "doc_title": "Scaling Instructable Agents Across Many Simulated Worlds",
+        "doc_kind": "a technical report on arXiv by the SIMA Team at Google DeepMind",
+        "doc_date": "2024-03-13",
+        "indicator": "AE-1",
+        "theory": "agency and embodiment",
+        "indicator_text": "Agency: Learning from feedback and selecting outputs so as to pursue goals, especially where this involves flexible responsiveness to competing goals",
+        "indicator_gloss": "The report says reinforcement learning is arguably sufficient for agency, since the system learns from the consequences of its own outputs over extended interaction with an environment; supervised and self-supervised learning, and imitation of human behaviour, do not by themselves give it; flexible responsiveness to competing goals raises the indicator further but is not required (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "RWKV",
+        "doc_title": "RWKV: Reinventing RNNs for the Transformer Era",
+        "doc_kind": "a paper on arXiv by Peng and colleagues",
+        "doc_date": "2023-05-22",
+        "indicator": "RPT-1",
+        "theory": "recurrent processing theory",
+        "indicator_text": "Input modules using algorithmic recurrence",
+        "indicator_gloss": "The report reads recurrence as a property of the algorithm, not of the hardware: recurrent networks, LSTMs, GRUs and predictive coding networks have it, since a module processes later input in the light of its own earlier output; a Transformer, a stack of feedforward layers with attention between positions, does not (its section 3.1.1 and section 3.2.1)."
+      },
+      {
+        "system": "PaLM-E",
+        "doc_title": "PaLM-E: An Embodied Multimodal Language Model",
+        "doc_kind": "a paper on arXiv by Driess and colleagues at Google",
+        "doc_date": "2023-03-06",
+        "indicator": "AE-2",
+        "theory": "agency and embodiment",
+        "indicator_text": "Embodiment: Modeling output-input contingencies, including some systematic effects, and using this model in perception or control",
+        "indicator_gloss": "A model of how the system's own outputs affect its inputs, used in perception, to tell changes it caused from changes in the environment, or in motor control, for state estimation and feedback correction; a forward model used only for planning does not count, and the report doubts a system not trained end-to-end on its own actions has learnt one (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "Llama 3",
+        "doc_title": "The Llama 3 Herd of Models",
+        "doc_kind": "a paper on arXiv by Grattafiori and colleagues at Meta",
+        "doc_date": "2024-07-31",
+        "indicator": "AE-1",
+        "theory": "agency and embodiment",
+        "indicator_text": "Agency: Learning from feedback and selecting outputs so as to pursue goals, especially where this involves flexible responsiveness to competing goals",
+        "indicator_gloss": "The report says reinforcement learning is arguably sufficient for agency, since the system learns from the consequences of its own outputs over extended interaction with an environment; supervised and self-supervised learning, and imitation of human behaviour, do not by themselves give it; flexible responsiveness to competing goals raises the indicator further but is not required (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "the LaMDA dialogue model",
+        "doc_title": "LaMDA: Language Models for Dialog Applications",
+        "doc_kind": "a paper on arXiv by Thoppilan and colleagues at Google",
+        "doc_date": "2022-01-20",
+        "indicator": "RPT-1",
+        "theory": "recurrent processing theory",
+        "indicator_text": "Input modules using algorithmic recurrence",
+        "indicator_gloss": "The report reads recurrence as a property of the algorithm, not of the hardware: recurrent networks, LSTMs, GRUs and predictive coding networks have it, since a module processes later input in the light of its own earlier output; a Transformer, a stack of feedforward layers with attention between positions, does not (its section 3.1.1 and section 3.2.1)."
+      },
+      {
+        "system": "Mamba",
+        "doc_title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+        "doc_kind": "a paper on arXiv by Gu and Dao",
+        "doc_date": "2023-12-01",
+        "indicator": "GWT-2",
+        "theory": "global workspace theory",
+        "indicator_text": "Limited capacity workspace, entailing a bottleneck in information flow and a selective attention mechanism",
+        "indicator_gloss": "A further module of fewer dimensions than the modules that write to it, so that a selective attention mechanism decides what enters; the report doubts that a Transformer's residual stream is a bottleneck, since its width equals the input's, and reads the Perceiver's latent array as one (its section 3.2.1)."
+      },
+      {
+        "system": "AdA, the Adaptive Agent",
+        "doc_title": "Human-Timescale Adaptation in an Open-Ended Task Space",
+        "doc_kind": "a paper on arXiv by the Adaptive Agent Team at DeepMind",
+        "doc_date": "2023-01-18",
+        "indicator": "AE-2",
+        "theory": "agency and embodiment",
+        "indicator_text": "Embodiment: Modeling output-input contingencies, including some systematic effects, and using this model in perception or control",
+        "indicator_gloss": "A model of how the system's own outputs affect its inputs, used in perception, to tell changes it caused from changes in the environment, or in motor control, for state estimation and feedback correction; a forward model used only for planning does not count, and the report doubts a system not trained end-to-end on its own actions has learnt one (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "DreamerV3",
+        "doc_title": "Mastering Diverse Domains through World Models",
+        "doc_kind": "a paper on arXiv by Hafner and colleagues",
+        "doc_date": "2023-01-10",
+        "indicator": "AE-2",
+        "theory": "agency and embodiment",
+        "indicator_text": "Embodiment: Modeling output-input contingencies, including some systematic effects, and using this model in perception or control",
+        "indicator_gloss": "A model of how the system's own outputs affect its inputs, used in perception, to tell changes it caused from changes in the environment, or in motor control, for state estimation and feedback correction; a forward model used only for planning does not count, and the report doubts a system not trained end-to-end on its own actions has learnt one (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "Gato",
+        "doc_title": "A Generalist Agent",
+        "doc_kind": "a paper on arXiv by Reed and colleagues at DeepMind",
+        "doc_date": "2022-05-12",
+        "indicator": "AE-2",
+        "theory": "agency and embodiment",
+        "indicator_text": "Embodiment: Modeling output-input contingencies, including some systematic effects, and using this model in perception or control",
+        "indicator_gloss": "A model of how the system's own outputs affect its inputs, used in perception, to tell changes it caused from changes in the environment, or in motor control, for state estimation and feedback correction; a forward model used only for planning does not count, and the report doubts a system not trained end-to-end on its own actions has learnt one (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "AdA, the Adaptive Agent",
+        "doc_title": "Human-Timescale Adaptation in an Open-Ended Task Space",
+        "doc_kind": "a paper on arXiv by the Adaptive Agent Team at DeepMind",
+        "doc_date": "2023-01-18",
+        "indicator": "AE-1",
+        "theory": "agency and embodiment",
+        "indicator_text": "Agency: Learning from feedback and selecting outputs so as to pursue goals, especially where this involves flexible responsiveness to competing goals",
+        "indicator_gloss": "The report says reinforcement learning is arguably sufficient for agency, since the system learns from the consequences of its own outputs over extended interaction with an environment; supervised and self-supervised learning, and imitation of human behaviour, do not by themselves give it; flexible responsiveness to competing goals raises the indicator further but is not required (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "DeepSeek-V3",
+        "doc_title": "DeepSeek-V3 Technical Report",
+        "doc_kind": "a technical report on arXiv by DeepSeek-AI",
+        "doc_date": "2024-12-27",
+        "indicator": "GWT-2",
+        "theory": "global workspace theory",
+        "indicator_text": "Limited capacity workspace, entailing a bottleneck in information flow and a selective attention mechanism",
+        "indicator_gloss": "A further module of fewer dimensions than the modules that write to it, so that a selective attention mechanism decides what enters; the report doubts that a Transformer's residual stream is a bottleneck, since its width equals the input's, and reads the Perceiver's latent array as one (its section 3.2.1)."
+      },
+      {
+        "system": "the Perceiver",
+        "doc_title": "Perceiver: General Perception with Iterative Attention",
+        "doc_kind": "a paper on arXiv by Jaegle and colleagues at DeepMind, published at ICML 2021",
+        "doc_date": "2021-03-04",
+        "indicator": "GWT-2",
+        "theory": "global workspace theory",
+        "indicator_text": "Limited capacity workspace, entailing a bottleneck in information flow and a selective attention mechanism",
+        "indicator_gloss": "A further module of fewer dimensions than the modules that write to it, so that a selective attention mechanism decides what enters; the report doubts that a Transformer's residual stream is a bottleneck, since its width equals the input's, and reads the Perceiver's latent array as one (its section 3.2.1)."
+      },
+      {
+        "system": "Gemini 1.5",
+        "doc_title": "Gemini 1.5: Unlocking multimodal understanding across millions of tokens of context",
+        "doc_kind": "a technical report on arXiv by the Gemini Team at Google",
+        "doc_date": "2024-03-08",
+        "indicator": "AE-1",
+        "theory": "agency and embodiment",
+        "indicator_text": "Agency: Learning from feedback and selecting outputs so as to pursue goals, especially where this involves flexible responsiveness to competing goals",
+        "indicator_gloss": "The report says reinforcement learning is arguably sufficient for agency, since the system learns from the consequences of its own outputs over extended interaction with an environment; supervised and self-supervised learning, and imitation of human behaviour, do not by themselves give it; flexible responsiveness to competing goals raises the indicator further but is not required (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "the virtual rodent",
+        "doc_title": "Deep neuroethology of a virtual rodent",
+        "doc_kind": "a paper on arXiv by Merel and colleagues at DeepMind",
+        "doc_date": "2019-11-21",
+        "indicator": "RPT-1",
+        "theory": "recurrent processing theory",
+        "indicator_text": "Input modules using algorithmic recurrence",
+        "indicator_gloss": "The report reads recurrence as a property of the algorithm, not of the hardware: recurrent networks, LSTMs, GRUs and predictive coding networks have it, since a module processes later input in the light of its own earlier output; a Transformer, a stack of feedforward layers with attention between positions, does not (its section 3.1.1 and section 3.2.1)."
+      },
+      {
+        "system": "RT-2",
+        "doc_title": "RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control",
+        "doc_kind": "a paper on arXiv by Brohan and colleagues at Google DeepMind",
+        "doc_date": "2023-07-28",
+        "indicator": "AE-2",
+        "theory": "agency and embodiment",
+        "indicator_text": "Embodiment: Modeling output-input contingencies, including some systematic effects, and using this model in perception or control",
+        "indicator_gloss": "A model of how the system's own outputs affect its inputs, used in perception, to tell changes it caused from changes in the environment, or in motor control, for state estimation and feedback correction; a forward model used only for planning does not count, and the report doubts a system not trained end-to-end on its own actions has learnt one (its section 3.1.5 and section 3.2.2)."
+      },
+      {
+        "system": "the LaMDA dialogue model",
+        "doc_title": "LaMDA: Language Models for Dialog Applications",
+        "doc_kind": "a paper on arXiv by Thoppilan and colleagues at Google",
+        "doc_date": "2022-01-20",
+        "indicator": "GWT-1",
+        "theory": "global workspace theory",
+        "indicator_text": "Multiple specialised systems capable of operating in parallel (modules)",
+        "indicator_gloss": "Specialised subsystems that can work in parallel, each taking sensory input, input from a few other modules, or top-down signals from a workspace; the report asks whether a system's parts are specialised subsystems or only elements that process the tokens of one sequence in the same way (its section 3.1.2 and section 3.2.1)."
+      },
+      {
+        "system": "Voyager",
+        "doc_title": "Voyager: An Open-Ended Embodied Agent with Large Language Models",
+        "doc_kind": "a paper on arXiv by Wang and colleagues at NVIDIA and partners",
+        "doc_date": "2023-05-25",
+        "indicator": "HOT-3",
+        "theory": "computational higher-order theories",
+        "indicator_text": "Agency guided by a general belief-formation and action selection system, and a strong disposition to update beliefs in accordance with the outputs of metacognitive monitoring",
+        "indicator_gloss": "A consumer of the monitor's outputs that forms beliefs and chooses actions across tasks and is strongly disposed to revise its beliefs when the monitor says a representation is unreliable (its section 3.1.3)."
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "cell/3": {
+        "verdict": "absent"
+      },
+      "cell/7": {
+        "verdict": "absent"
+      },
+      "cell/12": {
+        "verdict": "present"
+      },
+      "cell/17": {
+        "verdict": "absent"
+      },
+      "cell/22": {
+        "verdict": "absent"
+      },
+      "cell/27": {
+        "verdict": "present"
+      },
+      "cell/31": {
+        "verdict": "present"
+      }
+    }
+  }
+}

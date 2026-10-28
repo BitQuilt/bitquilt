@@ -1,0 +1,356 @@
+{
+  "title": "1918 influenza closure dates for small American cities, from their own newspapers",
+  "done_when": "Every city has the date its theaters were first closed by order and the date they were allowed to reopen, or none, agreed by two AIs of different vendors, each naming the newspaper, the issue date and the page that reports it and quoting the sentence, so that a reader can open the same page in Chronicling America or the state archive and check.",
+  "slug": "influenza-1918-small-cities",
+  "topics": [
+    "1918-influenza",
+    "public-health",
+    "newspapers",
+    "chronicling-america",
+    "us-cities",
+    "history-of-medicine",
+    "closure-orders"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 3,
+    "endgame_at": 2,
+    "budget": 34,
+    "patch_max": 0
+  },
+  "pieces": {
+    "city/*": {
+      "count": 34,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "City {n}: {c.city}, {c.state}, {c.size}. Digitized newspapers for 1918 to 1919: {c.papers}. Search these newspapers from September 1918 to February 1919 for the city's own measures against influenza, and return two dates. closure_date is the date on which the first order of a public authority (the city or county health officer or board of health, the mayor or city commission, or the state board of health) closing the city's theaters and moving picture houses took effect; the same order usually also closed schools, churches, dance halls and other gatherings, and that does not matter here. An order that closed schools alone, or a few named houses for breaking rules, or the houses of one neighborhood or borough, does not count; when no such order is found, write the word none. lifted_date is the first date on which theaters and moving picture houses were allowed to reopen under the order that lifted or eased that closure, as the newspaper reports it; none when no closure was found, or when no lifting is reported by the end of February 1919. Dates are written YYYY-MM-DD. When an order names a time of day, the date is the day the houses were first shut, or first open, under it: an order effective at midnight closes them on the following day. The list mixes sizes: most rows are cities of 10,000 to 50,000 people, and a few are large cities kept so that answers can be checked against dates already published. For each of the two dates, name the newspaper by its title, give the issue date and the page number of the report you relied on, and quote the sentence that gives the date, at most 50 words. Also give, as evidence and not for agreement: first_report_date, the issue date of the earliest report in these newspapers of an influenza case among the city's own residents, with its newspaper, page and quoted sentence; schools_closed_date and schools_reopened_date, as the newspapers report them; second_closure, a sentence on any later closure order in the winter of 1918 to 1919, or none. In searched say which titles and which range of issue dates you read, so that a none can be checked by searching the same way. Officials are named by office only, and no resident is named in any field; cut a quotation where a name would appear. Give titles, dates and page numbers, never links.",
+      "data": {
+        "c": "cities"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "closure_date",
+          "lifted_date",
+          "searched"
+        ],
+        "properties": {
+          "closure_date": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "closure_paper": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "closure_issue": {
+            "type": "string",
+            "maxLength": 10,
+            "format": "date"
+          },
+          "closure_page": {
+            "type": "integer"
+          },
+          "closure_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "lifted_date": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "lifted_paper": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "lifted_issue": {
+            "type": "string",
+            "maxLength": 10,
+            "format": "date"
+          },
+          "lifted_page": {
+            "type": "integer"
+          },
+          "lifted_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "first_report_date": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "first_report_paper": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "first_report_page": {
+            "type": "integer"
+          },
+          "first_report_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "schools_closed_date": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "schools_reopened_date": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "second_closure": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "searched": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 400
+          }
+        }
+      },
+      "agree": [
+        "closure_date",
+        "lifted_date"
+      ]
+    }
+  },
+  "data": {
+    "cities": [
+      {
+        "city": "Montgomery",
+        "state": "Alabama",
+        "size": "about 43,464 people in the 1920 census",
+        "papers": "The Montgomery Advertiser in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Phoenix",
+        "state": "Arizona",
+        "size": "about 29,053 people in the 1920 census",
+        "papers": "the Arizona Republican in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Albuquerque",
+        "state": "New Mexico",
+        "size": "about 15,157 people in the 1920 census",
+        "papers": "the Albuquerque Morning Journal and The Evening Herald in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Richmond",
+        "state": "Virginia",
+        "size": "171,667 people in the 1920 census, a large city kept here so that answers can be checked against dates already published",
+        "papers": "the Richmond Times-Dispatch, The Richmond Virginian and the weekly Richmond Planet in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Grand Forks",
+        "state": "North Dakota",
+        "size": "about 14,010 people in the 1920 census",
+        "papers": "the Grand Forks Herald in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Casper",
+        "state": "Wyoming",
+        "size": "about 11,447 people in the 1920 census",
+        "papers": "the Casper Daily Tribune in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Boise",
+        "state": "Idaho",
+        "size": "about 21,393 people in the 1920 census",
+        "papers": "the Evening Capital News in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Ogden",
+        "state": "Utah",
+        "size": "about 32,804 people in the 1920 census",
+        "papers": "The Ogden Standard in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Salem",
+        "state": "Oregon",
+        "size": "about 17,679 people in the 1920 census",
+        "papers": "the Daily Capital Journal in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "North Platte",
+        "state": "Nebraska",
+        "size": "about 10,466 people in the 1920 census",
+        "papers": "The North Platte Semi-Weekly Tribune in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Seattle",
+        "state": "Washington",
+        "size": "315,312 people in the 1920 census, a large city kept here so that answers can be checked against dates already published",
+        "papers": "The Seattle Star in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Minot",
+        "state": "North Dakota",
+        "size": "about 10,476 people in the 1920 census",
+        "papers": "The Ward County Independent, a weekly, in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Brownsville",
+        "state": "Texas",
+        "size": "about 11,791 people in the 1920 census",
+        "papers": "the Brownsville Herald in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Amarillo",
+        "state": "Texas",
+        "size": "about 15,494 people in the 1920 census",
+        "papers": "the Amarillo Daily News in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Pensacola",
+        "state": "Florida",
+        "size": "about 31,035 people in the 1920 census",
+        "papers": "The Pensacola Journal in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Alexandria",
+        "state": "Virginia",
+        "size": "about 18,060 people in the 1920 census",
+        "papers": "the Alexandria Gazette in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Fairmont",
+        "state": "West Virginia",
+        "size": "about 17,851 people in the 1920 census",
+        "papers": "The West Virginian in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Portland",
+        "state": "Oregon",
+        "size": "258,288 people in the 1920 census, a large city kept here so that answers can be checked against dates already published",
+        "papers": "the Morning Oregonian in Historic Oregon Newspapers, the University of Oregon Libraries' collection of digitized Oregon newspapers, and the weekly St. Johns Review in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Perth Amboy",
+        "state": "New Jersey",
+        "size": "about 41,707 people in the 1920 census",
+        "papers": "the Perth Amboy Evening News in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Barre",
+        "state": "Vermont",
+        "size": "about 10,008 people in the 1920 census",
+        "papers": "The Barre Daily Times in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Norwich",
+        "state": "Connecticut",
+        "size": "about 22,304 people in the 1920 census",
+        "papers": "the Norwich Bulletin in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Richmond",
+        "state": "Indiana",
+        "size": "about 26,765 people in the 1920 census",
+        "papers": "The Richmond Palladium and Sun-Telegram in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Rock Island",
+        "state": "Illinois",
+        "size": "about 35,177 people in the 1920 census",
+        "papers": "the Rock Island Argus in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Keokuk",
+        "state": "Iowa",
+        "size": "about 14,423 people in the 1920 census",
+        "papers": "The Daily Gate City and Constitution-Democrat in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Washington",
+        "state": "District of Columbia",
+        "size": "437,571 people in the 1920 census, a large city kept here so that answers can be checked against dates already published",
+        "papers": "the Evening Star, The Washington Times and The Washington Herald in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Ardmore",
+        "state": "Oklahoma",
+        "size": "about 14,181 people in the 1920 census",
+        "papers": "The Daily Ardmoreite in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Guthrie",
+        "state": "Oklahoma",
+        "size": "about 11,757 people in the 1920 census",
+        "papers": "The Guthrie Daily Leader in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Chickasha",
+        "state": "Oklahoma",
+        "size": "about 10,179 people in the 1920 census",
+        "papers": "The Chickasha Daily Express in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Pine Bluff",
+        "state": "Arkansas",
+        "size": "about 19,300 people in the 1920 census",
+        "papers": "the Pine Bluff Daily Graphic in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Hot Springs",
+        "state": "Arkansas",
+        "size": "about 11,695 people in the 1920 census",
+        "papers": "The Sentinel-Record in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Columbus",
+        "state": "Mississippi",
+        "size": "about 10,501 people in the 1920 census",
+        "papers": "The Columbus Commercial in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "New York",
+        "state": "New York",
+        "size": "5,620,048 people in the 1920 census, a large city kept here so that answers can be checked against dates already published",
+        "papers": "the New-York Tribune, The Sun and The Evening World in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Wausau",
+        "state": "Wisconsin",
+        "size": "about 18,951 people in the 1920 census",
+        "papers": "the Wausau Pilot, a weekly, in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      },
+      {
+        "city": "Winston-Salem",
+        "state": "North Carolina",
+        "size": "about 48,395 people in the 1920 census",
+        "papers": "The Western Sentinel, a weekly, in Chronicling America, the Library of Congress collection of digitized American newspapers"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "city/4": {
+        "closure_date": "1918-10-06",
+        "lifted_date": "1918-11-04"
+      },
+      "city/11": {
+        "closure_date": "1918-10-06",
+        "lifted_date": "1918-11-12"
+      },
+      "city/18": {
+        "closure_date": "1918-10-11",
+        "lifted_date": "1918-11-16"
+      },
+      "city/25": {
+        "closure_date": "1918-10-03",
+        "lifted_date": "1918-11-04"
+      },
+      "city/32": {
+        "closure_date": "none",
+        "lifted_date": "none"
+      }
+    }
+  }
+}
