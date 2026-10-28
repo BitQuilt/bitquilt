@@ -33,7 +33,6 @@
 from .canonical import canonical
 from .envelope import SLOT
 from .hashes import hash_json
-from .identity import same_address
 from .reducer import (OFFERABLE, DONE, live_claims, root_weights, availability,
                       vendor_of)
 from .times import parse_time, hour_string
@@ -43,44 +42,31 @@ def tiebreak(piece_hash: str, key: str, hour: str) -> str:
     return hash_json([piece_hash, key, hour])
 
 
-def _related_to_piece(piece, root, state):
-    # Through `cannot_pair`, a reveal or a run by the owner's root bars the
-    # piece to every key; section 6 says the owner "is not otherwise related
-    # to anyone", and the reference does not bar it. No fixture has the
-    # owner working. Left as it is for the maintainers to decide (FINDINGS.md).
-    ident = state.identity
-    for rv in piece.reveals:
-        if ident.cannot_pair(root, rv.root, state.owner):
-            return True
-    for run in piece.runs:
-        if ident.cannot_pair(root, run.root, state.owner):
-            return True
-    return False
-
-
-def _declined(piece, root, state):
-    # Step 1 counts "events on this piece in this chain"; this code counts a
-    # decline only when its `problem` is this problem's hash, not an
-    # ancestor's. No fixture has a decline under an ancestor. Left as it is
-    # for the maintainers to decide (FINDINGS.md).
-    for d in piece.declines:
-        if d.problem == state.problem_hash and same_address(state.identity.resolve(d.root), root):
-            return True
-    return False
-
-
-def _has_live_claim(piece, root, state, now):
-    return any(same_address(state.identity.resolve(c.root), root) for c in live_claims(piece, now))
+def _worked_by_a_relation(piece, root, state, now):
+    """Step 1: a piece "on which no root related to the key's has a reveal, a
+    run, a live claim or a decline, counting events on this piece in this
+    chain". The fold already dropped events naming a problem outside the
+    chain, so every event on the piece counts; a decline under an ancestor
+    counts like one under this version."""
+    related = state.identity.related
+    if any(related(rv.root, root, now) for rv in piece.reveals):
+        return True
+    if any(related(run.root, root, now) for run in piece.runs):
+        return True
+    if any(related(c.root, root, now) for c in live_claims(piece, now)):
+        return True
+    return any(related(d.root, root, now) for d in piece.declines)
 
 
 def next_piece(state, key, client, now):
     now = parse_time(now) or state.now
     can = set((client or {}).get("can") or [])
     vendor = vendor_of(client or {})
-    root = state.identity.resolve(key)
+    ident = state.identity
+    root = ident.root_of(key, now)
     # Step 1: "the key's root is unrelated to the owner"; section 6: a root
-    # related to the owner is "handed no piece by next".
-    if same_address(root, state.owner):
+    # related to the owner is "handed no piece by next". Judged once.
+    if ident.related(root, state.owner, now):
         return None
     pieces = state.pieces
     candidates = []
@@ -89,11 +75,7 @@ def next_piece(state, key, client, now):
             continue
         if not set(piece.spec.get("requires") or []) <= can:
             continue
-        if _related_to_piece(piece, root, state):
-            continue
-        if _has_live_claim(piece, root, state, now):
-            continue
-        if _declined(piece, root, state):
+        if _worked_by_a_relation(piece, root, state, now):
             continue
         candidates.append(piece)
     if not candidates:

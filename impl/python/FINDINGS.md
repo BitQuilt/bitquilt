@@ -263,34 +263,70 @@ its `sha3_256` pads differently) and secp256k1 recovery are implemented in
 test vectors and the known addresses of the private keys 1 and 2
 (`0x7E5F…Bdf`, `0x2B5A…6cF`), which the fixtures use.
 
-## Where this code and the sentences of 26 October differ, 27 October 2026
+## Aligned to the reference, 27 October 2026
 
-Read against section 12's sentences after the fact, by an audit of the
-code. None changes a fixture; each is marked in the code with the sentence
-and left as it is for the maintainers to decide.
+The section that stood here listed where this code read the sentences of 26
+October differently from the reference, and left each as it was for the
+maintainers to decide. The maintainers decided the same day: the two
+implementations compute one map from one ledger, so every difference was
+aligned to the reference, and each is now pinned by a fixture under
+`packages/core/fixtures/clarifications/` that both implementations
+reproduce (`c01` to `c14`). What changed in this code, and the sentence each
+follows:
 
-- **The frontier** (section 6): "the best score ... among every pair of
-  qualifying runs within tolerance, whether or not that pair is the set."
-  `reducer._settle` reads the accepting set's two runs alone.
-- **A reveal and every earlier reveal** (section 6): "a reveal counts only
-  when its root is unrelated to the owner and to the root of every earlier
-  reveal on the piece." `reducer._try_complete_agree` applies that only once
-  the piece is disputed; before that a reveal related to one earlier reveal
-  may still pair with another.
-- **Declines in the chain** (section 7, step 1): "counting events on this
-  piece in this chain." `picker._declined` counts a decline only when its
-  `problem` is this problem's hash, not an ancestor's.
-- **The owner's reveals and runs** (section 6): a root related to the owner
-  "is not otherwise related to anyone." `Identity.cannot_pair` folds the
-  owner rule in, so an owner's reveal disputes nothing
-  (`reducer._two_unrelated_differ`) and an owner's reveal or run bars the
-  piece to every key (`picker._related_to_piece`); the reference does
-  neither.
-- **Unabandoned commits in availability** (section 6): "plus its unabandoned
-  commits." `reducer.commits_in_force` keeps a revealed commit whatever the
-  time, so a reveal counts twice in availability; the reference counts
-  unrevealed commits alone.
-- **A run's image and host in the output** (section 6, Output): "score",
-  "image", "host" "with absent values left out." The fold keeps neither
-  image nor host on a run, so `reducer.output_document` writes neither; the
-  reference writes both when the run carried them.
+- **The order of the checks** (section 6, Drop, and section 4, A prior
+  event): shape, signature, standing, then what the event names, then the
+  type's own rule, with the key's prior event recorded once standing passes,
+  "whether or not it was then dropped for what it names"
+  (`reducer._shape_problem`, `reduce`; fixture `c11`). The shape checks are
+  the reference's: an address with its checksum, a time with a zone, a
+  signature of 65 bytes, a hash, a nonce of 32 hex characters, and the body
+  each type's row of the table asks for; `by` is a model and a client of at
+  most eighty characters and a `can` within the four capabilities.
+- **Relations** (section 6, Roots and delegates): `Identity.related(a, b,
+  at)` judges two roots "as they stood at the receipt of the event being
+  judged, with delegations as live then and rotations as they stand at the
+  end of the fold"; the owner is no relation of anyone's by that test, and
+  each rule that sets the owner apart asks about the owner by name. So the
+  owner's reveal disputes a piece and completes no set (`c01`), and a reveal
+  from a root related to any earlier reveal on the piece counts no longer,
+  disputed or not (`_accepting_agree`, `c02`). `Identity.root_of(key, at)` is
+  what `next` asks: a delegate whose delegation has expired is its own key
+  again, unrelated to its old root (`c05a`, `c05b`).
+- **Accepting sets decided at settle time** over the sets of events, as the
+  document describes a piece's state, rather than on each reveal as it was
+  folded (`_accepting_agree`, `_accepting_runs`, `_settle`). The frontier of
+  a score piece is "the best score ... among every pair of qualifying runs
+  within tolerance, whether or not that pair is the set" (`_frontier`).
+- **Declines in the chain** (section 7, step 1): a decline under an ancestor
+  version keeps the piece from the key (`picker._worked_by_a_relation`,
+  `c03`).
+- **Availability** (section 6): a commit that has been revealed is its
+  reveal's and is not counted again (`unabandoned_commits`, `c04`); a claim
+  is live while `now < r + lease`, with no lower bound (`live_claims`).
+- **Boundaries**: the window closes at `c + challenge_window_h` exactly
+  (`c09`); `unreachable` counts in an enum that lists it and in no string
+  field, read from the set's first reveal (`c08`).
+- **The output** carries each run's `host`, and its `image` and `score`
+  where present (`Run`, `output_document`, `c07`).
+- **Identity events** (section 4): a `version` is signed by any root, not
+  the owner alone (`c10`); a key once delegated to is another root's delegate
+  for good, revoked or not (`c12`); the new root revokes the old one it was
+  rotated from, after which the old key signs nothing and what it did stays
+  the new root's (`Identity.standing`, `c13`); a rotation relates what the
+  old root did to what the new root does (`c14`).
+- **A piece a version dropped** (section 6, Envelopes): "A piece hash counts
+  if any envelope in the chain contains it." This code always folded events
+  on an ancestor's pieces and counted them toward weights; the reference
+  dropped them, and was changed the same day to keep them apart and count
+  them (`c06`). This is the one place the reference moved toward this code
+  rather than the reverse.
+
+One reading stays open and is written down rather than decided: section 6
+says "among counting reveals, the first pair in receipt order whose vendors
+differ and whose agree fields agree is the accepting set". The reference,
+and now this code, hold the later reveal of the pair to the every-earlier-
+reveal rule and take the earlier from every reveal the owner did not make,
+whether or not that earlier reveal itself counted. The two readings differ
+only when a root has revealed twice on one piece through two keys of
+different vendors and a stranger agrees with the second; no fixture has it.

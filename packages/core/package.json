@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "conform": "tsx src/conformance.ts fixtures",
+    "conform": "tsx src/conformance.ts fixtures fixtures/clarifications",
     "verify": "tsx src/verify.ts"
   },
   "dependencies": {

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run every conformance fixture against the Python core.
 
-    python3 impl/python/conform.py [fixtures-dir] [-v]
+    python3 impl/python/conform.py [fixtures-dir ...] [-v]
 
 Prints PASS per fixture, or the first difference: which piece, the expected
 state against the produced one; the expected pick against the produced one;
@@ -80,10 +80,12 @@ def run_fixture(path, verbose=False):
 def main(argv):
     verbose = "-v" in argv
     args = [a for a in argv[1:] if a != "-v"]
-    fixtures_dir = args[0] if args else default_fixtures_dir()
-    paths = sorted(glob.glob(os.path.join(fixtures_dir, "*.json")))
+    # One folder or several; with none named, the fixtures of version 1 and the
+    # clarifications of section 12 beside them.
+    dirs = args if args else [default_fixtures_dir(), os.path.join(default_fixtures_dir(), "clarifications")]
+    paths = [p for d in dirs for p in sorted(glob.glob(os.path.join(d, "*.json")))]
     if not paths:
-        print("no fixtures under %s" % fixtures_dir)
+        print("no fixtures under %s" % ", ".join(dirs))
         return 2
     passed = 0
     for path in paths:

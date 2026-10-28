@@ -3,7 +3,7 @@
  * time, and the state and picks it must produce. A client conforms when it reproduces them all. Run against this
  * library it is a test; run against another implementation it is the definition of being a BitQuilt client.
  *
- *   tsx src/conformance.ts fixtures
+ *   tsx src/conformance.ts fixtures fixtures/clarifications
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -72,8 +72,9 @@ export function loadFixtures(dir: string): Fixture[] {
 
 // Run as a script when invoked directly (`pnpm conform`); imported by the tests, this file only exports.
 if (process.argv[1] && /conformance\.(ts|js)$/.test(process.argv[1])) {
-  const dir = process.argv[2] ?? 'fixtures';
-  const fixtures = loadFixtures(dir);
+  // One folder or several: `pnpm conform` passes the fixtures and the clarifications beside them.
+  const dirs = process.argv.length > 2 ? process.argv.slice(2) : ['fixtures'];
+  const fixtures = dirs.flatMap((dir) => loadFixtures(dir));
   let failed = 0;
   for (const f of fixtures) {
     const problems = checkFixture(f);

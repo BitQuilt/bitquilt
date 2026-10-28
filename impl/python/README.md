@@ -49,6 +49,10 @@ pick = bitquilt.next(state, key, {"can": ["web"], "model": "vendor/model"}, now)
 
 ## Score
 
-24 of 24 fixtures pass. Written against the document as it stood on 25
+39 of 39 fixtures pass: the 24 of version 1 and the 15 clarifications of
+section 12 beside them. Written against the document as it stood on 25
 October, it passed 22 of 23; FINDINGS.md records what was missing and
-section 12 of CORE.md now says it.
+section 12 of CORE.md now says it. On 27 October every place this code read
+a clarified sentence differently from the reference was aligned to the
+reference, and one place the reference was aligned to this code; the last
+section of FINDINGS.md lists them, and the clarification fixtures pin each.

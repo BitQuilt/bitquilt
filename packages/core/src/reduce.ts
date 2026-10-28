@@ -45,6 +45,8 @@ export interface State {
   chain: Envelope[];
   pieces: PieceView[];
   byHash: Map<Hash, PieceView>;
+  /** Pieces an ancestor had and this version does not (section 6, Envelopes): no state, offered to nobody, their events folded and counted toward weights. */
+  ancestral: Map<Hash, PieceView>;
   names: Map<Address, { name: string; agent: boolean }>;
   versions: Map<string, Hash>;
   delegations: Delegation[];
@@ -80,6 +82,8 @@ export function orderReceipts(receipts: Receipt[]): { receipt: Receipt; at: stri
 class Roots {
   readonly delegations: Delegation[] = [];
   readonly rotations = new Map<Address, Address>();
+  /** Old roots whose new root has revoked them (section 4: "the old root is a delegate of the new until revoked"); what they did stays the new root's. */
+  readonly rotationRevoked = new Set<Address>();
   /** Every key with a prior event (section 4): one whose core event passed shape, signature and standing, and one a kept rotate named as `to`. */
   readonly prior = new Set<Address>();
 
@@ -117,7 +121,7 @@ class Roots {
    */
   standing(key: Address, type: string, at: string): { root: Address } | { why: string } {
     const d = this.liveDelegation(key, type, at);
-    const rotated = this.rotations.get(key);
+    const rotated = this.rotationRevoked.has(key) ? undefined : this.rotations.get(key);
     if ((d || rotated) && ROOT_ONLY_TYPES.includes(type)) return { why: `a ${type} is signed by a root` };
     if (d) return { root: this.final(d.root) };
     if (rotated) return { root: this.final(rotated) };
@@ -136,13 +140,16 @@ class Roots {
     return r;
   }
 
-  /** Whether two roots are the same, or one a delegate of the other, as judged at `at`. */
+  /**
+   * Whether two roots are the same, or one a delegate of the other, as judged at `at` (section 6: "with delegations as
+   * live then and rotations as they stand at the end of the fold"). The fold asks about the roots events counted for,
+   * which are never delegate keys, so the delegation branch answers `next`, which asks about a key's own address once
+   * its delegation has run out.
+   */
   related(a: Address, b: Address, at: string): boolean {
     if (this.final(a) === this.final(b)) return true;
     for (const d of this.delegations) {
-      // A delegation begun and not revoked by `at` relates its two keys; its expiry is not read here, where `live` would
-      // read it. Section 6 says "with delegations as live then"; the behaviour is left as it is for the maintainers to decide.
-      if (d.since > at || (d.revokedAt !== null && d.revokedAt <= at)) continue;
+      if (!this.live(d, at)) continue;
       if ((d.to === a && this.final(d.root) === this.final(b)) || (d.to === b && this.final(d.root) === this.final(a))) return true;
     }
     return false;
@@ -157,14 +164,21 @@ interface Folded { roots: Roots; names: State['names']; versions: State['version
 
 export function reduce(input: ReduceInput): State {
   const checked = checkChain(input.envelopes, input.blobs);
-  // Pieces: this problem's expansion, by hash; ancestors' pieces that are not in it are not pieces of this problem.
+  // Pieces: this problem's expansion, by hash. Section 6, Envelopes: "A piece hash counts if any envelope in the chain
+  // contains it", so a piece an ancestor had and this version dropped is kept apart: no piece of this problem, with no
+  // state and offered to nobody, but its events fold, and its claims and accepted reveals count toward weights.
   const pieces = expandPieces(checked.envelope.problem, input.blobs);
   const views = new Map<Hash, PieceView>();
-  for (const piece of pieces) {
-    views.set(piece.hash, { piece, state: 'open', claims: [], commits: [], reveals: [], runs: [], declined: new Set(), accepting: null, windowEnd: null, availability: 0, dependents: 0, frontier: null });
-  }
-  const folded = fold(input.receipts, views, checked.chainHashes, checked.envelope.problem.settings);
-  return settle(checked, pieces, views, folded, input.now);
+  for (const piece of pieces) views.set(piece.hash, emptyView(piece));
+  const ancestral = new Map<Hash, PieceView>();
+  for (const env of checked.chain.slice(1)) for (const piece of expandPieces(env.problem, input.blobs)) if (!views.has(piece.hash) && !ancestral.has(piece.hash)) ancestral.set(piece.hash, emptyView(piece));
+  const folded = fold(input.receipts, views, ancestral, checked.chainHashes, checked.envelope.problem.settings);
+  return settle(checked, pieces, views, ancestral, folded, input.now);
+}
+
+/** A piece with nothing on it yet. */
+function emptyView(piece: Piece): PieceView {
+  return { piece, state: 'open', claims: [], commits: [], reveals: [], runs: [], declined: new Set(), accepting: null, windowEnd: null, availability: 0, dependents: 0, frontier: null };
 }
 
 /**
@@ -206,7 +220,7 @@ function checkChain(envelopes: Envelope[], blobs: Blobs): Checked {
  * dropped with its reason (section 6, Drop). An event of a type the core does not define is passed over: not folded,
  * not dropped, and no key's prior event (section 4).
  */
-function fold(receipts: Receipt[], views: Map<Hash, PieceView>, chainHashes: Set<Hash>, settings: Settings): Folded {
+function fold(receipts: Receipt[], views: Map<Hash, PieceView>, ancestral: Map<Hash, PieceView>, chainHashes: Set<Hash>, settings: Settings): Folded {
   const roots = new Roots();
   const names: State['names'] = new Map();
   const versions: State['versions'] = new Map();
@@ -236,14 +250,14 @@ function fold(receipts: Receipt[], views: Map<Hash, PieceView>, chainHashes: Set
     // key is recorded here, before the problem and piece checks and before the type's own.
     roots.prior.add(e.key);
 
-    const view = e.piece ? views.get(e.piece) : undefined;
+    const view = e.piece ? (views.get(e.piece) ?? ancestral.get(e.piece)) : undefined;
     if (PIECE_EVENT_TYPES.includes(e.type)) {
       if (!e.problem || !chainHashes.has(e.problem)) {
         drop(e, 'names a problem outside the chain');
         continue;
       }
       if (!view) {
-        drop(e, 'names a piece this problem does not have');
+        drop(e, 'names a piece the chain does not have');
         continue;
       }
     }
@@ -352,6 +366,12 @@ function fold(receipts: Receipt[], views: Map<Hash, PieceView>, chainHashes: Set
           d.revokedAt = at;
           any = true;
         }
+        // Section 4: "the old root is a delegate of the new until revoked". The root the old key now counts for revokes it.
+        const rotatedTo = roots.rotations.get(of);
+        if (rotatedTo !== undefined && roots.final(rotatedTo) === e.key && !roots.rotationRevoked.has(of)) {
+          roots.rotationRevoked.add(of);
+          any = true;
+        }
         if (!any) drop(e, 'revokes a key that is not this root\'s delegate');
         break;
       }
@@ -391,14 +411,16 @@ function fold(receipts: Receipt[], views: Map<Hash, PieceView>, chainHashes: Set
  * then the roots' weights, the dependents, the states (a piece's inputs before it), the availabilities, and, when
  * every piece is accepted or unreachable, the output.
  */
-function settle(checked: Checked, pieces: Piece[], views: Map<Hash, PieceView>, folded: Folded, now: string): State {
+function settle(checked: Checked, pieces: Piece[], views: Map<Hash, PieceView>, ancestral: Map<Hash, PieceView>, folded: Folded, now: string): State {
   const { envelope, problem, chain } = checked;
   const { roots, names, versions, dropped } = folded;
   const settings = envelope.problem.settings;
   const ownerRoot = envelope.problem.owner as Address;
 
-  for (const v of views.values()) decideAccepting(v, roots, ownerRoot, settings.challenge_window_h);
-  const weights = computeWeights(views, roots);
+  // Every piece of the chain has its accepting set decided, since weights count "in this chain"; only this problem's pieces have states.
+  const every = new Map([...views, ...ancestral]);
+  for (const v of every.values()) decideAccepting(v, roots, ownerRoot, settings.challenge_window_h);
+  const weights = computeWeights(every, roots);
   const list = pieces.map((p) => views.get(p.hash)!);
   for (const v of list) v.dependents = 0;
   for (const v of list) for (const entry of v.piece.inputs) for (const dep of inputPieces(entry, pieces)) views.get(dep.hash)!.dependents++;
@@ -435,7 +457,7 @@ function settle(checked: Checked, pieces: Piece[], views: Map<Hash, PieceView>, 
   const output = complete ? assembleOutput(problem, list) : null;
 
   return {
-    problem, envelope, chain, pieces: list, byHash: views, names, versions, delegations: roots.delegations, rotations: roots.rotations, weights, output, dropped, complete,
+    problem, envelope, chain, pieces: list, byHash: views, ancestral, names, versions, delegations: roots.delegations, rotations: roots.rotations, weights, output, dropped, complete,
     rootOf: (key, at) => roots.rootOf(key, at),
     related: (a, b, at) => roots.related(a, b, at),
   };

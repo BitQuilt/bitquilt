@@ -1,0 +1,370 @@
+{
+  "name": "c05a-a-delegate-within-its-delegation",
+  "description": "While its delegation lives, a delegate's key counts for its root, and is handed nothing its root has revealed on.",
+  "envelopes": [
+    {
+      "quilt": 1,
+      "problem": {
+        "title": "A report",
+        "done_when": "Every citation has a verdict.",
+        "owner": "0xF7Edc8FA1eCc32967F827C9043FcAe6ba73afA5c",
+        "slug": "report",
+        "prev": null,
+        "from": null,
+        "settings": {
+          "challenge_window_h": 48,
+          "lease_h": 2,
+          "endgame_at": 1,
+          "budget": 100,
+          "patch_max": 10000
+        },
+        "pieces": {
+          "cite/*": {
+            "count": 3,
+            "verifier": "agree",
+            "requires": [
+              "web"
+            ],
+            "brief": "Citation {n}: {cite.s}",
+            "data": {
+              "cite": "cites.json"
+            },
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "verdict",
+                "quote"
+              ],
+              "properties": {
+                "verdict": {
+                  "enum": [
+                    "supports",
+                    "contradicts",
+                    "unreachable"
+                  ]
+                },
+                "quote": {
+                  "type": "string",
+                  "maxLength": 160
+                }
+              }
+            },
+            "agree": [
+              "verdict"
+            ]
+          },
+          "lint": {
+            "verifier": "check",
+            "requires": [
+              "shell"
+            ],
+            "brief": "Run the lint.",
+            "workspace": {
+              "repo": "https://example.org/r",
+              "base": "abc"
+            },
+            "check": {
+              "file": "lint.sh"
+            }
+          },
+          "bench": {
+            "verifier": "score",
+            "requires": [
+              "shell"
+            ],
+            "brief": "Run the bench.",
+            "workspace": {
+              "repo": "https://example.org/r",
+              "base": "abc"
+            },
+            "check": {
+              "file": "bench.sh",
+              "tolerance": 0.5,
+              "better": "lower"
+            }
+          },
+          "summary": {
+            "verifier": "judge:5",
+            "inputs": [
+              "cite/*"
+            ],
+            "candidates": 3,
+            "brief": "Summarise {cite/*}.",
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "text"
+              ],
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "maxLength": 100
+                }
+              }
+            }
+          },
+          "after": {
+            "verifier": "agree",
+            "inputs": [
+              "summary"
+            ],
+            "brief": "After.",
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "verdict",
+                "quote"
+              ],
+              "properties": {
+                "verdict": {
+                  "enum": [
+                    "supports",
+                    "contradicts",
+                    "unreachable"
+                  ]
+                },
+                "quote": {
+                  "type": "string",
+                  "maxLength": 160
+                }
+              }
+            }
+          }
+        },
+        "data": {
+          "cites.json": "sha256:29607373b4d1c00b6d051d71cc0550ef23a494c88762bdce794442f903e48684"
+        }
+      },
+      "hints": {
+        "trackers": [
+          "https://tracker.example/"
+        ],
+        "mirrors": []
+      },
+      "sig": "0x47fe3eb3a7688d07c11a324ead1ededa0ae08ccd795ecd339c9934b0ce21a421166f16ecfd9bf98dc08d6c72e6a64d4901e88b10823979fc46f19a033473ccb81c"
+    }
+  ],
+  "blobs": {
+    "sha256:29607373b4d1c00b6d051d71cc0550ef23a494c88762bdce794442f903e48684": "W3sicyI6Im9uZSJ9LHsicyI6InR3byJ9LHsicyI6InRocmVlIn1d"
+  },
+  "receipts": [
+    {
+      "event": {
+        "quilt": 1,
+        "type": "delegate",
+        "key": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+        "ts": "2026-10-24T18:00:00.000Z",
+        "body": {
+          "to": "0x4CCeBa2d7D2B4fdcE4304d3e09a1fea9fbEb1528",
+          "scope": [
+            "claim",
+            "commit",
+            "reveal"
+          ],
+          "expires": "2026-10-24T19:00:00.000Z"
+        },
+        "sig": "0x6f03e72c805e2cb7c7719d091fd3ef3d4b2a20f4b9d6547db5d996ee76fe311a07f8dbc39d4d92a53855e807b2edfe6183ceb7df5b62958ae14294f1860214d51b"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:00:00.000Z",
+          "custody": "self"
+        }
+      ]
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "commit",
+        "key": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+        "ts": "2026-10-24T18:01:00.000Z",
+        "body": {
+          "h": "sha256:e8ad4e3d37353a3b963b6cbbfa502d2ba3f185b2b3b58f90cab4533450761f7e"
+        },
+        "problem": "sha256:2c475245d4f0a044f0e9e1dba3f3fc009b1cee86c69a5fd23e8f71b6bb265e1e",
+        "piece": "sha256:f52007c3d15b64c6be8187bdb7af56a679814dd6f40e2af85a7b398376571bc4",
+        "sig": "0x737d76e43ff399f743204d919bef4062f23f65b2583a49202891dbd02af4cb053cd7f747e382421d014d2dd8735c1e1caed0c09ed99ab17dd44ef108dc917db91c"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:01:00.000Z",
+          "custody": "self"
+        }
+      ]
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "reveal",
+        "key": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+        "ts": "2026-10-24T18:02:00.000Z",
+        "body": {
+          "return": {
+            "verdict": "supports",
+            "quote": "b"
+          },
+          "nonce": "ff9d8d58f3c57c81a59e51d738b95352",
+          "by": {
+            "model": "openai/gpt",
+            "client": "fixture/1",
+            "can": [
+              "web",
+              "shell"
+            ]
+          }
+        },
+        "problem": "sha256:2c475245d4f0a044f0e9e1dba3f3fc009b1cee86c69a5fd23e8f71b6bb265e1e",
+        "piece": "sha256:f52007c3d15b64c6be8187bdb7af56a679814dd6f40e2af85a7b398376571bc4",
+        "sig": "0x379b168dc99762ad3b6817e3ff3e38c0c9d76ded1bf0816f2f073dc7bc98138142c469901482b056574bb677f85416a1240238e1e74ddd4aa33833aa303a3be21c"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:02:00.000Z",
+          "custody": "self"
+        }
+      ]
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "commit",
+        "key": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+        "ts": "2026-10-24T18:03:00.000Z",
+        "body": {
+          "h": "sha256:8dd7fd1850136228da9f6f5260f700d78631e214aa4e3e410a0d22dbe317164b"
+        },
+        "problem": "sha256:2c475245d4f0a044f0e9e1dba3f3fc009b1cee86c69a5fd23e8f71b6bb265e1e",
+        "piece": "sha256:d1d67ba1705af173e1fd04dfa6548125e76c18a709bd501c5eb1e61e99a7af43",
+        "sig": "0xe9920684ec015174e4201f584298fff95bd74a2f84c03cbebcdf1c69c864b742104603b38f506f6c89589090c4ac1c12d92db7e45feab79bba0f4f8e155ea2061b"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:03:00.000Z",
+          "custody": "self"
+        }
+      ]
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "reveal",
+        "key": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+        "ts": "2026-10-24T18:04:00.000Z",
+        "body": {
+          "return": {
+            "verdict": "supports",
+            "quote": "b"
+          },
+          "nonce": "84c17ebc4911914e6eb7bb5a71ec28e5",
+          "by": {
+            "model": "openai/gpt",
+            "client": "fixture/1",
+            "can": [
+              "web",
+              "shell"
+            ]
+          }
+        },
+        "problem": "sha256:2c475245d4f0a044f0e9e1dba3f3fc009b1cee86c69a5fd23e8f71b6bb265e1e",
+        "piece": "sha256:d1d67ba1705af173e1fd04dfa6548125e76c18a709bd501c5eb1e61e99a7af43",
+        "sig": "0x497368df7b2c5572a482424fcb0792094eef972b816bd237fb096e935e4432fe17f1d650ac6da1aa2857d8d780d5be056efa72009f4c497ce6c81c78e27d43461c"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:04:00.000Z",
+          "custody": "self"
+        }
+      ]
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "commit",
+        "key": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+        "ts": "2026-10-24T18:05:00.000Z",
+        "body": {
+          "h": "sha256:e8dbcd7dbdce0e01ca4aa03371f708d974e6e2cc8ef020f21463216c5ba08432"
+        },
+        "problem": "sha256:2c475245d4f0a044f0e9e1dba3f3fc009b1cee86c69a5fd23e8f71b6bb265e1e",
+        "piece": "sha256:49f62e389a6000ee7dddd3706714cb47afab382033c41390fa1dc068509ccddb",
+        "sig": "0xe0f5b91a219889f5371f78981d7f1a59e90d72830ce17aeb5b5ff4ece59e07070aed0773151e8a3a356e6148df32777a83aca6eb429b10c090c1bface682ad881b"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:05:00.000Z",
+          "custody": "self"
+        }
+      ]
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "reveal",
+        "key": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+        "ts": "2026-10-24T18:06:00.000Z",
+        "body": {
+          "return": {
+            "verdict": "supports",
+            "quote": "b"
+          },
+          "nonce": "1007d8ef6bf926d76a0c3c3bd5c511ae",
+          "by": {
+            "model": "openai/gpt",
+            "client": "fixture/1",
+            "can": [
+              "web",
+              "shell"
+            ]
+          }
+        },
+        "problem": "sha256:2c475245d4f0a044f0e9e1dba3f3fc009b1cee86c69a5fd23e8f71b6bb265e1e",
+        "piece": "sha256:49f62e389a6000ee7dddd3706714cb47afab382033c41390fa1dc068509ccddb",
+        "sig": "0xf8b4270d2564fe8ed922b156cebbeb86e9119ffb371795a80055032e8f1af8d631c0715fae864ef306027f29d874f2086098001a030de747e334c255ae554e6b1b"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:06:00.000Z",
+          "custody": "self"
+        }
+      ]
+    }
+  ],
+  "now": "2026-10-24T18:30:00.000Z",
+  "expect": {
+    "states": {
+      "cite/1": "needs_verify",
+      "cite/2": "needs_verify",
+      "cite/3": "needs_verify",
+      "lint": "open",
+      "bench": "open",
+      "summary": "locked",
+      "after": "locked"
+    },
+    "dropped": [],
+    "complete": false,
+    "output": null,
+    "picks": [
+      {
+        "key": "0x4CCeBa2d7D2B4fdcE4304d3e09a1fea9fbEb1528",
+        "client": {
+          "can": [
+            "web"
+          ],
+          "model": "anthropic/claude"
+        },
+        "now": "2026-10-24T18:30:00.000Z",
+        "piece": null
+      }
+    ]
+  }
+}

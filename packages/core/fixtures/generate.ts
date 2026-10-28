@@ -1,7 +1,9 @@
 /**
  * Writes the conformance fixtures (CORE.md section 9) with fixed keys, fixed times and nonces derived from labels, so
  * the files are the same on every run. Each fixture's expectations are asserted here against what the core says before
- * they are written, so the reference implementation cannot quietly lock in a wrong answer.
+ * they are written, so the reference implementation cannot quietly lock in a wrong answer. The twenty-four of version 1
+ * go in this folder; the fixtures for the clarifications of section 12, written on 27 October 2026 when the Python was
+ * aligned to the reference, go in `clarifications/`, and a client conforms to version 1 without them.
  *
  *   tsx fixtures/generate.ts
  */
@@ -176,11 +178,88 @@ fixtures.push({ name: '23-verifies-first', description: 'Two of three citations 
 const sdone = [...handIn(A, sc1, 0, { verdict: 'unreachable', quote: 'gone' }, 'a/x', 's1a', SP), ...handIn(B, sc1, 2, { verdict: 'unreachable', quote: 'also gone' }, 'b/y', 's1b', SP), ...handIn(A, sc2, 4, { verdict: 'supports', quote: 'x' }, 'a/x', 's2a', SP), ...handIn(B, sc2, 6, { verdict: 'supports', quote: 'y' }, 'b/y', 's2b', SP)];
 fixtures.push({ name: '22-complete-with-output', description: 'Every piece accepted or unreachable: the output exists and has a hash.', envelopes: [small], receipts: sdone, now: t(60 * 50), states: { 'cite/1': 'unreachable', 'cite/2': 'accepted' }, complete: true, picks: [{ key: addr(C), client: web, piece: null }] });
 
+// The clarifications of section 12 (CORE.md), one fixture each, each pinning a sentence the reference and the Python
+// read apart until 27 October 2026. None is part of version 1's conformance; a second implementation that reproduces
+// them reads every clarified sentence as the reference does.
+const clarifications: Spec[] = [];
+
+const ownerSays = handIn(owner, cite1, 0, { verdict: 'contradicts', quote: 'the owner read it otherwise' }, 'anthropic/claude', 'owner-c1');
+clarifications.push({ name: 'c01-the-owner-reveal-disputes-but-counts-in-no-set', description: 'The owner is counted in no accepting set and is not otherwise related to anyone: a reveal of the owner\'s that differs from a stranger\'s disputes the piece, and completes nothing.', receipts: [...ownerSays, ...a1], now: t(5), states: { 'cite/1': 'disputed', 'cite/2': 'open', 'cite/3': 'open', ...base }, picks: [{ key: addr(B), client: { can: ['web'], model: 'openai/gpt' }, piece: ['cite/2', 'cite/3'] }] });
+
+const sameVendorB = handIn(B, cite1, 2, { verdict: 'supports', quote: 'b agrees' }, 'anthropic/claude', 'same-b');
+const viaDelegate = handIn(B1, cite1, 4, { verdict: 'supports', quote: 'b again, as its delegate'}, 'openai/gpt', 'same-b1');
+clarifications.push({ name: 'c02-a-reveal-related-to-an-earlier-reveal-does-not-count', description: 'A reveal counts only when its root is unrelated to the root of every earlier reveal on the piece: a root that has revealed cannot complete a set through its delegate under another vendor, disputed or not.', receipts: [delegate, ...a1, ...sameVendorB, ...viaDelegate], now: t(7), states: { 'cite/1': 'needs_verify', 'cite/2': 'open', 'cite/3': 'open', ...base } });
+
+const declinedUnderV1 = ev(A, 'decline', t(0), { reason: 'cannot' }, cite1);
+clarifications.push({ name: 'c03-a-decline-under-the-ancestor-counts', description: 'next counts events on the piece in this chain: a decline made under the ancestor version keeps the piece from the key under the new one.', envelopes: [v2, v1], receipts: [declinedUnderV1], now: t(1), states: { 'cite/1': 'open', 'cite/2': 'open', 'cite/3': 'open', ...base }, picks: [{ key: addr(A), client: web, piece: ['cite/2', 'cite/3'] }, { key: addr(B), client: web, piece: ['cite/1', 'cite/2', 'cite/3'] }] });
+
+const oneRevealC2 = handIn(C, cite2, 0, { verdict: 'supports', quote: 'c' }, 'anthropic/claude', 'avail-c');
+const twoRevealsC2 = handIn(D, cite2, 2, { verdict: 'supports', quote: 'd' }, 'anthropic/claude', 'avail-d');
+const threeC3 = [...handIn(E, cite3, 0, { verdict: 'supports', quote: 'e' }, 'anthropic/claude', 'avail-e'), ...handIn(F, cite3, 2, { verdict: 'supports', quote: 'f' }, 'anthropic/claude', 'avail-f'), ...handIn(G, cite3, 4, { verdict: 'supports', quote: 'g' }, 'anthropic/claude', 'avail-g')];
+clarifications.push({ name: 'c04-a-revealed-commit-counts-once-in-availability', description: 'Availability counts unabandoned commits and reveals: a commit that has been revealed is its reveal\'s, not a second unit, so one commit and its reveal weigh one, below two reveals.', receipts: [...a1, ...oneRevealC2, ...twoRevealsC2, ...threeC3], now: t(8), states: { 'cite/1': 'needs_verify', 'cite/2': 'needs_verify', 'cite/3': 'needs_verify', ...base }, picks: [{ key: addr(H), client: { can: ['web'], model: 'meta/llama' }, piece: 'cite/1' }] });
+
+const shortDelegate = ev(B, 'delegate', t(0), { to: addr(B1), scope: ['claim', 'commit', 'reveal'], expires: t(60) });
+const bAll = [cite1, cite2, cite3].flatMap((c, i) => handIn(B, c, 1 + 2 * i, { verdict: 'supports', quote: 'b' }, 'openai/gpt', `expiry-${i}`));
+clarifications.push({ name: 'c05a-a-delegate-within-its-delegation', description: 'While its delegation lives, a delegate\'s key counts for its root, and is handed nothing its root has revealed on.', receipts: [shortDelegate, ...bAll], now: t(30), states: { 'cite/1': 'needs_verify', 'cite/2': 'needs_verify', 'cite/3': 'needs_verify', ...base }, picks: [{ key: addr(B1), client: web, piece: null }] });
+clarifications.push({ name: 'c05b-a-delegate-after-its-delegation-expired', description: 'Once its delegation has expired, the key is related to its old root no longer: relations are judged with delegations as live at the time asked.', receipts: [shortDelegate, ...bAll], now: t(90), states: { 'cite/1': 'needs_verify', 'cite/2': 'needs_verify', 'cite/3': 'needs_verify', ...base }, picks: [{ key: addr(B1), client: web, piece: ['cite/1', 'cite/2', 'cite/3'] }] });
+
+const v2two = envelope({ title: 'A report, week two', prev: P, pieces: { ...v1.problem.pieces, 'cite/*': { ...v1.problem.pieces['cite/*']!, count: 2 } } });
+const P2 = problemHash(v2two);
+const oldClaims = [1, 2, 3].map((m) => ev(A, 'claim', t(m), { by: by('a/x') }, cite3));
+const newClaim = ev(A, 'claim', t(3), { by: by('a/x') }, cite1, P2);
+clarifications.push({ name: 'c06-events-on-a-piece-this-version-dropped', description: 'A piece hash counts if any envelope in the chain contains it: events on a piece the ancestor had and this version dropped are folded, not dropped, and its claims count toward the root\'s weight in this chain.', envelopes: [v2two, v1], receipts: [...oldClaims, newClaim], now: t(4), states: { 'cite/1': 'in_flight', 'cite/2': 'open', ...base }, picks: [{ key: addr(B), client: web, piece: 'cite/2' }] });
+
+const onlyLint = envelope({ slug: 'only-lint', pieces: { lint: { verifier: 'check', requires: ['shell'], brief: 'Run the lint.', workspace: { repo: 'https://example.org/r', base: 'abc' }, check: { file: 'lint.sh' } } } });
+const LP = problemHash(onlyLint);
+const lintOnly = pieceHash(onlyLint, 'lint');
+const lintPatch = handIn(F, lintOnly, 0, { patch: '' }, 'anthropic/claude', 'only-patch', LP);
+const lintDigest = reduce({ envelopes: [onlyLint], blobs, receipts: lintPatch, now: t(2) }).byHash.get(lintOnly)!.reveals[0]!.digest;
+const lintG = ev(G, 'run', t(2), { digest: lintDigest, exit: 0, host: 'linux', by: by('human') }, lintOnly, LP);
+const lintH = ev(H, 'run', t(3), { digest: lintDigest, exit: 0, host: 'darwin', image: 'sha256:' + 'ab'.repeat(32), by: by('openai/gpt') }, lintOnly, LP);
+clarifications.push({ name: 'c07-a-check-output-carries-host-and-image', description: 'The output of a check piece lists each run\'s signer, exit, host, and score and image where present, with absent values left out.', envelopes: [onlyLint], receipts: [...lintPatch, lintG, lintH], now: t(60 * 50), states: { lint: 'accepted' }, complete: true });
+
+const noteSchema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'note'], properties: { verdict: { enum: ['supports', 'contradicts', 'unreachable'] }, note: { type: 'string' as const, maxLength: 160 } } };
+const noted = envelope({ slug: 'noted', pieces: { 'cite/*': { count: 1, verifier: 'agree', brief: 'Citation {n}', schema: noteSchema, agree: ['verdict', 'note'] } } });
+const NP = problemHash(noted);
+const noteCite = pieceHash(noted, 'cite/1');
+const noteA = handIn(A, noteCite, 0, { verdict: 'supports', note: 'unreachable' }, 'a/x', 'note-a', NP);
+const noteB = handIn(B, noteCite, 2, { verdict: 'supports', note: 'unreachable' }, 'b/y', 'note-b', NP);
+clarifications.push({ name: 'c08-unreachable-in-a-string-field-is-a-word', description: 'A piece is unreachable only where the agreed value unreachable sits in an enum that lists it: the same word in an agreed string field is a word, and the piece is accepted.', envelopes: [noted], receipts: [...noteA, ...noteB], now: t(60 * 50), states: { 'cite/1': 'accepted' }, complete: true });
+
+clarifications.push({ name: 'c09-the-window-closes-at-its-end', description: 'A window runs while now < c + challenge_window_h: at that instant exactly the piece is accepted, no longer provisional.', receipts: [claim, ...a1, ...b1], now: t(6 + 48 * 60), states: { 'cite/1': 'accepted', 'cite/2': 'open', 'cite/3': 'open', ...base } });
+
+clarifications.push({ name: 'c10-a-version-by-any-root', description: 'A version is signed by a root, any root: one from a key that is not the owner is kept.', receipts: [ev(A, 'version', t(0), { slug: 'report', hash: P }, undefined, P)], now: t(1), states: { 'cite/1': 'open', 'cite/2': 'open', 'cite/3': 'open', ...base } });
+
+const strayPiece = ('sha256:' + '0'.repeat(64)) as Hash;
+const strayClaim = ev(C, 'claim', t(0), { by: by('c/z') }, strayPiece);
+const delegateToC = ev(B, 'delegate', t(1), { to: addr(C), scope: ['claim'], expires: t(60) });
+clarifications.push({ name: 'c11-a-prior-event-though-dropped-for-what-it-names', description: 'A key has a prior event once an event of its passed shape, signature and standing, whether or not it was then dropped for what it names: a delegate to such a key is dropped.', receipts: [strayClaim, delegateToC], now: t(2), states: { 'cite/1': 'open', 'cite/2': 'open', 'cite/3': 'open', ...base }, dropped: ['names a piece the chain does not have', 'the delegate has a prior event'] });
+
+const revokeB1 = ev(B, 'revoke', t(1), { of: addr(B1) });
+const cTakesB1 = ev(C, 'delegate', t(2), { to: addr(B1), scope: ['claim'], expires: t(60) });
+clarifications.push({ name: 'c12-a-revoked-delegate-stays-a-delegate', description: 'Once delegated to, a key is another root\'s delegate for good, revoked or not: a second root cannot take it on.', receipts: [delegate, revokeB1, cTakesB1], now: t(3), states: { 'cite/1': 'open', 'cite/2': 'open', 'cite/3': 'open', ...base }, dropped: ['the delegate is another root\'s'] });
+
+const claimAsOld = ev(A, 'claim', t(1), { by: by('a/x') }, cite1);
+const newRevokesOld = ev(A2, 'revoke', t(2), { of: addr(A) });
+const claimAfterRevoke = ev(A, 'claim', t(3), { by: by('a/x') }, cite2);
+clarifications.push({ name: 'c13-the-new-root-revokes-the-old', description: 'The old root is a delegate of the new until revoked: after the new root\'s revoke the old key signs nothing, and what it did before stays the new root\'s.', receipts: [good, claimAsOld, newRevokesOld, claimAfterRevoke], now: t(4), states: { 'cite/1': 'in_flight', 'cite/2': 'open', 'cite/3': 'open', ...base }, dropped: ['the delegation does not cover this event'] });
+
+const beforeRotate = handIn(A, cite1, 0, { verdict: 'supports', quote: 'as the old root' }, 'anthropic/claude', 'rot-a');
+const afterRotate = handIn(A2, cite1, 4, { verdict: 'supports', quote: 'as the new root' }, 'openai/gpt', 'rot-a2');
+const rotateAt2: Receipt = { event: signEvent({ ...rotateBody, ts: t(2), sig_to: signObject({ ...rotateBody, ts: t(2) }, A2) }, A), received: [{ by: 'https://tracker.example/', at: t(2) }] };
+clarifications.push({ name: 'c14-a-rotation-relates-what-came-before-to-what-comes-after', description: 'Rotations are judged as they stand at the end of the fold: the old root\'s reveal and the new root\'s are one root\'s, and do not make a set.', receipts: [...beforeRotate, rotateAt2, ...afterRotate], now: t(7), states: { 'cite/1': 'needs_verify', 'cite/2': 'open', 'cite/3': 'open', ...base } });
+
 mkdirSync(join(here), { recursive: true });
+mkdirSync(join(here, 'clarifications'), { recursive: true });
 let n = 0;
 for (const spec of fixtures) {
   const fixture = build(spec);
   writeFileSync(join(here, `${spec.name}.json`), JSON.stringify(fixture, null, 2) + '\n');
+  n++;
+}
+for (const spec of clarifications) {
+  const fixture = build(spec);
+  writeFileSync(join(here, 'clarifications', `${spec.name}.json`), JSON.stringify(fixture, null, 2) + '\n');
   n++;
 }
 console.log(`${n} fixtures written`);

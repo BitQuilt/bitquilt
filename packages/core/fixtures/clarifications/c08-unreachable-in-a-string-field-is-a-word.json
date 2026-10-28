@@ -1,0 +1,189 @@
+{
+  "name": "c08-unreachable-in-a-string-field-is-a-word",
+  "description": "A piece is unreachable only where the agreed value unreachable sits in an enum that lists it: the same word in an agreed string field is a word, and the piece is accepted.",
+  "envelopes": [
+    {
+      "quilt": 1,
+      "problem": {
+        "title": "A report",
+        "done_when": "Every citation has a verdict.",
+        "owner": "0xF7Edc8FA1eCc32967F827C9043FcAe6ba73afA5c",
+        "slug": "noted",
+        "prev": null,
+        "from": null,
+        "settings": {
+          "challenge_window_h": 48,
+          "lease_h": 2,
+          "endgame_at": 1,
+          "budget": 100,
+          "patch_max": 10000
+        },
+        "pieces": {
+          "cite/*": {
+            "count": 1,
+            "verifier": "agree",
+            "brief": "Citation {n}",
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "verdict",
+                "note"
+              ],
+              "properties": {
+                "verdict": {
+                  "enum": [
+                    "supports",
+                    "contradicts",
+                    "unreachable"
+                  ]
+                },
+                "note": {
+                  "type": "string",
+                  "maxLength": 160
+                }
+              }
+            },
+            "agree": [
+              "verdict",
+              "note"
+            ]
+          }
+        },
+        "data": {
+          "cites.json": "sha256:29607373b4d1c00b6d051d71cc0550ef23a494c88762bdce794442f903e48684"
+        }
+      },
+      "hints": {
+        "trackers": [
+          "https://tracker.example/"
+        ],
+        "mirrors": []
+      },
+      "sig": "0xfea03be098cb601268e23fa371fbbe034d5f4d793c8127dc70e6bfb02bd7d6266058d44c08cf26bf12cb77edc9172cfe6f2fdbf2767ef86ed89456d9649424f31c"
+    }
+  ],
+  "blobs": {
+    "sha256:29607373b4d1c00b6d051d71cc0550ef23a494c88762bdce794442f903e48684": "W3sicyI6Im9uZSJ9LHsicyI6InR3byJ9LHsicyI6InRocmVlIn1d"
+  },
+  "receipts": [
+    {
+      "event": {
+        "quilt": 1,
+        "type": "commit",
+        "key": "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
+        "ts": "2026-10-24T18:00:00.000Z",
+        "body": {
+          "h": "sha256:36b99749c54598613f570eec3cc12cfd6cc5fe4968dfa78a223db652caea1648"
+        },
+        "problem": "sha256:cff6a15b9988a022dc70cdae38587c993d95a2bcdd51997fcf1541b740e194f9",
+        "piece": "sha256:05f342e555b75f96393e3093be6f082db4a40b5dc5f41c7cb853201b7694c5e1",
+        "sig": "0x2c140e91266de15473291a3d5a6196c9954ae58515379f8238686a3bf921302f3483931c10392fe50367cc592b721eb06c16e816ec53091b03e30330e82154451b"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:00:00.000Z",
+          "custody": "self"
+        }
+      ]
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "reveal",
+        "key": "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
+        "ts": "2026-10-24T18:01:00.000Z",
+        "body": {
+          "return": {
+            "verdict": "supports",
+            "note": "unreachable"
+          },
+          "nonce": "ca89aaca6c6f0a4d29a871f07034320d",
+          "by": {
+            "model": "a/x",
+            "client": "fixture/1",
+            "can": [
+              "web",
+              "shell"
+            ]
+          }
+        },
+        "problem": "sha256:cff6a15b9988a022dc70cdae38587c993d95a2bcdd51997fcf1541b740e194f9",
+        "piece": "sha256:05f342e555b75f96393e3093be6f082db4a40b5dc5f41c7cb853201b7694c5e1",
+        "sig": "0xbc108748470ec61d6c26205bcef0088d476b382d5f4f518140d64e69771b25b647b3e0e909e26f632104658bdbb7b98cfab21a7d03eb87c99702d31009c9b3441b"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:01:00.000Z",
+          "custody": "self"
+        }
+      ]
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "commit",
+        "key": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+        "ts": "2026-10-24T18:02:00.000Z",
+        "body": {
+          "h": "sha256:7b6f1dca056ed7fd2671667fed5794f229e3479dc1be5694877204faef553771"
+        },
+        "problem": "sha256:cff6a15b9988a022dc70cdae38587c993d95a2bcdd51997fcf1541b740e194f9",
+        "piece": "sha256:05f342e555b75f96393e3093be6f082db4a40b5dc5f41c7cb853201b7694c5e1",
+        "sig": "0x39577798bf311857046c28d1078e702c95755650b31aa09f0f50e3fcc964ba1857ef0fa2015ce2c599487a36b506d9b0568b06700d2bc57d5c91978190c1d3931c"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:02:00.000Z",
+          "custody": "self"
+        }
+      ]
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "reveal",
+        "key": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+        "ts": "2026-10-24T18:03:00.000Z",
+        "body": {
+          "return": {
+            "verdict": "supports",
+            "note": "unreachable"
+          },
+          "nonce": "bf44f260ffaca18e8688fccbd11f1d35",
+          "by": {
+            "model": "b/y",
+            "client": "fixture/1",
+            "can": [
+              "web",
+              "shell"
+            ]
+          }
+        },
+        "problem": "sha256:cff6a15b9988a022dc70cdae38587c993d95a2bcdd51997fcf1541b740e194f9",
+        "piece": "sha256:05f342e555b75f96393e3093be6f082db4a40b5dc5f41c7cb853201b7694c5e1",
+        "sig": "0xffd50e64c46b1412e014dd3f1b01ac0a0c1eea3e13b0b5cdacf113141012a91029b8c63a99f97eef805410c77e34c73451b62352b94deee87a95a55b1a9da2af1c"
+      },
+      "received": [
+        {
+          "by": "https://tracker.example/",
+          "at": "2026-10-24T18:03:00.000Z",
+          "custody": "self"
+        }
+      ]
+    }
+  ],
+  "now": "2026-10-26T20:00:00.000Z",
+  "expect": {
+    "states": {
+      "cite/1": "accepted"
+    },
+    "dropped": [],
+    "complete": true,
+    "output": "sha256:bed40e2d374d8b82b78e4084cca5ca858cf6fa308638fea1e1bbe88520a9252d",
+    "picks": []
+  }
+}

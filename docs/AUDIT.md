@@ -35,10 +35,10 @@ Each of these was a readability change that also settled an ambiguity; none move
 
 ## What was left
 
-- **The Python's divergences from the document** at boundaries (a `<=` where the text says `<`, a string field as `unreachable`, the owner folded into relatedness, a revealed commit counted twice in availability, no image or host on a run) are now commented at each line and listed at the end of `impl/python/FINDINGS.md`. Whether to align them is the maintainers' call; no fixture covers them.
-- **`Roots.related` in the core** omits the expiry check its two siblings make. Routing it through the shared liveness test would change what counts as related after a delegation expires, so it stays, with a comment.
-- **CORE.md section 11 says `gate/1` ships its own fixtures.** It has none; `fixtures/gate.json` does not exist. The gate's comment no longer claims it.
-- **The client's coin and gold methods** stay on `Quilt` under two headings rather than in files of their own, since moving them would make the signing and posting methods public.
+- **The Python's divergences from the document** were aligned the same day (27 October 2026): every place the Python read a clarified sentence differently from the reference now reads it as the reference does, and one place the reference was aligned to the Python and the document (events on a piece a version dropped are folded and counted toward weights). Each is pinned by a fixture under `packages/core/fixtures/clarifications/` that both implementations reproduce; `impl/python/FINDINGS.md`, the last section, lists them.
+- **`Roots.related` in the core** now reads a delegation's expiry through the shared liveness test, so a delegate's key is related to its root only while the delegation lives; `next` for an expired delegate changed accordingly, and fixtures `c05a` and `c05b` pin both sides.
+- **CORE.md section 11 says `gate/1` ships its own fixtures.** It now does: `packages/core/fixtures/gate/cases.json`, texts and the issue codes the gate reports, held by `test/gate.test.ts`.
+- **The client's coin and gold methods** moved to `coin.ts` and `gold.ts`, each over a narrow `Door` the Quilt hands them; the Quilt keeps one-line methods under the two headings, so callers and the signing and posting methods are unchanged.
 - **The tracker's route table** stays an array with a comment, since deriving it from a dispatch table would need a language for the 405-versus-404 cases.
 - **`Layer.challenges`** still sorts by time alone; sorting by id on a tie would change an order a test pins.
 - **The counts in the pitch** are kept by hand, since the pitch is not in the repository.

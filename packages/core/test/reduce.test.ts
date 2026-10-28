@@ -1,7 +1,8 @@
 /**
  * CORE.md section 6, the reducer: a piece's state as the sets of its events grow and the window closes; the accepting
- * sets for agree, check and score; delegates and rotations; what is dropped and why; an unknown verifier and what it
- * locks; a return carried across versions by piece hash; the output when every piece is done.
+ * sets for agree, check and score; delegates, their expiry, rotations and the revoking of one; what is dropped and why;
+ * an unknown verifier and what it locks; a return carried across versions by piece hash, and events on a piece a
+ * version dropped; the output when every piece is done.
  */
 import { describe, expect, it } from 'vitest';
 import { type Envelope, problemHash } from '../src/envelope.js';
@@ -100,6 +101,39 @@ describe('the reducer', () => {
     expect(s.dropped.map((d) => d.why)).toContain('the delegation does not cover this event');
     const stranger = handIn(C, cite3, t(6), { verdict: 'supports', quote: 'q3' }, 'openai/gpt');
     expect(states([delegate, ...one, ...two, ...stranger], t(9)).of('cite/3')).toBe('accepted_provisional');
+  });
+  it('relates a delegate to its root while the delegation lives, and no longer once it has expired', () => {
+    const delegate = ev(B, 'delegate', t(0), { to: addr(B1), scope: ['claim'], expires: t(60) });
+    const { s } = states([delegate], t(1));
+    expect(s.related(addr(B1), addr(B), t(30))).toBe(true);
+    expect(s.rootOf(addr(B1), t(30))).toBe(addr(B));
+    expect(s.related(addr(B1), addr(B), t(90))).toBe(false);
+    expect(s.rootOf(addr(B1), t(90))).toBe(addr(B1));
+    expect(s.related(addr(B), addr(C), t(30))).toBe(false);
+  });
+  it('lets the new root revoke the old one it was rotated from: the old key then signs nothing, and what it did stays the new root\'s', () => {
+    const body: Unsigned = { quilt: 1, type: 'rotate', key: addr(A), ts: t(0), body: { to: addr(A2) } };
+    const rotate: Receipt = { event: signEvent({ ...body, sig_to: signObject(body, A2) }, A), received: [{ by: 'https://t.example/', at: t(0) }] };
+    const before = ev(A, 'claim', t(1), { by: by('a/x') }, cite1);
+    const revoke = ev(A2, 'revoke', t(2), { of: addr(A) });
+    const after = ev(A, 'claim', t(3), { by: by('a/x') }, cite2);
+    const { s, of } = states([rotate, before, revoke, after], t(4));
+    expect(of('cite/1')).toBe('in_flight');
+    expect(s.byHash.get(cite1)!.claims[0]!.root).toBe(addr(A2));
+    expect(of('cite/2')).toBe('open');
+    expect(s.dropped.map((d) => d.why)).toEqual(['the delegation does not cover this event']);
+    expect(s.rotations.get(addr(A))).toBe(addr(A2));
+    expect(states([rotate, before, ev(B, 'revoke', t(2), { of: addr(A) })], t(4)).s.dropped.map((d) => d.why)).toEqual(['revokes a key that is not this root\'s delegate']);
+  });
+  it('folds events on a piece an ancestor had and this version dropped, and counts them toward weights', () => {
+    const v2 = envelope({ title: 'A report, week two', prev: P, pieces: { ...v1.problem.pieces, 'cite/*': { ...v1.problem.pieces['cite/*']!, count: 2 } } });
+    const claims = [1, 2, 3].map((m) => ev(A, 'claim', t(m), { by: by('a/x') }, cite3));
+    const { s } = states(claims, t(4), [v2, v1]);
+    expect(s.pieces.map((v) => v.piece.name)).toEqual(['cite/1', 'cite/2', 'lint', 'summary', 'after']);
+    expect(s.dropped).toEqual([]);
+    expect(s.ancestral.get(cite3)!.claims).toHaveLength(3);
+    expect(s.weights.get(addr(A))).toBe(0.25);
+    expect(states(claims, t(4), [v2]).s.dropped.map((d) => d.why)).toEqual(Array(3).fill('names a problem outside the chain'));
   });
   it('accepts a check on a revealed patch with two runs by roots unrelated to each other and to the author', () => {
     const patch = handIn(F, lint, t(0), { patch: '' }, 'anthropic/claude');

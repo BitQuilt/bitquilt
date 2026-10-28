@@ -28,3 +28,11 @@ One JSON file per fixture, written by `generate.ts` from the reference implement
 - Each pick runs `next` for that key and client at that time against the fixture's state; `piece` is the name it returns, or null for nothing.
 - Receipt wrappers may carry `custody` and `seat`, or neither, and the chain fields of QX-11; the core ignores what it does not read.
 - The fixtures' keys are the secp256k1 private keys 1 to 12 as 32-byte big-endian integers, with 9 the owner; their addresses are therefore known.
+
+## The clarifications
+
+`clarifications/` holds one fixture per sentence of CORE.md section 12 that the reference and the Python implementation once read apart (27 October 2026): the owner's reveal, a reveal related to an earlier one, a decline under an ancestor, a revealed commit's weight, a delegation's expiry, a piece a version dropped, a check output's host and image, `unreachable` in a string field, the window's end, a version by any root, a prior event from a dropped event, a revoked delegate, a revoked rotation, and a rotation's relations. They are in the same format and written by the same generator. A client conforms to version 1 by the fixtures in this folder alone; one that reproduces the clarifications too reads every clarified sentence as the reference does. `pnpm conform` and `impl/python/conform.py` run both.
+
+## The gate
+
+`gate/cases.json` is the fixture CORE.md section 11 promises for `gate/1`: for each text as a tracker receives it, the issue codes the gate reports (`links`, `contact`, `machines`, `shouting`), in order, with a clean text among them and texts whose invisible characters are taken out before judging. A tracker that claims `gate/1` reproduces them; `test/gate.test.ts` holds the reference to it.

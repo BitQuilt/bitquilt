@@ -1,9 +1,12 @@
 /**
  * CORE.md section 11, the plain-text gate `gate/1`: what it passes, what it refuses (links and markup, contact details,
- * text addressed to a model, shouting), what it takes out before judging, and how it says so.
+ * text addressed to a model, shouting), what it takes out before judging, how it says so, and the fixtures it ships.
  */
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { addressedToMachines, plainTextProblems, textIssues, visible } from '../src/gate.js';
+import { type TextIssue, addressedToMachines, plainTextProblems, textIssues, visible } from '../src/gate.js';
 
 describe('the plain-text gate', () => {
   it('passes ordinary text', () => {
@@ -41,4 +44,24 @@ describe('the plain-text gate', () => {
   it('says the problems in sentences', () => {
     expect(plainTextProblems('see https://x.y/z', 'brief')).toEqual(['brief: no links or markup']);
   });
+});
+
+/**
+ * CORE.md section 11: gate/1 is "shipped with its own fixtures of inputs and issue codes; a tracker that claims gate/1
+ * reproduces them". The fixtures are `fixtures/gate/cases.json`, each a text and the codes the gate says of it.
+ */
+describe('the gate fixtures', () => {
+  const file = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'gate', 'cases.json');
+  const doc = JSON.parse(readFileSync(file, 'utf8')) as { gate: string; cases: { text: string; issues: TextIssue[]; why: string }[] };
+  it('name gate/1 and cover every issue code and a clean text', () => {
+    expect(doc.gate).toBe('gate/1');
+    const seen = new Set(doc.cases.flatMap((c) => c.issues));
+    expect([...seen].sort()).toEqual(['contact', 'links', 'machines', 'shouting']);
+    expect(doc.cases.some((c) => c.issues.length === 0)).toBe(true);
+  });
+  for (const c of doc.cases) {
+    it(`${c.why}: ${JSON.stringify(c.text)} is ${JSON.stringify(c.issues)}`, () => {
+      expect(textIssues(c.text)).toEqual(c.issues);
+    });
+  }
 });
