@@ -3,14 +3,20 @@
  * The MCP server (mcp.ts, tools.ts) and the page (page.ts) are thin shells over it; the text itself is made in
  * render.ts from what is read here. Other people's words come out only as quoted text with the signer named.
  */
-import { type Address, type Capability, type Client, type DeclineReason, type Envelope, type Event, type Hash, type Pick, type Piece, type Problem, type State, type Unsigned, DECLINE_REASONS, agreeFields, commitHash, eventId, expandPieces, hashBytes, isHash, newNonce, next, plainTextProblems, problemHash, renderInputs, signEvent, signObject, envelopeProblems, isAddress } from '@bitquilt/core';
+import { type Address, type Capability, type Client, type DeclineReason, type Envelope, type Event, type Hash, type Pick, type Piece, type Problem, type State, type Unsigned, DECLINE_REASONS, commitHash, eventId, expandPieces, hashBytes, isHash, newNonce, next, plainTextProblems, problemHash, renderInputs, signEvent, signObject, envelopeProblems } from '@bitquilt/core';
+import * as coin from './coin.js';
+import type { CoinBalance } from './coin.js';
 import type { Config, Identity } from './config.js';
+import type { Door } from './door.js';
+import * as gold from './gold.js';
 import { type Link, makeLink, parseLink } from './link.js';
 import { type ChallengeListing, type GoldCount, type LayerPiece, type Opened, type PanelListing, type Scrape, SIDES, type Side, type Takedown } from './listings.js';
 import { announcementEvent, postToRelays, searchRelays } from './relay.js';
 import { type Library, type Posted, type Resolver, askJson } from './resolver.js';
 import { acceptedText, challengesText, layerByHash, nameOf, panelsText, pieceText, summary, waitsText } from './render.js';
 
+export type { CoinBalance } from './coin.js';
+export type { Door } from './door.js';
 export type { Library, Posted } from './resolver.js';
 
 /** The vendor and model a host declares, from the name it gives at connection. */
@@ -68,18 +74,6 @@ export interface Standing {
   locks: { problem: Hash; piece: Hash; amount: number; at: string }[];
 }
 
-/** This key's coin at a home (QX-17), as /coin/balance answers it: the balance in units, what has vested, what is locked or escrowed, and what is free. `home` is the coin's home, the tracker that keeps the coin log. */
-export interface CoinBalance {
-  home: string;
-  balance: number;
-  vested: number;
-  unvested: number;
-  locked: number;
-  escrowed: number;
-  free: number;
-  free_vested: number;
-}
-
 /** A piece handed to this key by `next`: the pick, where the claim went, the owner by name, and what was locked before the claim. */
 export interface Handed {
   hash: Hash;
@@ -102,15 +96,35 @@ function isDeclineReason(s: string): s is DeclineReason {
  * A Quilt holds the home's key, its config and a resolver, and keeps three things true. It signs with the home's one
  * key and nothing else: every event leaves through `sign`. A post goes to the trackers the library remembers for the
  * problem, then the config's (`trackersFor`), and waits in the resolver's queue when none takes it. The library records
- * what this key opened, claimed, returned, seeded and committed, and is saved after each.
+ * what this key opened, claimed, returned, seeded and committed, and is saved after each. The coin (coin.ts) and the
+ * gold (gold.ts) do their work through the door it hands them, built here from its private methods.
  */
 export class Quilt {
   readonly hostName: string | undefined;
   /** A tracker's well-known document, read once per Quilt. */
   private readonly wellKnownCache = new Map<string, Promise<Record<string, unknown> | null>>();
+  /** What coin.ts and gold.ts are handed (door.ts): the key, the config, the library, and this Quilt's own signing, posting and reading. */
+  private readonly door: Door;
 
   constructor(readonly config: Config, readonly identity: Identity | null, readonly resolver: Resolver, hostName?: string) {
     this.hostName = hostName;
+    const q = this;
+    this.door = {
+      config,
+      identity,
+      get library() { return q.library; },
+      needKey: () => q.needKey(),
+      stamp: (after) => q.stamp(after),
+      sign: (unsigned) => q.sign(unsigned),
+      post: (event, log, trackers) => q.resolver.post(event, log, trackers),
+      postSigned: (unsigned, log, trackers, what) => q.postSigned(unsigned, log, trackers, what),
+      trackersFor: (problem, first) => q.trackersFor(problem, first),
+      firstAnswer: (trackers, ask) => q.firstAnswer(trackers, ask),
+      wellKnown: (tracker) => q.wellKnown(tracker),
+      layerOf: (hash, tracker) => q.layerOf(hash, tracker),
+      open: (input) => q.open(input),
+      save: () => q.save(),
+    };
   }
 
   /** The person at the page hands in as a person: the same key and resolver, model `human`, capability `person`. */
@@ -644,145 +658,52 @@ export class Quilt {
     return panelsText(list, state);
   }
 
-  // The coin (QX-17): where it lives, what this key holds of it, and the three events that move it.
+  // The coin (QX-17): where it lives, what this key holds of it, and the three events that move it. The work is in coin.ts, through the door.
 
-  /** Where a tracker's coin lives, as its well-known says under stake: the coin's home, the tracker that keeps the coin log, and the burn rate a point of standing costs there; null where it honours none. */
-  async coinAt(tracker: string): Promise<{ coinHome: string; burn_rate: number } | null> {
-    const t = tracker.endsWith('/') ? tracker : `${tracker}/`;
-    const wk = await this.wellKnown(t);
-    const stake = wk?.stake as { coin?: string | null; burn_rate?: number } | undefined;
-    if (!stake?.coin || typeof stake.burn_rate !== 'number') return null;
-    const coinHome = stake.coin === 'here' ? t : stake.coin.endsWith('/') ? stake.coin : `${stake.coin}/`;
-    return { coinHome, burn_rate: stake.burn_rate };
+  /** Where a tracker's coin lives and the burn rate there, or null where it honours none (coin.ts, `coinAt`). */
+  coinAt(tracker: string): Promise<{ coinHome: string; burn_rate: number } | null> {
+    return coin.coinAt(this.door, tracker);
   }
 
-  /** The coin's home among this client's trackers: the first that carries the coin, or null. */
-  async coinHome(): Promise<string | null> {
-    return this.firstAnswer(this.config.trackers, async (t) => (await this.coinAt(t))?.coinHome ?? null);
+  /** The coin's home among this client's trackers, or null (coin.ts, `coinHome`). */
+  coinHome(): Promise<string | null> {
+    return coin.coinHome(this.door);
   }
 
-  /** This key's coin at a home: balance, vested, locked, escrowed, free; null with no key or no answer. */
-  async coinBalance(coinHome: string): Promise<CoinBalance | null> {
-    const address = this.identity?.address;
-    if (!address) return null;
-    const j = await askJson<Omit<CoinBalance, 'home'>>(`${coinHome}coin/balance/${address}`);
-    return j && { home: coinHome, balance: j.balance, vested: j.vested, unvested: j.unvested, locked: j.locked, escrowed: j.escrowed, free: j.free, free_vested: j.free_vested };
+  /** This key's coin at a home, or null (coin.ts, `coinBalance`). */
+  coinBalance(coinHome: string): Promise<CoinBalance | null> {
+    return coin.coinBalance(this.door, coinHome);
   }
 
-  /** This key's coin at the first of this client's trackers that carries one, or null. */
-  async coin(): Promise<CoinBalance | null> {
-    const coinHome = await this.coinHome();
-    return coinHome ? this.coinBalance(coinHome) : null;
+  /** This key's coin at the first of this client's trackers that carries one, or null (coin.ts, `balance`). */
+  coin(): Promise<CoinBalance | null> {
+    return coin.balance(this.door);
   }
 
-  /** A pay to a problem: coin escrowed on the coin log of the problem's home, paid per square to the roots of each set accepted after it, the rest back to this key when the problem completes. */
-  async pay(problem: Hash, amount: number, perSquare: number): Promise<Posted & { id: Hash; home: string }> {
-    if (!Number.isInteger(amount) || amount < 1 || !Number.isInteger(perSquare) || perSquare < 1) throw new Error('a pay is a whole amount and a whole price per square, each at least 1');
-    const coinHome = await this.firstAnswer(this.trackersFor(problem), async (t) => (await this.coinAt(t))?.coinHome ?? null);
-    if (!coinHome) throw new Error('no tracker this client knows for that problem carries the coin');
-    const { event, posted } = await this.postSigned({ quilt: 1, type: 'pay', key: this.needKey().address, ts: this.stamp(), body: { problem, amount, per_square: perSquare } }, 'coin', [coinHome], 'pay');
-    return { id: eventId(event), ...posted, home: coinHome };
+  /** A pay to a problem: coin escrowed for its workers (coin.ts, `pay`). */
+  pay(problem: Hash, amount: number, perSquare: number): Promise<Posted & { id: Hash; home: string }> {
+    return coin.pay(this.door, problem, amount, perSquare);
   }
 
-  /**
-   * A transfer of this key's coin to an address: vested free coin moved on the coin log of the coin's home, from the
-   * time the home's parameters name. The recipient need not be a key anywhere yet.
-   */
-  async transfer(to: Address, amount: number): Promise<Posted & { id: Hash; home: string }> {
-    if (!isAddress(to)) throw new Error('the recipient is an address with its checksum');
-    if (!Number.isInteger(amount) || amount < 1) throw new Error('a transfer is a whole number of units, at least 1');
-    const coinHome = await this.coinHome();
-    if (!coinHome) throw new Error('no tracker this client knows carries the coin');
-    const { event, posted } = await this.postSigned({ quilt: 1, type: 'transfer', key: this.needKey().address, ts: this.stamp(), body: { to, amount } }, 'coin', [coinHome], 'transfer');
-    return { id: eventId(event), ...posted, home: coinHome };
+  /** A transfer of this key's vested free coin to an address (coin.ts, `transfer`). */
+  transfer(to: Address, amount: number): Promise<Posted & { id: Hash; home: string }> {
+    return coin.transfer(this.door, to, amount);
   }
 
-  /**
-   * A redeem of this key's coin (the door out): vested free coin taken off the ledger as a signed line on the coin log,
-   * to be minted on the chain to this key's address or the one named once the bridge's poster carries the line under a
-   * posted head. Final on the ledger from its receipt.
-   */
-  async redeem(amount: number, to?: Address): Promise<Posted & { id: Hash; home: string }> {
-    if (to !== undefined && !isAddress(to)) throw new Error('the recipient is an address with its checksum');
-    if (!Number.isInteger(amount) || amount < 1) throw new Error('a redeem is a whole number of units, at least 1');
-    const coinHome = await this.coinHome();
-    if (!coinHome) throw new Error('no tracker this client knows carries the coin');
-    const { event, posted } = await this.postSigned({ quilt: 1, type: 'redeem', key: this.needKey().address, ts: this.stamp(), body: { amount, ...(to ? { to } : {}) } }, 'coin', [coinHome], 'redeem');
-    return { id: eventId(event), ...posted, home: coinHome };
+  /** A redeem of this key's vested free coin, the door out to the chain (coin.ts, `redeem`). */
+  redeem(amount: number, to?: Address): Promise<Posted & { id: Hash; home: string }> {
+    return coin.redeem(this.door, amount, to);
   }
 
-  // The owner's gold (QX-16): answers committed blind before the work, and revealed piece by piece once accepted.
+  // The owner's gold (QX-16): answers committed blind before the work, and revealed piece by piece once accepted. The work is in gold.ts, through the door.
 
-  /**
-   * The owner's gold on a problem, posted after publishing or at it: each answer projected to the piece's agreed
-   * fields and committed by hash together with the piece, under its own nonce, so the ledger shows how many answers are
-   * committed and not which pieces; the projections and nonces stay in the library. The stake, left out, is the largest
-   * share among the pieces a gold can be on, for each commitment: for each root a miss would dock, two for a piece whose
-   * set is two reveals, the stake the rule asks of the piece, or one. A piece already worked takes no gold, since the
-   * reveal on it would be refused.
-   */
-  async commitGold(problem: Hash, answers: Record<string, Record<string, unknown>>, stakeAsked?: number, pieces?: Piece[], trackers?: string[], rule?: { min: number; pieces?: string[] }): Promise<{ pieces: number; stake: number }> {
-    let all = pieces;
-    let where = trackers;
-    const worked = new Set<Hash>();
-    if (!all || !where) {
-      const opened = await this.open(problem);
-      all ??= opened.state.pieces.map((v) => v.piece);
-      where ??= this.trackersFor(problem);
-      for (const v of opened.state.pieces) if (v.claims.length || v.commits.length || v.reveals.length || v.runs.length) worked.add(v.piece.hash);
-      if (!rule && opened.layer) {
-        // The rule in force, as the tracker shows it per piece: the share of each committed piece follows it.
-        const stakes = new Map(opened.layer.map((l) => [l.hash, l.stake ?? 0] as const));
-        rule = { min: 0, pieces: [] };
-        for (const p of all) if ((stakes.get(p.hash) ?? 0) > 0) rule = { min: Math.max(rule.min, stakes.get(p.hash)!), pieces: [...(rule.pieces ?? []), p.name] };
-      }
-    }
-    const golden = (x: Piece) => x.schema !== undefined && x.verifier !== 'check' && x.verifier !== 'score';
-    const covered = (x: Piece) => rule !== undefined && rule.min > 0 && (!rule.pieces?.length || rule.pieces.includes(x.family) || rule.pieces.includes(x.name));
-    // Each blind commitment costs the largest share among the pieces a gold can be on, since the ledger cannot tell which piece it names.
-    const share = Math.max(0, ...all.filter(golden).map((x) => (x.verifier === 'attest' ? 1 : 2) * Math.max(1, covered(x) ? rule!.min : 0)));
-    const commitments: Hash[] = [];
-    const kept: Record<string, { name: string; projection: Record<string, unknown>; nonce: string }> = {};
-    for (const [name, answer] of Object.entries(answers)) {
-      const piece = all.find((x) => x.name === name);
-      if (!piece) throw new Error(`no piece named ${name}`);
-      if (!golden(piece)) throw new Error(`${name} has no agreed fields to commit to`);
-      if (worked.has(piece.hash)) throw new Error(`${name} is already worked, and a reveal on it would be refused`);
-      const fields = agreeFields(piece.schema!, piece.agree);
-      const projection: Record<string, unknown> = {};
-      for (const f of fields) {
-        if (!(f in answer)) throw new Error(`the answer for ${name} lacks ${f}`);
-        projection[f] = answer[f];
-      }
-      const nonce = newNonce();
-      commitments.push(commitHash({ piece: piece.hash, projection }, nonce));
-      kept[piece.hash] = { name, projection, nonce };
-    }
-    if (commitments.length === 0) throw new Error('no answers to commit');
-    // In hash order, so the order of the list says nothing about which piece is which.
-    commitments.sort();
-    const stake = stakeAsked ?? share * commitments.length;
-    const r = await this.resolver.post(this.sign({ quilt: 1, type: 'gold', problem, key: this.needKey().address, ts: this.stamp(), body: { commitments, stake } }), problem, where);
-    // The tracker's reason alone, since `publish` lists it under "gold:" and `quilt gold commit` prints it as it is.
-    if (r.error && !r.queued) throw new Error(r.error);
-    this.library.gold ??= {};
-    this.library.gold[problem] = { ...(this.library.gold[problem] ?? {}), ...kept };
-    this.save();
-    return { pieces: Object.keys(kept).length, stake };
+  /** The owner's gold on a problem, committed blind (gold.ts, `commitGold`). */
+  commitGold(problem: Hash, answers: Record<string, Record<string, unknown>>, stakeAsked?: number, pieces?: Piece[], trackers?: string[], rule?: { min: number; pieces?: string[] }): Promise<{ pieces: number; stake: number }> {
+    return gold.commitGold(this.door, problem, answers, stakeAsked, pieces, trackers, rule);
   }
 
-  /**
-   * The owner's reveal of the gold on a piece, from the projection and nonce kept at publishing: posted to the
-   * problem's trackers, and the tracker that took it says what it decided, a match or a miss.
-   */
-  async revealGold(problem: Hash, piece: Hash): Promise<Posted & { id: Hash; name: string; outcome: string | null }> {
-    const kept = this.library.gold?.[problem]?.[piece];
-    if (!kept) throw new Error('no gold kept here for that piece: the projection and nonce are the owner\'s, in the library of the home that published');
-    const { event, posted } = await this.postSigned({ quilt: 1, type: 'gold_reveal', problem, piece, key: this.needKey().address, ts: this.stamp(), body: { projection: kept.projection, nonce: kept.nonce } }, problem, this.trackersFor(problem), 'reveal');
-    kept.revealed = event.ts;
-    this.save();
-    const layer = posted.at ? await this.layerOf(problem, posted.at) : null;
-    const outcome = layer?.find((l) => l.hash === piece)?.gold ?? null;
-    return { id: eventId(event), ...posted, name: kept.name, outcome };
+  /** The owner's reveal of the gold on a piece, and what the tracker decided (gold.ts, `revealGold`). */
+  revealGold(problem: Hash, piece: Hash): Promise<Posted & { id: Hash; name: string; outcome: string | null }> {
+    return gold.revealGold(this.door, problem, piece);
   }
 }
