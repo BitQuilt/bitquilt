@@ -86,8 +86,11 @@ describe('Quilt against a tracker', () => {
     expect(r.reveal.queued).toBe(false);
     expect(await trackerState(piece)).toBe('needs_verify');
     await expect(a.return(problem, piece, { verdict: 'supports', quote: 'see https://x.y/z' })).rejects.toThrow(/no links/);
+    // The first return is told what the piece waits for; the second, that two vendors agree.
+    expect(r.waits).toBe('The piece now waits for a second production from another vendor.');
     const r2 = await b.return(problem, piece, { verdict: 'supports', quote: 'a different twenty words' });
     expect(r2.reveal.queued).toBe(false);
+    expect(r2.waits).toContain('Two vendors agree: the piece is accepted');
     expect(await trackerState(piece)).toBe('accepted_provisional');
     const opened = await b.open(problem);
     expect(b.acceptedText(opened.state)).toContain(`cite/`);

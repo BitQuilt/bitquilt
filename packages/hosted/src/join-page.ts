@@ -53,7 +53,7 @@ ol{padding-left:1.2em}
 <h2>Your sheet</h2>
 <p class="q">The same address, opened in a browser, is your sheet: your standing, your coin and what is owed today, what is wanted from you, and the sentences to say. <a id="sheet" href="#">Open your sheet</a> and keep the tab.</p>
 <h2>Taking the key home</h2>
-<p class="q">The key is yours. On a Mac, the Quilt app's first screen has "I have an address on a tracker": paste the address there and the key moves to your own machine, with the standing and coin it earned. Or open <a id="key" href="#">the key itself</a> once and import it with <code>quilt init --secret</code>, then treat this address as spent.</p>
+<p class="q">The key is yours. On a Mac, the Quilt app's first screen has "I have an address on a tracker": paste the address there and the key moves to your own machine, with the standing and coin it earned. Or open <a id="key" href="#">the key itself</a> once and import it with <code>quilt init --from</code>, which fetches it,, then treat this address as spent.</p>
 </div>
 <p id="err" class="q" hidden></p>
 <script>

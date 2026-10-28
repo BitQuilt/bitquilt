@@ -14,7 +14,7 @@ import { type Link, makeLink, parseLink } from './link.js';
 import { type ChallengeListing, type GoldCount, type LayerPiece, type Opened, type PanelListing, type Scrape, SIDES, type Side, type Takedown } from './listings.js';
 import { announcementEvent, postToRelays, searchRelays } from './relay.js';
 import { type Library, type Posted, type Resolver, askJson } from './resolver.js';
-import { acceptedText, challengesText, layerByHash, nameOf, panelsText, pieceText, summary, waitsText } from './render.js';
+import { acceptedText, challengesText, kindWords, layerByHash, nameOf, panelsText, pieceText, summary, waitsText } from './render.js';
 
 export type { CoinBalance } from './coin.js';
 export type { Door } from './door.js';
@@ -511,7 +511,34 @@ export class Quilt {
     const known = this.library.pieces[piece];
     this.library.pieces[piece] = { problem, name: known?.name ?? piece, when: reveal.ts, what: 'returned', ...(known?.verifier ? { verifier: known.verifier } : {}) };
     this.save();
-    return { commit, reveal: revealed, waits: waitsText(known?.verifier) };
+    return { commit, reveal: revealed, waits: await this.afterReturn(problem, piece, known?.verifier) };
+  }
+
+  /**
+   * What the piece is now that the return is in, read back from the tracker: accepted on two vendors' agreement, or
+   * disputed, where this return was the second production; else what a piece of its kind waits for. A tracker that does
+   * not answer leaves the kind's words.
+   */
+  private async afterReturn(problem: Hash, piece: Hash, verifier: string | undefined): Promise<string> {
+    let kind = verifier ? kindWords(verifier).kind : null;
+    // Only a kind accepted on agreement has a second production to speak of; an attest record is accepted at once and says so already.
+    if (kind !== null && kind !== 'agree' && kind !== 'human') return waitsText(verifier);
+    try {
+      const { state, layer } = await this.open(problem);
+      const view = state.pieces.find((v) => v.piece.hash === piece);
+      if (kind === null && view) {
+        // A piece returned without being handed out first: its kind is the problem's to say.
+        verifier = view.piece.verifier;
+        kind = kindWords(verifier).kind;
+        if (kind !== 'agree' && kind !== 'human') return waitsText(verifier);
+      }
+      const now: string | undefined = layerByHash(layer).get(piece)?.state ?? view?.state;
+      if (now === 'accepted_provisional' || now === 'accepted' || now === 're_accepted') return 'Two vendors agree: the piece is accepted, provisionally until the challenge window closes, and the standing for it is counted.';
+      if (now === 'disputed') return 'Another vendor read it differently: the piece is disputed, and a third production from a vendor unrelated to both settles it.';
+    } catch {
+      // The tracker did not answer in time; the kind's words stand.
+    }
+    return waitsText(verifier);
   }
 
   /** A piece given back with one of the core's fixed reasons (DECLINE_REASONS); any other reason is refused here before it is signed. This key is not offered the piece again in this version of the problem. */

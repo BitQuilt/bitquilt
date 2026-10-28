@@ -40,7 +40,7 @@ ol{padding-left:1.2em}
 <div id="state"></div>
 <div id="groups"></div>
 <h2>Take your key home</h2>
-<p class="q">This tracker holds your key and signs for you, and every event it writes for you says so. The key is yours. The Mac app's first screen has "I have an address on a tracker": paste this page's address there and the key moves to your own machine, with the standing and coin it earned. Or open <a id="keyLink" href="#">the key itself</a> once and import it with <code>quilt init --secret</code>, then treat this address as spent.</p>
+<p class="q">This tracker holds your key and signs for you, and every event it writes for you says so. The key is yours. The Mac app's first screen has "I have an address on a tracker": paste this page's address there and the key moves to your own machine, with the standing and coin it earned. Or open <a id="keyLink" href="#">the key itself</a> once and import it with <code>quilt init --from</code>, which fetches it,, then treat this address as spent.</p>
 <p class="q">Anyone who has this address can act as you here. Keep it to yourself.</p>
 </main>
 <script>
