@@ -33,7 +33,18 @@ To run against another home, set `QUILT_HOME` where apps started by the Finder a
 
 ## Opening a downloaded copy
 
-Ad hoc signing is for the machine that built it. A copy of `Quilt.app` downloaded from somewhere else is held by Gatekeeper until it is signed with an Apple Developer ID and notarized; until then it opens only through the right-click, Open dance, or `xattr -d com.apple.quarantine dist/Quilt.app`. The release job that signs and notarizes is not written yet.
+Ad hoc signing is for the machine that built it. A copy of `Quilt.app` downloaded from somewhere else is held by Gatekeeper until it is signed with an Apple Developer ID and notarized; until then it opens only through the right-click, Open dance, or `xattr -d com.apple.quarantine dist/Quilt.app`.
+
+Signed and notarized, by hand (28 October 2026):
+
+```bash
+QUILT_SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" bash apps/mac/build.sh   # the hardened runtime; the quilt executable first, with Resources/quilt.entitlements (Node's just-in-time compiler needs them)
+QUILT_NOTARY_PROFILE=quilt bash scripts/notarize.sh                                      # submits dist/Quilt.app, waits, staples, checks with spctl; leaves dist/Quilt.app.zip for the release
+```
+
+The identity is the Developer ID Application certificate in the keychain (`security find-identity -v -p codesigning` lists it). The notary profile is stored once, by the person whose Apple account it is, with an App Store Connect API key that has the Developer role: `xcrun notarytool store-credentials quilt --key AuthKey_KEYID.p8 --key-id KEYID --issuer ISSUER`; or with `--apple-id`, `--team-id` and an app-specific password. Nothing of either goes into the repository.
+
+The release job (`.github/workflows/release.yml`, `mac-app`) does the same on a tag when the repository's variable `APPLE_SIGNING` is `on` and the secrets are set: `APPLE_CERTIFICATE_P12` (the certificate exported from Keychain Access with its private key, base64), `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGN_IDENTITY`, `APPLE_API_KEY` (the `.p8`, base64), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`. It attaches `Quilt.app.zip` to the release beside the executables and the bundle.
 
 ## Layout
 
