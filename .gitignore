@@ -9,3 +9,6 @@ coverage/
 
 # the example is the one env file that belongs in the repository
 !.env.example
+
+# The desktop app's worktrees and session files beside the checkout
+.claude/
