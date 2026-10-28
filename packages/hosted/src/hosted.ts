@@ -178,7 +178,7 @@ export function createHosted(options: HostedOptions): Hosted {
     if (!member || !q) return null;
     const connected = q.library.connector !== undefined;
     const [standing, coin, attention] = await Promise.all([q.standing(), q.coin(), connected ? q.attention().then((a) => a.items) : Promise.resolve([])]);
-    const made = sheetOf({ address: member.address as Address, name: member.name, library: q.library, attention, claude: { installed: false, config: '', running: false } });
+    const made = sheetOf({ address: member.address as Address, name: member.name, library: q.library, attention, standing: standing?.standing ?? null, wordsDue: false, claude: { installed: false, config: '', running: false } });
     return { ...made, url: `${trackerUrl()}mcp/${token}`, standing, coin };
   }
 

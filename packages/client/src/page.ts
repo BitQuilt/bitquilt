@@ -126,14 +126,18 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         const b = (await body(req)) as { problem: Hash; piece: Hash; ranking: Hash[] };
         return json(res, 200, await person.rank(b.problem, b.piece, b.ranking));
       }
+      if (path === '/api/words' && method === 'POST') {
+        // The key's twelve words, kept at first use, shown this once: read and removed (resolver.ts, takeWords).
+        return json(res, 200, { words: resolver.takeWords() });
+      }
       if (path === '/api/library') return json(res, 200, quilt.library);
       if (path === '/api/attention') return json(res, 200, await person.attention());
       if (path === '/api/phrases') {
         // The sheet the menu bar draws (phrases.ts): the home's state, the first phrase to say, and the phrases for what this person keeps, has worked and is wanted for. The trackers are asked only once an AI has connected.
         const connected = quilt.identity !== null && quilt.library.connector !== undefined;
-        const attention = connected ? (await person.attention()).items : [];
+        const [attention, standing] = connected ? await Promise.all([person.attention().then((a) => a.items), quilt.standing().then((s) => s?.standing ?? null)]) : [[], null];
         const file = claudeDesktopConfigPath();
-        return json(res, 200, sheetOf({ address: quilt.identity?.address ?? null, name: quilt.config.name ?? null, library: quilt.library, attention, claude: { installed: claudeHasQuilt(file), config: file, running: claudeRunning() } }));
+        return json(res, 200, sheetOf({ address: quilt.identity?.address ?? null, name: quilt.config.name ?? null, library: quilt.library, attention, standing, wordsDue: resolver.wordsDue(), claude: { installed: claudeHasQuilt(file), config: file, running: claudeRunning() } }));
       }
       if (path === '/api/connector' && method === 'POST') {
         // A copy of quilt working through this node says an AI has connected to it (bin.ts, mcp): the record moves the menu bar from the install instructions to the phrases.

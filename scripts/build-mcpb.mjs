@@ -35,6 +35,7 @@ const prompts = [
   { name: 'my_disputed_return', arguments: ['link'], text: 'Open {link} on Quilt and show me the return of mine that is disputed.' },
   { name: 'piece_for_a_person', arguments: ['link'], text: 'Open {link} on Quilt and tell me which piece wants a person, so I can hand it in myself at the page.' },
   { name: 'reveal_my_gold', arguments: ['link'], text: 'Open {link} on Quilt and reveal my gold on every piece of it that has been accepted.' },
+  { name: 'call_me', arguments: ['name'], text: 'Call me {name} on Quilt.' },
   { name: 'publish_pattern', arguments: ['path'], text: 'Publish the pattern at {path} on Quilt.' },
   { name: 'pay_workers', arguments: ['link', 'amount', 'per_square'], text: 'Pay the workers of {link} on Quilt: escrow {amount} coin, {per_square} a square.' },
   { name: 'transfer_coin', arguments: ['to', 'amount'], text: 'Transfer {amount} of my Quilt coin to {to}.' },

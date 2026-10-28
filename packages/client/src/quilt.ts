@@ -6,7 +6,7 @@
 import { type Address, type Capability, type Client, type DeclineReason, type Envelope, type Event, type Hash, type Pick, type Piece, type Problem, type State, type Unsigned, DECLINE_REASONS, commitHash, eventId, expandPieces, hashBytes, isHash, newNonce, next, plainTextProblems, problemHash, renderInputs, signEvent, signObject, envelopeProblems } from '@bitquilt/core';
 import * as coin from './coin.js';
 import type { CoinBalance } from './coin.js';
-import type { Config, Identity } from './config.js';
+import { type Config, type Identity, createKey, loadKey } from './config.js';
 import type { Door } from './door.js';
 import * as gold from './gold.js';
 import { type Link, makeLink, parseLink } from './link.js';
@@ -106,12 +106,15 @@ export class Quilt {
   /** What coin.ts and gold.ts are handed (door.ts): the key, the config, the library, and this Quilt's own signing, posting and reading. */
   private readonly door: Door;
 
-  constructor(readonly config: Config, readonly identity: Identity | null, readonly resolver: Resolver, hostName?: string) {
+  private held: Identity | null;
+
+  constructor(readonly config: Config, identity: Identity | null, readonly resolver: Resolver, hostName?: string) {
+    this.held = identity;
     this.hostName = hostName;
     const q = this;
     this.door = {
       config,
-      identity,
+      get identity() { return q.identity; },
       get library() { return q.library; },
       needKey: () => q.needKey(),
       stamp: (after) => q.stamp(after),
@@ -156,9 +159,23 @@ export class Quilt {
     this.resolver.saveLibrary();
   }
 
+  /**
+   * The key this Quilt signs with: the one given, else the one at the home, read when first asked for, so a key made by
+   * another Quilt over the same home (the connector's, the page's) is seen by this one.
+   */
+  get identity(): Identity | null {
+    if (this.held === null) this.held = loadKey(this.resolver.home);
+    return this.held;
+  }
+
+  /**
+   * The key, made at first use where the home has none: nobody sits at a terminal when a bundle is first asked to sign,
+   * so the key is made then and its twelve words kept for the page to show once (`Resolver.takeWords`); `quilt_me` says
+   * so until they are seen.
+   */
   private needKey(): Identity {
-    if (!this.identity) throw new Error('no key yet: run quilt init');
-    return this.identity;
+    if (!this.identity) this.held = createKey(this.resolver.home, { keepWords: true }).identity;
+    return this.identity!;
   }
 
   private sign(unsigned: Unsigned): Event {
@@ -209,7 +226,7 @@ export class Quilt {
 
   /** This client as it knows itself, from memory and the library alone: the address, name, model, capabilities, trackers, mirrors, relays, what waits in the queue, and how many problems the library holds. */
   me() {
-    return { address: this.identity?.address ?? null, name: this.config.name ?? null, model: this.model(), can: this.config.can, trackers: this.config.trackers, mirrors: this.config.mirrors, relays: this.config.relays, queued: this.resolver.queued(), problems: Object.keys(this.library.problems).length };
+    return { address: this.identity?.address ?? null, name: this.config.name ?? null, model: this.model(), can: this.config.can, trackers: this.config.trackers, mirrors: this.config.mirrors, relays: this.config.relays, queued: this.resolver.queued(), problems: Object.keys(this.library.problems).length, wordsDue: this.resolver.wordsDue() };
   }
 
   /** This key's standing as the first tracker that answers computes it; null with no key or no tracker. */

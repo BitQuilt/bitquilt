@@ -48,7 +48,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     const argsSchema: Record<string, z.ZodString> = {};
     for (const a of p.args) argsSchema[a] = z.string().min(1).describe(ARG_WORDS[a]);
     server.registerPrompt(p.name, { title: p.title, description: p.about, argsSchema }, (args) => {
-      const given: Record<PhraseArg, string> = { link: '', words: '', path: '', amount: '', per_square: '', to: '', ...(args as Partial<Record<PhraseArg, string>>) };
+      const given: Record<PhraseArg, string> = { link: '', words: '', path: '', amount: '', per_square: '', to: '', name: '', ...(args as Partial<Record<PhraseArg, string>>) };
       return { messages: [{ role: 'user' as const, content: { type: 'text' as const, text: p.say(given) } }] };
     });
   }

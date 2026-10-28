@@ -5,7 +5,7 @@
  * client's side of PROTOCOL.md's resolvers: it asks them and keeps what they answer; the node in page.ts is the part
  * of Quilt that is a resolver.
  */
-import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Envelope, type Event, type Hash, type Receipt, type State, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, problemHash, reduce, verifyChain, withSlash } from '@bitquilt/core';
 import { type Config, ensureHome } from './config.js';
@@ -106,6 +106,20 @@ export class Resolver {
     const was = this.library.connector;
     this.library.connector = { host: host ?? was?.host ?? null, first: was?.first ?? now, last: now };
     this.saveLibrary();
+  }
+
+  /** Whether the key's twelve words, kept at first use, are still waiting to be written down: what the sheet calls a backup due. */
+  wordsDue(): boolean {
+    return existsSync(join(this.home, 'words'));
+  }
+
+  /** The twelve words, once: read and removed, so they are shown one time; null when none wait. */
+  takeWords(): string | null {
+    const file = join(this.home, 'words');
+    if (!existsSync(file)) return null;
+    const words = readFileSync(file, 'utf8').trim();
+    unlinkSync(file);
+    return words;
   }
 
   saveLibrary(): void {

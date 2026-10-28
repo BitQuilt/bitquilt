@@ -114,6 +114,8 @@ struct Sheet: Decodable {
     let connector: Connector?
     let claude: Claude
     let first: Phrase
+    /// "due" while the key's twelve words, kept at first use, wait on the page to be written down.
+    let backup: String?
     let groups: [Group]
     let prompts: [Prompt]
     let templates: [String: String]

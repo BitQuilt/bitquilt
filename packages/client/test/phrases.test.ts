@@ -11,7 +11,7 @@ import type { Library } from '../src/resolver.js';
 import { instructs } from './helpers.js';
 
 const link = 'quilt:sha256:' + 'ab'.repeat(32) + '?dn=report&tr=http%3A%2F%2Flocalhost%3A3977%2F';
-const sample = { link, words: 'herbarium labels', path: '/Users/someone/patterns/first.json', amount: '500', per_square: '10', to: '0x' + 'Ab'.repeat(20) };
+const sample = { link, words: 'herbarium labels', path: '/Users/someone/patterns/first.json', amount: '500', per_square: '10', to: '0x' + 'Ab'.repeat(20), name: 'Mira' };
 const claude = { installed: false, config: '/tmp/claude_desktop_config.json', running: false };
 const hash = ('sha256:' + 'cd'.repeat(32)) as `sha256:${string}`;
 const other = ('sha256:' + 'ef'.repeat(32)) as `sha256:${string}`;
@@ -62,6 +62,13 @@ describe('the sheet', () => {
     expect(sheet.connector?.host).toBe('Claude Desktop');
     expect(sheet.groups.map((g) => g.title)).toEqual(['To start']);
     expect(sheet.groups[0]!.phrases.map((p) => p.name)).toEqual(['find_something_to_do', 'who_am_i']);
+    expect(sheet.backup).toBeNull();
+    // The words kept at first use are a backup due until the page has shown them; a name is offered once there is work behind the address.
+    expect(sheetOf({ address, name: 'me', library: lib, attention: [], wordsDue: true, claude }).backup).toBe('due');
+    const named = sheetOf({ address, name: null, library: lib, attention: [], standing: 2, claude });
+    expect(named.groups.map((g) => g.title)).toEqual(['To start', 'Your name']);
+    expect(named.groups[1]!.phrases[0]!.say).toBe('Call me ____ on Quilt.');
+    expect(sheetOf({ address, name: null, library: lib, attention: [], standing: 1, claude }).groups.map((g) => g.title)).toEqual(['To start']);
   });
   it('groups what is wanted, what is kept, what was opened lately and the gold to reveal, each phrase carrying the problem\'s link and no title', () => {
     const address = ('0x' + 'Ab'.repeat(20)) as `0x${string}`;

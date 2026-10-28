@@ -126,6 +126,7 @@ struct MenuView: View {
                 Text("Then, in a new chat, say:").font(.callout)
             }
             if let first = node.sheet?.first { phraseRow(first) }
+            backupRow
             Text("When your AI answers, this window changes to the phrases you can say. Another AI app connects to the same connector over stdio; the README beside the executable says how.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
@@ -136,6 +137,7 @@ struct MenuView: View {
     private var connected: some View {
         VStack(alignment: .leading, spacing: 10) {
             balance
+            backupRow
             TextField("Find a problem", text: $query)
                 .textFieldStyle(.roundedBorder)
                 .focused($searchFocused)
@@ -217,6 +219,18 @@ struct MenuView: View {
     }
 
     // MARK: Pieces of the view
+
+    /// The key was made at first use and its twelve words have not been written down: the page shows them once.
+    @ViewBuilder private var backupRow: some View {
+        if node.sheet?.backup == "due" {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Your key's twelve words are not written down yet. The page shows them once.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                Button("Show them") { open("me") }.font(.caption)
+            }
+            .padding(8).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+        }
+    }
 
     private func heading(_ words: String) -> some View {
         Text(words).font(.subheadline).fontWeight(.semibold)

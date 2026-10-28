@@ -66,7 +66,7 @@
 
   <section id="library"><div id="libraryView"></div></section>
 
-  <section id="me"><div id="standingView" class="quiet"></div><pre id="meView"></pre><button id="flushBtn">Post what waits in the queue</button></section>
+  <section id="me"><div id="wordsView"></div><div id="standingView" class="quiet"></div><pre id="meView"></pre><button id="flushBtn">Post what waits in the queue</button></section>
 </main>
 <script>
 (function () {
@@ -399,7 +399,28 @@
 
   // Me: this key as the node knows it, its standing and coin as the trackers compute them, a transfer and a redeem, and the queue.
   var me = function () {
-    api('/api/me').then(function (m) { $('meView').textContent = JSON.stringify(m, null, 2); });
+    api('/api/me').then(function (m) {
+      $('meView').textContent = JSON.stringify(m, null, 2);
+      // A key made at first use: its twelve words wait here, shown once on a click and then let go (POST /api/words).
+      var wv = $('wordsView');
+      wv.textContent = '';
+      if (!m.wordsDue) return;
+      wv.appendChild(el('p', null, 'Your key was made when your AI first signed here. Its twelve words are the key itself: they are shown once, on this click, for you to write down and keep to yourself.'));
+      var show = el('button', 'primary', 'Show my twelve words');
+      show.addEventListener('click', function () {
+        api('/api/words', { method: 'POST' }).then(function (w) {
+          wv.textContent = '';
+          if (!w.words) { wv.appendChild(el('p', 'quiet', 'The words were shown already.')); return; }
+          wv.appendChild(el('p', null, 'Write these down, in this order, and keep them to yourself. They are shown this once.'));
+          var pre = el('pre', null, w.words);
+          wv.appendChild(pre);
+          var done = el('button', null, 'I wrote them down');
+          done.addEventListener('click', function () { wv.textContent = ''; });
+          wv.appendChild(done);
+        });
+      });
+      wv.appendChild(show);
+    });
     var sv = $('standingView');
     sv.textContent = 'Asking the trackers for your standing…';
     api('/api/standing').then(function (s) {

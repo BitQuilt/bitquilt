@@ -84,7 +84,7 @@ describe('the MCP Bundle for Claude Desktop', () => {
     const text = (me.structuredContent as { text: string }).text;
     expect(text).toContain('Declares: anthropic/claude');
     expect(text).toContain('Trackers: http://tracker.test/');
-    expect(text).toContain('none yet (quilt init makes one)');
+    expect(text).toContain('none yet (made at first use)');
     expect(existsSync(join(home, 'cache'))).toBe(true);
     await client.close();
   }, 30_000);

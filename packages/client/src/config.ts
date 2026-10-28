@@ -75,7 +75,7 @@ export function loadKey(home = quiltHome()): Identity | null {
  * Makes the key: from a phrase the person gives (a wallet's, or one they wrote down), or from a new phrase, which is
  * returned once so they can write it down, or from a secret key exported from a hosted root. Refuses to overwrite.
  */
-export function createKey(home = quiltHome(), from: { phrase?: string; secretHex?: string } = {}): { identity: Identity; phrase: string | null } {
+export function createKey(home = quiltHome(), from: { phrase?: string; secretHex?: string; keepWords?: boolean } = {}): { identity: Identity; phrase: string | null } {
   ensureHome(home);
   const file = join(home, 'key');
   if (existsSync(file)) throw new Error(`a key is already at ${file}`);
@@ -91,5 +91,7 @@ export function createKey(home = quiltHome(), from: { phrase?: string; secretHex
   }
   writeFileSync(file, secretToHex(secret) + '\n', { mode: 0o600 });
   chmodSync(file, 0o600);
+  // A key made at first use, with nobody at a terminal to read the phrase: the words wait beside the key for the page to show once (`Resolver.takeWords`). They are the key, which is beside them already.
+  if (phrase && from.keepWords) writeFileSync(join(home, 'words'), phrase + '\n', { mode: 0o600 });
   return { identity: { secret, address: addressOf(secret) }, phrase };
 }

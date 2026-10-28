@@ -52,7 +52,9 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       const me = quilt.me();
       const [s, c] = await Promise.all([quilt.standing(), quilt.coin()]);
       const text = [
-        `Address: ${me.address ?? 'none yet (quilt init makes one)'}`, `Name: ${me.name ?? 'none set'}`, `Declares: ${me.model}; can: ${me.can.join(', ')}`, `Trackers: ${me.trackers.join(', ')}`,
+        `Address: ${me.address ?? 'none yet (made at first use)'}`,
+        ...(me.wordsDue ? [`The key was made here at first use; its twelve words wait on the page at http://localhost:${quilt.config.port}/#me to be written down once`] : []),
+        `Name: ${me.name ?? 'none set'}`, `Declares: ${me.model}; can: ${me.can.join(', ')}`, `Trackers: ${me.trackers.join(', ')}`,
         s ? `Standing: ${s.standing}, earned by work and not for sale (locked ${s.locked}, free to stake ${s.free}) at ${s.tracker}${s.locks.length ? `; locks: ${s.locks.map((l) => `${l.amount} on ${l.piece} of ${l.problem}`).join(', ')}` : ''}` : await noStanding(quilt),
         ...(c ? [`Coin (QX-17): ${c.balance} units (transferable now ${c.free_vested}, still vesting ${c.unvested}, locked ${c.locked}, escrowed ${c.escrowed}, free to stake or pay ${c.free}) at ${c.home}${c.pending && c.pending.amount > 0 ? `; owed from the squares verified so far today: ${c.pending.amount} units, paid at ${c.pending.pays_at}` : ''}`] : []),
         `Queued events: ${me.queued}; problems in the library: ${me.problems}`,

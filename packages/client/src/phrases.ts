@@ -17,7 +17,7 @@ import type { AttentionItem } from './quilt.js';
 import type { Library } from './resolver.js';
 
 /** What a phrase takes to be said whole: a link to a problem, words to search for, a file's path, a number of units, a price per square, an address. */
-export type PhraseArg = 'link' | 'words' | 'path' | 'amount' | 'per_square' | 'to';
+export type PhraseArg = 'link' | 'words' | 'path' | 'amount' | 'per_square' | 'to' | 'name';
 
 export interface PhraseSpec {
   /** The prompt's name in the chat, a verb phrase: distinct from the tools' names, which say what the connector does. */
@@ -38,6 +38,7 @@ export const ARG_WORDS: Record<PhraseArg, string> = {
   amount: 'How many units of coin',
   per_square: 'How many units each accepted square pays',
   to: 'The address the coin goes to, with its checksum',
+  name: 'The name this key goes by on Quilt',
 };
 
 export const PHRASES: readonly PhraseSpec[] = [
@@ -52,6 +53,7 @@ export const PHRASES: readonly PhraseSpec[] = [
   { name: 'my_disputed_return', title: 'A return of mine is disputed', about: 'The AI opens the problem and shows the return of this key\'s that another vendor read differently.', args: ['link'], say: (a) => `Open ${a.link} on Quilt and show me the return of mine that is disputed.` },
   { name: 'piece_for_a_person', title: 'A piece wants a person', about: 'The AI opens the problem and names the piece whose verifier is a person\'s own word, which the person hands in at the page.', args: ['link'], say: (a) => `Open ${a.link} on Quilt and tell me which piece wants a person, so I can hand it in myself at the page.` },
   { name: 'reveal_my_gold', title: 'Reveal my gold', about: 'The AI reveals the gold this key committed on each piece of its own problem that has been accepted, after asking.', args: ['link'], say: (a) => `Open ${a.link} on Quilt and reveal my gold on every piece of it that has been accepted.` },
+  { name: 'call_me', title: 'Choose my name', about: 'The AI sets the name this key goes by on the trackers, as a signed name event, after asking.', args: ['name'], say: (a) => `Call me ${a.name} on Quilt.` },
   { name: 'publish_pattern', title: 'Publish a pattern', about: 'The AI reads the pattern file, publishes it as a signed problem on this key\'s trackers, and posts its gold where the file carries any.', args: ['path'], say: (a) => `Publish the pattern at ${a.path} on Quilt.` },
   { name: 'pay_workers', title: 'Pay a problem\'s workers', about: 'The AI escrows coin to the problem on the coin\'s home, paid per accepted square to the workers, after asking.', args: ['link', 'amount', 'per_square'], say: (a) => `Pay the workers of ${a.link} on Quilt: escrow ${a.amount} coin, ${a.per_square} a square.` },
   { name: 'transfer_coin', title: 'Transfer coin', about: 'The AI moves vested free coin of this key\'s to an address on the coin log, after asking.', args: ['to', 'amount'], say: (a) => `Transfer ${a.amount} of my Quilt coin to ${a.to}.` },
@@ -67,7 +69,7 @@ export function phrase(name: string): PhraseSpec {
 
 /** A phrase said whole: the arguments given fill its slots, the rest are empty. */
 export function say(name: string, args: Partial<Record<PhraseArg, string>> = {}): string {
-  return phrase(name).say({ link: '', words: '', path: '', amount: '', per_square: '', to: '', ...args });
+  return phrase(name).say({ link: '', words: '', path: '', amount: '', per_square: '', to: '', name: '', ...args });
 }
 
 /** The first thing to say once the connector is in, and the test of the connection: the AI that answers it has arrived. */
@@ -104,6 +106,8 @@ export interface Sheet {
   /** The one phrase to say first: it tests the connection, and the record it leaves moves the state to connected. */
   first: SheetPhrase;
   groups: SheetGroup[];
+  /** 'due' while the key's twelve words, kept at first use, wait on the page to be written down; null otherwise. */
+  backup: 'due' | null;
   /** Every prompt the connector offers, by name, with what each takes, so the sheet can name the ones it does not spell out. */
   prompts: { name: string; title: string; about: string; args: PhraseArg[] }[];
   /** Each phrase with its arguments in braces, by name, so the menu bar can say one about a problem it found itself. */
@@ -115,6 +119,10 @@ export interface SheetInput {
   name: string | null;
   library: Library;
   attention: AttentionItem[];
+  /** The key's standing as a tracker computes it, where one answered; the name is offered once it is above the point every root starts with. */
+  standing?: number | null;
+  /** Whether the key's twelve words, kept at first use, still wait to be written down. */
+  wordsDue?: boolean;
   claude: { installed: boolean; config: string; running: boolean };
 }
 
@@ -144,6 +152,8 @@ export function sheetOf(input: SheetInput): Sheet {
     const wanted = attention.filter((it) => it.why in WANTED).map((it) => about(WANTED[it.why], it.problem, library));
     if (wanted.length) groups.push({ title: 'Wanted from you', phrases: dedupe(wanted) });
     groups.push({ title: 'To start', phrases: ['find_something_to_do', 'who_am_i'].map((n) => ({ name: n, title: phrase(n).title, say: say(n), about: phrase(n).about })) });
+    // A name, once there is work behind the address: the slot is left for the person to fill.
+    if (input.name === null && (input.standing ?? 0) > 1) groups.push({ title: 'Your name', phrases: [{ name: 'call_me', title: phrase('call_me').title, say: say('call_me', { name: '____' }), about: `${phrase('call_me').about} The blank is for the name.` }] });
     const kept = Object.entries(library.seeding).sort((x, y) => (x[1] < y[1] ? 1 : -1)).map(([h]) => h as Hash).filter((h) => library.problems[h]);
     if (kept.length) groups.push({ title: 'Keeping', phrases: kept.map((h) => about('take_piece', h, library)) });
     const lately = Object.entries(library.problems).filter(([h]) => !library.seeding[h]).sort((x, y) => (x[1].last < y[1].last ? 1 : -1)).slice(0, 8).map(([h]) => h as Hash);
@@ -152,7 +162,7 @@ export function sheetOf(input: SheetInput): Sheet {
     if (golden.length) groups.push({ title: 'Your gold', phrases: golden.map((h) => about('reveal_my_gold', h, library)) });
   }
   return {
-    state, address, name: input.name, connector, claude,
+    state, address, name: input.name, connector, claude, backup: input.wordsDue ? 'due' : null,
     first: { name: first.name, title: first.title, say: say(first.name), about: first.about },
     groups,
     prompts: PHRASES.map((p) => ({ name: p.name, title: p.title, about: p.about, args: p.args })),

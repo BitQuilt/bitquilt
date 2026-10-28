@@ -132,7 +132,7 @@ async function main(): Promise<void> {
       };
       const server = createMcpServer(run, { connected });
       await server.connect(new StdioServerTransport());
-      log(`quilt mcp connected; key ${identity?.address ?? 'none (run quilt init)'}`);
+      log(`quilt mcp connected; key ${identity?.address ?? 'none yet; one is made at first use'}`);
       return;
     }
     case 'serve': {
