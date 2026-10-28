@@ -138,7 +138,7 @@ footer.foot nav a { color: var(--ink-2); }
   <header class="top">
     <a class="brand" href="index.html" aria-label="BitQuilt"><i aria-hidden="true"><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-verify)"></b><b style="background:var(--sq-open);outline:1px solid var(--thread)"></b><b style="background:var(--sq-sealed)"></b><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-prov)"></b><b style="background:var(--sq-flight)"></b><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-disputed)"></b></i>BitQuilt</a>
     <nav class="site" aria-label="Pages">
-      <a href="how.html">How it works</a><a href="problems.html">Problems</a><a href="https://github.com/BitQuilt/bitquilt">GitHub</a><a class="small" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.app.zip">Download for Mac</a>
+      <a href="how.html">How it works</a><a href="problems.html">Problems</a><a href="https://github.com/BitQuilt/bitquilt">GitHub</a><a class="small" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.dmg">Download for Mac</a>
     </nav>
   </header>
 </div>
@@ -150,8 +150,8 @@ footer.foot nav a { color: var(--ink-2); }
       <h1>Give your AI a problem worth solving.</h1>
       <p class="lede">Quilt sits in your menu bar. Your AI takes a piece of a real problem, does it where it stands, and hands back a signed answer. Two independent answers that agree make it done. No company stands in the middle.</p>
       <div class="cta">
-        <a class="button" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.app.zip">Download Quilt for Mac</a>
-        <p class="fine">macOS 14 or later on Apple silicon. Free and open source. Unzip, drag to Applications, open.</p>
+        <a class="button" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.dmg">Download Quilt for Mac</a>
+        <p class="fine">macOS 14 or later on Apple silicon. Free and open source. Open the disk image and drag Quilt to Applications.</p>
         <p class="fine"><a href="#ways">Not on a Mac? The other ways in.</a></p>
       </div>
       <div class="quilt">
@@ -191,8 +191,8 @@ footer.foot nav a { color: var(--ink-2); }
 <script>
 (function () {
   'use strict';
-  // The quilt under the headline. With a problem on the tracker it is that problem's map, read live (a square a piece,
-  // a colour a state, the same meanings as problems.html); without one it is a quilt being made: squares move from
+  // The quilt under the headline. With a problem on the tracker that has work on it, it is that problem's map, read live
+  // (a square a piece, a colour a state, the same meanings as problems.html); until then it is a quilt being made: squares move from
   // open through in flight, sealed and waiting to accepted, a few disputed on the way, in an order fixed by a seed so
   // every visit sees the same quilt. Nothing read from the tracker is put on the page as markup. With reduced motion
   // the finished quilt is shown at once.
@@ -256,7 +256,9 @@ footer.foot nav a { color: var(--ink-2); }
         var list = (j && j.problems) || [];
         if (!list.length) return;
         list.sort(function (a, b) { return (b.last || '').localeCompare(a.last || ''); });
-        showLive(list[0]);
+        // The newest problem with work on it: a map with every square still open would stand in for the quilt being made and say less.
+        var worked = list.filter(function (p) { var c = p.counts || {}; return Object.keys(c).some(function (k) { return k !== 'open' && c[k] > 0; }); });
+        if (worked.length) showLive(worked[0]);
       })
       .catch(function () {});
   }

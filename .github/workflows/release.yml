@@ -105,7 +105,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: quilt-mac-app
-          path: dist/Quilt.app.zip
+          path: dist/Quilt.dmg
   release:
     needs: [build, bundle, mac-app]
     if: ${{ always() && startsWith(github.ref, 'refs/tags/v') && needs.build.result == 'success' && needs.bundle.result == 'success' && needs.mac-app.result != 'failure' }}
