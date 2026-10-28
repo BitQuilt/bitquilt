@@ -26,7 +26,8 @@ function fakeFetch(answers: Record<string, 'ok' | 'down' | 'empty'>, calls: stri
   }) as typeof fetch;
 }
 
-describe('anchoring chain heads (QX-12)', () => {
+// As in mirror.test.ts: a chain's folder carries a colon, so this runs where the mirror runs, not on Windows.
+describe.skipIf(process.platform === 'win32')('anchoring chain heads (QX-12)', () => {
   it('writes a detached timestamp of the head\'s digest with the calendar\'s answer after it, and a sidecar', async () => {
     const out = mkdtempSync(join(tmpdir(), 'quilt-anchor-'));
     const calls: string[] = [];

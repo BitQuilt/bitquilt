@@ -9,7 +9,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, posix, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export interface ServerEntry {
@@ -21,9 +21,10 @@ export interface ServerEntry {
 /** Where Claude Desktop reads `claude_desktop_config.json` on each platform. */
 export function claudeDesktopConfigPath(platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env, home: string = homedir()): string {
   const file = 'claude_desktop_config.json';
-  if (platform === 'darwin') return join(home, 'Library', 'Application Support', 'Claude', file);
-  if (platform === 'win32') return join(env.APPDATA ?? join(home, 'AppData', 'Roaming'), 'Claude', file);
-  return join(env.XDG_CONFIG_HOME ?? join(home, '.config'), 'Claude', file);
+  // The path is joined in the named platform's own style, not the one this runs on, so the answer for a Mac is the same from a Windows runner.
+  if (platform === 'darwin') return posix.join(home, 'Library', 'Application Support', 'Claude', file);
+  if (platform === 'win32') return win32.join(env.APPDATA ?? win32.join(home, 'AppData', 'Roaming'), 'Claude', file);
+  return posix.join(env.XDG_CONFIG_HOME ?? posix.join(home, '.config'), 'Claude', file);
 }
 
 /**

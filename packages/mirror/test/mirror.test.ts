@@ -74,7 +74,8 @@ afterAll(async () => {
   await new Promise<void>((r) => two.server.close(() => r()));
 });
 
-describe('the mirror', () => {
+// The mirror names a chain's files by its hash, sha256 and a colon, which Windows refuses in a path; the mirror runs on Linux, and these tests do too.
+describe.skipIf(process.platform === 'win32')('the mirror', () => {
   it('writes the layout from a tracker, with chains that verify and names from version events', async () => {
     expect((await post(one.base, `p/${P}/events`, ev(owner, 'version', { slug: 'report', hash: P }, P))).status).toBe(202);
     expect((await post(one.base, 'k/events', ev(owner, 'name', { name: 'Maya' }))).status).toBe(202);
