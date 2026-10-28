@@ -14,7 +14,8 @@ import { createHosted } from '../src/hosted.js';
 /**
  * The hosted on-ramp beside a tracker: an address handed out with a key the tracker holds, the join page served; the
  * connector served at that address over MCP, declaring the host and marking custody on every event it posts; the key
- * taken home by its address, and a session from one address refused at another.
+ * taken home by its address, and a session from one address refused at another; the sheet a browser gets at the same
+ * address, with its data beside it.
  */
 let server: Server;
 let base: string;
@@ -70,6 +71,29 @@ describe('the hosted on-ramp', () => {
     expect(mine.map((l) => l.event.type)).toEqual(['claim', 'commit', 'reveal']);
     expect(mine.every((l) => l.received[0]!.custody === 'hosted' && l.received[0]!.seat === 'ai')).toBe(true);
     await client.close();
+  });
+  it('serves the sheet at the address to a browser, with its data beside it, connected once an AI has been', async () => {
+    const page = await fetch(url, { headers: { accept: 'text/html,application/xhtml+xml' } });
+    expect(page.headers.get('content-type')).toMatch(/text\/html/);
+    const html = await page.text();
+    expect(html).toContain('Your Quilt');
+    expect(html).not.toMatch(/(src|href)="https?:/);
+    // The connector's own GET, asking for an event stream, still meets the transport.
+    expect((await fetch(url, { headers: { accept: 'text/event-stream' } })).status).toBe(400);
+    const s = (await (await fetch(`${url}/sheet`)).json()) as { address: string; url: string; state: string; first: { say: string }; standing: { standing: number } | null; coin: unknown; groups: { title: string }[] };
+    expect(s.address).toBe(address);
+    expect(s.url).toBe(url);
+    expect(s.state).toBe('connected');
+    expect(s.first.say).toBe('Open Quilt and tell me who I am: my address, my standing and my coin.');
+    expect(s.standing).toMatchObject({ standing: 1 });
+    expect(s.coin).toBeNull();
+    expect(s.groups.map((g) => g.title)).toContain('To start');
+    expect((await fetch(`${base}mcp/${'0'.repeat(64)}`, { headers: { accept: 'text/html' } })).status).toBe(404);
+    expect((await fetch(`${base}mcp/${'0'.repeat(64)}/sheet`)).status).toBe(404);
+    // The join page carries the same first sentences and nothing from elsewhere.
+    const joinHtml = await (await fetch(`${base}join`)).text();
+    expect(joinHtml).toContain('Find me something to do on Quilt.');
+    expect(joinHtml).not.toMatch(/(src|href)="https?:/);
   });
   it('lets the person take the key home, and refuses a session from another address', async () => {
     const k = (await (await fetch(`${url}/key`)).json()) as { address: string; secret: string };

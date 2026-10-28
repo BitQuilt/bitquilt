@@ -13,8 +13,9 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { type Address, addressOf, randomSecretKey, secretFromHex, secretToHex, withSlash } from '@bitquilt/core';
 import type { Store } from '@bitquilt/tracker';
-import { type Config, DEFAULT_CONFIG, Quilt, Resolver, createMcpServer, localRunner } from 'quilt';
+import { type Config, DEFAULT_CONFIG, Quilt, Resolver, createMcpServer, localRunner, sheetOf } from 'quilt';
 import { JOIN_PAGE } from './join-page.js';
+import { SHEET_PAGE } from './sheet-page.js';
 
 export interface HostedOptions {
   store: Store;
@@ -137,7 +138,10 @@ export function createHosted(options: HostedOptions): Hosted {
       const q = quiltFor(token, hostName);
       if (!q) throw new Error('this address is gone');
       return q;
-    }));
+    }), {
+      // The AI that connects is recorded in the member's library, as a home's node records it: the sheet at the address moves from the connecting words to the phrases.
+      connected: (host) => { quiltFor(token, host ?? undefined)?.resolver.sawConnector(host); },
+    });
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       // the callback runs inside handleRequest, after both exist
@@ -163,6 +167,21 @@ export function createHosted(options: HostedOptions): Hosted {
     return `join:${createHash('sha256').update(custodySecret + ip.trim()).digest('hex').slice(0, 16)}`;
   }
 
+  /**
+   * The sheet for a hosted address, as the menu bar reads one from a home's node (`sheetOf`): the state, the first
+   * phrase, the groups of phrases for what is wanted and kept, with the standing and coin the tracker computes for the
+   * key and what it is owed today. Read by the sheet page at the address, and by anyone holding the address.
+   */
+  async function sheet(token: string): Promise<Record<string, unknown> | null> {
+    const member = store.getMember(tokenHash(token));
+    const q = quiltFor(token, undefined);
+    if (!member || !q) return null;
+    const connected = q.library.connector !== undefined;
+    const [standing, coin, attention] = await Promise.all([q.standing(), q.coin(), connected ? q.attention().then((a) => a.items) : Promise.resolve([])]);
+    const made = sheetOf({ address: member.address as Address, name: member.name, library: q.library, attention, claude: { installed: false, config: '', running: false } });
+    return { ...made, url: `${trackerUrl()}mcp/${token}`, standing, coin };
+  }
+
   async function routes(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
     const path = url.pathname.replace(/\/+$/, '') || '/';
     const method = req.method ?? 'GET';
@@ -183,8 +202,31 @@ export function createHosted(options: HostedOptions): Hosted {
       }
     }
     let m: RegExpExecArray | null;
-    if ((m = /^\/mcp\/([0-9a-f]{64})(?:\/(key))?$/.exec(path))) {
+    if ((m = /^\/mcp\/([0-9a-f]{64})(?:\/(key|sheet))?$/.exec(path))) {
       const token = m[1]!;
+      if (m[2] === 'sheet') {
+        if (method !== 'GET') {
+          json(res, 405, { error: 'GET' });
+          return true;
+        }
+        const s = await sheet(token);
+        if (!s) {
+          json(res, 404, { error: 'no such address here' });
+          return true;
+        }
+        json(res, 200, s);
+        return true;
+      }
+      // A browser at the address gets the person's sheet; the AI's connector, which asks for JSON or an event stream, gets the MCP transport.
+      if (m[2] === undefined && method === 'GET' && (req.headers.accept ?? '').includes('text/html')) {
+        if (!store.getMember(tokenHash(token))) {
+          json(res, 404, { error: 'no such address here' });
+          return true;
+        }
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'" });
+        res.end(SHEET_PAGE);
+        return true;
+      }
       if (m[2] === 'key') {
         if (method !== 'GET') {
           json(res, 405, { error: 'GET' });
