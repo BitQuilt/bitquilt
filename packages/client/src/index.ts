@@ -8,4 +8,5 @@ export { createMcpServer } from './mcp.js';
 export { TOOL_NAMES, isToolName, localRunner, runTool, type ToolInput, type ToolName, type ToolResult, type ToolRunner } from './tools.js';
 export { probeNode, remoteRunner, type NodeProbe } from './node.js';
 export { createPage } from './page.js';
+export { DEFAULT_SETTINGS, PATTERN_FIELDS, draftEnvelope, patternProblems, patternProblemsText, type Drafted } from './pattern.js';
 export { FIRST_PHRASE, PHRASES, phrase, say, sheetOf, type Sheet, type SheetGroup, type SheetInput, type SheetPhrase } from './phrases.js';

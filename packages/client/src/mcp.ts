@@ -162,7 +162,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     title: 'Publish a problem',
     description: [
       'Publishes a problem from a pattern signed with this client\'s key as the owner: the title, the statement of when it is done, a slug, the pieces with their briefs, schemas, verifier kinds and what they require, the data rows the briefs\' slots draw on, topics for the index, where the owner asks it the stake of standing a claim on the pieces is backed by (QX-15), and where the owner knows some answers in advance the gold (QX-16): each answer committed by hash before the work, bound to its piece inside the commitment so the ledger shows how many answers are committed and not which pieces, backed by a stake of the owner\'s standing, kept in this home\'s library for the reveal.',
-      'Returns the problem\'s hash and link.',
+      'A draft with faults is refused with every fault at once, in the checker\'s words, so a pattern drafted from a conversation is fixed in one turn. Returns the problem\'s hash and link.',
     ].join(' '),
     inputSchema: {
       pattern: z.object({

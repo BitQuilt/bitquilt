@@ -7,6 +7,7 @@ import { type Address, type Capability, type Client, type DeclineReason, type En
 import * as coin from './coin.js';
 import type { CoinBalance } from './coin.js';
 import { type Config, type Identity, createKey, loadKey } from './config.js';
+import { draftEnvelope, patternProblems, patternProblemsText } from './pattern.js';
 import type { Door } from './door.js';
 import * as gold from './gold.js';
 import { type Link, makeLink, parseLink } from './link.js';
@@ -583,29 +584,11 @@ export class Quilt {
   /** Builds, signs and publishes an envelope from a pattern, with its blobs; then announces it, and posts the stake rule and the gold where the pattern carries them. */
   async publish(pattern: Pattern): Promise<{ hash: Hash; link: string; posted: string[]; refused: string[]; relays: string[]; gold: { pieces: number; stake: number } | null }> {
     const id = this.needKey();
-    const blobs = new Map<Hash, Uint8Array>();
-    const data: Record<string, Hash> = {};
-    for (const [name, rows] of Object.entries(pattern.data ?? {})) {
-      const bytes = new TextEncoder().encode(JSON.stringify(rows));
-      const h = hashBytes(bytes);
-      blobs.set(h, bytes);
-      data[name] = h;
-    }
-    const problem: Problem = {
-      title: pattern.title,
-      done_when: pattern.done_when,
-      owner: id.address,
-      slug: pattern.slug,
-      prev: pattern.prev ?? null,
-      from: pattern.from ?? null,
-      settings: { challenge_window_h: 48, lease_h: 2, endgame_at: 10, budget: 1000, patch_max: 100000, ...pattern.settings },
-      pieces: pattern.pieces,
-      data,
-    };
-    const unsigned = { quilt: 1 as const, problem, hints: { trackers: this.config.trackers, mirrors: this.config.mirrors } };
-    const envelope: Envelope = { ...unsigned, sig: signObject(unsigned, id.secret) };
-    const problems = envelopeProblems(envelope);
-    if (problems.length) throw new Error(problems[0]);
+    // Every fault at once (pattern.ts), so an AI drafting the pattern from a conversation fixes them in one turn.
+    const drafted = draftEnvelope(pattern, id, { trackers: this.config.trackers, mirrors: this.config.mirrors });
+    const problems = patternProblems(pattern, drafted);
+    if (problems.length) throw new Error(patternProblemsText(problems));
+    const { envelope, blobs, problem } = drafted;
     const hash = problemHash(envelope);
     const body = JSON.stringify({ envelope, blobs: Object.fromEntries([...blobs].map(([h, b]) => [h, Buffer.from(b).toString('base64')])) });
     const posted: string[] = [];
