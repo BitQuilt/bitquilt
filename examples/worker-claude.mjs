@@ -14,6 +14,7 @@
  * returned. Every reveal is declared anthropic/<model>: QUILT_MODEL is set to the same, so the claim says what the
  * reveal says.
  */
+import { fileURLToPath } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
 import { instruction, question, runWorker } from './worker-loop.mjs';
 
@@ -23,7 +24,8 @@ const TOOLS = [
 ];
 const WITHOUT = 'No evidence is given here: find the source the brief names with the search tool and read it with the fetch tool before answering, and quote from what you read.';
 
-async function ask({ piece, schema, evidence, note, model, key }) {
+/** The one call: the piece answered in its schema's shape by a Claude model, reading the source itself when no evidence is given. */
+export async function ask({ piece, schema, evidence, note, model, key }) {
   const client = new Anthropic({ apiKey: key });
   const messages = [{ role: 'user', content: question(piece, evidence, WITHOUT) }];
   let response;
@@ -46,4 +48,4 @@ async function ask({ piece, schema, evidence, note, model, key }) {
   return JSON.parse(text);
 }
 
-await runWorker({ vendor: 'anthropic', keyName: 'ANTHROPIC_API_KEY', defaultModel: 'claude-opus-5-5', file: 'examples/worker-claude.mjs', ask });
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) await runWorker({ vendor: 'anthropic', keyName: 'ANTHROPIC_API_KEY', defaultModel: 'claude-opus-5-5', file: 'examples/worker-claude.mjs', ask });

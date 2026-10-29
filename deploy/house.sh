@@ -35,7 +35,8 @@ if [ ! -f "${QUILT_HOME:?QUILT_HOME names where the key lives}/key" ]; then
   say "no key under $QUILT_HOME, making one"
   quilt init 2>&1 | head -1
   [ -f "$QUILT_HOME/key" ] || { say "the key was not made"; exit 1; }
-  if quilt name "House second opinion" >/dev/null 2>&1; then say "the key is named House second opinion"; else say "the name was not posted; quilt name can be run again by hand"; fi
+  NAME="${HOUSE_NAME:-House second opinion}"
+  if quilt name "$NAME" >/dev/null 2>&1; then say "the key is named $NAME"; else say "the name was not posted; quilt name can be run again by hand"; fi
 fi
 say "the house second opinion answers as $VENDOR/$MODEL, at most $MAX pieces every $EVERY seconds, on $QUILT_TRACKERS"
 
