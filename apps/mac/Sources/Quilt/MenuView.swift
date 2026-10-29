@@ -242,13 +242,13 @@ struct MenuView: View {
                     Text("\(pending.amount) owed from today, pays at \(Self.clock(pending.pays_at))").font(.caption).foregroundStyle(.secondary)
                 }
             } else if let points = node.points {
-                Text("standing \(points.standing), earned by work · \(points.free) free to stake").font(.callout)
+                Text("standing \(points.standing), \(points.earned) · \(points.free) free to stake").font(.callout)
                 Spacer()
             } else {
                 Text("No tracker has answered with your standing yet.").font(.caption).foregroundStyle(.secondary)
             }
             if node.coin != nil, let points = node.points {
-                Text("· standing \(points.standing), earned by work").font(.caption).foregroundStyle(.secondary)
+                Text("· standing \(points.standing), \(points.earned)").font(.caption).foregroundStyle(.secondary)
             }
         }
     }

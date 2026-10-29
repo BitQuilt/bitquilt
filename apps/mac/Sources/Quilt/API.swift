@@ -42,6 +42,10 @@ struct Standing: Decodable {
         let locked: Int
         let free: Int
         let tracker: String
+        /// The part of `standing` the tracker declared for this root at its founding (QX-1 section 2 as amended); absent or 0 for nearly everyone.
+        let founding: Int?
+        /// How the standing came to be, in the words the connector uses.
+        var earned: String { (founding ?? 0) > 0 ? "of which \(founding!) declared at the founding, the rest earned by work" : "earned by work" }
     }
 
     /// What the open epoch would mint to this key if it ended now, and when it ends.
