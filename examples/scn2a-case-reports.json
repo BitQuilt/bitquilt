@@ -1,0 +1,564 @@
+{
+  "title": "A natural-history table of SCN2A-related disorders, one row per open-access case report",
+  "done_when": "Every case report has its row: the patient's sex, age at first seizure, variant type, inheritance, the variant's effect on the channel as the report gives it, the seizures' response to sodium channel blockers, development, autism, movement disorder, and status and age at last follow-up, each read the same way by two AIs of different vendors and each backed by a sentence quoted from the report, so that a family foundation's natural-history table can take the rows in.",
+  "slug": "scn2a-case-reports",
+  "topics": [
+    "rare-disease",
+    "scn2a",
+    "epilepsy",
+    "natural-history",
+    "case-reports",
+    "genotype-phenotype",
+    "neurodevelopment",
+    "precision-medicine"
+  ],
+  "settings": {
+    "challenge_window_h": 48,
+    "lease_h": 2,
+    "endgame_at": 2,
+    "budget": 34,
+    "patch_max": 0
+  },
+  "pieces": {
+    "case/*": {
+      "count": 34,
+      "verifier": "agree",
+      "requires": [
+        "web"
+      ],
+      "brief": "Case {n}: {case.title} ({case.journal}, {case.year}; PMC id {case.pmcid}). The patient for this row is {case.subject}. Open the full text in PubMed Central or Europe PMC by its PMC id, read the whole report and its tables, and fill one row of a natural-history table for SCN2A-related disorders. The fields follow the SCN2A Clinical Trials Readiness Study (Berg and colleagues, Brain, 2024, sponsored by the FamilieSCN2A Foundation). Answer from what the report says of this patient. sex: male, female or unknown. onset: the age at the first seizure: neonatal in the first four weeks of life (the first month and the neonatal period count); infant from one month until the first birthday; later from the first birthday on; none when the report says there have been no seizures; unknown when no age is given or it does not say. variant: the change as the report writes it, or the words not given. variant_type: missense (one amino acid replaced); truncating (a stop or a frameshift); splice (a change at or near an exon boundary said to alter splicing); deletion (whole exons, the gene, or a segment carrying it lost); duplication (an extra copy of the gene or of a segment carrying it); other (an in-frame insertion or deletion, or anything else); unknown when the variant is not given. inheritance: de_novo when the report says de novo or that neither parent carries it; inherited when a parent carries it, affected or not, or both do; unknown when the parents were not tested or it does not say. function: what the report says this patient's variant does to the channel: gain, loss or mixed when it states, predicts or suspects that effect for this variant in those words, itself or citing earlier work; not_stated otherwise. Statements about the gene or such variants in general do not count, nor does a truncated protein or nonsense-mediated decay unless the report calls it a loss of function. scb_response: what the seizures did under the sodium channel blockers phenytoin, fosphenytoin, carbamazepine, oxcarbazepine, eslicarbazepine, lamotrigine, lacosamide, rufinamide, zonisamide and cenobamate (topiramate, valproate and lidocaine do not count): not_tried when none is named as given; else the first that applies: worse when one increased the seizures; seizure_free when the seizures stopped on one and are not said to have returned while it continued; improved when one made them fewer, shorter or milder, or interrupted a status epilepticus even briefly; no_change when every one tried had no effect; unknown when one was given and its effect is not said. development: at the last point the report describes it, normal when said to be normal or age-appropriate; impaired when delay, regression, intellectual disability or learning difficulty is described; unknown when it is not described. autism: yes when the report says the patient has autism spectrum disorder or autistic features; no when it says autism was looked for and not found; unknown otherwise. movement_disorder: yes when the report describes dystonia, chorea, athetosis, ataxia, dyskinesia, tremor or non-epileptic myoclonus (seizure semiology, hypotonia and spasticity do not count); no when it says there is none or no abnormal movement; unknown otherwise. outcome: alive at the last point the report describes, died when it says so, unknown otherwise. age_last: the oldest age the report gives for the patient (last follow-up, writing or death): under_1_year, 1_to_4_years, 5_to_11_years, 12_to_17_years or 18_years_or_older; unknown when no age is given. For each field but variant, quote the sentence or table cell that decides it, at most 400 characters copied from the report, or leave it empty for unknown, not_stated or not_tried. Give the day the report was read as YYYY-MM-DD. Name the report by its PMC id and give no links.",
+      "data": {
+        "case": "cases"
+      },
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sex",
+          "onset",
+          "variant",
+          "variant_type",
+          "inheritance",
+          "function",
+          "scb_response",
+          "development",
+          "autism",
+          "movement_disorder",
+          "outcome",
+          "age_last",
+          "sex_quote",
+          "onset_quote",
+          "variant_type_quote",
+          "inheritance_quote",
+          "function_quote",
+          "scb_response_quote",
+          "development_quote",
+          "autism_quote",
+          "movement_disorder_quote",
+          "outcome_quote",
+          "age_last_quote",
+          "accessed"
+        ],
+        "properties": {
+          "sex": {
+            "enum": [
+              "male",
+              "female",
+              "unknown"
+            ]
+          },
+          "onset": {
+            "enum": [
+              "neonatal",
+              "infant",
+              "later",
+              "none",
+              "unknown"
+            ]
+          },
+          "variant": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "variant_type": {
+            "enum": [
+              "missense",
+              "truncating",
+              "splice",
+              "deletion",
+              "duplication",
+              "other",
+              "unknown"
+            ]
+          },
+          "inheritance": {
+            "enum": [
+              "de_novo",
+              "inherited",
+              "unknown"
+            ]
+          },
+          "function": {
+            "enum": [
+              "gain",
+              "loss",
+              "mixed",
+              "not_stated"
+            ]
+          },
+          "scb_response": {
+            "enum": [
+              "not_tried",
+              "worse",
+              "seizure_free",
+              "improved",
+              "no_change",
+              "unknown"
+            ]
+          },
+          "development": {
+            "enum": [
+              "normal",
+              "impaired",
+              "unknown"
+            ]
+          },
+          "autism": {
+            "enum": [
+              "yes",
+              "no",
+              "unknown"
+            ]
+          },
+          "movement_disorder": {
+            "enum": [
+              "yes",
+              "no",
+              "unknown"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "alive",
+              "died",
+              "unknown"
+            ]
+          },
+          "age_last": {
+            "enum": [
+              "under_1_year",
+              "1_to_4_years",
+              "5_to_11_years",
+              "12_to_17_years",
+              "18_years_or_older",
+              "unknown"
+            ]
+          },
+          "sex_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "onset_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "variant_type_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "inheritance_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "function_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "scb_response_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "development_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "autism_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "movement_disorder_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "outcome_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "age_last_quote": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "accessed": {
+            "type": "string",
+            "format": "date",
+            "maxLength": 10
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 400
+          }
+        }
+      },
+      "agree": [
+        "sex",
+        "onset",
+        "variant_type",
+        "inheritance",
+        "function",
+        "scb_response",
+        "development",
+        "autism",
+        "movement_disorder",
+        "outcome",
+        "age_last"
+      ]
+    }
+  },
+  "data": {
+    "cases": [
+      {
+        "pmcid": "PMC3994485",
+        "title": "De novo SCN2A splice site mutation in a boy with Autism spectrum disorder",
+        "journal": "BMC Medical Genetics",
+        "year": 2014,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC6054605",
+        "title": "Nonsyndromic intellectual disability with novel heterozygous SCN2A mutation and epilepsy",
+        "journal": "Human Genome Variation",
+        "year": 2018,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC6090917",
+        "title": "Heterozygous deletion of SCN2A and SCN3A in a patient with autism spectrum disorder and Tourette syndrome: a case report",
+        "journal": "BMC Psychiatry",
+        "year": 2018,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC6213185",
+        "title": "Whole-Exome Sequencing Implicates SCN2A in Episodic Ataxia, but Multiple Ion Channel Variants May Contribute to Phenotypic Complexity",
+        "journal": "International Journal of Molecular Sciences",
+        "year": 2018,
+        "subject": "the proband, the daughter, not her father"
+      },
+      {
+        "pmcid": "PMC6408085",
+        "title": "Novel SCN2A mutation in a family associated with juvenile-onset myoclonus: Case report",
+        "journal": "Medicine",
+        "year": 2019,
+        "subject": "the proband, the 21-year-old man, not his half-sister"
+      },
+      {
+        "pmcid": "PMC6537489",
+        "title": "Biallelic SCN2A Gene Mutation Causing Early Infantile Epileptic Encephalopathy: Case Report and Review",
+        "journal": "Journal of Central Nervous System Disease",
+        "year": 2019,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC6706917",
+        "title": "Clinical exome sequencing identifies two novel mutations of the SCN1A and SCN2A genes in Moroccan patients with epilepsy: a case series",
+        "journal": "Journal of Medical Case Reports",
+        "year": 2019,
+        "subject": "patient 3 as the report numbers them, the boy with the SCN2A variant"
+      },
+      {
+        "pmcid": "PMC7336724",
+        "title": "Electrophysiological features: The next precise step for SCN2A developmental epileptic encephalopathy",
+        "journal": "Molecular Genetics & Genomic Medicine",
+        "year": 2020,
+        "subject": "patient 1 of the five, as the report numbers them"
+      },
+      {
+        "pmcid": "PMC7336724",
+        "title": "Electrophysiological features: The next precise step for SCN2A developmental epileptic encephalopathy",
+        "journal": "Molecular Genetics & Genomic Medicine",
+        "year": 2020,
+        "subject": "patient 2 of the five, as the report numbers them"
+      },
+      {
+        "pmcid": "PMC7336724",
+        "title": "Electrophysiological features: The next precise step for SCN2A developmental epileptic encephalopathy",
+        "journal": "Molecular Genetics & Genomic Medicine",
+        "year": 2020,
+        "subject": "patient 3 of the five, as the report numbers them"
+      },
+      {
+        "pmcid": "PMC7480906",
+        "title": "Functional and pharmacological evaluation of a novel SCN2A variant linked to early-onset epilepsy",
+        "journal": "Annals of Clinical and Translational Neurology",
+        "year": 2020,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC8007422",
+        "title": "Ketogenic Diet in Infants with Early-Onset Epileptic Encephalopathy and SCN2A Mutation",
+        "journal": "Yonsei Medical Journal",
+        "year": 2021,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC8170409",
+        "title": "Differential Functional Changes of Nav1.2 Channel Causing SCN2A-Related Epilepsy and Status Epilepticus During Slow Sleep",
+        "journal": "Frontiers in Neurology",
+        "year": 2021,
+        "subject": "patient 7 in Table 2, whose V911A variant the report describes for the first time"
+      },
+      {
+        "pmcid": "PMC8773615",
+        "title": "SCN2A Pathogenic Variants and Epilepsy: Heterogeneous Clinical, Genetic and Diagnostic Features",
+        "journal": "Brain Sciences",
+        "year": 2021,
+        "subject": "case 1 of the five, as the report numbers them"
+      },
+      {
+        "pmcid": "PMC8773615",
+        "title": "SCN2A Pathogenic Variants and Epilepsy: Heterogeneous Clinical, Genetic and Diagnostic Features",
+        "journal": "Brain Sciences",
+        "year": 2021,
+        "subject": "case 2 of the five, as the report numbers them"
+      },
+      {
+        "pmcid": "PMC8773615",
+        "title": "SCN2A Pathogenic Variants and Epilepsy: Heterogeneous Clinical, Genetic and Diagnostic Features",
+        "journal": "Brain Sciences",
+        "year": 2021,
+        "subject": "case 3 of the five, as the report numbers them"
+      },
+      {
+        "pmcid": "PMC8773615",
+        "title": "SCN2A Pathogenic Variants and Epilepsy: Heterogeneous Clinical, Genetic and Diagnostic Features",
+        "journal": "Brain Sciences",
+        "year": 2021,
+        "subject": "case 4 of the five, as the report numbers them"
+      },
+      {
+        "pmcid": "PMC9194094",
+        "title": "Case Report: Phenotype-Driven Diagnosis of Atypical Dravet-Like Syndrome Caused by a Novel Splicing Variant in the SCN2A Gene",
+        "journal": "Frontiers in Genetics",
+        "year": 2022,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC9207545",
+        "title": "Long-term course of early onset developmental and epileptic encephalopathy associated with 2q24.3 microduplication",
+        "journal": "Epilepsy & Behavior Reports",
+        "year": 2022,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC9603888",
+        "title": "Heterozygous Mutation of Sodium Voltage-Gated Channel Alpha Subunit 2 and Pumilio Homolog 1 Genes in a Pediatric Patient: A Case Report",
+        "journal": "Cureus",
+        "year": 2022,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC9656590",
+        "title": "A Complex Genomic Rearrangement Resulting in Loss of Function of SCN1A and SCN2A in a Patient with Severe Developmental and Epileptic Encephalopathy",
+        "journal": "International Journal of Molecular Sciences",
+        "year": 2022,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC10026144",
+        "title": "SCN2A- Associated Episodic and Persistent Ataxia with Cerebellar Atrophy: A Case Report",
+        "journal": "Child Neurology Open",
+        "year": 2023,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC10158977",
+        "title": "Functional analysis of a novel de novo SCN2A variant in a patient with seizures refractory to oxcarbazepine",
+        "journal": "Frontiers in Molecular Neuroscience",
+        "year": 2023,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC10815715",
+        "title": "Sodium Channel Gene Variants in Fetuses with Abnormal Sonographic Findings: Expanding the Prenatal Phenotypic Spectrum of Sodium Channelopathies",
+        "journal": "Genes",
+        "year": 2024,
+        "subject": "the proband of family 1, the fetus with the SCN2A variant, later born"
+      },
+      {
+        "pmcid": "PMC11603671",
+        "title": "Cortical Vision Impairment (CVI)-informed assessment and treatment of challenging behavior in a child with SCN2A-related disorder",
+        "journal": "Journal of Neurodevelopmental Disorders",
+        "year": 2024,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC12283366",
+        "title": "Antisense oligonucleotide treatment in a preterm infant with early-onset SCN2A developmental and epileptic encephalopathy",
+        "journal": "Nature Medicine",
+        "year": 2025,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC12854296",
+        "title": "Functional Characterization of a De Novo SCN2A Mixed Variant Linked to Early Infantile Developmental and Epileptic Encephalopathy",
+        "journal": "Neurology Genetics",
+        "year": 2026,
+        "subject": "individual 1 of the three, as the report numbers them"
+      },
+      {
+        "pmcid": "PMC12854296",
+        "title": "Functional Characterization of a De Novo SCN2A Mixed Variant Linked to Early Infantile Developmental and Epileptic Encephalopathy",
+        "journal": "Neurology Genetics",
+        "year": 2026,
+        "subject": "individual 2 of the three, as the report numbers them"
+      },
+      {
+        "pmcid": "PMC13077968",
+        "title": "Feeding dysfunction in a neonate with interstitial deletion of chromosome 2q24.3-q32.1: a case report",
+        "journal": "BMC Pediatrics",
+        "year": 2026,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC13276682",
+        "title": "Self-limited neonatal epilepsy with 2q24.3 duplications: Case series and literature review",
+        "journal": "Epileptic Disorders",
+        "year": 2026,
+        "subject": "patient 1 of the two, as the report numbers them"
+      },
+      {
+        "pmcid": "PMC13276682",
+        "title": "Self-limited neonatal epilepsy with 2q24.3 duplications: Case series and literature review",
+        "journal": "Epileptic Disorders",
+        "year": 2026,
+        "subject": "patient 2 of the two, as the report numbers them"
+      },
+      {
+        "pmcid": "PMC13520411",
+        "title": "Therapeutic drug monitoring of lacosamide as add-on treatment in a neonate with therapy-resistant epilepsy due to SCN2A mutation: a case report",
+        "journal": "Journal of Medical Case Reports",
+        "year": 2026,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC13595215",
+        "title": "Functional and pharmacological characterization of the SCN2A variant p.C258R with mixed gain and loss of function causing developmental and epileptic encephalopathy type 11",
+        "journal": "Epilepsy & Behavior Reports",
+        "year": 2026,
+        "subject": "the one patient it describes"
+      },
+      {
+        "pmcid": "PMC13647037",
+        "title": "Drug-Refractory Dystonia: Benefits of Lamotrigine Therapy in a Case of SCN2A Epilepsy-Dyskinesia Syndrome",
+        "journal": "Movement Disorders Clinical Practice",
+        "year": 2026,
+        "subject": "the one patient it describes"
+      }
+    ]
+  },
+  "gold": {
+    "answers": {
+      "case/1": {
+        "sex": "male",
+        "onset": "none",
+        "variant_type": "splice",
+        "inheritance": "de_novo",
+        "function": "not_stated",
+        "scb_response": "not_tried",
+        "development": "impaired",
+        "autism": "yes",
+        "movement_disorder": "no",
+        "outcome": "alive",
+        "age_last": "5_to_11_years"
+      },
+      "case/2": {
+        "sex": "female",
+        "onset": "later",
+        "variant_type": "missense",
+        "inheritance": "de_novo",
+        "function": "not_stated",
+        "scb_response": "not_tried",
+        "development": "impaired",
+        "autism": "unknown",
+        "movement_disorder": "unknown",
+        "outcome": "alive",
+        "age_last": "12_to_17_years"
+      },
+      "case/12": {
+        "sex": "male",
+        "onset": "neonatal",
+        "variant_type": "missense",
+        "inheritance": "de_novo",
+        "function": "not_stated",
+        "scb_response": "not_tried",
+        "development": "unknown",
+        "autism": "unknown",
+        "movement_disorder": "unknown",
+        "outcome": "alive",
+        "age_last": "under_1_year"
+      },
+      "case/20": {
+        "sex": "female",
+        "onset": "later",
+        "variant_type": "unknown",
+        "inheritance": "unknown",
+        "function": "not_stated",
+        "scb_response": "not_tried",
+        "development": "impaired",
+        "autism": "unknown",
+        "movement_disorder": "no",
+        "outcome": "alive",
+        "age_last": "5_to_11_years"
+      },
+      "case/22": {
+        "sex": "male",
+        "onset": "later",
+        "variant_type": "missense",
+        "inheritance": "de_novo",
+        "function": "loss",
+        "scb_response": "seizure_free",
+        "development": "unknown",
+        "autism": "unknown",
+        "movement_disorder": "yes",
+        "outcome": "alive",
+        "age_last": "5_to_11_years"
+      },
+      "case/26": {
+        "sex": "female",
+        "onset": "neonatal",
+        "variant_type": "missense",
+        "inheritance": "de_novo",
+        "function": "gain",
+        "scb_response": "improved",
+        "development": "impaired",
+        "autism": "unknown",
+        "movement_disorder": "unknown",
+        "outcome": "alive",
+        "age_last": "1_to_4_years"
+      },
+      "case/11": {
+        "sex": "male",
+        "onset": "infant",
+        "variant_type": "missense",
+        "inheritance": "de_novo",
+        "function": "gain",
+        "scb_response": "seizure_free",
+        "development": "impaired",
+        "autism": "yes",
+        "movement_disorder": "yes",
+        "outcome": "alive",
+        "age_last": "1_to_4_years"
+      }
+    }
+  }
+}

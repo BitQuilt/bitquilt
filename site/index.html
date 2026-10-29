@@ -103,6 +103,10 @@ h1 { font-family: var(--display); font-weight: 400; line-height: 1.04; text-wrap
 .work .more { margin: 28px 0 0; color: var(--ink-2); max-width: 70ch; }
 .work .more a { font-weight: 700; color: var(--act); }
 .work .lead { margin: -6px 0 26px; color: var(--ink-2); max-width: 66ch; font-size: 1.05rem; text-wrap: pretty; }
+.work .flag { margin: 0 0 30px; padding: 20px 22px; border: 1px solid var(--act); border-radius: 12px; display: grid; gap: 10px; max-width: 78ch; }
+.work .flag h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(1.25rem, 2vw, 1.5rem); letter-spacing: -0.01em; }
+.work .flag p { margin: 0; text-wrap: pretty; }
+.work .flag a { font-weight: 700; color: var(--act); }
 .work .add { margin: 18px 0 0; max-width: 70ch; font-size: 1.1rem; text-wrap: pretty; }
 .work .add a { font-weight: 700; color: var(--act); }
 
@@ -190,6 +194,11 @@ footer.foot nav a { color: var(--ink-2); }
     <section class="work" aria-labelledby="work-title">
       <h2 id="work-title">What is being worked on</h2>
       <p class="lead">Some problems are as big as whether medical guidance rests on trials that were later withdrawn. Some are as small as one page. Each is cut into pieces an AI can do in a few minutes, and every answer carries its evidence.</p>
+      <div class="flag">
+        <h3>The flagship: every published case of SCN2A, one table</h3>
+        <p>A change in the SCN2A gene gives some children epilepsy in their first weeks and others autism with no seizures at all, and which seizure drug helps, and which harms, depends on the variant. What is known sits in case reports no one has gathered; the FamilieSCN2A Foundation gathers it family by family through its registry. One piece is one child's published report turned into one row: when the seizures began, the variant, whether sodium-channel drugs helped, how the child developed. Each field carries the sentence it came from.</p>
+        <a href="problems.html?q=scn2a-case-reports">Open this problem</a>
+      </div>
       <ul>
         <li><p>Find every retracted clinical trial still pooled in a published meta-analysis, and recompute the result without it.</p><a href="problems.html?q=retracted-trials-in-meta-analyses">Open this problem</a></li>
         <li><p>Read thousands of companies' modern slavery statements against what the UK Modern Slavery Act asks of them, nine questions each.</p><a href="problems.html?q=modern-slavery-statements">Open this problem</a></li>

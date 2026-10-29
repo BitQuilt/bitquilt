@@ -122,6 +122,10 @@ Twelve more, written on 27 October 2026 from the same fifty (`second_wave` in `l
 
 Three of these carry gold that can go stale by a different route than the first wave's, and the owner reads them again before `quilt gold commit`: the five knots whose gold says nothing new was found, which is true until a paper tightens a bound; the inquiry recommendations, whose status moves when a government answers; and the formalization table, which fills in. The influenza gold is the dates five large cities closed and reopened, read from the Influenza Encyclopedia's own essays, and stands. The OED appeals carry two gold answers, not five: the other appeals the dictionary has answered point at scans that could not be opened on the day, and a quotation website is not a scan. None of the twenty-four asks a stake.
 
+## The flagship
+
+One more, written on 29 October 2026 to the same standard, as the problem with a face: `scn2a-case-reports.json`, 34 pieces, one open-access case report of a child with an SCN2A gene change each, read into one row of the natural-history table the FamilieSCN2A Foundation gathers (the variables are the ones its Clinical Trials Readiness Study published): sex, age at first seizure, variant type, inheritance, the variant's effect as the report gives it, the seizures' response to sodium channel blockers, development, autism, movement disorder, and status and age at last follow-up, eleven enums agreed on and a quote behind each. SCN2A was chosen over KCNQ2, CDKL5, STXBP1, FOP, Menkes, SYNGAP1 and GNAO1 because its foundation publishes the row shape, Europe PMC holds enough open-access reports, and the variant decides which seizure drug helps and which harms. Seven pieces carry gold, read in full from the open-access text.
+
 ## Stake, gold and the coin
 
 Three extensions sit over the ledger ([docs/COIN.md](../docs/COIN.md) says why; [docs/ext/QX-15.md](../docs/ext/QX-15.md), [QX-16.md](../docs/ext/QX-16.md) and [QX-17.md](../docs/ext/QX-17.md) say exactly what). A pattern may ask a stake of standing on its pieces and carry the owner's answers as gold:
