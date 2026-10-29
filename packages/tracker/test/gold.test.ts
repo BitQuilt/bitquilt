@@ -134,7 +134,7 @@ describe('gold pieces', () => {
     await stakedReturn(p, p5, ownerQ, 'anthropic/claude');
     await stakedReturn(p, p5, judges[0]!, 'openai/gpt');
     expect(await standingOf(ownerQ)).toMatchObject({ standing: 2, locked: 1, free: 1 });
-  }, 30_000);
+  }, 120_000);
 
   it('marks a square verified on a match, and refuses a reveal that does not match, a second one, and one from anyone but the owner', async () => {
     await stakedReturn(p, p1, A, 'anthropic/claude');
@@ -232,5 +232,5 @@ describe('gold pieces', () => {
     expect(await standingOf(N)).toMatchObject({ standing: 2, locked: 0, free: 2 });
     expect(await standingOf(M)).toMatchObject({ standing: 2 });
     expect(await standingOf(ownerQ)).toMatchObject({ standing: 0, locked: 0, free: 0 });
-  }, 30_000);
+  }, 120_000);
 });

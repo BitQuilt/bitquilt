@@ -22,12 +22,14 @@ import { instructs, json, mcpPair, quiltOver, startTracker, tempHome } from './h
  * cap, in words that describe; the driver refuses to start at the cap, and otherwise runs the agent and records the
  * run; the launchd plist runs this program's `away` every hour; the switch writes and removes it.
  */
+// The run while away is for a Mac or Linux: launchd or cron, a shell, posix paths. The tests that lean on those are skipped on Windows.
+const posix = it.skipIf(process.platform === 'win32');
 const entry = { command: '/opt/quilt', args: ['mcp'], env: { QUILT_HOME: '/h', QUILT_MODEL: 'anthropic/claude', QUILT_TRACKERS: 'http://t/' } };
 const day = '2026-10-29';
 const at = (d: string, h = 12) => new Date(`${d}T${String(h).padStart(2, '0')}:00:00`);
 
 describe('finding the agent CLI and building its invocation', () => {
-  it('looks on the PATH first and then in the usual places, nvm newest first, and finds claude before codex', () => {
+  posix('looks on the PATH first and then in the usual places, nvm newest first, and finds claude before codex', () => {
     const dirs = searchDirs({ PATH: '/bin:/usr/bin' }, '/Users/x', (d) => (d.endsWith('node') ? ['v20.19.4', 'v22.15.0'] : []));
     expect(dirs.slice(0, 3)).toEqual(['/bin', '/usr/bin', '/Users/x/.local/bin']);
     expect(dirs).toContain('/opt/homebrew/bin');
@@ -179,7 +181,7 @@ describe('the connector under the cap', () => {
 });
 
 describe('the schedule', () => {
-  it('writes a plist that runs this program\'s away every hour, not at load, with the home in its environment and its output under the home', () => {
+  posix('writes a plist that runs this program\'s away every hour, not at load, with the home in its environment and its output under the home', () => {
     const { command, args } = awayCommand(entry);
     expect([command, args]).toEqual(['/opt/quilt', ['away']]);
     expect(awayCommand({ ...entry, args: ['--filter', 'quilt', '--dir', '/r', 'start', 'mcp'] }).args).toEqual(['--filter', 'quilt', '--dir', '/r', 'start', 'away']);
@@ -228,7 +230,7 @@ describe('a turn', () => {
     chmodSync(join(dir, name), 0o755);
     return { dir, argv };
   }
-  it('refuses to start at the cap and when no agent is here, and otherwise runs the agent with its invocation and records the run', async () => {
+  posix('refuses to start at the cap and when no agent is here, and otherwise runs the agent with its invocation and records the run', async () => {
     const home = tempHome('quilt-away-turn-');
     const file = join(home, AWAY_FILE);
     const env = { PATH: '/nonexistent' };
@@ -253,7 +255,7 @@ describe('a turn', () => {
     expect(readFileSync(failing.argv, 'utf8')).toContain('mcp_servers.quilt.command="/opt/quilt"');
     expect(readAway(file, at(day, 17)).runs).toBe(2);
   });
-  it('stops an agent that runs past the timeout', async () => {
+  posix('stops an agent that runs past the timeout', async () => {
     const home = tempHome('quilt-away-slow-');
     const dir = tempHome('quilt-away-bin-');
     writeFileSync(join(dir, 'claude'), '#!/bin/sh\nexec /bin/sleep 30\n');
