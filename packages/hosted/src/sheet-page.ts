@@ -69,7 +69,7 @@ ol{padding-left:1.2em}
     $('who').textContent = (s.name ? s.name + ', ' : '') + s.address;
     var st = $('standing'); st.textContent = '';
     if (s.standing) {
-      st.appendChild(el('div', null, 'Standing ' + s.standing.standing + ', earned by work and not for sale' + (s.standing.locked ? ' (' + s.standing.locked + ' locked behind your claims, ' + s.standing.free + ' free to stake)' : '')));
+      st.appendChild(el('div', null, 'Standing ' + s.standing.standing + (s.standing.founding ? ', of which ' + s.standing.founding + ' was declared at the founding and the rest earned by work, not for sale' : ', earned by work and not for sale') + (s.standing.locked ? ' (' + s.standing.locked + ' locked behind your claims, ' + s.standing.free + ' free to stake)' : '')));
     } else st.appendChild(el('div', 'q', 'No tracker has answered with your standing yet.'));
     var c = $('coin'); c.textContent = '';
     if (s.coin) {

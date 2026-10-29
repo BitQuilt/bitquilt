@@ -47,6 +47,8 @@ export interface ProblemEntry {
 export interface Folding {
   /** The time the layer is read at: roots are resolved at it, lapses, windows and liveness are judged against it. */
   now: string;
+  /** QX-1 section 2 as amended 29 October 2026: the founding standing this tracker declares, by root in lower case, counted from the ledger's beginning. */
+  founding: Map<string, number>;
   entries: Map<Hash, ProblemEntry>;
   /** The credits as the folds stand now, refreshed after every refold. */
   credits: Credit[];
@@ -66,9 +68,9 @@ export interface Folding {
 }
 
 /** An empty record at `now`, its readers bound to it. */
-export function newFolding(now: string): Folding {
+export function newFolding(now: string, founding: Map<string, number> = new Map()): Folding {
   const f: Folding = {
-    now, entries: new Map(), credits: [], struckCredits: [], moves: [], locks: [], golds: [],
+    now, founding, entries: new Map(), credits: [], struckCredits: [], moves: [], locks: [], golds: [],
     standing: (root, at = now) => standingAt(f, root, at),
     locked: (root, at = now) => lockedAt(f, root, at),
     free: (root, at = now) => Math.max(0, f.standing(root, at) - f.locked(root, at)),
@@ -146,6 +148,8 @@ export function creditBurns(f: Folding, coin: Receipt[]): void {
  *   QX-16 section 4   +2 when a held challenge on a miss gave back the point docked and the set's point; the owner's
  *                     -stake, forfeited whole.
  *   QX-17 section 4   +floor(amount / burn_rate) for a burn on the coin log, on the door's word.
+ *   QX-1 section 2    +the founding standing the tracker declares for the root (amended 29 October 2026), from the
+ *   (amended)         beginning, before the 1 every root starts with.
  */
 function standingAt(f: Folding, root: Address, at: string): number {
   const moves: { at: string; delta: number }[] = [];
@@ -155,7 +159,7 @@ function standingAt(f: Folding, root: Address, at: string): number {
   }
   for (const m of f.moves) if (m.root === root) moves.push({ at: m.at, delta: m.delta });
   moves.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
-  let s = 1;
+  let s = 1 + (f.founding.get(root.toLowerCase()) ?? 0);
   for (const m of moves) if (m.at <= at) s = Math.max(0, s + m.delta);
   return s;
 }

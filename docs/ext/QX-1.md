@@ -32,6 +32,8 @@ Standing is what a root may stake, and nothing else: it weights no draw and gate
 
 Amended 26 October 2026 for [QX-15](QX-15.md): where a problem asks a stake of a piece, standing is also what a root locks to claim it, and the standing a challenge may stake is the root's free standing, its standing less what its live locks hold. A lock forfeited with a struck set is a move of minus its amount on the root's standing from the strike, beside the minus one above. Where no lock is live, nothing here changes.
 
+Amended 29 October 2026, at the founder's direction, for the launch. A tracker may declare a **founding standing** for named roots, published at its well-known document as `founding: { <address>: <amount> }`: every reader of that tracker's ledger counts the amount into the root's standing from the ledger's beginning, beside the 1 every root starts with and before every move above. It is the one standing not earned by work, and it exists for one reason: gold ([QX-16](QX-16.md)) is backed by the owner's standing, the coin ([QX-17](QX-17.md)) is minted only against squares that gold verifies, and at a launch no owner has earned anything yet, so without a declaration no gold could be committed and no coin ever minted. The declaration is bounded and public: the public tracker declares 400 for the maintainers' root, `0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA`, which is what the gold stakes of the twenty-seven launch patterns come to (316) with room for the next few. A gold's stake is locked until its problem settles, so this standing is spent on nothing but the gold and comes back as the problems close. A tracker that declares none behaves as before, and a root with a founding standing is docked and credited like any other.
+
 ## 3. The pool
 
 For a challenge received at `t` on piece `x` of problem `p`, the pool is every root that:
@@ -80,6 +82,7 @@ Where this layer says a piece is accepted, the core says accepted; the core's `a
 - `GET /p/<hash>/challenges`: every challenge on the problem with its seats, verdicts and outcome as the tracker computes them at `now`.
 - `GET /p/<hash>/state` and `/next` use this layer's states, so a struck piece is offered again and a challenged one is not.
 - `GET /.well-known/quilt` says `sortition: "challenge-receipt"` and `challenge: { extension: "QX-1", panel: 3, majority: 2, ground_max: 200 }`.
+- Reads `QUILT_FOUNDING_STANDING` (`<address>=<amount>`, comma separated) into the declaration of section 2 as amended, publishes it at `GET /.well-known/quilt` as `founding`, and answers `founding` beside `standing` at `GET /k/<address>/standing`; `packages/tracker/test/founding.test.ts` holds it.
 
 ## 9. The client
 

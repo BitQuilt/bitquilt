@@ -72,6 +72,8 @@ export interface Standing {
   standing: number;
   locked: number;
   free: number;
+  /** The part of `standing` the tracker declared for this root at its founding (QX-1 section 2 as amended); 0 for nearly everyone. */
+  founding: number;
   locks: { problem: Hash; piece: Hash; amount: number; at: string }[];
 }
 
@@ -236,7 +238,7 @@ export class Quilt {
     if (!address) return null;
     return this.firstAnswer(this.config.trackers, async (t) => {
       const j = await askJson<Omit<Standing, 'tracker'>>(`${t}k/${address}/standing`);
-      return j && { tracker: t, standing: j.standing, locked: j.locked, free: j.free, locks: j.locks };
+      return j && { tracker: t, standing: j.standing, locked: j.locked, free: j.free, founding: j.founding ?? 0, locks: j.locks };
     });
   }
 

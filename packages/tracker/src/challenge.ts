@@ -473,9 +473,9 @@ function keepChallenge(f: Folding, c: LayerEvent, verdicts: Verdict[]): void {
  * resolved at `now` throughout, moves are dated at the receipts that made them. `coin` is the coin log's receipts, read
  * for burn credits (QX-17 section 4).
  */
-export function challengeLayer(input: { problems: ReduceInput[]; now: string; coin?: Receipt[] }): Layer {
+export function challengeLayer(input: { problems: ReduceInput[]; now: string; coin?: Receipt[]; founding?: Map<string, number> }): Layer {
   const { now } = input;
-  const f = newFolding(now);
+  const f = newFolding(now, input.founding);
 
   // 1. Every problem reduced by the core, once each by hash, and the kinds decided over it with no credits yet.
   for (const p of input.problems) {

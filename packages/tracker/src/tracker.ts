@@ -54,6 +54,8 @@ export interface TrackerOptions {
   now?: () => string;
   /** The keys whose hide events this tracker honours (QX-6); published at the well-known document. */
   maintainers?: Address[];
+  /** QX-1 section 2 as amended 29 October 2026: a founding standing declared per root, published at the well-known document and counted into that root's standing from the ledger's beginning. */
+  founding?: Record<string, number>;
   /** A secret only this process knows: a post carrying it in x-quilt-custody was made by the connector mounted beside the tracker, for a key it holds. */
   custodySecret?: string;
   /** Routes mounted beside the tracker, such as the hosted on-ramp. Answers true when it handled the request. */
@@ -152,6 +154,8 @@ export function createTracker(options: TrackerOptions): Tracker {
 
   const maintainers: Address[] = options.maintainers ?? [];
   const maintainerSet = new Set(maintainers.map((a) => a.toLowerCase()));
+  /** The founding standing by root in lower case, as the layer counts it. */
+  const founding = new Map(Object.entries(options.founding ?? {}).map(([a, n]) => [a.toLowerCase(), n]));
   /** QX-6: what the maintainers have taken down here, read from the identity log each time. */
   function hidden(): Map<string, Hidden> {
     return maintainers.length ? hiddenNow(store.receipts(IDENTITY), maintainers) : new Map();
@@ -164,7 +168,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       const input = inputFor(e.hash);
       if (input) problems.push(input);
     }
-    return challengeLayer({ problems, now: now(), ...(options.coin ? { coin: store.receipts(COIN_LOG) } : {}) });
+    return challengeLayer({ problems, now: now(), ...(options.coin ? { coin: store.receipts(COIN_LOG) } : {}), ...(founding.size ? { founding } : {}) });
   }
 
   /** QX-17: the coin over the layer, from the coin log and the parameters; null where this tracker carries none. */
@@ -511,7 +515,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       quilt: 1, tracker: options.name ?? url, url, peers: options.peers ?? [], limits, stamp: { name: stampNeeded }, sortition: SEED,
       challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
       verifiers: { human: EXTENSIONS.human, 'judge:n': EXTENSIONS.judge, attest: EXTENSIONS.attest, judge_seed: JUDGE_SEED },
-      chain: 'QX-11', seeding: SEEDING, reciprocity: RECIPROCITY, hide: HIDE, maintainers, identity: IDENTITY, hosted: options.extra !== undefined,
+      chain: 'QX-11', seeding: SEEDING, reciprocity: RECIPROCITY, hide: HIDE, maintainers, founding: options.founding ?? {}, identity: IDENTITY, hosted: options.extra !== undefined,
       // `stake.burn_rate` is the rate in force now, which with `burn_indexed` moves with the epochs; `coin.burn_rate` is the parameter, its floor.
       stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: coin()!.burnRateAt(now()) } : {}) }, gold: { extension: GOLD },
       coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
@@ -799,7 +803,7 @@ export function createTracker(options: TrackerOptions): Tracker {
         const layered = layer();
         const root = layered.rootOf(address);
         json(res, 200, {
-          address, root, standing: layered.standing(root), locked: layered.locked(root), free: layered.free(root),
+          address, root, standing: layered.standing(root), locked: layered.locked(root), free: layered.free(root), founding: founding.get(root.toLowerCase()) ?? 0,
           locks: layered.liveLocks(root).map((l) => ({ problem: l.problem, piece: l.piece, amount: l.amount, at: l.at })), at: layered.now,
         });
         return;

@@ -4,6 +4,7 @@
  *   QUILT_PORT (3977)  QUILT_HOST (127.0.0.1)  QUILT_DB (./quilt-tracker.db)  QUILT_URL (http://localhost:<port>/)
  *   QUILT_NAME  QUILT_PEERS (comma-separated)  QUILT_LIMIT_KEY_HOUR (120)  QUILT_LIMIT_IP_HOUR (600)
  *   QUILT_STAMP_NAME (0)  QUILT_IP_SALT  QUILT_MAINTAINERS (addresses whose hide events this tracker honours, comma separated)
+ *   QUILT_FOUNDING_STANDING (a founding standing declared per root, <address>=<amount> comma separated, QX-1 section 2 as amended)
  *   QUILT_COIN (the coin's parameters as JSON, QX-17; absent, no coin log and no coin lock honoured)
  * This file loads no store, so a binary can read it before Node's SQLite module is loaded and its warning silenced.
  */
@@ -20,6 +21,17 @@ export interface TrackerEnv {
 }
 
 const list = (s: string | undefined): string[] => (s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+
+/** `<address>=<amount>` pairs, comma separated: the founding standing declared per root; a pair that is not an address and a whole number of at least 1 throws naming it. */
+export function foundingFromEnv(s: string | undefined): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const pair of list(s)) {
+    const [address, amount] = pair.split('=').map((x) => x.trim());
+    if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address) || !amount || !/^[1-9]\d*$/.test(amount)) throw new Error(`QUILT_FOUNDING_STANDING: ${pair} is not <address>=<amount>`);
+    out[address] = Number(amount);
+  }
+  return out;
+}
 
 /** Reads the variables above; the coin's parameters are checked for shape, and a malformed QUILT_COIN throws naming the field. */
 export function trackerOptionsFromEnv(env: NodeJS.ProcessEnv): TrackerEnv {
@@ -43,6 +55,7 @@ export function trackerOptionsFromEnv(env: NodeJS.ProcessEnv): TrackerEnv {
       stamp: { name: Number(env.QUILT_STAMP_NAME ?? 0) },
       ...(env.QUILT_IP_SALT ? { ipSalt: env.QUILT_IP_SALT } : {}),
       maintainers: list(env.QUILT_MAINTAINERS) as Address[],
+      ...(env.QUILT_FOUNDING_STANDING ? { founding: foundingFromEnv(env.QUILT_FOUNDING_STANDING) } : {}),
       ...(coin ? { coin } : {}),
     },
   };
