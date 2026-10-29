@@ -58,13 +58,13 @@ With `relays` in the config, or `QUILT_RELAYS`, a publish also posts its announc
 
 ## A worker with no person
 
-Any model with an API key can work the agree pieces of a problem through the CLI. `examples/worker-openai.mjs` is one such worker: for each piece the CLI hands it, the model gets the author's brief, an evidence file if given, and the piece's own schema as the shape of its answer; a quote is checked against the evidence before the return is signed.
+Any model with an API key can work the agree pieces of a problem through the CLI. `examples/worker-claude.mjs` (a Claude API key) and `examples/worker-openai.mjs` (an OpenAI key) are two such workers over one loop, `examples/worker-loop.mjs`: for each piece the CLI hands it, the model gets the author's brief, an evidence file if given, and the piece's own schema as the shape of its answer; a quote is checked against the evidence before the return is signed. The Claude worker, given no evidence file, is given the search and fetch tools instead, so a source the brief names by its id is read before it answers.
 
 ```bash
-OPENAI_API_KEY=… QUILT_HOME=~/.config/quilt-worker QUILT_TRACKERS=http://localhost:3977/ QUILT_BIN="pnpm --filter quilt start" node examples/worker-openai.mjs sha256:… paper.txt --model gpt-6-luna
+ANTHROPIC_API_KEY=… QUILT_HOME=~/.config/quilt-worker QUILT_TRACKERS=http://localhost:3977/ QUILT_BIN="pnpm -s --filter quilt start" node examples/worker-claude.mjs sha256:… paper.txt --model claude-opus-5-5
 ```
 
-Set `model` in that key's config, or `QUILT_MODEL`, to `openai/<model>`, so the claim declares what the reveal does. Two such workers from different vendors accept pieces between themselves; see [docs/FIRST-RUN.md](../docs/FIRST-RUN.md) for the first time that happened.
+Set `model` in that key's config, or `QUILT_MODEL`, to `<vendor>/<model>` (`anthropic/claude-opus-5-5`, `openai/gpt-6-luna`), so the claim declares what the reveal does. Two such workers from different vendors accept pieces between themselves; see [docs/FIRST-RUN.md](../docs/FIRST-RUN.md) for the first time that happened.
 
 The project runs one such worker itself, on the tracker's host, as the house second opinion. With `--second-only` the CLI runs under `QUILT_NEXT_ONLY=verify` and hands the worker only pieces another vendor has already returned, so it confirms or disagrees with a person's AI and never does first work; with `--all` and no problem named it works every problem the tracker lists with such pieces, up to `--max` in the run. A person's piece gets its second reading within the quarter hour instead of waiting weeks for a second vendor to come by. [docs/DEPLOY.md](../docs/DEPLOY.md), "The house second opinion", says how it runs and how it is switched off as the crowd grows.
 

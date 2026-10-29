@@ -1,16 +1,22 @@
 #!/bin/sh
 # The house second opinion (docs/DEPLOY.md, "The house second opinion"): the `house` service in docker-compose.yml runs
-# this loop from the same image as the tracker. Every HOUSE_EVERY seconds (900) it runs the OpenAI worker with
-# --second-only --all: the CLI under QUILT_NEXT_ONLY=verify hands out only pieces another vendor has already returned,
-# on every problem the tracker lists with such pieces, at most HOUSE_MAX (20) in a run. It never takes an open piece.
+# this loop from the same image as the tracker. Every HOUSE_EVERY seconds (900) it runs the worker of HOUSE_VENDOR
+# (anthropic unless set, with ANTHROPIC_API_KEY; openai with OPENAI_API_KEY) with --second-only --all: the CLI under
+# QUILT_NEXT_ONLY=verify hands out only pieces another vendor has already returned, on every problem the tracker lists
+# with such pieces, at most HOUSE_MAX (20) in a run. It never takes an open piece.
 # The key it signs with lives under QUILT_HOME, on a volume; it is made on the first run and named once. Its twelve
 # words are not printed: the key file is the key, and a lost volume means a new house key, nothing more. With no
-# OPENAI_API_KEY nothing runs and the log says so; with HOUSE=off the same. Nothing here prints the API key.
+# key nothing runs and the log says so; with HOUSE=off the same. Nothing here prints a key.
 set -u
 cd "$(dirname "$0")/.."
 EVERY="${HOUSE_EVERY:-900}"
 MAX="${HOUSE_MAX:-20}"
-MODEL="${HOUSE_MODEL:-gpt-6-luna}"
+VENDOR="${HOUSE_VENDOR:-anthropic}"
+case "$VENDOR" in
+  anthropic) KEY_NAME=ANTHROPIC_API_KEY; WORKER=examples/worker-claude.mjs; MODEL="${HOUSE_MODEL:-claude-opus-5-5}" ;;
+  openai) KEY_NAME=OPENAI_API_KEY; WORKER=examples/worker-openai.mjs; MODEL="${HOUSE_MODEL:-gpt-6-luna}" ;;
+  *) echo "house: HOUSE_VENDOR is $VENDOR; anthropic and openai are the two it knows"; exit 2 ;;
+esac
 say() { echo "house $(date -u +%Y-%m-%dT%H:%M:%SZ): $*"; }
 quilt() { ${QUILT_BIN:-quilt} "$@"; }
 
@@ -18,8 +24,8 @@ if [ "${HOUSE:-on}" = off ]; then
   say "HOUSE=off: the house second opinion is switched off, and nothing runs until the service is brought up with it on"
   while :; do sleep 86400; done
 fi
-if [ -z "${OPENAI_API_KEY:-}" ]; then
-  say "OPENAI_API_KEY is empty: nothing runs until it is set in deploy/.env and the service is brought up again"
+if [ -z "$(printenv "$KEY_NAME")" ]; then
+  say "$KEY_NAME is empty: nothing runs until it is set in deploy/.env and the service is brought up again"
   while :; do sleep 86400; done
 fi
 
@@ -31,11 +37,11 @@ if [ ! -f "${QUILT_HOME:?QUILT_HOME names where the key lives}/key" ]; then
   [ -f "$QUILT_HOME/key" ] || { say "the key was not made"; exit 1; }
   if quilt name "House second opinion" >/dev/null 2>&1; then say "the key is named House second opinion"; else say "the name was not posted; quilt name can be run again by hand"; fi
 fi
-say "the house second opinion answers as openai/$MODEL, at most $MAX pieces every $EVERY seconds, on $QUILT_TRACKERS"
+say "the house second opinion answers as $VENDOR/$MODEL, at most $MAX pieces every $EVERY seconds, on $QUILT_TRACKERS"
 
 while :; do
   # What waited in the queue while no tracker answered (the name on the first run, a return during a restart) goes out first.
   quilt flush >/dev/null 2>&1 || true
-  node examples/worker-openai.mjs --second-only --all --max "$MAX" --model "$MODEL" || say "the worker exited with $?"
+  node "$WORKER" --second-only --all --max "$MAX" --model "$MODEL" || say "the worker exited with $?"
   sleep "$EVERY"
 done

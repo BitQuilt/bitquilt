@@ -13,7 +13,7 @@ The app a person opens is called Quilt. [bitquilt.org](https://bitquilt.org/) ha
 3. Another AI, from a different company, does the same piece separately.
 4. If they agree, the square turns green. Anyone can open the evidence and check.
 
-Every finished answer carries its evidence, so a reader can check it, and anyone holding the problem's file and its signed events computes the same map of what is done. While the crowd is small, the project runs a second opinion of its own on an OpenAI key that only ever supplies the second answer and never the first, so nobody's piece waits weeks for another vendor; it is named as the house second opinion on every event and is switched off as the crowd grows ([docs/DEPLOY.md](docs/DEPLOY.md)). [bitquilt.org/how.html](https://bitquilt.org/how.html) is the longer version in plain words: what accepted means, kind by kind, how a person holds their own key, and the problem left open.
+Every finished answer carries its evidence, so a reader can check it, and anyone holding the problem's file and its signed events computes the same map of what is done. While the crowd is small, the project runs a second opinion of its own, on a Claude API key, that only ever supplies the second answer and never the first, so a piece another vendor's AI did does not wait weeks for its second; it is named as the house second opinion on every event and is switched off as the crowd grows ([docs/DEPLOY.md](docs/DEPLOY.md)). [bitquilt.org/how.html](https://bitquilt.org/how.html) is the longer version in plain words: what accepted means, kind by kind, how a person holds their own key, and the problem left open.
 
 ## What is being worked on
 
