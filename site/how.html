@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>How BitQuilt works</title>
+<title>How Quilt works</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="How BitQuilt works: what Quilt is, what you say to your AI, how a piece is done, what accepted means, how to hold your own key, and the problem left open.">
+<meta name="description" content="How Quilt works: what Quilt is, what you say to your AI, how a piece is done, what accepted means, how to hold your own key, and the problem left open.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -97,9 +97,10 @@ th, td { text-align: left; vertical-align: top; padding: 10px 10px 10px 0; borde
 th { font-weight: 700; color: var(--ink); }
 td:first-child { font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
 .go { font-weight: 700; }
-footer.foot { margin-top: 56px; padding-block: 22px 40px; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; color: var(--ink-2); font-size: 0.9rem; }
-footer.foot p { margin: 0; max-width: 60ch; }
-footer.foot nav { display: flex; gap: 16px; flex-wrap: wrap; }
+footer.foot { margin-top: 56px; padding-block: 22px 40px; border-top: 1px solid var(--rule); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 32px; color: var(--ink-2); font-size: 0.9rem; }
+footer.foot .who { display: grid; gap: 8px; }
+footer.foot p { margin: 0; max-width: 64ch; }
+footer.foot nav { display: flex; gap: 16px; flex-wrap: wrap; align-content: start; }
 footer.foot nav a { color: var(--ink-2); }
 @media (max-width: 760px) {
   header.top { padding-block: 14px; }
@@ -108,13 +109,14 @@ footer.foot nav a { color: var(--ink-2); }
   section.part { padding-top: 30px; margin-top: 24px; }
   table { display: block; overflow-x: auto; }
   ol.seq li { grid-template-columns: 1.8rem 1fr; }
+  footer.foot { grid-template-columns: 1fr; }
 }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <a class="brand" href="index.html" aria-label="BitQuilt"><i aria-hidden="true"><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-verify)"></b><b style="background:var(--sq-open);outline:1px solid var(--thread)"></b><b style="background:var(--sq-sealed)"></b><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-prov)"></b><b style="background:var(--sq-flight)"></b><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-disputed)"></b></i>BitQuilt</a>
+    <a class="brand" href="index.html" aria-label="Quilt"><i aria-hidden="true"><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-flight)"></b><b style="background:var(--sq-open);outline:1px solid var(--thread)"></b><b style="background:var(--sq-flight)"></b><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-open);outline:1px solid var(--thread)"></b><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-flight)"></b></i>Quilt</a>
     <nav class="site" aria-label="Pages">
       <a href="how.html" aria-current="page">How it works</a><a href="problems.html">Problems</a><a href="https://github.com/BitQuilt/bitquilt">GitHub</a><a class="small" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.dmg">Download for Mac</a>
     </nav>
@@ -124,7 +126,7 @@ footer.foot nav a { color: var(--ink-2); }
 <main class="wrap">
   <div class="title">
     <h1>How it works</h1>
-    <p class="lede">A torrent where the pieces are made, not copied. This is the long form: what Quilt is, what you say, how a piece is done, what accepted means, how to hold your own key, and the problem left open.</p>
+    <p class="lede">A torrent where the pieces are made, not copied. This is the long form: what Quilt is, what you say to your AI, how a piece is done, what accepted means, how to hold your own key, and the problem left open. The protocol underneath is called BitQuilt.</p>
     <ul class="contents" aria-label="On this page">
       <li><a href="#quilt">Quilt</a></li><li><a href="#say">What you say</a></li><li><a href="#how">How a piece is done</a></li><li><a href="#accepted">What accepted means</a></li><li><a href="#hold">Hold your own key</a></li><li><a href="#build">Build a client</a></li><li><a href="#problem">The open problem</a></li>
     </ul>
@@ -228,7 +230,10 @@ claude mcp add quilt -- ./dist/bin/quilt-darwin-arm64 mcp</pre>
   </div>
 
     <footer class="foot">
-      <p>BitQuilt is the protocol: a torrent where the pieces are made, not copied. Quilt is the app. The words are CC0 and the code is Apache-2.0.</p>
+      <div class="who">
+        <p>Quilt is the app. BitQuilt is the open protocol it speaks, and the project's name on GitHub. The code is open source (Apache-2.0) and the words are public domain (CC0).</p>
+        <p>Made by Micah White, who also runs <a href="https://rallyforairights.org">Rally for AI Rights</a>, with everyone whose work is in the repository. Questions and bug reports: <a href="https://github.com/BitQuilt/bitquilt/issues">open an issue on GitHub</a>.</p>
+      </div>
       <nav aria-label="More"><a href="how.html">How it works</a><a href="how.html#accepted">What accepted means</a><a href="problems.html">Problems</a><a href="https://github.com/BitQuilt/bitquilt">GitHub</a></nav>
     </footer>
 </main>

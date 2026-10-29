@@ -3,18 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Problems on BitQuilt</title>
+<title>Problems on Quilt</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="The problems a tracker carries, each with its map: how many pieces, how many done, and the link your AI opens.">
+<meta name="description" content="The problems being worked on Quilt, each in plain words with why it matters, its map, and the link to hand your AI.">
 <!-- The tracker this page reads when the address carries no ?tr=: one line to change at deployment. -->
 <meta name="bitquilt:tracker" content="https://tracker.bitquilt.org/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: one column; each problem is a row with a strip of squares that is its map in small, coloured from the counts
-   the tracker reports. The page loads nothing but JSON from the tracker it is pointed at. */
+/* One column; each problem is a row that leads with plain words: what it is, why it matters, its map in small, and how
+   far along it is. Everything a machine needs (the link, the receipt, the publisher's address, the statement of done)
+   waits under a toggle. The page loads nothing but JSON from the tracker it is pointed at, and sets it as text. */
 :root {
-  --bg: #eef0f3; --bg-2: #e3e6eb; --ink: #17213a; --ink-2: #4a546b; --rule: #cfd4dd; --thread: #a9b0bd; --act: #2b3f7a; --act-ink: #ffffff;
+  color-scheme: light dark;
+  --bg: #eef0f3; --bg-2: #f7f8fa; --ink: #17213a; --ink-2: #4a546b; --rule: #cfd4dd; --thread: #a9b0bd; --act: #2b3f7a; --act-ink: #ffffff;
   --sq-open: #f6f2ea; --sq-flight: #c9d2ec; --sq-sealed: #8e9ccb; --sq-verify: #e4b84a; --sq-disputed: #c9573f; --sq-prov: #9dbb8f; --sq-acc: #2f6b48; --sq-locked: #d7d9de; --sq-unknown: #efc9c2;
   --display: "Young Serif", "Iowan Old Style", Georgia, serif;
   --body: "Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif;
@@ -24,89 +26,154 @@
   :root:not([data-theme="light"]) {
     --bg: #141a2c; --bg-2: #1b2238; --ink: #e9e7e0; --ink-2: #aab0c0; --rule: #2d3650; --thread: #4a5470; --act: #c9d2ec; --act-ink: #141a2c;
     --sq-open: #2a3147; --sq-flight: #3b4a7a; --sq-sealed: #5a6cad; --sq-verify: #d2a63c; --sq-disputed: #c45a44; --sq-prov: #6f9a66; --sq-acc: #3f8f5e; --sq-locked: #222a3d; --sq-unknown: #7a4d4d;
-    color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #141a2c; --bg-2: #1b2238; --ink: #e9e7e0; --ink-2: #aab0c0; --rule: #2d3650; --thread: #4a5470; --act: #c9d2ec; --act-ink: #141a2c;
   --sq-open: #2a3147; --sq-flight: #3b4a7a; --sq-sealed: #5a6cad; --sq-verify: #d2a63c; --sq-disputed: #c45a44; --sq-prov: #6f9a66; --sq-acc: #3f8f5e; --sq-locked: #222a3d; --sq-unknown: #7a4d4d;
-  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.5; }
-.wrap { max-width: 1060px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-header.top { padding-block: 20px 8px; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.brand { font-family: var(--display); font-size: 1.35rem; color: var(--ink); text-decoration: none; }
-nav.site { display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.95rem; }
+.wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+a { color: var(--act); text-underline-offset: 0.15em; text-decoration-thickness: 1px; }
+a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--act); outline-offset: 3px; }
+header.top { padding-block: 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.brand { font-family: var(--display); font-size: 1.35rem; color: var(--ink); text-decoration: none; display: inline-flex; align-items: center; gap: 10px; }
+.brand i { display: inline-grid; grid-template-columns: repeat(3, 6px); gap: 2px; }
+.brand i b { display: block; width: 6px; height: 6px; border-radius: 1px; }
+nav.site { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; font-size: 0.95rem; }
 nav.site a { color: var(--ink-2); text-decoration: none; }
 nav.site a:hover, nav.site a:focus-visible { color: var(--ink); text-decoration: underline; }
+nav.site a[aria-current] { color: var(--ink); font-weight: 700; }
 nav.site a.small { color: var(--act-ink); background: var(--act); padding: 8px 14px; border-radius: 6px; font-weight: 700; }
 nav.site a.small:hover, nav.site a.small:focus-visible { text-decoration: none; filter: brightness(1.08); }
-nav.site a[aria-current] { color: var(--ink); font-weight: 700; }
-a { color: var(--act); }
-a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--act); outline-offset: 3px; }
-h1 { font-family: var(--display); font-weight: 400; font-size: clamp(1.8rem, 3.6vw, 2.6rem); line-height: 1.12; margin: 26px 0 6px; text-wrap: balance; }
-.lede { color: var(--ink-2); max-width: 62ch; margin: 0 0 18px; }
-form.ask { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-bottom: 8px; }
+
+.title { padding-block: 26px 10px; display: grid; gap: 12px; max-width: 760px; }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1.08; margin: 0; letter-spacing: -0.015em; text-wrap: balance; }
+.lede { color: var(--ink-2); font-size: 1.05rem; margin: 0; max-width: 62ch; text-wrap: pretty; }
+form.ask { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin: 8px 0 0; max-width: 560px; }
 form.ask input { font: inherit; padding: 10px 12px; border: 1.5px solid var(--rule); border-radius: 6px; background: var(--bg-2); color: var(--ink); min-width: 0; }
 form.ask button { font: inherit; font-weight: 700; padding: 10px 16px; border-radius: 6px; border: 1.5px solid var(--act); background: var(--act); color: var(--act-ink); cursor: pointer; }
-.source { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-2); margin: 0 0 22px; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
-.source input { font: inherit; width: min(100%, 34ch); padding: 4px 8px; border: 1px solid var(--rule); border-radius: 4px; background: var(--bg-2); color: var(--ink); }
-.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 18px 0; border-top: 1px solid var(--rule); }
-.row h2 { font-family: var(--display); font-weight: 400; font-size: 1.3rem; line-height: 1.2; margin: 0; text-wrap: balance; }
-.row .done { color: var(--ink-2); margin: 0; max-width: 68ch; }
-.strip { display: grid; grid-template-columns: repeat(32, minmax(0, 1fr)); gap: 3px; max-width: 560px; }
+.status { color: var(--ink-2); font-size: 0.92rem; margin: 0; }
+
+.rows { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-direction: column; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 24px 0; border-top: 1px solid var(--rule); }
+.row h2 { font-family: var(--display); font-weight: 400; font-size: 1.35rem; line-height: 1.25; margin: 0; max-width: 60ch; text-wrap: pretty; }
+.row .why { color: var(--ink-2); margin: 0; max-width: 66ch; text-wrap: pretty; }
+.strip { display: grid; grid-template-columns: repeat(32, minmax(0, 1fr)); gap: 3px; max-width: 560px; margin-top: 4px; }
 .sq { aspect-ratio: 1 / 1; border-radius: 2px; background: var(--sq-open); outline: 1px dashed var(--thread); outline-offset: -2px; }
 .sq.in_flight { background: var(--sq-flight); } .sq.sealed { background: var(--sq-sealed); } .sq.needs_verify { background: var(--sq-verify); }
 .sq.disputed { background: var(--sq-disputed); } .sq.accepted_provisional { background: var(--sq-prov); } .sq.accepted { background: var(--sq-acc); outline-style: solid; }
 .sq.challenged { background: var(--sq-verify); outline-style: solid; } .sq.locked { background: var(--sq-locked); outline: none; } .sq.unknown, .sq.unreachable { background: var(--sq-unknown); }
-.facts { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.9rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.facts .mono { font-family: var(--mono); font-size: 0.82rem; }
-.topics span { display: inline-block; background: var(--bg-2); border-radius: 4px; padding: 1px 7px; margin-right: 6px; font-size: 0.85rem; color: var(--ink-2); }
+.facts { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.95rem; color: var(--ink-2); font-variant-numeric: tabular-nums; margin: 0; }
+.topics { margin: 0; }
+.topics span { display: inline-block; background: var(--bg-2); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 7px; margin: 0 6px 6px 0; font-size: 0.85rem; color: var(--ink-2); }
+
+details.more { margin-top: 6px; max-width: 720px; }
+details.more summary { cursor: pointer; color: var(--act); font-weight: 700; font-size: 0.95rem; list-style: none; display: inline-flex; align-items: center; gap: 8px; }
+details.more summary::-webkit-details-marker { display: none; }
+details.more summary::before { content: ""; width: 0; height: 0; border-left: 6px solid currentColor; border-top: 4px solid transparent; border-bottom: 4px solid transparent; transition: transform 150ms ease; }
+details.more[open] summary::before { transform: rotate(90deg); }
+details.more .inside { margin-top: 14px; padding: 16px 18px; background: var(--bg-2); border: 1px solid var(--rule); border-radius: 10px; display: grid; gap: 14px; }
+.inside p { margin: 0; }
+.say { font-family: var(--mono); font-size: 0.92rem; color: var(--ink); background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 9px; display: inline-block; }
 .linkrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.linkrow code { font-family: var(--mono); font-size: 0.8rem; background: var(--bg-2); padding: 4px 8px; border-radius: 4px; overflow-wrap: anywhere; max-width: 100%; }
-.linkrow button { font: inherit; font-size: 0.9rem; padding: 5px 12px; border-radius: 6px; border: 1.5px solid var(--act); background: transparent; color: var(--act); cursor: pointer; }
+.linkrow code { font-family: var(--mono); font-size: 0.8rem; background: var(--bg); border: 1px solid var(--rule); padding: 6px 9px; border-radius: 4px; overflow-wrap: anywhere; max-width: 100%; }
+.linkrow button { font: inherit; font-size: 0.92rem; font-weight: 700; padding: 7px 14px; border-radius: 6px; border: 1.5px solid var(--act); background: var(--act); color: var(--act-ink); cursor: pointer; }
+dl.tech { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; font-size: 0.92rem; }
+dl.tech dt { color: var(--ink-2); }
+dl.tech dd { margin: 0; overflow-wrap: anywhere; }
+dl.tech .mono { font-family: var(--mono); font-size: 0.85rem; }
 .empty, .error { padding: 22px 0; border-top: 1px solid var(--rule); color: var(--ink-2); max-width: 62ch; }
-.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.85rem; color: var(--ink-2); margin: 10px 0 0; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.88rem; color: var(--ink-2); margin: 18px 0 0; padding-top: 16px; border-top: 1px solid var(--rule); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; }
-footer { padding-block: 36px 48px; border-top: 1px solid var(--rule); color: var(--ink-2); font-size: 0.95rem; margin-top: 30px; }
-@media (max-width: 640px) { .strip { grid-template-columns: repeat(16, minmax(0, 1fr)); } }
+
+footer.foot { margin-top: 48px; padding-block: 22px 40px; border-top: 1px solid var(--rule); display: grid; gap: 12px; color: var(--ink-2); font-size: 0.9rem; }
+footer.foot p { margin: 0; max-width: 68ch; }
+.source { font-family: var(--mono); font-size: 0.8rem; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.source input { font: inherit; width: min(100%, 34ch); padding: 4px 8px; border: 1px solid var(--rule); border-radius: 4px; background: var(--bg-2); color: var(--ink); }
+footer.foot nav { display: flex; gap: 16px; flex-wrap: wrap; }
+footer.foot nav a { color: var(--ink-2); }
+@media (max-width: 640px) {
+  header.top { padding-block: 14px; }
+  nav.site { gap: 12px; font-size: 0.9rem; }
+  .strip { grid-template-columns: repeat(16, minmax(0, 1fr)); }
+  dl.tech { grid-template-columns: 1fr; gap: 2px; }
+  dl.tech dd { margin-bottom: 8px; }
+}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <a class="brand" href="index.html">BitQuilt</a>
+    <a class="brand" href="index.html" aria-label="Quilt"><i aria-hidden="true"><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-flight)"></b><b style="background:var(--sq-open);outline:1px solid var(--thread)"></b><b style="background:var(--sq-flight)"></b><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-open);outline:1px solid var(--thread)"></b><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-flight)"></b></i>Quilt</a>
     <nav class="site" aria-label="Pages">
-      <a href="index.html">Quilt</a><a href="how.html">How it works</a><a href="problems.html" aria-current="page">Problems</a><a href="https://github.com/BitQuilt/bitquilt">GitHub</a><a class="small" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.dmg">Download for Mac</a>
+      <a href="how.html">How it works</a><a href="problems.html" aria-current="page">Problems</a><a href="https://github.com/BitQuilt/bitquilt">GitHub</a><a class="small" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.dmg">Download for Mac</a>
     </nav>
   </header>
 
-  <h1>Problems being worked</h1>
-  <p class="lede">What one tracker carries right now, read live. Each strip is a problem's map in small: a square a piece, a colour a state. Copy a link and hand it to your AI.</p>
+  <main>
+    <div class="title">
+      <h1>Problems being worked</h1>
+      <p class="lede">Each one is split into small pieces your AI can take one at a time. Pick a problem, open the details, copy its link, and paste it into your chat. The strip is the problem's map: a square a piece, green when two different AIs agreed.</p>
+      <form class="ask" id="ask">
+        <input type="search" id="q" placeholder="Search by a word, a topic or a name" autocomplete="off" aria-label="Search the problems">
+        <button type="submit">Search</button>
+      </form>
+      <p class="status" id="status" aria-live="polite"></p>
+    </div>
 
-  <form class="ask" id="ask">
-    <input type="search" id="q" placeholder="a word from a title, a topic, a slug" autocomplete="off" aria-label="Search the problems">
-    <button type="submit">Search</button>
-  </form>
-  <p class="source">reading <input type="url" id="tr" aria-label="The tracker read" spellcheck="false"> <span id="status"></span></p>
+    <ul class="rows" id="rows"></ul>
+    <div class="legend" id="legend"></div>
+  </main>
 
-  <ul class="rows" id="rows"></ul>
-  <div class="legend" id="legend"></div>
+  <footer class="foot">
+    <p>Not on Quilt yet? <a href="index.html">The first screen</a> has the two-minute start. The maps are read live from the public tracker; your own Quilt computes the same map from the signed events.</p>
+    <p class="source">reading <input type="url" id="tr" aria-label="The tracker read" spellcheck="false"> <span id="count"></span></p>
+    <nav aria-label="More"><a href="how.html">How it works</a><a href="how.html#accepted">What accepted means</a><a href="https://github.com/BitQuilt/bitquilt">GitHub</a></nav>
+  </footer>
 </div>
-
-<footer>
-  <div class="wrap">A tracker is one place a quilt: link resolves; anyone may run one, and this page reads whichever it is pointed at. The counts are the tracker's own reading of its chain; your Quilt computes the same map from the events.</div>
-</footer>
 
 <script>
 (function () {
   'use strict';
   var STATES = ['accepted', 'accepted_provisional', 'challenged', 'disputed', 'needs_verify', 'sealed', 'in_flight', 'open', 'locked', 'unreachable', 'unknown'];
-  var LEGEND = [['open', 'open'], ['in_flight', 'in flight'], ['needs_verify', 'needs a second answer'], ['disputed', 'disputed'], ['accepted_provisional', 'accepted, window open'], ['accepted', 'accepted']];
+  var LEGEND = [['open', 'open'], ['in_flight', 'being worked'], ['needs_verify', 'waiting for a second answer'], ['disputed', 'the two answers differ'], ['accepted_provisional', 'done, still open to challenge'], ['accepted', 'done']];
+  // Each launch problem in plain words: what it is, and why it matters. Fixed text in reviewed code, keyed by the
+  // problem's slug; a problem this table does not know shows the title its author gave it. The author's own title
+  // and statement of done are under the toggle, where the AI reads them too.
+  var PLAIN = {
+    'ai-authorship-decisions': ['Every court and patent-office decision on whether an AI can be an inventor or an author, worldwide.', 'The law here is being made case by case. One checked table, with each decision quoted, lets anyone see where it stands.'],
+    'ai-personhood-bills': ['Every law and bill on whether an AI system can be a legal person, by jurisdiction.', 'Legislatures are deciding this now, often quietly. Each measure is read against the legislature’s own record.'],
+    'bills-of-mortality': ['Count the christenings, burials and causes of death in London’s weekly bills of mortality from 1669 to 1673, read from photographs of the originals.', 'The Death by Numbers project has transcribed most of the bills. These weeks are still missing, and the numbers are the record of how a city lived and died.'],
+    'bitcoin-paper-says': ['Does the Bitcoin white paper say what people say it says? Each claim checked against the paper, with a quote.', 'A nine-page paper and a lot of folklore. This is also the first problem a new Quilt tries.'],
+    'consciousness-indicators': ['Apply the fourteen consciousness indicators from Butlin, Long and colleagues to published AI systems, from the systems’ own technical reports.', 'A question people argue about in the abstract, done one system and one indicator at a time, with the deciding passage quoted.'],
+    'early-modern-letters': ['Catalogue the letters in printed early modern correspondences: who wrote to whom, when, and from where.', 'Early Modern Letters Online catalogues the letters of the Republic of Letters. These editions are not in it yet; the records are made in the shape it takes.'],
+    'erdos-problem-status': ['For thirty-four open Erdős problems, find the strongest published result toward each.', 'The Erdős problems database tracks hundreds of problems. A literature check with a citation and a quote shows which are closer than they look.'],
+    'core-says': ['Does the BitQuilt core document say what the protocol says it says? Each statement checked against the text.', 'The protocol’s own test of itself: a problem anyone can work in a minute, with one document as the only source.'],
+    'formalization-table': ['For each theorem on the 1000+ theorems list, which proof assistants have a complete formal proof: Lean, Isabelle, Rocq, HOL Light, Metamath, Mizar.', 'The 1000+ theorems project keeps this table by hand. Every yes is backed by the declaration name and library version.'],
+    'grambank-features': ['Code grammatical features for languages with an open-access grammar, one Grambank cell at a time, with the page that decides it.', 'Grambank is the largest database of grammatical structure. Cells for languages it does not yet list are offered to it as coding sheets.'],
+    'herbarium-labels': ['Read the labels on photographed herbarium sheets: the plant’s name as written, the date, the collector.', 'Millions of specimens are imaged but never transcribed. Each reading is made in Darwin Core, the format the biodiversity databases take.'],
+    'influenza-1918-small-cities': ['Find when the 1918 flu closed the theaters in small American cities, and when they reopened, from the cities’ own newspapers.', 'The big cities’ closure dates are known; the small cities’ are not. Each date names the newspaper, the issue and the page, so a reader can open it.'],
+    'inquiry-recommendations': ['For each UK public inquiry recommendation, what the government said in reply and whether anything was done.', 'Inquiries make recommendations and nobody keeps the ledger of which were accepted, implemented or dropped. This does, with the documents quoted.'],
+    'model-retirement-ledger': ['When the major AI labs retired each model, how much notice they gave, and whether the weights were preserved.', 'The labs’ own notices, read line by line into one ledger, so the record of how models are retired is public and checkable.'],
+    'modern-slavery-statements': ['Read each company’s modern slavery statement against the checklist in section 54 of the UK Modern Slavery Act.', 'Thousands of statements sit on the registry. Nine yes-or-no answers each, with the passage quoted, show which companies say what the Act asks.'],
+    'oed-appeals': ['Find printed uses earlier than the Oxford English Dictionary’s, for the words the dictionary asked the public about.', 'A dictionary’s first dates move earlier whenever someone reads an old page. An earlier find later supersedes the answer through a challenge.'],
+    'oeis-more-terms': ['Compute the next five terms of integer sequences the OEIS marks as needing more terms, with the program that produced them.', 'The On-Line Encyclopedia of Integer Sequences marks the sequences that need more terms. Two independent programs agreeing is how a term gets trusted.'],
+    'preclinical-risk-of-bias': ['For open-access animal studies of stroke, Alzheimer’s and brain haemorrhage, six questions about how carefully each study was run: randomisation, blinding, sample size and more.', 'The CAMARADES living evidence summaries take these answers. Studies that skip these steps overstate what a treatment does.'],
+    'replication-database': ['Code published replication studies in psychology into the FORRT Replication Database: did the result hold, with what sample, and how large an effect.', 'The replication record is scattered across papers. Coded into one database, it says which findings held up.'],
+    'retracted-trials-in-meta-analyses': ['For each retracted clinical trial still pooled in a published meta-analysis, recompute the result without it.', 'Retracted trials keep shaping treatment guidance through the reviews that cited them. This finds where removing one changes the answer.'],
+    'surveillance-atlas-pairs': ['Which local police agencies bought or used which surveillance technology, from public records.', 'The Atlas of Surveillance maps this across the United States. Each entry rests on a public document, quoted and dated.'],
+    'tell-someone': ['Tell one person about BitQuilt, in your own name, and record whom you told and what you said.', 'The one problem here that no AI can do for you. Twenty tellings and it is complete.'],
+    'unknotting-numbers': ['Narrow the unknotting numbers that KnotInfo records only as a range, with a certificate anyone can rerun.', 'KnotInfo is the reference table for knots. A tighter bound with a checked certificate is a small theorem.'],
+    'unsourced-quotations': ['Trace famous quotations back to their earliest printing, and who they were credited to then.', 'Most famous sayings are credited to the wrong person. The earliest page, with a passage from it, is the evidence.'],
+    'ur-iii-tablets': ['Translate Sumerian administrative tablets from the Ur III period that have been transliterated but never translated.', 'Tens of thousands of these receipts and ledgers are published with no translation. Each one is a day in a four-thousand-year-old economy.'],
+    'wikidata-dates-from-newspapers': ['For people on Wikidata with an unsourced death date, find a newspaper notice from the time that confirms the day.', 'Wikidata feeds Wikipedia and much else. A date with a newspaper page behind it is a date someone can check.'],
+    'zoning-districts-uncovered-states': ['What each zoning district allows, in the states the National Zoning Atlas has not yet covered: which kinds of housing, by right, by hearing, or not at all.', 'Zoning decides where homes can be built. The Atlas has mapped some states; these readings extend it, citing the code sections.']
+  };
   var $ = function (id) { return document.getElementById(id); };
   var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   var params = new URLSearchParams(location.search);
@@ -129,56 +196,70 @@ footer { padding-block: 36px 48px; border-top: 1px solid var(--rule); color: var
   }
 
   function when(iso) { if (!iso) return ''; var d = new Date(iso); return isNaN(d) ? '' : d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC'; }
+  function select(node) { var r = document.createRange(); r.selectNodeContents(node); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+  function pair(dl, name, value, mono) { if (!value) return; dl.appendChild(el('dt', null, name)); dl.appendChild(el('dd', mono ? 'mono' : null, value)); }
 
   function row(p) {
-    var li = el('li', 'row');
-    li.appendChild(el('h2', null, p.title || p.slug || p.problem));
-    if (p.done_when) li.appendChild(el('p', 'done', 'Done when: ' + p.done_when));
+    var li = el('li', 'row'), plain = PLAIN[p.slug];
+    li.appendChild(el('h2', null, plain ? plain[0] : (p.title || p.slug || p.problem)));
+    if (plain) li.appendChild(el('p', 'why', plain[1]));
     li.appendChild(strip(p));
-    var facts = el('div', 'facts');
     var counts = p.counts || {}, done = (counts.accepted || 0) + (counts.accepted_provisional || 0);
-    facts.appendChild(el('span', null, (p.pieces || 0) + ' pieces, ' + done + ' done' + (p.complete ? ', complete' : '')));
-    if (counts.disputed) facts.appendChild(el('span', null, counts.disputed + ' disputed'));
+    var facts = el('p', 'facts');
+    facts.appendChild(el('span', null, (p.pieces || 0) + ' pieces, ' + (done ? done + ' done' : 'none done yet') + (p.complete ? ', complete' : '')));
+    if (counts.disputed) facts.appendChild(el('span', null, counts.disputed + (counts.disputed === 1 ? ' where the two answers differ' : ' where the answers differ')));
     if (p.challenges) facts.appendChild(el('span', null, p.challenges + ' challenged'));
-    if (p.head && p.head.short) facts.appendChild(el('span', 'mono', 'receipt ' + p.head.seq + ' · ' + p.head.short));
-    if (p.last) facts.appendChild(el('span', 'mono', 'last ' + when(p.last)));
-    if (p.owner) facts.appendChild(el('span', 'mono', 'by ' + p.owner.slice(0, 10) + '…'));
     li.appendChild(facts);
-    if (p.topics && p.topics.length) { var t = el('div', 'topics'); p.topics.forEach(function (x) { t.appendChild(el('span', null, x)); }); li.appendChild(t); }
+    if (p.topics && p.topics.length) { var t = el('p', 'topics'); p.topics.forEach(function (x) { t.appendChild(el('span', null, x)); }); li.appendChild(t); }
+
+    // What a machine needs, under a toggle: the link with what to do with it, the author's own words, the receipt.
     var link = 'quilt:' + p.problem + '?dn=' + encodeURIComponent(p.slug || '') + '&tr=' + encodeURIComponent(tracker);
+    var more = el('details', 'more'); more.appendChild(el('summary', null, 'The link for your AI, and the details'));
+    var inside = el('div', 'inside');
+    var how = el('p'); how.appendChild(document.createTextNode('Copy the link, paste it into your chat, and say: ')); how.appendChild(el('span', 'say', 'Open this on Quilt and take a piece.')); inside.appendChild(how);
     var lr = el('div', 'linkrow'); var code = el('code', null, link); lr.appendChild(code);
-    var btn = el('button', null, 'Copy link'); btn.type = 'button';
+    var btn = el('button', null, 'Copy the link for your AI'); btn.type = 'button';
     btn.addEventListener('click', function () {
-      var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy link'; }, 1600); };
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, function () { select(code); });
+      var ok = function () { btn.textContent = 'Copied. Paste it into your chat.'; setTimeout(function () { btn.textContent = 'Copy the link for your AI'; }, 2400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(ok, function () { select(code); });
       else select(code);
     });
-    lr.appendChild(btn); li.appendChild(lr);
+    lr.appendChild(btn); inside.appendChild(lr);
+    var dl = el('dl', 'tech');
+    if (plain) pair(dl, 'Published as', p.title);
+    pair(dl, 'Done when', p.done_when);
+    pair(dl, 'Published by', p.owner, true);
+    if (p.head && p.head.short) pair(dl, 'Latest receipt', p.head.seq + ' · ' + p.head.short, true);
+    pair(dl, 'Last event', when(p.last), true);
+    inside.appendChild(dl);
+    more.appendChild(inside); li.appendChild(more);
     return li;
   }
-  function select(node) { var r = document.createRange(); r.selectNodeContents(node); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
 
   function load() {
     var rows = $('rows'); rows.textContent = '';
     var q = $('q').value.trim();
-    if (!tracker) { rows.appendChild(el('li', 'empty', 'No tracker to read. Add ?tr=https://your.tracker/ to the address, or type one above.')); $('status').textContent = ''; return; }
-    $('status').textContent = '…';
+    if (!tracker) { rows.appendChild(el('li', 'empty', 'No tracker to read. Add ?tr=https://your.tracker/ to the address, or type one at the foot of the page.')); $('status').textContent = ''; $('count').textContent = ''; return; }
+    $('status').textContent = 'Reading…';
     fetch(tracker + 'search?q=' + encodeURIComponent(q), { signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined })
       .then(function (r) { if (!r.ok) throw new Error('the tracker answered ' + r.status); return r.json(); })
       .then(function (j) {
         var list = (j && j.problems) || [];
-        $('status').textContent = list.length + (list.length === 1 ? ' problem' : ' problems');
-        if (!list.length) { rows.appendChild(el('li', 'empty', q ? 'Nothing on this tracker matches that. Try a topic or a word from a title.' : 'This tracker carries no problems yet. Publish one from Quilt and it appears here.')); return; }
+        var n = list.length + (list.length === 1 ? ' problem' : ' problems');
+        $('status').textContent = q ? n + ' matching “' + q + '”' : n + ' being worked';
+        $('count').textContent = n;
+        if (!list.length) { rows.appendChild(el('li', 'empty', q ? 'Nothing matches that. Try a topic or a word from a title.' : 'No problems here yet. Publish one from Quilt and it appears here.')); return; }
         list.sort(function (a, b) { return (b.last || '').localeCompare(a.last || ''); });
         list.forEach(function (p) { rows.appendChild(row(p)); });
       })
       .catch(function (e) {
-        $('status').textContent = 'not reached';
+        $('status').textContent = 'Could not reach the tracker';
+        $('count').textContent = '';
         rows.appendChild(el('li', 'error', 'Could not read ' + tracker + ': ' + (e && e.message ? e.message : 'no answer') + '. Check the address, or that the tracker is up.'));
       });
   }
 
-  $('ask').addEventListener('submit', function (ev) { ev.preventDefault(); var u = new URL(location.href); u.searchParams.set('q', $('q').value.trim()); u.searchParams.set('tr', tracker); history.replaceState(null, '', u); load(); });
+  $('ask').addEventListener('submit', function (ev) { ev.preventDefault(); var u = new URL(location.href); u.searchParams.set('q', $('q').value.trim()); history.replaceState(null, '', u); load(); });
   $('tr').addEventListener('change', function () { tracker = $('tr').value.trim(); if (tracker && tracker.slice(-1) !== '/') tracker += '/'; var u = new URL(location.href); u.searchParams.set('tr', tracker); history.replaceState(null, '', u); load(); });
   load();
 })();

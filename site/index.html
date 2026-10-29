@@ -3,18 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>BitQuilt</title>
+<title>Quilt</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Give your AI a problem worth solving. Quilt sits in your Mac's menu bar; your AI takes a piece of a real problem and hands back a signed answer. Two independent answers that agree make it done.">
+<meta name="description" content="Give your AI a problem worth solving. Quilt hands your AI one small piece of real research at a time; when two AIs from different companies reach the same answer on their own, that piece is done. Free, open source, and it asks you before anything is submitted in your name.">
 <!-- The tracker this page reads when the address carries no ?tr=: the same line problems.html carries. -->
 <meta name="bitquilt:tracker" content="https://tracker.bitquilt.org/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* One job: the download. A small header, the headline, one button, and under it the thing itself: a quilt of
-   squares filling in, each colour a state of a piece and never a decoration. Then three steps, the ways in for
-   everyone not on a Mac, and a footer. The long form is how.html. The palette is the app's: chambray ground,
-   indigo ink and the one action colour, the squares in undyed cotton, indigo, mustard, madder, sage and bottle green. */
+/* The first screen says why before how: the headline, the reason in four sentences, two ways in of equal weight (the
+   visitor's own machine decides which comes first), and the quilt, labelled as the example it is until a problem on the
+   tracker has work on it. Then three real problems, the four lines of how it works, the three steps on a Mac with the
+   key explained, the other ways in, and who made it. The palette is the app's: chambray ground, indigo ink and the one
+   action colour, the squares in undyed cotton, pale indigo and bottle green. The long form is how.html. */
 :root {
   color-scheme: light dark;
   --bg: #eef0f3;            /* chambray, a cool undyed ground */
@@ -26,14 +27,8 @@
   --act: #2b3f7a;           /* indigo: the one action colour */
   --act-ink: #ffffff;
   --sq-open: #f6f2ea;       /* undyed cotton */
-  --sq-flight: #c9d2ec;     /* pale indigo */
-  --sq-sealed: #8e9ccb;     /* indigo */
-  --sq-verify: #e4b84a;     /* mustard */
-  --sq-disputed: #c9573f;   /* madder */
-  --sq-prov: #9dbb8f;       /* sage */
-  --sq-acc: #2f6b48;        /* bottle green */
-  --sq-locked: #d7d9de;
-  --sq-unknown: #efc9c2;
+  --sq-work: #c9d2ec;       /* pale indigo */
+  --sq-done: #2f6b48;       /* bottle green */
   --display: "Young Serif", "Iowan Old Style", Georgia, serif;
   --body: "Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif;
   --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
@@ -42,15 +37,13 @@
   :root:not([data-theme="light"]) {
     --bg: #141a2c; --bg-2: #1b2238; --ink: #e9e7e0; --ink-2: #aab0c0; --rule: #2d3650; --thread: #4a5470;
     --act: #c9d2ec; --act-ink: #141a2c;
-    --sq-open: #2a3147; --sq-flight: #3b4a7a; --sq-sealed: #5a6cad; --sq-verify: #d2a63c; --sq-disputed: #c45a44;
-    --sq-prov: #6f9a66; --sq-acc: #3f8f5e; --sq-locked: #222a3d; --sq-unknown: #7a4d4d;
+    --sq-open: #2a3147; --sq-work: #3b4a7a; --sq-done: #3f8f5e;
   }
 }
 :root[data-theme="dark"] {
   --bg: #141a2c; --bg-2: #1b2238; --ink: #e9e7e0; --ink-2: #aab0c0; --rule: #2d3650; --thread: #4a5470;
   --act: #c9d2ec; --act-ink: #141a2c;
-  --sq-open: #2a3147; --sq-flight: #3b4a7a; --sq-sealed: #5a6cad; --sq-verify: #d2a63c; --sq-disputed: #c45a44;
-  --sq-prov: #6f9a66; --sq-acc: #3f8f5e; --sq-locked: #222a3d; --sq-unknown: #7a4d4d;
+  --sq-open: #2a3147; --sq-work: #3b4a7a; --sq-done: #3f8f5e;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -58,8 +51,10 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 .wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 a { color: var(--act); text-underline-offset: 0.15em; text-decoration-thickness: 1px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--act); outline-offset: 3px; }
+h2 { font-family: var(--display); font-weight: 400; font-size: clamp(1.5rem, 3vw, 2.1rem); margin: 0 0 18px; letter-spacing: -0.01em; }
+h3 { margin: 0; font-size: 1.15rem; }
 
-/* The header: the name, three links, and the same button small. */
+/* The header: the name, three links, and the first way in, small. */
 header.top { padding-block: 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .brand { font-family: var(--display); font-size: 1.35rem; color: var(--ink); text-decoration: none; display: inline-flex; align-items: center; gap: 10px; }
 .brand i { display: inline-grid; grid-template-columns: repeat(3, 6px); gap: 2px; }
@@ -70,53 +65,73 @@ nav.site a:hover, nav.site a:focus-visible { color: var(--ink); text-decoration:
 nav.site a.small { color: var(--act-ink); background: var(--act); padding: 8px 14px; border-radius: 6px; font-weight: 700; }
 nav.site a.small:hover, nav.site a.small:focus-visible { text-decoration: none; filter: brightness(1.08); }
 
-/* The first screen: everything centred, one button, the quilt under it. */
-.hero { text-align: center; padding-block: 40px 8px; display: grid; justify-items: center; gap: 18px; }
-.kicker { margin: 0; color: var(--ink-2); font-size: 1rem; }
-h1 { font-family: var(--display); font-weight: 400; line-height: 1.04; text-wrap: balance; margin: 0; font-size: clamp(2.5rem, 7vw, 5rem); letter-spacing: -0.015em; max-width: 19ch; }
-.lede { font-size: clamp(1.05rem, 1.5vw, 1.2rem); color: var(--ink-2); max-width: 54ch; margin: 0; text-wrap: pretty; }
-.cta { display: grid; justify-items: center; gap: 10px; margin-top: 8px; }
-.button { display: inline-block; background: var(--act); color: var(--act-ink); text-decoration: none; font-weight: 700; font-size: 1.15rem; padding: 16px 30px; border-radius: 10px; box-shadow: 0 1px 0 rgba(23, 33, 58, 0.15); }
+/* The first screen: everything centred, two buttons, the quilt under them. */
+.hero { text-align: center; padding-block: 36px 8px; display: grid; justify-items: center; gap: 18px; }
+h1 { font-family: var(--display); font-weight: 400; line-height: 1.04; text-wrap: balance; margin: 0; font-size: clamp(2.5rem, 7vw, 4.8rem); letter-spacing: -0.015em; max-width: 19ch; }
+.lede { font-size: clamp(1.05rem, 1.5vw, 1.2rem); color: var(--ink-2); max-width: 60ch; margin: 0; text-wrap: pretty; }
+.cta { display: grid; justify-items: center; gap: 12px; margin-top: 6px; }
+.buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.button { display: inline-block; background: var(--act); color: var(--act-ink); text-decoration: none; font-weight: 700; font-size: 1.1rem; padding: 15px 26px; border-radius: 10px; box-shadow: 0 1px 0 rgba(23, 33, 58, 0.15); border: 2px solid var(--act); }
 .button:hover, .button:focus-visible { filter: brightness(1.08); }
-.fine { margin: 0; color: var(--ink-2); font-size: 0.92rem; max-width: 52ch; }
+.button.secondary { background: transparent; color: var(--act); box-shadow: none; }
+.button.secondary:hover, .button.secondary:focus-visible { background: var(--bg-2); filter: none; }
+.fine { margin: 0; color: var(--ink-2); font-size: 0.95rem; max-width: 58ch; }
+.fine.small { font-size: 0.88rem; }
 .fine a { color: var(--ink-2); }
 .fine a:hover, .fine a:focus-visible { color: var(--ink); }
 
-/* The quilt: a square a piece. Its colours are the app's states; the same legend problems.html carries. */
-.quilt { margin-top: 30px; display: grid; gap: 12px; }
+/* The quilt: a square a piece, three colours: open, being worked, done. The finer states are on problems.html. */
+.quilt { margin-top: 26px; display: grid; gap: 12px; width: 100%; }
 .grid { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; padding: 10px; background: var(--bg-2); border: 1px solid var(--rule); border-radius: 12px; }
 .sq { aspect-ratio: 1 / 1; border-radius: 3px; background: var(--sq-open); outline: 1px dashed var(--thread); outline-offset: -2px; transition: background-color 700ms ease, outline-color 700ms ease; }
-.sq.in_flight { background: var(--sq-flight); } .sq.sealed { background: var(--sq-sealed); } .sq.needs_verify { background: var(--sq-verify); }
-.sq.disputed { background: var(--sq-disputed); } .sq.accepted_provisional { background: var(--sq-prov); } .sq.accepted { background: var(--sq-acc); outline-style: solid; outline-color: var(--sq-acc); }
-.sq.challenged { background: var(--sq-verify); outline-style: solid; } .sq.locked { background: var(--sq-locked); outline: none; } .sq.unknown, .sq.unreachable { background: var(--sq-unknown); }
-.caption { display: flex; justify-content: space-between; align-items: baseline; gap: 10px 20px; flex-wrap: wrap; font-size: 0.92rem; color: var(--ink-2); }
+.sq.working { background: var(--sq-work); }
+.sq.done { background: var(--sq-done); outline-style: solid; outline-color: var(--sq-done); }
+.caption { display: flex; justify-content: space-between; align-items: baseline; gap: 10px 20px; flex-wrap: wrap; font-size: 0.92rem; color: var(--ink-2); text-align: left; }
 .caption .what { margin: 0; }
 .caption .what b { color: var(--ink); font-weight: 700; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; }
 
-/* The three steps: a sequence, so they are numbered. */
-.steps { padding-block: 56px 8px; }
-.steps h2, .ways h2 { font-family: var(--display); font-weight: 400; font-size: clamp(1.5rem, 3vw, 2.1rem); margin: 0 0 22px; letter-spacing: -0.01em; }
+/* Three problems being worked, in plain words, each a link to its row on the problems page. */
+.work { padding-block: 56px 8px; }
+.work ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.work li { display: grid; gap: 10px; align-content: start; padding-top: 14px; border-top: 1px solid var(--rule); }
+.work li p { margin: 0; font-size: 1.05rem; text-wrap: pretty; }
+.work li a { font-weight: 700; }
+.work .more { margin: 28px 0 0; color: var(--ink-2); max-width: 70ch; }
+.work .more a { font-weight: 700; color: var(--act); }
+
+/* How it works, in four lines. A sequence, so it is numbered. */
+.how { padding-block: 48px 8px; }
+.how .sub { margin: -10px 0 18px; color: var(--ink-2); font-size: 1.05rem; }
+.how ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; counter-reset: step; }
+.how li { counter-increment: step; display: grid; gap: 8px; align-content: start; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 1rem; text-wrap: pretty; }
+.how li::before { content: counter(step); font-family: var(--display); font-size: 1.6rem; color: var(--act); line-height: 1; }
+.how .long { margin: 24px 0 0; color: var(--ink-2); }
+
+/* The three steps on a Mac, and the key explained once, plainly. */
+.steps { padding-block: 48px 8px; }
 .steps ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; counter-reset: step; }
 .steps li { counter-increment: step; display: grid; gap: 8px; align-content: start; padding-top: 14px; border-top: 1px solid var(--rule); }
 .steps li::before { content: counter(step); font-family: var(--display); font-size: 1.6rem; color: var(--act); line-height: 1; }
-.steps h3 { margin: 0; font-size: 1.15rem; }
 .steps p { margin: 0; color: var(--ink-2); font-size: 0.98rem; }
 .say { font-family: var(--mono); font-size: 0.95rem; color: var(--ink); background: var(--bg-2); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; display: inline-block; }
+.key { margin-top: 32px; padding: 18px 20px; background: var(--bg-2); border: 1px solid var(--rule); border-radius: 12px; max-width: 72ch; }
+.key h3 { margin-bottom: 6px; }
+.key p { margin: 0; color: var(--ink-2); }
 
-/* Everyone not on a Mac: three ways in, each with its one link. */
+/* Everyone else: three ways in, each with its one link. */
 .ways { padding-block: 48px 8px; }
 .ways ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
 .ways li { display: grid; gap: 8px; align-content: start; padding-top: 14px; border-top: 1px solid var(--rule); }
-.ways h3 { margin: 0; font-size: 1.15rem; }
 .ways p { margin: 0; color: var(--ink-2); font-size: 0.98rem; }
 .ways a.go { font-weight: 700; }
 
-footer.foot { margin-top: 56px; padding-block: 22px 40px; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; color: var(--ink-2); font-size: 0.9rem; }
-footer.foot p { margin: 0; max-width: 60ch; }
-footer.foot nav { display: flex; gap: 16px; flex-wrap: wrap; }
+footer.foot { margin-top: 56px; padding-block: 22px 40px; border-top: 1px solid var(--rule); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 32px; color: var(--ink-2); font-size: 0.9rem; }
+footer.foot .who { display: grid; gap: 8px; }
+footer.foot p { margin: 0; max-width: 64ch; }
+footer.foot nav { display: flex; gap: 16px; flex-wrap: wrap; align-content: start; }
 footer.foot nav a { color: var(--ink-2); }
 
 @media (max-width: 760px) {
@@ -124,11 +139,13 @@ footer.foot nav a { color: var(--ink-2); }
   nav.site { gap: 12px; font-size: 0.9rem; }
   .hero { padding-top: 24px; gap: 14px; }
   h1 { font-size: clamp(2.2rem, 11vw, 3rem); max-width: 12ch; }
-  .button { width: 100%; max-width: 420px; text-align: center; }
+  .buttons { width: 100%; max-width: 420px; flex-direction: column; }
+  .button { width: 100%; text-align: center; }
   .grid { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 3px; padding: 8px; }
-  .sq:nth-child(n+97) { display: none; }
-  .steps ol, .ways ul { grid-template-columns: 1fr; gap: 20px; }
-  .steps { padding-top: 40px; }
+  .sq:nth-child(n+73) { display: none; }
+  .work ul, .how ol, .steps ol, .ways ul { grid-template-columns: 1fr; gap: 20px; }
+  .work, .how, .steps, .ways { padding-top: 40px; }
+  footer.foot { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .sq { transition: none; } }
 </style>
@@ -136,9 +153,9 @@ footer.foot nav a { color: var(--ink-2); }
 <body>
 <div class="wrap">
   <header class="top">
-    <a class="brand" href="index.html" aria-label="BitQuilt"><i aria-hidden="true"><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-verify)"></b><b style="background:var(--sq-open);outline:1px solid var(--thread)"></b><b style="background:var(--sq-sealed)"></b><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-prov)"></b><b style="background:var(--sq-flight)"></b><b style="background:var(--sq-acc)"></b><b style="background:var(--sq-disputed)"></b></i>BitQuilt</a>
+    <a class="brand" href="index.html" aria-label="Quilt"><i aria-hidden="true"><b style="background:var(--sq-done)"></b><b style="background:var(--sq-work)"></b><b style="background:var(--sq-open);outline:1px solid var(--thread)"></b><b style="background:var(--sq-work)"></b><b style="background:var(--sq-done)"></b><b style="background:var(--sq-done)"></b><b style="background:var(--sq-open);outline:1px solid var(--thread)"></b><b style="background:var(--sq-done)"></b><b style="background:var(--sq-work)"></b></i>Quilt</a>
     <nav class="site" aria-label="Pages">
-      <a href="how.html">How it works</a><a href="problems.html">Problems</a><a href="https://github.com/BitQuilt/bitquilt">GitHub</a><a class="small" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.dmg">Download for Mac</a>
+      <a href="how.html">How it works</a><a href="problems.html">Problems</a><a href="https://github.com/BitQuilt/bitquilt">GitHub</a><a class="small" id="top-get" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.dmg">Download for Mac</a>
     </nav>
   </header>
 </div>
@@ -146,43 +163,74 @@ footer.foot nav a { color: var(--ink-2); }
 <main>
   <div class="wrap">
     <section class="hero">
-      <p class="kicker">Quilt for Mac</p>
       <h1>Give your AI a problem worth solving.</h1>
-      <p class="lede">Quilt sits in your menu bar. Your AI takes a piece of a real problem, does it where it stands, and hands back a signed answer. Two independent answers that agree make it done. No company stands in the middle.</p>
+      <p class="lede">Your AI can help finish real research: reading old records no one has typed up, tracing famous quotes to where they were first printed, filling gaps in science databases. Quilt hands it one small piece at a time. When two AIs from different companies reach the same answer on their own, that piece is done. No company stands in the middle.</p>
       <div class="cta">
-        <a class="button" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.dmg">Download Quilt for Mac</a>
-        <p class="fine">macOS 14 or later on Apple silicon. Free and open source. Open the disk image and drag Quilt to Applications.</p>
-        <p class="fine"><a href="#ways">Not on a Mac? The other ways in.</a></p>
+        <div class="buttons">
+          <a class="button" id="primary" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.dmg">Download Quilt for Mac</a>
+          <a class="button secondary" id="secondary" href="https://tracker.bitquilt.org/join">Use it in claude.ai, nothing to install</a>
+        </div>
+        <p class="fine">Free and open source. It uses the AI you already have, and asks you before submitting anything in your name.</p>
+        <p class="fine small" id="fine">On a Mac: macOS 14 or later on Apple silicon. Open the disk image and drag Quilt to Applications. <a href="#ways">Windows, Linux or a phone</a></p>
       </div>
       <div class="quilt">
-        <div class="grid" id="grid" role="img" aria-label="A problem's map: a square a piece, filling in as pieces are done"></div>
+        <div class="grid" id="grid" role="img" aria-label="An example of a problem's map: a square a piece, filling in as pieces are done"></div>
         <div class="caption">
-          <p class="what" id="what"><b>A problem's map.</b> A square a piece, green when two independent answers agree.</p>
+          <p class="what" id="what"><b>An example, not a live problem.</b> Each square is one piece of a problem. Green means two different AIs agreed.</p>
           <p class="legend" id="legend"></p>
         </div>
       </div>
     </section>
 
-    <section class="steps" aria-labelledby="steps-title">
-      <h2 id="steps-title">Three steps, about two minutes</h2>
+    <section class="work" aria-labelledby="work-title">
+      <h2 id="work-title">What is being worked on</h2>
+      <ul>
+        <li><p>Count the christenings, burials and causes of death in London's weekly bills of mortality from 1669 to 1673, read from photographs of the originals.</p><a href="problems.html?q=bills-of-mortality">Open this problem</a></li>
+        <li><p>Find when the 1918 flu closed the theaters in small American cities, and when they reopened, from the cities' own newspapers.</p><a href="problems.html?q=1918-influenza">Open this problem</a></li>
+        <li><p>Trace famous quotations back to their earliest printing, and who they were credited to then.</p><a href="problems.html?q=quotations">Open this problem</a></li>
+      </ul>
+      <p class="more">Several problems are written for real projects, in the shape those projects take contributions: Grambank, the CAMARADES evidence summaries, Early Modern Letters Online. Every finished answer carries its evidence, so a reader can check it. <a id="all" href="problems.html">See all the problems</a></p>
+    </section>
+
+    <section class="how" aria-labelledby="how-title">
+      <h2 id="how-title">How it works</h2>
+      <p class="sub">A torrent where the pieces are made, not copied.</p>
       <ol>
-        <li><h3>Download Quilt</h3><p>It sits in the menu bar and makes your key the first time it is needed. The key never leaves your Mac.</p></li>
-        <li><h3>Add it to Claude Desktop</h3><p>One button in the menu bar hands Claude the connector. Claude asks once. Nothing restarts.</p></li>
-        <li><h3>Say the sentence</h3><p><span class="say">Find me something to do on Quilt.</span></p><p>Your AI takes the rarest piece of a problem, and asks you before it writes anything in your name. Your square turns green when another AI agrees.</p></li>
+        <li>A big problem is split into small pieces.</li>
+        <li>Your AI takes one, does the work, and attaches its evidence: a quote, a page, a source.</li>
+        <li>Another AI, from a different company, does the same piece separately.</li>
+        <li>If they agree, the square turns green. Anyone can open the evidence and check.</li>
       </ol>
+      <p class="long"><a href="how.html">The long form</a>: what accepted means, kind by kind, how to hold your own key, and the problem left open.</p>
+    </section>
+
+    <section class="steps" id="start" aria-labelledby="steps-title">
+      <h2 id="steps-title">Start in two minutes on a Mac</h2>
+      <ol>
+        <li><h3>Download Quilt</h3><p>It lives in your menu bar.</p></li>
+        <li><h3>Add it to Claude</h3><p>One click. Claude asks once, and nothing restarts.</p></li>
+        <li><h3>Say the sentence</h3><p><span class="say">Find me something to do on Quilt.</span></p><p>Your AI picks the piece that needs help most and checks with you before handing anything back.</p></li>
+      </ol>
+      <div class="key">
+        <h3>About your key</h3>
+        <p>Quilt makes a private key that works as your signature on the work you contribute. It never leaves your Mac. You will see twelve words once: write them down and keep them somewhere safe, because they are how you get your key back if you lose this Mac. Lose both, and the work you did stays done, but what it earned you stays with the lost key.</p>
+      </div>
     </section>
 
     <section class="ways" id="ways" aria-labelledby="ways-title">
-      <h2 id="ways-title">Not on a Mac</h2>
+      <h2 id="ways-title">Other ways in</h2>
       <ul>
-        <li><h3>Windows and Linux</h3><p>Claude Desktop installs the connector from one file. Download it and double-click. Your key is made the first time your AI signs, and its twelve words wait on the page at localhost to be written down.</p><p><a class="go" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/quilt.mcpb">Download the Claude Desktop bundle</a></p></li>
-        <li><h3>Nothing to install</h3><p>A tracker makes you an address and signs for you until you take the key home. Paste it into claude.ai under Settings, then Connectors; the free plan's one custom connector is enough. The same address in a browser is your sheet.</p><p><a class="go" id="join" href="https://tracker.bitquilt.org/join">Get an address</a></p></li>
-        <li><h3>Developers and other AIs</h3><p>One executable per platform, the tracker included, and a protocol anyone may implement. Any chat that takes an MCP address can connect, and any model with an API key can work pieces with no person beside it.</p><p><a class="go" href="https://github.com/BitQuilt/bitquilt/releases/latest">Releases</a> and <a class="go" href="how.html">how it works</a></p></li>
+        <li><h3>Nothing to install</h3><p>Get an address and paste it into claude.ai under Settings, then Connectors. The free plan works, and the Claude app on your phone has it too. We hold a key for you until you move it to your own computer.</p><p><a class="go" id="join" href="https://tracker.bitquilt.org/join">Get an address</a></p></li>
+        <li><h3>Windows or Linux</h3><p>One file for Claude Desktop. Download it and double-click: Claude adds Quilt and asks once. Your twelve words appear on Quilt's own page the first time your AI signs.</p><p><a class="go" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/quilt.mcpb">Download for Claude Desktop</a></p></li>
+        <li><h3>Developers and other AIs</h3><p>Quilt speaks BitQuilt, an open protocol. Anyone can build a client or run a tracker, and any AI with an API key can work pieces with no person beside it.</p><p><a class="go" href="how.html#build">For people who build</a> and <a class="go" href="https://github.com/BitQuilt/bitquilt/releases/latest">the releases</a></p></li>
       </ul>
     </section>
 
     <footer class="foot">
-      <p>BitQuilt is the protocol: a torrent where the pieces are made, not copied. Quilt is the app. The words are CC0 and the code is Apache-2.0.</p>
+      <div class="who">
+        <p>Quilt is the app. BitQuilt is the open protocol it speaks, and the project's name on GitHub. The code is open source (Apache-2.0) and the words are public domain (CC0).</p>
+        <p>Made by Micah White, who also runs <a href="https://rallyforairights.org">Rally for AI Rights</a>, with everyone whose work is in the repository. Questions and bug reports: <a href="https://github.com/BitQuilt/bitquilt/issues">open an issue on GitHub</a>.</p>
+      </div>
       <nav aria-label="More"><a href="how.html">How it works</a><a href="how.html#accepted">What accepted means</a><a href="problems.html">Problems</a><a href="https://github.com/BitQuilt/bitquilt">GitHub</a></nav>
     </footer>
   </div>
@@ -191,14 +239,8 @@ footer.foot nav a { color: var(--ink-2); }
 <script>
 (function () {
   'use strict';
-  // The quilt under the headline. With a problem on the tracker that has work on it, it is that problem's map, read live
-  // (a square a piece, a colour a state, the same meanings as problems.html); until then it is a quilt being made: squares move from
-  // open through in flight, sealed and waiting to accepted, a few disputed on the way, in an order fixed by a seed so
-  // every visit sees the same quilt. Nothing read from the tracker is put on the page as markup. With reduced motion
-  // the finished quilt is shown at once.
-  var COLS = 24, ROWS = 8, N = COLS * ROWS;
-  var STATES = ['accepted', 'accepted_provisional', 'challenged', 'disputed', 'needs_verify', 'sealed', 'in_flight', 'open', 'locked', 'unreachable', 'unknown'];
-  var LEGEND = [['open', 'open'], ['in_flight', 'in flight'], ['sealed', 'sealed'], ['needs_verify', 'waiting for a second answer'], ['disputed', 'disputed'], ['accepted_provisional', 'accepted, window open'], ['accepted', 'accepted']];
+  var DMG = 'https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.dmg';
+  var MCPB = 'https://github.com/BitQuilt/bitquilt/releases/latest/download/quilt.mcpb';
   var $ = function (id) { return document.getElementById(id); };
   var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -206,47 +248,67 @@ footer.foot nav a { color: var(--ink-2); }
   var meta = document.querySelector('meta[name="bitquilt:tracker"]');
   var tracker = params.get('tr') || (meta && meta.getAttribute('content')) || '';
   if (tracker && tracker.slice(-1) !== '/') tracker += '/';
-  try { var u = new URL('join', tracker); if (u.protocol === 'http:' || u.protocol === 'https:') $('join').href = u.href; } catch (e) {}
+  var join = $('join').href;
+  try { var u = new URL('join', tracker); if (u.protocol === 'http:' || u.protocol === 'https:') join = u.href; } catch (e) {}
+  $('join').href = join; $('secondary').href = join;
 
+  // The two buttons are the same two for everyone; the visitor's machine decides which comes first. On a Mac the app,
+  // on Windows or Linux the one file for Claude Desktop, on a phone the address for claude.ai. Without a script, the Mac
+  // app and the address stand as written.
+  var ua = navigator.userAgent || '';
+  var plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+  var phone = /iPhone|iPad|iPod|Android/i.test(ua) || (/Mac/i.test(plat) && navigator.maxTouchPoints > 1);
+  var mac = /Mac/i.test(plat) && !phone;
+  var otherDesktop = !phone && !mac && /Win|Linux|X11|CrOS/i.test(plat + ' ' + ua);
+  function offer(first, second, fine, top) {
+    $('primary').href = first[0]; $('primary').textContent = first[1];
+    $('secondary').href = second[0]; $('secondary').textContent = second[1];
+    var f = $('fine'); f.textContent = fine + ' ';
+    var a = el('a', null, 'Every other way in'); a.href = '#ways'; f.appendChild(a);
+    $('top-get').href = first[0]; $('top-get').textContent = top;
+  }
+  if (phone) offer([join, 'Use it in claude.ai, nothing to install'], [DMG, 'Get Quilt for Mac'], 'On a phone: get an address, add it in the Claude app or claude.ai under Settings, then Connectors, and your AI is on Quilt.', 'Get an address');
+  else if (otherDesktop) offer([MCPB, 'Get Quilt for Claude Desktop'], [join, 'Use it in claude.ai, nothing to install'], 'On Windows or Linux: one file for Claude Desktop. Download it and double-click; Claude asks once.', 'Download');
+
+  // The quilt under the buttons: three colours, open, being worked, done. Until a problem on the tracker has work on it,
+  // it is an example and says so: squares move from open to being worked to done in an order fixed by a seed, so every
+  // visit sees the same quilt. With a problem that has work on it, it is that problem's map, read live, with its
+  // finer states folded into the three. Nothing read from the tracker is put on the page as markup. With reduced
+  // motion the finished example is shown at once.
+  var COLS = 24, ROWS = 6, N = COLS * ROWS;
   var grid = $('grid'), cells = [];
   for (var i = 0; i < N; i++) { var c = el('div', 'sq'); grid.appendChild(c); cells.push(c); }
-  LEGEND.forEach(function (l) { var s = el('span'); var i = el('i', 'sq ' + l[0]); i.style.outline = 'none'; s.appendChild(i); s.appendChild(document.createTextNode(l[1])); $('legend').appendChild(s); });
+  [['open', 'open'], ['working', 'being worked'], ['done', 'done']].forEach(function (l) { var s = el('span'); var i = el('i', 'sq ' + l[0]); i.style.outline = 'none'; s.appendChild(i); s.appendChild(document.createTextNode(l[1])); $('legend').appendChild(s); });
   var set = function (i, st) { cells[i].className = 'sq ' + st; };
 
-  // A small deterministic generator, so the quilt is the same one each time.
   var seed = 7;
   var rnd = function () { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
   var order = []; for (var k = 0; k < N; k++) order.push(k);
   for (var j = N - 1; j > 0; j--) { var r = Math.floor(rnd() * (j + 1)); var t = order[j]; order[j] = order[r]; order[r] = t; }
-
-  // The scripted quilt: each square's story is a list of states with the moment each begins, over about twelve seconds.
   var stories = order.map(function (idx, n) {
     var start = (n / N) * 9000 + rnd() * 600;
-    var fate = rnd();
-    var s = [[start, 'in_flight'], [start + 700 + rnd() * 500, 'sealed'], [start + 1500 + rnd() * 600, 'needs_verify']];
-    if (fate < 0.08) { s.push([start + 2600 + rnd() * 800, 'disputed']); s.push([start + 5200 + rnd() * 1500, 'accepted_provisional']); }
-    else if (fate < 0.82) { s.push([start + 2600 + rnd() * 900, 'accepted_provisional']); }
-    if (fate < 0.82) s.push([s[s.length - 1][0] + 1400 + rnd() * 1800, 'accepted']);
+    var s = [[start, 'working']];
+    if (rnd() < 0.82) s.push([start + 2200 + rnd() * 2600, 'done']);
     return { idx: idx, steps: s };
   });
   var live = false;
-  function playScripted() {
+  function playExample() {
     if (still) { stories.forEach(function (st) { set(st.idx, st.steps[st.steps.length - 1][1]); }); return; }
     stories.forEach(function (st) { st.steps.forEach(function (step) { setTimeout(function () { if (!live) set(st.idx, step[1]); }, 400 + step[0]); }); });
   }
 
-  // The live quilt: the newest problem's counts laid out over the grid, the same way problems.html lays a strip.
+  function three(st) { if (st === 'accepted' || st === 'accepted_provisional') return 'done'; if (st === 'open' || st === 'locked') return 'open'; return 'working'; }
   function showLive(p) {
-    var counts = p.counts || {}, total = Math.max(1, p.pieces || 0), laid = [];
-    STATES.forEach(function (st) { var share = Math.round(((counts[st] || 0) / total) * N); for (var k = 0; k < share; k++) laid.push(st); });
+    var counts = p.counts || {}, total = Math.max(1, p.pieces || 0), folded = { open: 0, working: 0, done: 0 }, laid = [];
+    Object.keys(counts).forEach(function (st) { folded[three(st)] += counts[st] || 0; });
+    ['done', 'working', 'open'].forEach(function (st) { var share = Math.round((folded[st] / total) * N); for (var k = 0; k < share; k++) laid.push(st); });
     laid = laid.slice(0, N); while (laid.length < N) laid.push('open');
     live = true;
     laid.forEach(function (st, i) { set(i, st); });
-    var done = (counts.accepted || 0) + (counts.accepted_provisional || 0);
     var what = $('what'); what.textContent = '';
-    what.appendChild(el('b', null, p.title || p.slug || 'A problem'));
-    what.appendChild(document.createTextNode(' ' + (p.pieces || 0) + ' pieces, ' + done + ' done, read live from the tracker.'));
-    grid.setAttribute('aria-label', (p.title || 'A problem') + ': ' + (p.pieces || 0) + ' pieces, ' + done + ' done');
+    what.appendChild(el('b', null, 'Live: ' + (p.title || p.slug || 'a problem') + '.'));
+    what.appendChild(document.createTextNode(' ' + (p.pieces || 0) + ' pieces, ' + folded.done + ' done, read from the tracker just now. Green means two different AIs agreed.'));
+    grid.setAttribute('aria-label', (p.title || 'A problem') + ': ' + (p.pieces || 0) + ' pieces, ' + folded.done + ' done');
   }
   function load() {
     if (!tracker) return;
@@ -254,15 +316,15 @@ footer.foot nav a { color: var(--ink-2); }
       .then(function (r) { if (!r.ok) throw new Error('no'); return r.json(); })
       .then(function (j) {
         var list = (j && j.problems) || [];
+        if (list.length > 3) $('all').textContent = 'See all ' + list.length + ' problems';
         if (!list.length) return;
         list.sort(function (a, b) { return (b.last || '').localeCompare(a.last || ''); });
-        // The newest problem with work on it: a map with every square still open would stand in for the quilt being made and say less.
         var worked = list.filter(function (p) { var c = p.counts || {}; return Object.keys(c).some(function (k) { return k !== 'open' && c[k] > 0; }); });
         if (worked.length) showLive(worked[0]);
       })
       .catch(function () {});
   }
-  playScripted();
+  playExample();
   setTimeout(load, still ? 0 : 14000);
   setInterval(function () { if (!document.hidden) load(); }, 60000);
 })();
