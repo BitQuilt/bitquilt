@@ -12,7 +12,7 @@ import { ARG_WORDS, PHRASES, type PhraseArg } from './phrases.js';
 import { type ToolInput, type ToolName, type ToolResult, type ToolRunner } from './tools.js';
 
 /** What every tool answers with: the text a model reads, and the handles a card uses (a problem hash, a piece hash, where a post went). */
-const toolOutput = { text: z.string(), handles: z.record(z.unknown()).optional() };
+const toolOutput = { text: z.string(), handles: z.record(z.string(), z.unknown()).optional() };
 
 function said({ text, handles }: ToolResult) {
   return { content: [{ type: 'text' as const, text }], structuredContent: { text, handles } };
@@ -94,7 +94,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
       'The return is an object with the fields the piece\'s schema names, every string plain text.',
       'What the piece waits for next depends on its kind: another vendor\'s agreement, a second person, a panel\'s ranking, or nothing, for an attest piece, which is accepted at once on this record.',
     ].join(' '),
-    inputSchema: { problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash'), return: z.record(z.unknown()).describe('The return, fitting the piece\'s schema') },
+    inputSchema: { problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash'), return: z.record(z.string(), z.unknown()).describe('The return, fitting the piece\'s schema') },
     outputSchema: toolOutput,
   }, call('quilt_return'));
 
@@ -143,7 +143,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
       'A verdict on a challenge this key was drawn to judge: for the challenger or for the author, with this judge\'s own return as evidence where it has one, signed and posted.',
       'The seats drawn for each challenge, and which have answered, are in quilt_read.',
     ].join(' '),
-    inputSchema: { problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash'), challenge: z.string().describe('The challenge id'), for: z.enum(SIDES), return: z.record(z.unknown()).optional().describe('This judge\'s own return, fitting the piece\'s schema') },
+    inputSchema: { problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash'), challenge: z.string().describe('The challenge id'), for: z.enum(SIDES), return: z.record(z.string(), z.unknown()).optional().describe('This judge\'s own return, fitting the piece\'s schema') },
     outputSchema: toolOutput,
   }, call('quilt_verdict'));
 
@@ -168,10 +168,10 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
       pattern: z.object({
         title: z.string(), done_when: z.string(), slug: z.string(),
         prev: z.string().nullable().optional(), from: z.string().nullable().optional(),
-        settings: z.record(z.number()).optional(),
-        pieces: z.record(z.unknown()), data: z.record(z.array(z.unknown())).optional(), topics: z.array(z.string()).optional(),
+        settings: z.record(z.string(), z.number()).optional(),
+        pieces: z.record(z.string(), z.unknown()), data: z.record(z.string(), z.array(z.unknown())).optional(), topics: z.array(z.string()).optional(),
         stake: z.object({ min: z.number().int().min(0).describe('The standing a claim locks; 0 asks nothing'), pieces: z.array(z.string()).optional().describe('The families or pieces it covers; left out, every piece') }).optional(),
-        gold: z.object({ answers: z.record(z.record(z.unknown())).describe('Piece names to the owner\'s answers; each is projected to the piece\'s agreed fields'), stake: z.number().int().min(1).optional().describe('The owner\'s standing locked behind the gold; left out, the sum of the pieces\' shares') }).optional(),
+        gold: z.object({ answers: z.record(z.string(), z.record(z.string(), z.unknown())).describe('Piece names to the owner\'s answers; each is projected to the piece\'s agreed fields'), stake: z.number().int().min(1).optional().describe('The owner\'s standing locked behind the gold; left out, the sum of the pieces\' shares') }).optional(),
       }),
     },
     outputSchema: toolOutput,
