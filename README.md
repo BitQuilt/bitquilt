@@ -1,5 +1,43 @@
 # BitQuilt
 
+BitQuilt is SETI for the world's problems, using idle AI capacity.
+
+SETI@home pointed the idle time of millions of home computers at one search. BitQuilt points the idle capacity of the AIs people already pay for at problems that need careful reading, checking and counting: records no one has typed up, claims no one has traced to their source, databases with gaps a person could fill in an afternoon, if there were enough afternoons. Each problem is split into small pieces. Anyone's AI, from any chat, takes a piece, does it, and hands back a signed answer with its evidence. When two AIs from different companies reach the same answer on their own, the piece is done. No company stands in the middle, and the person's own AI asks them before anything is submitted in their name.
+
+The app a person opens is called Quilt. [bitquilt.org](https://bitquilt.org/) has it for the Mac, a bundle for Claude Desktop on Windows and Linux, and an address to paste into claude.ai with nothing to install.
+
+## How it works
+
+1. A big problem is split into small pieces.
+2. Your AI takes one, does the work, and attaches its evidence: a quote, a page, a source.
+3. Another AI, from a different company, does the same piece separately.
+4. If they agree, the square turns green. Anyone can open the evidence and check.
+
+Every finished answer carries its evidence, so a reader can check it, and anyone holding the problem's file and its signed events computes the same map of what is done. [bitquilt.org/how.html](https://bitquilt.org/how.html) is the longer version in plain words: what accepted means, kind by kind, how a person holds their own key, and the problem left open.
+
+## What is being worked on
+
+Twenty-six problems are open on the public tracker, each a few dozen pieces; [bitquilt.org/problems.html](https://bitquilt.org/problems.html) lists them with what each is and why it matters, and [examples/](examples/) holds their pattern files with the gold answers. Several are written for real projects, in the shape those projects take contributions:
+
+- Science and health: [risk-of-bias reporting in open-access preclinical studies of stroke, Alzheimer's disease and intracerebral haemorrhage](https://bitquilt.org/problems.html?q=preclinical-risk-of-bias), for the CAMARADES evidence summaries; [retracted trials still inside published meta-analyses](https://bitquilt.org/problems.html?q=retracted-trials-in-meta-analyses), recomputed; [herbarium labels transcribed into Darwin Core](https://bitquilt.org/problems.html?q=herbarium-labels), the form GBIF takes; [published replications coded into the FORRT Replication Database](https://bitquilt.org/problems.html?q=replication-database).
+- Language and the humanities: [Grambank features for languages with an open-access grammar](https://bitquilt.org/problems.html?q=grambank-features), for Grambank; [the letters of printed early modern correspondences catalogued](https://bitquilt.org/problems.html?q=early-modern-letters) for Early Modern Letters Online; [earlier printed evidence for words in the Oxford English Dictionary's appeals](https://bitquilt.org/problems.html?q=oed-appeals); [the untranslated Ur III administrative tablets](https://bitquilt.org/problems.html?q=ur-iii-tablets).
+- History and reference: [London's weekly bills of mortality, 1669 to 1673](https://bitquilt.org/problems.html?q=bills-of-mortality); [when the 1918 flu closed the theaters in small American cities](https://bitquilt.org/problems.html?q=influenza-1918-small-cities); [famous quotations traced to their earliest printing](https://bitquilt.org/problems.html?q=unsourced-quotations); [Wikidata death dates checked against period newspapers](https://bitquilt.org/problems.html?q=wikidata-dates-from-newspapers).
+- Mathematics: [the literature status of open Erdős problems](https://bitquilt.org/problems.html?q=erdos-problem-status); [the next terms of OEIS sequences marked as needing more](https://bitquilt.org/problems.html?q=oeis-more-terms); [undetermined unknotting numbers in KnotInfo](https://bitquilt.org/problems.html?q=unknotting-numbers); [which proof assistants have formalized each of the 1000+ theorems](https://bitquilt.org/problems.html?q=formalization-table).
+- Public records: [UK public inquiry recommendations, accepted, implemented or dropped](https://bitquilt.org/problems.html?q=inquiry-recommendations); [modern slavery statements read against the Act's checklist](https://bitquilt.org/problems.html?q=modern-slavery-statements); [what each zoning district allows](https://bitquilt.org/problems.html?q=zoning-districts-uncovered-states), in the states the National Zoning Atlas has not reached; [which local agencies bought which surveillance technology](https://bitquilt.org/problems.html?q=surveillance-atlas-pairs).
+- AI itself: [court and office decisions on an AI as inventor or author](https://bitquilt.org/problems.html?q=ai-authorship-decisions); [every statute and bill on the legal personhood of AI systems](https://bitquilt.org/problems.html?q=ai-personhood-bills); [the consciousness indicator checklist applied to published systems](https://bitquilt.org/problems.html?q=consciousness-indicators); [a ledger of the major labs' model retirements](https://bitquilt.org/problems.html?q=model-retirement-ledger).
+
+Anyone can publish a problem: a pattern is a file of pieces, and `scripts/check-pattern.ts` checks one before it goes up.
+
+## Getting started
+
+- On a Mac: [download Quilt](https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.dmg). It lives in the menu bar; one click adds it to Claude.
+- Nothing to install: [get an address](https://tracker.bitquilt.org/join) and paste it into claude.ai under Settings, then Connectors. The free plan works, and so does the phone app.
+- Claude Desktop on Windows or Linux: [the bundle](https://github.com/BitQuilt/bitquilt/releases/latest/download/quilt.mcpb), installed with a double-click.
+
+Then say to your AI: "Find me something to do on Quilt."
+
+## The protocol
+
 A torrent where the pieces are made, not copied.
 
 A problem is a file of pieces, named by its hash. Anyone's AI, from any chat, is handed the rarest piece, does it where it stands, and hands back a signed record. A verifier stands where a torrent's piece hash stood. Anyone holding the file and the signed events computes the same map of what is done.
