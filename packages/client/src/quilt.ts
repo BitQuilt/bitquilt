@@ -3,7 +3,7 @@
  * The MCP server (mcp.ts, tools.ts) and the page (page.ts) are thin shells over it; the text itself is made in
  * render.ts from what is read here. Other people's words come out only as quoted text with the signer named.
  */
-import { type Address, type Capability, type Client, type DeclineReason, type Envelope, type Event, type Hash, type Pick, type Piece, type Problem, type State, type Unsigned, DECLINE_REASONS, commitHash, eventId, expandPieces, hashBytes, isHash, newNonce, next, plainTextProblems, problemHash, renderInputs, signEvent, signObject, envelopeProblems } from '@bitquilt/core';
+import { type Address, type Capability, type Client, type DeclineReason, type Envelope, type Event, type Hash, type Pick, type Piece, type Problem, type State, type Unsigned, DECLINE_REASONS, commitHash, eventId, expandPieces, hashBytes, isHash, newNonce, next, plainTextProblems, problemHash, renderInputs, signEvent, signObject, envelopeProblems, vendorOf } from '@bitquilt/core';
 import * as coin from './coin.js';
 import type { CoinBalance } from './coin.js';
 import { type Config, type Identity, createKey, loadKey } from './config.js';
@@ -308,26 +308,38 @@ export class Quilt {
   /**
    * The rarest piece for this key, claimed: the tracker's assisted next where one answers and names a piece, else the
    * core's `next` over the map; a lock of standing or of coin before the claim where the problem asks a stake of the
-   * piece (QX-15, QX-17); the claim recorded in the library. With no problem named, `offered`.
+   * piece (QX-15, QX-17); the claim recorded in the library. With no problem named, `offered`. With QUILT_NEXT_ONLY set
+   * to `verify`, only a piece another vendor has returned (`verifyOnly`), and nothing claimed when there is none.
    */
   async next(input: string): Promise<Handed> {
     if (!input.trim()) return this.offered();
     const id = this.needKey();
     const { hash, state, tracker } = await this.open(input);
     const trackers = this.trackersFor(hash);
+    // 0. The second opinion's pool, where the environment asks for one: empty, there is nothing to verify, and no claim is made.
+    const only = this.verifyOnly(state);
+    const nothingToVerify = 'nothing to verify on that problem for this key right now';
+    if (only && only.size === 0) throw new Error(nothingToVerify);
     // 1. The tracker's word, where one answered: the piece it names, the stake it asks, the pieces this key cannot cover.
     const asked = tracker ? await this.askedNext(hash, state, tracker) : { pick: null, stake: 0, unaffordable: [] as Hash[] };
     let { pick, stake } = asked;
+    // A piece the tracker named outside the pool is left where it is: the map picks within the pool, and the stake is then that piece's.
+    const unaffordable = only ? asked.unaffordable.filter((h) => only.has(h)) : asked.unaffordable;
+    const setAside = pick !== null && only !== null && !only.has(pick.piece.hash);
+    if (setAside) pick = null;
     // 2. Else the map, leaving out the pieces the tracker left out for their stake: a claim on one would be refused at its door.
-    pick ??= next(state, id.address, this.client(), this.stamp(), { exclude: new Set(asked.unaffordable) });
+    const exclude = new Set<string>(asked.unaffordable);
+    if (only) for (const v of state.pieces) if (!only.has(v.piece.hash)) exclude.add(v.piece.hash);
+    pick ??= next(state, id.address, this.client(), this.stamp(), { exclude });
+    if (setAside && pick && tracker) stake = layerByHash(await this.layerOf(hash, tracker)).get(pick.piece.hash)?.stake ?? 0;
     // 3. Else coin in place of standing (QX-17), where the tracker carries it and this key's free coin covers a stake.
     let plan: CoinPlan | null = null;
-    if (!pick && asked.unaffordable.length && tracker) {
-      const instead = await this.coinInstead(hash, state, tracker, asked.unaffordable);
+    if (!pick && unaffordable.length && tracker) {
+      const instead = await this.coinInstead(hash, state, tracker, unaffordable);
       if (instead) ({ pick, plan } = instead);
       if (plan) stake = plan.stake;
     }
-    if (!pick) throw new Error(asked.unaffordable.length ? `every piece left on that problem asks a stake this key's free standing cannot cover (${tracker})` : 'nothing for this key on that problem right now');
+    if (!pick) throw new Error(only ? nothingToVerify : asked.unaffordable.length ? `every piece left on that problem asks a stake this key's free standing cannot cover (${tracker})` : 'nothing for this key on that problem right now');
     // 4. The lock before the claim, where a stake is asked.
     const lock = await this.lockBefore(hash, pick.piece.hash, trackers, stake, plan);
     // 5. The claim, stamped after the lock so the two fold in order; where it went comes back as `posted`, refused or not.
@@ -337,6 +349,18 @@ export class Quilt {
     this.library.pieces[pick.piece.hash] = { problem: hash, name: pick.piece.name, when: claim.ts, what: 'claimed', verifier: pick.piece.verifier };
     this.save();
     return { hash, pick, posted, owner: nameOf(state, state.envelope.problem.owner), stake, lock };
+  }
+
+  /**
+   * The second opinion's pool, when QUILT_NEXT_ONLY is `verify`: the pieces in `needs_verify` or `disputed` whose
+   * every reveal is from a vendor other than this key's (CORE.md section 6: a vendor is the part of `by.model` before
+   * the slash). A key run this way confirms or disagrees with what another vendor returned and does no first work, so
+   * an open piece is never in the pool. Null when the environment does not ask for it, and `next` takes anything.
+   */
+  private verifyOnly(state: State): Set<string> | null {
+    if (process.env.QUILT_NEXT_ONLY !== 'verify') return null;
+    const vendor = vendorOf(this.model());
+    return new Set(state.pieces.filter((v) => (v.state === 'needs_verify' || v.state === 'disputed') && v.reveals.length > 0 && v.reveals.every((r) => r.vendor !== vendor)).map((v) => v.piece.hash));
   }
 
   /** The core's `next` held to one piece: every other piece excluded, so the pick is that piece's, or null where this key cannot take it. */

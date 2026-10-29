@@ -11,7 +11,8 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type Hash, IDENTITY_LOG, isHash } from '@bitquilt/core';
-import { claudeDesktopConfigPath, claudeHasQuilt, claudeRunning, installHere } from './install.js';
+import { awayState, awaySwitch } from './away.js';
+import { claudeDesktopConfigPath, claudeHasQuilt, claudeRunning, entryHere, installHere } from './install.js';
 import { makeLink } from './link.js';
 import { sheetOf } from './phrases.js';
 import { type Pattern, Quilt } from './quilt.js';
@@ -149,6 +150,15 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         // The menu bar's button: the connector written into Claude Desktop's config for this very program, as `quilt install claude` does; refused while Claude runs unless told to go ahead.
         const b = (await body(req)) as { anyway?: boolean };
         return json(res, 200, installHere(resolver.home, b.anyway === true));
+      }
+      if (path === '/api/away') {
+        // The menu bar's switch (away.ts): what runs while the person is away, how it went, and the switch itself, which schedules this very program as `quilt away --install` does.
+        const o = { home: resolver.home, env: process.env, entry: entryHere(resolver.home), quilt };
+        if (method === 'POST') {
+          const b = (await body(req)) as { on?: boolean; cap?: number };
+          return json(res, 200, await awaySwitch({ ...o, on: typeof b.on === 'boolean' ? b.on : undefined, cap: typeof b.cap === 'number' ? b.cap : undefined }));
+        }
+        return json(res, 200, await awayState(o));
       }
       // The tools, for a second copy of quilt on this home that works through this node rather than beside it (node.ts). Each run is an AI's, and is recorded as the connector's latest.
       let tool: RegExpExecArray | null;

@@ -22,12 +22,15 @@
  *   quilt rank <problem> <piece> <digest> [<digest>...]   a judge's ranking of a piece's candidates, first choice first
  *   quilt hide <id or hash> <why> [--lift]                a maintainer's takedown on this client's trackers, or its lift
  *   quilt install claude [--anyway]                     the connector written into Claude Desktop's config (run it while Claude is closed)
+ *   quilt away [--cap N] [--install|--uninstall|--status|--summary] [--json]
+ *                                                         one piece an hour while nobody is here, through Claude Code or Codex on the person's own plan (away.ts): a turn, the cap, the schedule, where it stands
  *
  * Started by a chat client (no TTY on stdin) with no command, it runs `mcp`. Logs go to stderr; stdout is the protocol.
  */
 import { readFileSync } from 'node:fs';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { DeclineReason } from '@bitquilt/core';
+import { awayCli } from './away.js';
 import { type Config, createKey, ensureHome, loadConfig, loadKey, quiltHome, saveConfig } from './config.js';
 import { entryHere, installHere } from './install.js';
 import type { Side } from './listings.js';
@@ -233,6 +236,13 @@ async function main(): Promise<void> {
         process.exit(1);
       }
       console.log(`Written to ${r.file}:\n${JSON.stringify(entryHere(home), null, 2)}\nOpen Claude; the quilt tools are there in a new chat.`);
+      return;
+    }
+    case 'away': {
+      // One piece an hour while nobody is at the keyboard (away.ts): a turn through an agent CLI on the person's own plan, or the cap, the schedule, the status and the summary of it.
+      const r = await awayCli(args, { home, env: process.env, entry: entryHere(home), quilt: () => make() });
+      console.log(r.out);
+      if (r.code) process.exit(r.code);
       return;
     }
     case 'flush': {

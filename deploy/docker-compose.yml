@@ -1,5 +1,7 @@
 # The public tracker with the hosted on-ramp, behind Caddy, on one small host (docs/DEPLOY.md says what each variable
 # is; docs/JOURNEY-AUDIT.md section 4 says the order it is brought up in). Everything the tracker keeps is the volume.
+# Beside it, the house second opinion: the OpenAI worker from the same image, giving a second reading to pieces another
+# vendor returned (docs/DEPLOY.md, "The house second opinion"). It runs nothing until OPENAI_API_KEY is set.
 #   cp deploy/env.example deploy/.env   # then fill it in; the file stays on the host and never in the repository
 #   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 services:
@@ -25,7 +27,26 @@ services:
       - caddy_config:/config
     depends_on:
       - tracker
+  house:
+    build:
+      context: ..
+    restart: unless-stopped
+    command: ["sh", "deploy/house.sh"]
+    # Only its own names from the env file, not the tracker's; the claim declares the model the reveal is made with.
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      HOUSE: ${HOUSE:-on}
+      HOUSE_MODEL: ${HOUSE_MODEL:-gpt-6-luna}
+      QUILT_MODEL: openai/${HOUSE_MODEL:-gpt-6-luna}
+      QUILT_TRACKERS: http://tracker:3977/
+      QUILT_HOME: /house
+      QUILT_BIN: pnpm -s --filter quilt start
+    volumes:
+      - house:/house
+    depends_on:
+      - tracker
 volumes:
   data:
   caddy_data:
   caddy_config:
+  house:

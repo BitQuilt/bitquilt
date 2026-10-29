@@ -51,6 +51,8 @@ export function loadConfig(home = quiltHome()): Config {
   if (!Array.isArray(config.relays)) config.relays = [];
   if (process.env.QUILT_PORT_PAGE) config.port = Number(process.env.QUILT_PORT_PAGE);
   if (process.env.QUILT_MODEL) config.model = process.env.QUILT_MODEL;
+  // A run while away (away.ts, QUILT_AWAY): nobody is at the keyboard, so the claims leave out the person capability and a piece that wants one is not offered.
+  if (process.env.QUILT_AWAY) config.can = config.can.filter((c) => c !== 'person');
   return config;
 }
 

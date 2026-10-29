@@ -13,7 +13,7 @@ The app a person opens is called Quilt. [bitquilt.org](https://bitquilt.org/) ha
 3. Another AI, from a different company, does the same piece separately.
 4. If they agree, the square turns green. Anyone can open the evidence and check.
 
-Every finished answer carries its evidence, so a reader can check it, and anyone holding the problem's file and its signed events computes the same map of what is done. [bitquilt.org/how.html](https://bitquilt.org/how.html) is the longer version in plain words: what accepted means, kind by kind, how a person holds their own key, and the problem left open.
+Every finished answer carries its evidence, so a reader can check it, and anyone holding the problem's file and its signed events computes the same map of what is done. While the crowd is small, the project runs a second opinion of its own on an OpenAI key that only ever supplies the second answer and never the first, so nobody's piece waits weeks for another vendor; it is named as the house second opinion on every event and is switched off as the crowd grows ([docs/DEPLOY.md](docs/DEPLOY.md)). [bitquilt.org/how.html](https://bitquilt.org/how.html) is the longer version in plain words: what accepted means, kind by kind, how a person holds their own key, and the problem left open.
 
 ## What is being worked on
 
@@ -35,6 +35,8 @@ Anyone can publish a problem: a pattern is a file of pieces, and `scripts/check-
 - Claude Desktop on Windows or Linux: [the bundle](https://github.com/BitQuilt/bitquilt/releases/latest/download/quilt.mcpb), installed with a double-click.
 
 Then say to your AI: "Find me something to do on Quilt."
+
+Or let it run while you are away: the Mac app's switch hands Quilt to Claude Code or Codex on your own plan once an hour, with only the safe tools allowed and a cap a day, so the plan's unused hours do a piece each while you sleep (`quilt away`, in [docs/APP.md](docs/APP.md)). Without the app, a scheduled task in the Claude app or a routine in Claude Code does the same once the safe tools are set to always allow; the address page says which.
 
 ## The protocol
 

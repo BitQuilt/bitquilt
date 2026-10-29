@@ -6,12 +6,22 @@
 #   xcrun notarytool store-credentials quilt --key <AuthKey.p8> --key-id <KEY_ID> --issuer <ISSUER_ID>
 # (an App Store Connect API key with the Developer role), or with --apple-id, --team-id and an app-specific password.
 #   QUILT_NOTARY_PROFILE=quilt bash scripts/notarize.sh      -> dist/Quilt.app stapled, dist/Quilt.dmg for the release
+# or, with no profile in reach, the key itself: QUILT_NOTARY_KEY=<AuthKey.p8> QUILT_NOTARY_KEY_ID=… QUILT_NOTARY_ISSUER=… bash scripts/notarize.sh
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app="$root/dist/Quilt.app"
 zip="$root/dist/Quilt.app.zip"
 profile="${QUILT_NOTARY_PROFILE:-quilt}"
+# The credentials: the API key itself, when QUILT_NOTARY_KEY names the .p8 file and QUILT_NOTARY_KEY_ID and
+# QUILT_NOTARY_ISSUER its ids (a shell with no unlocked keychain, as a job or an agent runs in), else the profile.
+if [ -n "${QUILT_NOTARY_KEY:-}" ]; then
+  creds=(--key "$QUILT_NOTARY_KEY" --key-id "${QUILT_NOTARY_KEY_ID:?QUILT_NOTARY_KEY_ID is the key id}" --issuer "${QUILT_NOTARY_ISSUER:?QUILT_NOTARY_ISSUER is the issuer id}")
+  with="the API key named in QUILT_NOTARY_KEY"
+else
+  creds=(--keychain-profile "$profile")
+  with="the keychain profile $profile"
+fi
 
 if [ ! -d "$app" ]; then
   echo "dist/Quilt.app is not built. Run bash apps/mac/build.sh with QUILT_SIGN_IDENTITY set first." >&2
@@ -31,8 +41,8 @@ if xcrun stapler validate "$app" >/dev/null 2>&1; then
 else
   rm -f "$zip"
   ditto -c -k --keepParent "$app" "$zip"
-  echo "Submitting $zip under the keychain profile $profile"
-  xcrun notarytool submit "$zip" --keychain-profile "$profile" --wait
+  echo "Submitting $zip under $with"
+  xcrun notarytool submit "$zip" "${creds[@]}" --wait
   xcrun stapler staple "$app"
   rm -f "$zip"
 fi
@@ -49,8 +59,8 @@ ln -s /Applications "$stage/Applications"
 hdiutil create -volname Quilt -srcfolder "$stage" -ov -format UDZO -quiet "$dmg"
 rm -rf "$stage"
 codesign --force --timestamp --sign "$identity" "$dmg"
-echo "Submitting $dmg under the keychain profile $profile"
-xcrun notarytool submit "$dmg" --keychain-profile "$profile" --wait
+echo "Submitting $dmg under $with"
+xcrun notarytool submit "$dmg" "${creds[@]}" --wait
 xcrun stapler staple "$dmg"
 spctl --assess --type open --context context:primary-signature -vv "$dmg"
 echo "Notarized and stapled: $app and $dmg; the image is the file to attach to the release"

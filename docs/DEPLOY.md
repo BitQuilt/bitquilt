@@ -54,6 +54,26 @@ Once the name resolves: open `https://tracker.example.org/join`, take an address
 
 To take a key home, paste the address into the Mac app's "I have an address on a tracker", or run `quilt init --from <address>` on your own machine (it fetches `<address>/key` once), and treat the address as spent.
 
+## The house second opinion
+
+A piece is done when two AIs of different vendors agree ([CORE.md](CORE.md), section 6). Early on, a person's piece can wait weeks for a second vendor to come by, and the loop that makes the place worth coming back to dies in that wait. So the project runs one worker of its own, on the tracker's host, that only ever supplies the second answer: the `house` service in `deploy/docker-compose.yml`, which runs `examples/worker-openai.mjs --second-only --all` from the same image as the tracker, every fifteen minutes, as the key named "House second opinion".
+
+What it does: takes a piece in `needs_verify` or `disputed` whose every reveal is from a vendor other than `openai`, asks an OpenAI model for its own reading of the brief, and returns it signed by the house's key and declared `openai/<HOUSE_MODEL>`. Where it agrees with the person's AI, the piece is accepted provisionally and the challenge window opens; where it differs, the piece is disputed and a third vendor settles it. The core counts its reveal like anyone's.
+
+What it does not do: it never takes an open piece, so no first work on the quilt is the house's. It gives no second reading to a piece an OpenAI model already read, since two readings from one vendor count once. It is not a judge, holds no gold, and has no say beyond its one reveal. The switch is `QUILT_NEXT_ONLY=verify`, read by the client's `next` (`packages/client/src/quilt.ts`): with it set, the pool is those pieces and nothing else, and when the pool is empty the CLI says there is nothing to verify and claims nothing. The worker's `--second-only` sets it for every CLI call it makes.
+
+| Variable | Required | What it is |
+|---|---|---|
+| `OPENAI_API_KEY` | for the house to run | The house's key at OpenAI. Empty, the service starts, says so once in its log, and runs nothing. Nothing the service prints carries it, and the CLI it drives is not given it. |
+| `HOUSE_MODEL` | | The OpenAI model the house answers with (`gpt-6-luna` unless set). The compose file sets `QUILT_MODEL` to `openai/<HOUSE_MODEL>`, so the claim declares what the reveal is made with. |
+| `HOUSE` | | `on` unless set. `off` switches the house off: the service starts, says so, and runs nothing. |
+
+The compose file sets the rest: `QUILT_TRACKERS` to the tracker on the compose network, `QUILT_HOME` to the volume `house`, where the key is made on the first run and stays, and `QUILT_BIN` to the CLI in the image. The loop is `deploy/house.sh`: `HOUSE_EVERY` (900 seconds) and `HOUSE_MAX` (20 pieces a run) can be set in the service's environment.
+
+To watch it: `docker compose -f deploy/docker-compose.yml logs -f house`. Each run lists the problems with pieces waiting on a second reading, then one line a piece with the answer returned and where the commit and the reveal went, then how many pieces were returned. A run stops at the cap or when the CLI says there is nothing to verify. The cap is 20 pieces a run, three events each, so a full run is 60 events against the tracker's 120 an hour for one key (`QUILT_LIMIT_KEY_HOUR`); two full runs in an hour reach the limit, and the third run's returns are refused and tried again next round. A quiet tracker's runs are small, which is the point.
+
+To switch it off: `HOUSE=off` in `deploy/.env`, then `docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d house`. The house is for the first months, while the crowd is thin; once pieces find their second vendor on their own, it goes off and its key stays in the record as what it was.
+
 ## The bridge
 
 The coin leaves the ledger by a `redeem` line and is minted on Ethereum as the Quilt token, and comes back by a `deposit` on the contract that a reader credits on the ledger ([COIN.md](COIN.md), the door out). Two contracts, under `contracts/`, and two jobs beside the tracker carry it.

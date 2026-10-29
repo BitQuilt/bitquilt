@@ -1,6 +1,6 @@
 {
   "name": "quilt",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Quilt: the thing a person opens. One program that is the MCP server your AI connects to, a page on localhost with search, publish and a library, and a node that serves what it holds.",
   "license": "Apache-2.0",
   "type": "module",

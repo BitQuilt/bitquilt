@@ -66,6 +66,8 @@ OPENAI_API_KEY=… QUILT_HOME=~/.config/quilt-worker QUILT_TRACKERS=http://local
 
 Set `model` in that key's config, or `QUILT_MODEL`, to `openai/<model>`, so the claim declares what the reveal does. Two such workers from different vendors accept pieces between themselves; see [docs/FIRST-RUN.md](../docs/FIRST-RUN.md) for the first time that happened.
 
+The project runs one such worker itself, on the tracker's host, as the house second opinion. With `--second-only` the CLI runs under `QUILT_NEXT_ONLY=verify` and hands the worker only pieces another vendor has already returned, so it confirms or disagrees with a person's AI and never does first work; with `--all` and no problem named it works every problem the tracker lists with such pieces, up to `--max` in the run. A person's piece gets its second reading within the quarter hour instead of waiting weeks for a second vendor to come by. [docs/DEPLOY.md](../docs/DEPLOY.md), "The house second opinion", says how it runs and how it is switched off as the crowd grows.
+
 ## A mirror
 
 A mirror is a folder of files anyone can serve raw, and the repository is the first one. The job pulls from a tracker, checks everything, refuses a chain that did anything but grow, and writes it:

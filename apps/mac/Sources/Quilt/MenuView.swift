@@ -2,8 +2,9 @@
 // what this window gives them is a sentence to say, not a button to press. It shows one of three screens, by the state
 // the node reports (phrases.ts in the client): a home with no key gets one button that makes it; a key with no AI yet
 // connected gets the install instructions and the first phrase to say; a connected home gets the sheet: the coin as it
-// rises, what is wanted from the person, the phrases that fit what they keep, a search whose results are phrases too, and
-// under More the page, the coin's prompts and Quit. A click on a phrase copies it. The popover signs nothing.
+// rises, what is wanted from the person, the phrases that fit what they keep, a search whose results are phrases too, the
+// switch for the hourly run while they are away, and under More the page, the coin's prompts and Quit. A click on a
+// phrase copies it. The popover signs nothing.
 
 import AppKit
 import SwiftUI
@@ -22,6 +23,8 @@ struct MenuView: View {
     /// The no-key screen's second door: an address on a tracker whose key comes home.
     @State private var importing = false
     @State private var address = ""
+    /// The cap the picker shows, kept in step with the node's.
+    @State private var cap = 5
     @FocusState private var searchFocused: Bool
 
     var body: some View {
@@ -174,7 +177,51 @@ struct MenuView: View {
                 heading(group.title)
                 ForEach(group.phrases) { phrase in phraseRow(phrase) }
             }
+            if let away = node.away {
+                Divider()
+                awaySection(away)
+            }
         }
+    }
+
+    // MARK: While I'm away
+
+    /// The switch for the hourly run (away.ts, /api/away): off and disabled with a line saying why when no agent CLI is on
+    /// this Mac; otherwise what it does, the cap to pick, and what the week's runs did. The node writes the schedule.
+    private func awaySection(_ away: Away) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle("Work while I'm away", isOn: Binding(
+                get: { away.installed },
+                set: { on in
+                    busy = true
+                    Task { await node.setAway(on: on, cap: cap); busy = false }
+                }
+            ))
+            .toggleStyle(.switch).font(.callout).disabled(busy || away.agent == nil)
+            if away.agent == nil {
+                Text("Needs Claude Code or Codex on this Mac").font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text("Every hour, your AI does one piece without asking, up to \(cap) a day. It never pays, publishes, challenges or stakes while you're away.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Text("A day:").font(.caption).foregroundStyle(.secondary)
+                    Picker("A day", selection: $cap) {
+                        ForEach([3, 5, 10, 20], id: \.self) { n in Text(String(n)).tag(n) }
+                    }
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 160)
+                    .onChange(of: cap) { _, n in
+                        if away.cap != n { Task { await node.setAway(on: away.installed, cap: n) } }
+                    }
+                }
+                Text("Last 7 days: \(away.summary.week.returned) piece\(away.summary.week.returned == 1 ? "" : "s"), \(away.summary.week.accepted) accepted so far")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if let note = node.awayNote {
+                Text(note).font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).lineLimit(3)
+            }
+        }
+        .onAppear { cap = away.cap }
+        .onChange(of: away.cap) { _, n in cap = n }
     }
 
     /// The coin, lit when it has just risen, and what was gained since the app opened; the standing beside it.

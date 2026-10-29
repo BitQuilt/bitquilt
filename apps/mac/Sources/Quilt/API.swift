@@ -1,8 +1,9 @@
 // API.swift: the shapes the node answers with on 127.0.0.1 and the calls the shell makes. The shell reads, and writes
-// two things that are not the ledger's: it asks the node to write the connector into Claude Desktop's config
-// (POST /api/install), and it runs `quilt init` to make the key. Every write to a ledger stays in the person's AI's
-// connector, or in the page, which is the person's hand. Requests carry no Origin header, which is what the node's guard
-// expects of a program on this machine.
+// three things that are not the ledger's: it asks the node to write the connector into Claude Desktop's config
+// (POST /api/install), it asks the node to schedule or stop the hourly run while the person is away (POST /api/away),
+// and it runs `quilt init` to make the key. Every write to a ledger stays in the person's AI's connector, or in the
+// page, which is the person's hand. Requests carry no Origin header, which is what the node's guard expects of a
+// program on this machine.
 
 import Foundation
 
@@ -133,6 +134,23 @@ struct Installed: Decodable {
     let reason: String?
 }
 
+/// GET and POST /api/away: the hourly run while the person is away (away.ts in the client). Whether it is scheduled,
+/// which agent CLI is on this Mac, the cap, and what the runs did today and over the last seven days.
+struct Away: Decodable {
+    struct Agent: Decodable { let name: String; let path: String }
+    struct Count: Decodable { let runs: Int; let returned: Int; let accepted: Int }
+    struct Summary: Decodable { let today: Count; let week: Count }
+
+    let installed: Bool
+    let loaded: Bool
+    /// claude or codex, and where it was found; nil when neither is on this Mac.
+    let agent: Agent?
+    let cap: Int
+    let summary: Summary
+    /// What a switch did, or why it did not; nil on a read.
+    let note: String?
+}
+
 struct API {
     /// The node's origin, http://127.0.0.1:<port>, with no trailing slash.
     let base: String
@@ -195,6 +213,18 @@ struct API {
     /// Asks the node to write the connector into Claude Desktop's config; the node refuses while Claude runs unless told to go ahead anyway.
     func install(anyway: Bool) async throws -> Installed {
         try decode(await post("/api/install", body: ["anyway": anyway], timeout: 10))
+    }
+
+    /// Nil on a node that has no away route yet (404). The summary asks the trackers what became of the pieces, so this can take a while.
+    func away() async throws -> Away? {
+        let answer = try await get("/api/away", timeout: 25)
+        if answer.status == 404 { return nil }
+        return try decode(answer)
+    }
+
+    /// The switch: on writes and loads the hourly schedule for this node's own program, off removes it; the cap is kept either way.
+    func setAway(on: Bool, cap: Int) async throws -> Away {
+        try decode(await post("/api/away", body: ["on": on, "cap": cap], timeout: 30))
     }
 
     /// Whether a quilt node answers at the base: JSON with an address field, null or not.

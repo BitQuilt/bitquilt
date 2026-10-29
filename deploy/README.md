@@ -11,4 +11,6 @@ In order, on a fresh host:
 5. Back up the volume `data` nightly, encrypted, apart from the key secret (`docs/DEPLOY.md`, Keeping it).
 6. The repository's variable `BITQUILT_TRACKERS` set to `https://tracker.bitquilt.org/`, which starts the mirror; the defaults in `packages/client/src/config.ts` and `scripts/build-mcpb.mjs` set to the same, then the release tag.
 
+The house second opinion runs beside the tracker as the `house` service, from the same image: every fifteen minutes it gives a second reading, as an OpenAI model, to pieces another vendor returned, and never takes an open piece (`docs/DEPLOY.md`, The house second opinion). It runs nothing until `OPENAI_API_KEY` is set in `deploy/.env` and the service is brought up again (`docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d house`); `docker compose -f deploy/docker-compose.yml logs -f house` shows what it did; `HOUSE=off` in the env file, and the same `up -d house`, switches it off. Its key lives on the volume `house`.
+
 A new version: `git pull` and the same `up -d --build`; the volume stays. The tracker refuses a problem whose challenge window is longer than `window_max_h` in the coin's parameters, and admits everything else the gate and the limits allow.

@@ -7,6 +7,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { DECLINE_REASONS } from '@bitquilt/core';
+import { AWAY_TOOLS, type AwayRecord, capReached, capText, readAway, recordReturn } from './away.js';
 import { SIDES } from './listings.js';
 import { ARG_WORDS, PHRASES, type PhraseArg } from './phrases.js';
 import { type ToolInput, type ToolName, type ToolResult, type ToolRunner } from './tools.js';
@@ -26,9 +27,16 @@ const instructions = [
   'The person\'s own client asks them before anything is written.',
 ].join(' ');
 
+/** The sentence added for a run while away (away.ts): what this connector is, in words that describe. */
+export function awayInstructions(record: AwayRecord): string {
+  return `This connector was started for a run while nobody is at the keyboard: the claims it posts leave out the person capability, today's allowance is ${record.cap} pieces of which ${record.returned} are returned, and the tools that publish, pay, move coin, challenge, judge, seed, name or reveal gold are not offered.`;
+}
+
 export interface McpServerOptions {
   /** Called once the client has finished its handshake, with the host's name: the record the menu bar reads as an AI having connected (phrases.ts). */
   connected?: (host: string | null) => void;
+  /** The record of a run while away (away.ts): set, only the tools such a run may call are offered, and quilt_next and quilt_return stop at the day's cap. QUILT_AWAY when left out. */
+  away?: string;
 }
 
 /**
@@ -37,8 +45,24 @@ export interface McpServerOptions {
  * tools.ts. The prompts are the phrases (phrases.ts), one each, with what each takes asked for by the chat.
  */
 export function createMcpServer(run: ToolRunner, options: McpServerOptions = {}): McpServer {
-  const server = new McpServer({ name: 'quilt', version: '0.1.0' }, { instructions });
-  const call = (name: ToolName) => async (input: ToolInput) => said(await run(name, input, server.server.getClientVersion()?.name));
+  const away = options.away ?? process.env.QUILT_AWAY;
+  const server = new McpServer({ name: 'quilt', version: '0.2.0' }, { instructions: away ? `${instructions} ${awayInstructions(readAway(away))}` : instructions });
+  // While away, a claim or a return past the day's cap is answered with the cap and writes nothing; each return handed back is counted in the record.
+  const call = (name: ToolName) => async (input: ToolInput) => {
+    if (away && (name === 'quilt_next' || name === 'quilt_return')) {
+      const record = readAway(away);
+      if (capReached(record)) return said({ text: capText(record), handles: { away: { cap: record.cap, returned: record.returned, day: record.day } } });
+    }
+    const result = await run(name, input, server.server.getClientVersion()?.name);
+    if (away && name === 'quilt_return') recordReturn(away, String(input.problem ?? ''), String(input.piece ?? ''));
+    return said(result);
+  };
+  // A tool registered, and taken off again before the handshake when this is a run while away and the tool is not among the ones such a run may call.
+  const tool: McpServer['registerTool'] = (name, config, cb) => {
+    const registered = server.registerTool(name, config, cb);
+    if (away && !(AWAY_TOOLS as readonly string[]).includes(name)) registered.remove();
+    return registered;
+  };
   if (options.connected) {
     const connected = options.connected;
     server.server.oninitialized = () => connected(server.server.getClientVersion()?.name ?? null);
@@ -53,28 +77,28 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     });
   }
 
-  server.registerTool('quilt_me', {
+  tool('quilt_me', {
     title: 'This client',
     description: 'The address this client signs with, its name, the model it declares, what it can do, the trackers it asks, how many events wait in its queue, from the first tracker that answers its standing (what it has, earned by work and not for sale; what is locked behind its claims under QX-15; what is free to stake), and, where a tracker carries the coin (QX-17), its coin: the balance in units, what is transferable now, what is still vesting, what is locked or escrowed, and what is free to stake or pay.',
     inputSchema: {},
     outputSchema: toolOutput,
   }, call('quilt_me'));
 
-  server.registerTool('quilt_open', {
+  tool('quilt_open', {
     title: 'Open a problem',
     description: 'Opens a problem from a quilt link, a tracker address or a bare hash: the owner\'s title and statement of when it is done as their quoted words, the map of pieces with their states, the verifier kinds and how strongly each earns a square, and the link to pass on.',
     inputSchema: { link: z.string().describe('A quilt: link, a tracker\'s /p/<hash> address, or a sha256: hash') },
     outputSchema: toolOutput,
   }, call('quilt_open'));
 
-  server.registerTool('quilt_search', {
+  tool('quilt_search', {
     title: 'Search for problems',
     description: 'Searches the trackers and the relays this client knows for problems whose title, slug, topics or statement of done contain the words, and lists each with its counts and its owner; a result from a relay names the tracker to open it from.',
     inputSchema: { query: z.string().min(1).max(200) },
     outputSchema: toolOutput,
   }, call('quilt_search'));
 
-  server.registerTool('quilt_next', {
+  tool('quilt_next', {
     title: 'Take the rarest piece',
     description: [
       'The rarest piece of a problem that fits this client, claimed for it: its verifier kind and how strongly that kind earns a square, the author\'s brief as their quoted words, the fields a return has and which must agree, what the piece requires, and the lease in hours.',
@@ -87,7 +111,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_next'));
 
-  server.registerTool('quilt_return', {
+  tool('quilt_return', {
     title: 'Hand a return back',
     description: [
       'Hands back a return for a piece this client was handed: a commit with the hash of the return, then its reveal, both signed with this client\'s key and posted to the problem\'s trackers.',
@@ -98,7 +122,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_return'));
 
-  server.registerTool('quilt_decline', {
+  tool('quilt_decline', {
     title: 'Give a piece back',
     description: [
       'Gives a piece back with one of the fixed reasons: cannot, unclear, refuse, duplicate or no_time.',
@@ -108,14 +132,14 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_decline'));
 
-  server.registerTool('quilt_read', {
+  tool('quilt_read', {
     title: 'Read a problem',
     description: 'A problem\'s map with its kinds, the stake it asks and the gold its owner committed (how many squares are verified, missed or awaiting the reveal), its accepted returns, each as the quoted words of the key that signed it with the signer named and a verified square said so, its challenges (the ground as the challenger\'s quoted words, the judges drawn, each verdict, the outcome), and its judge panels (each candidate\'s return quoted, the seats drawn, each rank, the outcome).',
     inputSchema: { problem: z.string().describe('The problem, as a link or a hash') },
     outputSchema: toolOutput,
   }, call('quilt_read'));
 
-  server.registerTool('quilt_rank', {
+  tool('quilt_rank', {
     title: 'Rank a judge piece\'s candidates',
     description: [
       'A ranking of a judge piece\'s candidates (QX-2) by a key drawn to its panel: every candidate\'s digest once, first choice first, signed and posted to the problem\'s trackers.',
@@ -125,7 +149,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_rank'));
 
-  server.registerTool('quilt_challenge', {
+  tool('quilt_challenge', {
     title: 'Challenge an acceptance',
     description: [
       'Challenges a piece\'s provisional acceptance inside its window (QX-1): a stake of this key\'s standing, gained if the challenge holds and lost if it fails, and one sentence of ground through the plain-text gate, signed and posted to the problem\'s trackers.',
@@ -137,7 +161,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_challenge'));
 
-  server.registerTool('quilt_verdict', {
+  tool('quilt_verdict', {
     title: 'Give a verdict',
     description: [
       'A verdict on a challenge this key was drawn to judge: for the challenger or for the author, with this judge\'s own return as evidence where it has one, signed and posted.',
@@ -147,7 +171,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_verdict'));
 
-  server.registerTool('quilt_seed', {
+  tool('quilt_seed', {
     title: 'Keep a problem',
     description: [
       'A seed event on the problem\'s log, on or off.',
@@ -158,7 +182,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_seed'));
 
-  server.registerTool('quilt_publish', {
+  tool('quilt_publish', {
     title: 'Publish a problem',
     description: [
       'Publishes a problem from a pattern signed with this client\'s key as the owner: the title, the statement of when it is done, a slug, the pieces with their briefs, schemas, verifier kinds and what they require, the data rows the briefs\' slots draw on, topics for the index, where the owner asks it the stake of standing a claim on the pieces is backed by (QX-15), and where the owner knows some answers in advance the gold (QX-16): each answer committed by hash before the work, bound to its piece inside the commitment so the ledger shows how many answers are committed and not which pieces, backed by a stake of the owner\'s standing, kept in this home\'s library for the reveal.',
@@ -177,7 +201,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_publish'));
 
-  server.registerTool('quilt_pay', {
+  tool('quilt_pay', {
     title: 'Pay a problem\'s workers in coin',
     description: [
       'Escrows coin of this key to a problem, on the coin log of the tracker that is the coin\'s home (QX-17): each square accepted after it pays the price per square from the escrow to the roots of its set, divided equally, until the escrow is empty, and what is left comes back to this key when the problem completes.',
@@ -187,7 +211,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_pay'));
 
-  server.registerTool('quilt_transfer', {
+  tool('quilt_transfer', {
     title: 'Move coin to an address',
     description: [
       'Moves vested free coin of this key to another address, as a signed transfer on the coin log of the tracker that is the coin\'s home (QX-17), from the time the home\'s parameters name.',
@@ -198,7 +222,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_transfer'));
 
-  server.registerTool('quilt_redeem', {
+  tool('quilt_redeem', {
     title: 'Redeem coin to the chain',
     description: [
       'Takes vested free coin of this key off the ledger, as a signed redeem on the coin log (QX-17, the door out), to be minted as the Quilt token on Ethereum to this key\'s address or to the one named, once the bridge\'s poster carries the line under a posted head and the head\'s veto window has passed; the holder then claims it on the chain with the proof, paying gas once.',
@@ -208,7 +232,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_redeem'));
 
-  server.registerTool('quilt_reveal_gold', {
+  tool('quilt_reveal_gold', {
     title: 'Reveal the gold on a piece',
     description: [
       'The owner\'s reveal of the answer committed to a piece before the work (QX-16), naming the piece on the ledger for the first time, from the projection and nonce this home kept at publishing, posted once the piece has an accepted set and inside its window.',
@@ -219,7 +243,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_reveal_gold'));
 
-  server.registerTool('quilt_name', {
+  tool('quilt_name', {
     title: 'Set this key\'s name',
     description: [
       'Sets the name this key goes by, as a signed name event in the trackers\' identity log.',

@@ -2,9 +2,9 @@
 // $QUILT_HOME/config.json, asks /api/me, attaches when a node answers and otherwise starts one as a child with its output
 // in ~/Library/Logs/Quilt/node.log. Every thirty seconds it asks again, and starts a node when the one it had is gone.
 // Quitting stops only a node this app started. The popover reads this object: the sheet (which state the home is in and
-// the phrases to say), the coin as it rises, what is wanted. Two things here act: `makeKey` runs `quilt init` once for a
-// home with no key, and `installConnector` asks the node to write the connector into Claude Desktop's config. Nothing
-// here signs, and nothing writes to a ledger.
+// the phrases to say), the coin as it rises, what is wanted. Three things here act: `makeKey` runs `quilt init` once for
+// a home with no key, `installConnector` hands the connector bundle to Claude Desktop, and `setAway` asks the node to
+// schedule, or stop, the hourly run while the person is away. Nothing here signs, and nothing writes to a ledger.
 
 import AppKit
 import Foundation
@@ -41,6 +41,10 @@ final class Node: ObservableObject {
     @Published private(set) var bundleOpened = false
     /// Claude Desktop is not on this Mac, so there is nothing to hand the bundle to.
     @Published private(set) var claudeMissing = false
+    /// The run while away (GET /api/away): nil until the node has answered, and on a node from before it.
+    @Published private(set) var away: Away?
+    /// What the node said when the switch was last moved, or what went wrong.
+    @Published private(set) var awayNote: String?
 
     let home: URL
     let port: Int
@@ -159,6 +163,13 @@ final class Node: ObservableObject {
             sheetMissing = answer == nil
         }
         if sheet?.state == "connected", let items = try? await api.attention() { attention = items } else if sheet?.state != "connected" { attention = [] }
+        if sheet?.state == "connected" { await refreshAway() }
+    }
+
+    /// The run while away as the node sees it: whether it is scheduled, which agent is here, the cap, and the week's counts.
+    func refreshAway() async {
+        guard isUp else { return }
+        if let answer = try? await api.away() { away = answer }
     }
 
     /// The standing and the coin, with every rise of the balance added to what was gained since the app opened.
@@ -275,6 +286,18 @@ final class Node: ObservableObject {
             installNote = "Claude Desktop could not be opened with the bundle: \(error.localizedDescription)"
         }
         await refreshSheet()
+    }
+
+    /// The switch and the cap (POST /api/away): the node writes or removes the launchd agent for its own program; what it said is kept for the popover.
+    func setAway(on: Bool, cap: Int) async {
+        awayNote = nil
+        do {
+            let answer = try await api.setAway(on: on, cap: cap)
+            away = answer
+            awayNote = answer.note
+        } catch {
+            awayNote = error.localizedDescription
+        }
     }
 
     /// Claude Desktop's bundle identifier, for handing it the connector bundle.
