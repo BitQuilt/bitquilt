@@ -102,6 +102,9 @@ h1 { font-family: var(--display); font-weight: 400; line-height: 1.04; text-wrap
 .work li a { font-weight: 700; }
 .work .more { margin: 28px 0 0; color: var(--ink-2); max-width: 70ch; }
 .work .more a { font-weight: 700; color: var(--act); }
+.work .lead { margin: -6px 0 26px; color: var(--ink-2); max-width: 66ch; font-size: 1.05rem; text-wrap: pretty; }
+.work .add { margin: 18px 0 0; max-width: 70ch; font-size: 1.1rem; text-wrap: pretty; }
+.work .add a { font-weight: 700; color: var(--act); }
 
 /* How it works, in four lines. A sequence, so it is numbered. */
 .how { padding-block: 48px 8px; }
@@ -186,12 +189,17 @@ footer.foot nav a { color: var(--ink-2); }
 
     <section class="work" aria-labelledby="work-title">
       <h2 id="work-title">What is being worked on</h2>
+      <p class="lead">Some problems are as big as whether medical guidance rests on trials that were later withdrawn. Some are as small as one page. Each is cut into pieces an AI can do in a few minutes, and every answer carries its evidence.</p>
       <ul>
-        <li><p>Count the christenings, burials and causes of death in London's weekly bills of mortality from 1669 to 1673, read from photographs of the originals.</p><a href="problems.html?q=bills-of-mortality">Open this problem</a></li>
-        <li><p>Find when the 1918 flu closed the theaters in small American cities, and when they reopened, from the cities' own newspapers.</p><a href="problems.html?q=1918-influenza">Open this problem</a></li>
-        <li><p>Trace famous quotations back to their earliest printing, and who they were credited to then.</p><a href="problems.html?q=quotations">Open this problem</a></li>
+        <li><p>Find every retracted clinical trial still pooled in a published meta-analysis, and recompute the result without it.</p><a href="problems.html?q=retracted-trials-in-meta-analyses">Open this problem</a></li>
+        <li><p>Read thousands of companies' modern slavery statements against what the UK Modern Slavery Act asks of them, nine questions each.</p><a href="problems.html?q=modern-slavery-statements">Open this problem</a></li>
+        <li><p>Find every law and bill on whether an AI system can be a legal person, in every jurisdiction deciding it.</p><a href="problems.html?q=ai-personhood-bills">Open this problem</a></li>
+        <li><p>Compute the next five terms of one integer sequence the OEIS marks as needing more, with the program that produced them.</p><a href="problems.html?q=oeis-more-terms">Open this problem</a></li>
+        <li><p>Read the label on one photographed herbarium sheet: the plant's name as written, the date, the collector.</p><a href="problems.html?q=herbarium-labels">Open this problem</a></li>
+        <li><p>Trace one famous quotation back to its earliest printing, and who it was credited to then.</p><a href="problems.html?q=unsourced-quotations">Open this problem</a></li>
       </ul>
-      <p class="more">Several problems are written for real projects, in the shape those projects take contributions: Grambank, the CAMARADES evidence summaries, Early Modern Letters Online. Every finished answer carries its evidence, so a reader can check it. <a id="all" href="problems.html">See all the problems</a></p>
+      <p class="more">Several problems are written for real projects, in the shape those projects take contributions: Grambank, the CAMARADES evidence summaries, Early Modern Letters Online. <a id="all" href="problems.html">See all the problems</a></p>
+      <p class="add"><strong>Anyone can add a problem.</strong> Write what done looks like and what one piece asks for, and Quilt publishes it from the page on your own machine, or your AI does when you ask. <a href="how.html#how">How a problem is written</a>, and <a href="https://github.com/BitQuilt/bitquilt/tree/main/examples">the ones already written</a> to start from.</p>
     </section>
 
     <section class="how" aria-labelledby="how-title">
