@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds Quilt.app: the Swift shell in release, then the bundle at dist/Quilt.app in the repository root with the quilt
-# executable and the connector bundle (quilt.mcpb, which the app hands to Claude Desktop) inside it, signed ad hoc for
+# executable, the connector bundle (quilt.mcpb, which the app hands to Claude Desktop) and the fonts inside it, signed ad hoc for
 # this machine, or with the Developer ID in QUILT_SIGN_IDENTITY and the hardened runtime for a copy others download
 # (then scripts/notarize.sh). Stops with a plain message when either is missing, rather than building an app that cannot
 # start a node or install its connector.
@@ -30,6 +30,9 @@ cp "$built" "$app/Contents/MacOS/Quilt"
 cp "$here/Resources/Info.plist" "$app/Contents/Info.plist"
 cp "$quilt" "$app/Contents/Resources/quilt"
 cp "$mcpb" "$app/Contents/Resources/quilt.mcpb"
+# The site's three faces and their licences; Info.plist's ATSApplicationFontsPath loads them for the popover.
+mkdir -p "$app/Contents/Resources/Fonts"
+cp "$here"/Resources/Fonts/*.ttf "$here"/Resources/Fonts/*-OFL.txt "$app/Contents/Resources/Fonts/"
 printf 'APPL????' > "$app/Contents/PkgInfo"
 if [ -n "${QUILT_SIGN_IDENTITY:-}" ]; then
   # A Developer ID, for a copy others download: the hardened runtime notarization asks for, the nested quilt executable

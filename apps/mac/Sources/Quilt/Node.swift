@@ -4,7 +4,8 @@
 // Quitting stops only a node this app started. The popover reads this object: the sheet (which state the home is in and
 // the phrases to say), the coin as it rises, what is wanted. Three things here act: `makeKey` runs `quilt init` once for
 // a home with no key, `installConnector` hands the connector bundle to Claude Desktop, and `setAway` asks the node to
-// schedule, or stop, the hourly run while the person is away. Nothing here signs, and nothing writes to a ledger.
+// schedule, or stop, the hourly run while the person is away. `openClaude` only brings Claude Desktop forward. Nothing
+// here signs, and nothing writes to a ledger.
 
 import AppKit
 import Foundation
@@ -99,13 +100,6 @@ final class Node: ObservableObject {
         case .started: return "node started by Quilt"
         case .failed(let why): return why
         }
-    }
-
-    /// The name the person chose, else the start of their address, else nothing.
-    var who: String {
-        if let name = me?.name, !name.isEmpty { return name }
-        if let address = me?.address { return String(address.prefix(10)) }
-        return ""
     }
 
     /// The coin this key holds at the coin's home, as the tracker last said; nil where no tracker carries one.
@@ -288,16 +282,32 @@ final class Node: ObservableObject {
         await refreshSheet()
     }
 
-    /// The switch and the cap (POST /api/away): the node writes or removes the launchd agent for its own program; what it said is kept for the popover.
+    /// The switch and the cap (POST /api/away): the node writes or removes the launchd agent for its own program. What it
+    /// said is kept for the popover only when the switch did not take, so a path the node names on success is not shown.
     func setAway(on: Bool, cap: Int) async {
         awayNote = nil
         do {
             let answer = try await api.setAway(on: on, cap: cap)
             away = answer
-            awayNote = answer.note
+            if answer.installed != on {
+                awayNote = answer.note
+            } else if on && !answer.loaded {
+                awayNote = "The schedule is written, and starts at your next login."
+            }
         } catch {
             awayNote = error.localizedDescription
         }
+    }
+
+    /// Whether Claude Desktop is on this Mac, so the popover can offer to bring it forward.
+    var hasClaude: Bool {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: Node.claudeBundleId) != nil
+    }
+
+    /// Brings Claude Desktop forward, for the person to paste the sentence they copied; it opens nothing else.
+    func openClaude() {
+        guard let claude = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Node.claudeBundleId) else { return }
+        NSWorkspace.shared.openApplication(at: claude, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
     }
 
     /// Claude Desktop's bundle identifier, for handing it the connector bundle.
