@@ -205,7 +205,7 @@ struct WordsScreen: View {
             SetupSteps(at: 1)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Your key is made.").font(Typeface.text(12.5, bold: true)).foregroundStyle(Palette.doneInk)
-                Text("Write down these twelve words").font(Typeface.display(22))
+                Text("Write down these twelve words").font(Typeface.display(22)).fixedSize(horizontal: false, vertical: true)
             }
             .padding(.top, 6)
             Text("These twelve words are the key itself. Whoever has them can sign as you, so keep them to yourself.")
