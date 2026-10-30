@@ -1,0 +1,17 @@
+# The Mac app's Swift package, built in release on the runner the release job uses, whenever a change touches it. The
+# release job (release.yml, mac-app) builds it only on a tag and only with signing set up, so without this a change to
+# the popover reaches a reviewer unbuilt. It signs nothing and makes no app bundle: build.sh needs the quilt executable
+# and the connector bundle, which this check has no reason to build.
+name: mac app
+on:
+  pull_request:
+    paths: ['apps/mac/**', '.github/workflows/mac.yml']
+  push:
+    branches: [main]
+    paths: ['apps/mac/**', '.github/workflows/mac.yml']
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift build -c release --package-path apps/mac

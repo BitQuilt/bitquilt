@@ -1,10 +1,11 @@
 // MenuView.swift: the popover under the menu-bar icon. The person sits in a chat and their AI holds the connector, so
-// what this window gives them is a sentence to say, not a button to press. It shows one of three screens, by the state
-// the node reports (phrases.ts in the client): a home with no key gets one button that makes it; a key with no AI yet
-// connected gets the install instructions and the first phrase to say; a connected home gets the sheet: the coin as it
-// rises, what is wanted from the person, the phrases that fit what they keep, a search whose results are phrases too, the
-// switch for the hourly run while they are away, and under More the page, the coin's prompts and Quit. A click on a
-// phrase copies it. The popover signs nothing.
+// what this window gives them is a sentence to say, not a button to press. Its header says whether their AI is connected;
+// under it, one screen by the state the node reports (phrases.ts in the client): the node not up yet, a home with no key,
+// the twelve words once, a key with no AI connected yet, or the sheet. The sheet reads top to bottom as a glance: the coin
+// and the standing, the one sentence to say now (the sheet's first phrase, lifted out of its group), a search, then the
+// groups in the node's order, scrolling; the switch for the hourly run while away and the footer stay pinned. A search
+// folds the top away until the field is cleared. More holds the page, the full away settings, the coin's slash commands
+// and what is where on this Mac. A click on a phrase copies it. The popover signs nothing.
 
 import AppKit
 import SwiftUI
@@ -14,375 +15,523 @@ struct MenuView: View {
     @ObservedObject var page: PageWindow
     @State private var query = ""
     @State private var results: [SearchResult] = []
-    /// What the search area says when it has no list to show: searching, nothing matched, or what went wrong.
+    @State private var searching = false
+    /// What the search says when it has no list to show: nothing matched, or what went wrong.
     @State private var note: String?
-    /// The sentence copied a moment ago, so its row can say so.
+    /// The sentence copied a moment ago, so its row and the toast can say so.
     @State private var copied: String?
     @State private var more = false
     @State private var busy = false
-    /// The no-key screen's second door: an address on a tracker whose key comes home.
-    @State private var importing = false
-    @State private var address = ""
-    /// The cap the picker shows, kept in step with the node's.
-    @State private var cap = 5
+    @State private var addressCopied = false
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            header
-            switch node.screen {
-            case .down: down
-            case .old: old
-            case .noKey: noKey
-            case .noConnector: noConnector
-            case .connected: connected
+        VStack(alignment: .leading, spacing: 0) {
+            if more { moreHeader } else { header }
+            if more {
+                morePanel
+            } else if let words = node.newPhrase {
+                WordsScreen(phrase: words) { node.forgetPhrase() }
+            } else {
+                switch node.screen {
+                case .down: NodeScreen(node: node, old: false)
+                case .old: NodeScreen(node: node, old: true)
+                case .noKey: NoKeyScreen(node: node)
+                case .noConnector: ConnectScreen(node: node, copied: copied, copy: copy, openPage: showPage)
+                case .connected: connected
+                }
             }
-            Divider()
-            moreSection
+            if node.newPhrase == nil || more { footer }
         }
-        .padding(12)
         .frame(width: 380)
+        .background(Palette.ground)
+        .foregroundStyle(Palette.ink)
+        .font(Typeface.text(13))
+        .overlay(alignment: .bottom) {
+            if copied != nil {
+                CopiedToast()
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 60)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
         .onAppear {
             node.watchBalance(open: true)
             Task { await node.refresh() }
         }
-        .onDisappear { node.watchBalance(open: false) }
+        .onDisappear {
+            node.watchBalance(open: false)
+            more = false
+        }
     }
 
     // MARK: The header
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Quilt").font(.headline)
-            if !node.who.isEmpty { Text(node.who).font(.caption).foregroundStyle(.secondary) }
-            Spacer()
-            Text(node.statusText).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
-        }
-    }
-
-    // MARK: The node is not up
-
-    private var down: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("The node is not answering yet.").font(.callout)
-            Text(node.statusText).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            Button("Try again") { Task { await node.connect() } }
-        }
-    }
-
-    /// A node answers on the port and has no sheet: one started by an older quilt, which this app did not start and does not stop.
-    private var old: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("The node on port \(node.port) is an older one, without the phrases this app shows. Quit it (it was started by something else, so Quilt leaves it running) and open Quilt again: Quilt then starts a current one.")
-                .font(.callout).fixedSize(horizontal: false, vertical: true)
-            Button("Look again") { Task { await node.refresh() } }
-        }
-    }
-
-    // MARK: No key
-
-    private var noKey: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let phrase = node.newPhrase {
-                Text("Your key is made. These twelve words are the key itself: write them down and keep them to yourself. They are shown this once.")
-                    .font(.callout).fixedSize(horizontal: false, vertical: true)
-                Text(phrase).font(.system(.body, design: .monospaced)).textSelection(.enabled).padding(8)
-                    .frame(maxWidth: .infinity, alignment: .leading).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
-                HStack {
-                    Button("Copy") { copy(phrase) }
-                    Button("I wrote them down") { node.forgetPhrase() }.buttonStyle(.borderedProminent)
-                }
-            } else {
-                Text("Quilt signs what your AI hands in with a key of its own on this Mac. There is none yet.")
-                    .font(.callout).fixedSize(horizontal: false, vertical: true)
-                Button(busy ? "Making the key…" : "Make my key") {
-                    busy = true
-                    Task { await node.makeKey(); busy = false }
-                }
-                .buttonStyle(.borderedProminent).disabled(busy)
-                DisclosureGroup("I have an address on a tracker", isExpanded: $importing) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Paste the long address your AI's connector uses, from the tracker's join page. The key moves to this Mac with the standing and coin it earned, and the address is spent.")
-                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                        HStack {
-                            TextField("https://…/mcp/…", text: $address).textFieldStyle(.roundedBorder)
-                            Button(busy ? "Bringing it home…" : "Bring my key home") {
-                                busy = true
-                                Task { await node.importAddress(address); busy = false }
-                            }
-                            .disabled(busy || address.trimmingCharacters(in: .whitespaces).isEmpty)
-                        }
-                    }
-                    .padding(.top, 4)
-                }
-                .font(.callout)
-                if let keyNote = node.keyNote { Text(keyNote).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+        HStack(spacing: 10) {
+            Squares(squares: Squares.mark, side: 5)
+            Text("Quilt").font(Typeface.display(19))
+            if let name = node.me?.name ?? node.sheet?.name, !name.isEmpty {
+                Text(name).foregroundStyle(Palette.ink2).lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            switch node.screen {
+            case .connected: AIPill(lit: true, words: "Your AI is connected")
+            case .noConnector: AIPill(lit: false, words: "No AI connected yet")
+            default: EmptyView()
             }
         }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 12)
     }
 
-    // MARK: A key, and no AI has connected
-
-    private var noConnector: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let claude = node.sheet?.claude, claude.installed {
-                Text("Quilt is in Claude Desktop's connectors. Open Claude, start a new chat, and say:").font(.callout).fixedSize(horizontal: false, vertical: true)
-            } else if node.bundleOpened {
-                Text("Claude Desktop is asking to install Quilt. Say yes there; nothing restarts. Then, in a new chat, say:").font(.callout).fixedSize(horizontal: false, vertical: true)
-            } else {
-                Text("Your AI works Quilt through its connector. Add it to Claude Desktop: Claude opens and asks once, and nothing restarts.")
-                    .font(.callout).fixedSize(horizontal: false, vertical: true)
-                Button(busy ? "Opening Claude…" : "Add Quilt to Claude Desktop") {
-                    busy = true
-                    Task { await node.installConnector(); busy = false }
-                }
-                .buttonStyle(.borderedProminent).disabled(busy)
-                if node.claudeMissing {
-                    Text("Claude Desktop is not on this Mac. It is at claude.ai/download. An address on a tracker, pasted into claude.ai's connectors, needs no install at all.")
-                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                }
-                if let installNote = node.installNote { Text(installNote).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
-                Text("Then, in a new chat, say:").font(.callout)
+    private var moreHeader: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                Button { more = false } label: { Label("Back", systemImage: "chevron.left") }
+                    .buttonStyle(QuietButton(height: 30))
+                    .foregroundStyle(Palette.ink2)
+                Text("More").font(Typeface.display(19))
+                Spacer()
             }
-            if let first = node.sheet?.first { phraseRow(first) }
-            backupRow
-            Text("When your AI answers, this window changes to the phrases you can say. Another AI app connects to the same connector over stdio; the README beside the executable says how.")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 10)
+            Rectangle().fill(Palette.rule).frame(height: 1)
         }
     }
 
     // MARK: Connected: the sheet
 
-    private var connected: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            balance
-            backupRow
-            TextField("Find a problem", text: $query)
-                .textFieldStyle(.roundedBorder)
-                .focused($searchFocused)
-                .onSubmit(submit)
-            if let note {
-                Text(note).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-            if !results.isEmpty, let sheet = node.sheet {
-                heading("Found")
-                ForEach(results) { found in
-                    if let say = sheet.say("take_piece", link: found.link) {
-                        phraseRow(Sheet.Phrase(name: "take_piece", title: found.title, say: say, about: detail(found), problem: Sheet.Problem(hash: found.problem, title: found.title)))
+    @ViewBuilder private var connected: some View {
+        if let sheet = node.sheet {
+            let lifted = sheet.groups.first?.phrases.first
+            let twins = MenuView.twins(sheet.groups.flatMap(\.phrases))
+            VStack(alignment: .leading, spacing: 12) {
+                if !searchActive {
+                    if sheet.backup == "due" { BackupNotice { showPage("me") } }
+                    BalanceCells(coin: node.coin, points: node.points, gained: node.gained, lit: node.risenLately)
+                    if let lifted, let group = sheet.groups.first {
+                        SayCard(label: group.title == "To start" ? "Say this to your AI" : group.title,
+                                count: group.phrases.count > 1 && group.title != "To start" ? "1 of \(group.phrases.count)" : nil,
+                                phrase: lifted,
+                                problemTitle: lifted.problem.map { _ in title(of: lifted) },
+                                chip: chip(of: lifted, twins: twins),
+                                copied: copied == lifted.say,
+                                copy: { copy(lifted.say) },
+                                openClaude: node.hasClaude ? { node.openClaude() } : nil)
                     }
                 }
+                SearchField(query: $query, focused: $searchFocused, submit: submit, clear: clearSearch)
             }
-            ForEach(node.sheet?.groups ?? []) { group in
-                Divider()
-                heading(group.title)
-                ForEach(group.phrases) { phrase in phraseRow(phrase) }
+            .padding(.horizontal, 16)
+            CappedScroll(cap: scrollCap) {
+                VStack(alignment: .leading, spacing: 6) {
+                    if searchActive {
+                        found(sheet)
+                    } else {
+                        ForEach(sheet.groups) { group in
+                            let phrases = group.phrases.filter { $0.say != lifted?.say }
+                            if !phrases.isEmpty {
+                                SectionHeading(title: group.title, count: phrases.count > 2 ? phrases.count : nil)
+                                ForEach(phrases) { phrase in
+                                    PhraseRow(phrase: phrase, title: title(of: phrase), chip: chip(of: phrase, twins: twins),
+                                              copied: copied == phrase.say) { copy(phrase.say) }
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 14)
             }
-            if let away = node.away {
-                Divider()
-                awaySection(away)
-            }
-        }
-    }
-
-    // MARK: While I'm away
-
-    /// The switch for the hourly run (away.ts, /api/away): off and disabled with a line saying why when no agent CLI is on
-    /// this Mac; otherwise what it does, the cap to pick, and what the week's runs did. The node writes the schedule.
-    private func awaySection(_ away: Away) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Toggle("Work while I'm away", isOn: Binding(
-                get: { away.installed },
-                set: { on in
+            .padding(.top, 4)
+            if let away = node.away, !searchActive {
+                Rectangle().fill(Palette.rule).frame(height: 1)
+                AwayRow(away: away, busy: busy, note: node.awayNote) { on, cap in
                     busy = true
                     Task { await node.setAway(on: on, cap: cap); busy = false }
                 }
-            ))
-            .toggleStyle(.switch).font(.callout).disabled(busy || away.agent == nil)
-            if away.agent == nil {
-                Text("Needs Claude Code or Codex on this Mac").font(.caption).foregroundStyle(.secondary)
-            } else {
-                Text("Every hour, your AI does one piece without asking, up to \(cap) a day. It never pays, publishes, challenges or stakes while you're away.")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 8) {
-                    Text("A day:").font(.caption).foregroundStyle(.secondary)
-                    Picker("A day", selection: $cap) {
-                        ForEach([3, 5, 10, 20], id: \.self) { n in Text(String(n)).tag(n) }
-                    }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 160)
-                    .onChange(of: cap) { _, n in
-                        if away.cap != n { Task { await node.setAway(on: away.installed, cap: n) } }
-                    }
-                }
-                Text("Last 7 days: \(away.summary.week.returned) piece\(away.summary.week.returned == 1 ? "" : "s"), \(away.summary.week.accepted) accepted so far")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if let note = node.awayNote {
-                Text(note).font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).lineLimit(3)
             }
         }
-        .onAppear { cap = away.cap }
-        .onChange(of: away.cap) { _, n in cap = n }
     }
 
-    /// The coin, lit when it has just risen, and what was gained since the app opened; the standing beside it.
-    private var balance: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            if let coin = node.coin {
-                Text("\(coin.balance)").font(.system(.title2, design: .rounded)).fontWeight(.semibold)
-                    .foregroundStyle(node.risenLately ? Color.green : Color.primary)
-                    .animation(.easeOut(duration: 0.6), value: node.risenLately)
-                    .contentTransition(.numericText())
-                Text("coin").font(.callout).foregroundStyle(.secondary)
-                if node.gained > 0 {
-                    Text("+\(node.gained) since you opened Quilt").font(.caption).foregroundStyle(.green)
-                }
-                Spacer()
-                Text("\(coin.free_vested) transferable now · \(coin.free) free to stake or pay").font(.caption).foregroundStyle(.secondary)
-                if let pending = coin.pending, pending.amount > 0 {
-                    Text("\(pending.amount) owed from today, pays at \(Self.clock(pending.pays_at))").font(.caption).foregroundStyle(.secondary)
-                }
-            } else if let points = node.points {
-                Text("standing \(points.standing), \(points.earned) · \(points.free) free to stake").font(.callout)
-                Spacer()
-            } else {
-                Text("No tracker has answered with your standing yet.").font(.caption).foregroundStyle(.secondary)
+    /// The search's own list: asking, nothing, what went wrong, or what was found, each a phrase to take a piece.
+    @ViewBuilder private func found(_ sheet: Sheet) -> some View {
+        if searching {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Asking the trackers and relays this client knows.").font(Typeface.text(12.5)).foregroundStyle(Palette.ink2)
             }
-            if node.coin != nil, let points = node.points {
-                Text("· standing \(points.standing), \(points.earned)").font(.caption).foregroundStyle(.secondary)
+            .padding(.top, 14)
+        } else if let note {
+            VStack(spacing: 10) {
+                Squares(squares: Array(repeating: .unsewn, count: 9), side: 14)
+                Text(results.isEmpty && note == MenuView.nothing ? "Nothing matched" : "The search did not finish")
+                    .font(Typeface.display(17))
+                Text(note)
+                    .font(Typeface.text(12.5))
+                    .foregroundStyle(Palette.ink2)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 28)
+            .padding(.horizontal, 12)
+        } else {
+            SectionHeading(title: "Found", count: results.count)
+            let take = sheet.prompts.first { $0.name == "take_piece" }?.title ?? "Take a piece"
+            ForEach(results) { result in
+                if let say = sheet.say("take_piece", link: result.link) {
+                    let phrase = Sheet.Phrase(name: "take_piece", title: take, say: say, about: "", problem: Sheet.Problem(hash: result.problem, title: result.title))
+                    PhraseRow(phrase: phrase,
+                              title: result.via == "link" ? "The problem at this link" : title(of: phrase),
+                              chip: chip(of: phrase, twins: []),
+                              found: result.via == "link" ? nil : MenuView.line(result),
+                              copied: copied == say) { copy(say) }
+                }
             }
         }
     }
 
     // MARK: More
 
-    private var moreSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Button(more ? "Less" : "More") { more.toggle() }.buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
-            if more {
-                HStack {
-                    Button("Open the page") { open(nil) }
-                    Button("Something to do at the page") { open("any") }
+    private var morePanel: some View {
+        CappedScroll(cap: scrollCap + 200) {
+            VStack(alignment: .leading, spacing: 6) {
+                SectionHeading(title: "The page")
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("The page is where your own hand does a thing: a piece whose verifier is a person's word, a finished problem read in full, the key taken off this Mac.")
+                        .font(Typeface.text(12.5))
+                        .foregroundStyle(Palette.ink2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) { pageButtons }
+                        VStack(alignment: .leading, spacing: 8) { pageButtons }
+                    }
+                    .disabled(!node.isUp)
                 }
-                .font(.caption)
-                Text("The page is where your own hand does a thing: a piece whose verifier is a person's word, a finished problem read in full, the key taken off this Mac.")
-                    .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                if let sheet = node.sheet, node.screen == .connected {
-                    Text("Your AI also has these as slash commands in the chat, with the amounts asked for there:").font(.caption2).foregroundStyle(.secondary)
-                    ForEach(sheet.prompts.filter { ["pay_workers", "transfer_coin", "redeem_coin"].contains($0.name) }) { p in
-                        Text("/\(p.name): \(p.about)").font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .modifier(Panel())
+
+                if node.screen == .connected, let away = node.away {
+                    SectionHeading(title: "Work while I'm away")
+                    awayDetail(away).modifier(Panel())
+                }
+
+                if node.screen == .connected, let sheet = node.sheet {
+                    let coin = sheet.prompts.filter { ["pay_workers", "transfer_coin", "redeem_coin"].contains($0.name) }
+                    if !coin.isEmpty {
+                        SectionHeading(title: "In the chat, with the amounts asked for there")
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(coin) { prompt in
+                                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                    Text("/\(prompt.name)").font(Typeface.mono(12))
+                                    Text(prompt.title).font(Typeface.text(12.5)).foregroundStyle(Palette.ink2)
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 9)
+                                if prompt.id != coin.last?.id { Rectangle().fill(Palette.rule).frame(height: 1) }
+                            }
+                        }
+                        .background(Palette.card, in: RoundedRectangle(cornerRadius: 10))
                     }
                 }
-                Text("Home \(node.home.path) · node log \(node.logURL.path)").font(.caption2).foregroundStyle(.tertiary).lineLimit(2)
+
+                SectionHeading(title: "This Mac")
+                VStack(alignment: .leading, spacing: 0) {
+                    if let address = node.me?.address ?? node.sheet?.address {
+                        fact("Address") {
+                            Text(address).font(Typeface.mono(12)).lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+                        } action: {
+                            Button(addressCopied ? "Copied" : "Copy") {
+                                let board = NSPasteboard.general
+                                board.clearContents()
+                                board.setString(address, forType: .string)
+                                addressCopied = true
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { addressCopied = false }
+                            }
+                            .buttonStyle(QuietButton(height: 26))
+                            .foregroundStyle(Palette.ink2)
+                        }
+                        Rectangle().fill(Palette.rule).frame(height: 1)
+                    }
+                    fact("Node") {
+                        HStack(alignment: .firstTextBaseline, spacing: 7) {
+                            Circle().fill(node.isUp ? Palette.done : Palette.madder).frame(width: 7, height: 7)
+                            Text(nodeWords).font(Typeface.text(12.5)).fixedSize(horizontal: false, vertical: true)
+                        }
+                    } action: { EmptyView() }
+                    Rectangle().fill(Palette.rule).frame(height: 1)
+                    fact("Home") {
+                        Text(MenuView.tilde(node.home)).font(Typeface.mono(12)).lineLimit(1).truncationMode(.middle)
+                    } action: {
+                        Button("Show") { NSWorkspace.shared.activateFileViewerSelecting([node.home]) }
+                            .buttonStyle(QuietButton(height: 26))
+                            .foregroundStyle(Palette.ink2)
+                    }
+                    Rectangle().fill(Palette.rule).frame(height: 1)
+                    fact("Node log") {
+                        Text(MenuView.tilde(node.logURL)).font(Typeface.mono(12)).lineLimit(1).truncationMode(.middle)
+                    } action: {
+                        Button("Show") { NSWorkspace.shared.activateFileViewerSelecting([node.logURL]) }
+                            .buttonStyle(QuietButton(height: 26))
+                            .foregroundStyle(Palette.ink2)
+                            .disabled(!FileManager.default.fileExists(atPath: node.logURL.path))
+                    }
+                }
+                .background(Palette.card, in: RoundedRectangle(cornerRadius: 10))
             }
-            HStack {
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+        }
+    }
+
+    @ViewBuilder private var pageButtons: some View {
+        Button { showPage(nil) } label: { Label("Open the page", systemImage: "arrow.up.forward.square") }
+            .buttonStyle(PrimaryButton(height: 32))
+        Button("Something to do at the page") { showPage("any") }
+            .buttonStyle(QuietButton(bordered: true))
+    }
+
+    /// The away run in full: whether it is on and with which agent, the promise, the cap, and today's and the week's counts.
+    private func awayDetail(_ away: Away) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Text(awayState(away)).font(Typeface.text(13, bold: true))
                 Spacer()
-                Button("Quit Quilt") { NSApplication.shared.terminate(nil) }.font(.caption)
+                Toggle("Work while I'm away", isOn: Binding(get: { away.installed }, set: { on in
+                    busy = true
+                    Task { await node.setAway(on: on, cap: away.cap); busy = false }
+                }))
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .tint(Palette.done)
+                .disabled(busy || away.agent == nil)
+            }
+            Text("Every hour, your AI does one piece without asking. It never pays, publishes, challenges or stakes while you're away.")
+                .font(Typeface.text(12.5))
+                .foregroundStyle(Palette.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+            if away.agent != nil {
+                HStack(spacing: 10) {
+                    Text("A day").font(Typeface.text(12.5)).foregroundStyle(Palette.ink2)
+                    Picker("A day", selection: Binding(get: { away.cap }, set: { n in
+                        busy = true
+                        Task { await node.setAway(on: away.installed, cap: n); busy = false }
+                    })) {
+                        ForEach(AwayRow.caps, id: \.self) { n in Text("\(n)").tag(n) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .disabled(busy)
+                }
+                Rectangle().fill(Palette.rule).frame(height: 1)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    count(away.summary.today.returned, "of \(away.cap) today", lit: false)
+                    count(away.summary.week.returned, "in 7 days", lit: false)
+                    count(away.summary.week.accepted, "accepted", lit: away.summary.week.accepted > 0)
+                }
+            }
+            if let note = node.awayNote {
+                Text(note).font(Typeface.text(12)).foregroundStyle(Palette.warnInk).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 
-    // MARK: Pieces of the view
-
-    /// The key was made at first use and its twelve words have not been written down: the page shows them once.
-    @ViewBuilder private var backupRow: some View {
-        if node.sheet?.backup == "due" {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Your key's twelve words are not written down yet. The page shows them once.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                Spacer()
-                Button("Show them") { open("me") }.font(.caption)
-            }
-            .padding(8).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+    private func count(_ n: Int, _ words: String, lit: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text("\(n)").font(Typeface.display(20)).foregroundStyle(lit ? Palette.doneInk : Palette.ink)
+            Text(words).font(Typeface.text(12.5)).foregroundStyle(Palette.ink2)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func heading(_ words: String) -> some View {
-        Text(words).font(.subheadline).fontWeight(.semibold)
+    private func awayState(_ away: Away) -> String {
+        guard let agent = away.agent else { return "Needs Claude Code or Codex on this Mac" }
+        let name = agent.name == "codex" ? "Codex" : "Claude Code"
+        return away.installed ? "On, with \(name)" : "Off"
     }
 
-    /// One phrase: its title (the problem's, where it is about one), the sentence, and Copy. A click anywhere on it copies.
-    private func phraseRow(_ phrase: Sheet.Phrase) -> some View {
-        Button(action: { copy(phrase.say) }) {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(phrase.problem?.title ?? phrase.title).font(.caption).fontWeight(.semibold).lineLimit(1)
+    /// One line of what is where: a name, the thing, and what can be done with it.
+    private func fact<Value: View, Action: View>(_ name: String, @ViewBuilder value: () -> Value, @ViewBuilder action: () -> Action) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            Text(name).font(Typeface.text(12.5)).foregroundStyle(Palette.ink2).frame(width: 70, alignment: .leading)
+            value().frame(maxWidth: .infinity, alignment: .leading)
+            action()
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+    }
+
+    /// The node's status, in a sentence, with the port it answers on.
+    private var nodeWords: String {
+        let words = node.statusText
+        let said = words.prefix(1).uppercased() + words.dropFirst()
+        return node.isUp ? "\(said), on port \(node.port)" : said
+    }
+
+    // MARK: The footer
+
+    private var footer: some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(Palette.rule).frame(height: 1)
+            HStack(spacing: 4) {
+                if more {
+                    if let version = MenuView.version {
+                        Text("Quilt \(version)").font(Typeface.text(12)).foregroundStyle(Palette.ink3).padding(.leading, 4)
+                    }
                     Spacer()
-                    Text(copied == phrase.say ? "Copied" : "Copy").font(.caption2).foregroundStyle(copied == phrase.say ? .green : .secondary)
-                }
-                Text(phrase.say).font(.callout).lineLimit(3).fixedSize(horizontal: false, vertical: true)
-                if phrase.problem != nil, !phrase.about.isEmpty, phrase.name == "take_piece", results.contains(where: { $0.problem == phrase.problem?.hash }) {
-                    Text(phrase.about).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+                    Button("Quit Quilt") { NSApplication.shared.terminate(nil) }
+                        .buttonStyle(QuietButton(bordered: true))
+                } else {
+                    if node.isUp {
+                        Button { showPage(nil) } label: { Label("Open the page", systemImage: "arrow.up.forward.square") }
+                            .buttonStyle(QuietButton(bold: true))
+                    }
+                    Spacer()
+                    Button("More") { more = true }
+                        .buttonStyle(QuietButton())
+                        .foregroundStyle(Palette.ink2)
+                    Button("Quit") { NSApplication.shared.terminate(nil) }
+                        .buttonStyle(QuietButton())
+                        .foregroundStyle(Palette.ink2)
                 }
             }
-            .padding(6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
-            .contentShape(Rectangle())
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
         }
-        .buttonStyle(.plain)
     }
 
-    /// The quieter line under a found problem: slug, the owner's address shortened, topics, and the map's counts or where it was found.
-    private func detail(_ found: SearchResult) -> String {
-        var parts = [found.slug, String(found.owner.prefix(10))]
-        if let topics = found.topics, !topics.isEmpty { parts.append(topics.joined(separator: ", ")) }
+    // MARK: Reading a phrase
+
+    /// The row's title: the problem's own, where the phrase is about one and the library remembers it; else the phrase's.
+    private func title(of phrase: Sheet.Phrase) -> String {
+        guard let problem = phrase.problem else { return phrase.title }
+        if problem.title.isEmpty || problem.title == problem.hash { return Links.slug(in: phrase.say) ?? "A problem" }
+        return problem.title
+    }
+
+    /// The link's chip: its short name, and four characters of the hash where another problem shown has the same title.
+    private func chip(of phrase: Sheet.Phrase, twins: Set<String>) -> String? {
+        guard let problem = phrase.problem else { return nil }
+        let hash = Links.bare(problem.hash)
+        let name = Links.slug(in: phrase.say) ?? String(hash.prefix(8))
+        return twins.contains(problem.title) ? "\(name) · \(hash.prefix(4))" : name
+    }
+
+    /// The titles two different problems share among the phrases shown, so their chips can tell them apart.
+    static func twins(_ phrases: [Sheet.Phrase]) -> Set<String> {
+        var hashes: [String: Set<String>] = [:]
+        for phrase in phrases {
+            if let problem = phrase.problem { hashes[problem.title, default: []].insert(problem.hash) }
+        }
+        return Set(hashes.filter { $0.value.count > 1 }.keys)
+    }
+
+    /// The quieter line under a found problem: the map's counts drawn and said, its topics and its owner, or where it was found.
+    static func line(_ found: SearchResult) -> FoundLine {
+        var parts: [String] = []
+        var done: Double?
+        var work: Double?
         if found.via == "relay" {
-            parts.append("found on a relay")
+            parts.append("Found on a relay")
         } else {
-            let counts = (found.counts ?? [:]).sorted { $0.key < $1.key }
-                .map { "\($0.value) \($0.key.replacingOccurrences(of: "_", with: " "))" }.joined(separator: ", ")
-            parts.append(counts.isEmpty ? "\(found.pieces ?? 0) pieces" : "\(found.pieces ?? 0) pieces: \(counts)")
+            let counts = found.counts ?? [:]
+            let pieces = found.pieces ?? counts.values.reduce(0, +)
+            let accepted = (counts["accepted"] ?? 0) + (counts["accepted_provisional"] ?? 0)
+            let worked = ["in_flight", "sealed", "needs_verify", "disputed"].reduce(0) { $0 + (counts[$1] ?? 0) }
+            if pieces > 0 {
+                done = Double(accepted) / Double(pieces)
+                work = Double(worked) / Double(pieces)
+            }
+            parts.append(worked > 0 ? "\(pieces) pieces, \(accepted) accepted, \(worked) being worked" : "\(pieces) pieces, \(accepted) accepted")
         }
-        return parts.joined(separator: ", ")
+        if let topics = found.topics, !topics.isEmpty { parts.append(topics.prefix(2).joined(separator: ", ")) }
+        if !found.owner.isEmpty { parts.append("by \(found.owner.prefix(6))…\(found.owner.suffix(4))") }
+        return FoundLine(words: parts.joined(separator: " · "), done: done, work: work)
     }
 
-    /// The sentence onto the clipboard, and the row says so for a moment.
-    /// An ISO time as the local clock reads it, for "pays at".
-    static func clock(_ iso: String) -> String {
-        guard let date = ISO8601DateFormatter().date(from: iso) ?? ISO8601DateFormatter.withFractions.date(from: iso) else { return iso }
-        return date.formatted(date: .omitted, time: .shortened)
+    // MARK: Acts
+
+    private var searchActive: Bool { searching || note != nil || !results.isEmpty }
+
+    /// As tall as the screen allows under the rest of the popover, and no taller than reads at a glance.
+    private var scrollCap: CGFloat {
+        let screen = NSScreen.main?.visibleFrame.height ?? 900
+        return min(440, max(200, screen - 480))
     }
 
+    private static let nothing = "No problem on the trackers and relays this client knows has these words in its title, topics or statement of done."
+
+    private static var version: String? {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+    }
+
+    private static func tilde(_ url: URL) -> String {
+        (url.path as NSString).abbreviatingWithTildeInPath
+    }
+
+    /// The sentence onto the clipboard, and the row and the toast say so for a moment.
     private func copy(_ text: String) {
         let board = NSPasteboard.general
         board.clearContents()
         board.setString(text, forType: .string)
-        copied = text
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { if copied == text { copied = nil } }
+        withAnimation(.easeOut(duration: 0.15)) { copied = text }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            if copied == text { withAnimation(.easeOut(duration: 0.2)) { copied = nil } }
+        }
     }
 
-    private func open(_ fragment: String?) {
+    private func showPage(_ fragment: String?) {
         page.open(node.pageURL(fragment: fragment))
+    }
+
+    private func clearSearch() {
+        query = ""
+        results = []
+        note = nil
+        searching = false
     }
 
     /// Return in the field: words go to the search route and the results are listed as phrases; a link is a result of its own.
     private func submit() {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty else { return clearSearch() }
         let lowered = text.lowercased()
         if ["quilt:", "sha256:"].contains(where: { lowered.hasPrefix($0) }) {
             results = [SearchResult(problem: text, title: text, slug: "", owner: "", pieces: nil, counts: nil, topics: nil, tracker: nil, via: "link", link: text)]
             note = nil
+            searching = false
             return
         }
         results = []
-        note = "Searching…"
+        note = nil
+        searching = true
         Task {
             do {
                 let found = try await node.api.search(text)
+                guard query.trimmingCharacters(in: .whitespacesAndNewlines) == text else { return }
                 results = found
-                note = found.isEmpty ? "Nothing matched on the trackers and relays this client knows." : nil
+                note = found.isEmpty ? MenuView.nothing : nil
             } catch {
+                guard query.trimmingCharacters(in: .whitespacesAndNewlines) == text else { return }
                 note = error.localizedDescription
             }
+            searching = false
         }
     }
 }
 
-extension ISO8601DateFormatter {
-    /// The tracker's times carry fractional seconds; the plain formatter refuses them.
-    static let withFractions: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
+/// A rounded card round a group of More's controls.
+private struct Panel: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Palette.card, in: RoundedRectangle(cornerRadius: 10))
+    }
 }
