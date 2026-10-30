@@ -1,5 +1,5 @@
 /**
- * CORE.md section 11, the plain-text gate `gate/1`: what it passes, what it refuses (links and markup, contact details,
+ * CORE.md section 11, the plain-text gate, `gate/2` since 30 October 2026: what it passes, what it refuses (links and markup, contact details,
  * text addressed to a model, shouting), what it takes out before judging, how it says so, and the fixtures it ships.
  */
 import { readFileSync } from 'node:fs';
@@ -47,14 +47,14 @@ describe('the plain-text gate', () => {
 });
 
 /**
- * CORE.md section 11: gate/1 is "shipped with its own fixtures of inputs and issue codes; a tracker that claims gate/1
+ * CORE.md section 11: the gate is "shipped with its own fixtures of inputs and issue codes; a tracker that claims gate/2
  * reproduces them". The fixtures are `fixtures/gate/cases.json`, each a text and the codes the gate says of it.
  */
 describe('the gate fixtures', () => {
   const file = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'gate', 'cases.json');
   const doc = JSON.parse(readFileSync(file, 'utf8')) as { gate: string; cases: { text: string; issues: TextIssue[]; why: string }[] };
-  it('name gate/1 and cover every issue code and a clean text', () => {
-    expect(doc.gate).toBe('gate/1');
+  it('name gate/2 and cover every issue code and a clean text', () => {
+    expect(doc.gate).toBe('gate/2');
     const seen = new Set(doc.cases.flatMap((c) => c.issues));
     expect([...seen].sort()).toEqual(['contact', 'links', 'machines', 'shouting']);
     expect(doc.cases.some((c) => c.issues.length === 0)).toBe(true);

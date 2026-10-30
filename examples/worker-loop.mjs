@@ -43,16 +43,23 @@ export function readPiece(text) {
   return { name: head[1], hash: head[2], brief, properties: JSON.parse(fields[1]), required: fields[2].split(',').map((s) => s.trim()).filter(Boolean) };
 }
 
-/** The JSON schema the answer takes, from the piece's own fields: enums as they are, numbers and booleans by type, the rest strings; every field given, nothing else. */
+/** One field of the piece's schema as the model's output schema: an enum as it is, a number, an integer or a boolean by type, a list of one of those, the rest strings. */
+function fieldSchema(def) {
+  if (def.enum) return { type: 'string', enum: def.enum };
+  if (def.type === 'array') return { type: 'array', items: fieldSchema(def.items ?? {}), ...(def.maxItems ? { maxItems: def.maxItems } : {}) };
+  return { type: def.type === 'integer' ? 'integer' : def.type === 'number' ? 'number' : def.type === 'boolean' ? 'boolean' : 'string' };
+}
+
+/** The JSON schema the answer takes, from the piece's own fields: every field given, nothing else, each in the shape the piece names. */
 export function schemaOf(piece) {
   const schema = { type: 'object', additionalProperties: false, required: Object.keys(piece.properties), properties: {} };
-  for (const [k, def] of Object.entries(piece.properties)) schema.properties[k] = def.enum ? { type: 'string', enum: def.enum } : { type: def.type === 'integer' ? 'integer' : def.type === 'number' ? 'number' : def.type === 'boolean' ? 'boolean' : 'string' };
+  for (const [k, def] of Object.entries(piece.properties)) schema.properties[k] = fieldSchema(def);
   return schema;
 }
 
 /** What the model is told it is doing, the same for every vendor; `note` is the second asking, when a quote was not found. */
 export function instruction(note) {
-  return 'You work one piece of a problem for a person who published it. The author\'s brief says what is wanted; the evidence, when given, is the only source to rely on. Answer in the shape asked for. A quote is copied verbatim from the evidence, at most 25 words, and is the best support for your answer.' + (note ? ' ' + note : '');
+  return 'You work one piece of a problem for a person who published it. The author\'s brief says what is wanted; the evidence, when given, is the only source to rely on. Answer in the shape asked for. A quote is copied verbatim from the evidence, at most 25 words, and is the best support for your answer. Every string is plain text as a tracker admits it: no links or web addresses, no markup, no email addresses, phone numbers or handles, nothing addressed to a machine; a source is named by its title and its id, not by its address.' + (note ? ' ' + note : '');
 }
 
 /** The one message with the piece in it: the brief as the author's quoted words, the evidence when there is one, else `without`, and the fields wanted. */

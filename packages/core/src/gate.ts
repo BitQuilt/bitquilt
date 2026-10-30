@@ -12,8 +12,12 @@
  * First written for another project of the maintainers, 24 Oct 2026.
  */
 
-/** Section 11 identifies `gate/1` by the hash of its source; this constant is only its name. */
-export const GATE_VERSION = 'gate/1';
+/**
+ * Section 11 identifies the gate by the hash of its source; this constant is only its name. `gate/2` (30 October 2026,
+ * CORE.md section 12) replaced `gate/1`'s phone rule, which refused honest runs of figures: a bill of mortality's totals, a
+ * specimen's barcode, an item number beside a year. A phone number now needs the shape of one.
+ */
+export const GATE_VERSION = 'gate/2';
 
 /** Phrases that try to instruct a model. Each is an order, not a mention. */
 const INJECTION_PATTERNS: RegExp[] = [
@@ -57,13 +61,32 @@ function linkish(text: string): boolean {
 }
 
 const EMAIL = /[\w.+-]+@[\w-]+\.[\w.]+/;
-const PHONE = /(?:\+?\d[\s().-]{0,2}){9,}/g;
-const WHEN = /\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}:\d{2}\b/g;
+/** A run of digits with the separators a phone number uses, not attached to a letter or another digit: an identifier like K000123456 is not one. */
+const PHONE = /(?<![A-Za-z\d])\+?(?:\(\d{2,4}\)|\d)[\d\s().-]{5,}\d/g;
+/** Dates, times and a year in brackets, which read as when and not as whom to call. */
+const WHEN = /\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}:\d{2}\b|\(\s*(?:1\d{3}|20\d{2})\s*\)/g;
+/** A word before a run that says it is a number of something, not a telephone. */
+const NUMBERED = /\b(?:isbn|issn|doi|pmc|pmid|item|no\.?|number|id|barcode|catalogue|catalog|accession|specimen|page|pp\.?|ref\.?)\s*[:#]?\s*$/i;
+const YEAR = /^(?:1\d{3}|20\d{2})$/;
 
+/**
+ * Whether the text carries something that reads as a telephone number: seven to fifteen digits in one run, with the
+ * shape of one: a leading plus, a bracketed area code, dashes or dots between groups, a single unbroken run, or two to
+ * four spaced groups of two to five digits making nine or more. A run of years, a run of figures in more groups than
+ * a number has, and a run named as an item, page or catalogue number are not.
+ */
 function phoneLike(text: string): boolean {
-  for (const m of text.replace(WHEN, ' when ').matchAll(PHONE)) {
-    const groups = m[0].match(/\d+/g) ?? [];
-    if (!groups.every((g) => /^(?:19|20)\d{2}$/.test(g))) return true;
+  const cleaned = text.replace(WHEN, ' when ');
+  for (const m of cleaned.matchAll(PHONE)) {
+    const run = m[0];
+    const groups = run.match(/\d+/g) ?? [];
+    const digits = groups.join('').length;
+    if (digits < 7 || digits > 15) continue;
+    if (groups.every((g) => YEAR.test(g))) continue;
+    if (NUMBERED.test(cleaned.slice(Math.max(0, m.index! - 14), m.index))) continue;
+    const shaped = /^\+/.test(run) || /^\(\d{3}\)/.test(run) || /\d[-.]\d/.test(run) || groups.length === 1;
+    const spaced = groups.length >= 2 && groups.length <= 4 && groups.every((g) => g.length >= 2 && g.length <= 5) && digits >= 9;
+    if (shaped || spaced) return true;
   }
   return false;
 }

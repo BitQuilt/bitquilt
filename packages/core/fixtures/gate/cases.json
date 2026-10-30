@@ -1,6 +1,6 @@
 {
-  "gate": "gate/1",
-  "description": "The plain-text gate (CORE.md, section 11): for each text as a tracker receives it, the issue codes gate/1 reports, in order. A tracker that claims gate/1 reproduces them. `why` says what each case is for and is not part of the check.",
+  "gate": "gate/2",
+  "description": "The plain-text gate (CORE.md, section 11): for each text as a tracker receives it, the issue codes gate/1 reports, in order. A tracker that claims gate/1 reproduces them. `why` says what each case is for and is not part of the check. gate/2 (30 October 2026): a phone number needs the shape of one, so a run of figures, a bracketed year beside an item number, and a barcode after a letter pass.",
   "cases": [
     {
       "text": "Citation 417 supports the sentence; the quote is on page 12.",
@@ -175,6 +175,66 @@
         "contact"
       ],
       "why": "two issues at once, in the gate's order"
+    },
+    {
+      "text": "Christned 112 Buried 263 Plague 0 Increased in the Burials this Week 23",
+      "issues": [],
+      "why": "a bill of mortality's totals"
+    },
+    {
+      "text": "Figures: 1673 16 23 489 165 0",
+      "issues": [],
+      "why": "six groups of figures are not a phone number"
+    },
+    {
+      "text": "Death by Numbers item 16105 (1673), back page",
+      "issues": [],
+      "why": "an item number beside a bracketed year"
+    },
+    {
+      "text": "Specimen K000123456, collected 1911",
+      "issues": [],
+      "why": "a barcode after a letter"
+    },
+    {
+      "text": "ISBN 9780345810045 and pp. 1234-1240",
+      "issues": [],
+      "why": "a numbered thing and a page range"
+    },
+    {
+      "text": "+44 20 7946 0958",
+      "issues": [
+        "contact"
+      ],
+      "why": "a phone number with a country code"
+    },
+    {
+      "text": "(212) 555-1234",
+      "issues": [
+        "contact"
+      ],
+      "why": "a phone number with an area code"
+    },
+    {
+      "text": "ring 212-555-1234 after six",
+      "issues": [
+        "contact"
+      ],
+      "why": "a phone number with dashes"
+    },
+    {
+      "text": "text 2125551234",
+      "issues": [
+        "contact"
+      ],
+      "why": "a phone number in one run"
+    },
+    {
+      "text": "tel 020 7946 0958",
+      "issues": [
+        "contact"
+      ],
+      "why": "a phone number in spaced groups"
     }
   ]
 }
