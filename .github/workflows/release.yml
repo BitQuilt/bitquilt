@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          - os: macos-15
             name: darwin-arm64
           # GitHub retired its macOS 13 runners; macos-15-intel is the x64 Mac that remains.
           - os: macos-15-intel
@@ -60,7 +60,7 @@ jobs:
   # APPLE_API_ISSUER. apps/mac/README.md says how each is made. Nothing the job prints carries any of them.
   mac-app:
     if: ${{ vars.APPLE_SIGNING == 'on' }}
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

@@ -1,4 +1,4 @@
-# The Mac app's Swift package, built in release on the runner the release job uses, whenever a change touches it. The
+# The Mac app's Swift package, built in release on a current macOS runner (macOS 14 images retire on 2 November 2026), whenever a change touches it. The
 # release job (release.yml, mac-app) builds it only on a tag and only with signing set up, so without this a change to
 # the popover reaches a reviewer unbuilt. It signs nothing and makes no app bundle: build.sh needs the quilt executable
 # and the connector bundle, which this check has no reason to build.
@@ -11,7 +11,7 @@ on:
     paths: ['apps/mac/**', '.github/workflows/mac.yml']
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - run: swift build -c release --package-path apps/mac
