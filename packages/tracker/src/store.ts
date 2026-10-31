@@ -15,6 +15,8 @@ export interface StoredEnvelope {
 
 export class Store {
   readonly db: DatabaseSync;
+  /** How many envelopes, blobs and receipts this store has taken since it opened: what the tracker's kept layer is keyed on. */
+  version = 0;
 
   constructor(path: string) {
     this.db = new DatabaseSync(path);
@@ -49,6 +51,7 @@ export class Store {
     this.db
       .prepare('insert or ignore into envelopes (hash, owner, slug, prev, json, received_at) values (?, ?, ?, ?, ?, ?)')
       .run(hash, envelope.problem.owner, envelope.problem.slug, envelope.problem.prev, JSON.stringify(envelope), receivedAt);
+    this.version += 1;
   }
 
   getEnvelope(hash: Hash): StoredEnvelope | null {
@@ -78,6 +81,7 @@ export class Store {
 
   putBlob(hash: Hash, bytes: Uint8Array): void {
     this.db.prepare('insert or ignore into blobs (hash, bytes) values (?, ?)').run(hash, bytes);
+    this.version += 1;
   }
 
   getBlob(hash: Hash): Uint8Array | null {
@@ -121,6 +125,7 @@ export class Store {
     this.db
       .prepare('insert into receipts (problem, seq, id, type, key, at, json, received, prev, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .run(problem, seq, id, event.type, event.key, at, JSON.stringify(event), JSON.stringify([received]), prev, hash);
+    this.version += 1;
     return { event, received: [received], seq, prev, hash };
   }
 
