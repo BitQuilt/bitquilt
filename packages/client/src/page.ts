@@ -11,10 +11,11 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type Hash, IDENTITY_LOG, isHash } from '@bitquilt/core';
-import { awayState, awaySwitch } from './away.js';
+import { awayState, awaySwitch, readSummary, recordSummary } from './away.js';
 import { claudeDesktopConfigPath, claudeHasQuilt, claudeRunning, entryHere, installHere } from './install.js';
 import { makeLink } from './link.js';
 import { sheetOf } from './phrases.js';
+import { kept } from './pool.js';
 import { type Pattern, Quilt } from './quilt.js';
 import { goldText, kindWords, kindsText, layerByHash, stakeText } from './render.js';
 import type { Resolver } from './resolver.js';
@@ -61,6 +62,12 @@ export interface PageOptions {
 export function createPage(options: PageOptions): { handle(req: IncomingMessage, res: ServerResponse): Promise<void>; listen(port: number): Promise<Server> } {
   const { quilt, person, resolver } = options;
   const html = pageHtml();
+  // What the menu bar asks for every few seconds needs every kept and worked problem from its tracker, which takes
+  // seconds. The node keeps the last answer for a minute, answers from it at once while a fresh one is read, reads one
+  // at a time, and sets it aside after anything is written here (pool.ts).
+  const wanted = kept(() => Promise.all([person.attention(), quilt.standing().then((s) => s?.standing ?? null)]), 60_000);
+  const awayHome = () => ({ home: resolver.home, env: process.env, entry: entryHere(resolver.home), quilt });
+  const awaySummary = kept(() => readSummary(awayHome()), 60_000);
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
@@ -68,6 +75,10 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       const path = u.pathname.replace(/\/+$/, '') || '/';
       const method = req.method ?? 'GET';
       if (path.startsWith('/api/') && fromAnotherSite(req)) return json(res, 403, { error: 'the page\'s API answers the page and programs on this machine, not another site' });
+      if (method === 'POST') {
+        wanted.drop();
+        awaySummary.drop();
+      }
       if (path === '/' && method === 'GET') {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self'" });
         res.end(html);
@@ -132,11 +143,13 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         return json(res, 200, { words: resolver.takeWords() });
       }
       if (path === '/api/library') return json(res, 200, quilt.library);
-      if (path === '/api/attention') return json(res, 200, await person.attention());
+      if (path === '/api/attention') return json(res, 200, (await wanted.get(8_000).catch(() => null))?.[0] ?? await person.attention());
       if (path === '/api/phrases') {
         // The sheet the menu bar draws (phrases.ts): the home's state, the first phrase to say, and the phrases for what this person keeps, has worked and is wanted for. The trackers are asked only once an AI has connected.
         const connected = quilt.identity !== null && quilt.library.connector !== undefined;
-        const [attention, standing] = connected ? await Promise.all([person.attention().then((a) => a.items), quilt.standing().then((s) => s?.standing ?? null)]) : [[], null];
+        // Where the first read takes longer than eight seconds, the sheet goes out without what is wanted, and the next ask has it.
+        const read = connected ? await wanted.get(8_000).catch(() => null) : null;
+        const [attention, standing] = read ? [read[0].items, read[1]] : [[], null];
         const file = claudeDesktopConfigPath();
         return json(res, 200, sheetOf({ address: quilt.identity?.address ?? null, name: quilt.config.name ?? null, library: quilt.library, attention, standing, wordsDue: resolver.wordsDue(), claude: { installed: claudeHasQuilt(file), config: file, running: claudeRunning() } }));
       }
@@ -153,7 +166,7 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       }
       if (path === '/api/away') {
         // The menu bar's switch (away.ts): what runs while the person is away, how it went, and the switch itself, which schedules this very program as `quilt away --install` does.
-        const o = { home: resolver.home, env: process.env, entry: entryHere(resolver.home), quilt };
+        const o = { ...awayHome(), summary: async () => (await awaySummary.get(8_000).catch(() => null)) ?? recordSummary(awayHome()) };
         if (method === 'POST') {
           const b = (await body(req)) as { on?: boolean; cap?: number };
           return json(res, 200, await awaySwitch({ ...o, on: typeof b.on === 'boolean' ? b.on : undefined, cap: typeof b.cap === 'number' ? b.cap : undefined }));

@@ -14,6 +14,7 @@ import { type Link, makeLink, parseLink } from './link.js';
 import { type ChallengeListing, type GoldCount, type LayerPiece, type Opened, type PanelListing, type Scrape, SIDES, type Side, type Takedown } from './listings.js';
 import { announcementEvent, postToRelays, searchRelays } from './relay.js';
 import { type Library, type Posted, type Resolver, askJson } from './resolver.js';
+import { inParallel } from './pool.js';
 import { acceptedText, challengesText, disputedText, kindWords, layerByHash, nameOf, panelsText, pieceText, summary, waitsText } from './render.js';
 
 export type { CoinBalance } from './coin.js';
@@ -493,14 +494,16 @@ export class Quilt {
     const worked = Object.values(this.library.pieces).map((p) => p.problem);
     const golden = Object.keys(this.library.gold ?? {});
     const problems = [...new Set([...kept, ...worked, ...golden])].filter((h) => isHash(h)).slice(0, limit) as Hash[];
-    for (const problem of problems) {
+    // Each problem is its own few requests to its tracker; four are asked at once, and the items keep the problems' order.
+    const perProblem = await inParallel(problems, 4, async (problem): Promise<AttentionItem[]> => {
+      const items: AttentionItem[] = [];
       let resolved: Awaited<ReturnType<Resolver['resolve']>>;
       try {
         resolved = await this.resolver.resolve(parseLink(problem));
       } catch {
-        continue;
+        return items;
       }
-      if (!resolved) continue;
+      if (!resolved) return items;
       const state = this.resolver.state(resolved);
       const title = state.envelope.problem.title;
       const tracker = resolved.tracker;
@@ -522,7 +525,9 @@ export class Quilt {
         if (st === 'disputed' && mine?.what === 'returned') item(v.piece.hash, v.piece.name, 'disputed');
         if (v.piece.verifier === 'human' && this.library.seeding[problem] && (st === 'open' || st === 'needs_verify') && mine?.what !== 'returned') item(v.piece.hash, v.piece.name, 'person');
       }
-    }
+      return items;
+    });
+    items.push(...perProblem.flat());
     return { items, checked };
   }
 
