@@ -103,19 +103,35 @@ export function signMessage(message: Uint8Array, secret: Uint8Array): Signature 
   return `0x${bytesToHex(rs)}${(27 + rec).toString(16)}`;
 }
 
+/**
+ * Signers already recovered, by signature and the hash of what it signs, which together decide the answer: a tracker
+ * reduces every problem it holds again and again, and recovering a key is most of what reducing costs. Emptied once it
+ * holds RECOVERED_MAX, so it never grows past that.
+ */
+const recovered = new Map<string, Address | null>();
+const RECOVERED_MAX = 100_000;
+
 /** The address that signed this message, or null when the signature is not one. */
 export function recoverAddress(message: Uint8Array, sig: string): Address | null {
   if (!SIG_RE.test(sig)) return null;
+  const hash = personalHash(message);
+  const key = `${sig}:${bytesToHex(hash)}`;
+  const known = recovered.get(key);
+  if (known !== undefined) return known;
   const bytes = hexToBytes(sig.slice(2));
   const v = bytes[64]!;
   const rec = v >= 27 ? v - 27 : v;
-  if (rec !== 0 && rec !== 1) return null;
-  try {
-    const pub = secp256k1.recoverPublicKey(concatBytes(Uint8Array.of(rec), bytes.subarray(0, 64)), personalHash(message), { prehash: false });
-    return addressFromPublicKey(pub);
-  } catch {
-    return null;
+  let who: Address | null = null;
+  if (rec === 0 || rec === 1) {
+    try {
+      who = addressFromPublicKey(secp256k1.recoverPublicKey(concatBytes(Uint8Array.of(rec), bytes.subarray(0, 64)), hash, { prehash: false }));
+    } catch {
+      who = null;
+    }
   }
+  if (recovered.size >= RECOVERED_MAX) recovered.clear();
+  recovered.set(key, who);
+  return who;
 }
 
 /** Whether `sig` over these bytes is `address`'s, for a caller that holds bytes rather than an object. */

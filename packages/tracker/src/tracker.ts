@@ -161,8 +161,28 @@ export function createTracker(options: TrackerOptions): Tracker {
     return maintainers.length ? hiddenNow(store.receipts(IDENTITY), maintainers) : new Map();
   }
 
+  /**
+   * The layer as last built, by the store's version and the five-second span of the tracker's clock it was built in. A
+   * read is answered from it while nothing has been written and the clock has not moved past that span: building it
+   * reduces every problem here, which costs as much as the whole store. While an event is being admitted (`exact`
+   * above zero), and for a coin lock another tracker admits against, the layer is built afresh at now.
+   */
+  let kept: { version: number; span: number; layer: Layer } | null = null;
+  let exact = 0;
+  const SPAN_MS = 5000;
+
   /** The challenge layer over every problem here: standing and the pool are functions of the whole store. */
   function layer(): Layer {
+    if (exact > 0) return buildLayer();
+    const span = Math.floor(Date.parse(now()) / SPAN_MS);
+    if (kept && kept.version === store.version && kept.span === span) return kept.layer;
+    const version = store.version;
+    const built = buildLayer();
+    kept = { version, span, layer: built };
+    return built;
+  }
+
+  function buildLayer(): Layer {
     const problems: ReduceInput[] = [];
     for (const e of store.listEnvelopes()) {
       const input = inputFor(e.hash);
@@ -252,7 +272,14 @@ export function createTracker(options: TrackerOptions): Tracker {
     limit(`key:${event.key}`, limits.keyPerHour);
     const id = eventId(event);
     const hosted = hostedPost(req);
-    const { chain, word } = log.kind === 'coin' ? admitCoinEvent(event) : log.kind === 'identity' ? admitIdentityEvent(event) : await admitProblemEvent(event, log.hash, hosted);
+    exact += 1;
+    let admitted: Admitted;
+    try {
+      admitted = log.kind === 'coin' ? admitCoinEvent(event) : log.kind === 'identity' ? admitIdentityEvent(event) : await admitProblemEvent(event, log.hash, hosted);
+    } finally {
+      exact -= 1;
+    }
+    const { chain, word } = admitted;
     if (store.hasEvent(chain, id)) throw new Refusal(409, 'already here');
     const line = hosted ? store.appendReceipt(chain, event, id, url, now(), 'hosted', 'ai', word) : store.appendReceipt(chain, event, id, url, now(), 'self', undefined, word);
     const at = line.received[0]!.at;
