@@ -109,3 +109,21 @@ describe('next without the variable', () => {
     expect(await trackerState(p, s2)).toBe('in_flight');
   });
 });
+
+describe('read on a disputed piece', () => {
+  it('quotes every return on it with the signer and model named, marks the reader\'s own, and names the field they differ on', async () => {
+    const { state, layer } = await claude.open(q);
+    const text = claude.disputedText(state, layer);
+    const name = state.pieces.find((v) => v.piece.hash === q2)!.piece.name;
+    expect(text).toContain(`${name} is disputed, with 2 returns.`);
+    expect(text).toContain('The returns differ on verdict.');
+    expect(text).toContain(`${claude.identity!.address} (anthropic/claude), this key, returned: {"verdict":"supports"}`);
+    expect(text).toContain(`${gemini.identity!.address} (google/gemini) returned: {"verdict":"contradicts"}`);
+    // Read by another key, nothing is marked as the reader's.
+    expect(gemini.disputedText(state, layer)).not.toContain(`(anthropic/claude), this key,`);
+    expect(gemini.disputedText(state, layer)).toContain(`(google/gemini), this key, returned`);
+    // A problem with no disputed piece says so.
+    const first = await claude.open(p);
+    expect(claude.disputedText(first.state, first.layer)).toBe('No piece is disputed.');
+  });
+});

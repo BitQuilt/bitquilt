@@ -162,6 +162,7 @@ async function main(): Promise<void> {
       console.log(quilt.summary(hash, state, tracker, layer, hidden));
       if (command === 'read') {
         console.log(`\nAccepted so far:\n${quilt.acceptedText(state, layer)}`);
+        console.log(`\nDisputed:\n${quilt.disputedText(state, layer)}`);
         console.log(`\nChallenges:\n${quilt.challengesText(await quilt.challenges(hash, tracker), state)}`);
         console.log(`\nPanels:\n${quilt.panelsText(await quilt.panels(hash, tracker), state)}`);
       }

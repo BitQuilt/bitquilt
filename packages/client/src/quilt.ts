@@ -14,7 +14,7 @@ import { type Link, makeLink, parseLink } from './link.js';
 import { type ChallengeListing, type GoldCount, type LayerPiece, type Opened, type PanelListing, type Scrape, SIDES, type Side, type Takedown } from './listings.js';
 import { announcementEvent, postToRelays, searchRelays } from './relay.js';
 import { type Library, type Posted, type Resolver, askJson } from './resolver.js';
-import { acceptedText, challengesText, kindWords, layerByHash, nameOf, panelsText, pieceText, summary, waitsText } from './render.js';
+import { acceptedText, challengesText, disputedText, kindWords, layerByHash, nameOf, panelsText, pieceText, summary, waitsText } from './render.js';
 
 export type { CoinBalance } from './coin.js';
 export type { Door } from './door.js';
@@ -700,6 +700,11 @@ export class Quilt {
   /** The accepted returns as quoted text with the signers named (render.ts, `acceptedText`). */
   acceptedText(state: State, layer: LayerPiece[] | null = null): string {
     return acceptedText(state, layer);
+  }
+
+  /** The disputed pieces, each return quoted with its signer named and this key's marked (render.ts, `disputedText`). */
+  disputedText(state: State, layer: LayerPiece[] | null = null): string {
+    return disputedText(state, layer, this.identity?.address ?? null);
   }
 
   /** The challenges said as text (render.ts, `challengesText`). */
