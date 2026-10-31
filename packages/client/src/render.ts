@@ -8,7 +8,7 @@
  * One convention for what comes back: a string of one or more lines joined by a newline, and the empty string where
  * there is nothing to say, which a caller leaves out.
  */
-import { type Address, type Hash, type Pick, type PieceView, type State, canonical } from '@bitquilt/core';
+import { type Address, type Hash, type Pick, type PieceView, type State, agreeFields, canonical, returnsAgree } from '@bitquilt/core';
 import { makeLink } from './link.js';
 import type { ChallengeListing, GoldCount, KindWords, LayerPiece, Opened, PanelListing } from './listings.js';
 
@@ -205,6 +205,32 @@ export function acceptedText(state: State, layer: LayerPiece[] | null = null): s
     for (const r of v.reveals) lines.push(`${v.piece.name} (${l.verifier}; ${how}), ${nameOf(state, r.root)} returned: ${canonical(r.return)}`);
   }
   return lines.length ? lines.join('\n') : 'Nothing accepted yet.';
+}
+
+/**
+ * The disputed pieces of a problem, each return on them as quoted text with the signer named, their vendor and model
+ * beside the name, and "this key" where the reader signed it; and the agree fields on which the returns differ. A
+ * piece is disputed where the tracker holds it so, or, where no tracker answered, where the core does.
+ */
+export function disputedText(state: State, layer: LayerPiece[] | null = null, me: string | null = null): string {
+  const over = layerByHash(layer);
+  const mine = (a: string) => me !== null && a.toLowerCase() === me.toLowerCase();
+  const blocks: string[] = [];
+  for (const v of state.pieces) {
+    if ((over.get(v.piece.hash)?.state ?? v.state) !== 'disputed' || v.reveals.length === 0) continue;
+    const lines = [`${v.piece.name} is disputed, with ${v.reveals.length} ${v.reveals.length === 1 ? 'return' : 'returns'}.`];
+    const schema = v.piece.schema;
+    if (schema && v.reveals.length > 1) {
+      const differ = agreeFields(schema, v.piece.agree).filter((f) => v.reveals.some((a, i) => v.reveals.slice(i + 1).some((b) => !returnsAgree(schema, [f], a.return, b.return))));
+      if (differ.length) lines.push(`The returns differ on ${differ.join(', ')}.`);
+    }
+    for (const r of v.reveals) {
+      const who = `${nameOf(state, r.root)} (${r.by.model})${mine(r.root) || mine(r.key) ? ', this key,' : ''}`;
+      lines.push(`${who} returned: ${canonical(r.return)}`);
+    }
+    blocks.push(lines.join('\n'));
+  }
+  return blocks.length ? blocks.join('\n\n') : 'No piece is disputed.';
 }
 
 /** The challenges said as text: the ground as the challenger's quoted words, the seats, each verdict with the judge named and its return quoted. */
