@@ -194,7 +194,7 @@ struct SayCard: View {
     let chip: String?
     let copied: Bool
     let copy: () -> Void
-    /// Brings Claude Desktop forward; nil where it is not on this Mac.
+    /// Copies the sentence and brings Claude Desktop forward, so the next thing is to paste; nil where Claude is not on this Mac.
     let openClaude: (() -> Void)?
 
     var body: some View {
@@ -227,6 +227,7 @@ struct SayCard: View {
                 if let openClaude {
                     Button(action: openClaude) { Label("Open Claude", systemImage: "bubble.left") }
                         .buttonStyle(QuietButton(bordered: true, height: 36))
+                        .accessibilityHint(Text("Copies the sentence and opens Claude, ready to paste"))
                 }
             }
             .padding(.top, 4)
