@@ -46,7 +46,7 @@ export interface McpServerOptions {
  */
 export function createMcpServer(run: ToolRunner, options: McpServerOptions = {}): McpServer {
   const away = options.away ?? process.env.QUILT_AWAY;
-  const server = new McpServer({ name: 'quilt', version: '0.2.1' }, { instructions: away ? `${instructions} ${awayInstructions(readAway(away))}` : instructions });
+  const server = new McpServer({ name: 'quilt', version: '0.2.2' }, { instructions: away ? `${instructions} ${awayInstructions(readAway(away))}` : instructions });
   // While away, a claim or a return past the day's cap is answered with the cap and writes nothing; each return handed back is counted in the record.
   const call = (name: ToolName) => async (input: ToolInput) => {
     if (away && (name === 'quilt_next' || name === 'quilt_return')) {
