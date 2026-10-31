@@ -17,6 +17,7 @@ import { delimiter, dirname, join } from 'node:path';
 import { isHash } from '@bitquilt/core';
 import type { ServerEntry } from './install.js';
 import { parseLink } from './link.js';
+import { inParallel } from './pool.js';
 import { say } from './phrases.js';
 import type { Quilt } from './quilt.js';
 import { layerByHash } from './render.js';
@@ -504,11 +505,13 @@ export async function pieceStates(quilt: Quilt, problem: string): Promise<Map<st
 
 /** What the runs did: by day, today, and over the week, with how many of the pieces returned are accepted so far, each problem asked once. */
 export async function awaySummary(record: AwayRecord, states: (problem: string) => Promise<Map<string, string> | null>): Promise<AwaySummary> {
-  const asked = new Map<string, Map<string, string> | null>();
+  // Every problem the runs touched, asked once and four at a time, before the days are counted.
+  const problems = [...new Set(Object.values(record.days).flatMap((d) => d.pieces.map((p) => p.problem)))];
+  const answers = await inParallel(problems, 4, (p) => states(p).catch(() => null));
+  const asked = new Map(problems.map((p, i) => [p, answers[i] ?? null] as const));
   const acceptedOf = async (pieces: AwayDay['pieces']) => {
     let n = 0;
     for (const p of pieces) {
-      if (!asked.has(p.problem)) asked.set(p.problem, await states(p.problem));
       const st = asked.get(p.problem)?.get(p.piece);
       if (st && ACCEPTED_STATES.includes(st)) n += 1;
     }
@@ -549,11 +552,23 @@ export interface AwayState extends AwayStatus {
 export interface StateOptions extends StatusOptions {
   /** The Quilt the summary reads the problems through. */
   quilt: Quilt;
+  /** Where the summary comes from instead, as the node keeps it (page.ts): asking the trackers takes seconds. */
+  summary?: () => Promise<AwaySummary>;
+}
+
+/** The summary read afresh: the record, and the state of each piece it names as its tracker holds it. */
+export function readSummary(o: StateOptions): Promise<AwaySummary> {
+  return awaySummary(readAway(join(o.home, AWAY_FILE), (o.now ?? (() => new Date()))()), (p) => pieceStates(o.quilt, p));
+}
+
+/** The summary from the record alone, nothing asked: how many were accepted is not known, and is said as none. */
+export function recordSummary(o: StateOptions): Promise<AwaySummary> {
+  return awaySummary(readAway(join(o.home, AWAY_FILE), (o.now ?? (() => new Date()))()), async () => null);
 }
 
 export async function awayState(o: StateOptions, note: string | null = null): Promise<AwayState> {
   const status = awayStatus(o);
-  const summary = await awaySummary(readAway(join(o.home, AWAY_FILE), (o.now ?? (() => new Date()))()), (p) => pieceStates(o.quilt, p));
+  const summary = await (o.summary ?? (() => readSummary(o)))();
   return { ...status, summary, note };
 }
 
