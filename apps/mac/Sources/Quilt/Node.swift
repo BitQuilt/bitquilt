@@ -4,8 +4,8 @@
 // Quitting stops only a node this app started. The popover reads this object: the sheet (which state the home is in and
 // the phrases to say), the coin as it rises, what is wanted. Three things here act: `makeKey` runs `quilt init` once for
 // a home with no key, `installConnector` hands the connector bundle to Claude Desktop, and `setAway` asks the node to
-// schedule, or stop, the hourly run while the person is away. `openClaude` only brings Claude Desktop forward. Nothing
-// here signs, and nothing writes to a ledger.
+// schedule, or stop, the hourly run while the person is away. `openClaude` closes the popover and brings Claude Desktop
+// forward. Nothing here signs, and nothing writes to a ledger.
 
 import AppKit
 import Foundation
@@ -304,10 +304,28 @@ final class Node: ObservableObject {
         NSWorkspace.shared.urlForApplication(withBundleIdentifier: Node.claudeBundleId) != nil
     }
 
-    /// Brings Claude Desktop forward, for the person to paste the sentence they copied; it opens nothing else.
+    /// Closes the popover and brings Claude Desktop forward, for the person to paste the sentence they copied; it opens
+    /// nothing else. Since macOS 14 an app is activated only when the active app yields to it, so Quilt yields first,
+    /// opens Claude (which also asks a running copy to show a window), and activates it once it answers; where that
+    /// still fails, the claude: link does the same. Most often Claude is in front already, behind the popover, and
+    /// nothing would seem to happen: closing the popover is what shows the button worked.
     func openClaude() {
         guard let claude = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Node.claudeBundleId) else { return }
-        NSWorkspace.shared.openApplication(at: claude, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
+        for window in NSApp.windows where window.isVisible && String(describing: type(of: window)).contains("MenuBarExtra") {
+            window.close()
+        }
+        NSApp.yieldActivation(toApplicationWithBundleIdentifier: Node.claudeBundleId)
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.openApplication(at: claude, configuration: configuration) { app, error in
+            DispatchQueue.main.async {
+                if let app, error == nil {
+                    app.activate()
+                } else if let link = URL(string: "claude://") {
+                    NSWorkspace.shared.open(link)
+                }
+            }
+        }
     }
 
     /// Claude Desktop's bundle identifier, for handing it the connector bundle.

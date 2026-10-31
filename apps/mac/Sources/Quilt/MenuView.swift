@@ -119,7 +119,7 @@ struct MenuView: View {
                                 chip: chip(of: lifted, twins: twins),
                                 copied: copied == lifted.say,
                                 copy: { copy(lifted.say) },
-                                openClaude: node.hasClaude ? { node.openClaude() } : nil)
+                                openClaude: node.hasClaude ? { copy(lifted.say); node.openClaude() } : nil)
                     }
                 }
                 SearchField(query: $query, focused: $searchFocused, submit: submit, clear: clearSearch)
