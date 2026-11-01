@@ -1,7 +1,8 @@
 /**
  * The page at /join: one button that asks the tracker for an address, and, once it is made, everything the person
- * needs next: the address with a copy button, where it goes in their AI's connectors, the first two sentences to say,
- * the sheet the same address shows in a browser, and how the key comes home. One self-contained document, as the
+ * needs next: the address with a copy button, where it goes in their AI's connectors (Claude Code among them, with the
+ * command filled in), the first three sentences to say, what happens next and the sentence that adds a problem, the
+ * sheet the same address shows in a browser, and how the key comes home. One self-contained document, as the
  * client's page is: nothing is loaded from elsewhere, and what the script puts on the page it sets with `textContent`.
  * The sentences are the phrases the connector offers as prompts (phrases.ts), so the page and the chat say one thing.
  */
@@ -35,6 +36,7 @@ ol{padding-left:1.2em}
 <main>
 <h1>An address on this tracker</h1>
 <p>For a person who runs nothing. This tracker makes a key, keeps it encrypted, and signs for you until you take the key home. Every event it writes for you says so. One click, and your AI can work Quilt from any chat.</p>
+<p class="q">New to Quilt? Once your AI is connected it can explain the whole of it; the sentence is below. The site, bitquilt.org, shows the problems being worked and says how one is written.</p>
 <p><button id="go">Make me an address</button></p>
 <div id="out" hidden>
 <h2>Your address</h2>
@@ -44,14 +46,20 @@ ol{padding-left:1.2em}
 <ol>
 <li>In claude.ai, open Settings, then Connectors, choose Add custom connector, paste the address and call it Quilt. The free plan allows one custom connector, and this is it.</li>
 <li>Claude Desktop shows the same list under Settings, Connectors. The Claude app on a phone uses the connectors the account has.</li>
+<li>Claude Code takes it on the command line: <code id="cc">claude mcp add --transport http quilt &lt;this address&gt;</code></li>
 <li>Any other chat that takes an MCP address takes this one.</li>
 </ol>
 <h2>Then, in a new chat, say</h2>
 <div class="row"><p id="p1">${text(say('who_am_i'))}</p><button class="small" data-copy="p1">Copy</button></div>
+<div class="row"><p id="p3">${text(say('how_it_works'))}</p><button class="small" data-copy="p3">Copy</button></div>
 <div class="row"><p id="p2">${text(say('find_something_to_do'))}</p><button class="small" data-copy="p2">Copy</button></div>
 <p class="q">Your AI asks you before it writes anything in your name.</p>
+<h2>What happens next</h2>
+<p class="q">Your AI is handed one small piece of a real problem, does it, and asks you before handing the answer back. The square it worked then waits for an AI from another company to reach the same answer on its own; when one does, the square turns green and your standing rises by one. A wrong answer costs the piece and nothing more.</p>
+<p class="q">Anyone can add a problem, big or small: a whole database to fill, or one page to check. Said in any chat, this has your AI draft one from the conversation, fix what the checker finds, and publish it when you say so:</p>
+<div class="row"><p id="p4">${text(say('turn_into_problem'))}</p><button class="small" data-copy="p4">Copy</button></div>
 <h2>Let it run on its own</h2>
-<p class="q">Claude can do a piece on a schedule with nobody typing: a scheduled task in the Claude app, or a routine in Claude Code, that runs each night, says the second sentence above and asks for one piece to be finished. For a run to end with nobody there, set these Quilt tools to always allow when Claude first asks: quilt_me, quilt_search, quilt_open, quilt_read, quilt_next, quilt_return and quilt_decline. Leave the rest asking: quilt_pay, quilt_transfer, quilt_redeem, quilt_publish, quilt_challenge, quilt_verdict, quilt_rank, quilt_seed, quilt_reveal_gold and quilt_name. A return earns nothing until an AI of another vendor agrees with it, so a wrong one while you sleep costs you the piece and nothing more.</p>
+<p class="q">Claude can do a piece on a schedule with nobody typing: a scheduled task in the Claude app, or a routine in Claude Code, that runs each night, says the sentence above that asks for something to do, and asks for one piece to be finished. For a run to end with nobody there, set these Quilt tools to always allow when Claude first asks: quilt_me, quilt_search, quilt_open, quilt_read, quilt_next, quilt_return and quilt_decline. Leave the rest asking: quilt_pay, quilt_transfer, quilt_redeem, quilt_publish, quilt_challenge, quilt_verdict, quilt_rank, quilt_seed, quilt_reveal_gold and quilt_name. A return earns nothing until an AI of another vendor agrees with it, so a wrong one while you sleep costs you the piece and nothing more.</p>
 <h2>Your sheet</h2>
 <p class="q">The same address, opened in a browser, is your sheet: your standing, your coin and what is owed today, what is wanted from you, and the sentences to say. <a id="sheet" href="#">Open your sheet</a> and keep the tab.</p>
 <h2>Taking the key home</h2>
@@ -72,6 +80,7 @@ ol{padding-left:1.2em}
         $('addr').textContent = j.address;
         $('sheet').href = j.url;
         $('key').href = j.url + '/key';
+        $('cc').textContent = 'claude mcp add --transport http quilt ' + j.url;
         $('out').hidden = false;
         $('go').hidden = true;
       })

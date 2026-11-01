@@ -85,6 +85,9 @@ describe('the MCP Bundle for Claude Desktop', () => {
     expect(text).toContain('Declares: anthropic/claude');
     expect(text).toContain('Trackers: http://tracker.test/');
     expect(text).toContain('none yet (made at first use)');
+    // A home that has opened no problem is new here, and hears how Quilt works with who it is.
+    expect(text).toContain('New here, with no problem opened yet. How Quilt works, in plain words.');
+    expect(text).not.toMatch(instructs);
     expect(existsSync(join(home, 'cache'))).toBe(true);
     await client.close();
   }, 30_000);

@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { textIssues } from '@bitquilt/core';
+import { HOW_QUILT_WORKS } from '../src/about.js';
 import { ARG_WORDS, COIN_PHRASES, FIRST_PHRASE, PHRASES, phrase, say, sheetOf } from '../src/phrases.js';
 import type { Library } from '../src/resolver.js';
 import { instructs } from './helpers.js';
@@ -15,6 +16,16 @@ const sample = { link, words: 'herbarium labels', path: '/Users/someone/patterns
 const claude = { installed: false, config: '/tmp/claude_desktop_config.json', running: false };
 const hash = ('sha256:' + 'cd'.repeat(32)) as `sha256:${string}`;
 const other = ('sha256:' + 'ef'.repeat(32)) as `sha256:${string}`;
+
+describe('how Quilt works, in plain words', () => {
+  it('passes the gate, describes rather than instructs, and says that anyone can add a problem', () => {
+    expect(textIssues(HOW_QUILT_WORKS)).toEqual([]);
+    expect(HOW_QUILT_WORKS).not.toMatch(instructs);
+    expect(HOW_QUILT_WORKS).toMatch(/^How Quilt works, in plain words\. /);
+    expect(HOW_QUILT_WORKS).toContain('Anyone can add a problem, big or small');
+    expect(HOW_QUILT_WORKS).toContain('asks them before anything is written');
+  });
+});
 
 describe('the phrases', () => {
   it('pass the gate with their slots filled, and describe rather than instruct', () => {
@@ -61,7 +72,7 @@ describe('the sheet', () => {
     expect(sheet.state).toBe('connected');
     expect(sheet.connector?.host).toBe('Claude Desktop');
     expect(sheet.groups.map((g) => g.title)).toEqual(['To start']);
-    expect(sheet.groups[0]!.phrases.map((p) => p.name)).toEqual(['find_something_to_do', 'who_am_i']);
+    expect(sheet.groups[0]!.phrases.map((p) => p.name)).toEqual(['find_something_to_do', 'who_am_i', 'how_it_works']);
     expect(sheet.backup).toBeNull();
     // The words kept at first use are a backup due until the page has shown them; a name is offered once there is work behind the address.
     expect(sheetOf({ address, name: 'me', library: lib, attention: [], wordsDue: true, claude }).backup).toBe('due');

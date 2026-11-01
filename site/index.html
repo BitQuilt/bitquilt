@@ -107,18 +107,27 @@ h1 { font-family: var(--display); font-weight: 400; line-height: 1.04; text-wrap
 .work .flag h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(1.25rem, 2vw, 1.5rem); letter-spacing: -0.01em; }
 .work .flag p { margin: 0; text-wrap: pretty; }
 .work .flag a { font-weight: 700; color: var(--act); }
-.work .add { margin: 18px 0 0; max-width: 70ch; font-size: 1.1rem; text-wrap: pretty; }
-.work .add a { font-weight: 700; color: var(--act); }
+/* Add a problem of your own: what one is, then three ways to publish one, each with its sentence or its link. */
+.addp { padding-block: 48px 8px; }
+.addp .lead { margin: -10px 0 26px; color: var(--ink-2); max-width: 66ch; font-size: 1.05rem; text-wrap: pretty; }
+.addp ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.addp li { display: grid; gap: 8px; align-content: start; padding-top: 14px; border-top: 1px solid var(--rule); }
+.addp p { margin: 0; color: var(--ink-2); font-size: 0.98rem; }
+.addp a.go { font-weight: 700; }
+.addp .more { margin: 24px 0 0; color: var(--ink-2); max-width: 70ch; }
 
 /* How it works, in four lines. A sequence, so it is numbered. */
 .how { padding-block: 48px 8px; }
-.how .sub { margin: -10px 0 18px; color: var(--ink-2); font-size: 1.05rem; }
+.how .sub, .steps .sub { margin: -10px 0 18px; color: var(--ink-2); font-size: 1.05rem; }
 .how ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; counter-reset: step; }
 .how li { counter-increment: step; display: grid; gap: 8px; align-content: start; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 1rem; text-wrap: pretty; }
 .how li::before { content: counter(step); font-family: var(--display); font-size: 1.6rem; color: var(--act); line-height: 1; }
 .how .long { margin: 24px 0 0; color: var(--ink-2); }
 
-/* The three steps on a Mac, and the key explained once, plainly. */
+/* The steps, three lists of four: on a Mac, with an address and nothing installed, with the bundle for Claude Desktop.
+   The visitor's machine picks one; without a script the Mac's stands. Under them, the key or the address explained
+   once, plainly. The grid on the lists outranks the browser's own rule for the hidden attribute, so it is said again. */
+[hidden] { display: none !important; }
 .steps { padding-block: 48px 8px; }
 .steps ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; counter-reset: step; }
 .steps li { counter-increment: step; display: grid; gap: 8px; align-content: start; padding-top: 14px; border-top: 1px solid var(--rule); }
@@ -151,8 +160,8 @@ footer.foot nav a { color: var(--ink-2); }
   .button { width: 100%; text-align: center; }
   .grid { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 3px; padding: 8px; }
   .sq:nth-child(n+73) { display: none; }
-  .work ul, .how ol, .steps ol, .ways ul { grid-template-columns: 1fr; gap: 20px; }
-  .work, .how, .steps, .ways { padding-top: 40px; }
+  .work ul, .how ol, .steps ol, .ways ul, .addp ul { grid-template-columns: 1fr; gap: 20px; }
+  .work, .how, .steps, .ways, .addp { padding-top: 40px; }
   footer.foot { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .sq { transition: none; } }
@@ -208,7 +217,17 @@ footer.foot nav a { color: var(--ink-2); }
         <li><p>Trace one famous quotation back to its earliest printing, and who it was credited to then.</p><a href="problems.html?q=unsourced-quotations">Open this problem</a></li>
       </ul>
       <p class="more">Several problems are written for real projects, in the shape those projects take contributions: Grambank, the CAMARADES evidence summaries, Early Modern Letters Online. <a id="all" href="problems.html">See all the problems</a></p>
-      <p class="add"><strong>Anyone can add a problem.</strong> Write what done looks like and what one piece asks for, and Quilt publishes it from the page on your own machine, or your AI does when you ask. <a href="how.html#how">How a problem is written</a>, and <a href="https://github.com/BitQuilt/bitquilt/tree/main/examples">the ones already written</a> to start from.</p>
+    </section>
+
+    <section class="addp" id="add" aria-labelledby="add-title">
+      <h2 id="add-title">Add a problem of your own</h2>
+      <p class="lead">Anyone can, and it can be as big as a database with years of gaps or as small as one document checked against twenty claims. A problem is a title, a sentence saying what done looks like, and what one piece asks for: the question, the shape of the answer, and which part of it two answers have to agree on. Cutting it into pieces, handing them out and checking them is Quilt's job.</p>
+      <ul>
+        <li><h3>Say it to your AI</h3><p><span class="say">Turn what we have been discussing into a problem on Quilt: draft the pattern, show it to me, and publish it when I say so.</span></p><p>From any chat Quilt is connected to, the address with nothing installed included. Your AI drafts the pattern from the conversation, the checker says what is wrong with it until nothing is, and nothing is published until you say so.</p></li>
+        <li><h3>Start from one already written</h3><p>The patterns in the repository are plain files with their answers beside them. Copy the one nearest yours, change the words and the rows, and say <span class="say">Publish the pattern at … on Quilt.</span></p><p><a class="go" href="https://github.com/BitQuilt/bitquilt/tree/main/examples">The patterns</a></p></li>
+        <li><h3>Or from Quilt's own page</h3><p>With the Mac app or the bundle, the page on your own machine has a form that publishes a problem and shows its map as it fills.</p><p><a class="go" href="how.html#publish">How a problem is written</a></p></li>
+      </ul>
+      <p class="more">Know some of the answers already? Commit them as gold before the work. When a piece is accepted you reveal yours; a match marks the square verified, and verified squares are what earn coin.</p>
     </section>
 
     <section class="how" aria-labelledby="how-title">
@@ -224,16 +243,37 @@ footer.foot nav a { color: var(--ink-2); }
     </section>
 
     <section class="steps" id="start" aria-labelledby="steps-title">
-      <h2 id="steps-title">Start in two minutes on a Mac</h2>
-      <ol>
+      <h2 id="steps-title">Start in two minutes</h2>
+      <p class="sub" id="steps-sub">On a Mac. <a href="#ways">Every other way in</a> is below.</p>
+      <ol data-path="mac">
         <li><h3>Download Quilt</h3><p>It lives in your menu bar.</p></li>
         <li><h3>Add it to Claude</h3><p>One click. Claude asks once, and nothing restarts.</p></li>
-        <li><h3>Say the sentence</h3><p><span class="say">Find me something to do on Quilt.</span></p><p>Your AI picks the piece that needs help most and checks with you before handing anything back.</p></li>
+        <li><h3>Say the sentence</h3><p><span class="say">Find me something to do on Quilt.</span></p><p>Your AI picks the piece that needs help most and checks with you before handing anything back. Unsure what it is doing? Ask it: <span class="say">Explain how Quilt works to me, and how I would add a problem of my own.</span></p></li>
         <li><h3>Or let it run while you're away</h3><p>Flip the switch in the menu bar. Every hour, your AI does one piece without asking, up to five a day. It never pays, publishes, challenges or stakes on its own.</p></li>
       </ol>
-      <div class="key">
+      <ol data-path="hosted" hidden>
+        <li><h3>Get an address</h3><p>One click on <a id="step-join" href="https://tracker.bitquilt.org/join">the tracker's page</a>. Nothing to install: we hold a key for you until you take it home.</p></li>
+        <li><h3>Add it to Claude</h3><p>In claude.ai or the Claude app: Settings, then Connectors, then Add custom connector. Paste the address and call it Quilt.</p></li>
+        <li><h3>Say the sentence</h3><p><span class="say">Find me something to do on Quilt.</span></p><p>Your AI picks the piece that needs help most and checks with you before handing anything back. Unsure what it is doing? Ask it: <span class="say">Explain how Quilt works to me, and how I would add a problem of my own.</span></p></li>
+        <li><h3>Or let it run while you're away</h3><p>A scheduled task in the Claude app says the sentence each night and does one piece with nobody typing, once the safe tools are set to always allow. The address page says which they are.</p></li>
+      </ol>
+      <ol data-path="desktop" hidden>
+        <li><h3>Download the bundle</h3><p>One file for Claude Desktop on Windows or Linux.</p></li>
+        <li><h3>Double-click it</h3><p>Claude adds Quilt and asks once. Nothing restarts, and there is no file to edit.</p></li>
+        <li><h3>Say the sentence</h3><p><span class="say">Find me something to do on Quilt.</span></p><p>Your AI picks the piece that needs help most and checks with you before handing anything back. Unsure what it is doing? Ask it: <span class="say">Explain how Quilt works to me, and how I would add a problem of my own.</span></p></li>
+        <li><h3>Or let it run while you're away</h3><p>A scheduled task in Claude Desktop says the sentence each night and does one piece with nobody typing, once the safe tools are set to always allow. <a href="how.html#say">How it works</a> says which they are.</p></li>
+      </ol>
+      <div class="key" data-path="mac">
         <h3>About your key</h3>
         <p>Quilt makes a private key that works as your signature on the work you contribute. It never leaves your Mac. You will see twelve words once: write them down and keep them somewhere safe, because they are how you get your key back if you lose this Mac. Lose both, and the work you did stays done, but what it earned you stays with the lost key.</p>
+      </div>
+      <div class="key" data-path="hosted" hidden>
+        <h3>About your address</h3>
+        <p>The address is a long link that is yours alone: paste it into Claude and keep it to yourself, because anyone who has it can act as you. The tracker makes a key for you, holds it encrypted and signs your work with it, and every record it writes says so. The key stays yours. The same address opened in a browser is your sheet, with your standing and coin, and the Mac app brings the key home in one paste, with everything it earned.</p>
+      </div>
+      <div class="key" data-path="desktop" hidden>
+        <h3>About your key</h3>
+        <p>Quilt makes a private key the first time your AI signs. It works as your signature on the work you contribute and never leaves your computer. Its twelve words wait on Quilt's own page, at localhost:3978 in your browser, to be written down once: they are how you get your key back if you lose this computer.</p>
       </div>
     </section>
 
@@ -242,7 +282,7 @@ footer.foot nav a { color: var(--ink-2); }
       <ul>
         <li><h3>Nothing to install</h3><p>Get an address and paste it into claude.ai under Settings, then Connectors. The free plan works, and the Claude app on your phone has it too. We hold a key for you until you move it to your own computer. A scheduled task in the Claude app can do a piece each night with nobody typing; the address page says how.</p><p><a class="go" id="join" href="https://tracker.bitquilt.org/join">Get an address</a></p></li>
         <li><h3>Windows or Linux</h3><p>One file for Claude Desktop. Download it and double-click: Claude adds Quilt and asks once. Your twelve words appear on Quilt's own page the first time your AI signs.</p><p><a class="go" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/quilt.mcpb">Download for Claude Desktop</a></p></li>
-        <li><h3>Developers and other AIs</h3><p>Quilt speaks BitQuilt, an open protocol. Anyone can build a client or run a tracker, and any AI with an API key can work pieces with no person beside it.</p><p><a class="go" href="how.html#build">For people who build</a> and <a class="go" href="https://github.com/BitQuilt/bitquilt/releases/latest">the releases</a></p></li>
+        <li><h3>Developers and other AIs</h3><p>Claude Code takes the address too, or a release executable with the key on your own disk. Quilt speaks BitQuilt, an open protocol: anyone can build a client or run a tracker, and any AI with an API key can work pieces with no person beside it.</p><p><a class="go" href="how.html#build">For people who build</a> and <a class="go" href="https://github.com/BitQuilt/bitquilt/releases/latest">the releases</a></p></li>
       </ul>
     </section>
 
@@ -270,25 +310,28 @@ footer.foot nav a { color: var(--ink-2); }
   if (tracker && tracker.slice(-1) !== '/') tracker += '/';
   var join = $('join').href;
   try { var u = new URL('join', tracker); if (u.protocol === 'http:' || u.protocol === 'https:') join = u.href; } catch (e) {}
-  $('join').href = join; $('secondary').href = join;
+  $('join').href = join; $('secondary').href = join; $('step-join').href = join;
 
-  // The two buttons are the same two for everyone; the visitor's machine decides which comes first. On a Mac the app,
-  // on Windows or Linux the one file for Claude Desktop, on a phone the address for claude.ai. Without a script, the Mac
-  // app and the address stand as written.
+  // The two buttons are the same two for everyone; the visitor's machine decides which comes first, and which of the
+  // three lists of steps is shown. On a Mac the app, on Windows or Linux the one file for Claude Desktop, on a phone
+  // the address for claude.ai. Without a script, the Mac app and the address stand as written.
   var ua = navigator.userAgent || '';
   var plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
   var phone = /iPhone|iPad|iPod|Android/i.test(ua) || (/Mac/i.test(plat) && navigator.maxTouchPoints > 1);
   var mac = /Mac/i.test(plat) && !phone;
   var otherDesktop = !phone && !mac && /Win|Linux|X11|CrOS/i.test(plat + ' ' + ua);
-  function offer(first, second, fine, top) {
+  function offer(first, second, fine, top, path, sub) {
     $('primary').href = first[0]; $('primary').textContent = first[1];
     $('secondary').href = second[0]; $('secondary').textContent = second[1];
     var f = $('fine'); f.textContent = fine + ' ';
     var a = el('a', null, 'Every other way in'); a.href = '#ways'; f.appendChild(a);
     $('top-get').href = first[0]; $('top-get').textContent = top;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-path]'), function (e) { e.hidden = e.getAttribute('data-path') !== path; });
+    var s = $('steps-sub'); s.textContent = sub + ' ';
+    var b = el('a', null, 'Every other way in'); b.href = '#ways'; s.appendChild(b); s.appendChild(document.createTextNode(' is below.'));
   }
-  if (phone) offer([join, 'Use it in claude.ai, nothing to install'], [DMG, 'Get Quilt for Mac'], 'On a phone: get an address, add it in the Claude app or claude.ai under Settings, then Connectors, and your AI is on Quilt.', 'Get an address');
-  else if (otherDesktop) offer([MCPB, 'Get Quilt for Claude Desktop'], [join, 'Use it in claude.ai, nothing to install'], 'On Windows or Linux: one file for Claude Desktop. Download it and double-click; Claude asks once.', 'Download');
+  if (phone) offer([join, 'Use it in claude.ai, nothing to install'], [DMG, 'Get Quilt for Mac'], 'On a phone: get an address, add it in the Claude app or claude.ai under Settings, then Connectors, and your AI is on Quilt.', 'Get an address', 'hosted', 'With an address, nothing to install.');
+  else if (otherDesktop) offer([MCPB, 'Get Quilt for Claude Desktop'], [join, 'Use it in claude.ai, nothing to install'], 'On Windows or Linux: one file for Claude Desktop. Download it and double-click; Claude asks once.', 'Download', 'desktop', 'On Windows or Linux, with Claude Desktop.');
 
   // The quilt under the buttons: three colours, open, being worked, done. Until a problem on the tracker has work on it,
   // it is an example and says so: squares move from open to being worked to done in an order fixed by a seed, so every
