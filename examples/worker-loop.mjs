@@ -67,6 +67,36 @@ export function question(piece, evidence, without = '') {
   return `The author wrote this brief: "${piece.brief}"\n\n${evidence ? `The evidence:\n\n${evidence}\n\n` : without ? `${without}\n\n` : ''}Answer with the fields: ${Object.keys(piece.properties).join(', ')}.`;
 }
 
+/**
+ * The answer as the tracker's plain-text gate admits it: a web address, a bare domain, markup, an email address or a
+ * handle in a string field is taken out before the return is signed, since a model asked for a source's title will
+ * still sometimes write its address. The gate's own rule is in the core (`textIssues`); this mirrors what it refuses
+ * most, and the gate's refusal, when one still comes, is put to the model once (`gateRefusal`).
+ */
+export function plain(answer) {
+  const out = {};
+  for (const [k, v] of Object.entries(answer)) {
+    out[k] = typeof v === 'string'
+      ? v
+        .replace(/<\/?[a-z][^>]*>/gi, '')
+        .replace(/https?:\/\/[^\s)\]>;,]+|www\.[^\s)\]>;,]+|\b[a-z0-9-]+\.[a-z]{2,24}\/[^\s)\]>;,]+/gi, '[address removed]')
+        .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '[address removed]')
+        .replace(/\b([a-z0-9-]+)\.(com|org|net|io|ai|dev|xyz|gov|edu|app|me|ly|co|gg|to|sh|link|info|biz|page|site|online|uk|de|fr|ru|cn|us)\b/gi, '$1')
+        .replace(/\]\(/g, '] (')
+        .replace(/(^|[^\w])@([\w.]{2,})/g, '$1$2')
+        .replace(/ {2,}/g, ' ')
+        .trim()
+      : v;
+  }
+  return out;
+}
+
+/** What the gate refused, from the CLI's last line ("return: no links or markup"); null when the CLI stopped for another reason. */
+export function gateRefusal(said) {
+  const m = /no (links or markup|contact details|instructions to other machines|shouting)/.exec(said);
+  return m ? m[0] : null;
+}
+
 const norm = (t) => t.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, ' ').trim();
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 /** The CLI's last line on stderr when it stopped: what it said, with nothing to hand out said quietly. */
@@ -94,16 +124,25 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
   /** The JSON a CLI command printed, read from its first brace: pnpm run writes its own two lines first unless given -s. */
   const jsonOut = (text) => JSON.parse(text.slice(text.indexOf('{')));
 
+  /** The answer with every string cut to the length the piece's schema allows. */
+  const fit = (piece, answer) => {
+    for (const [k, def] of Object.entries(piece.properties)) if (typeof answer[k] === 'string' && def.maxLength && answer[k].length > def.maxLength) answer[k] = answer[k].slice(0, def.maxLength);
+    return answer;
+  };
+  /** The CLI's last line when a command failed. */
+  const lastLine = (e) => (e.stderr || e.message).trim().split('\n').pop();
+
   /**
-   * One problem worked until the CLI hands out nothing more or `budget` pieces are returned: the number returned. A
-   * piece the model or the tracker refuses is logged and ends this problem; the run goes on to the next.
+   * One problem worked until the CLI hands out nothing more or `budget` pieces are returned: the number returned. An
+   * answer the gate refuses is asked for once more with the gate's words; a piece the model or the tracker then
+   * refuses is logged and ends this problem; the run goes on to the next.
    */
   async function work(problem, budget) {
     let n = 0;
     for (; n < budget; n++) {
       let text;
       try { text = quilt('next', problem); } catch (e) {
-        const said = (e.stderr || e.message).trim().split('\n').pop();
+        const said = lastLine(e);
         console.log(quiet.test(said) ? `${problem.slice(0, 19)}: ${said}` : `stopped: ${said}`);
         break;
       }
@@ -114,11 +153,20 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
         let answer = await ask({ piece, schema, evidence, note: '', model: o.model, key });
         const quoteOk = (a) => typeof a.quote !== 'string' || !evidence || (evidenceNorm.includes(norm(a.quote)) && a.quote.trim().split(/\s+/).length <= 25);
         if (!quoteOk(answer)) answer = await ask({ piece, schema, evidence, note: 'Your previous quote was not found verbatim in the evidence, or ran over 25 words; copy the words exactly as they appear.', model: o.model, key });
-        for (const [k, def] of Object.entries(piece.properties)) if (typeof answer[k] === 'string' && def.maxLength && answer[k].length > def.maxLength) answer[k] = answer[k].slice(0, def.maxLength);
-        const r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer)));
+        answer = fit(piece, plain(answer));
+        let r;
+        try {
+          r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer)));
+        } catch (e) {
+          const refused = gateRefusal(lastLine(e));
+          if (!refused) throw e;
+          // The gate refused what the scrub let through: the model is told what the tracker said, once.
+          answer = fit(piece, plain(await ask({ piece, schema, evidence, note: `Your previous answer was refused by the tracker: ${refused}. Name every source by its title and its id in words, with no web address, no markup and no contact details.`, model: o.model, key })));
+          r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer)));
+        }
         console.log(`${piece.name}: ${JSON.stringify(answer)} -> commit ${r.commit.queued ? 'queued' : 'posted'}, reveal ${r.reveal.queued ? 'queued' : 'posted'}${answer.quote && !quoteOk(answer) ? ' (quote not verbatim)' : ''}`);
       } catch (e) {
-        console.log(`${piece.name}: not returned: ${(e.stderr || e.message).trim().split('\n').pop()}`);
+        console.log(`${piece.name}: not returned: ${lastLine(e)}`);
         break;
       }
     }

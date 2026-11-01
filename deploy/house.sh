@@ -1,6 +1,7 @@
 #!/bin/sh
 # The house second opinion (docs/DEPLOY.md, "The house second opinion"): the `house` service in docker-compose.yml runs
-# this loop from the same image as the tracker. Every HOUSE_EVERY seconds (900) it runs the worker of HOUSE_VENDOR
+# this loop from the same image as the tracker. Every HOUSE_EVERY seconds (300, so a stranger's square turns inside
+# the five minutes the stranger's path allows for it) it runs the worker of HOUSE_VENDOR
 # (anthropic unless set, with ANTHROPIC_API_KEY; openai with OPENAI_API_KEY) with --second-only --all: the CLI under
 # QUILT_NEXT_ONLY=verify hands out only pieces another vendor has already returned, on every problem the tracker lists
 # with such pieces, at most HOUSE_MAX (20) in a run. It never takes an open piece.
@@ -9,7 +10,7 @@
 # key nothing runs and the log says so; with HOUSE=off the same. Nothing here prints a key.
 set -u
 cd "$(dirname "$0")/.."
-EVERY="${HOUSE_EVERY:-900}"
+EVERY="${HOUSE_EVERY:-300}"
 MAX="${HOUSE_MAX:-20}"
 VENDOR="${HOUSE_VENDOR:-anthropic}"
 case "$VENDOR" in
