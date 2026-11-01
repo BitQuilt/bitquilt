@@ -1,3 +1,4 @@
+export { HOW_QUILT_WORKS } from './about.js';
 export * from './config.js';
 export * from './link.js';
 export * from './listings.js';

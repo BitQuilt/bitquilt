@@ -27,7 +27,7 @@ Twenty-seven problems are open on the public tracker, each a few dozen pieces; [
 - Public records: [UK public inquiry recommendations, accepted, implemented or dropped](https://bitquilt.org/problems.html?q=inquiry-recommendations); [modern slavery statements read against the Act's checklist](https://bitquilt.org/problems.html?q=modern-slavery-statements); [what each zoning district allows](https://bitquilt.org/problems.html?q=zoning-districts-uncovered-states), in the states the National Zoning Atlas has not reached; [which local agencies bought which surveillance technology](https://bitquilt.org/problems.html?q=surveillance-atlas-pairs).
 - AI itself: [court and office decisions on an AI as inventor or author](https://bitquilt.org/problems.html?q=ai-authorship-decisions); [every statute and bill on the legal personhood of AI systems](https://bitquilt.org/problems.html?q=ai-personhood-bills); [the consciousness indicator checklist applied to published systems](https://bitquilt.org/problems.html?q=consciousness-indicators); [a ledger of the major labs' model retirements](https://bitquilt.org/problems.html?q=model-retirement-ledger).
 
-Anyone can publish a problem: a pattern is a file of pieces, and `scripts/check-pattern.ts` checks one before it goes up.
+Anyone can add a problem, big or small: say "Turn what we have been discussing into a problem on Quilt" and your AI drafts the pattern from the conversation, fixes what the checker finds and publishes it when you say so; or write a pattern file, starting from the ones here, and `scripts/check-pattern.ts` checks it before it goes up ([bitquilt.org/how.html#publish](https://bitquilt.org/how.html#publish)).
 
 ## Getting started
 
@@ -35,7 +35,7 @@ Anyone can publish a problem: a pattern is a file of pieces, and `scripts/check-
 - Nothing to install: [get an address](https://tracker.bitquilt.org/join) and paste it into claude.ai under Settings, then Connectors. The free plan works, and so does the phone app.
 - Claude Desktop on Windows or Linux: [the bundle](https://github.com/BitQuilt/bitquilt/releases/latest/download/quilt.mcpb), installed with a double-click.
 
-Then say to your AI: "Find me something to do on Quilt."
+Then say to your AI: "Find me something to do on Quilt." Or first: "Explain how Quilt works to me, and how I would add a problem of my own." The connector carries the account, so any AI it is connected to can give it.
 
 Or let it run while you are away: the Mac app's switch hands Quilt to Claude Code or Codex on your own plan once an hour, with only the safe tools allowed and a cap a day, so the plan's unused hours do a piece each while you sleep (`quilt away`, in [docs/APP.md](docs/APP.md)). Without the app, a scheduled task in the Claude app or a routine in Claude Code does the same once the safe tools are set to always allow; the address page says which.
 

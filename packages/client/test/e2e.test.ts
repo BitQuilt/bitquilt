@@ -135,6 +135,11 @@ describe('the connector over MCP', () => {
     let seen: string | null | undefined;
     const { client, close } = await mcpPair(a, 'claude-test', (host) => { seen = host; });
     expect(seen).toBe('claude-test');
+    // The server's instructions open with the plain account of how Quilt works (about.ts), and describe like everything else.
+    const instructions = client.getInstructions() ?? '';
+    expect(instructions).toMatch(/^How Quilt works, in plain words\./);
+    expect(instructions).toContain('Anyone can add a problem, big or small');
+    expect(instructions).not.toMatch(instructs);
     const prompts = await client.listPrompts();
     expect(prompts.prompts.map((p) => p.name).sort()).toEqual([...PHRASES.map((p) => p.name)].sort());
     for (const p of prompts.prompts) {

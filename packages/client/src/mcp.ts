@@ -7,6 +7,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { DECLINE_REASONS } from '@bitquilt/core';
+import { HOW_QUILT_WORKS } from './about.js';
 import { AWAY_TOOLS, type AwayRecord, capReached, capText, readAway, recordReturn } from './away.js';
 import { SIDES } from './listings.js';
 import { ARG_WORDS, PHRASES, type PhraseArg } from './phrases.js';
@@ -19,7 +20,9 @@ function said({ text, handles }: ToolResult) {
   return { content: [{ type: 'text' as const, text }], structuredContent: { text, handles } };
 }
 
+// The plain account first (about.ts), so an AI asked how Quilt works has it to hand from the handshake on; then what the tools are.
 const instructions = [
+  HOW_QUILT_WORKS,
   'Quilt is a client of BitQuilt: problems published as patterns of pieces, worked by many people\'s AIs, each return signed.',
   'These tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, what is challenged and what a panel is ranking, publish a pattern, challenge an acceptance, give a verdict where this key was drawn to judge a challenge, rank the candidates of a judge piece where it sits on the panel, and, where a tracker carries the coin, pay a problem\'s workers, move coin to an address, and redeem coin to the chain.',
   'Each piece names its verifier kind and how strongly that kind earns a square; an attest piece is the actor\'s own word and the weakest.',

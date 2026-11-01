@@ -44,6 +44,7 @@ export const ARG_WORDS: Record<PhraseArg, string> = {
 export const PHRASES: readonly PhraseSpec[] = [
   { name: 'find_something_to_do', title: 'Something to do', about: 'The AI takes the rarest piece of a problem that fits it, from the problems this key keeps first and then from the trackers.', args: [], say: () => 'Find me something to do on Quilt.' },
   { name: 'who_am_i', title: 'Who I am on Quilt', about: 'The AI says the address this key signs with, its name, its standing and its coin.', args: [], say: () => 'Open Quilt and tell me who I am: my address, my standing and my coin.' },
+  { name: 'how_it_works', title: 'How Quilt works', about: 'The AI explains Quilt in plain words: what it does with the pieces it is handed, how a square turns green, what standing and coin are, and how the person adds a problem of their own.', args: [], say: () => 'Explain how Quilt works to me, and how I would add a problem of my own.' },
   { name: 'search_quilt', title: 'Search for a problem', about: 'The AI searches the trackers and relays for problems whose title, topics or statement of done carry the words.', args: ['words'], say: (a) => `Search Quilt for ${a.words} and tell me what you find.` },
   { name: 'open_problem', title: 'Open a problem', about: 'The AI opens the problem and says what it asks, how far it has got, and what each piece\'s verifier is.', args: ['link'], say: (a) => `Open ${a.link} on Quilt and tell me what it asks.` },
   { name: 'take_piece', title: 'Take a piece', about: 'The AI opens the problem, takes its rarest piece that fits, works it, and hands the return back after asking.', args: ['link'], say: (a) => `Open ${a.link} on Quilt and take a piece.` },
@@ -140,7 +141,7 @@ const WANTED: Record<AttentionItem['why'], string> = { rank: 'rank_panel', verdi
 
 /**
  * The sheet for this home. The state is read from the key and the library's record of a connector. The groups, when
- * connected: what is wanted from this person, the two phrases to start with, the problems they keep, the problems
+ * connected: what is wanted from this person, the three phrases to start with, the problems they keep, the problems
  * they opened lately, and their own problems with gold still to reveal; the coin's phrases are named, not spelled.
  */
 export function sheetOf(input: SheetInput): Sheet {
@@ -152,7 +153,7 @@ export function sheetOf(input: SheetInput): Sheet {
   if (state === 'connected') {
     const wanted = attention.filter((it) => it.why in WANTED).map((it) => about(WANTED[it.why], it.problem, library));
     if (wanted.length) groups.push({ title: 'Wanted from you', phrases: dedupe(wanted) });
-    groups.push({ title: 'To start', phrases: ['find_something_to_do', 'who_am_i'].map((n) => ({ name: n, title: phrase(n).title, say: say(n), about: phrase(n).about })) });
+    groups.push({ title: 'To start', phrases: ['find_something_to_do', 'who_am_i', 'how_it_works'].map((n) => ({ name: n, title: phrase(n).title, say: say(n), about: phrase(n).about })) });
     // A name, once there is work behind the address: the slot is left for the person to fill.
     if (input.name === null && (input.standing ?? 0) > 1) groups.push({ title: 'Your name', phrases: [{ name: 'call_me', title: phrase('call_me').title, say: say('call_me', { name: '____' }), about: `${phrase('call_me').about} The blank is for the name.` }] });
     const kept = Object.entries(library.seeding).sort((x, y) => (x[1] < y[1] ? 1 : -1)).map(([h]) => h as Hash).filter((h) => library.problems[h]);

@@ -26,6 +26,7 @@ const tools = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_re
 const prompts = [
   { name: 'find_something_to_do', text: 'Find me something to do on Quilt.' },
   { name: 'who_am_i', text: 'Open Quilt and tell me who I am: my address, my standing and my coin.' },
+  { name: 'how_it_works', text: 'Explain how Quilt works to me, and how I would add a problem of my own.' },
   { name: 'search_quilt', arguments: ['words'], text: 'Search Quilt for {words} and tell me what you find.' },
   { name: 'open_problem', arguments: ['link'], text: 'Open {link} on Quilt and tell me what it asks.' },
   { name: 'take_piece', arguments: ['link'], text: 'Open {link} on Quilt and take a piece.' },
@@ -49,7 +50,7 @@ const manifest = {
   version,
   description: "A client of BitQuilt: problems published as patterns of pieces, worked by many people's AIs, each return signed.",
   long_description:
-    'Quilt is the MCP server your AI connects to, with a page on localhost. Its tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, challenge an acceptance or give a verdict on one, rank the candidates of a judge piece where your key sits on its panel, keep a problem as a seeder, publish a pattern, reveal the gold you committed on a piece of your own problem, and pay a problem\'s workers in coin where a tracker carries it. Claude asks you before anything is written. The key the returns are signed with lives in your own config folder (~/.config/quilt, or QUILT_HOME), made there by quilt init; the trackers it asks are a setting here.',
+    'Quilt is the MCP server your AI connects to, with a page on localhost. Its tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, challenge an acceptance or give a verdict on one, rank the candidates of a judge piece where your key sits on its panel, keep a problem as a seeder, publish a pattern, reveal the gold you committed on a piece of your own problem, and pay a problem\'s workers in coin where a tracker carries it. Claude asks you before anything is written. The key the returns are signed with lives in your own config folder (~/.config/quilt, or QUILT_HOME), made the first time your AI signs; its twelve words wait on Quilt\'s page at http://localhost:3978/ to be written down once. The trackers it asks are a setting here. Asked how Quilt works, your AI explains it: the connector carries the account in plain words.',
   author: { name: 'BitQuilt', url: 'https://bitquilt.org/' },
   homepage: 'https://bitquilt.org/',
   license: 'Apache-2.0',

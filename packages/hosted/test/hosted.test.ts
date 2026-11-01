@@ -93,6 +93,8 @@ describe('the hosted on-ramp', () => {
     // The join page carries the same first sentences and nothing from elsewhere.
     const joinHtml = await (await fetch(`${base}join`)).text();
     expect(joinHtml).toContain('Find me something to do on Quilt.');
+    expect(joinHtml).toContain('Explain how Quilt works to me, and how I would add a problem of my own.');
+    expect(joinHtml).toContain('claude mcp add --transport http quilt');
     expect(joinHtml).not.toMatch(/(src|href)="https?:/);
   });
   it('lets the person take the key home, and refuses a session from another address', async () => {

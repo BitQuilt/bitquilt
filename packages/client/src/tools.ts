@@ -6,6 +6,7 @@
  * words come out of here only as quoted text with the signer named.
  */
 import type { Address, DeclineReason, Hash } from '@bitquilt/core';
+import { HOW_QUILT_WORKS } from './about.js';
 import type { Side } from './listings.js';
 import type { Pattern, Quilt } from './quilt.js';
 import { kindWords } from './render.js';
@@ -58,6 +59,8 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
         s ? `Standing: ${s.standing}, ${s.founding ? `of which ${s.founding} was declared at the founding and the rest earned by work, not for sale` : 'earned by work and not for sale'} (locked ${s.locked}, free to stake ${s.free}) at ${s.tracker}${s.locks.length ? `; locks: ${s.locks.map((l) => `${l.amount} on ${l.piece} of ${l.problem}`).join(', ')}` : ''}` : await noStanding(quilt),
         ...(c ? [`Coin (QX-17): ${c.balance} units (transferable now ${c.free_vested}, still vesting ${c.unvested}, locked ${c.locked}, escrowed ${c.escrowed}, free to stake or pay ${c.free}) at ${c.home}${c.pending && c.pending.amount > 0 ? `; owed from the squares verified so far today: ${c.pending.amount} units, paid at ${c.pending.pays_at}` : ''}`] : []),
         `Queued events: ${me.queued}; problems in the library: ${me.problems}`,
+        // A key that has opened no problem yet is new here: the account of how Quilt works comes with who it is.
+        ...(me.problems === 0 ? [`New here, with no problem opened yet. ${HOW_QUILT_WORKS}`] : []),
       ].join('\n');
       return { text, handles: { address: me.address, model: me.model, trackers: me.trackers, queued: me.queued, standing: s, coin: c } };
     }
