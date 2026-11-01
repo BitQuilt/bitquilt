@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { instruction, parseArgs, question, readPiece, schemaOf } from '../../../examples/worker-loop.mjs';
+import { textIssues } from '@bitquilt/core';
+import { gateRefusal, instruction, parseArgs, plain, question, readPiece, schemaOf } from '../../../examples/worker-loop.mjs';
 
 /**
  * The loop the workers with no person beside them share (examples/worker-loop.mjs): the flags, the piece read from
@@ -27,5 +28,23 @@ describe('the workers\' shared loop', () => {
     expect(instruction('')).toMatch(/^You work one piece of a problem/);
     expect(instruction('')).toContain('no links or web addresses');
     expect(instruction('Copy the words exactly.')).toMatch(/ Copy the words exactly\.$/);
+  });
+  it('takes addresses, domains, markup and handles out of an answer before it is signed, so the gate admits it, and leaves a title and an id alone', () => {
+    const answer = {
+      where_seen: 'Internet Archive, item ladieshomejourna116janwye, at https://archive.org/details/ladieshomejourna116janwye/page/12',
+      how_found: 'Searched archive.org and www.hathitrust.org; see <b>the scan</b> and [the page](https://example.com/x) or write to someone@example.com or @hugo_oed',
+      source: 'The Ladies\' Home Journal, volume 116, number 1, page 12; doi 10.1000/abc',
+      year: 1971,
+      found_earlier: 'no',
+    };
+    const clean = plain(answer);
+    expect(clean.where_seen).toBe('Internet Archive, item ladieshomejourna116janwye, at [address removed]');
+    expect(clean.how_found).toBe('Searched archive and [address removed]; see the scan and [the page] ([address removed]) or write to [address removed] or hugo_oed');
+    expect(clean.source).toBe(answer.source);
+    expect(clean.year).toBe(1971);
+    for (const v of Object.values(clean)) if (typeof v === 'string') expect(textIssues(v)).toEqual([]);
+    expect(gateRefusal('return: no links or markup')).toBe('no links or markup');
+    expect(gateRefusal('return: no contact details')).toBe('no contact details');
+    expect(gateRefusal('the tracker did not answer')).toBeNull();
   });
 });
