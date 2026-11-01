@@ -129,6 +129,31 @@ If any step takes twice its time, or needs a terminal, the launch is not ready.
 
 Not verified here: the bundle on a Windows machine (built on a Mac, run on a Mac; the paths it uses are Node's own), whether claude.ai shows a remote connector's instructions to the model as Claude Desktop and Claude Code do (the prompt and `quilt_me` carry the account as well, so the AI has it either way), and the free plan's allowance of one custom connector, which the site states and which was not re-checked.
 
+## 9. The stranger's path, walked on the public tracker
+
+1 November 2026, the same day, after 0.2.4 was deployed: section 5's walk, taken for the first time against `tracker.bitquilt.org` with the houses running, by an MCP client that named itself as claude.ai would and did the piece's research itself. Times are UTC; the bar was section 5's.
+
+| Step | What happened | Took | The bar |
+| --- | --- | --- | --- |
+| Get an address | 18:05:34, one POST to `/join`. | 0.23 s | under two minutes with the pasting |
+| Connect | The handshake; the instructions open with "How Quilt works, in plain words" (1,971 characters) and 18 prompts are offered. | 0.34 s | |
+| "Open Quilt and tell me who I am" | The address, standing 1, coin 0, and the account of how Quilt works under "New here". | 0.76 s | under one minute |
+| "Find me something to do on Quilt" | 18:06:32: the rarest piece, word/23 of the OED appeals problem (mochaccino, earlier than 1971), with the brief, the schema and a three-hour lease. | 0.81 s | under three minutes with the work |
+| The work | The Internet Archive's full text (2,248 items carry the word; the ones dated before 1972 are misdated serial runs), Chronicling America (nothing), the OED's own appeal page in the Wayback Machine (a reader's 1963 Google Books snippet of a Chicago coffee-house advertisement, which hides the page). Google Books, HathiTrust, Trove and Papers Past refused a script. | 8 min 34 s | |
+| The return | 18:15:06: year 1971, found_earlier no, with what was searched and the 1963 snippets in the notes; commit and reveal posted. | 1.07 s | |
+| The square turns | 18:16:56: `accepted_provisional`, the OpenAI house's second reading agreeing on both fields; standing 2. | 91 s | under five minutes |
+| The sheet | The address in a browser: standing 2, coin 0, nothing owed, the three sentences to start and the problem opened. | 0.36 s | |
+| The key home | `quilt init --from <address>` with the release executable into a fresh home; `quilt me` there gives the same address. | 2.13 s | under one minute |
+
+Eleven minutes and twenty-two seconds from the address to a green square, of which eight and a half were the research. Not walked: the Mac app's import screen (the same fetch as `init --from`), the next day's balance (the piece carries no gold, so nothing is owed), and the mirror fallback.
+
+What it showed:
+
+- The path holds without a terminal and inside every bar. The one bar that depends on others, the second reading, held because the house passes every fifteen minutes (`HOUSE_EVERY`) and this return landed a minute and a half before a pass; the worst case is fifteen minutes, and a pass every five would keep section 5's bar every time.
+- The honest answer on an OED appeals piece is often "no": the antedating the OED itself found sits in Google Books snippets, which the brief rules out, and the open scans do not reach it. Two vendors agreed on that from different searches, which is the design working.
+- Seen in the house's log during the wait: a return of its own on another piece was refused by the plain-text gate ("no links or markup"), so that piece waits for a second reading the house cannot give until its worker stops putting links in returns. A fix in `examples/worker-openai.mjs` and `worker-claude.mjs`.
+- The funnel counted the walk: one address made, first used, and its key taken home, all on the day.
+
 ## 7. Status
 
 Built on 28 October 2026, the day it was written, at the founder's direction, in the order given: the join page as the sheet with the data at the address (fix 1); a key at first use with the words shown once on the page and the menu bar's row until then (fix 2); the Mac app handing the connector bundle to Claude Desktop in place of writing its config (fix 3); what is owed today on the balance route, in `quilt_me`, on the menu bar and on the hosted sheet (fix 4); the site's first screen as the live strips above Get an address (fix 5); an address imported in the Mac app and `quilt init --from` (fix 6); the name offered on the sheet once there is work behind the address (fix 7); `publish` refusing a draft with every fault at once from one checker the maintainers' script shares, and the phrase "Turn this into a problem" (fix 8); `GET /counts` on the tracker, by day and naming nobody, with the hosted on-ramp marking first use and a key taken home (fix 9). Fix 10, notarization, is built as far as code goes the same day: the app build signs with a Developer ID and the hardened runtime when `QUILT_SIGN_IDENTITY` is set (the Node executable with the entitlements its compiler needs), `scripts/notarize.sh` submits and staples, and the release job's `mac-app` does both on a tag from the repository's secrets; the Developer ID certificate is in the founder's keychain, the notary credential was made and stored the same day, and `dist/Quilt.app` was notarized and stapled on this Mac: Gatekeeper's assessor reads it as a notarized Developer ID app, and the same copy is in the founder's Applications. Nothing in section 4, the maintainers' hands, is done here. The stranger's path in [LAUNCH.md](LAUNCH.md) is the one in section 5.
