@@ -70,6 +70,8 @@ describe('the hosted on-ramp', () => {
     const mine = lines.filter((l) => l.event.key === address);
     expect(mine.map((l) => l.event.type)).toEqual(['claim', 'commit', 'reveal']);
     expect(mine.every((l) => l.received[0]!.custody === 'hosted' && l.received[0]!.seat === 'ai')).toBe(true);
+    // The bare address names no witness (QX-18): only a token from the authorization server brings one.
+    expect(mine.every((l) => !('via' in l.received[0]!))).toBe(true);
     await client.close();
   });
   it('serves the sheet at the address to a browser, with its data beside it, connected once an AI has been', async () => {
@@ -96,6 +98,10 @@ describe('the hosted on-ramp', () => {
     expect(joinHtml).toContain('Explain how Quilt works to me, and how I would add a problem of my own.');
     expect(joinHtml).toContain('claude mcp add --transport http quilt');
     expect(joinHtml).not.toMatch(/(src|href)="https?:/);
+    // With no token key, there is no authorization server: no witness paragraph, and no connector without an address.
+    expect(joinHtml).not.toContain('The witness');
+    expect((await fetch(`${base}mcp`, { method: 'POST', body: '{}' })).status).toBe(404);
+    expect((await fetch(`${base}.well-known/oauth-protected-resource`)).status).toBe(404);
   });
   it('lets the person take the key home, and refuses a session from another address', async () => {
     const k = (await (await fetch(`${url}/key`)).json()) as { address: string; secret: string };

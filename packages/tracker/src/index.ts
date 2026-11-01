@@ -6,8 +6,8 @@
  * gold.ts (QX-16), coin.ts (QX-17), env.ts (the binaries' environment). The body checks, the constants and the view
  * types are exported for the tests, which enter through `createTracker` and `challengeLayer`.
  */
-export { Store } from './store.js';
-export { createTracker, IDENTITY, type Tracker, type TrackerOptions } from './tracker.js';
+export { Store, type OAuthClientRow, type OAuthCodeRow, type GrantRow } from './store.js';
+export { createTracker, IDENTITY, WITNESS_VIA, CLIENT_NAME_MAX, type Tracker, type TrackerOptions } from './tracker.js';
 export { trackerOptionsFromEnv, quietSqliteWarning, type TrackerEnv } from './env.js';
 export {
   challengeLayer, challengeBodyProblems, verdictBodyProblems, acceptingRoots, rootFor, EXTENSION, PANEL, MAJORITY, GROUND_MAX, SEED, SIDES, CHALLENGE_EVENTS,

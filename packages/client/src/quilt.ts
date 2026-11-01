@@ -11,11 +11,11 @@ import { draftEnvelope, patternProblems, patternProblemsText } from './pattern.j
 import type { Door } from './door.js';
 import * as gold from './gold.js';
 import { type Link, makeLink, parseLink } from './link.js';
-import { type ChallengeListing, type GoldCount, type LayerPiece, type Opened, type PanelListing, type Scrape, SIDES, type Side, type Takedown } from './listings.js';
+import { type ChallengeListing, type GoldCount, type LayerPiece, type Opened, type PanelListing, type Scrape, SIDES, type Side, type Takedown, type Witness } from './listings.js';
 import { announcementEvent, postToRelays, searchRelays } from './relay.js';
 import { type Library, type Posted, type Resolver, askJson } from './resolver.js';
 import { inParallel } from './pool.js';
-import { acceptedText, challengesText, disputedText, kindWords, layerByHash, nameOf, panelsText, pieceText, summary, waitsText } from './render.js';
+import { acceptedText, challengesText, disputedText, kindWords, layerByHash, nameOf, panelsText, pieceText, summary, waitsText, witnessesOf } from './render.js';
 
 export type { CoinBalance } from './coin.js';
 export type { Door } from './door.js';
@@ -112,7 +112,11 @@ export class Quilt {
 
   private held: Identity | null;
 
-  constructor(readonly config: Config, identity: Identity | null, readonly resolver: Resolver, hostName?: string) {
+  /**
+   * `witness` is set by the hosted on-ramp alone (QX-18): the product whose OAuth callback this session's token came
+   * through, which the tracker writes beside custody on each event this Quilt posts. Null for a home of one's own.
+   */
+  constructor(readonly config: Config, identity: Identity | null, readonly resolver: Resolver, hostName?: string, readonly witness: Witness | null = null) {
     this.held = identity;
     this.hostName = hostName;
     const q = this;
@@ -230,7 +234,7 @@ export class Quilt {
 
   /** This client as it knows itself, from memory and the library alone: the address, name, model, capabilities, trackers, mirrors, relays, what waits in the queue, and how many problems the library holds. */
   me() {
-    return { address: this.identity?.address ?? null, name: this.config.name ?? null, model: this.model(), can: this.config.can, trackers: this.config.trackers, mirrors: this.config.mirrors, relays: this.config.relays, queued: this.resolver.queued(), problems: Object.keys(this.library.problems).length, wordsDue: this.resolver.wordsDue() };
+    return { address: this.identity?.address ?? null, name: this.config.name ?? null, model: this.model(), can: this.config.can, trackers: this.config.trackers, mirrors: this.config.mirrors, relays: this.config.relays, queued: this.resolver.queued(), problems: Object.keys(this.library.problems).length, wordsDue: this.resolver.wordsDue(), witness: this.witness };
   }
 
   /** This key's standing as the first tracker that answers computes it; null with no key or no tracker. */
@@ -275,8 +279,12 @@ export class Quilt {
     return j && { hidden: j.hidden ?? null, seeders: j.seeders ?? 0, last_seeded: j.last_seeded ?? null };
   }
 
-  /** The problem behind a link or hash, resolved and reduced, with the tracker's own view of its pieces and its scrape where one answered; the library remembers it and where it was found. */
-  async open(input: string): Promise<Opened & { link: Link; layer: LayerPiece[] | null; hidden: Takedown | null; gold: GoldCount | null; scrape: Scrape | null }> {
+  /**
+   * The problem behind a link or hash, resolved and reduced, with the tracker's own view of its pieces and its scrape
+   * where one answered, and the witness on each reveal its receipts name (QX-18); the library remembers it and where it
+   * was found.
+   */
+  async open(input: string): Promise<Opened & { link: Link; layer: LayerPiece[] | null; hidden: Takedown | null; gold: GoldCount | null; scrape: Scrape | null; witnessed: Map<string, Witness> }> {
     const link = parseLink(input);
     const resolved = await this.resolver.resolve(link);
     if (!resolved) throw new Error('no resolver answered for that hash');
@@ -288,7 +296,7 @@ export class Quilt {
     this.save();
     const st = resolved.tracker ? await this.trackerState(resolved.hash, resolved.tracker) : null;
     const scrape = resolved.tracker ? await this.scrapeOf(resolved.hash, resolved.tracker) : null;
-    return { link, hash: resolved.hash, state, tracker: resolved.tracker, layer: st?.pieces ?? null, hidden: scrape?.hidden ?? null, gold: st?.gold ?? null, scrape };
+    return { link, hash: resolved.hash, state, tracker: resolved.tracker, layer: st?.pieces ?? null, hidden: scrape?.hidden ?? null, gold: st?.gold ?? null, scrape, witnessed: witnessesOf(resolved.receipts) };
   }
 
   /** Problems whose title, slug, topics or statement of done carry the words, from every tracker this client knows and then the relays (QX-14), each problem once with the first place that answered for it. */
@@ -702,9 +710,9 @@ export class Quilt {
     return pieceText(hash, pick, owner, stake);
   }
 
-  /** The accepted returns as quoted text with the signers named (render.ts, `acceptedText`). */
-  acceptedText(state: State, layer: LayerPiece[] | null = null): string {
-    return acceptedText(state, layer);
+  /** The accepted returns as quoted text with the signers named, and the witness beside a name where the receipt carries one (render.ts, `acceptedText`). */
+  acceptedText(state: State, layer: LayerPiece[] | null = null, witnessed: Map<string, Witness> = new Map()): string {
+    return acceptedText(state, layer, witnessed);
   }
 
   /** The disputed pieces, each return quoted with its signer named and this key's marked (render.ts, `disputedText`). */

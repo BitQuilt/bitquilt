@@ -9,7 +9,7 @@ import type { Address, DeclineReason, Hash } from '@bitquilt/core';
 import { HOW_QUILT_WORKS } from './about.js';
 import type { Side } from './listings.js';
 import type { Pattern, Quilt } from './quilt.js';
-import { kindWords } from './render.js';
+import { kindWords, sessionWitnessText } from './render.js';
 import type { Posted } from './resolver.js';
 
 export interface ToolResult {
@@ -58,11 +58,12 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
         `Name: ${me.name ?? 'none set'}`, `Declares: ${me.model}; can: ${me.can.join(', ')}`, `Trackers: ${me.trackers.join(', ')}`,
         s ? `Standing: ${s.standing}, ${s.founding ? `of which ${s.founding} was declared at the founding and the rest earned by work, not for sale` : 'earned by work and not for sale'} (locked ${s.locked}, free to stake ${s.free}) at ${s.tracker}${s.locks.length ? `; locks: ${s.locks.map((l) => `${l.amount} on ${l.piece} of ${l.problem}`).join(', ')}` : ''}` : await noStanding(quilt),
         ...(c ? [`Coin (QX-17): ${c.balance} units (transferable now ${c.free_vested}, still vesting ${c.unvested}, locked ${c.locked}, escrowed ${c.escrowed}, free to stake or pay ${c.free}) at ${c.home}${c.pending && c.pending.amount > 0 ? `; owed from the squares verified so far today: ${c.pending.amount} units, paid at ${c.pending.pays_at}` : ''}`] : []),
+        ...(me.witness ? [sessionWitnessText(me.witness)] : []),
         `Queued events: ${me.queued}; problems in the library: ${me.problems}`,
         // A key that has opened no problem yet is new here: the account of how Quilt works comes with who it is.
         ...(me.problems === 0 ? [`New here, with no problem opened yet. ${HOW_QUILT_WORKS}`] : []),
       ].join('\n');
-      return { text, handles: { address: me.address, model: me.model, trackers: me.trackers, queued: me.queued, standing: s, coin: c } };
+      return { text, handles: { address: me.address, model: me.model, trackers: me.trackers, queued: me.queued, standing: s, coin: c, witness: me.witness?.via ?? null } };
     }
     case 'quilt_open': {
       const { hash: h, state, tracker, layer, hidden, gold } = await quilt.open(str('link'));
@@ -93,9 +94,9 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       return { text: `Declined (${reason}); ${where(r)}.`, handles: { problem: input.problem, piece: input.piece } };
     }
     case 'quilt_read': {
-      const { hash: h, state, tracker, layer, hidden, gold } = await quilt.open(str('problem'));
+      const { hash: h, state, tracker, layer, hidden, gold, witnessed } = await quilt.open(str('problem'));
       const [challenges, panels] = await Promise.all([quilt.challenges(h, tracker), quilt.panels(h, tracker)]);
-      const text = `${quilt.summary(h, state, tracker, layer, hidden, gold)}\n\nAccepted so far:\n${quilt.acceptedText(state, layer)}\n\nDisputed:\n${quilt.disputedText(state, layer)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}\n\nPanels:\n${quilt.panelsText(panels, state)}`;
+      const text = `${quilt.summary(h, state, tracker, layer, hidden, gold)}\n\nAccepted so far:\n${quilt.acceptedText(state, layer, witnessed)}\n\nDisputed:\n${quilt.disputedText(state, layer)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}\n\nPanels:\n${quilt.panelsText(panels, state)}`;
       return { text, handles: { problem: h, complete: state.complete, output: state.output?.hash ?? null, challenges: challenges.map((c) => ({ id: c.id, piece: c.piece, outcome: c.outcome })), panels: panels.map((p) => ({ piece: p.piece, outcome: p.outcome, candidates: p.candidates.map((c) => c.digest) })) } };
     }
     case 'quilt_rank': {
