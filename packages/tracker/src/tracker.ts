@@ -22,6 +22,7 @@ import { type CoinLockWord, PRODUCTION_EVENTS, STAKE, STAKE_EVENTS, lockBodyProb
 import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems } from './gold.js';
 import { type CoinLayer, type CoinLockView, type CoinParams, type CoinWord, COIN, COIN_EVENTS, COIN_LOG, coinLayer } from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
+import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
 import type { Store } from './store.js';
 
 /** The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under. */
@@ -39,8 +40,10 @@ const HOLD_SECONDS = 60;
 export const WITNESS_VIA = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
 /** QX-18: the most characters of a client's own name the receipt carries. */
 export const CLIENT_NAME_MAX = 80;
+/** QX-18: how a product's mark was bound to the product: the token exchange came from its published addresses, or was signed with its published key. */
+export const WITNESS_BOUND_BY: readonly string[] = ['address', 'key'];
 /** QX-18: what the wrapper of a hosted post carries beside custody, when the on-ramp named a witness. */
-type Witnessed = { via?: string; via_client?: string };
+type Witnessed = { via?: string; via_by?: string; via_client?: string };
 
 export interface TrackerOptions {
   store: Store;
@@ -66,6 +69,10 @@ export interface TrackerOptions {
   custodySecret?: string;
   /** Routes mounted beside the tracker, such as the hosted on-ramp. Answers true when it handled the request. */
   extra?: (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<boolean>;
+  /** What the routes mounted beside the tracker say of themselves at the well-known document, such as the witness the hosted on-ramp binds (QX-18). */
+  extraWellKnown?: () => Record<string, unknown>;
+  /** The proxies whose X-Forwarded-For is believed (address.ts), as ranges; the private networks and the machine itself when none are given, and none at all for an empty list. */
+  trustedProxies?: readonly string[];
   /** QX-17: the coin this tracker carries, or reads from a home; absent, it has no coin log and honours no coin lock. */
   coin?: CoinParams;
   /** How the tracker reaches another tracker: the coin's home for a coin lock, and its parameters. */
@@ -132,11 +139,8 @@ export function createTracker(options: TrackerOptions): Tracker {
   const stampNeeded = options.stamp?.name ?? 0;
   const ipSalt = options.ipSalt ?? createHash('sha256').update(String(Math.random())).digest('hex');
 
-  const ipOf = (req: IncomingMessage): string => {
-    const fwd = req.headers['x-forwarded-for'];
-    const first = Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0];
-    return (first ?? req.socket.remoteAddress ?? 'unknown').trim();
-  };
+  const trustedProxies = rangesOf(options.trustedProxies ?? PRIVATE_RANGES);
+  const ipOf = (req: IncomingMessage): string => clientAddress(req, trustedProxies);
   const ipBucket = (req: IncomingMessage): string => `ip:${createHash('sha256').update(ipSalt + ipOf(req)).digest('hex').slice(0, 16)}`;
   const limit = (bucket: string, max: number): void => {
     if (store.hit(bucket, now().slice(0, 13), max)) throw new Refusal(429, 'over the hour\'s limit');
@@ -311,7 +315,10 @@ export function createTracker(options: TrackerOptions): Tracker {
   function witnessOf(req: IncomingMessage): Witnessed {
     const via = req.headers['x-quilt-via'];
     if (typeof via !== 'string' || via.length > 64 || !WITNESS_VIA.test(via)) return {};
-    if (via !== 'other') return { via };
+    if (via !== 'other') {
+      const by = req.headers['x-quilt-via-by'];
+      return typeof by === 'string' && WITNESS_BOUND_BY.includes(by) ? { via, via_by: by } : { via };
+    }
     const raw = req.headers['x-quilt-via-client'];
     let name: string | null = null;
     try {
@@ -568,6 +575,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
       verifiers: { human: EXTENSIONS.human, 'judge:n': EXTENSIONS.judge, attest: EXTENSIONS.attest, judge_seed: JUDGE_SEED },
       chain: 'QX-11', seeding: SEEDING, reciprocity: RECIPROCITY, hide: HIDE, maintainers, founding: options.founding ?? {}, identity: IDENTITY, hosted: options.extra !== undefined,
+      ...(options.extraWellKnown?.() ?? {}),
       // `stake.burn_rate` is the rate in force now, which with `burn_indexed` moves with the epochs; `coin.burn_rate` is the parameter, its floor.
       stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: coin()!.burnRateAt(now()) } : {}) }, gold: { extension: GOLD },
       coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
@@ -635,13 +643,13 @@ export function createTracker(options: TrackerOptions): Tracker {
    * QX-18: the reveals on a problem's chain whose receipt names a witness, by piece: the key that revealed, the root it
    * counts for, the product or `other`, and the client's own name with `other`. The tracker's word, as custody is.
    */
-  function witnessedReveals(hash: Hash): Map<Hash, { key: string; via: string; via_client?: string }[]> {
-    const out = new Map<Hash, { key: string; via: string; via_client?: string }[]>();
+  function witnessedReveals(hash: Hash): Map<Hash, { key: string; via: string; via_by?: string; via_client?: string }[]> {
+    const out = new Map<Hash, { key: string; via: string; via_by?: string; via_client?: string }[]>();
     for (const envelope of store.chain(hash)) for (const r of store.witnessedReveals(problemHash(envelope))) {
       const w = r.received.find((x) => typeof (x as Witnessed).via === 'string') as Witnessed | undefined;
       if (!w?.via) continue;
       const list = out.get(r.piece) ?? [];
-      list.push({ key: r.key, via: w.via, ...(w.via_client ? { via_client: w.via_client } : {}) });
+      list.push({ key: r.key, via: w.via, ...(w.via_by ? { via_by: w.via_by } : {}), ...(w.via_client ? { via_client: w.via_client } : {}) });
       out.set(r.piece, list);
     }
     return out;

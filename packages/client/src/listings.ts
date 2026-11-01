@@ -88,6 +88,8 @@ export interface PanelListing {
 export interface Witness {
   via: string;
   client: string | null;
+  /** How a product's mark was bound to the product: the token exchange came from its published addresses, or was signed with its published key. Absent on `other`, and on a mark from before the binding. */
+  by?: 'address' | 'key' | null;
 }
 
 /** A maintainer's takedown as a tracker reports it (QX-6). */

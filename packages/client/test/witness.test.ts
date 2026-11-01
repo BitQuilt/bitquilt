@@ -21,19 +21,21 @@ const line = (type: string, at: Hash, key: string, ...received: Record<string, u
 describe('the witness as the client reads it (QX-18)', () => {
   it('keeps a well-formed mark on each reveal and leaves out the rest', () => {
     const w = witnessesOf([
-      line('reveal', piece(2), KEY, { custody: 'hosted', via: 'claude.ai' }),
-      line('reveal', piece(3), KEY, { custody: 'hosted', via: 'other', via_client: 'Acme Agent' }),
+      line('reveal', piece(2), KEY, { custody: 'hosted', via: 'claude.ai', via_by: 'address' }),
+      line('reveal', piece(3), KEY, { custody: 'hosted', via: 'other', via_client: 'Acme Agent', via_by: 'key' }),
       line('reveal', piece(4), KEY, { custody: 'hosted', via: 'other', via_client: 'see https://evil.example' }),
       line('reveal', piece(5), KEY, { custody: 'hosted', via: 'Claude.AI!' }),
       line('claim', piece(6), KEY, { custody: 'hosted', via: 'claude.ai' }),
-      line('reveal', piece(7), KEY, { custody: 'self' }, { custody: 'hosted', via: 'chatgpt.com' }),
+      line('reveal', piece(7), KEY, { custody: 'self' }, { custody: 'hosted', via: 'chatgpt.com', via_by: 'key' }),
+      line('reveal', piece(8), KEY, { custody: 'hosted', via: 'chatgpt.com', via_by: 'magic' }),
     ]);
-    expect(w.get(witnessKey(piece(2), KEY))).toEqual({ via: 'claude.ai', client: null });
-    expect(w.get(witnessKey(piece(3), KEY.toLowerCase()))).toEqual({ via: 'other', client: 'Acme Agent' });
-    expect(w.get(witnessKey(piece(4), KEY))).toEqual({ via: 'other', client: null });
+    expect(w.get(witnessKey(piece(2), KEY))).toEqual({ via: 'claude.ai', client: null, by: 'address' });
+    expect(w.get(witnessKey(piece(3), KEY.toLowerCase()))).toEqual({ via: 'other', client: 'Acme Agent', by: null });
+    expect(w.get(witnessKey(piece(4), KEY))).toEqual({ via: 'other', client: null, by: null });
     expect(w.has(witnessKey(piece(5), KEY))).toBe(false);
     expect(w.has(witnessKey(piece(6), KEY))).toBe(false);
-    expect(w.get(witnessKey(piece(7), KEY))).toEqual({ via: 'chatgpt.com', client: null });
+    expect(w.get(witnessKey(piece(7), KEY))).toEqual({ via: 'chatgpt.com', client: null, by: 'key' });
+    expect(w.get(witnessKey(piece(8), KEY))).toEqual({ via: 'chatgpt.com', client: null, by: null });
   });
 
   it('says a product by its host and another client by its own name, quoted, and describes in quilt_me', () => {
@@ -41,9 +43,12 @@ describe('the witness as the client reads it (QX-18)', () => {
     expect(witnessWords({ via: 'other', client: 'Acme Agent' })).toBe('through a client that calls itself "Acme Agent"');
     expect(witnessWords({ via: 'other', client: null })).toBe('through a client that gave no name');
     expect(witnessWords(null)).toBe('');
-    const product = sessionWitnessText({ via: 'chatgpt.com', client: null });
+    const product = sessionWitnessText({ via: 'chatgpt.com', client: null, by: 'key' });
     expect(product).toMatch(/^Witnessed by chatgpt\.com: /);
+    expect(product).toContain('signed with the key chatgpt.com publishes');
     expect(product).toContain('not who wrote the answer');
+    expect(sessionWitnessText({ via: 'claude.ai', client: null, by: 'address' })).toContain('came from the addresses claude.ai publishes for its servers');
+    expect(sessionWitnessText({ via: 'claude.ai', client: null })).not.toContain(', and the token request');
     const other = sessionWitnessText({ via: 'other', client: 'Acme Agent' });
     expect(other).toMatch(/^Witness: none\. /);
     expect(other).toContain('calls itself "Acme Agent"');

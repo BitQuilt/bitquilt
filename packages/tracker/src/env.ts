@@ -6,6 +6,8 @@
  *   QUILT_STAMP_NAME (0)  QUILT_IP_SALT  QUILT_MAINTAINERS (addresses whose hide events this tracker honours, comma separated)
  *   QUILT_FOUNDING_STANDING (a founding standing declared per root, <address>=<amount> comma separated, QX-1 section 2 as amended)
  *   QUILT_COIN (the coin's parameters as JSON, QX-17; absent, no coin log and no coin lock honoured)
+ *   QUILT_TRUSTED_PROXIES (the proxies whose X-Forwarded-For is believed, ranges comma separated; the private networks
+ *   and the machine itself unless set; `none` believes no header)
  * This file loads no store, so a binary can read it before Node's SQLite module is loaded and its warning silenced.
  */
 import type { Address } from '@bitquilt/core';
@@ -54,6 +56,7 @@ export function trackerOptionsFromEnv(env: NodeJS.ProcessEnv): TrackerEnv {
       limits: { keyPerHour: Number(env.QUILT_LIMIT_KEY_HOUR ?? 120), ipPerHour: Number(env.QUILT_LIMIT_IP_HOUR ?? 600) },
       stamp: { name: Number(env.QUILT_STAMP_NAME ?? 0) },
       ...(env.QUILT_IP_SALT ? { ipSalt: env.QUILT_IP_SALT } : {}),
+      ...(env.QUILT_TRUSTED_PROXIES !== undefined ? { trustedProxies: env.QUILT_TRUSTED_PROXIES.trim().toLowerCase() === 'none' ? [] : list(env.QUILT_TRUSTED_PROXIES) } : {}),
       maintainers: list(env.QUILT_MAINTAINERS) as Address[],
       ...(env.QUILT_FOUNDING_STANDING ? { founding: foundingFromEnv(env.QUILT_FOUNDING_STANDING) } : {}),
       ...(coin ? { coin } : {}),

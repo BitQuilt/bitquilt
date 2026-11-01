@@ -15,11 +15,11 @@ export interface OAuthClientRow { clientId: string; metadata: Record<string, unk
 export interface OAuthCodeRow { clientId: string; tokenHash: string; redirectUri: string; challenge: string; resource: string | null; expiresAt: string; usedAt: string | null; grantId: string | null }
 
 /**
- * A grant: one member's tokens through one client, as the code that began it was sent. `via` is the product whose
- * callback `redirectUri` is, or `other`, with the name the client gave itself; `refreshGen` counts the rotations, so
- * only the newest refresh token is good.
+ * A grant: one member's tokens through one client, as the code that began it was sent. `via` is the product the
+ * exchange was bound to, with `viaBy` saying how (its published addresses, or its published key), or `other`, with the
+ * name the client gave itself; `refreshGen` counts the rotations, so only the newest refresh token is good.
  */
-export interface GrantRow { id: string; tokenHash: string; clientId: string; redirectUri: string; via: string; clientName: string | null; resource: string | null; createdAt: string; refreshGen: number; revokedAt: string | null }
+export interface GrantRow { id: string; tokenHash: string; clientId: string; redirectUri: string; via: string; viaBy: string | null; clientName: string | null; resource: string | null; createdAt: string; refreshGen: number; revokedAt: string | null }
 
 export interface StoredEnvelope {
   hash: Hash;
@@ -54,14 +54,17 @@ export class Store {
       create table if not exists oauth_codes (code_hash text primary key, client_id text not null, token_hash text not null, redirect_uri text not null, challenge text not null, resource text, expires_at text not null, used_at text, grant_id text);
       create table if not exists oauth_grants (
         id text primary key, token_hash text not null, client_id text not null, redirect_uri text not null, via text not null, client_name text,
-        resource text, created_at text not null, refresh_gen integer not null, revoked_at text
+        resource text, created_at text not null, refresh_gen integer not null, revoked_at text, via_by text
       );
       create index if not exists oauth_grants_member on oauth_grants (token_hash);
+      create table if not exists oauth_assertions (jti_hash text primary key, expires_at text not null);
     `);
     // SQLite has no "add column if not exists": a column the members table gained after the first databases were made is
     // added here when it is missing, so a database made before it upgrades on open. Every store, new or old, takes this path.
     const columns = new Set((this.db.prepare('pragma table_info(members)').all() as { name: string }[]).map((c) => c.name));
     for (const column of ['first_used_at', 'key_taken_at']) if (!columns.has(column)) this.db.exec(`alter table members add column ${column} text`);
+    const grantColumns = new Set((this.db.prepare('pragma table_info(oauth_grants)').all() as { name: string }[]).map((c) => c.name));
+    if (!grantColumns.has('via_by')) this.db.exec('alter table oauth_grants add column via_by text');
   }
 
   close(): void {
@@ -249,14 +252,19 @@ export class Store {
   }
 
   putGrant(g: Omit<GrantRow, 'refreshGen' | 'revokedAt'>): void {
-    this.db.prepare('insert into oauth_grants (id, token_hash, client_id, redirect_uri, via, client_name, resource, created_at, refresh_gen) values (?, ?, ?, ?, ?, ?, ?, ?, 0)')
-      .run(g.id, g.tokenHash, g.clientId, g.redirectUri, g.via, g.clientName, g.resource, g.createdAt);
+    this.db.prepare('insert into oauth_grants (id, token_hash, client_id, redirect_uri, via, via_by, client_name, resource, created_at, refresh_gen) values (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)')
+      .run(g.id, g.tokenHash, g.clientId, g.redirectUri, g.via, g.viaBy, g.clientName, g.resource, g.createdAt);
   }
 
   getGrant(id: string): GrantRow | null {
-    const row = this.db.prepare('select id, token_hash, client_id, redirect_uri, via, client_name, resource, created_at, refresh_gen, revoked_at from oauth_grants where id = ?').get(id) as
-      { id: string; token_hash: string; client_id: string; redirect_uri: string; via: string; client_name: string | null; resource: string | null; created_at: string; refresh_gen: number; revoked_at: string | null } | undefined;
-    return row ? { id: row.id, tokenHash: row.token_hash, clientId: row.client_id, redirectUri: row.redirect_uri, via: row.via, clientName: row.client_name, resource: row.resource, createdAt: row.created_at, refreshGen: row.refresh_gen, revokedAt: row.revoked_at } : null;
+    const row = this.db.prepare('select id, token_hash, client_id, redirect_uri, via, via_by, client_name, resource, created_at, refresh_gen, revoked_at from oauth_grants where id = ?').get(id) as
+      { id: string; token_hash: string; client_id: string; redirect_uri: string; via: string; via_by: string | null; client_name: string | null; resource: string | null; created_at: string; refresh_gen: number; revoked_at: string | null } | undefined;
+    return row ? { id: row.id, tokenHash: row.token_hash, clientId: row.client_id, redirectUri: row.redirect_uri, via: row.via, viaBy: row.via_by, clientName: row.client_name, resource: row.resource, createdAt: row.created_at, refreshGen: row.refresh_gen, revokedAt: row.revoked_at } : null;
+  }
+
+  /** QX-18: a signed client assertion's id, kept once so the assertion is not presented again; false when it was seen already. */
+  putAssertion(jtiHash: string, expiresAt: string): boolean {
+    return this.db.prepare('insert or ignore into oauth_assertions (jti_hash, expires_at) values (?, ?)').run(jtiHash, expiresAt).changes === 1;
   }
 
   /** A member's grants, oldest first: which clients hold tokens for the address, and where each code was sent. */

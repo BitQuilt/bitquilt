@@ -16,7 +16,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { type Address, addressOf, randomSecretKey, secretFromHex, secretToHex, withSlash } from '@bitquilt/core';
-import type { Store } from '@bitquilt/tracker';
+import { PRIVATE_RANGES, type Store, clientAddress, rangesOf } from '@bitquilt/tracker';
 import { type Config, DEFAULT_CONFIG, Quilt, Resolver, type Witness, createMcpServer, localRunner, sheetOf } from 'quilt';
 import { joinPage } from './join-page.js';
 import { type OAuthServer, createOAuth } from './oauth.js';
@@ -38,17 +38,22 @@ export interface HostedOptions {
   name?: string;
   /**
    * The authorization server (QX-18): the key its tokens are signed with, from the environment and never from code;
-   * the issuer its metadata names, the tracker's address without the trailing slash when none is given; and how many
-   * registrations, authorizations and token requests one network address may make in an hour (600). Absent, the
-   * on-ramp has no OAuth and an address is its own credential, as before.
+   * the issuer its metadata names, the tracker's address without the trailing slash when none is given; how many
+   * registrations, authorizations and token requests one network address may make in an hour (600); and the address
+   * ranges each product publishes for its servers, products.ts's when none are given. Absent, the on-ramp has no
+   * OAuth and an address is its own credential, as before.
    */
-  oauth?: { secret: string; issuer?: string; perHour?: number };
+  oauth?: { secret: string; issuer?: string; perHour?: number; ranges?: Readonly<Record<string, readonly string[]>> };
+  /** The proxies whose X-Forwarded-For is believed, as the tracker takes them (address.ts); the private networks and the machine itself when none are given. */
+  trustedProxies?: readonly string[];
   now?: () => string;
   fetchImpl?: typeof fetch;
 }
 
 export interface Hosted {
   routes(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean>;
+  /** What the tracker's well-known document says of the on-ramp: the witness it binds (QX-18), where the authorization server is on. */
+  describe(): Record<string, unknown>;
   join(): { token: string; address: Address; url: string };
   sessions(): number;
 }
@@ -59,7 +64,7 @@ interface Seat { member: string; witness: Witness | null }
 /** QX-18: the witness as the headers the tracker reads beside the custody secret; the client's own name is encoded, since it is any text that passed the gate. */
 function witnessHeaders(w: Witness | null): Record<string, string> {
   if (!w) return {};
-  return { 'x-quilt-via': w.via, ...(w.client ? { 'x-quilt-via-client': encodeURIComponent(w.client) } : {}) };
+  return { 'x-quilt-via': w.via, ...(w.by ? { 'x-quilt-via-by': w.by } : {}), ...(w.client ? { 'x-quilt-via-client': encodeURIComponent(w.client) } : {}) };
 }
 
 const SESSION_IDLE_MS = 60 * 60 * 1000;
@@ -107,12 +112,16 @@ export function createHosted(options: HostedOptions): Hosted {
     const m = /(?:^|\/mcp\/)([0-9a-f]{64})(?:\/(?:key|sheet))?\/?$/.exec(presented.trim());
     return m && store.getMember(tokenHash(m[1]!)) ? tokenHash(m[1]!) : null;
   };
+  const trustedProxies = rangesOf(options.trustedProxies ?? PRIVATE_RANGES);
   const oauth: OAuthServer | null = options.oauth
     ? createOAuth({
       store, trackerUrl, now, memberOf, secret: options.oauth.secret, perHour: options.oauth.perHour ?? 600,
       issuer: () => options.oauth?.issuer ?? trackerUrl().replace(/\/$/, ''),
       name: options.name ?? trackerUrl(),
       bucketFor: (req) => addressHash(req),
+      clientAddress: (req) => clientAddress(req, trustedProxies),
+      fetchImpl: options.fetchImpl ?? fetch,
+      ...(options.oauth.ranges ? { ranges: options.oauth.ranges } : {}),
     })
     : null;
 
@@ -203,9 +212,7 @@ export function createHosted(options: HostedOptions): Hosted {
    * about it either.
    */
   function addressHash(req: IncomingMessage): string {
-    const fwd = req.headers['x-forwarded-for'];
-    const ip = (Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0]) ?? req.socket.remoteAddress ?? 'unknown';
-    return createHash('sha256').update(custodySecret + ip.trim()).digest('hex').slice(0, 16);
+    return createHash('sha256').update(custodySecret + clientAddress(req, trustedProxies)).digest('hex').slice(0, 16);
   }
 
   /**
@@ -303,5 +310,5 @@ export function createHosted(options: HostedOptions): Hosted {
     return false;
   }
 
-  return { routes, join: mint, sessions: () => sessions.size };
+  return { routes, describe: () => oauth?.describe() ?? {}, join: mint, sessions: () => sessions.size };
 }

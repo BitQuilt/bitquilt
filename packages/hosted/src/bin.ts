@@ -7,6 +7,9 @@
  *   QUILT_OAUTH_SECRET   the key the authorization server signs its tokens with (QX-18); unset, there is no OAuth and
  *                        an address is its own credential
  *   QUILT_OAUTH_ISSUER   the issuer its metadata names (the tracker's address without the trailing slash)
+ *   QUILT_WITNESS_RANGES the address ranges each product publishes for its servers, as one JSON object of product to
+ *                        ranges; the ranges in products.ts unless set
+ * and QUILT_TRUSTED_PROXIES, which the tracker reads too.
  */
 import { randomBytes } from 'node:crypto';
 import { quietSqliteWarning, trackerOptionsFromEnv } from '@bitquilt/tracker/env';
@@ -25,12 +28,28 @@ async function main(): Promise<void> {
   const store = new Store(dbPath);
   const custodySecret = randomBytes(32).toString('hex');
   const oauthSecret = process.env.QUILT_OAUTH_SECRET;
-  const oauth = oauthSecret ? { secret: oauthSecret, ...(process.env.QUILT_OAUTH_ISSUER ? { issuer: process.env.QUILT_OAUTH_ISSUER } : {}) } : undefined;
-  const hosted = createHosted({ store, trackerUrl: options.url, keySecret, home: process.env.QUILT_HOSTED_HOME ?? './quilt-hosted', custodySecret, ...(options.name ? { name: options.name } : {}), ...(oauth ? { oauth } : {}) });
-  const tracker = createTracker({ store, custodySecret, extra: hosted.routes, ...options });
+  const ranges = process.env.QUILT_WITNESS_RANGES ? witnessRanges(process.env.QUILT_WITNESS_RANGES) : undefined;
+  const oauth = oauthSecret ? { secret: oauthSecret, ...(process.env.QUILT_OAUTH_ISSUER ? { issuer: process.env.QUILT_OAUTH_ISSUER } : {}), ...(ranges ? { ranges } : {}) } : undefined;
+  const hosted = createHosted({
+    store, trackerUrl: options.url, keySecret, home: process.env.QUILT_HOSTED_HOME ?? './quilt-hosted', custodySecret,
+    ...(options.name ? { name: options.name } : {}), ...(oauth ? { oauth } : {}), ...(options.trustedProxies ? { trustedProxies: options.trustedProxies } : {}),
+  });
+  const tracker = createTracker({ store, custodySecret, extra: hosted.routes, extraWellKnown: hosted.describe, ...options });
   await tracker.listen(port, host);
   console.log(`bitquilt tracker with the hosted on-ramp at ${options.url} (db ${dbPath}; addresses at ${options.url}join)`);
   console.log(oauth ? `the authorization server is on: products connect at ${options.url}mcp and the events say which (QX-18)` : 'QUILT_OAUTH_SECRET is unset: no OAuth, and an address is its own credential');
+}
+
+/** QUILT_WITNESS_RANGES as one JSON object of product to a list of ranges; anything else throws, naming the fault. */
+function witnessRanges(text: string): Record<string, string[]> {
+  const parsed = JSON.parse(text) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('QUILT_WITNESS_RANGES is a JSON object of product to ranges');
+  const out: Record<string, string[]> = {};
+  for (const [product, list] of Object.entries(parsed as Record<string, unknown>)) {
+    if (!Array.isArray(list) || !list.every((r) => typeof r === 'string')) throw new Error(`QUILT_WITNESS_RANGES: ${product} is a list of ranges`);
+    out[product] = list as string[];
+  }
+  return out;
 }
 
 main().catch((err) => {

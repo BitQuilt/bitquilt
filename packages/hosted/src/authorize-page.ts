@@ -1,8 +1,8 @@
 /**
  * The authorization page (QX-18): where a person lets a client, claude.ai or ChatGPT or any other, hold a token for
- * their address. It says which client asks, in the client's own words and quoted; where the answer goes, which is what
- * the tracker's mark reads; what the token lets the client do and what it does not; and it takes the address the
- * person holds as their proof. One self-contained document, as the join page and the sheet are: nothing is loaded from
+ * their address. It says which client asks: by the host of its metadata document where it has one, which only that
+ * host's owner can serve, and by its own name, quoted; where the answer goes, which is what the tracker's mark reads;
+ * what the token lets the client do and what it does not; and it takes the address the person holds as their proof. One self-contained document, as the join page and the sheet are: nothing is loaded from
  * elsewhere, and what the script puts on the page it sets with `textContent`. It reads the request at
  * `/oauth/authorize/request` and posts the answer to `/oauth/authorize`, then follows the redirect it is given.
  */
@@ -60,15 +60,16 @@ button.plain{background:transparent;color:#2b3f7a}
   fetch('/oauth/authorize/request' + query)
     .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; }); })
     .then(function (j) {
-      $('who').textContent = j.client.name
-        ? 'A client that calls itself \\u201c' + j.client.name + '\\u201d asks to use your Quilt on ' + j.tracker + '. That name is its own word.'
-        : 'A client that gave no name asks to use your Quilt on ' + j.tracker + '.';
+      var named = j.client.name ? ', which calls itself \\u201c' + j.client.name + '\\u201d,' : ', which gave no name,';
+      $('who').textContent = j.client.host
+        ? 'A client at ' + j.client.host + named + ' asks to use your Quilt on ' + j.tracker + '. The host is where its description is published; the name is its own word.'
+        : 'A client' + named + ' asks to use your Quilt on ' + j.tracker + '. That name is its own word.';
       $('uri').textContent = j.redirect.uri;
       $('whose').textContent = j.redirect.product
         ? 'which is ' + j.redirect.product + '\\u2019s own callback.'
         : 'at ' + j.redirect.host + ', which is not the callback of a product this tracker knows.';
       $('mark').textContent = j.redirect.product
-        ? 'Every event this tracker writes for you through this client will say via: ' + j.redirect.product + ' beside custody: hosted. It says the product made the calls; it is the tracker\\u2019s word, and it does not say who typed the answer.'
+        ? 'Only ' + j.redirect.product + ' can turn the answer into a token: by its published key or from its published servers. Every event this tracker writes for you through it will say via: ' + j.redirect.product + ' beside custody: hosted. It says the product made the calls; it is the tracker\\u2019s word, and it does not say who typed the answer.'
         : 'Every event this tracker writes for you through this client will say via: other beside custody: hosted, with the name the client gave. No product is witnessed.';
       $('loading').hidden = true;
       $('ask').hidden = false;

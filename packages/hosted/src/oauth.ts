@@ -1,21 +1,29 @@
 /**
  * The hosted on-ramp's authorization server (QX-18), as the MCP authorization spec asks of a remote connector: the
  * protected-resource metadata (RFC 9728) and the authorization-server metadata (RFC 8414) at their well-known paths,
- * dynamic client registration (RFC 7591), the authorization code with PKCE (S256 alone), and tokens issued, refreshed
- * and revoked. A member proves they hold an address by presenting it on the authorization page; the token then stands
- * for that address at the connector, `/mcp`, and its grant keeps the client and the redirect URI the code was sent to.
- * That redirect URI, held to the products' callbacks (products.ts), is the witness: nothing a client says of itself
- * decides it.
+ * clients by metadata document (cimd.ts) or by dynamic registration (RFC 7591), the authorization code with PKCE
+ * (S256 alone), and tokens issued, refreshed and revoked. A member proves they hold an address by presenting it on the
+ * authorization page; the token then stands for that address at the connector, `/mcp`, and its grant keeps the client
+ * and the redirect URI the code was sent to.
+ *
+ * The witness is decided at the token exchange. A code sent to a product's callback (products.ts) is redeemed only in
+ * a way that binds the redemption to the product: the request signed with a key from a document on the product's own
+ * origin, or made from an address in the ranges the product publishes for its servers. Either binds; neither, and the
+ * code is refused, since the code passed through the person's browser on its way to the callback and anyone holding it
+ * could otherwise redeem it. A code sent anywhere else is redeemed as the client it was given to, and the grant says
+ * `other` with the client's own name.
  *
  * The SDK's server-side handlers are Express routers with a limiter of their own; this server is the tracker's
  * node:http, behind a proxy, with the store's hourly buckets. So the routes are written here, and the SDK lends what
  * fits: the registration schema, the metadata and token types, the error shapes, and the resource check.
  *
  * Tokens are signed with a key from the environment and name their grant; a grant is a row, so a token stops working
- * when its grant is revoked. A refresh rotates: only the newest refresh token of a grant is good.
+ * when its grant is revoked. A refresh rotates: only the newest refresh token of a grant is good, and an older one
+ * presented again revokes the grant, since someone else holds it.
  */
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { BlockList } from 'node:net';
 import { checkResourceAllowed } from '@modelcontextprotocol/sdk/shared/auth-utils.js';
 import { type OAuthMetadata, type OAuthProtectedResourceMetadata, type OAuthTokens, OAuthClientMetadataSchema } from '@modelcontextprotocol/sdk/shared/auth.js';
 import {
@@ -23,10 +31,11 @@ import {
   TooManyRequestsError, UnsupportedGrantTypeError, UnsupportedResponseTypeError,
 } from '@modelcontextprotocol/sdk/server/auth/errors.js';
 import { textIssues } from '@bitquilt/core';
-import { CLIENT_NAME_MAX, type GrantRow, type OAuthClientRow, type Store } from '@bitquilt/tracker';
+import { CLIENT_NAME_MAX, type GrantRow, type Store, inRanges, rangesOf } from '@bitquilt/tracker';
 import type { Witness } from 'quilt';
 import { AUTHORIZE_PAGE } from './authorize-page.js';
-import { productOf } from './products.js';
+import { ASSERTION_TYPE, type ClientDocument, DocumentError, Documents, clientIdProblem } from './cimd.js';
+import { PRODUCTS, PRODUCT_RANGES, callbacksOf, onProductOrigin, productOf } from './products.js';
 
 /** An access token lasts an hour; a refresh token ninety days, and each refresh hands out the next. */
 export const ACCESS_SECONDS = 60 * 60;
@@ -39,7 +48,10 @@ export const SCOPE = 'quilt';
 const BODY_MAX = 16 * 1024;
 /** The most redirect URIs one client registers. */
 const REDIRECTS_MAX = 10;
-const AUTH_METHODS = ['none', 'client_secret_post', 'client_secret_basic'];
+/** How a client may authenticate at the token endpoint: a registered client with its secret or none, a document client with none or its key. */
+const AUTH_METHODS = ['none', 'client_secret_post', 'client_secret_basic', 'private_key_jwt'];
+const REGISTERED_METHODS = ['none', 'client_secret_post', 'client_secret_basic'];
+const SIGNING_ALGORITHMS = ['RS256', 'PS256', 'ES256'];
 const GRANT_TYPES = ['authorization_code', 'refresh_token'];
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
 
@@ -58,6 +70,12 @@ export interface OAuthOptions {
   perHour: number;
   /** The rate-limit bucket a request counts in. */
   bucketFor: (req: IncomingMessage) => string;
+  /** The network address a request came from, read past the trusted proxies (address.ts). */
+  clientAddress: (req: IncomingMessage) => string;
+  /** How client metadata documents and key sets are read. */
+  fetchImpl: typeof fetch;
+  /** The address ranges each product publishes for its servers; products.ts's when none are given. */
+  ranges?: Readonly<Record<string, readonly string[]>>;
   /** The member an address belongs to, by the hash of its token, from the long address or its last part as a person pastes it. */
   memberOf: (presented: string) => string | null;
 }
@@ -75,13 +93,21 @@ export interface OAuthServer {
   bearer(req: IncomingMessage): Bearer;
   /** Answers 401 with the challenge that leads a client to the resource metadata, and the reason where a token was refused. */
   challenge(res: ServerResponse, why?: string): void;
+  /** What the well-known document says of the witness: each product, its callbacks, and how this server binds it. */
+  describe(): Record<string, unknown>;
 }
 
 type Params = Record<string, unknown>;
 interface TokenClaims { g: string; k: 'access' | 'refresh'; n: number; e: number; j: string }
+/** A client as the server knows it: registered here, or by a document on its own origin. */
+interface Known { clientId: string; metadata: Record<string, unknown>; secretHash: string | null; document: ClientDocument | null }
+/** How a token request authenticated: as a public client, with a registered secret, or with a key from the client's document. */
+type Authenticated = { client: Known; method: 'none' | 'secret' | 'key' };
 /** An authorization request that passed: the client, where the code goes, the challenge, and what was asked. */
-interface AuthRequest { client: OAuthClientRow; redirectUri: string; challenge: string; state: string | null; resource: string | null }
+interface AuthRequest { client: Known; redirectUri: string; challenge: string; state: string | null; resource: string | null }
 type Checked = { ok: true; request: AuthRequest } | { ok: false; error: OAuthError; redirect: string | null };
+/** How an exchange or a refresh is bound to a product, or not. */
+type Bound = 'address' | 'key' | null;
 
 const sha = (s: string): string => createHash('sha256').update(s).digest('hex');
 const str = (p: Params, k: string): string | undefined => (typeof p[k] === 'string' ? (p[k] as string) : undefined);
@@ -149,6 +175,9 @@ export function keptClientName(raw: unknown): string | null {
   return n && n.length <= CLIENT_NAME_MAX && textIssues(n).length === 0 ? n : null;
 }
 
+/** The host a document client is named by on the page: the host of its id URL, which only its owner can serve. */
+const hostOf = (client: Known): string | null => (client.document ? new URL(client.clientId).host : null);
+
 export function createOAuth(options: OAuthOptions): OAuthServer {
   const { store } = options;
   const resource = (): string => `${options.trackerUrl()}mcp`;
@@ -157,6 +186,12 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
   const nowMs = (): number => Date.parse(options.now());
   const nowS = (): number => Math.floor(nowMs() / 1000);
   const mac = (body: string): Buffer => createHmac('sha256', options.secret).update(`quilt-oauth-1.${body}`).digest();
+  const documents = new Documents({ store, fetchImpl: options.fetchImpl, now: options.now });
+  /** Each product's published ranges as a block list; a product with none is bound by its key alone. */
+  const ranges = new Map<string, BlockList | null>(PRODUCTS.map((p) => {
+    const list = options.ranges?.[p] ?? PRODUCT_RANGES[p] ?? [];
+    return [p, list.length ? rangesOf(list) : null];
+  }));
 
   function limit(req: IncomingMessage): void {
     if (store.hit(`oauth:${options.bucketFor(req)}`, options.now().slice(0, 13), options.perHour)) throw new TooManyRequestsError('over the hour\'s limit for this authorization server from here');
@@ -213,14 +248,34 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     return to.href;
   }
 
+  /** A client by id: the document at a URL, else the registration here; null for neither, with the document's fault where it has one. */
+  async function clientOf(clientId: string | undefined): Promise<Known | null> {
+    if (!clientId) return null;
+    if (/^https:\/\//i.test(clientId)) {
+      const why = clientIdProblem(clientId);
+      if (why) throw new DocumentError(why);
+      const document = await documents.document(clientId);
+      return { clientId, metadata: document.metadata, secretHash: null, document };
+    }
+    const row = store.getOAuthClient(clientId);
+    return row ? { clientId: row.clientId, metadata: row.metadata, secretHash: row.secretHash, document: null } : null;
+  }
+
   /**
    * An authorization request, checked in the spec's two steps: the client and its redirect URI first, where an error is
    * said to the person since there is nowhere safe to send it; then the rest, where an error goes back to the client.
+   * A request through a product's callback names this connector as its resource (RFC 8707), so a product's token is
+   * not obtained for another server and handed on.
    */
-  function checkAuthorization(p: Params): Checked {
-    const clientId = str(p, 'client_id');
-    const client = clientId ? store.getOAuthClient(clientId) : null;
-    if (!client) return { ok: false, error: new InvalidClientError('no client is registered here with that client_id'), redirect: null };
+  async function checkAuthorization(p: Params): Promise<Checked> {
+    let client: Known | null;
+    try {
+      client = await clientOf(str(p, 'client_id'));
+    } catch (err) {
+      if (!(err instanceof DocumentError)) throw err;
+      return { ok: false, error: new InvalidClientError(err.message), redirect: null };
+    }
+    if (!client) return { ok: false, error: new InvalidClientError('no client is known here by that client_id'), redirect: null };
     const registered = client.metadata.redirect_uris as string[];
     let redirectUri = str(p, 'redirect_uri');
     if (redirectUri === undefined) {
@@ -237,11 +292,44 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     if (!challenge || !/^[A-Za-z0-9_-]{43}$/.test(challenge)) return back(new InvalidRequestError('code_challenge is the S256 hash of a verifier, 43 characters'));
     const asked = str(p, 'resource');
     if (asked !== undefined && !resourceOk(asked)) return back(new InvalidTargetError(`this server issues tokens for ${resource()}`));
+    if (asked === undefined && productOf(redirectUri)) return back(new InvalidTargetError(`a request through ${productOf(redirectUri)}'s callback names the resource it is for, ${resource()} (RFC 8707)`));
     return { ok: true, request: { client, redirectUri, challenge, state, resource: asked ?? null } };
   }
 
-  /** The client a token or revocation request authenticates as: its id from the body or a Basic header, and its secret where it registered one. */
-  function authenticate(req: IncomingMessage, p: Params): OAuthClientRow {
+  /**
+   * The client a token or revocation request authenticates as. With a signed assertion (RFC 7523), the client is the
+   * document it names and the assertion is checked against the document's keys. Otherwise the id comes from the body
+   * or a Basic header, with the secret where the client registered one; a document client that allows `none` passes
+   * as a public client.
+   */
+  async function authenticate(req: IncomingMessage, p: Params): Promise<Authenticated> {
+    const assertion = str(p, 'client_assertion');
+    if (assertion !== undefined) {
+      if (str(p, 'client_assertion_type') !== ASSERTION_TYPE) throw new InvalidClientError(`client_assertion_type is ${ASSERTION_TYPE}`);
+      let claimed: string | undefined;
+      try {
+        claimed = (JSON.parse(Buffer.from(assertion.split('.')[1] ?? '', 'base64url').toString('utf8')) as { iss?: unknown }).iss as string | undefined;
+      } catch {
+        throw new InvalidClientError('the client assertion does not parse');
+      }
+      const id = str(p, 'client_id') ?? claimed;
+      if (!id || (claimed !== undefined && claimed !== id)) throw new InvalidClientError('the client assertion is the client\'s own');
+      let client: Known | null;
+      try {
+        client = await clientOf(id);
+      } catch (err) {
+        if (!(err instanceof DocumentError)) throw err;
+        throw new InvalidClientError(err.message);
+      }
+      if (!client?.document) throw new InvalidClientError('a signed assertion is checked against a client metadata document, and this client has none');
+      try {
+        await documents.verifyAssertion(assertion, client.document, [endpoint('token'), options.issuer()]);
+      } catch (err) {
+        if (!(err instanceof DocumentError)) throw err;
+        throw new InvalidClientError(err.message);
+      }
+      return { client, method: 'key' };
+    }
     let id = str(p, 'client_id');
     let secret = str(p, 'client_secret');
     const basic = /^Basic\s+(\S+)$/i.exec(req.headers.authorization ?? '');
@@ -256,13 +344,24 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
       }
     }
     if (!id) throw new InvalidClientError('client_id is given');
-    const client = store.getOAuthClient(id);
-    if (!client) throw new InvalidClientError('no client is registered here with that client_id');
+    let client: Known | null;
+    try {
+      client = await clientOf(id);
+    } catch (err) {
+      if (!(err instanceof DocumentError)) throw err;
+      throw new InvalidClientError(err.message);
+    }
+    if (!client) throw new InvalidClientError('no client is known here by that client_id');
+    if (client.document) {
+      if (!client.document.methods.includes('none')) throw new InvalidClientError('this client\'s document says it signs its token requests');
+      return { client, method: 'none' };
+    }
     if (client.secretHash) {
       const a = Buffer.from(sha(secret ?? ''), 'hex');
       if (!secret || !timingSafeEqual(a, Buffer.from(client.secretHash, 'hex'))) throw new InvalidClientError('the client secret is not this client\'s');
+      return { client, method: 'secret' };
     }
-    return client;
+    return { client, method: 'none' };
   }
 
   async function register(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -279,7 +378,7 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
       if (why) throw new CustomOAuthError('invalid_redirect_uri', why);
     }
     const method = m.token_endpoint_auth_method ?? 'client_secret_basic';
-    if (!AUTH_METHODS.includes(method)) throw new InvalidClientMetadataError(`token_endpoint_auth_method is one of ${AUTH_METHODS.join(', ')}`);
+    if (!REGISTERED_METHODS.includes(method)) throw new InvalidClientMetadataError(`a registered client's token_endpoint_auth_method is one of ${REGISTERED_METHODS.join(', ')}; a client that signs its requests identifies itself by a metadata document instead`);
     if (m.grant_types?.some((g) => !GRANT_TYPES.includes(g))) throw new InvalidClientMetadataError(`grant_types are among ${GRANT_TYPES.join(' and ')}`);
     if (m.response_types?.some((t) => t !== 'code')) throw new InvalidClientMetadataError('response_types is code');
     // A name that is not plain text, or too long, is not kept: the client is registered without one.
@@ -292,9 +391,9 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     json(res, 201, { ...metadata, client_id: clientId, client_id_issued_at: nowS(), ...(secret ? { client_secret: secret, client_secret_expires_at: 0 } : {}) }, { 'cache-control': 'no-store' });
   }
 
-  /** What the authorization page shows of a request: the client's own name, where the code goes, and the mark the events will carry. */
-  function requestInfo(res: ServerResponse, p: Params): void {
-    const c = checkAuthorization(p);
+  /** What the authorization page shows of a request: the client, by its document's host where it has one and by its own name, where the code goes, and the mark the events will carry. */
+  async function requestInfo(res: ServerResponse, p: Params): Promise<void> {
+    const c = await checkAuthorization(p);
     if (!c.ok) {
       json(res, 400, { error: c.error.message }, { 'cache-control': 'no-store' });
       return;
@@ -302,7 +401,7 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     const { client, redirectUri } = c.request;
     const product = productOf(redirectUri);
     json(res, 200, {
-      client: { id: client.clientId, name: (client.metadata.client_name as string | undefined) ?? null },
+      client: { id: client.clientId, name: (client.metadata.client_name as string | undefined) ?? null, host: hostOf(client) },
       redirect: { uri: redirectUri, host: new URL(redirectUri).host, product },
       via: product ?? 'other',
       tracker: options.name,
@@ -313,7 +412,7 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
   async function approve(req: IncomingMessage, res: ServerResponse): Promise<void> {
     limit(req);
     const p = await readParams(req);
-    const c = checkAuthorization(p);
+    const c = await checkAuthorization(p);
     if (!c.ok) {
       json(res, 400, { error: c.error.message }, { 'cache-control': 'no-store' });
       return;
@@ -337,8 +436,29 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     json(res, 200, { redirect: to.href }, { 'cache-control': 'no-store' });
   }
 
-  /** A code for tokens: the client's own, once, in time, to the redirect URI it was sent to, with the verifier behind its challenge. The grant it makes carries the witness. */
-  function exchangeCode(client: OAuthClientRow, p: Params): OAuthTokens {
+  /**
+   * How a token request is bound to a product (QX-18 section 3): by key, when it authenticated with a key from a
+   * document on the product's own origin; by address, when it came from the product's published ranges; or not at all.
+   */
+  function boundTo(product: string, a: Authenticated, req: IncomingMessage): Bound {
+    if (a.method === 'key' && onProductOrigin(product, a.client.clientId)) return 'key';
+    const list = ranges.get(product);
+    if (list && inRanges(list, options.clientAddress(req))) return 'address';
+    return null;
+  }
+
+  /** The refusal when a product's code or grant is used without the binding: what would have bound it, in the product's terms. */
+  function unbound(product: string, what: string): InvalidGrantError {
+    const list = ranges.get(product);
+    return new InvalidGrantError(`${what} ${product}'s callback is redeemed by ${product}: with a token request signed by a key from ${product}'s own client metadata document${list ? `, or from the addresses ${product} publishes for its servers` : ''}`);
+  }
+
+  /**
+   * A code for tokens: the client's own, once, in time, to the redirect URI it was sent to, with the verifier behind
+   * its challenge; and, through a product's callback, bound to the product. The grant it makes carries the witness.
+   */
+  function exchangeCode(a: Authenticated, p: Params, req: IncomingMessage): OAuthTokens {
+    const { client } = a;
     const code = str(p, 'code');
     const verifier = str(p, 'code_verifier');
     if (!code || !verifier) throw new InvalidRequestError('code and code_verifier are both given');
@@ -356,10 +476,12 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     const asked = str(p, 'resource');
     if (asked !== undefined && !resourceOk(asked)) throw new InvalidTargetError(`this server issues tokens for ${resource()}`);
     if (!store.getMember(row.tokenHash)) throw new InvalidGrantError('the address behind the code is gone');
-    // The witness (QX-18): the product whose callback the code was sent to, else other with the name the client gave.
+    // The witness (QX-18): a code sent to a product's callback is redeemed only as the product; anywhere else, as the client it was given to.
     const product = productOf(row.redirectUri);
+    const bound = product ? boundTo(product, a, req) : null;
+    if (product && !bound) throw unbound(product, 'a code sent to');
     const grant = {
-      id: randomUUID(), tokenHash: row.tokenHash, clientId: client.clientId, redirectUri: row.redirectUri, via: product ?? 'other',
+      id: randomUUID(), tokenHash: row.tokenHash, clientId: client.clientId, redirectUri: row.redirectUri, via: product ?? 'other', viaBy: bound,
       clientName: product ? null : ((client.metadata.client_name as string | undefined) ?? null), resource: asked ?? row.resource, createdAt: options.now(),
     };
     store.putGrant(grant);
@@ -367,13 +489,22 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     return issue(grant.id, 0);
   }
 
-  /** A refresh token for the next pair: this server's, the client's own grant, live, and the newest of its generation. */
-  function refresh(client: OAuthClientRow, p: Params): OAuthTokens {
+  /**
+   * A refresh token for the next pair: this server's, the client's own grant, live, the newest of its generation, and,
+   * on a product's grant, bound to the product as the code was. An older generation presented again is someone else's
+   * copy, and the grant ends.
+   */
+  function refresh(a: Authenticated, p: Params, req: IncomingMessage): OAuthTokens {
     const claims = verify(str(p, 'refresh_token'), 'refresh');
     if (!claims) throw new InvalidGrantError('the refresh token is not this server\'s, or it has expired');
     const g = store.getGrant(claims.g);
-    if (!g || g.revokedAt !== null || g.clientId !== client.clientId) throw new InvalidGrantError('the grant is revoked, or another client\'s');
+    if (!g || g.revokedAt !== null || g.clientId !== a.client.clientId) throw new InvalidGrantError('the grant is revoked, or another client\'s');
     if (!store.getMember(g.tokenHash)) throw new InvalidGrantError('the address behind the grant is gone');
+    if (claims.n < g.refreshGen) {
+      store.revokeGrant(g.id, options.now());
+      throw new InvalidGrantError('an older refresh token was presented again, so the grant is revoked');
+    }
+    if (g.via !== 'other' && !boundTo(g.via, a, req)) throw unbound(g.via, 'a grant through');
     if (!store.rotateGrant(g.id, claims.n)) throw new InvalidGrantError('the refresh token was replaced by a newer one');
     return issue(g.id, claims.n + 1);
   }
@@ -381,9 +512,9 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
   async function token(req: IncomingMessage, res: ServerResponse): Promise<void> {
     limit(req);
     const p = await readParams(req);
-    const client = authenticate(req, p);
+    const a = await authenticate(req, p);
     const grantType = str(p, 'grant_type');
-    const tokens = grantType === 'authorization_code' ? exchangeCode(client, p) : grantType === 'refresh_token' ? refresh(client, p) : null;
+    const tokens = grantType === 'authorization_code' ? exchangeCode(a, p, req) : grantType === 'refresh_token' ? refresh(a, p, req) : null;
     if (!tokens) throw new UnsupportedGrantTypeError('this server takes authorization_code and refresh_token');
     json(res, 200, tokens, { 'cache-control': 'no-store', pragma: 'no-cache' });
   }
@@ -392,7 +523,7 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
   async function revoke(req: IncomingMessage, res: ServerResponse): Promise<void> {
     limit(req);
     const p = await readParams(req);
-    const client = authenticate(req, p);
+    const { client } = await authenticate(req, p);
     const t = str(p, 'token');
     const claims = verify(t, 'access') ?? verify(t, 'refresh');
     const g = claims ? store.getGrant(claims.g) : null;
@@ -405,7 +536,7 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     return { resource: resource(), authorization_servers: [options.issuer()], scopes_supported: [SCOPE], bearer_methods_supported: ['header'], resource_name: options.name, resource_documentation: `${options.trackerUrl()}join` };
   }
 
-  function authorizationServer(): OAuthMetadata & { authorization_response_iss_parameter_supported: boolean } {
+  function authorizationServer(): OAuthMetadata & { authorization_response_iss_parameter_supported: boolean; client_id_metadata_document_supported: boolean } {
     return {
       issuer: options.issuer(),
       authorization_endpoint: endpoint('authorize'),
@@ -416,10 +547,22 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
       grant_types_supported: GRANT_TYPES,
       code_challenge_methods_supported: ['S256'],
       token_endpoint_auth_methods_supported: AUTH_METHODS,
+      token_endpoint_auth_signing_alg_values_supported: SIGNING_ALGORITHMS,
       revocation_endpoint_auth_methods_supported: AUTH_METHODS,
       scopes_supported: [SCOPE],
       service_documentation: `${options.trackerUrl()}join`,
       authorization_response_iss_parameter_supported: true,
+      client_id_metadata_document_supported: true,
+    };
+  }
+
+  function describe(): Record<string, unknown> {
+    return {
+      witness: {
+        extension: 'QX-18',
+        connector: resource(),
+        products: Object.fromEntries(PRODUCTS.map((p) => [p, { callbacks: callbacksOf(p), bound_by: ranges.get(p) ? ['key', 'address'] : ['key'] }])),
+      },
     };
   }
 
@@ -442,11 +585,11 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
       if (path === '/oauth/register' && method === 'POST') await register(req, res);
       else if (path === '/oauth/token' && method === 'POST') await token(req, res);
       else if (path === '/oauth/revoke' && method === 'POST') await revoke(req, res);
-      else if (path === '/oauth/authorize/request' && method === 'GET') requestInfo(res, Object.fromEntries(url.searchParams));
+      else if (path === '/oauth/authorize/request' && method === 'GET') await requestInfo(res, Object.fromEntries(url.searchParams));
       else if (path === '/oauth/authorize' && method === 'POST') await approve(req, res);
       else if (path === '/oauth/authorize' && method === 'GET') {
         // A request whose client and redirect URI stand but whose rest does not goes back to the client at once; otherwise the page, which asks the request again for what to show.
-        const c = checkAuthorization(Object.fromEntries(url.searchParams));
+        const c = await checkAuthorization(Object.fromEntries(url.searchParams));
         if (!c.ok && c.redirect) {
           res.writeHead(302, { location: c.redirect });
           res.end();
@@ -478,7 +621,8 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     const grant = store.getGrant(claims.g);
     if (!grant || grant.revokedAt !== null) return { kind: 'refused', why: 'the token\'s grant is revoked' };
     if (!store.getMember(grant.tokenHash)) return { kind: 'refused', why: 'the address behind the token is gone' };
-    return { kind: 'granted', tokenHash: grant.tokenHash, grant, witness: { via: grant.via, client: grant.clientName } };
+    const by = grant.viaBy === 'address' || grant.viaBy === 'key' ? grant.viaBy : null;
+    return { kind: 'granted', tokenHash: grant.tokenHash, grant, witness: { via: grant.via, client: grant.clientName, by } };
   }
 
   function challenge(res: ServerResponse, why?: string): void {
@@ -490,5 +634,5 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     });
   }
 
-  return { resource, routes, bearer, challenge };
+  return { resource, routes, bearer, challenge, describe };
 }

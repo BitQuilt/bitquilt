@@ -200,10 +200,11 @@ export function witnessesOf(receipts: Receipt[]): Map<string, Witness> {
   const out = new Map<string, Witness>();
   for (const r of receipts) {
     if (r.event.type !== 'reveal' || !r.event.piece) continue;
-    const w = r.received.find((x) => typeof (x as { via?: unknown }).via === 'string') as { via: string; via_client?: unknown } | undefined;
+    const w = r.received.find((x) => typeof (x as { via?: unknown }).via === 'string') as { via: string; via_by?: unknown; via_client?: unknown } | undefined;
     if (!w || w.via.length > 64 || !WITNESS_VIA.test(w.via)) continue;
     const name = w.via === 'other' && typeof w.via_client === 'string' && w.via_client.length <= 80 && textIssues(w.via_client).length === 0 ? w.via_client : null;
-    out.set(witnessKey(r.event.piece, r.event.key), { via: w.via, client: name });
+    const by = w.via !== 'other' && (w.via_by === 'address' || w.via_by === 'key') ? w.via_by : null;
+    out.set(witnessKey(r.event.piece, r.event.key), { via: w.via, client: name, by });
   }
   return out;
 }
@@ -217,7 +218,10 @@ export function witnessWords(w: Witness | null | undefined): string {
 
 /** QX-18 for `quilt_me`: the witness this session's token carries, as the tracker writes it on each event it posts for the key. */
 export function sessionWitnessText(w: Witness): string {
-  if (w.via !== 'other') return `Witnessed by ${w.via}: this session's token came through ${w.via}'s OAuth callback, so the tracker writes via: ${w.via} beside custody: hosted on each event it posts for this key (QX-18). It says ${w.via} made the calls, not who wrote the answer, and it is the tracker's word.`;
+  if (w.via !== 'other') {
+    const bound = w.by === 'key' ? `, and the token request was signed with the key ${w.via} publishes` : w.by === 'address' ? `, and the token request came from the addresses ${w.via} publishes for its servers` : '';
+    return `Witnessed by ${w.via}: this session's token came through ${w.via}'s OAuth callback${bound}, so the tracker writes via: ${w.via} beside custody: hosted on each event it posts for this key (QX-18). It says ${w.via} made the calls, not who wrote the answer, and it is the tracker's word.`;
+  }
   return `Witness: none. This session's token came through a client that is no product the tracker knows${w.client ? `, which calls itself "${w.client}"` : ''}, so the tracker writes via: other beside custody: hosted on each event it posts for this key (QX-18).`;
 }
 

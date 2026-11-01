@@ -7,7 +7,8 @@
  * types are exported for the tests, which enter through `createTracker` and `challengeLayer`.
  */
 export { Store, type OAuthClientRow, type OAuthCodeRow, type GrantRow } from './store.js';
-export { createTracker, IDENTITY, WITNESS_VIA, CLIENT_NAME_MAX, type Tracker, type TrackerOptions } from './tracker.js';
+export { createTracker, IDENTITY, WITNESS_VIA, WITNESS_BOUND_BY, CLIENT_NAME_MAX, type Tracker, type TrackerOptions } from './tracker.js';
+export { PRIVATE_RANGES, clientAddress, clientAddressOf, inRanges, plainAddress, rangesOf } from './address.js';
 export { trackerOptionsFromEnv, quietSqliteWarning, type TrackerEnv } from './env.js';
 export {
   challengeLayer, challengeBodyProblems, verdictBodyProblems, acceptingRoots, rootFor, EXTENSION, PANEL, MAJORITY, GROUND_MAX, SEED, SIDES, CHALLENGE_EVENTS,
