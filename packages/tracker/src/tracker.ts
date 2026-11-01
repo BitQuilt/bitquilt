@@ -22,6 +22,7 @@ import { type CoinLockWord, PRODUCTION_EVENTS, STAKE, STAKE_EVENTS, lockBodyProb
 import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems } from './gold.js';
 import { type CoinLayer, type CoinLockView, type CoinParams, type CoinWord, COIN, COIN_EVENTS, COIN_LOG, coinLayer } from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
+import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
 import type { Store } from './store.js';
 
 /** The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under. */
@@ -35,6 +36,14 @@ const PROBLEM_LOG_EVENTS: ReadonlySet<string> = new Set([...PIECE_EVENTS, ...PRO
 const MAX_BODY = 4 * 1024 * 1024;
 /** How long a piece handed out by next or the offer is held for that key, so two clients here are not handed the same piece in the same minute. */
 const HOLD_SECONDS = 60;
+/** QX-18: a witness is a product's host name in lower case, or `other`. */
+export const WITNESS_VIA = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
+/** QX-18: the most characters of a client's own name the receipt carries. */
+export const CLIENT_NAME_MAX = 80;
+/** QX-18: how a product's mark was bound to the product: the token exchange came from its published addresses, or was signed with its published key. */
+export const WITNESS_BOUND_BY: readonly string[] = ['address', 'key'];
+/** QX-18: what the wrapper of a hosted post carries beside custody, when the on-ramp named a witness. */
+type Witnessed = { via?: string; via_by?: string; via_client?: string };
 
 export interface TrackerOptions {
   store: Store;
@@ -60,6 +69,10 @@ export interface TrackerOptions {
   custodySecret?: string;
   /** Routes mounted beside the tracker, such as the hosted on-ramp. Answers true when it handled the request. */
   extra?: (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<boolean>;
+  /** What the routes mounted beside the tracker say of themselves at the well-known document, such as the witness the hosted on-ramp binds (QX-18). */
+  extraWellKnown?: () => Record<string, unknown>;
+  /** The proxies whose X-Forwarded-For is believed (address.ts), as ranges; the private networks and the machine itself when none are given, and none at all for an empty list. */
+  trustedProxies?: readonly string[];
   /** QX-17: the coin this tracker carries, or reads from a home; absent, it has no coin log and honours no coin lock. */
   coin?: CoinParams;
   /** How the tracker reaches another tracker: the coin's home for a coin lock, and its parameters. */
@@ -126,11 +139,8 @@ export function createTracker(options: TrackerOptions): Tracker {
   const stampNeeded = options.stamp?.name ?? 0;
   const ipSalt = options.ipSalt ?? createHash('sha256').update(String(Math.random())).digest('hex');
 
-  const ipOf = (req: IncomingMessage): string => {
-    const fwd = req.headers['x-forwarded-for'];
-    const first = Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0];
-    return (first ?? req.socket.remoteAddress ?? 'unknown').trim();
-  };
+  const trustedProxies = rangesOf(options.trustedProxies ?? PRIVATE_RANGES);
+  const ipOf = (req: IncomingMessage): string => clientAddress(req, trustedProxies);
   const ipBucket = (req: IncomingMessage): string => `ip:${createHash('sha256').update(ipSalt + ipOf(req)).digest('hex').slice(0, 16)}`;
   const limit = (bucket: string, max: number): void => {
     if (store.hit(bucket, now().slice(0, 13), max)) throw new Refusal(429, 'over the hour\'s limit');
@@ -281,7 +291,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     }
     const { chain, word } = admitted;
     if (store.hasEvent(chain, id)) throw new Refusal(409, 'already here');
-    const line = hosted ? store.appendReceipt(chain, event, id, url, now(), 'hosted', 'ai', word) : store.appendReceipt(chain, event, id, url, now(), 'self', undefined, word);
+    const line = hosted ? store.appendReceipt(chain, event, id, url, now(), 'hosted', 'ai', { ...witnessOf(req), ...word }) : store.appendReceipt(chain, event, id, url, now(), 'self', undefined, word);
     const at = line.received[0]!.at;
     const type = event.type;
     if (log.kind === 'problem') {
@@ -295,6 +305,28 @@ export function createTracker(options: TrackerOptions): Tracker {
   /** Whether a post was made by the connector mounted beside this tracker, for a key it holds: a seat this tracker opened for a person. */
   function hostedPost(req: IncomingMessage): boolean {
     return options.custodySecret !== undefined && req.headers['x-quilt-custody'] === options.custodySecret;
+  }
+
+  /**
+   * QX-18: the witness the hosted on-ramp names on a post it made, written beside custody: the product whose OAuth
+   * callback the session's token came through, or `other` with the client's own name through the gate. Read only on a
+   * post `hostedPost` recognised, so nobody else can set it; a mark that is not well formed is left out.
+   */
+  function witnessOf(req: IncomingMessage): Witnessed {
+    const via = req.headers['x-quilt-via'];
+    if (typeof via !== 'string' || via.length > 64 || !WITNESS_VIA.test(via)) return {};
+    if (via !== 'other') {
+      const by = req.headers['x-quilt-via-by'];
+      return typeof by === 'string' && WITNESS_BOUND_BY.includes(by) ? { via, via_by: by } : { via };
+    }
+    const raw = req.headers['x-quilt-via-client'];
+    let name: string | null = null;
+    try {
+      name = typeof raw === 'string' ? decodeURIComponent(raw).trim() : null;
+    } catch {
+      name = null;
+    }
+    return name && name.length <= CLIENT_NAME_MAX && textIssues(name).length === 0 ? { via, via_client: name } : { via };
   }
 
   /** QX-17: the coin log, admitted against the layer's balances at now; a burn's word is the standing it credits. */
@@ -543,6 +575,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
       verifiers: { human: EXTENSIONS.human, 'judge:n': EXTENSIONS.judge, attest: EXTENSIONS.attest, judge_seed: JUDGE_SEED },
       chain: 'QX-11', seeding: SEEDING, reciprocity: RECIPROCITY, hide: HIDE, maintainers, founding: options.founding ?? {}, identity: IDENTITY, hosted: options.extra !== undefined,
+      ...(options.extraWellKnown?.() ?? {}),
       // `stake.burn_rate` is the rate in force now, which with `burn_indexed` moves with the epochs; `coin.burn_rate` is the parameter, its floor.
       stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: coin()!.burnRateAt(now()) } : {}) }, gold: { extension: GOLD },
       coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
@@ -590,6 +623,7 @@ export function createTracker(options: TrackerOptions): Tracker {
    */
   function state(hash: Hash, pl: ProblemLayer) {
     const s = pl.fold;
+    const witnessed = witnessedReveals(hash);
     return {
       problem: hash, now: now(), hidden: hidden().get(hash) ?? null, stake_rule: pl.stake,
       pieces: s.pieces.map((v) => {
@@ -598,10 +632,27 @@ export function createTracker(options: TrackerOptions): Tracker {
           name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l.state, core: l.core, challenge: l.challenge?.id ?? null,
           kind: l.kind.kind, extension: l.kind.extension, strength: l.kind.strength, says: l.kind.says, weakest: l.kind.weakest, attested: l.attested, panel: l.panel?.outcome ?? null,
           availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length, stake: l.stake, gold: l.gold, verified: l.verified,
+          witnessed: witnessed.get(v.piece.hash) ?? [],
         };
       }),
       gold: pl.goldCount, complete: s.complete, output: s.output?.hash ?? null, dropped: [...s.dropped, ...pl.dropped],
     };
+  }
+
+  /**
+   * QX-18: the reveals on a problem's chain whose receipt names a witness, by piece: the key that revealed, the root it
+   * counts for, the product or `other`, and the client's own name with `other`. The tracker's word, as custody is.
+   */
+  function witnessedReveals(hash: Hash): Map<Hash, { key: string; via: string; via_by?: string; via_client?: string }[]> {
+    const out = new Map<Hash, { key: string; via: string; via_by?: string; via_client?: string }[]>();
+    for (const envelope of store.chain(hash)) for (const r of store.witnessedReveals(problemHash(envelope))) {
+      const w = r.received.find((x) => typeof (x as Witnessed).via === 'string') as Witnessed | undefined;
+      if (!w?.via) continue;
+      const list = out.get(r.piece) ?? [];
+      list.push({ key: r.key, via: w.via, ...(w.via_by ? { via_by: w.via_by } : {}), ...(w.via_client ? { via_client: w.via_client } : {}) });
+      out.set(r.piece, list);
+    }
+    return out;
   }
 
   /** The name a root chose, as the problem's fold has it, or null. */

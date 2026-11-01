@@ -1,11 +1,25 @@
 /**
  * The tracker's store: SQLite through Node's own module, so a tracker runs anywhere Node runs with nothing to compile.
  * Envelopes and blobs by hash; receipts as one chained file per problem (QX-11), stamped strictly increasing; names
- * from version events; announcements for the index (QX-13); the rate-limit buckets; short holds for assisted next.
+ * from version events; announcements for the index (QX-13); the rate-limit buckets; short holds for assisted next;
+ * the hosted on-ramp's members, and the clients, codes and grants of its authorization server (QX-18).
  */
 import { DatabaseSync } from 'node:sqlite';
 import { type Envelope, type Event, type Hash, type Receipt, type Received, lineHash, hashHex } from '@bitquilt/core';
 import type { MemberTimes } from './counts.js';
+
+/** A client registered with the hosted on-ramp's authorization server (QX-18): its metadata as kept, and the hash of its secret where it has one. */
+export interface OAuthClientRow { clientId: string; metadata: Record<string, unknown>; secretHash: string | null; createdAt: string }
+
+/** An authorization code by the hash it is kept under: the client, the member who presented their address, where it was sent, the PKCE challenge, and when it was spent. */
+export interface OAuthCodeRow { clientId: string; tokenHash: string; redirectUri: string; challenge: string; resource: string | null; expiresAt: string; usedAt: string | null; grantId: string | null }
+
+/**
+ * A grant: one member's tokens through one client, as the code that began it was sent. `via` is the product the
+ * exchange was bound to, with `viaBy` saying how (its published addresses, or its published key), or `other`, with the
+ * name the client gave itself; `refreshGen` counts the rotations, so only the newest refresh token is good.
+ */
+export interface GrantRow { id: string; tokenHash: string; clientId: string; redirectUri: string; via: string; viaBy: string | null; clientName: string | null; resource: string | null; createdAt: string; refreshGen: number; revokedAt: string | null }
 
 export interface StoredEnvelope {
   hash: Hash;
@@ -36,11 +50,21 @@ export class Store {
       create table if not exists holds (problem text not null, piece text not null, key text not null, until text not null, primary key (problem, piece));
       create table if not exists members (token_hash text primary key, address text not null, key_enc text not null, created_at text not null, name text);
       create table if not exists offers (key text primary key, n integer not null);
+      create table if not exists oauth_clients (client_id text primary key, json text not null, secret_hash text, created_at text not null);
+      create table if not exists oauth_codes (code_hash text primary key, client_id text not null, token_hash text not null, redirect_uri text not null, challenge text not null, resource text, expires_at text not null, used_at text, grant_id text);
+      create table if not exists oauth_grants (
+        id text primary key, token_hash text not null, client_id text not null, redirect_uri text not null, via text not null, client_name text,
+        resource text, created_at text not null, refresh_gen integer not null, revoked_at text, via_by text
+      );
+      create index if not exists oauth_grants_member on oauth_grants (token_hash);
+      create table if not exists oauth_assertions (jti_hash text primary key, expires_at text not null);
     `);
     // SQLite has no "add column if not exists": a column the members table gained after the first databases were made is
     // added here when it is missing, so a database made before it upgrades on open. Every store, new or old, takes this path.
     const columns = new Set((this.db.prepare('pragma table_info(members)').all() as { name: string }[]).map((c) => c.name));
     for (const column of ['first_used_at', 'key_taken_at']) if (!columns.has(column)) this.db.exec(`alter table members add column ${column} text`);
+    const grantColumns = new Set((this.db.prepare('pragma table_info(oauth_grants)').all() as { name: string }[]).map((c) => c.name));
+    if (!grantColumns.has('via_by')) this.db.exec('alter table oauth_grants add column via_by text');
   }
 
   close(): void {
@@ -196,6 +220,73 @@ export class Store {
   memberTimes(): MemberTimes[] {
     const rows = this.db.prepare('select created_at, first_used_at, key_taken_at from members order by created_at').all() as { created_at: string; first_used_at: string | null; key_taken_at: string | null }[];
     return rows.map((r) => ({ createdAt: r.created_at, firstUsedAt: r.first_used_at, keyTakenAt: r.key_taken_at }));
+  }
+
+  /** QX-18: a client the authorization server registered, with the hash of its secret where it has one. */
+  putOAuthClient(clientId: string, metadata: Record<string, unknown>, secretHash: string | null, at: string): void {
+    this.db.prepare('insert into oauth_clients (client_id, json, secret_hash, created_at) values (?, ?, ?, ?)').run(clientId, JSON.stringify(metadata), secretHash, at);
+  }
+
+  getOAuthClient(clientId: string): OAuthClientRow | null {
+    const row = this.db.prepare('select client_id, json, secret_hash, created_at from oauth_clients where client_id = ?').get(clientId) as { client_id: string; json: string; secret_hash: string | null; created_at: string } | undefined;
+    return row ? { clientId: row.client_id, metadata: JSON.parse(row.json) as Record<string, unknown>, secretHash: row.secret_hash, createdAt: row.created_at } : null;
+  }
+
+  putOAuthCode(codeHash: string, code: Omit<OAuthCodeRow, 'usedAt' | 'grantId'>): void {
+    this.db.prepare('insert into oauth_codes (code_hash, client_id, token_hash, redirect_uri, challenge, resource, expires_at) values (?, ?, ?, ?, ?, ?, ?)')
+      .run(codeHash, code.clientId, code.tokenHash, code.redirectUri, code.challenge, code.resource, code.expiresAt);
+  }
+
+  /** Spends a code: marks it used at `at` the first time, and returns it as it stood before, so a second use is seen. */
+  spendOAuthCode(codeHash: string, at: string): OAuthCodeRow | null {
+    const row = this.db.prepare('select client_id, token_hash, redirect_uri, challenge, resource, expires_at, used_at, grant_id from oauth_codes where code_hash = ?').get(codeHash) as
+      { client_id: string; token_hash: string; redirect_uri: string; challenge: string; resource: string | null; expires_at: string; used_at: string | null; grant_id: string | null } | undefined;
+    if (!row) return null;
+    if (row.used_at === null) this.db.prepare('update oauth_codes set used_at = ? where code_hash = ?').run(at, codeHash);
+    return { clientId: row.client_id, tokenHash: row.token_hash, redirectUri: row.redirect_uri, challenge: row.challenge, resource: row.resource, expiresAt: row.expires_at, usedAt: row.used_at, grantId: row.grant_id };
+  }
+
+  /** The grant a code began, kept on the code so a second use of it revokes that grant. */
+  setOAuthCodeGrant(codeHash: string, grantId: string): void {
+    this.db.prepare('update oauth_codes set grant_id = ? where code_hash = ?').run(grantId, codeHash);
+  }
+
+  putGrant(g: Omit<GrantRow, 'refreshGen' | 'revokedAt'>): void {
+    this.db.prepare('insert into oauth_grants (id, token_hash, client_id, redirect_uri, via, via_by, client_name, resource, created_at, refresh_gen) values (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)')
+      .run(g.id, g.tokenHash, g.clientId, g.redirectUri, g.via, g.viaBy, g.clientName, g.resource, g.createdAt);
+  }
+
+  getGrant(id: string): GrantRow | null {
+    const row = this.db.prepare('select id, token_hash, client_id, redirect_uri, via, via_by, client_name, resource, created_at, refresh_gen, revoked_at from oauth_grants where id = ?').get(id) as
+      { id: string; token_hash: string; client_id: string; redirect_uri: string; via: string; via_by: string | null; client_name: string | null; resource: string | null; created_at: string; refresh_gen: number; revoked_at: string | null } | undefined;
+    return row ? { id: row.id, tokenHash: row.token_hash, clientId: row.client_id, redirectUri: row.redirect_uri, via: row.via, viaBy: row.via_by, clientName: row.client_name, resource: row.resource, createdAt: row.created_at, refreshGen: row.refresh_gen, revokedAt: row.revoked_at } : null;
+  }
+
+  /** QX-18: a signed client assertion's id, kept once so the assertion is not presented again; false when it was seen already. */
+  putAssertion(jtiHash: string, expiresAt: string): boolean {
+    return this.db.prepare('insert or ignore into oauth_assertions (jti_hash, expires_at) values (?, ?)').run(jtiHash, expiresAt).changes === 1;
+  }
+
+  /** A member's grants, oldest first: which clients hold tokens for the address, and where each code was sent. */
+  grantsOf(tokenHash: string): GrantRow[] {
+    const ids = this.db.prepare('select id from oauth_grants where token_hash = ? order by created_at, id').all(tokenHash) as { id: string }[];
+    return ids.map((r) => this.getGrant(r.id)!);
+  }
+
+  /** Moves a live grant's refresh tokens on by one, from the generation presented; false where that is not the newest or the grant is revoked. */
+  rotateGrant(id: string, from: number): boolean {
+    return this.db.prepare('update oauth_grants set refresh_gen = refresh_gen + 1 where id = ? and refresh_gen = ? and revoked_at is null').run(id, from).changes === 1;
+  }
+
+  /** Revokes a grant, kept once: every token it issued stops working. */
+  revokeGrant(id: string, at: string): void {
+    this.db.prepare('update oauth_grants set revoked_at = ? where id = ? and revoked_at is null').run(at, id);
+  }
+
+  /** QX-18: a problem's reveals whose receipts carry a witness, read without parsing the rest of the chain. */
+  witnessedReveals(problem: Hash): { key: string; piece: Hash; received: Received[] }[] {
+    const rows = this.db.prepare(`select key, json_extract(json, '$.piece') as piece, received from receipts where problem = ? and type = 'reveal' and received like '%"via":%' order by seq`).all(problem) as { key: string; piece: string; received: string }[];
+    return rows.map((r) => ({ key: r.key, piece: r.piece as Hash, received: JSON.parse(r.received) as Received[] }));
   }
 
   /** A hold is spent once its key has revealed on, or declined, the piece. */

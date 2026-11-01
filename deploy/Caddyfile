@@ -1,5 +1,8 @@
 # TLS for the tracker's name, and every request handed to the tracker. The MCP transport streams, so nothing is
 # buffered and idle connections are left alone: flush_interval -1 streams each response as it is written.
+# No trusted_proxies, on purpose: Caddy then ignores a client's own X-Forwarded-* headers and writes the client's
+# address itself, which is what the tracker's rate limits and the witness's address binding read (QX-18 section 7).
+# A proxy put in front of Caddy is named here in trusted_proxies and in QUILT_TRUSTED_PROXIES both.
 tracker.bitquilt.org {
     encode zstd gzip
     reverse_proxy tracker:3977 {

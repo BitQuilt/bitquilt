@@ -80,6 +80,18 @@ export interface PanelListing {
   decided_at: string | null;
 }
 
+/**
+ * QX-18: what a tracker writes beside `custody: hosted` on an event its hosted on-ramp posted through a token: the
+ * product whose OAuth callback the token's code was sent to (`claude.ai`, `chatgpt.com`), or `other` with the name the
+ * client gave itself, which is the client's own word. The tracker's word, as custody is.
+ */
+export interface Witness {
+  via: string;
+  client: string | null;
+  /** How a product's mark was bound to the product: the token exchange came from its published addresses, or was signed with its published key. Absent on `other`, and on a mark from before the binding. */
+  by?: 'address' | 'key' | null;
+}
+
 /** A maintainer's takedown as a tracker reports it (QX-6). */
 export interface Takedown {
   id: string;

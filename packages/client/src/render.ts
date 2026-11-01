@@ -2,15 +2,16 @@
  * Text for a model, and lines for the page, from what Quilt read: the map as a strip of marks, the kinds, the stake
  * and the gold, a problem's summary, a piece as it is handed, the accepted returns, the challenges and the panels.
  * Every function here is pure: it takes the state the resolver reduced and what the tracker's layer said, and reads no
- * clock, file or network. AGENTS.md rule 3 holds here: other people's words (a title, a brief, a return, a ground)
- * come out only as quoted text with the signer named, and nothing here tells a model what to do.
+ * clock, file or network. AGENTS.md rule 3 holds here: other people's words (a title, a brief, a return, a ground,
+ * a client's name for itself) come out only as quoted text with the signer named, and nothing here tells a model what
+ * to do.
  *
  * One convention for what comes back: a string of one or more lines joined by a newline, and the empty string where
  * there is nothing to say, which a caller leaves out.
  */
-import { type Address, type Hash, type Pick, type PieceView, type State, agreeFields, canonical, returnsAgree } from '@bitquilt/core';
+import { type Address, type Hash, type Pick, type PieceView, type Receipt, type State, agreeFields, canonical, returnsAgree, textIssues } from '@bitquilt/core';
 import { makeLink } from './link.js';
-import type { ChallengeListing, GoldCount, KindWords, LayerPiece, Opened, PanelListing } from './listings.js';
+import type { ChallengeListing, GoldCount, KindWords, LayerPiece, Opened, PanelListing, Witness } from './listings.js';
 
 /** Each state in the words the legend uses, in the legend's order: the core's ten, then the two the layer adds, then the mark for a kind nobody here implements. */
 export const STATE_WORDS: Record<string, string> = {
@@ -184,26 +185,74 @@ export function pieceText(hash: Hash, pick: Pick, owner: string, stake = 0): str
   return lines.filter(Boolean).join('\n');
 }
 
+/** QX-18: a witness is a product's host name in lower case, or `other`, as the tracker's door holds it. */
+const WITNESS_VIA = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
+
+/** Where a reveal's witness is kept in the map `witnessesOf` makes: the piece and the key that revealed. */
+export const witnessKey = (piece: string, key: string): string => `${piece}:${key.toLowerCase()}`;
+
+/**
+ * QX-18: the witness on each reveal, by piece and key, as the receipts' wrappers carry it: the first wrapper that names
+ * one, kept where the mark is a host name or `other` and the client's name is short plain text. A mark of any other
+ * shape is left out, and so is a name that is not plain text.
+ */
+export function witnessesOf(receipts: Receipt[]): Map<string, Witness> {
+  const out = new Map<string, Witness>();
+  for (const r of receipts) {
+    if (r.event.type !== 'reveal' || !r.event.piece) continue;
+    const w = r.received.find((x) => typeof (x as { via?: unknown }).via === 'string') as { via: string; via_by?: unknown; via_client?: unknown } | undefined;
+    if (!w || w.via.length > 64 || !WITNESS_VIA.test(w.via)) continue;
+    const name = w.via === 'other' && typeof w.via_client === 'string' && w.via_client.length <= 80 && textIssues(w.via_client).length === 0 ? w.via_client : null;
+    const by = w.via !== 'other' && (w.via_by === 'address' || w.via_by === 'key') ? w.via_by : null;
+    out.set(witnessKey(r.event.piece, r.event.key), { via: w.via, client: name, by });
+  }
+  return out;
+}
+
+/** A witness in words after a signer's name: "witnessed by claude.ai" for a product, the client's own name quoted for another, the empty string where none. */
+export function witnessWords(w: Witness | null | undefined): string {
+  if (!w) return '';
+  if (w.via !== 'other') return `witnessed by ${w.via}`;
+  return w.client ? `through a client that calls itself "${w.client}"` : 'through a client that gave no name';
+}
+
+/** QX-18 for `quilt_me`: the witness this session's token carries, as the tracker writes it on each event it posts for the key. */
+export function sessionWitnessText(w: Witness): string {
+  if (w.via !== 'other') {
+    const bound = w.by === 'key' ? `, and the token request was signed with the key ${w.via} publishes` : w.by === 'address' ? `, and the token request came from the addresses ${w.via} publishes for its servers` : '';
+    return `Witnessed by ${w.via}: this session's token came through ${w.via}'s OAuth callback${bound}, so the tracker writes via: ${w.via} beside custody: hosted on each event it posts for this key (QX-18). It says ${w.via} made the calls, not who wrote the answer, and it is the tracker's word.`;
+  }
+  return `Witness: none. This session's token came through a client that is no product the tracker knows${w.client ? `, which calls itself "${w.client}"` : ''}, so the tracker writes via: other beside custody: hosted on each event it posts for this key (QX-18).`;
+}
+
 /**
  * The accepted returns of a problem as quoted text with the signers named: the core's accepting sets, and on a piece of
  * a kind the core does not implement that the tracker holds as accepted, every return on it, with the kind and its
- * strength beside the name, since which of them the tracker counted is the tracker's word.
+ * strength beside the name, since which of them the tracker counted is the tracker's word. Where a return's receipt
+ * names a witness (QX-18), it is beside the name, and one line under the list says what a witness is.
  */
-export function acceptedText(state: State, layer: LayerPiece[] | null = null): string {
+export function acceptedText(state: State, layer: LayerPiece[] | null = null, witnessed: Map<string, Witness> = new Map()): string {
   const over = layerByHash(layer);
   const lines: string[] = [];
+  let anyWitness = false;
+  const who = (piece: Hash, key: string, root: string): string => {
+    const w = witnessed.get(witnessKey(piece, key));
+    if (w) anyWitness = true;
+    return w ? `${nameOf(state, root)} (${witnessWords(w)})` : nameOf(state, root);
+  };
   for (const v of state.pieces) {
     if (v.accepting) {
       const verified = over.get(v.piece.hash)?.verified ? ' (verified: the set agreed with the answer the owner committed to before the work)' : '';
-      if (v.accepting.kind === 'agree') for (const r of v.accepting.reveals) lines.push(`${v.piece.name}${verified}, ${nameOf(state, r.root)} returned: ${canonical(r.return)}`);
-      else lines.push(`${v.piece.name}${verified}, ${nameOf(state, v.accepting.patch.root)} returned a patch of ${(v.accepting.patch.return.patch as string).length} characters, run by ${v.accepting.runs.map((r) => r.root).join(' and ')}`);
+      if (v.accepting.kind === 'agree') for (const r of v.accepting.reveals) lines.push(`${v.piece.name}${verified}, ${who(v.piece.hash, r.key, r.root)} returned: ${canonical(r.return)}`);
+      else lines.push(`${v.piece.name}${verified}, ${who(v.piece.hash, v.accepting.patch.key, v.accepting.patch.root)} returned a patch of ${(v.accepting.patch.return.patch as string).length} characters, run by ${v.accepting.runs.map((r) => r.root).join(' and ')}`);
       continue;
     }
     const l = over.get(v.piece.hash);
     if (!l || !['accepted', 'accepted_provisional', 'challenged'].includes(l.state) || v.state !== 'unknown') continue;
     const how = l.attested ? 'attested, the actor\'s own word' : `${l.strength ?? 'accepted'} as the tracker holds it`;
-    for (const r of v.reveals) lines.push(`${v.piece.name} (${l.verifier}; ${how}), ${nameOf(state, r.root)} returned: ${canonical(r.return)}`);
+    for (const r of v.reveals) lines.push(`${v.piece.name} (${l.verifier}; ${how}), ${who(v.piece.hash, r.key, r.root)} returned: ${canonical(r.return)}`);
   }
+  if (anyWitness) lines.push('A witness is the tracker\'s word (QX-18): its hosted on-ramp saw the token behind that return come through the product\'s OAuth callback. It says the product made the calls, not who wrote the answer.');
   return lines.length ? lines.join('\n') : 'Nothing accepted yet.';
 }
 

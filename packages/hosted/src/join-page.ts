@@ -2,15 +2,30 @@
  * The page at /join: one button that asks the tracker for an address, and, once it is made, everything the person
  * needs next: the address with a copy button, where it goes in their AI's connectors (Claude Code among them, with the
  * command filled in), the first three sentences to say, what happens next and the sentence that adds a problem, the
- * sheet the same address shows in a browser, and how the key comes home. One self-contained document, as the
- * client's page is: nothing is loaded from elsewhere, and what the script puts on the page it sets with `textContent`.
- * The sentences are the phrases the connector offers as prompts (phrases.ts), so the page and the chat say one thing.
+ * sheet the same address shows in a browser, and how the key comes home; and, where the tracker is the authorization
+ * server for its addresses (QX-18), what the witness is and is not, in one paragraph. One self-contained document, as
+ * the client's page is: nothing is loaded from elsewhere, and what the script puts on the page it sets with
+ * `textContent`. The sentences are the phrases the connector offers as prompts (phrases.ts), so the page and the chat
+ * say one thing.
  */
 import { say } from 'quilt';
 
 const text = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-export const JOIN_PAGE = `<!doctype html>
+/**
+ * QX-18 in one paragraph: the shorter address a product connects to, where the person presents the long one once; the
+ * mark that follows; and what it does not say. Written one sentence a line and joined.
+ */
+const WITNESS = [
+  'In claude.ai or ChatGPT, this tracker\'s connector, <code id="oauth">its address without the last part</code>, can go in place of the long address: the product opens a page here, you paste the long address there once, and the product holds a token for it.',
+  'The tracker then knows which product\'s callback the token came through, and writes it beside custody on every event it posts for you: via: claude.ai, via: chatgpt.com, or via: other with the name the client gave itself.',
+  'That witness says the product made the calls, not who wrote the answer: you can still type one and have the product hand it back.',
+  'A connector on your own machine has no witness, since any program there can give itself any name, and the long address added on its own carries none.',
+  'It is the tracker\'s word, as custody is.',
+].join(' ');
+
+/** The join page, with the witness paragraph where the tracker is the authorization server for its addresses. */
+export const joinPage = (witness: boolean): string => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -48,7 +63,9 @@ ol{padding-left:1.2em}
 <li>Claude Desktop shows the same list under Settings, Connectors. The Claude app on a phone uses the connectors the account has.</li>
 <li>Claude Code takes it on the command line: <code id="cc">claude mcp add --transport http quilt &lt;this address&gt;</code></li>
 <li>Any other chat that takes an MCP address takes this one.</li>
-</ol>
+</ol>${witness ? `
+<h2>The witness</h2>
+<p class="q">${WITNESS}</p>` : ''}
 <h2>Then, in a new chat, say</h2>
 <div class="row"><p id="p1">${text(say('who_am_i'))}</p><button class="small" data-copy="p1">Copy</button></div>
 <div class="row"><p id="p3">${text(say('how_it_works'))}</p><button class="small" data-copy="p3">Copy</button></div>
@@ -81,6 +98,7 @@ ol{padding-left:1.2em}
         $('sheet').href = j.url;
         $('key').href = j.url + '/key';
         $('cc').textContent = 'claude mcp add --transport http quilt ' + j.url;
+        if ($('oauth')) $('oauth').textContent = j.url.replace(/\\/[0-9a-f]{64}$/, '');
         $('out').hidden = false;
         $('go').hidden = true;
       })
