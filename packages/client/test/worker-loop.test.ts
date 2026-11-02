@@ -40,6 +40,11 @@ describe('the workers\' shared loop', () => {
     expect(question(piece, 'The paper says 1918.')).toBe(`The author wrote this brief: "Find the date."\n\nThe evidence:\n\nThe paper says 1918.\n\nAnswer with the fields: date. ${REST_ASK}`);
     expect(question(piece, '', 'Find the source first.')).toContain('Find the source first.\n\nAnswer with the fields: date.');
     expect(question(piece, '')).toBe(`The author wrote this brief: "Find the date."\n\nAnswer with the fields: date. ${REST_ASK}`);
+    // QX-19 section 4: the seams the CLI prints after the piece go into the question, each line as the tracker said it.
+    const seamed = readPiece('Piece a/1 (sha256:ab) x\nThe author wrote this brief: "Find the date."\nThe return is an object with these fields: {"date":{"type":"string"}}; required: date; agreement is on: date.\nThe lease is 2 hours.\nSeams:\nOn date, one side rests on nothing kept: 0xA rests it on "in 1918" at https://example.org/p (sha256:ab, bytes 0 to 7); 0xB rests it on nothing kept, and that reading is set aside until it does.\nClaim posted to http://t/.\n')!;
+    expect(seamed.seams).toEqual(['On date, one side rests on nothing kept: 0xA rests it on "in 1918" at https://example.org/p (sha256:ab, bytes 0 to 7); 0xB rests it on nothing kept, and that reading is set aside until it does.']);
+    expect(question(seamed, '')).toBe(`The author wrote this brief: "Find the date."\n\nTwo earlier readings of this piece differ, and the tracker says where:\n${seamed.seams![0]}\n\nAnswer with the fields: date. ${REST_ASK}`);
+    expect(readPiece('Piece a/1 (sha256:ab) x\nThe author wrote this brief: "Find the date."\nThe return is an object with these fields: {"date":{"type":"string"}}; required: date; agreement is on: date.\n')!.seams).toEqual([]);
     expect(REST_ASK).toMatch(/^Under rests, /);
     expect(instruction('')).toMatch(/^You work one piece of a problem/);
     expect(instruction('')).toContain('no links or web addresses');

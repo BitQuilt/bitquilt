@@ -48,7 +48,8 @@ export interface Resolved {
  * on its own; `pieces` is this key's own claims and returns.
  */
 export interface Library {
-  problems: Record<string, { title: string; slug: string; trackers: string[]; first: string; last: string }>;
+  /** Every problem opened or published here; `next` is the version this key published in its place (QX-19 section 4), so it is not sharpened twice. */
+  problems: Record<string, { title: string; slug: string; trackers: string[]; first: string; last: string; next?: Hash }>;
   pieces: Record<string, { problem: Hash; name: string; when: string; what: 'claimed' | 'returned'; verifier?: string }>;
   /** The standing list (QX-4): the problems this key seeds, by the time it said so. */
   seeding: Record<string, string>;

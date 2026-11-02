@@ -17,6 +17,7 @@
  *   quilt gold reveal [<problem> <piece>]                 the owner's reveal of the gold committed on a piece (QX-16), from this home's library; with no piece, every
  *                                                         piece whose gold is due (accepted and not yet revealed), as each `quilt away` turn does before its agent
  *   quilt gold due                                        the pieces whose gold is due, with nothing posted
+ *   quilt sharpen [<problem>]                             the owner's sharpening of a brief two grounded readings read apart (QX-19), the sentence from the agent CLI on this machine; every owned problem, or one
  *   quilt pay <problem> <amount> <per_square>            coin escrowed to a problem on the coin's home (QX-17), paid per accepted square
  *   quilt balance                                         this key's coin at the first tracker that carries one
  *   quilt transfer <to> <amount>                          coin moved to an address on the coin log, from the time the home's parameters name
@@ -33,7 +34,8 @@
 import { readFileSync } from 'node:fs';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { DeclineReason } from '@bitquilt/core';
-import { awayCli } from './away.js';
+import { NEEDS_AGENT, RUN_TIMEOUT_MS, agentSentence, awayCli, findAgent, searchDirs } from './away.js';
+import { type SentenceAsk, seamsText, sentenceAsk } from './render.js';
 import { type Config, createKey, ensureHome, loadConfig, loadKey, quiltHome, saveConfig } from './config.js';
 import { entryHere, installHere } from './install.js';
 import type { Side } from './listings.js';
@@ -188,13 +190,27 @@ async function main(): Promise<void> {
     }
     case 'next': {
       const quilt = make();
-      const { hash, pick, posted, owner, stake, lock } = await quilt.next(args[1] ?? '');
+      const { hash, pick, posted, owner, stake, lock, seams } = await quilt.next(args[1] ?? '');
       console.log(quilt.pieceText(hash, pick, owner, stake));
+      // QX-19: the seams of a piece whose two readings differ, as quilt_next says them, so a loop reading this output sees them too.
+      if (seams.length) console.log(`Seams:\n${seamsText(seams, (k) => k).join('\n')}`);
       console.log(posted.queued ? 'Claim queued.' : `Claim posted to ${posted.at}${lock ? `, after a lock of ${stake}${lock === 'coin' ? ' backed by coin' : ''}` : ''}.`);
       return;
     }
     case 'seed': {
       console.log(JSON.stringify(await make().seed(args[1] as `sha256:${string}`, (args[2] ?? 'on') !== 'off')));
+      return;
+    }
+    case 'sharpen': {
+      // QX-19 section 4: the owner's node sharpens its briefs, the sentence for each seam from the agent CLI on this machine.
+      const quilt = make();
+      const agent = findAgent(searchDirs(process.env));
+      if (!agent) {
+        log(NEEDS_AGENT);
+        process.exit(2);
+      }
+      const ask = (q: SentenceAsk) => agentSentence(agent, sentenceAsk(q), { cwd: quilt.resolver.home, env: process.env, timeoutMs: RUN_TIMEOUT_MS });
+      console.log(JSON.stringify(args[1] ? [await quilt.sharpen(args[1] as `sha256:${string}`, ask)] : await quilt.sharpenDue(ask), null, 2));
       return;
     }
     case 'return': {

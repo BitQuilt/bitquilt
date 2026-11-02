@@ -16,8 +16,10 @@
  * The answer is then handed back through `quilt return`, signed by this worker's key, declared as `<vendor>/<model>`
  * (set `model` in the key's config, or QUILT_MODEL, to that same value so the claim says what the reveal says).
  *
- * With --second-only the CLI runs with QUILT_NEXT_ONLY=verify: it hands out only a piece another vendor has already
- * returned, so this worker confirms or disagrees with that reading and never does first work. With --all and no
+ * With --second-only the CLI runs with QUILT_NEXT_ONLY=verify: it hands out only a piece that already has a reading
+ * on it, so this worker confirms or disagrees with that reading and never does first work; which piece is the core's
+ * choice, which prefers one this worker's vendor has not read. A piece whose two readings differ comes with its seams
+ * (QX-19 section 4), each side's passage quoted with its signer named, and they go into the question. With --all and no
  * problem named, every problem the tracker lists with pieces waiting on a second reading is worked in turn, up to
  * --max pieces in the run; this is the house second opinion (docs/DEPLOY.md). The tracker asked is the first in
  * QUILT_TRACKERS, else the first the CLI's own config names.
@@ -36,16 +38,16 @@ export function parseArgs(args, defaultModel) {
   return { problem: positional[0], evidenceFile: positional[1], model: flag('--model', defaultModel), max: Number(flag('--max', '1000')), secondOnly: args.includes('--second-only'), all: args.includes('--all') };
 }
 
-/** The piece as the CLI prints it: its name and hash, the brief, the schema's fields, what is required. */
+/** The piece as the CLI prints it: its name and hash, the brief, the schema's fields, what is required, and the seams of a piece whose two readings differ (QX-19), one line each after `Seams:`. */
 export function readPiece(text) {
   const head = text.match(/Piece (\S+) \((sha256:[0-9a-f]+)\)/);
   const brief = text.match(/wrote this brief: "([\s\S]*?)"\n/)?.[1];
   const fields = text.match(/these fields: (\{[\s\S]*?\}); required: ([^;]*); agreement is on: ([^.]*)\./);
   if (!head || !brief || !fields) return null;
-  return { name: head[1], hash: head[2], brief, properties: JSON.parse(fields[1]), required: fields[2].split(',').map((s) => s.trim()).filter(Boolean) };
+  const seams = (text.split('\nSeams:\n')[1] ?? '').split('\n').map((l) => l.trim()).filter((l) => l.startsWith('On '));
+  return { name: head[1], hash: head[2], brief, properties: JSON.parse(fields[1]), required: fields[2].split(',').map((s) => s.trim()).filter(Boolean), seams };
 }
 
-/** One field of the piece's schema as the model's output schema: an enum as it is, a number, an integer or a boolean by type, a list of one of those, the rest strings. */
 /**
  * One field's shape for the model. Both vendors' strict shapes ask that every field be present, so a string field the
  * piece does not require says it may be left empty, and `fit` leaves an empty one out of the return: a bill never
@@ -98,7 +100,9 @@ export function instruction(note) {
 
 /** The one message with the piece in it: the brief as the author's quoted words, the evidence when there is one, else `without`, and the fields wanted. */
 export function question(piece, evidence, without = '') {
-  return `The author wrote this brief: "${piece.brief}"\n\n${evidence ? `The evidence:\n\n${evidence}\n\n` : without ? `${without}\n\n` : ''}Answer with the fields: ${Object.keys(piece.properties).join(', ')}. ${REST_ASK}`;
+  // QX-19 section 4: two earlier readings that differ, each side's passage quoted with its signer named, as the tracker said them; the model reads the record itself.
+  const seams = piece.seams?.length ? `Two earlier readings of this piece differ, and the tracker says where:\n${piece.seams.join('\n')}\n\n` : '';
+  return `The author wrote this brief: "${piece.brief}"\n\n${seams}${evidence ? `The evidence:\n\n${evidence}\n\n` : without ? `${without}\n\n` : ''}Answer with the fields: ${Object.keys(piece.properties).join(', ')}. ${REST_ASK}`;
 }
 
 /**

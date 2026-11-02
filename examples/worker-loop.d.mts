@@ -1,5 +1,5 @@
 /** The types of examples/worker-loop.mjs, for the test beside the client. */
-export interface Piece { name: string; hash: string; brief: string; properties: Record<string, { type?: string; enum?: string[]; maxLength?: number }>; required: string[] }
+export interface Piece { name: string; hash: string; brief: string; properties: Record<string, { type?: string; enum?: string[]; maxLength?: number }>; required: string[]; seams?: string[] }
 export interface WorkerArgs { problem: string | undefined; evidenceFile: string | undefined; model: string; max: number; secondOnly: boolean; all: boolean }
 export function parseArgs(args: string[], defaultModel: string): WorkerArgs;
 export function readPiece(text: string): Piece | null;

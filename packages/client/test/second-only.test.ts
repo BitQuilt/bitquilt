@@ -6,8 +6,10 @@ import { json, quiltOver, startTracker } from './helpers.js';
 
 /**
  * The house second opinion from the client's side (docs/DEPLOY.md): with QUILT_NEXT_ONLY=verify, `next` takes only a
- * piece another vendor has returned, in needs_verify or disputed, and never an open one; where every reveal is its own
- * vendor's it claims nothing and says so; without the variable, `next` takes anything as before.
+ * piece that has a reading on it, in needs_verify or disputed, and never an open one; it says nothing about vendors
+ * (QX-19 section 4), since the core prefers a piece its vendor has not read and keeps a same-vendor pair from making a
+ * set, so a piece its own vendor read is taken and the reading kept as evidence; with nothing in the pool it claims
+ * nothing and says so; without the variable, `next` takes anything as before.
  */
 let server: Server;
 let base: string;
@@ -81,12 +83,14 @@ describe('next with QUILT_NEXT_ONLY=verify', () => {
     expect(await trackerState(p, s2)).toBe('open');
   });
 
-  it('claims nothing where the only reveal is from its own vendor, and says so', async () => {
+  it('takes a piece its own vendor read, since the core keeps a same-vendor pair from making a set, and the reading is kept as evidence', async () => {
     expect(await trackerState(q, q1)).toBe('needs_verify');
-    await expect(verifying(() => house.next(q))).rejects.toThrow(/nothing to verify on that problem/);
-    expect(await trackerState(q, q1)).toBe('needs_verify');
+    const { pick } = await verifying(() => house.next(q));
+    expect(pick.piece.hash).toBe(q1);
     expect(await trackerState(q, q2)).toBe('open');
-    expect(await eventsBy(q, house.identity!.address)).toEqual([]);
+    await house.return(q, q1, { verdict: 'supports' });
+    expect(await trackerState(q, q1)).toBe('needs_verify');
+    expect(await eventsBy(q, house.identity!.address)).toEqual(['claim', 'commit', 'reveal']);
   });
 
   it('takes a disputed piece whose readings are from other vendors, and leaves one its own vendor read', async () => {

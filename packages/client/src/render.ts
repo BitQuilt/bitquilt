@@ -271,7 +271,7 @@ const SEAM_WHY: Record<Seam['why'], string> = { source: 'the two rest on differe
 /** One side of a seam as words: who, and the passage quoted where it passes the plain-text gate, else where to fetch it. */
 function sideWords(x: SeamSide, name: (key: string) => string): string {
   const who = x.name ?? name(x.key);
-  if (!x.read || !x.span) return `${who} rests it on nothing kept`;
+  if (!x.read || !x.span) return `${who} rests it on nothing kept${x.aside ? ', and that reading is set aside until it does' : ''}`;
   const where = `${x.read.url} (${x.read.hash}, bytes ${x.span[0]} to ${x.span[1]})`;
   if (x.passage === null) return `${who} rests it on ${where}`;
   return textIssues(x.passage).length ? `${who} rests it on a passage of ${x.span[1] - x.span[0]} bytes at ${where}, which does not pass the plain-text gate and is not shown here` : `${who} rests it on "${x.passage}" at ${where}`;
@@ -280,6 +280,19 @@ function sideWords(x: SeamSide, name: (key: string) => string): string {
 /** QX-19: the seams of a disputed piece, one line each: the field, why the two readings differ, and what each side rests on, quoted with its signer named. */
 export function seamsText(seams: readonly Seam[], name: (key: string) => string): string[] {
   return seams.map((s) => `On ${s.field}, ${SEAM_WHY[s.why]}: ${sideWords(s.sides[0], name)}; ${sideWords(s.sides[1], name)}.`);
+}
+
+/** QX-19 section 4: a seam two grounded readings opened, as the owner's node puts it to its agent for the sentence the brief lacks. */
+export interface SentenceAsk { family: string; brief: string; field: string; seam: Seam; piece: string }
+
+/** What the owner's node asks for: fixed text around the seam's own words, each side's passage quoted with its signer named, and the one sentence wanted back. */
+export function sentenceAsk(q: SentenceAsk): string {
+  const side = (s: SeamSide) => `${s.key} answered ${canonical(s.value)} and rested it on ${s.passage !== null && textIssues(s.passage).length === 0 ? `"${s.passage}"` : `a passage of ${s.span ? s.span[1] - s.span[0] : 0} bytes`}${s.read ? ` at ${s.read.url}` : ''}`;
+  return [
+    `A brief reads: "${q.brief}"`,
+    `On piece ${q.piece}, two readers rested the field ${q.field} on the record and answered differently, ${SEAM_WHY[q.seam.why]}: ${side(q.seam.sides[0])}; ${side(q.seam.sides[1])}.`,
+    'Write the one sentence the brief lacks, to be added at its end for every piece of the family, that decides between these two readings: which record governs, or which category the passage falls under. Plain text under 400 characters, with no address and no markup. Answer with the sentence alone.',
+  ].join('\n\n');
 }
 
 /**
@@ -292,8 +305,12 @@ export function disputedText(state: State, layer: LayerPiece[] | null = null, me
   const mine = (a: string) => me !== null && a.toLowerCase() === me.toLowerCase();
   const blocks: string[] = [];
   for (const v of state.pieces) {
-    if ((over.get(v.piece.hash)?.state ?? v.state) !== 'disputed' || v.reveals.length === 0) continue;
-    const lines = [`${v.piece.name} is disputed, with ${v.reveals.length} ${v.reveals.length === 1 ? 'return' : 'returns'}.`];
+    const l = over.get(v.piece.hash);
+    const layered = l?.state ?? v.state;
+    if ((layered !== 'disputed' && v.state !== 'disputed') || v.reveals.length === 0) continue;
+    const returns = `${v.reveals.length} ${v.reveals.length === 1 ? 'return' : 'returns'}`;
+    // QX-19 section 4: the tracker may have set one reading aside, so the core's dispute stands while the tracker calls the piece something else.
+    const lines = [layered === 'disputed' ? `${v.piece.name} is disputed, with ${returns}.` : `${v.piece.name} is disputed in the core's fold, with ${returns}; the tracker set one reading aside and calls it ${String(layered).replace('_', ' ')}.`];
     const schema = v.piece.schema;
     if (schema && v.reveals.length > 1) {
       const differ = agreeFields(schema, v.piece.agree).filter((f) => v.reveals.some((a, i) => v.reveals.slice(i + 1).some((b) => !returnsAgree(schema, [f], a.return, b.return))));

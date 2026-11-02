@@ -53,10 +53,12 @@ export interface LayerPiece extends Omit<KindWords, 'kind' | 'strength'> {
   traced?: 'both' | 'one' | 'none' | null;
   /** QX-19: where the two readings of a disputed piece differ, and why. */
   seams?: Seam[];
+  /** QX-19 section 4: the keys whose reading of this piece the layer set aside. */
+  aside?: string[];
 }
 
 /** QX-19: one side of a seam: the key, what it returned for the field, and the read, span and passage it rests on, where it rests on anything. */
-export interface SeamSide { key: string; name?: string; value: unknown; read: { url: string; hash: Hash; at: string; media?: string } | null; span: [number, number] | null; passage: string | null }
+export interface SeamSide { key: string; name?: string; value: unknown; read: { url: string; hash: Hash; at: string; media?: string } | null; span: [number, number] | null; passage: string | null; /** QX-19 section 4: the layer folds the piece without this reading, since it rests on nothing where the other rests on the record. */ aside?: boolean }
 
 /** QX-19: a field on which the two readings of a disputed piece differ, and why, read from what each rests on: different reads, the same read at different places, the same words read two ways, or nothing kept on a side. */
 export interface Seam { field: string; why: 'source' | 'span' | 'reading' | 'unknown'; sides: [SeamSide, SeamSide] }

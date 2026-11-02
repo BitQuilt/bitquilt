@@ -3,8 +3,8 @@
 # this loop from the same image as the tracker. Every HOUSE_EVERY seconds (300, so a stranger's square turns inside
 # the five minutes the stranger's path allows for it) it runs the worker of HOUSE_VENDOR
 # (anthropic unless set, with ANTHROPIC_API_KEY; openai with OPENAI_API_KEY) with --second-only --all: the CLI under
-# QUILT_NEXT_ONLY=verify hands out only pieces another vendor has already returned, on every problem the tracker lists
-# with such pieces, at most HOUSE_MAX (20) in a run. It never takes an open piece.
+# QUILT_NEXT_ONLY=verify hands out only pieces that have a reading on them, on every problem the tracker lists with
+# such pieces, at most HOUSE_MAX (20) in a run. It never takes an open piece; which piece is the core's choice.
 # The key it signs with lives under QUILT_HOME, on a volume; it is made on the first run and named once. Its twelve
 # words are not printed: the key file is the key, and a lost volume means a new house key, nothing more. With no
 # key nothing runs and the log says so; with HOUSE=off the same. Nothing here prints a key.
