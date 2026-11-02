@@ -65,6 +65,8 @@ export function patternProblems(pattern: Pattern, drafted: Drafted): string[] {
       const rows = pattern.data?.[blob];
       if (Array.isArray(rows) && rows.length !== count) out.push(`pieces.${name}: ${count} pieces but data.${blob} has ${rows.length} rows (slot ${slot})`);
     }
+    // QX-20: record:n takes n from 2; one reading is a note, not a record.
+    if (typeof d.verifier === 'string' && /^record:/.test(d.verifier) && !/^record:([2-9]|[1-9]\d{1,2})$/.test(d.verifier)) out.push(`pieces.${name}.verifier: record:n takes n from 2`);
     const brief = d.brief ?? '';
     // The template through the gate as written, so a link or an address in it is named beside the other faults, before any piece is rendered.
     out.push(...plainTextProblems(brief, `pieces.${name}.brief`));
@@ -102,6 +104,10 @@ export function patternProblems(pattern: Pattern, drafted: Drafted): string[] {
       const p = byName.get(name);
       if (!p) {
         out.push(`gold.answers.${name}: no such piece`);
+        continue;
+      }
+      if (/^record:/.test(p.verifier)) {
+        out.push(`gold.answers.${name}: a record piece takes no gold`);
         continue;
       }
       if (!p.schema || p.verifier === 'check' || p.verifier === 'score') {

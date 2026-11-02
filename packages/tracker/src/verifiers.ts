@@ -1,11 +1,13 @@
 /**
- * Three verifier kinds the core does not know, as a layer over its fold (docs/ext/verifiers.md): `human` (QX-3), two
- * people at seats a tracker opened for them agreeing; `judge:n` (QX-2), a panel of n drawn by the challenge window's
- * sortition ranking the candidates blind; `attest` (QX-10), the actor's own signed record, accepted at once and marked
- * the weakest kind. No HTTP in it, and the core's reducer is untouched: it holds these pieces as `unknown`, and this
- * layer decides on top, so a core client's map is coarse and never wrong. The accepting set this layer records has the
- * shape of the core's `agree` set with one more field, `via`, naming the kind, so code that reads the core's shapes
- * (`next`, the brief's slots, the challenge window) reads it; `viaOf` tells the two apart.
+ * Four verifier kinds the core does not know, as a layer over its fold (docs/ext/verifiers.md, docs/ext/QX-20.md):
+ * `human` (QX-3), two people at seats a tracker opened for them agreeing; `judge:n` (QX-2), a panel of n drawn by the
+ * challenge window's sortition ranking the candidates blind; `attest` (QX-10), the actor's own signed record, accepted
+ * at once and marked the weakest kind; and `record:n` (QX-20), n readings from unrelated roots kept as given, none
+ * accepted and none struck, for a question with no empirical answer. No HTTP in it, and the core's reducer is
+ * untouched: it holds these pieces as `unknown`, and this layer decides on top, so a core client's map is coarse and
+ * never wrong. The accepting set this layer records has the shape of the core's `agree` set with one more field, `via`,
+ * naming the kind, so code that reads the core's shapes (`next`, the brief's slots, the challenge window) reads it;
+ * `viaOf` tells the two apart. A record piece has no accepting set at all: what it has is its standing readings.
  */
 import {
   type AcceptingSet, type Address, type Event, type Hash, type PieceState, type PieceView, type Receipt, type Return, type Reveal, type State,
@@ -13,7 +15,7 @@ import {
 } from '@bitquilt/core';
 import { drawOrder, offerSeats } from './sortition.js';
 
-export const EXTENSIONS = { human: 'QX-3', judge: 'QX-2', attest: 'QX-10' } as const;
+export const EXTENSIONS = { human: 'QX-3', judge: 'QX-2', attest: 'QX-10', record: 'QX-20' } as const;
 export const RANK_EVENTS: ReadonlySet<string> = new Set(['rank']);
 /** Candidates a judge piece takes when its definition names no count. */
 export const DEFAULT_CANDIDATES = 2;
@@ -21,13 +23,16 @@ export const DEFAULT_CANDIDATES = 2;
 export const JUDGE_SEED = 'first-candidate-receipt';
 const CORE_KINDS: ReadonlySet<string> = new Set(['check', 'score', 'agree']);
 const JUDGE = /^judge:([1-9]\d{0,2})$/;
+/** QX-20: n readings, from 2; one reading is a note, not a record. */
+const RECORD = /^record:([2-9]|[1-9]\d{1,2})$/;
 
-export type Kind = 'check' | 'score' | 'agree' | 'human' | 'judge' | 'attest';
+export type Kind = 'check' | 'score' | 'agree' | 'human' | 'judge' | 'attest' | 'record';
 export type Via = 'human' | 'judge' | 'attest';
-/** How a kind earns a square, strongest first: reproduced by runs, agreed by two, judged by a panel, attested by the actor alone. */
-export type Strength = 'reproduced' | 'agreed' | 'judged' | 'attested';
-export const STRENGTHS: readonly Strength[] = ['reproduced', 'agreed', 'judged', 'attested'];
-export type LayerPieceState = PieceState | 'judging';
+/** How a kind earns a square, strongest first: reproduced by runs, agreed by two, judged by a panel, attested by the actor alone; `recorded` earns none, since a record piece (QX-20) accepts nothing, and is listed last for that. */
+export type Strength = 'reproduced' | 'agreed' | 'judged' | 'attested' | 'recorded';
+export const STRENGTHS: readonly Strength[] = ['reproduced', 'agreed', 'judged', 'attested', 'recorded'];
+/** The fold's states, with the two this layer adds: `judging` while a panel sits, `recorded` once a record piece's readings are in. A recording piece is held under `needs_verify` in the fold, so the core's `next` offers it; the view says `recording` (challenge.ts). */
+export type LayerPieceState = PieceState | 'judging' | 'recorded';
 export type PanelOutcome = 'open' | 'decided' | 'void';
 
 export interface KindInfo {
@@ -43,7 +48,12 @@ export interface KindInfo {
   weakest: boolean;
   /** For judge:n, n. */
   panel: number | null;
+  /** For record:n, n: the readings wanted (QX-20). */
+  wanted: number | null;
 }
+
+/** QX-20: a record piece's standing readings, in receipt order: each from a root unrelated to the owner and to every earlier standing reading's root, up to `wanted`; `recordedAt` is the receipt of the last once they are in. */
+export interface RecordView { piece: Hash; name: string; wanted: number; standing: Reveal[]; recordedAt: string | null }
 
 export interface RankView { id: Hash; key: Address; root: Address; at: string; ranking: Hash[] }
 export interface PanelSeat { root: Address; offeredAt: string; lapsedAt: string | null; rank: RankView | null }
@@ -83,6 +93,8 @@ export interface Layered {
   /** Pieces `next` is not to offer here: a judge piece whose panel sits or ran out. */
   unoffered: Set<Hash>;
   dropped: { id: Hash; type: string; why: string }[];
+  /** QX-20: every record piece's standing readings. */
+  records: Map<Hash, RecordView>;
 }
 
 export interface VerifierOptions {
@@ -105,31 +117,35 @@ export function ownerOf(fold: State, at: string): Address {
   return fold.rootOf(fold.envelope.problem.owner as Address, at);
 }
 
-/** The kind a verifier name is, with n for judge:n, or null. */
-export function kindOf(verifier: string): { kind: Kind; panel: number | null } | null {
-  if (CORE_KINDS.has(verifier)) return { kind: verifier as Kind, panel: null };
-  if (verifier === 'human' || verifier === 'attest') return { kind: verifier, panel: null };
+/** The kind a verifier name is, with n for judge:n as `panel` and for record:n as `wanted`, or null. */
+export function kindOf(verifier: string): { kind: Kind; panel: number | null; wanted: number | null } | null {
+  if (CORE_KINDS.has(verifier)) return { kind: verifier as Kind, panel: null, wanted: null };
+  if (verifier === 'human' || verifier === 'attest') return { kind: verifier, panel: null, wanted: null };
   const m = JUDGE.exec(verifier);
-  return m ? { kind: 'judge', panel: Number(m[1]) } : null;
+  if (m) return { kind: 'judge', panel: Number(m[1]), wanted: null };
+  const r = RECORD.exec(verifier);
+  return r ? { kind: 'record', panel: null, wanted: Number(r[1]) } : null;
 }
 
 /** A verifier in words: its kind, its registry number, how it earns a square, and whether it is the weakest kind. */
 export function describeKind(verifier: string): KindInfo {
   const k = kindOf(verifier);
-  if (!k) return { verifier, kind: null, extension: null, strength: null, says: 'a kind this tracker does not implement', weakest: false, panel: null };
+  if (!k) return { verifier, kind: null, extension: null, strength: null, says: 'a kind this tracker does not implement', weakest: false, panel: null, wanted: null };
   switch (k.kind) {
     case 'check':
-      return { verifier, kind: 'check', extension: null, strength: 'reproduced', says: 'a patch that two unrelated runs reproduce', weakest: false, panel: null };
+      return { verifier, kind: 'check', extension: null, strength: 'reproduced', says: 'a patch that two unrelated runs reproduce', weakest: false, panel: null, wanted: null };
     case 'score':
-      return { verifier, kind: 'score', extension: null, strength: 'reproduced', says: 'a patch that two unrelated runs score within tolerance', weakest: false, panel: null };
+      return { verifier, kind: 'score', extension: null, strength: 'reproduced', says: 'a patch that two unrelated runs score within tolerance', weakest: false, panel: null, wanted: null };
     case 'agree':
-      return { verifier, kind: 'agree', extension: null, strength: 'agreed', says: 'two returns from different vendors agree', weakest: false, panel: null };
+      return { verifier, kind: 'agree', extension: null, strength: 'agreed', says: 'two returns from different vendors agree', weakest: false, panel: null, wanted: null };
     case 'human':
-      return { verifier, kind: 'human', extension: EXTENSIONS.human, strength: 'agreed', says: 'two people at seats a tracker opened for them agree', weakest: false, panel: null };
+      return { verifier, kind: 'human', extension: EXTENSIONS.human, strength: 'agreed', says: 'two people at seats a tracker opened for them agree', weakest: false, panel: null, wanted: null };
     case 'judge':
-      return { verifier, kind: 'judge', extension: EXTENSIONS.judge, strength: 'judged', says: `a panel of ${k.panel} drawn by sortition ranks the candidates and a majority's first choice is accepted`, weakest: false, panel: k.panel };
+      return { verifier, kind: 'judge', extension: EXTENSIONS.judge, strength: 'judged', says: `a panel of ${k.panel} drawn by sortition ranks the candidates and a majority's first choice is accepted`, weakest: false, panel: k.panel, wanted: null };
     case 'attest':
-      return { verifier, kind: 'attest', extension: EXTENSIONS.attest, strength: 'attested', says: 'the actor\'s own signed record, accepted at once and open to challenge for the window', weakest: true, panel: null };
+      return { verifier, kind: 'attest', extension: EXTENSIONS.attest, strength: 'attested', says: 'the actor\'s own signed record, accepted at once and open to challenge for the window', weakest: true, panel: null, wanted: null };
+    case 'record':
+      return { verifier, kind: 'record', extension: EXTENSIONS.record, strength: 'recorded', says: `${k.wanted} readings from roots unrelated to the owner and to each other are kept as given; none is accepted and none struck`, weakest: false, panel: null, wanted: k.wanted };
   }
 }
 
@@ -225,6 +241,7 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
   const kinds = new Map<Hash, KindInfo>();
   const unoffered = new Set<Hash>();
   const dropped: Layered['dropped'] = [];
+  const records = new Map<Hash, RecordView>();
   /** The reveals that count on a human piece: from a person's seat, unrelated to the owner. */
   const counted = new Map<Hash, Reveal[]>();
   const cx: Context = { fold, owner, windowH, lineOf, now, options };
@@ -234,6 +251,7 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
     kinds.set(v.piece.hash, info);
     if (info.kind === 'attest') decideAttest(v, cx);
     else if (info.kind === 'human') counted.set(v.piece.hash, decideHuman(v, cx));
+    else if (info.kind === 'record') records.set(v.piece.hash, decideRecord(v, cx, info.wanted!));
     else if (info.kind === 'judge') {
       const panel = decideJudge(v, cx, info.panel!, ranks.get(v.piece.hash) ?? []);
       if (!panel) continue;
@@ -252,16 +270,25 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
     if (hit) return hit;
     if (trail.has(v.piece.hash)) return 'locked';
     trail.add(v.piece.hash);
+    // A dependent unlocks on accepted or unreachable, as the core says, and on recorded (QX-20), which is the record piece's done.
     const inputsDone = v.piece.inputs.every((entry) => inputPieces(entry, pieces).every((dep) => {
       const ds = stateOf(byHash.get(dep.hash)!, trail);
-      return ds === 'accepted' || ds === 'unreachable';
+      return ds === 'accepted' || ds === 'unreachable' || ds === 'recorded';
     }));
     let s: LayerPieceState;
     const info = kinds.get(v.piece.hash)!;
     if (!inputsDone) s = 'locked';
     else if (info.kind === null) s = 'unknown';
     else if (CORE_KINDS.has(info.kind) && v.state !== 'locked') s = v.state;
-    else {
+    else if (info.kind === 'record') {
+      // QX-20 section 2: recorded once the readings are in; held under needs_verify while some stand, so the core's `next` offers it to a root that has not read it; the core's words while none does.
+      const rec = records.get(v.piece.hash)!;
+      if (rec.recordedAt !== null) s = 'recorded';
+      else if (rec.standing.length) s = 'needs_verify';
+      else if (v.commits.some((c) => !c.revealed && c.abandonAt > now)) s = 'sealed';
+      else if (v.claims.some((c) => c.until > now)) s = 'in_flight';
+      else s = 'open';
+    } else {
       const panel = byPiece.get(v.piece.hash);
       if (panel?.outcome === 'open') s = 'judging';
       else if (panel?.outcome === 'void') s = 'disputed';
@@ -276,9 +303,25 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
     return s;
   };
   for (const v of views) v.state = stateOf(v, new Set()) as PieceState;
-  fold.complete = views.length > 0 && views.every((v) => v.state === 'accepted' || v.state === 'unreachable');
+  fold.complete = views.length > 0 && views.every((v) => v.state === 'accepted' || v.state === 'unreachable' || (v.state as LayerPieceState) === 'recorded');
 
-  return { fold, panels, byPiece, kinds, unoffered, dropped };
+  return { fold, panels, byPiece, kinds, unoffered, dropped, records };
+}
+
+/**
+ * QX-20 section 2: the readings that stand on a record piece, in receipt order: each valid reveal whose root is
+ * unrelated to the owner and to every earlier standing reading's root, until n stand. A same-vendor reading stands,
+ * and one that rests on nothing stands; the grade says so (trace.ts). Nothing is accepted and nothing is struck.
+ */
+function decideRecord(v: PieceView, { fold, owner }: Context, n: number): RecordView {
+  const standing: Reveal[] = [];
+  for (const r of v.reveals) {
+    if (standing.length >= n) break;
+    if (fold.related(r.root, owner, r.at)) continue;
+    if (standing.some((s) => fold.related(s.root, r.root, r.at))) continue;
+    standing.push(r);
+  }
+  return { piece: v.piece.hash, name: v.piece.name, wanted: n, standing, recordedAt: standing.length >= n ? standing[n - 1]!.at : null };
 }
 
 /** The first valid reveal from a root unrelated to the owner accepts the piece at once (QX-10); the window runs from its receipt. */

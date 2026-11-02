@@ -9,7 +9,7 @@ import type { Address, DeclineReason, Hash } from '@bitquilt/core';
 import { HOW_QUILT_WORKS } from './about.js';
 import type { Side } from './listings.js';
 import type { Pattern, Quilt } from './quilt.js';
-import { kindWords, seamsText, sessionWitnessText } from './render.js';
+import { kindWords, seamsText, sessionWitnessText, recordedText } from './render.js';
 import type { Posted } from './resolver.js';
 import { type RestAsked, traceText } from './trace.js';
 import { windowAnswer } from './window.js';
@@ -81,7 +81,7 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
         const w = p.work;
         const kinds = p.kinds ? ` (${Object.entries(p.kinds).map(([k, n]) => `${n} ${k}${kindWords(k).weakest ? ', the weakest kind' : ''}`).join(', ')})` : '';
         const done = w
-          ? `${w.returned} returned, ${w.accepted} accepted${w.verified ? `, ${w.verified} of them verified by the owner's gold` : ''}${w.disputed ? `, ${w.disputed} disputed` : ''}${w.accepted ? `; of the accepted, ${w.traced.both} rest on kept reads on both sides, ${w.traced.one} on one, ${w.traced.none} on none` : ''}; ${w.readers} reader${w.readers === 1 ? '' : 's'} from ${w.vendors} vendor${w.vendors === 1 ? '' : 's'}${w.last ? `; last worked ${w.last.slice(0, 10)}` : ''}`
+          ? `${w.returned} returned, ${w.accepted} accepted${w.verified ? `, ${w.verified} of them verified by the owner's gold` : ''}${w.disputed ? `, ${w.disputed} disputed` : ''}${w.recorded ? `, ${w.recorded} recorded` : ''}${w.accepted ? `; of the accepted, ${w.traced.both} rest on kept reads on both sides, ${w.traced.one} on one, ${w.traced.none} on none` : ''}; ${w.readers} reader${w.readers === 1 ? '' : 's'} from ${w.vendors} vendor${w.vendors === 1 ? '' : 's'}${w.last ? `; last worked ${w.last.slice(0, 10)}` : ''}`
           : Object.entries(p.counts).map(([k, n]) => `${n} ${k.replace('_', ' ')}`).join(', ') || 'nothing yet';
         const forks = found.filter((x) => x.root === p.problem && x.problem !== p.problem).length;
         const notes = [
@@ -130,7 +130,9 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
     case 'quilt_read': {
       const { hash: h, state, tracker, layer, hidden, gold, witnessed } = await quilt.open(str('problem'));
       const [challenges, panels] = await Promise.all([quilt.challenges(h, tracker), quilt.panels(h, tracker)]);
-      const text = `${quilt.summary(h, state, tracker, layer, hidden, gold)}\n\nAccepted so far:\n${quilt.acceptedText(state, layer, witnessed)}\n\nDisputed:\n${quilt.disputedText(state, layer)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}\n\nPanels:\n${quilt.panelsText(panels, state)}`;
+      // QX-20: a problem with a record piece says its readings so far, between the accepted and the disputed.
+      const recorded = recordedText(state, layer);
+      const text = `${quilt.summary(h, state, tracker, layer, hidden, gold)}\n\nAccepted so far:\n${quilt.acceptedText(state, layer, witnessed)}${recorded ? `\n\nRecorded:\n${recorded}` : ''}\n\nDisputed:\n${quilt.disputedText(state, layer)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}\n\nPanels:\n${quilt.panelsText(panels, state)}`;
       return { text, handles: { problem: h, complete: state.complete, output: state.output?.hash ?? null, challenges: challenges.map((c) => ({ id: c.id, piece: c.piece, outcome: c.outcome })), panels: panels.map((p) => ({ piece: p.piece, outcome: p.outcome, candidates: p.candidates.map((c) => c.digest) })) } };
     }
     case 'quilt_rank': {

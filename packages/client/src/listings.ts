@@ -22,8 +22,11 @@ export interface KindWords {
   weakest: boolean;
 }
 
-/** A piece's state as the layer shows it: the core's, or one of the two the layer adds, challenged (QX-1) and judging (QX-2). */
-export type LayerState = PieceState | 'challenged' | 'judging';
+/** A piece's state as the layer shows it: the core's, or one the layer adds: challenged (QX-1), judging (QX-2), recording and recorded (QX-20). */
+export type LayerState = PieceState | 'challenged' | 'judging' | 'recording' | 'recorded';
+
+/** QX-20 section 3: a record piece's grade as the tracker gives it: the readings wanted and standing, how many rest on kept reads, from how many roots and vendors, and the keys whose readings stand. */
+export interface RecordGrade { wanted: number; standing: number; grounded: number; roots: number; vendors: number; keys: string[] }
 
 /**
  * A piece as the tracker that answered holds it in its layer (QX-1, QX-2, QX-3, QX-10): its state beside the core's,
@@ -55,6 +58,8 @@ export interface LayerPiece extends Omit<KindWords, 'kind' | 'strength'> {
   seams?: Seam[];
   /** QX-19 section 4: the keys whose reading of this piece the layer set aside. */
   aside?: string[];
+  /** QX-20: on a record piece, its grade; null or absent on every other kind. */
+  record?: RecordGrade | null;
 }
 
 /** QX-19: one side of a seam: the key, what it returned for the field, and the read, span and passage it rests on, where it rests on anything. */

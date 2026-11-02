@@ -3,15 +3,16 @@ import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Envelope, type Hash, type Receipt, type Unsigned, IDENTITY_LOG, addressOf, commitHash, hashBytes, newNonce, problemHash, signEvent, signObject, verifyChain } from '@bitquilt/core';
+import { type Envelope, type Hash, type Receipt, type Unsigned, IDENTITY_LOG, addressOf, commitHash, hashBytes, hashCanonical, newNonce, problemHash, signEvent, signObject, verifyChain } from '@bitquilt/core';
 import { Store, createTracker } from '@bitquilt/tracker';
 import { mirror } from '../src/mirror.js';
 
 /**
  * The mirror over two real trackers: it writes the layout from one, with chains that verify and names from version
  * events; only grows, and writes the output once the problem is complete; refuses a second tracker whose chain for the
- * problem is not a growth of the one it holds; passes over a chain whose pages have no end, keeping what it holds; and
- * anchors the head of every chain when asked, keeping a stamp it already has.
+ * problem is not a growth of the one it holds; passes over a chain whose pages have no end, keeping what it holds;
+ * anchors the head of every chain when asked, keeping a stamp it already has; and writes the record document of a
+ * problem with a record piece (QX-20) with the tracker's own layer code, the same hash as the tracker states.
  */
 const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
 const owner = key(9), A = key(1), B = key(2);
@@ -144,5 +145,36 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
     const again = await mirror({ trackers: [one.base], out, now, anchor: { calendars: ['https://cal.test'] }, fetchImpl });
     expect(again.anchors?.kept).toBe(2);
     expect(posts).toBe(2);
+  });
+  it('writes the record document of a problem with a record piece once the layer calls it complete, with the hash the tracker states (QX-20)', async () => {
+    const problem: Envelope['problem'] = {
+      title: 'A reading', done_when: 'Two readings on the record.', owner: addr(owner), slug: 'reading', prev: null, from: null,
+      settings: { challenge_window_h: 0.001, lease_h: 2, endgame_at: 1, budget: 10, patch_max: 0 },
+      pieces: { question: { verifier: 'record:2', brief: 'Read the article your way.', schema, agree: ['verdict'] } },
+      data: {},
+    };
+    const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
+    const R: Envelope = { ...unsigned, sig: signObject(unsigned, owner) };
+    const hash = problemHash(R);
+    expect((await post(one.base, 'p', { envelope: R })).status).toBe(201);
+    const piece = ((await (await fetch(`${one.base}p/${hash}/state`)).json()) as { pieces: { hash: Hash }[] }).pieces[0]!.hash;
+    await handIn(one.base, A, hash, piece, { verdict: 'supports' }, 'a/x');
+    const before = await mirror({ trackers: [one.base], out, now });
+    expect(before.errors).toEqual([]);
+    expect(existsSync(join(out, 'outputs', hash, 'record.json'))).toBe(false);
+    await handIn(one.base, B, hash, piece, { verdict: 'contradicts' }, 'b/y');
+    const report = await mirror({ trackers: [one.base], out, now });
+    expect(report.errors).toEqual([]);
+    // The core writes no output: it holds the piece as unknown. The layer's document is written beside where one would be.
+    expect(existsSync(join(out, 'outputs', hash, 'output.json'))).toBe(false);
+    const doc = JSON.parse(readFileSync(join(out, 'outputs', hash, 'record.json'), 'utf8')) as { quilt: number; extension: string; pieces: { state: string; readings: { signer: string }[] }[] };
+    expect(doc).toMatchObject({ quilt: 1, extension: 'QX-20' });
+    expect(doc.pieces[0]).toMatchObject({ state: 'recorded' });
+    expect(doc.pieces[0]!.readings.map((r) => r.signer)).toEqual([addr(A), addr(B)]);
+    const written = readFileSync(join(out, 'outputs', hash, 'record_hash'), 'utf8').trim();
+    expect(written).toBe(hashCanonical(doc));
+    const state = (await (await fetch(`${one.base}p/${hash}/state`)).json()) as { complete: boolean; record_output: string | null };
+    expect(state.complete).toBe(true);
+    expect(state.record_output).toBe(written);
   });
 });

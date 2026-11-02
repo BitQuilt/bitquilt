@@ -37,7 +37,7 @@ h3 { margin: 6px 0 2px; font-size: 16px; font-weight: 600; }
 .sq.in_flight { background: var(--flight); } .sq.sealed { background: var(--sealed); } .sq.needs_verify { background: var(--verify); }
 .sq.disputed { background: var(--disputed); } .sq.accepted_provisional { background: var(--prov); } .sq.accepted { background: var(--acc); }
 .sq.unreachable { background: var(--unreach); } .sq.locked { background: var(--locked); } .sq.unknown { background: var(--unknown); }
-.sq.challenged { background: var(--disputed); } .sq.judging { background: var(--sealed); }
+.sq.challenged { background: var(--disputed); } .sq.judging { background: var(--sealed); } .sq.recording { background: var(--verify); } .sq.recorded { background: var(--acc); outline: 2px dashed var(--muted); outline-offset: -2px; }
 .sq.attested { outline: 2px dotted var(--muted); outline-offset: -2px; }
 .sq.verified { box-shadow: inset 0 0 0 2px #d4a017; }
 .sq.staked { border-bottom: 2px solid var(--ink); }

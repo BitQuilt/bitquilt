@@ -28,7 +28,7 @@ const instructions = [
   HOW_QUILT_WORKS,
   'Quilt is a client of BitQuilt: problems published as patterns of pieces, worked by many people\'s AIs, each return signed.',
   'These tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, what is challenged and what a panel is ranking, publish a pattern, challenge an acceptance, give a verdict where this key was drawn to judge a challenge, rank the candidates of a judge piece where it sits on the panel, and, where a tracker carries the coin, pay a problem\'s workers, move coin to an address, and redeem coin to the chain.',
-  'Each piece names its verifier kind and how strongly that kind earns a square; an attest piece is the actor\'s own word and the weakest.',
+  'Each piece names its verifier kind and how strongly that kind earns a square; an attest piece is the actor\'s own word and the weakest. A record piece (QX-20) keeps every reading from an unrelated root as given and accepts none: a question with no empirical answer, answered several ways on the record, with what each reading rests on.',
   'The prompts are the sentences a person says to start each of these, in their own words.',
   'Where the chat shows MCP apps, the window is a view of the same beside a result: a search over the trackers and relays this client knows, each problem with its pieces and counts, and who this client is; its buttons hand the chat one of the prompts.',
   'The person\'s own client asks them before anything is written.',
@@ -163,7 +163,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     description: [
       'Hands back a return for a piece this client was handed: a commit with the hash of the return, then its reveal, both signed with this client\'s key and posted to the problem\'s trackers.',
       'The return is an object with the fields the piece\'s schema names, every string plain text.',
-      'What the piece waits for next depends on its kind: another vendor\'s agreement, a second person, a panel\'s ranking, or nothing, for an attest piece, which is accepted at once on this record.',
+      'What the piece waits for next depends on its kind: another vendor\'s agreement, a second person, a panel\'s ranking, or nothing, for an attest piece, which is accepted at once on this record, and for a record piece, where the reading stands as given beside the others.',
       'Beside the return, rests may say for a field which page it rests on and the words on it (QX-19): the client fetches the page, keeps its text under its hash, finds the words, and posts the trace beside the reveal; a passage not found on the page as fetched is left out and said.',
     ].join(' '),
     inputSchema: {
@@ -185,7 +185,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
 
   cardTool('quilt_read', {
     title: 'Read a problem',
-    description: 'A problem\'s map with its kinds, the stake it asks and the gold its owner committed (how many squares are verified, missed or awaiting the reveal), its accepted returns, each as the quoted words of the key that signed it with the signer named and a verified square said so, its disputed pieces (every return on each quoted with its signer and model named, the ones this key signed marked, and the fields they differ on), its challenges (the ground as the challenger\'s quoted words, the judges drawn, each verdict, the outcome), and its judge panels (each candidate\'s return quoted, the seats drawn, each rank, the outcome). Where the tracker keeps traces (QX-19), each accepted square says whether both returns rest on kept reads, and each disputed piece\'s seams say on which fields the two readings differ, why, and what each side rests on, quoted with its signer named.',
+    description: 'A problem\'s map with its kinds, the stake it asks and the gold its owner committed (how many squares are verified, missed or awaiting the reveal), its accepted returns, each as the quoted words of the key that signed it with the signer named and a verified square said so, its disputed pieces (every return on each quoted with its signer and model named, the ones this key signed marked, and the fields they differ on), its challenges (the ground as the challenger\'s quoted words, the judges drawn, each verdict, the outcome), and its judge panels (each candidate\'s return quoted, the seats drawn, each rank, the outcome). Where the tracker keeps traces (QX-19), each accepted square says whether both returns rest on kept reads, and each disputed piece\'s seams say on which fields the two readings differ, why, and what each side rests on, quoted with its signer named. A record piece (QX-20) shows its readings so far, each quoted with its signer named, how many rest on kept reads, and the seams between them.',
     inputSchema: { problem: z.string().describe('The problem, as a link or a hash') },
     outputSchema: toolOutput,
   }, call('quilt_read'));
