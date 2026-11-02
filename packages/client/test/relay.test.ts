@@ -2,7 +2,7 @@ import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash, signEvent } from '@bitquilt/core';
 import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
-import { KIND, announcementEvent, readAnnouncement, searchFilters, searchRelays } from '../src/relay.js';
+import { KIND, announcementEvent, readAnnouncement, searchFilters, searchRelays, findOnRelays } from '../src/relay.js';
 import { Resolver } from '../src/resolver.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
 import { hex, quiltOver, startTracker, tempHome } from './helpers.js';
@@ -79,6 +79,23 @@ describe('discovery over relays (QX-14)', () => {
     const opened = await finder.open(`quilt:${problem}?tr=${encodeURIComponent(base)}`);
     expect(opened.hash).toBe(problem);
     expect(opened.state.pieces).toHaveLength(2);
+  });
+  it('opens a bare hash with no tracker configured: the relays name where the problem is held, and the places learned serve the rest of the session (QX-14 section 3)', async () => {
+    // A finder of its own, so nothing is in its cache: the hash alone, no tracker, the relay knows where it is held.
+    const home = tempHome('quilt-finder-bare-');
+    createKey(home, { secretHex: hex(5) });
+    const config: Config = { ...DEFAULT_CONFIG, trackers: [], relays: [relay.url] };
+    const bare = new Quilt(config, loadKey(home), new Resolver(config, home), 'Claude Code');
+    expect(await findOnRelays([relay.url], problem)).toMatchObject([{ problem, trackers: [base], announcer: owner.identity!.address }]);
+    const opened = await bare.open(problem);
+    expect(opened.hash).toBe(problem);
+    expect(opened.tracker).toBe(base);
+    expect(opened.state.pieces).toHaveLength(2);
+    expect(bare.resolver.places({ trackers: [], mirrors: [] })).toEqual([{ url: base, kind: 'tracker' }]);
+    // A hash no relay knows opens nothing, and the relays are asked once for it.
+    const unknown = `sha256:${'0'.repeat(64)}` as Hash;
+    await expect(bare.open(unknown)).rejects.toThrow();
+    expect(await findOnRelays([relay.url], unknown)).toEqual([]);
   });
   it('drops a relay event whose signature, kind or problem tag does not hold, and keeps the latest per problem', async () => {
     const good = [...relay.events.values()][0]!;

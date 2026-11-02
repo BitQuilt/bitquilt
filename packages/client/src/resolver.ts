@@ -8,6 +8,7 @@
 import { appendFileSync, existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Envelope, type Event, type Hash, type Receipt, type State, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, problemHash, reduce, verifyChain, withSlash, isHash } from '@bitquilt/core';
+import { findOnRelays } from './relay.js';
 import { type Config, ensureHome } from './config.js';
 import type { Link } from './link.js';
 
@@ -174,8 +175,11 @@ export class Resolver {
     return { problems: problems.n, ledgers: ledgers.n, blobs: blobs.n, bytes: problems.bytes + ledgers.bytes + blobs.bytes };
   }
 
-  /** The places to ask, in order: the link's trackers, the config's, then mirrors. */
-  places(link: Link): { url: string; kind: 'tracker' | 'mirror' }[] {
+  /** QX-14 section 3: the places the relays' announcements named for a hash, learned when no place this resolver knew answered for it, and kept for the rest of the session; an empty entry says the relays were asked and knew nothing. */
+  private readonly hinted = new Map<Hash, { trackers: string[]; mirrors: string[] }>();
+
+  /** The places to ask, in order: the link's trackers, the config's, the ones the relays named for this hash and then for any, then mirrors the same way. */
+  places(link: Link, hash: Hash | null = link.hash ?? null): { url: string; kind: 'tracker' | 'mirror' }[] {
     const out: { url: string; kind: 'tracker' | 'mirror' }[] = [];
     const seen = new Set<string>();
     const add = (url: string, kind: 'tracker' | 'mirror') => {
@@ -185,11 +189,31 @@ export class Resolver {
         out.push({ url: u, kind });
       }
     };
+    const own = hash ? this.hinted.get(hash) : undefined;
+    const others = [...this.hinted.values()].filter((h) => h !== own);
     for (const t of link.trackers) add(t, 'tracker');
     for (const t of this.config.trackers) add(t, 'tracker');
+    for (const t of own?.trackers ?? []) add(t, 'tracker');
+    for (const h of others) for (const t of h.trackers) add(t, 'tracker');
     for (const m of link.mirrors) add(m, 'mirror');
     for (const m of this.config.mirrors) add(m, 'mirror');
+    for (const m of own?.mirrors ?? []) add(m, 'mirror');
+    for (const h of others) for (const m of h.mirrors) add(m, 'mirror');
     return out;
+  }
+
+  /**
+   * QX-14 section 3: asked once per hash when no place this resolver knows answers for it and the cache has nothing,
+   * the relays are asked for the problem's announcements by its hash, and the trackers and mirrors they name are kept
+   * as places. True when any was learned. With no relay configured there is nothing to ask.
+   */
+  private async learnFromRelays(hash: Hash): Promise<boolean> {
+    if (this.hinted.has(hash) || this.config.relays.length === 0) return false;
+    const found = await findOnRelays(this.config.relays, hash);
+    const trackers = [...new Set(found.flatMap((a) => a.trackers))];
+    const mirrors = [...new Set(found.flatMap((a) => a.mirrors))];
+    this.hinted.set(hash, { trackers, mirrors });
+    return trackers.length + mirrors.length > 0;
   }
 
   private getJson(url: string): Promise<unknown | null> {
@@ -235,18 +259,25 @@ export class Resolver {
   }
 
   async envelope(hash: Hash, link: Link): Promise<{ envelope: Envelope; from: string | null } | null> {
-    for (const p of this.places(link)) {
-      const j = await this.getJson(p.kind === 'mirror' ? `${p.url}problems/${hash}.json` : `${p.url}p/${hash}`);
-      if (j && envelopeProblems(j).length === 0 && problemHash(j as Envelope) === hash) {
-        writeFileSync(this.cachePath('envelope', hash), JSON.stringify(j));
-        return { envelope: j as Envelope, from: p.kind === 'tracker' ? p.url : null };
+    const asked = async (): Promise<{ envelope: Envelope; from: string | null } | null> => {
+      for (const p of this.places(link, hash)) {
+        const j = await this.getJson(p.kind === 'mirror' ? `${p.url}problems/${hash}.json` : `${p.url}p/${hash}`);
+        if (j && envelopeProblems(j).length === 0 && problemHash(j as Envelope) === hash) {
+          writeFileSync(this.cachePath('envelope', hash), JSON.stringify(j));
+          return { envelope: j as Envelope, from: p.kind === 'tracker' ? p.url : null };
+        }
       }
-    }
+      return null;
+    };
+    const got = await asked();
+    if (got) return got;
     const cached = this.cachePath('envelope', hash);
     if (existsSync(cached)) {
       const j = JSON.parse(readFileSync(cached, 'utf8')) as Envelope;
       if (problemHash(j) === hash) return { envelope: j, from: null };
     }
+    // QX-14 section 3: no place known and nothing kept; the relays may say where the problem is held, and then those places are asked.
+    if (await this.learnFromRelays(hash)) return asked();
     return null;
   }
 
@@ -256,7 +287,7 @@ export class Resolver {
       const b = new Uint8Array(readFileSync(cached));
       if (hashBytes(b) === hash) return b;
     }
-    for (const p of this.places(link)) {
+    for (const p of this.places(link, link.hash ?? null)) {
       const b = await this.getBytes(p.kind === 'mirror' ? `${p.url}blobs/${hash}` : `${p.url}b/${hash}`);
       if (b && hashBytes(b) === hash) {
         writeFileSync(cached, b);
@@ -268,7 +299,7 @@ export class Resolver {
 
   /** A problem's chained receipts from the first place that serves a chain that verifies, else the cache. */
   async receipts(hash: Hash, link: Link, genesis: Hash = hash): Promise<Receipt[]> {
-    for (const p of this.places(link)) {
+    for (const p of this.places(link, hash)) {
       const lines = p.kind === 'mirror' ? await this.getFileLines(`${p.url}ledger/${hash}.jsonl`) : await this.getLines(`${p.url}p/${hash}/events`);
       if (lines && verifyChain(lines, genesis).ok) {
         writeFileSync(this.cachePath('ledger', hash), lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));

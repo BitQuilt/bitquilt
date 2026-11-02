@@ -209,6 +209,38 @@ export async function searchRelays(relays: string[], query: string, timeoutMs = 
   return [...found.values()];
 }
 
+/**
+ * QX-14 section 3: the announcements of one problem on the relays, asked by its hash as the `d` tag, one per announcer,
+ * the owner's own first. What a resolver with no tracker that answers asks, to learn where the problem is held.
+ */
+export async function findOnRelays(relays: string[], problem: Hash, timeoutMs = 5000): Promise<RelayAnnouncement[]> {
+  const found = new Map<string, RelayAnnouncement>();
+  await Promise.all(relays.map(async (relay) => {
+    const sub = `d${Math.random().toString(36).slice(2, 10)}`;
+    const out: RelayAnnouncement[] = [];
+    const got = await talk<RelayAnnouncement[]>(relay, timeoutMs, (ws, finish) => {
+      ws.addEventListener('message', (m) => {
+        try {
+          const msg = JSON.parse(String(m.data)) as unknown[];
+          if (msg[0] === 'EVENT' && msg[1] === sub) {
+            const a = readAnnouncement(msg[2] as NostrEvent, relay);
+            if (a && a.problem === problem) out.push(a);
+          } else if (msg[0] === 'EOSE' && msg[1] === sub) finish(out);
+        } catch {
+          /* not for us */
+        }
+      });
+      ws.send(JSON.stringify(['REQ', sub, { kinds: [KIND], '#d': [problem], limit: 20 }]));
+    }, () => out);
+    for (const a of got) {
+      const k = a.announcer.toLowerCase();
+      const have = found.get(k);
+      if (!have || a.created_at > have.created_at) found.set(k, a);
+    }
+  }));
+  return [...found.values()].sort((a, b) => (prefer(a, b) ? -1 : 1));
+}
+
 /** Whether `a` is the announcement to keep over `have`: the owner's own before a seeder's, then the later. */
 function prefer(a: RelayAnnouncement, have: RelayAnnouncement): boolean {
   const own = (x: RelayAnnouncement) => x.announcer.toLowerCase() === x.owner.toLowerCase();
