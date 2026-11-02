@@ -23,7 +23,7 @@ import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems } from './g
 import { type CoinLayer, type CoinLockView, type CoinParams, type CoinWord, COIN, COIN_EVENTS, COIN_LOG, coinLayer } from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
 import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
-import { BLOB_MAX, type PieceTraces, type Seam, TRACE, TRACE_EVENTS, admitTrace, pieceTraces } from './trace.js';
+import { BLOB_MAX, type PieceTraces, type Seam, TRACE, TRACE_EVENTS, admitTrace, graded, seamed, tracesKept } from './trace.js';
 import type { Store } from './store.js';
 
 /** The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under. */
@@ -399,8 +399,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     const view = state.byHash.get(event.piece);
     if (!view) throw new Refusal(400, 'names a piece this problem does not have');
     const receipts = inputFor(under)!.receipts;
-    const kept = pieceTraces(state, view, receipts, blobLength, () => null).traces;
-    const a = admitTrace(view, receipts, event, kept, blobLength);
+    const a = admitTrace(view, receipts, event, tracesKept(view, receipts, blobLength), blobLength);
     if (!a.ok) throw new Refusal(400, a.why);
   }
 
@@ -693,30 +692,29 @@ export function createTracker(options: TrackerOptions): Tracker {
   }
 
   /**
-   * QX-19 section 4: a piece's seams, between the readings that stand. Over the layer's fold where it still calls the
-   * piece disputed, so a key that read again with grounds after its first reading was set aside is a side, not the
-   * reading set aside; over the core's fold where the layer has set a reading aside, so the seam shows which; none where
-   * neither calls the piece disputed.
-   */
-  function seamsOf(pl: ProblemLayer, receipts: Receipt[], hash: Hash): Seam[] {
-    const layered = pl.fold.byHash.get(hash);
-    if (layered?.state === 'disputed') return pieceTraces(pl.fold, layered, receipts, blobLength, passageOf).seams;
-    const core = pl.core.byHash.get(hash);
-    return core?.state === 'disputed' ? pieceTraces(pl.core, core, receipts, blobLength, passageOf).seams : [];
-  }
-
-  /**
-   * QX-19: each piece's traces as the door kept them, over the core's fold; its seams between the readings that stand
-   * (`seamsOf`); and the square's grade over the layer's fold, whose accepting set is the one that counts; the passages
-   * from this store's blobs.
+   * QX-19: each piece's traces as the door kept them, over the core's fold, which has every reveal a trace could name;
+   * the square's grade over the layer's fold, whose accepting set is the one that counts; and its seams between the
+   * readings that stand (section 4): over the layer's fold where it still calls the piece disputed, so a key that read
+   * again with grounds after its first reading was set aside is a side and not the reading set aside, and over the core's
+   * fold where the layer has set a reading aside, so the seam shows which. The passages come from this store's blobs.
    */
   function tracesOf(hash: Hash, pl: ProblemLayer): Map<Hash, PieceTraces> {
     const receipts = inputFor(hash)!.receipts;
     return new Map(pl.fold.pieces.map((v) => {
-      const core = pieceTraces(pl.core, pl.core.byHash.get(v.piece.hash) ?? v, receipts, blobLength, passageOf);
-      return [v.piece.hash, { ...core, seams: seamsOf(pl, receipts, v.piece.hash), traced: pieceTraces(pl.fold, v, receipts, blobLength, passageOf).traced }];
+      const core = pl.core.byHash.get(v.piece.hash) ?? v;
+      const traces = tracesKept(core, receipts, blobLength);
+      const over = v.state === 'disputed' ? seamed(pl.fold, v, receipts, traces, passageOf) : seamed(pl.core, core, receipts, traces, passageOf);
+      return [v.piece.hash, { traces, traced: graded(v, receipts, traces), ...over }];
     }));
   }
+  /** The seams `next` hands over with a piece: the same as the state shows (`tracesOf`). */
+  const seamsOf = (pl: ProblemLayer, receipts: Receipt[], hash: Hash): Seam[] => {
+    const v = pl.fold.byHash.get(hash);
+    if (!v) return [];
+    const core = pl.core.byHash.get(hash) ?? v;
+    const traces = tracesKept(core, receipts, blobLength);
+    return (v.state === 'disputed' ? seamed(pl.fold, v, receipts, traces, passageOf) : seamed(pl.core, core, receipts, traces, passageOf)).seams;
+  };
 
   /** The newest envelope here by the same owner whose `prev` is this problem: the version that replaced it, or null. The state says so, and `next` hands nothing on a replaced problem. */
   function supersededBy(hash: Hash): Hash | null {

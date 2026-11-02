@@ -333,7 +333,7 @@ export class Quilt {
    * The rarest piece for this key, claimed: the tracker's assisted next where one answers and names a piece, else the
    * core's `next` over the map; a lock of standing or of coin before the claim where the problem asks a stake of the
    * piece (QX-15, QX-17); the claim recorded in the library. With no problem named, `offered`. With QUILT_NEXT_ONLY set
-   * to `verify`, only a piece another vendor has returned (`verifyOnly`), and nothing claimed when there is none.
+   * to `verify`, only a piece within the second reader's pool (`pool`), and nothing claimed when there is none.
    */
   async next(input: string): Promise<Handed> {
     if (!input.trim()) return this.offered();
@@ -341,30 +341,30 @@ export class Quilt {
     const { hash, state, tracker, superseded } = await this.open(input);
     if (superseded) throw new Error(`that problem was replaced by its owner; the work is on ${superseded}`);
     const trackers = this.trackersFor(hash);
-    // 0. The second opinion's pool, where the environment asks for one: empty, there is nothing to verify, and no claim is made.
-    const only = this.verifyOnly(state);
+    // The second reader's pool, where the environment asks for one: empty, there is nothing to verify, and no claim is made. Everything below picks within it.
+    const pool = this.pool(state);
     const nothingToVerify = 'nothing to verify on that problem for this key right now';
-    if (only && only.size === 0) throw new Error(nothingToVerify);
-    // 1. The tracker's word, where one answered: the piece it names, the stake it asks, the pieces this key cannot cover; asked within the pool where there is one.
-    const asked = tracker ? await this.askedNext(hash, state, tracker, only !== null) : { pick: null, stake: 0, unaffordable: [] as Hash[], seams: [] as Seam[] };
-    let { pick, stake } = asked;
-    // A piece the tracker named outside the pool is left where it is: the map picks within the pool, and the stake is then that piece's.
-    const unaffordable = only ? asked.unaffordable.filter((h) => only.has(h)) : asked.unaffordable;
-    const setAside = pick !== null && only !== null && !only.has(pick.piece.hash);
-    if (setAside) pick = null;
-    // 2. Else the map, leaving out the pieces the tracker left out for their stake: a claim on one would be refused at its door.
-    const exclude = new Set<string>(asked.unaffordable);
-    if (only) for (const v of state.pieces) if (!only.has(v.piece.hash)) exclude.add(v.piece.hash);
-    pick ??= next(state, id.address, this.client(), this.stamp(), { exclude });
-    if (setAside && pick && tracker) stake = layerByHash(await this.layerOf(hash, tracker)).get(pick.piece.hash)?.stake ?? 0;
-    // 3. Else coin in place of standing (QX-17), where the tracker carries it and this key's free coin covers a stake.
+    if (pool?.size === 0) throw new Error(nothingToVerify);
+    const within = (piece: Hash): boolean => !pool || pool.has(piece);
+    // 1. The tracker's word, where one answered and named a piece within the pool: the piece, the stake it asks, and the pieces this key cannot cover.
+    const asked = tracker ? await this.askedNext(hash, state, tracker, pool !== null) : { pick: null, stake: 0, unaffordable: [] as Hash[], seams: [] as Seam[] };
+    let pick = asked.pick && within(asked.pick.piece.hash) ? asked.pick : null;
+    let stake = pick ? asked.stake : 0;
+    // 2. Else the map, within the pool and leaving out the pieces the tracker left out for their stake, since a claim on one would be refused at its door; where the tracker had named a piece outside the pool, the stake is the map's piece's own.
+    if (!pick) {
+      const exclude = new Set<string>([...asked.unaffordable, ...state.pieces.filter((v) => !within(v.piece.hash)).map((v) => v.piece.hash)]);
+      pick = next(state, id.address, this.client(), this.stamp(), { exclude });
+      if (pick && asked.pick && tracker) stake = layerByHash(await this.layerOf(hash, tracker)).get(pick.piece.hash)?.stake ?? 0;
+    }
+    // 3. Else coin in place of standing (QX-17), where the tracker carries it and this key's free coin covers a stake within the pool.
     let plan: CoinPlan | null = null;
+    const unaffordable = asked.unaffordable.filter(within);
     if (!pick && unaffordable.length && tracker) {
       const instead = await this.coinInstead(hash, state, tracker, unaffordable);
       if (instead) ({ pick, plan } = instead);
       if (plan) stake = plan.stake;
     }
-    if (!pick) throw new Error(only ? nothingToVerify : asked.unaffordable.length ? `every piece left on that problem asks a stake this key's free standing cannot cover (${tracker})` : 'nothing for this key on that problem right now');
+    if (!pick) throw new Error(pool ? nothingToVerify : asked.unaffordable.length ? `every piece left on that problem asks a stake this key's free standing cannot cover (${tracker})` : 'nothing for this key on that problem right now');
     // 4. The lock before the claim, where a stake is asked.
     const lock = await this.lockBefore(hash, pick.piece.hash, trackers, stake, plan);
     // 5. The claim, stamped after the lock so the two fold in order; where it went comes back as `posted`, refused or not.
@@ -379,7 +379,7 @@ export class Quilt {
   }
 
   /**
-   * The second opinion's pool, when QUILT_NEXT_ONLY is `verify`: the pieces in `needs_verify` or `disputed` that have a
+   * The second reader's pool, when QUILT_NEXT_ONLY is `verify`: the pieces in `needs_verify` or `disputed` that have a
    * reading on them. A key run this way confirms or disagrees with what was returned and does no first work, so an open
    * piece is never in the pool. Which piece among them is the core's choice (CORE.md section 7, step 3): it prefers one
    * no reading of which is this key's vendor's and falls back to the rest, and its own rule keeps a same-vendor pair from
@@ -387,7 +387,7 @@ export class Quilt {
    * The tracker is asked within the same pool (`askedNext`), so a reading it set aside comes back to the key that made
    * it. Null when the environment does not ask for it, and `next` takes anything.
    */
-  private verifyOnly(state: State): Set<string> | null {
+  private pool(state: State): Set<string> | null {
     if (process.env.QUILT_NEXT_ONLY !== 'verify') return null;
     return new Set(state.pieces.filter((v) => (v.state === 'needs_verify' || v.state === 'disputed') && v.reveals.length > 0).map((v) => v.piece.hash));
   }
