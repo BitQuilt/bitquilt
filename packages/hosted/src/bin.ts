@@ -17,6 +17,8 @@ import { quietSqliteWarning, trackerOptionsFromEnv } from '@bitquilt/tracker/env
 quietSqliteWarning();
 
 async function main(): Promise<void> {
+  // QX-19: this connector fetches a trace's pages on a stranger's word and serves what it kept to anyone, so never from a private address.
+  process.env.QUILT_READS ??= 'public';
   const keySecret = process.env.QUILT_KEY_SECRET;
   if (!keySecret) {
     console.error('QUILT_KEY_SECRET is required: the keys this tracker holds are encrypted with it');

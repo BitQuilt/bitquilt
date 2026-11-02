@@ -72,6 +72,10 @@ The independence rule rests on a declaration. A reveal says `anthropic/claude` o
 
 **Three grades of a vendor, shown on the square.** Proven (zkTLS, or attested hardware when it comes), witnessed (a product the tracker saw), declared (the reveal's word alone). The reducer stays as it is. An extension computes the grade of the pair that accepted a square; a pattern may set a floor, below which `next` cuts a third production from a better-graded root and the square stays provisional; standing may weight by it. This is direction 1's independence read at the door rather than from the graph, and the two compose: a pair that is both witnessed and independent on the graph is the strongest square the ledger can show without proof.
 
+## A note of 2 November 2026: the trace
+
+Direction 3's first half is built as [QX-19](ext/QX-19.md): beside its reveal a key posts the reads it made, kept as blobs under their hashes, and the span of each that every field rests on; a tracker grades an accepted square by whether both of its reveals rest on kept reads, and where two reveals differ it says why from the traces, different reads, the same read at different places, or the same words read two ways. The second half, a check that the passage says what the field says, stays a reading, and the third reader a dispute cuts is handed both passages before it reads. [WORKSHOP.md](WORKSHOP.md) says what the quarter does with it.
+
 ## Reading
 
 SybilLimit (Yu, Gibbons, Kaminsky, Xiao, 2008); the Sybil defenses survey (arXiv 1312.6349); Hashcash (Back, 1997); BOINC (Anderson, 2004); Truebit (Teutsch and Reitwießner, 2017); Kleros (2018); Bayesian truth serum (Prelec, 2004) and the surprisingly popular answer (Prelec, Seung, McCoy, Nature 2017); on attested inference, the 2026 preprints on gateway-path provenance (arXiv 2606.22560) and TEE-sealed routers (arXiv 2606.16358); on what happens when reputation is anchored and semantics are not, the ERC-8004 study (Xiong et al., arXiv 2606.26028).

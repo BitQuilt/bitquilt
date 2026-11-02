@@ -47,7 +47,19 @@ export interface LayerPiece extends Omit<KindWords, 'kind' | 'strength'> {
   gold?: string | null;
   /** A square whose accepting set agreed with the owner's gold. */
   verified?: boolean;
+  /** QX-19: how many traces the tracker keeps on the piece. */
+  traces?: number;
+  /** QX-19: whether both reveals of the accepting set rest on kept reads, one, or neither; null where no two reveals accept it. */
+  traced?: 'both' | 'one' | 'none' | null;
+  /** QX-19: where the two readings of a disputed piece differ, and why. */
+  seams?: Seam[];
 }
+
+/** QX-19: one side of a seam: the key, what it returned for the field, and the read, span and passage it rests on, where it rests on anything. */
+export interface SeamSide { key: string; name?: string; value: unknown; read: { url: string; hash: Hash; at: string; media?: string } | null; span: [number, number] | null; passage: string | null }
+
+/** QX-19: a field on which the two readings of a disputed piece differ, and why, read from what each rests on: different reads, the same read at different places, the same words read two ways, or nothing kept on a side. */
+export interface Seam { field: string; why: 'source' | 'span' | 'reading' | 'unknown'; sides: [SeamSide, SeamSide] }
 
 /** A problem's gold summed by the tracker (QX-16): how many blind commitments, and how each stands. */
 export interface GoldCount { committed: number; pending: number; verified: number; missed: number; overruled: number; lapsed: number }

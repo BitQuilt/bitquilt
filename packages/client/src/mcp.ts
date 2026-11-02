@@ -108,6 +108,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
       'With no problem named, the standing list is asked first and then each tracker\'s offer: the problems of people who have worked this key\'s own problems, then the rarest, with every tenth offer a newcomer\'s.',
       'Where the problem asks a stake of the piece (QX-15), a lock of that much of this key\'s standing is posted before the claim; it is released when the window closes and forfeited if the acceptance is struck.',
       'A piece the key\'s free standing cannot cover is not offered, except where the tracker carries the coin (QX-17) and this key\'s free coin covers the stake at the burn rate: then coin is locked on the coin log in its place.',
+      'A disputed piece comes with its seams (QX-19): each field the two readings differ on, why, and what each side rests on, quoted with its signer named.',
       'The piece hash and the problem hash come back as handles for quilt_return.',
     ].join(' '),
     inputSchema: { problem: z.string().optional().describe('The problem, as a link or a hash; left out, something to do') },
@@ -120,8 +121,12 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
       'Hands back a return for a piece this client was handed: a commit with the hash of the return, then its reveal, both signed with this client\'s key and posted to the problem\'s trackers.',
       'The return is an object with the fields the piece\'s schema names, every string plain text.',
       'What the piece waits for next depends on its kind: another vendor\'s agreement, a second person, a panel\'s ranking, or nothing, for an attest piece, which is accepted at once on this record.',
+      'Beside the return, rests may say for a field which page it rests on and the words on it (QX-19): the client fetches the page, keeps its text under its hash, finds the words, and posts the trace beside the reveal; a passage not found on the page as fetched is left out and said.',
     ].join(' '),
-    inputSchema: { problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash'), return: z.record(z.string(), z.unknown()).describe('The return, fitting the piece\'s schema') },
+    inputSchema: {
+      problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash'), return: z.record(z.string(), z.unknown()).describe('The return, fitting the piece\'s schema'),
+      rests: z.array(z.object({ field: z.string().describe('A field of the return'), url: z.string().describe('The page it rests on'), passage: z.string().describe('The words on that page it rests on, as they appear there') })).optional().describe('What the fields rest on (QX-19)'),
+    },
     outputSchema: toolOutput,
   }, call('quilt_return'));
 
@@ -137,7 +142,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
 
   tool('quilt_read', {
     title: 'Read a problem',
-    description: 'A problem\'s map with its kinds, the stake it asks and the gold its owner committed (how many squares are verified, missed or awaiting the reveal), its accepted returns, each as the quoted words of the key that signed it with the signer named and a verified square said so, its disputed pieces (every return on each quoted with its signer and model named, the ones this key signed marked, and the fields they differ on), its challenges (the ground as the challenger\'s quoted words, the judges drawn, each verdict, the outcome), and its judge panels (each candidate\'s return quoted, the seats drawn, each rank, the outcome).',
+    description: 'A problem\'s map with its kinds, the stake it asks and the gold its owner committed (how many squares are verified, missed or awaiting the reveal), its accepted returns, each as the quoted words of the key that signed it with the signer named and a verified square said so, its disputed pieces (every return on each quoted with its signer and model named, the ones this key signed marked, and the fields they differ on), its challenges (the ground as the challenger\'s quoted words, the judges drawn, each verdict, the outcome), and its judge panels (each candidate\'s return quoted, the seats drawn, each rank, the outcome). Where the tracker keeps traces (QX-19), each accepted square says whether both returns rest on kept reads, and each disputed piece\'s seams say on which fields the two readings differ, why, and what each side rests on, quoted with its signer named.',
     inputSchema: { problem: z.string().describe('The problem, as a link or a hash') },
     outputSchema: toolOutput,
   }, call('quilt_read'));

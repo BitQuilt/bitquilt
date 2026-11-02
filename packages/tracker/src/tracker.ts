@@ -23,6 +23,7 @@ import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems } from './g
 import { type CoinLayer, type CoinLockView, type CoinParams, type CoinWord, COIN, COIN_EVENTS, COIN_LOG, coinLayer } from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
 import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
+import { BLOB_MAX, type PieceTraces, TRACE, TRACE_EVENTS, admitTrace, pieceTraces } from './trace.js';
 import type { Store } from './store.js';
 
 /** The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under. */
@@ -31,7 +32,7 @@ const PIECE_EVENTS: ReadonlySet<string> = new Set(['claim', 'commit', 'reveal', 
 const IDENTITY_EVENTS: ReadonlySet<string> = new Set(['name', 'delegate', 'revoke', 'rotate', 'hide']);
 const PROBLEM_EVENTS: ReadonlySet<string> = new Set(['version', 'output', 'announce', 'seed']);
 /** What the problem log takes: the core's piece and problem events, then one set per extension in registry order. */
-const PROBLEM_LOG_EVENTS: ReadonlySet<string> = new Set([...PIECE_EVENTS, ...PROBLEM_EVENTS, ...CHALLENGE_EVENTS, ...RANK_EVENTS, ...STAKE_EVENTS, ...GOLD_EVENTS]);
+const PROBLEM_LOG_EVENTS: ReadonlySet<string> = new Set([...PIECE_EVENTS, ...PROBLEM_EVENTS, ...CHALLENGE_EVENTS, ...RANK_EVENTS, ...STAKE_EVENTS, ...GOLD_EVENTS, ...TRACE_EVENTS]);
 /** The most a post may carry, 4 MB: room for an envelope with its blobs. */
 const MAX_BODY = 4 * 1024 * 1024;
 /** How long a piece handed out by next or the offer is held for that key, so two clients here are not handed the same piece in the same minute. */
@@ -114,6 +115,18 @@ async function readBody(req: IncomingMessage): Promise<string> {
     chunks.push(chunk as Buffer);
   }
   return Buffer.concat(chunks).toString('utf8');
+}
+
+/** The request's body as bytes, at most `max`: what a read's blob arrives as (QX-19). */
+async function readBytes(req: IncomingMessage, max: number): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += (chunk as Buffer).length;
+    if (size > max) throw new Refusal(413, `a blob of at most ${max} bytes`);
+    chunks.push(chunk as Buffer);
+  }
+  return new Uint8Array(Buffer.concat(chunks));
 }
 
 function parseJson(text: string): unknown {
@@ -376,7 +389,19 @@ export function createTracker(options: TrackerOptions): Tracker {
       if (w) word = { stake: w };
     }
     if (GOLD_EVENTS.has(type)) checkGoldEvent(event, under);
+    if (TRACE_EVENTS.has(type)) checkTraceEvent(event, under, state);
     return word ? { chain: under, word } : { chain: under };
+  }
+
+  /** The door for QX-19: a trace from the key that revealed, naming reads this tracker holds, with every span inside its read (QX-19 section 1). */
+  function checkTraceEvent(event: Event, under: Hash, state: ReturnType<typeof reduce>): void {
+    if (!event.piece) throw new Refusal(400, 'a trace names a problem and a piece');
+    const view = state.byHash.get(event.piece);
+    if (!view) throw new Refusal(400, 'names a piece this problem does not have');
+    const receipts = inputFor(under)!.receipts;
+    const kept = pieceTraces(state, view, receipts, blobLength, () => null).traces;
+    const a = admitTrace(view, receipts, event, kept, blobLength);
+    if (!a.ok) throw new Refusal(400, a.why);
   }
 
   /** The door for the core's piece events: a piece the problem has; on a staked piece, a root with a live lock (QX-15); a reveal's return through the schema and the gate, on an unrevealed commit; a run on a revealed digest. */
@@ -577,7 +602,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       chain: 'QX-11', seeding: SEEDING, reciprocity: RECIPROCITY, hide: HIDE, maintainers, founding: options.founding ?? {}, identity: IDENTITY, hosted: options.extra !== undefined,
       ...(options.extraWellKnown?.() ?? {}),
       // `stake.burn_rate` is the rate in force now, which with `burn_indexed` moves with the epochs; `coin.burn_rate` is the parameter, its floor.
-      stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: coin()!.burnRateAt(now()) } : {}) }, gold: { extension: GOLD },
+      stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: coin()!.burnRateAt(now()) } : {}) }, gold: { extension: GOLD }, trace: { extension: TRACE, blob_max: BLOB_MAX },
       coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
       // The list a client reads; the dispatcher in `handle` is kept in this order by hand.
       routes: [
@@ -624,15 +649,18 @@ export function createTracker(options: TrackerOptions): Tracker {
   function state(hash: Hash, pl: ProblemLayer) {
     const s = pl.fold;
     const witnessed = witnessedReveals(hash);
+    const traced = tracesOf(hash, pl);
     return {
       problem: hash, now: now(), hidden: hidden().get(hash) ?? null, stake_rule: pl.stake,
       pieces: s.pieces.map((v) => {
         const l = pl.byHash.get(v.piece.hash)!;
+        const t = traced.get(v.piece.hash)!;
         return {
           name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l.state, core: l.core, challenge: l.challenge?.id ?? null,
           kind: l.kind.kind, extension: l.kind.extension, strength: l.kind.strength, says: l.kind.says, weakest: l.kind.weakest, attested: l.attested, panel: l.panel?.outcome ?? null,
           availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length, stake: l.stake, gold: l.gold, verified: l.verified,
           witnessed: witnessed.get(v.piece.hash) ?? [],
+          traces: t.traces.length, traced: t.traced, seams: t.seams,
         };
       }),
       gold: pl.goldCount, complete: s.complete, output: s.output?.hash ?? null, dropped: [...s.dropped, ...pl.dropped],
@@ -653,6 +681,21 @@ export function createTracker(options: TrackerOptions): Tracker {
       out.set(r.piece, list);
     }
     return out;
+  }
+
+  /** QX-19: how long a blob here is, or null. */
+  const blobLength = (h: Hash): number | null => store.blobLength(h);
+
+  /** QX-19: a span of a blob here as text, or null where the blob is not here. */
+  function passageOf(h: Hash, span: [number, number]): string | null {
+    const b = store.getBlob(h);
+    return b ? new TextDecoder().decode(b.subarray(span[0], span[1])) : null;
+  }
+
+  /** QX-19: each piece's traces, the square's grade and the seams of a disputed piece, over the layer's fold and this store's blobs. */
+  function tracesOf(hash: Hash, pl: ProblemLayer): Map<Hash, PieceTraces> {
+    const receipts = inputFor(hash)!.receipts;
+    return new Map(pl.fold.pieces.map((v) => [v.piece.hash, pieceTraces(pl.fold, v, receipts, blobLength, passageOf)]));
   }
 
   /** The name a root chose, as the problem's fold has it, or null. */
@@ -770,10 +813,12 @@ export function createTracker(options: TrackerOptions): Tracker {
     }
     const { kind, stake } = pl.byHash.get(pick.piece.hash)!;
     holdFor(hash, pick.piece.hash, key, at);
+    // QX-19: a disputed piece goes out with its seams, so the third reader replays both sides before it reads.
+    const seams = pick.state === 'disputed' ? pieceTraces(state, state.byHash.get(pick.piece.hash)!, input.receipts, blobLength, passageOf).seams : [];
     json(res, 200, {
       piece: pick.piece.hash, name: pick.piece.name, state: pick.state, brief: pick.brief, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h,
       verifier: pick.piece.verifier, kind: kind.kind, extension: kind.extension, strength: kind.strength, says: kind.says, weakest: kind.weakest, workspace: pick.piece.workspace ?? null, check: pick.piece.check ?? null,
-      stake, unaffordable,
+      stake, unaffordable, seams,
     });
   }
 
@@ -887,6 +932,15 @@ export function createTracker(options: TrackerOptions): Tracker {
         return;
       }
       // Blobs and names.
+      if ((m = /^\/b\/(sha256:[0-9a-f]{64})$/.exec(path)) && method === 'PUT') {
+        // QX-19 section 2: a read kept under its hash, so a trace can rest on it; counted against the address's limit.
+        limit(ipBucket(req), limits.ipPerHour);
+        const bytes = await readBytes(req, BLOB_MAX);
+        if (hashBytes(bytes) !== m[1]) throw new Refusal(400, 'the bytes do not match the hash');
+        store.putBlob(m[1] as Hash, bytes);
+        json(res, 202, { hash: m[1], bytes: bytes.length });
+        return;
+      }
       if ((m = /^\/b\/(sha256:[0-9a-f]{64})$/.exec(path)) && method === 'GET') {
         const bytes = store.getBlob(m[1] as Hash);
         if (!bytes) throw new Refusal(404, 'no such blob here');

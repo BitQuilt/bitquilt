@@ -11,7 +11,8 @@ import { draftEnvelope, patternProblems, patternProblemsText } from './pattern.j
 import type { Door } from './door.js';
 import * as gold from './gold.js';
 import { type Link, makeLink, parseLink } from './link.js';
-import { type ChallengeListing, type GoldCount, type LayerPiece, type Opened, type PanelListing, type Scrape, SIDES, type Side, type Takedown, type Witness } from './listings.js';
+import { type RestAsked, type TraceOutcome, traceAfterReveal } from './trace.js';
+import { type ChallengeListing, type GoldCount, type LayerPiece, type Opened, type PanelListing, type Scrape, SIDES, type Seam, type SeamSide, type Side, type Takedown, type Witness } from './listings.js';
 import { announcementEvent, postToRelays, searchRelays } from './relay.js';
 import { type Library, type Posted, type Resolver, askJson } from './resolver.js';
 import { inParallel } from './pool.js';
@@ -86,6 +87,8 @@ export interface Handed {
   owner: string;
   stake: number;
   lock: 'standing' | 'coin' | null;
+  /** QX-19: where the two readings of a disputed piece differ and what each rests on, as the tracker handed them over; empty otherwise. */
+  seams: Seam[];
 }
 
 /** A plan to lock coin in place of standing (QX-17): where the coin log is, how many units at the burn rate, and the stake they stand for. */
@@ -332,7 +335,7 @@ export class Quilt {
     const nothingToVerify = 'nothing to verify on that problem for this key right now';
     if (only && only.size === 0) throw new Error(nothingToVerify);
     // 1. The tracker's word, where one answered: the piece it names, the stake it asks, the pieces this key cannot cover.
-    const asked = tracker ? await this.askedNext(hash, state, tracker) : { pick: null, stake: 0, unaffordable: [] as Hash[] };
+    const asked = tracker ? await this.askedNext(hash, state, tracker) : { pick: null, stake: 0, unaffordable: [] as Hash[], seams: [] as Seam[] };
     let { pick, stake } = asked;
     // A piece the tracker named outside the pool is left where it is: the map picks within the pool, and the stake is then that piece's.
     const unaffordable = only ? asked.unaffordable.filter((h) => only.has(h)) : asked.unaffordable;
@@ -359,7 +362,9 @@ export class Quilt {
     // 6. The claim in the library.
     this.library.pieces[pick.piece.hash] = { problem: hash, name: pick.piece.name, when: claim.ts, what: 'claimed', verifier: pick.piece.verifier };
     this.save();
-    return { hash, pick, posted, owner: nameOf(state, state.envelope.problem.owner), stake, lock };
+    // The seams belong to the piece the tracker named; a piece the map picked instead has none here.
+    const seams = asked.pick?.piece.hash === pick.piece.hash ? asked.seams : [];
+    return { hash, pick, posted, owner: nameOf(state, state.envelope.problem.owner), stake, lock, seams };
   }
 
   /**
@@ -385,9 +390,9 @@ export class Quilt {
    * saying its holds are taken, and the map decides; one that does not answer names nothing. One that has taken the
    * problem down (QX-6) takes no claim on it either, so that throws.
    */
-  private async askedNext(hash: Hash, state: State, tracker: string): Promise<{ pick: Pick | null; stake: number; unaffordable: Hash[] }> {
+  private async askedNext(hash: Hash, state: State, tracker: string): Promise<{ pick: Pick | null; stake: number; unaffordable: Hash[]; seams: Seam[] }> {
     const id = this.needKey();
-    type Answer = { piece: Hash | null; state?: string; agree?: string[]; lease_h?: number; stake?: number; unaffordable?: Hash[] };
+    type Answer = { piece: Hash | null; state?: string; agree?: string[]; lease_h?: number; stake?: number; unaffordable?: Hash[]; seams?: Seam[] };
     let answer: Answer | null = null;
     let takenDown: string | null = null;
     try {
@@ -401,7 +406,7 @@ export class Quilt {
     const stake = answer?.stake ?? 0;
     const unaffordable = Array.isArray(answer?.unaffordable) ? answer.unaffordable : [];
     const view = answer?.piece ? state.byHash.get(answer.piece) : undefined;
-    if (!answer?.piece || !view) return { pick: null, stake, unaffordable };
+    if (!answer?.piece || !view) return { pick: null, stake, unaffordable, seams: [] };
     let pick = this.pickOnly(state, answer.piece, this.stamp());
     // A kind the core does not implement (human, judge:n, attest): the tracker's layer offered it, and the piece's own
     // brief, schema and lease are in the envelope this client holds.
@@ -409,7 +414,9 @@ export class Quilt {
       piece: view.piece, state: (answer.state ?? 'open') as Pick['state'], brief: renderInputs(view, state), ...(view.piece.schema ? { schema: view.piece.schema } : {}),
       agree: answer.agree ?? view.piece.agree ?? view.piece.schema?.required ?? [], requires: view.piece.requires, lease_h: answer.lease_h ?? view.piece.lease_h ?? state.envelope.problem.settings.lease_h, availability: view.availability,
     };
-    return { pick, stake, unaffordable };
+    // QX-19: the seams of a disputed piece, as the tracker handed them over, each side's key named here.
+    const seams = (Array.isArray(answer.seams) ? answer.seams : []).map((s) => ({ ...s, sides: s.sides.map((x) => ({ ...x, name: nameOf(state, x.key) })) as [SeamSide, SeamSide] }));
+    return { pick, stake, unaffordable, seams };
   }
 
   /**
@@ -536,8 +543,12 @@ export class Quilt {
     return { items, checked };
   }
 
-  /** A return handed in: a commit, then its reveal a moment later; and what the piece waits for next, by its kind. */
-  async return(problem: Hash, piece: Hash, ret: Record<string, unknown>): Promise<{ commit: Posted; reveal: Posted; waits: string }> {
+  /**
+   * A return handed in: a commit, then its reveal a moment later; and what the piece waits for next, by its kind. With
+   * rests (QX-19), the trace behind the reveal follows it: each page fetched once, each passage found, the reads kept
+   * on the trackers and the trace posted naming the reveal (trace.ts); a rest that cannot be placed is left out and said.
+   */
+  async return(problem: Hash, piece: Hash, ret: Record<string, unknown>, rests: RestAsked[] = []): Promise<{ commit: Posted; reveal: Posted; waits: string; trace: TraceOutcome | null }> {
     const key = this.needKey().address;
     const trackers = this.trackersFor(problem);
     this.gate(ret);
@@ -547,7 +558,8 @@ export class Quilt {
     const known = this.library.pieces[piece];
     this.library.pieces[piece] = { problem, name: known?.name ?? piece, when: reveal.ts, what: 'returned', ...(known?.verifier ? { verifier: known.verifier } : {}) };
     this.save();
-    return { commit, reveal: revealed, waits: await this.afterReturn(problem, piece, known?.verifier) };
+    const trace = rests.length ? await traceAfterReveal(this.door, problem, piece, eventId(reveal), ret, rests, trackers) : null;
+    return { commit, reveal: revealed, waits: await this.afterReturn(problem, piece, known?.verifier), trace };
   }
 
   /**
