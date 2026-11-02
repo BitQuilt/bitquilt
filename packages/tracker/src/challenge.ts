@@ -123,6 +123,8 @@ export interface ProblemLayer {
   golds: GoldView[];
   /** The gold summed for a reader: how many commitments, and how each stands; which pieces they are on is known only at the reveal. */
   goldCount: GoldCount;
+  /** Every receipt the fold was computed from: the chain's and the identity log's, so a reader of the layer (the traces, the seeds, the directory row) need not read the store again. */
+  receipts: Receipt[];
 }
 
 export type Admission = { ok: true } | { ok: false; why: string };
@@ -595,6 +597,7 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
       problem: e.hash, core: e.core, fold: e.fold, pieces, byHash: new Map(pieces.map((p) => [p.hash, p])), challenges: e.challenges,
       panels: e.layered.panels, unoffered: e.layered.unoffered, dropped: [...e.dropped, ...e.layered.dropped],
       stake: rule ? { min: rule.min, pieces: rule.pieces } : null, locks: f.locks.filter((l) => l.problem === e.hash), golds: e.golds, goldCount: goldCount(e.golds, (_g, c) => outcomeOf(e, c, now)),
+      receipts: e.input.receipts,
     });
     all.push(...e.challenges);
   }

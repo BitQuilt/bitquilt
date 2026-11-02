@@ -118,6 +118,10 @@ describe('a trace at the door, and the grade of a square', () => {
     await accepted(`/p/${p}/events`, trace(A, piece, ra, [read(page)], [{ field: 'verdict', read: 0, span: span(PAGE, HOLDS) }]));
     await accepted(`/p/${p}/events`, trace(B, piece, rb, [read(page), read(other)], [{ field: 'verdict', read: 0, span: span(PAGE, HOLDS) }, { field: 'quote', read: 1, span: [0, 16] }]));
     expect(await pieceOf(piece)).toMatchObject({ state: 'accepted_provisional', traces: 2, traced: 'both', seams: [] });
+    // The directory row counts the accepted squares by grade (APP.md, Search).
+    const row = ((await get('/search?q=traced')) as { problems: { problem: Hash; work: { accepted: number; traced: { both: number; one: number; none: number } } }[] }).problems.find((r) => r.problem === p)!;
+    expect(row.work.traced.both).toBeGreaterThanOrEqual(1);
+    expect(row.work.traced.both + row.work.traced.one + row.work.traced.none).toBeLessThanOrEqual(row.work.accepted);
   });
 });
 
