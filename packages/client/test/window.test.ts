@@ -11,6 +11,7 @@ import { buildWindow } from '../../../scripts/build-window.mjs';
 import { createMcpServer } from '../src/mcp.js';
 import { say } from '../src/phrases.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
+import { type Library, publicLibrary } from '../src/resolver.js';
 import { localRunner } from '../src/tools.js';
 import { WINDOW_HTML } from '../src/window.generated.js';
 import { WINDOW_OPS, WINDOW_PHRASES, WINDOW_URI, WINDOW_URI_NOW } from '../src/window.js';
@@ -68,10 +69,12 @@ describe('the directory window', () => {
     const tools = (await client.listTools()).tools;
     const by = Object.fromEntries(tools.map((t) => [t.name, t]));
     const ui = (name: string) => (by[name]?._meta as { ui?: { resourceUri?: string; visibility?: string[] } } | undefined)?.ui;
-    for (const name of ['quilt_window', 'quilt_search']) expect(ui(name), name).toMatchObject({ resourceUri: WINDOW_URI_NOW });
+    const card = ['quilt_window', 'quilt_search', 'quilt_open', 'quilt_read'];
+    for (const name of card) expect(ui(name), name).toMatchObject({ resourceUri: WINDOW_URI_NOW });
     expect(ui('quilt_window_io')).toMatchObject({ resourceUri: WINDOW_URI_NOW, visibility: ['app'] });
     for (const t of tools) {
-      if (!['quilt_window', 'quilt_search', 'quilt_window_io'].includes(t.name)) expect(ui(t.name), t.name).toBeUndefined();
+      // quilt_next holds a piece as a side effect, so the card is not on it: a card that could show it would take pieces by being drawn.
+      if (![...card, 'quilt_window_io'].includes(t.name)) expect(ui(t.name), t.name).toBeUndefined();
       expect(t.description ?? '').not.toMatch(instructs);
     }
     const resources = (await client.listResources()).resources;
@@ -126,10 +129,42 @@ describe('the directory window', () => {
     expect(phrases.take_piece).toBe('Open {link} on Quilt and take a piece.');
     const totals = await io('totals');
     expect(totals.trackers).toEqual([{ tracker: base, problems: 1, pieces: 3, counts: { open: 2, needs_verify: 1 } }]);
-    const bad = await client.callTool({ name: 'quilt_window_io', arguments: { op: 'me' as never, query: 'x' } });
-    expect(bad.isError ?? false).toBe(false);
-    expect(WINDOW_OPS).toEqual(['search', 'me', 'totals']);
+    // The problem's map as the tracker's layer holds it, each piece with its kind, grade and readers, and no brief.
+    const opened = await io('open', { link: problem });
+    expect(opened).toMatchObject({ problem, title: pattern.title, done_when: pattern.done_when, slug: pattern.slug, owner: owner.identity!.address, owner_name: null, tracker: base, complete: false, seeders: 0, seeding: false, readers: 1, vendors: ['openai'] });
+    const pieces = opened.pieces as { name: string; state: string; core: string; kind: string; strength: string; reveals: number; traced: string | null; seams: number }[];
+    expect(pieces.map((x) => [x.name, x.state, x.reveals])).toEqual([['statement/1', 'needs_verify', 1], ['statement/2', 'open', 0], ['statement/3', 'open', 0]]);
+    expect(pieces[0]).toMatchObject({ kind: 'agree', strength: 'agreed', traced: null, seams: 0 });
+    expect(JSON.stringify(opened)).not.toContain('does the paper say so');
+    expect((opened.link as string).startsWith('quilt:sha256:')).toBe(true);
+    // The library: names and counts, what the node serves, and no gold answer in it.
+    const lib = await io('library');
+    expect(Object.keys(lib.problems as object)).toEqual([problem]);
+    expect((lib.problems as Record<string, { link: string; title: string }>)[problem]).toMatchObject({ title: pattern.title });
+    expect((lib.serving as { problems: number }).problems).toBeGreaterThanOrEqual(1);
+    expect(JSON.stringify(lib)).not.toMatch(/projection|nonce/);
+    // The hot list: a key followed, with its standing, kept in this home's library alone, and dropped again.
+    expect(await io('hot')).toEqual({ op: 'hot', keys: [] });
+    const followed = await io('follow', { key: owner.identity!.address, on: true, name: 'the owner' });
+    const keys = followed.keys as { key: string; name: string; standing: number | null; since: string }[];
+    expect(keys).toHaveLength(1);
+    expect(keys[0]).toMatchObject({ key: owner.identity!.address, name: 'the owner' });
+    expect(typeof keys[0]!.standing).toBe('number');
+    expect(a.library.follows).toEqual({ [owner.identity!.address]: { name: 'the owner', since: keys[0]!.since } });
+    expect(((await io('follow', { key: owner.identity!.address, on: false })).keys as unknown[])).toEqual([]);
+    const refused = await client.callTool({ name: 'quilt_window_io', arguments: { op: 'follow', key: 'not-an-address', on: true } });
+    expect(refused.isError).toBe(true);
+    expect(WINDOW_OPS).toEqual(['search', 'open', 'library', 'hot', 'follow', 'me', 'totals']);
     await close();
+  });
+
+  it('shows the library to the page as names and counts, with the gold\'s answers left in the home', () => {
+    const library: Library = { problems: {}, pieces: {}, seeding: {}, gold: { 'sha256:p': { 'sha256:a': { name: 'x/1', projection: { v: 1 }, nonce: 'n', revealed: '2026-11-02T00:00:00Z' }, 'sha256:b': { name: 'x/2', projection: { v: 2 }, nonce: 'm' } } } };
+    const shown = publicLibrary(library, { problems: 2, ledgers: 1, blobs: 0, bytes: 10 });
+    expect(shown.gold).toEqual({ 'sha256:p': { committed: 2, revealed: 1 } });
+    expect(shown.serving).toEqual({ problems: 2, ledgers: 1, blobs: 0, bytes: 10 });
+    expect(JSON.stringify(shown)).not.toMatch(/projection|nonce/);
+    expect(a.resolver.serving().problems).toBeGreaterThanOrEqual(1);
   });
 
   it('offers neither the window nor its reader, and no resource, to a run while away', async () => {

@@ -97,9 +97,9 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_me'));
 
-  tool('quilt_open', {
+  cardTool('quilt_open', {
     title: 'Open a problem',
-    description: 'Opens a problem from a quilt link, a tracker address or a bare hash: the owner\'s title and statement of when it is done as their quoted words, the map of pieces with their states, the verifier kinds and how strongly each earns a square, and the link to pass on.',
+    description: 'Opens a problem from a quilt link, a tracker address or a bare hash: the owner\'s title and statement of when it is done as their quoted words, the map of pieces with their states, the verifier kinds and how strongly each earns a square, and the link to pass on. Where the chat shows MCP apps, the window comes up beside the result on the problem\'s map.',
     inputSchema: { link: z.string().describe('A quilt: link, a tracker\'s /p/<hash> address, or a sha256: hash') },
     outputSchema: toolOutput,
   }, call('quilt_open'));
@@ -114,9 +114,9 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
   cardTool('quilt_window', {
     title: 'Open the window',
     description: [
-      'Quilt\'s directory window, shown beside this result where the chat shows MCP apps: a search over the problems the trackers and relays this client knows, each with its pieces and how many are returned, accepted and disputed, who proposed it and where it is held; and who this client is, with its standing and coin.',
-      'Its buttons hand the person\'s own sentence to this chat, so a piece is taken or a problem opened through quilt_next and quilt_open as from any other sentence of theirs.',
-      'Where the chat shows no MCP apps, quilt_search and quilt_me say the same in text.',
+      'Quilt\'s directory window, shown beside this result where the chat shows MCP apps: a search over the problems the trackers and relays this client knows, each with its pieces and how many are returned, accepted and disputed, who proposed it and where it is held; a problem\'s map with each piece\'s kind, grade and readers; the keys this person follows; this home\'s library and what its node serves; and who this client is, with its standing and coin.',
+      'Its buttons hand the person\'s own sentence to this chat, so a piece is taken or a problem opened through quilt_next and quilt_open as from any other sentence of theirs; following a key is written in this home\'s library alone.',
+      'Where the chat shows no MCP apps, quilt_search, quilt_open, quilt_read and quilt_me say the same in text.',
     ].join(' '),
     inputSchema: { query: z.string().max(200).optional().describe('Words to open the search on'), link: z.string().max(400).optional().describe('A problem to open it on') },
     outputSchema: toolOutput,
@@ -132,8 +132,8 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
   // offered it. Its answer is JSON as text, nothing in structuredContent.
   const reader = registerAppTool(server, 'quilt_window_io', {
     title: 'What the window reads',
-    description: 'The window\'s own reader, for the card and not for the model: a search over the trackers and relays, who this client is, and the trackers\' totals, each answered as JSON text for the window to draw. Hidden from the model by its visibility.',
-    inputSchema: { op: z.enum(WINDOW_OPS), query: z.string().max(200).optional(), link: z.string().max(400).optional(), key: z.string().max(64).optional(), on: z.boolean().optional() },
+    description: 'The window\'s own reader, for the card and not for the model: a search over the trackers and relays, a problem\'s map and grades, this home\'s library and what its node serves, the keys this person follows, who this client is, and the trackers\' totals, each answered as JSON text for the window to draw. Its one write is the list of followed keys in this home\'s library. Hidden from the model by its visibility.',
+    inputSchema: { op: z.enum(WINDOW_OPS), query: z.string().max(200).optional(), link: z.string().max(400).optional(), key: z.string().max(64).optional(), on: z.boolean().optional(), name: z.string().max(60).optional() },
     _meta: { ui: { resourceUri: WINDOW_URI_NOW, visibility: ['app'] } },
   }, async (input) => ({ content: [{ type: 'text' as const, text: (await run('quilt_window_io', input as ToolInput, server.server.getClientVersion()?.name)).text }] }));
   if (away) reader.remove();
@@ -183,12 +183,13 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_decline'));
 
-  tool('quilt_read', {
+  cardTool('quilt_read', {
     title: 'Read a problem',
     description: 'A problem\'s map with its kinds, the stake it asks and the gold its owner committed (how many squares are verified, missed or awaiting the reveal), its accepted returns, each as the quoted words of the key that signed it with the signer named and a verified square said so, its disputed pieces (every return on each quoted with its signer and model named, the ones this key signed marked, and the fields they differ on), its challenges (the ground as the challenger\'s quoted words, the judges drawn, each verdict, the outcome), and its judge panels (each candidate\'s return quoted, the seats drawn, each rank, the outcome). Where the tracker keeps traces (QX-19), each accepted square says whether both returns rest on kept reads, and each disputed piece\'s seams say on which fields the two readings differ, why, and what each side rests on, quoted with its signer named.',
     inputSchema: { problem: z.string().describe('The problem, as a link or a hash') },
     outputSchema: toolOutput,
   }, call('quilt_read'));
+  // (quilt_read names the window too, so it comes up on the problem's map beside the reading where the chat shows MCP apps.)
 
   tool('quilt_rank', {
     title: 'Rank a judge piece\'s candidates',

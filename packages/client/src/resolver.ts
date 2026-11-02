@@ -5,7 +5,7 @@
  * client's side of PROTOCOL.md's resolvers: it asks them and keeps what they answer; the node in page.ts is the part
  * of Quilt that is a resolver.
  */
-import { appendFileSync, existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Envelope, type Event, type Hash, type Receipt, type State, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, problemHash, reduce, verifyChain, withSlash } from '@bitquilt/core';
 import { type Config, ensureHome } from './config.js';
@@ -57,9 +57,24 @@ export interface Library {
   gold?: Record<string, Record<string, { name: string; projection: Record<string, unknown>; nonce: string; revealed?: string }>>;
   /** The AI that connected through the connector: its host's name, the first time and the latest. Its presence is what moves the menu bar from install instructions to the phrases (phrases.ts). */
   connector?: { host: string | null; first: string; last: string };
+  /** The hot list (APP.md, "The window"): the keys this person follows, by address, with the name they knew them by. A choice at the edge; no rule reads it and no event carries it. */
+  follows?: Record<string, { name: string | null; since: string }>;
 }
 
 const EMPTY_LIBRARY = (): Library => ({ problems: {}, pieces: {}, seeding: {} });
+
+/** What this node holds in its cache and serves to anyone by hash: problems, ledgers, blobs, and the bytes of all three. */
+export interface Held { problems: number; ledgers: number; blobs: number; bytes: number }
+
+/**
+ * The library as the page's API and the window show it: names and counts, and what the node serves. The gold's
+ * projections and nonces never leave the home (the Library says so of itself), so each problem's gold is two counts.
+ */
+export function publicLibrary(library: Library, held: Held): { problems: Record<string, Library['problems'][string]>; pieces: Library['pieces']; seeding: Library['seeding']; follows: NonNullable<Library['follows']>; connector: Library['connector'] | null; gold: Record<string, { committed: number; revealed: number }>; serving: Held } {
+  const gold: Record<string, { committed: number; revealed: number }> = {};
+  for (const [problem, pieces] of Object.entries(library.gold ?? {})) gold[problem] = { committed: Object.keys(pieces).length, revealed: Object.values(pieces).filter((g) => g.revealed).length };
+  return { problems: library.problems, pieces: library.pieces, seeding: library.seeding, follows: library.follows ?? {}, connector: library.connector ?? null, gold, serving: held };
+}
 
 export class Resolver {
   readonly home: string;
@@ -126,6 +141,37 @@ export class Resolver {
   saveLibrary(): void {
     writeFileSync(this.libraryFile, JSON.stringify(this.library, null, 2) + '\n');
     this.stamp = this.fileStamp();
+  }
+
+  /** What this node holds in its cache and serves by hash (`/p/<hash>`, `/p/<hash>/events`, `/b/<hash>`): a count of each and the bytes, read from the folders. */
+  serving(): Held {
+    const cache = join(this.home, 'cache');
+    const count = (dir: string, keep: (name: string) => boolean): { n: number; bytes: number } => {
+      let n = 0;
+      let bytes = 0;
+      let names: string[] = [];
+      try {
+        names = readdirSync(dir);
+      } catch {
+        return { n, bytes };
+      }
+      for (const name of names) {
+        if (!keep(name)) continue;
+        try {
+          const st = statSync(join(dir, name));
+          if (!st.isFile()) continue;
+          n += 1;
+          bytes += st.size;
+        } catch {
+          /* gone between the listing and the stat */
+        }
+      }
+      return { n, bytes };
+    };
+    const problems = count(cache, (name) => name.endsWith('.json') && name !== 'identity.jsonl');
+    const ledgers = count(join(cache, 'ledger'), (name) => name.endsWith('.jsonl'));
+    const blobs = count(join(cache, 'blobs'), () => true);
+    return { problems: problems.n, ledgers: ledgers.n, blobs: blobs.n, bytes: problems.bytes + ledgers.bytes + blobs.bytes };
   }
 
   /** The places to ask, in order: the link's trackers, the config's, then mirrors. */

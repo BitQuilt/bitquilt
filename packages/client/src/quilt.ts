@@ -253,11 +253,23 @@ export class Quilt {
   /** This key's standing as the first tracker that answers computes it; null with no key or no tracker. */
   async standing(): Promise<Standing | null> {
     const address = this.identity?.address;
-    if (!address) return null;
+    return address ? this.standingOf(address) : null;
+  }
+
+  /** Any key's standing as the first tracker that answers computes it (QX-1); null where no tracker answers. */
+  async standingOf(address: Address): Promise<Standing | null> {
     return this.firstAnswer(this.config.trackers, async (t) => {
       const j = await askJson<Omit<Standing, 'tracker'>>(`${t}k/${address}/standing`);
       return j && { tracker: t, standing: j.standing, locked: j.locked, free: j.free, founding: j.founding ?? 0, locks: j.locks };
     });
+  }
+
+  /** The hot list (APP.md, "The window"): a key followed or dropped, in this home's library alone; nothing is signed or posted. */
+  async follow(address: Address, on: boolean, name: string | null = null): Promise<void> {
+    const follows = (this.library.follows ??= {});
+    if (on) follows[address] = { name: name ?? follows[address]?.name ?? null, since: follows[address]?.since ?? this.stamp() };
+    else delete follows[address];
+    this.save();
   }
 
   /** A tracker's well-known document, asked again after ten minutes or when the last answer was nothing; null when it does not answer. */
