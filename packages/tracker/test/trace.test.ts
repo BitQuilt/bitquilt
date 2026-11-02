@@ -11,7 +11,8 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  * seams go out with the piece when next hands it over; the well-known document names the extension. And the seam
  * decides itself (section 4): a reading that rests on nothing where the other rests on the record is set aside, the
  * piece goes back out with the seam and the same key may read it again, a late trace lifts the set-aside, nothing is
- * set aside where neither side rests on anything, and a problem its owner replaced hands out nothing and leaves the index.
+ * set aside where neither side rests on anything, every pair is judged where a piece has three readings, and a problem
+ * its owner replaced hands out nothing and leaves the index.
  */
 const owner = key(9), A = key(1), B = key(2), C = key(3);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
@@ -245,6 +246,57 @@ describe('a seam decides itself (section 4)', () => {
     const s = await stateOf(pp, x);
     expect(s).toMatchObject({ state: 'disputed', core: 'disputed', aside: [addr(B)] });
     expect(s.seams).toMatchObject([{ field: 'verdict', why: 'span', sides: [{ key: addr(A), passage: HOLDS, aside: false }, { key: addr(B), passage: NOT_AT_SCALE, aside: false }] }]);
+  });
+
+  it('judges every pair where a piece has three readings: a third that rests on the record sets aside each earlier one that rests on nothing, and the piece is folded with what stands', async () => {
+    // A verdict with three values, so a third reading can differ from both before it.
+    const three = { ...schema, properties: { ...schema.properties, verdict: { enum: ['supports', 'contradicts', 'silent'] } } };
+    const e = signed(owner, 'third', { 'statement/*': { count: 3, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema: three, agree: ['verdict'] } });
+    const pt = problemHash(e);
+    expect((await post('/p', { envelope: e })).status).toBe(201);
+    const named = ((await get(`/p/${pt}/state`)) as { pieces: PieceState[] }).pieces;
+    // The live shape: two readings that rest on nothing differ, and a third that differs from both rests on the record.
+    // Each earlier reading loses its pair with the third and is set aside; the third stands alone, so the piece needs
+    // its second reading, and the keys set aside may give it. Over the core's fold the seams are the three pairs, and a
+    // side is set aside wherever its reading is.
+    const x = named.find((v) => v.name === 'statement/1')!.hash;
+    await returnedOn(pt, x, A, 'anthropic/claude', 'supports');
+    await returnedOn(pt, x, B, 'openai/gpt-5', 'contradicts');
+    const rc = await returnedOn(pt, x, C, 'anthropic/claude', 'silent');
+    expect(await stateOf(pt, x)).toMatchObject({ state: 'disputed', core: 'disputed', aside: [] });
+    await accepted(`/p/${pt}/events`, rested(C, pt, x, rc, span(PAGE, NOT_AT_SCALE)));
+    const s = await stateOf(pt, x);
+    expect(s).toMatchObject({ state: 'needs_verify', core: 'disputed', aside: [addr(A), addr(B)], traced: null });
+    expect(s.seams).toMatchObject([
+      { field: 'verdict', why: 'unknown', sides: [{ key: addr(A), passage: null, aside: true }, { key: addr(B), passage: null, aside: true }] },
+      { field: 'verdict', why: 'unknown', sides: [{ key: addr(A), passage: null, aside: true }, { key: addr(C), passage: NOT_AT_SCALE, aside: false }] },
+      { field: 'verdict', why: 'unknown', sides: [{ key: addr(B), passage: null, aside: true }, { key: addr(C), passage: NOT_AT_SCALE, aside: false }] },
+    ]);
+    const handed = (await get(`/p/${pt}/next?key=${addr(B)}&can=web&model=openai/gpt-5&only=verify`)) as { piece: Hash | null; state: string };
+    expect(handed).toMatchObject({ piece: x, state: 'needs_verify' });
+    // B reads again with the seams in hand and agrees with C: the set is theirs, across vendors, graded one.
+    await returnedOn(pt, x, B, 'openai/gpt-5', 'silent');
+    expect(await stateOf(pt, x)).toMatchObject({ state: 'accepted_provisional', core: 'disputed', aside: [addr(A), addr(B)], traced: 'one' });
+    // The other shape the layer decides: the third reading rests on the record, agrees with the first and differs from
+    // the second, both of which rest on nothing. The second loses its pair and is set aside; the first and the third
+    // agree but share a vendor, so the piece needs its second reading.
+    const y = named.find((v) => v.name === 'statement/2')!.hash;
+    await returnedOn(pt, y, A, 'anthropic/claude', 'supports');
+    await returnedOn(pt, y, B, 'openai/gpt-5', 'contradicts');
+    const ry = await returnedOn(pt, y, C, 'anthropic/claude', 'supports');
+    await accepted(`/p/${pt}/events`, rested(C, pt, y, ry, span(PAGE, HOLDS)));
+    const sy = await stateOf(pt, y);
+    expect(sy).toMatchObject({ state: 'needs_verify', core: 'disputed', aside: [addr(B)] });
+    expect(sy.seams).toMatchObject([
+      { field: 'verdict', why: 'unknown', sides: [{ key: addr(A), passage: null, aside: false }, { key: addr(B), passage: null, aside: true }] },
+      { field: 'verdict', why: 'unknown', sides: [{ key: addr(B), passage: null, aside: true }, { key: addr(C), passage: HOLDS, aside: false }] },
+    ]);
+    // And the shape the core decides on its own: a third reading that agrees with the other vendor's is the set, no layer needed.
+    const z = named.find((v) => v.name === 'statement/3')!.hash;
+    await returnedOn(pt, z, A, 'anthropic/claude', 'supports');
+    await returnedOn(pt, z, B, 'openai/gpt-5', 'contradicts');
+    await returnedOn(pt, z, C, 'anthropic/claude', 'contradicts');
+    expect(await stateOf(pt, z)).toMatchObject({ state: 'accepted_provisional', core: 'accepted_provisional', aside: [] });
   });
 
   it('hands nothing on a problem its owner replaced with a newer version, says so in the state, and leaves it out of the index', async () => {

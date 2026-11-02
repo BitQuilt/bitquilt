@@ -32,6 +32,9 @@ services:
       context: ..
     restart: unless-stopped
     command: ["sh", "deploy/house.sh"]
+    # A stop reaches the loop as SIGTERM: it finishes the piece in its hands and claims no other (house.sh), and is given
+    # the time a reading takes. Killed inside a reading, a house leaves a claim that stands for its lease with no reveal.
+    stop_grace_period: 10m
     # Only its own names from the env file, not the tracker's; the claim declares the model the reveal is made with.
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
@@ -54,6 +57,7 @@ services:
       context: ..
     restart: unless-stopped
     command: ["sh", "deploy/house.sh"]
+    stop_grace_period: 10m
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       HOUSE: ${HOUSE:-on}

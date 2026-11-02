@@ -307,8 +307,7 @@ function setAsideUngrounded(f: Folding, blobLength: (hash: Hash) => number | nul
       const found: Hash[] = [];
       for (const v of e.fold.pieces) {
         if (v.state !== 'disputed') continue;
-        const id = pieceTraces(e.fold, v, e.input.receipts, blobLength, () => null).aside;
-        if (id && !e.struck.has(id)) found.push(id);
+        for (const id of pieceTraces(e.fold, v, e.input.receipts, blobLength, () => null).aside) if (!e.struck.has(id)) found.push(id);
       }
       if (found.length === 0) break;
       for (const id of found) {

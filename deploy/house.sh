@@ -41,9 +41,24 @@ if [ ! -f "${QUILT_HOME:?QUILT_HOME names where the key lives}/key" ]; then
 fi
 say "the house second opinion answers as $VENDOR/$MODEL, at most $MAX pieces every $EVERY seconds, on $QUILT_TRACKERS"
 
+# A stop (docker stop, or a deploy that rebuilds the service) reaches this shell as TERM. The worker is told: it finishes
+# the piece in its hands, returns it, and takes no other; this loop waits for it and then exits instead of sleeping. The
+# compose file gives the service the time a reading takes. Killed inside a reading, a house leaves a claim that stands
+# for its lease with no reveal behind it, which is what happened on 2 November 2026.
+STOP=
+CHILD=
+stop() { STOP=1; [ -n "$CHILD" ] && kill -TERM "$CHILD" 2>/dev/null; }
+trap stop TERM INT
 while :; do
   # What waited in the queue while no tracker answered (the name on the first run, a return during a restart) goes out first.
   quilt flush >/dev/null 2>&1 || true
-  node "$WORKER" --second-only --all --max "$MAX" --model "$MODEL" || say "the worker exited with $?"
-  sleep "$EVERY"
+  node "$WORKER" --second-only --all --max "$MAX" --model "$MODEL" & CHILD=$!
+  wait "$CHILD"; RC=$?
+  # A trap ends a wait early with a status past 128; the worker is still running, so wait for it again.
+  while [ "$RC" -gt 128 ] && kill -0 "$CHILD" 2>/dev/null; do wait "$CHILD"; RC=$?; done
+  CHILD=
+  [ "$RC" -eq 0 ] || say "the worker exited with $RC"
+  [ -n "$STOP" ] && { say "stopped, the piece in hand returned and no other taken"; exit 0; }
+  sleep "$EVERY" & wait $! || true
+  [ -n "$STOP" ] && exit 0
 done
