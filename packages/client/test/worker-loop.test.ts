@@ -50,6 +50,8 @@ describe('the workers\' shared loop', () => {
     expect(REST_ASK).toMatch(/^Under rests, /);
     expect(instruction('')).toMatch(/^You work one piece of a problem/);
     expect(instruction('')).toContain('no links or web addresses');
+    // The rests are the one place an address goes, said so, since a model told no string holds one names the page by title there too and nothing can be fetched.
+    expect(instruction('')).toContain('The rests are not part of the answer and are the one place an address goes');
     expect(instruction('Copy the words exactly.')).toMatch(/ Copy the words exactly\.$/);
   });
   it('takes addresses, domains, markup and handles out of an answer before it is signed, so the gate admits it, and leaves a title and an id alone', () => {

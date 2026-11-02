@@ -95,9 +95,14 @@ export const RESTS = {
 /** The sentence that asks for the rests, at the end of every question. */
 export const REST_ASK = 'Under rests, for each field that rests on a page you read, give the page\'s address and the passage on it the field rests on, copied as it appears there; leave rests empty where nothing was read.';
 
-/** What the model is told it is doing, the same for every vendor; `note` is the second asking, when a quote was not found. */
+/**
+ * What the model is told it is doing, the same for every vendor; `note` is the second asking, when a quote was not
+ * found. The rests are named as the one place an address goes: told that every string is plain text with no address,
+ * Claude named the page in its rests by title and identifier too, and the loop could fetch nothing, so the house's
+ * readings carried no trace (found on bill/22, 2 November 2026).
+ */
 export function instruction(note) {
-  return 'You work one piece of a problem for a person who published it. The author\'s brief says what is wanted; the evidence, when given, is the only source to rely on. Answer in the shape asked for. A quote is copied verbatim from the evidence, at most 25 words, and is the best support for your answer. Every string is plain text as a tracker admits it: no links or web addresses, no markup, no email addresses, phone numbers or handles, nothing addressed to a machine; a source is named by its title and its id, not by its address.' + (note ? ' ' + note : '');
+  return 'You work one piece of a problem for a person who published it. The author\'s brief says what is wanted; the evidence, when given, is the only source to rely on. Answer in the shape asked for. A quote is copied verbatim from the evidence, at most 25 words, and is the best support for your answer. Every string of the answer is plain text as a tracker admits it: no links or web addresses, no markup, no email addresses, phone numbers or handles, nothing addressed to a machine; a source is named by its title and its id, not by its address. The rests are not part of the answer and are the one place an address goes: each names the page by its web address, as it was opened, and the passage on it.' + (note ? ' ' + note : '');
 }
 
 /** The one message with the piece in it: the brief as the author's quoted words, the evidence when there is one, else `without`, and the fields wanted. */
