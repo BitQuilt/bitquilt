@@ -367,8 +367,8 @@ export function goldText(gold: readonly Revealed[]): string {
   return `gold: ${posted.length} revealed${parts.length ? ` (${parts.join(', ')})` : ''}${refused ? `, ${refused} refused` : ''}`;
 }
 
-/** What the owner's part of a turn did: the gold revealed, the briefs sharpened, the problems announced again, and all three in a few words for a log line, or nothing when there was nothing to do. */
-export interface OwnerTurn { gold: Revealed[]; sharpened: Sharpened[]; announced: string[]; said: string }
+/** What the owner's part of a turn did: the gold revealed, the briefs sharpened, the problems announced again, and all three in a few words for a log line, or nothing when there was nothing to do; and what the keeper's loop did beside it, which is the node's and not the owner's, so it is not in `said`. */
+export interface OwnerTurn { gold: Revealed[]; sharpened: Sharpened[]; announced: string[]; said: string; kept: { added: number; reads: number } }
 
 /**
  * The owner's part of a turn, which needs no agent beside it: the gold due revealed (QX-16, gold.ts), and the briefs
@@ -398,7 +398,16 @@ export async function ownerTurn(quilt: Quilt, ask: ((q: SentenceAsk) => Promise<
   } catch (e) {
     log(`${now().toISOString()} announce: not run (${oneLine((e as Error).message, 200)})`);
   }
-  return { gold, sharpened, announced, said: [goldText(gold), sharpenText(sharpened), announced.length ? `announced: ${announced.length}` : ''].filter(Boolean).join('; ') };
+  // The keeper's loop (WORKSHOP.md section 2, stage one): what this node holds kept whole and current, once an hour with the turn; its own line in the log where it did anything.
+  let kept = { added: 0, reads: 0 };
+  try {
+    const k = await quilt.resolver.keep();
+    kept = { added: k.added, reads: k.reads };
+    if (k.added || k.reads || k.refused.length) log(`${now().toISOString()} kept: ${k.added} lines, ${k.reads} reads${k.refused.length ? `; ${k.refused.length} chain${k.refused.length === 1 ? '' : 's'} not kept` : ''}`);
+  } catch (e) {
+    log(`${now().toISOString()} keep: not run (${oneLine((e as Error).message, 200)})`);
+  }
+  return { gold, sharpened, announced, said: [goldText(gold), sharpenText(sharpened), announced.length ? `announced: ${announced.length}` : ''].filter(Boolean).join('; '), kept };
 }
 
 /**
