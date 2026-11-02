@@ -134,6 +134,23 @@ describe('the page', () => {
 });
 
 describe('the sheet the menu bar draws', () => {
+  it('lists what it holds at /held and serves the identity log at /k/events, for a mirror or another node to pull from', async () => {
+    const held = await api('/held');
+    expect(held.status).toBe(200);
+    const list = (held.body as { quilt: number; node: boolean; problems: { problem: string; title: string; slug: string; owner: string; lines: number }[] });
+    expect(list.quilt).toBe(1);
+    expect(list.node).toBe(true);
+    const mine = list.problems.find((p) => p.problem === problem)!;
+    expect(mine).toMatchObject({ title: pattern.title, slug: pattern.slug, owner: owner.identity!.address });
+    expect(mine.lines).toBeGreaterThan(0);
+    const identity = await fetch(`${site}/k/events`);
+    expect(identity.headers.get('content-type')).toContain('x-ndjson');
+    const lines = (await identity.text()).split('\n').filter(Boolean).map((l) => JSON.parse(l) as { event: { type: string } });
+    expect(Array.isArray(lines)).toBe(true);
+    const known = (await api('/.well-known/quilt')).body as { node: boolean; routes: string[] };
+    expect(known.node).toBe(true);
+    expect(known.routes).toEqual(expect.arrayContaining(['/held', '/k/events']));
+  });
   it('is in the no-connector state until an AI connects through this node, and connected after, with the phrases that fit', async () => {
     const before = await api('/api/phrases');
     expect(before.status).toBe(200);

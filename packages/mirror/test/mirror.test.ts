@@ -3,7 +3,7 @@ import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Envelope, type Hash, type Receipt, type Unsigned, IDENTITY_LOG, addressOf, commitHash, hashBytes, hashCanonical, newNonce, problemHash, signEvent, signObject, verifyChain } from '@bitquilt/core';
+import { type Envelope, type Hash, type Receipt, type Unsigned, IDENTITY_LOG, addressOf, commitHash, eventId, hashBytes, hashCanonical, newNonce, problemHash, signEvent, signObject, verifyChain } from '@bitquilt/core';
 import { Store, createTracker } from '@bitquilt/tracker';
 import { mirror } from '../src/mirror.js';
 
@@ -11,8 +11,10 @@ import { mirror } from '../src/mirror.js';
  * The mirror over two real trackers: it writes the layout from one, with chains that verify and names from version
  * events; only grows, and writes the output once the problem is complete; refuses a second tracker whose chain for the
  * problem is not a growth of the one it holds; passes over a chain whose pages have no end, keeping what it holds;
- * anchors the head of every chain when asked, keeping a stamp it already has; and writes the record document of a
- * problem with a record piece (QX-20) with the tracker's own layer code, the same hash as the tracker states.
+ * anchors the head of every chain when asked, keeping a stamp it already has; writes the record document of a
+ * problem with a record piece (QX-20) with the tracker's own layer code, the same hash as the tracker states; and as
+ * the keeper, reads a node by its held list, keeps a problem its source no longer lists with its chain still growing,
+ * and fetches the reads a trace names.
  */
 const key = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
 const owner = key(9), A = key(1), B = key(2);
@@ -176,5 +178,79 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
     const state = (await (await fetch(`${one.base}p/${hash}/state`)).json()) as { complete: boolean; record_output: string | null };
     expect(state.complete).toBe(true);
     expect(state.record_output).toBe(written);
+  });
+  it('keeps from a node by its held list, keeps a problem its source no longer lists with its chain growing, and fetches the reads a trace names', async () => {
+    // A node at an address of its own: it says node: true, lists what tracker one holds, and serves the rest as the tracker does.
+    const node = 'http://node.test/';
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const url = String(input);
+      if (!url.startsWith(node)) return fetch(input, init);
+      const path = url.slice(node.length);
+      if (path === '.well-known/quilt') return Response.json({ quilt: 1, node: true, routes: ['/held', '/p/<hash>', '/p/<hash>/events', '/k/events', '/b/<hash>'] });
+      if (path === 'held') {
+        const idx = (await (await fetch(`${one.base}search?q=`)).json()) as { problems: { problem: Hash; title: string; slug: string; owner: string }[] };
+        return Response.json({ quilt: 1, node: true, problems: idx.problems.map((p) => ({ problem: p.problem, title: p.title, slug: p.slug, owner: p.owner, lines: 0 })) });
+      }
+      return fetch(one.base + path, init);
+    };
+    const keep = mkdtempSync(join(tmpdir(), 'bitquilt-keeper-'));
+    const first = await mirror({ trackers: [node], out: keep, now, fetchImpl });
+    expect(first.errors).toEqual([]);
+    expect(first.refused).toEqual([]);
+    expect(first.kept).toEqual([]);
+    const held = first.problems.map((p) => p.hash);
+    expect(held).toContain(P);
+    expect(held.length).toBeGreaterThanOrEqual(2);
+    expect(JSON.parse(readFileSync(join(keep, 'index.json'), 'utf8')).problems.map((p: { tracker: string }) => p.tracker)).toEqual(held.map(() => node));
+    // The owner replaces the reading problem with a version: it leaves the tracker's index, and a reading on it still lands on its chain.
+    const R = JSON.parse(readFileSync(join(keep, 'problems', `${held.find((h) => h !== P)!}.json`), 'utf8')) as Envelope;
+    const rHash = problemHash(R);
+    // The brief changes, so the piece is a new one: the old piece's readings are in, and a record takes no more (QX-20).
+    const nextProblem: Envelope['problem'] = { ...R.problem, title: 'A reading, again', slug: 'reading', prev: rHash, pieces: { question: { ...R.problem.pieces.question!, brief: 'Read the article your way, once more.' } } };
+    const nextUnsigned = { quilt: 1 as const, problem: nextProblem, hints: { trackers: [], mirrors: [] } };
+    const N: Envelope = { ...nextUnsigned, sig: signObject(nextUnsigned, owner) };
+    expect((await post(one.base, 'p', { envelope: N })).status).toBe(201);
+    const nHash = problemHash(N);
+    const listed = ((await (await fetch(`${one.base}search?q=`)).json()) as { problems: { problem: Hash }[] }).problems.map((p) => p.problem);
+    expect(listed).not.toContain(rHash);
+    expect(listed).toContain(nHash);
+    // A reading on the new version, resting on a page the tracker holds; its trace names the read.
+    const nPiece = ((await (await fetch(`${one.base}p/${nHash}/state`)).json()) as { pieces: { hash: Hash }[] }).pieces[0]!.hash;
+    const page = new TextEncoder().encode('All human beings are born free and equal in dignity and rights.');
+    const pageHash = hashBytes(page);
+    expect((await fetch(`${one.base}b/${pageHash}`, { method: 'PUT', body: page })).status).toBe(202);
+    const ret = { verdict: 'supports' };
+    const nonce = newNonce();
+    expect((await post(one.base, `p/${nHash}/events`, ev(A, 'commit', { h: commitHash(ret, nonce) }, nHash, nPiece))).status).toBe(202);
+    tick += 1000;
+    const reveal = ev(A, 'reveal', { return: ret, nonce, by: by('a/x') }, nHash, nPiece);
+    expect((await post(one.base, `p/${nHash}/events`, reveal)).status).toBe(202);
+    tick += 1000;
+    expect((await post(one.base, `p/${nHash}/events`, ev(A, 'trace', { reveal: eventId(reveal), reads: [{ url: 'https://example.org/udhr', hash: pageHash, at: now() }], rests: [{ field: 'verdict', read: 0, span: [0, 16] }] }, nHash, nPiece))).status).toBe(202);
+    tick += 1000;
+    const second = await mirror({ trackers: [node], out: keep, now, fetchImpl });
+    expect(second.errors).toEqual([]);
+    expect(second.refused).toEqual([]);
+    expect(second.kept).toEqual([]);
+    // The replaced problem is still in the index, taken by hash from the source that still serves it; the version is beside it; the read is kept.
+    const hashes = second.problems.map((p) => p.hash);
+    expect(hashes).toContain(rHash);
+    expect(hashes).toContain(nHash);
+    expect(JSON.parse(readFileSync(join(keep, 'index.json'), 'utf8')).problems.map((p: { hash: Hash }) => p.hash)).toEqual(expect.arrayContaining([P, rHash, nHash]));
+    expect(new Uint8Array(readFileSync(join(keep, 'blobs', pageHash)))).toEqual(page);
+    // A source that serves nothing of what is held: every problem stays in the index as the files have it, and the run says which.
+    const empty = 'http://empty.test/';
+    const nothing: typeof fetch = async (input, init) => {
+      const url = String(input);
+      if (!url.startsWith(empty)) return fetch(input, init);
+      const path = url.slice(empty.length);
+      if (path === '.well-known/quilt') return Response.json({ quilt: 1, node: true });
+      if (path === 'held') return Response.json({ quilt: 1, node: true, problems: [] });
+      return new Response('', { status: 404 });
+    };
+    const third = await mirror({ trackers: [empty], out: keep, now, fetchImpl: nothing });
+    expect(third.problems).toEqual([]);
+    expect(third.kept.sort()).toEqual(hashes.sort());
+    expect(JSON.parse(readFileSync(join(keep, 'index.json'), 'utf8')).problems).toHaveLength(hashes.length);
   });
 });
