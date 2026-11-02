@@ -58,6 +58,7 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
         `Address: ${me.address ?? 'none yet (made at first use)'}`,
         ...(me.wordsDue ? [`The key was made here at first use; its twelve words wait on the page at http://localhost:${quilt.config.port}/#me to be written down once`] : []),
         `Name: ${me.name ?? 'none set'}`, `Declares: ${me.model}; can: ${me.can.join(', ')}`, `Trackers: ${me.trackers.join(', ')}`,
+        ...(me.relays.length ? [`Relays: ${me.relays.join(', ')}`] : []),
         s ? `Standing: ${s.standing}, ${s.founding ? `of which ${s.founding} was declared at the founding and the rest earned by work, not for sale` : 'earned by work and not for sale'} (locked ${s.locked}, free to stake ${s.free}) at ${s.tracker}${s.locks.length ? `; locks: ${s.locks.map((l) => `${l.amount} on ${l.piece} of ${l.problem}`).join(', ')}` : ''}` : await noStanding(quilt),
         ...(c ? [`Coin (QX-17): ${c.balance} units (transferable now ${c.free_vested}, still vesting ${c.unvested}, locked ${c.locked}, escrowed ${c.escrowed}, free to stake or pay ${c.free}) at ${c.home}${c.pending && c.pending.amount > 0 ? `; owed from the squares verified so far today: ${c.pending.amount} units, paid at ${c.pending.pays_at}` : ''}`] : []),
         ...(me.witness ? [sessionWitnessText(me.witness)] : []),
@@ -75,9 +76,23 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
     }
     case 'quilt_search': {
       const found = await quilt.search(str('query'));
-      const text = found.length
-        ? found.map((p) => `${p.problem}\n  titled by ${p.owner}: "${p.title}" (${p.slug})${p.topics.length ? `; topics: ${p.topics.join(', ')}` : ''}\n  ${p.pieces} pieces: ${Object.entries(p.counts).map(([k, n]) => `${n} ${k.replace('_', ' ')}`).join(', ')}; at ${p.tracker}`).join('\n')
-        : 'No problem matched on the trackers and relays this client knows.';
+      // One problem in words (APP.md, Search): who, what, how much is done and how well it stands, where it is held; a fork under the problem it forks.
+      const line = (p: (typeof found)[number]): string => {
+        const w = p.work;
+        const kinds = p.kinds ? ` (${Object.entries(p.kinds).map(([k, n]) => `${n} ${k}${kindWords(k).weakest ? ', the weakest kind' : ''}`).join(', ')})` : '';
+        const done = w
+          ? `${w.returned} returned, ${w.accepted} accepted${w.verified ? `, ${w.verified} of them verified by the owner's gold` : ''}${w.disputed ? `, ${w.disputed} disputed` : ''}${w.accepted ? `; of the accepted, ${w.traced.both} rest on kept reads on both sides, ${w.traced.one} on one, ${w.traced.none} on none` : ''}; ${w.readers} reader${w.readers === 1 ? '' : 's'} from ${w.vendors} vendor${w.vendors === 1 ? '' : 's'}${w.last ? `; last worked ${w.last.slice(0, 10)}` : ''}`
+          : Object.entries(p.counts).map(([k, n]) => `${n} ${k.replace('_', ' ')}`).join(', ') || 'nothing yet';
+        const forks = found.filter((x) => x.root === p.problem && x.problem !== p.problem).length;
+        const notes = [
+          ...(p.from ? [`proposed from ${p.from}`] : []),
+          ...(forks ? [`${forks + 1} proposals of this problem; the first has the most work`] : []),
+          `held at ${p.held.length} place${p.held.length === 1 ? '' : 's'} (${p.held.join(', ')})`,
+          ...(p.via === 'relay' ? [`as announced by ${p.announcer && p.announcer.toLowerCase() === p.owner.toLowerCase() ? 'its owner' : 'a seeder'}${p.announced ? ` on ${p.announced.slice(0, 10)}` : ''}`] : []),
+        ];
+        return `${p.problem}\n  titled by ${p.owner_name ? `${p.owner_name} (${p.owner})` : p.owner}: "${p.title}" (${p.slug})${p.topics.length ? `; topics: ${p.topics.join(', ')}` : ''}\n  ${p.pieces} pieces${kinds}: ${done}; ${notes.join('; ')}; opens at ${p.tracker}`;
+      };
+      const text = found.length ? found.map(line).join('\n') : 'No problem matched on the trackers and relays this client knows.';
       return { text, handles: { problems: found.map((p) => p.problem), query: str('query') } };
     }
     case 'quilt_window': {

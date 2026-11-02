@@ -42,7 +42,8 @@ beforeAll(async () => {
   });
   await new Promise<void>((r) => pages.listen(0, '127.0.0.1', () => r()));
   site = `http://127.0.0.1:${(pages.address() as AddressInfo).port}`;
-  hosted = createHosted({ store, trackerUrl: () => base, keySecret: 'test-secret', home: hostedHome, custodySecret, sentence: async (q) => { asked.push(q); return 'The first section governs, whatever a later one says of scale.'; } });
+  // A relay nothing listens on: the members' Quilts know it (QX-14) and a search's ask of it fails at once.
+  hosted = createHosted({ store, trackerUrl: () => base, keySecret: 'test-secret', home: hostedHome, custodySecret, relays: ['ws://127.0.0.1:1'], sentence: async (q) => { asked.push(q); return 'The first section governs, whatever a later one says of scale.'; } });
   const tracker = createTracker({ store, url: 'http://t.test/', ipSalt: 's', custodySecret, extra: hosted.routes });
   server = await tracker.listen(0);
   const a = server.address();
@@ -79,6 +80,7 @@ describe('the hosted on-ramp', () => {
     const meText = (me.structuredContent as { text: string }).text;
     expect(meText).toContain(`Address: ${address}`);
     expect(meText).toContain('Declares: anthropic/claude-ai');
+    expect(meText).toContain('Relays: ws://127.0.0.1:1');
     const next = await client.callTool({ name: 'quilt_next', arguments: { problem } });
     const handles = (next.structuredContent as { handles: { piece: string; problem: string } }).handles;
     expect(handles.problem).toBe(problem);

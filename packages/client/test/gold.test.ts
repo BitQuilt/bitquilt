@@ -173,7 +173,8 @@ describe('the reveals run with nobody asked', () => {
     const turn = await awayTurn({ ...nobody, home, quilt: () => owner2 });
     expect(turn.ran).toBe(false);
     expect(turn.gold).toEqual([{ problem: d, piece: d1, name: 'statement/1', outcome: 'match', error: null }]);
-    expect(turn.line).toBe(`${NEEDS_AGENT} gold: 1 revealed (1 match)`);
+    // The square accepted moved the problem's work, so the same turn announces it again (QX-13 section 3).
+    expect(turn.line).toBe(`${NEEDS_AGENT} gold: 1 revealed (1 match); announced: 1`);
     expect(readFileSync(join(home, AWAY_LOG), 'utf8')).toContain(' gold: 1 revealed (1 match)');
     expect((await trackerState(d)).pieces[0]).toMatchObject({ gold: 'match', verified: true });
     expect(await owner2.revealDue(false)).toEqual([]);

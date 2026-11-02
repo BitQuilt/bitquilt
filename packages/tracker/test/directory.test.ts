@@ -86,4 +86,15 @@ describe('the directory row', () => {
     expect((await get<Readings>(`/k/${addr(owner)}/work`)).name).toBe('Ada');
     expect((await fetch(`${t.base}/k/${addr(A).toLowerCase()}/work`)).status).toBe(400);
   });
+
+  it('keeps an announce that states the owner, the fork, the pieces, the counts and the work, refuses one that states them wrong, and gives the scrape the topics (QX-13)', async () => {
+    const work = { returned: 1, accepted: 1, verified: 0, disputed: 0, traced: { both: 0, one: 0, none: 1 }, readers: 2, vendors: 2, last: '2026-11-02T12:00:01Z' };
+    const body = { title: env.problem.title, slug: env.problem.slug, done_when: env.problem.done_when, topics: ['paper'], owner: addr(owner), from: null, pieces: 2, counts: { open: 1, accepted_provisional: 1 }, work, trackers: [], mirrors: [] };
+    expect((await post(`/p/${P}/events`, ev(owner, 'announce', body, P))).status).toBe(202);
+    expect(await t.refused(`/p/${P}/events`, ev(owner, 'announce', { ...body, owner: addr(other) }, P))).toMatch(/announce: owner is the envelope's/);
+    expect(await t.refused(`/p/${P}/events`, ev(owner, 'announce', { ...body, from: P }, P))).toMatch(/announce: from is the envelope's/);
+    expect(await t.refused(`/p/${P}/events`, ev(owner, 'announce', { ...body, work: { ...work, readers: -1 } }, P))).toMatch(/announce: pieces, counts and work are whole numbers/);
+    expect(await t.refused(`/p/${P}/events`, ev(owner, 'announce', { ...body, pieces: 1.5 }, P))).toMatch(/announce: pieces, counts and work are whole numbers/);
+    expect((await get<Row & { topics: string[] }>(`/p/${P}/scrape`)).topics).toEqual(['paper']);
+  });
 });

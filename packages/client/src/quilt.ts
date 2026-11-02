@@ -13,7 +13,7 @@ import * as gold from './gold.js';
 import { type Link, makeLink, parseLink } from './link.js';
 import { type RestAsked, type TraceOutcome, traceAfterReveal } from './trace.js';
 import { type ChallengeListing, type GoldCount, type LayerPiece, type Opened, type PanelListing, type Scrape, SIDES, type Seam, type SeamSide, type Side, type Takedown, type Witness } from './listings.js';
-import { announcementEvent, postToRelays, searchRelays } from './relay.js';
+import { type AnnouncedWork, NO_WORK, announcementEvent, postToRelays, searchRelays } from './relay.js';
 import { type Library, type Posted, type Resolver, askJson } from './resolver.js';
 import { inParallel } from './pool.js';
 import { type SentenceAsk, acceptedText, challengesText, disputedText, kindWords, layerByHash, nameOf, panelsText, pieceText, summary, waitsText, witnessesOf } from './render.js';
@@ -53,6 +53,30 @@ export interface AttentionItem {
  */
 /** What `publish` and the owner's sharpening answer: where the envelope went, what refused it, and the gold committed. */
 export interface Published { hash: Hash; link: string; posted: string[]; refused: string[]; relays: string[]; gold: { pieces: number; stake: number } | null }
+
+/** A problem as a search finds it (APP.md, Search): a tracker's row with the work on it, or a relay's announce (QX-13), and every place that had it. */
+export interface Found {
+  problem: Hash;
+  title: string;
+  slug: string;
+  owner: string;
+  owner_name: string | null;
+  /** The problem this one forks (CORE.md section 2), and the root of its group in this answer: itself where it forks nothing in the answer. */
+  from: Hash | null;
+  root: Hash;
+  pieces: number;
+  counts: Record<string, number>;
+  kinds: Record<string, number> | null;
+  work: AnnouncedWork | null;
+  topics: string[];
+  /** Where to open it: the tracker that had it, or the first the announce named, or the relay. */
+  tracker: string;
+  via: 'tracker' | 'relay';
+  held: string[];
+  /** For a row from a relay alone: who announced it and when, since its numbers are a snapshot. */
+  announcer: string | null;
+  announced: string | null;
+}
 
 /** QX-19 section 4: a brief sharpened, or not: the sentence asked for each family with a seam, whether it was kept and why not, and the version published with those kept. */
 export interface Sharpened { problem: Hash; sentences: { family: string; field: string; sentence: string | null; kept: boolean; why: string | null }[]; hash: Hash | null; posted: string[]; refused: string[] }
@@ -317,28 +341,96 @@ export class Quilt {
     const now = this.stamp();
     const trackers = this.trackersFor(resolved.hash, [...(resolved.tracker ? [resolved.tracker] : []), ...link.trackers]);
     const entry = this.library.problems[resolved.hash];
-    this.library.problems[resolved.hash] = { title: state.envelope.problem.title, slug: state.envelope.problem.slug, trackers, first: entry?.first ?? now, last: now, ...(entry?.next ? { next: entry.next } : {}) };
+    // The rest of the entry stays: the version it was replaced by, its topics, and the mark of the last announce (QX-13 section 3).
+    this.library.problems[resolved.hash] = { ...entry, title: state.envelope.problem.title, slug: state.envelope.problem.slug, trackers, first: entry?.first ?? now, last: now };
     this.save();
     const st = resolved.tracker ? await this.trackerState(resolved.hash, resolved.tracker) : null;
     const scrape = resolved.tracker ? await this.scrapeOf(resolved.hash, resolved.tracker) : null;
     return { link, hash: resolved.hash, state, tracker: resolved.tracker, layer: st?.pieces ?? null, hidden: scrape?.hidden ?? null, gold: st?.gold ?? null, scrape, witnessed: witnessesOf(resolved.receipts), superseded: st?.superseded ?? null };
   }
 
-  /** Problems whose title, slug, topics or statement of done carry the words, from every tracker this client knows and then the relays (QX-14), each problem once with the first place that answered for it. */
-  async search(query: string): Promise<{ problem: Hash; title: string; slug: string; owner: string; pieces: number; counts: Record<string, number>; topics: string[]; tracker: string; via: 'tracker' | 'relay' }[]> {
-    type Found = { problem: Hash; title: string; slug: string; owner: string; pieces: number; counts: Record<string, number>; topics: string[] };
-    const out = new Map<string, Found & { tracker: string; via: 'tracker' | 'relay' }>();
-    for (const t of this.config.trackers) {
-      const j = await askJson<{ problems: Found[] }>(`${t}search?q=${encodeURIComponent(query)}`);
-      for (const p of j?.problems ?? []) if (!out.has(p.problem)) out.set(p.problem, { ...p, tracker: t, via: 'tracker' });
-    }
-    // QX-14: what the relays carry, with the tracker the announce named as the place to open it.
+  /**
+   * Problems whose title, slug, topics or statement of done carry the words, from every tracker this client knows,
+   * asked together, and from the relays (QX-14), each problem once: a tracker's row where one has it, with the work on
+   * it (APP.md, Search), else a relay's announce with the work the announce stated (QX-13); `held` names every place
+   * that had it. A fork (CORE.md section 2, `from`) sits under the problem it forks when that is in the answer, the
+   * problem first and its forks by the work on each; the groups come in the order of their latest reading.
+   */
+  async search(query: string): Promise<Found[]> {
+    type Row = { problem: Hash; title: string; slug: string; owner: string; owner_name?: string | null; from?: Hash | null; pieces: number; counts: Record<string, number>; kinds?: Record<string, number>; work?: AnnouncedWork | null; topics: string[] };
+    const out = new Map<string, Found>();
+    const answers = await inParallel(this.config.trackers, 4, (t) => askJson<{ problems: Row[] }>(`${t}search?q=${encodeURIComponent(query)}`));
+    this.config.trackers.forEach((t, i) => {
+      for (const p of answers[i]?.problems ?? []) {
+        const have = out.get(p.problem);
+        if (have) {
+          have.held.push(t);
+          continue;
+        }
+        out.set(p.problem, { problem: p.problem, title: p.title, slug: p.slug, owner: p.owner, owner_name: p.owner_name ?? null, from: p.from ?? null, root: p.problem, pieces: p.pieces, counts: p.counts, kinds: p.kinds ?? null, work: p.work ?? null, topics: p.topics, tracker: t, via: 'tracker', held: [t], announcer: null, announced: null });
+      }
+    });
+    // QX-14: what the relays carry, with the tracker the announce named as the place to open it, and the work as the announce stated it.
     for (const a of await searchRelays(this.config.relays, query)) {
-      if (out.has(a.problem)) continue;
-      const counts = (a.announce.body as { counts?: Record<string, number> }).counts ?? {};
-      out.set(a.problem, { problem: a.problem, title: a.title, slug: a.slug, owner: a.owner, pieces: Object.values(counts).reduce((n, c) => n + c, 0), counts, topics: a.topics, tracker: a.trackers[0] ?? a.relay, via: 'relay' });
+      const have = out.get(a.problem);
+      if (have) {
+        have.held.push(a.relay);
+        continue;
+      }
+      const pieces = a.pieces ?? Object.values(a.counts).reduce((n, c) => n + c, 0);
+      out.set(a.problem, { problem: a.problem, title: a.title, slug: a.slug, owner: a.owner, owner_name: null, from: a.from, root: a.problem, pieces, counts: a.counts, kinds: null, work: a.work, topics: a.topics, tracker: a.trackers[0] ?? a.relay, via: 'relay', held: [a.relay], announcer: a.announcer, announced: new Date(a.created_at * 1000).toISOString() });
     }
-    return [...out.values()];
+    // The root of each: `from` followed while the problem it names is in the answer.
+    for (const f of out.values()) {
+      let root = f;
+      for (let i = 0; i < 8 && root.from && out.has(root.from); i += 1) root = out.get(root.from)!;
+      f.root = root.problem;
+    }
+    const weight = (f: Found): number => (f.work ? f.work.verified * 1_000_000 + f.work.accepted * 1_000 + f.work.returned : 0);
+    const latest = new Map<Hash, string>();
+    for (const f of out.values()) {
+      const l = f.work?.last ?? '';
+      if (l > (latest.get(f.root) ?? '')) latest.set(f.root, l);
+    }
+    return [...out.values()].sort((a, b) => {
+      if (a.root !== b.root) return (latest.get(b.root) ?? '').localeCompare(latest.get(a.root) ?? '') || a.root.localeCompare(b.root);
+      if ((a.problem === a.root) !== (b.problem === b.root)) return a.problem === a.root ? -1 : 1;
+      return weight(b) - weight(a) || a.problem.localeCompare(b.problem);
+    });
+  }
+
+  /** The tracker's row for a problem, as `/p/<hash>/scrape` gives it, with its topics: what the owner's turn announces again. Null when the tracker does not answer. */
+  private rowOf(hash: Hash, tracker: string): Promise<{ title: string; slug: string; done_when: string; owner: string; from: Hash | null; pieces: number; counts: Record<string, number>; work: AnnouncedWork; topics?: string[] } | null> {
+    return askJson(`${tracker}p/${hash}/scrape`);
+  }
+
+  /**
+   * QX-13 section 3: the owner's turn announces a problem again where the work on it has moved since the last announce
+   * this home recorded, with the tracker's row of the moment, the same topics and the same signer, to the problem's
+   * trackers and this home's relays. A problem this key does not own, or has replaced, is passed over. The hashes announced.
+   */
+  async announceDue(): Promise<Hash[]> {
+    const id = this.identity;
+    if (!id) return [];
+    const out: Hash[] = [];
+    for (const [h, entry] of Object.entries(this.library.problems)) {
+      if (!isHash(h) || entry.next) continue;
+      const trackers = entry.trackers.length ? entry.trackers : this.config.trackers;
+      const row = await this.firstAnswer(trackers, (t) => this.rowOf(h, t));
+      if (!row || !row.work || row.owner.toLowerCase() !== id.address.toLowerCase()) continue;
+      const mark = [row.work.returned, row.work.accepted, row.work.verified, row.work.disputed, row.work.readers].join('/');
+      if (entry.announced?.mark === mark) continue;
+      const topics = entry.topics ?? row.topics ?? [];
+      const body = { title: row.title, slug: row.slug, done_when: row.done_when, topics, owner: id.address, from: row.from ?? null, pieces: row.pieces, counts: row.counts, work: row.work, trackers, mirrors: this.config.mirrors };
+      const announce = this.sign({ quilt: 1, type: 'announce', problem: h, key: id.address, ts: this.stamp(), body });
+      await this.resolver.post(announce, h, trackers);
+      if (this.config.relays.length) await postToRelays(this.config.relays, announcementEvent(announce, id.secret));
+      entry.announced = { at: this.stamp(), mark };
+      if (!entry.topics) entry.topics = topics;
+      this.save();
+      out.push(h);
+    }
+    return out;
   }
 
   /**
@@ -731,16 +823,17 @@ export class Quilt {
         refused.push(`${t}: ${(err as Error).message}`);
       }
     }
+    const pieces = expandPieces(problem, blobs).length;
     if (posted.length) {
-      // The announce and the version are posted where the envelope went, and a refusal of either is not the publish's to report.
-      const announce = this.sign({ quilt: 1, type: 'announce', problem: hash, key: id.address, ts: this.stamp(), body: { title: problem.title, slug: problem.slug, done_when: problem.done_when, topics, counts: {}, trackers: posted, mirrors: this.config.mirrors } });
+      // The announce (QX-13: the owner, the fork, the pieces, every piece open, no work yet) and the version are posted where the envelope went, and a refusal of either is not the publish's to report.
+      const announce = this.sign({ quilt: 1, type: 'announce', problem: hash, key: id.address, ts: this.stamp(), body: { title: problem.title, slug: problem.slug, done_when: problem.done_when, topics, owner: id.address, from: problem.from ?? null, pieces, counts: { open: pieces }, work: NO_WORK, trackers: posted, mirrors: this.config.mirrors } });
       await this.resolver.post(announce, hash, posted);
       if (this.config.relays.length) relays = (await postToRelays(this.config.relays, announcementEvent(announce, id.secret))).posted;
       const version = this.sign({ quilt: 1, type: 'version', problem: hash, key: id.address, ts: this.stamp(), body: { slug: problem.slug, hash } });
       await this.resolver.post(version, hash, posted);
     }
     const now = this.stamp();
-    this.library.problems[hash] = { title: problem.title, slug: problem.slug, trackers: posted, first: now, last: now };
+    this.library.problems[hash] = { title: problem.title, slug: problem.slug, trackers: posted, first: now, last: now, topics, announced: { at: now, mark: [0, 0, 0, 0, 0].join('/') } };
     this.save();
     return { hash, link: makeLink(hash, posted, problem.slug), posted, refused, relays, gold: null };
   }

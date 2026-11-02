@@ -28,6 +28,7 @@ td.title .t { display: block; cursor: pointer; }
 td.title .t:hover { text-decoration: underline; }
 td.title .s { display: block; color: var(--muted); font-size: 12px; }
 td.acts { white-space: nowrap; }
+tr.fork td.title { padding-left: 22px; }
 .quiet { color: var(--muted); }
 .meta { color: var(--muted); font-size: 13px; margin: 4px 0; }
 h3 { margin: 6px 0 2px; font-size: 16px; font-weight: 600; }

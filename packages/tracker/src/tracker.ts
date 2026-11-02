@@ -452,6 +452,15 @@ export function createTracker(options: TrackerOptions): Tracker {
     const b = event.body as Record<string, unknown>;
     if (b.title !== envelope.problem.title || b.slug !== envelope.problem.slug || b.done_when !== envelope.problem.done_when) throw new Refusal(400, 'announce: title, slug and done_when are the envelope\'s');
     if (!Array.isArray(b.topics) || b.topics.length > 8 || !b.topics.every((t) => typeof t === 'string' && t.length <= 40 && textIssues(t).length === 0)) throw new Refusal(400, 'announce: at most eight short topics through the gate');
+    // QX-13 section 2: the owner and the fork are the envelope's where the announce states them; the pieces, the counts and the work are whole numbers, and are the announcer's word.
+    if (b.owner !== undefined && b.owner !== envelope.problem.owner) throw new Refusal(400, 'announce: owner is the envelope\'s');
+    if (b.from !== undefined && b.from !== (envelope.problem.from ?? null)) throw new Refusal(400, 'announce: from is the envelope\'s');
+    const whole = (x: unknown): boolean => typeof x === 'number' && Number.isInteger(x) && x >= 0;
+    const countsOk = b.counts === undefined || (!!b.counts && typeof b.counts === 'object' && Object.values(b.counts as Record<string, unknown>).every(whole));
+    const w = b.work as Record<string, unknown> | undefined;
+    const t = w?.traced as Record<string, unknown> | undefined;
+    const workOk = w === undefined || (!!w && typeof w === 'object' && ['returned', 'accepted', 'verified', 'disputed', 'readers', 'vendors'].every((k) => whole(w[k])) && !!t && typeof t === 'object' && ['both', 'one', 'none'].every((k) => whole(t[k])) && (w.last === null || (typeof w.last === 'string' && !Number.isNaN(Date.parse(w.last)))));
+    if ((b.pieces !== undefined && !whole(b.pieces)) || !countsOk || !workOk) throw new Refusal(400, 'announce: pieces, counts and work are whole numbers');
   }
 
   /** The door for QX-1: a challenge from a root with standing, inside the window, with a panel to seat; a verdict from a judge drawn. */
@@ -998,7 +1007,9 @@ export function createTracker(options: TrackerOptions): Tracker {
         if (sub === 'scrape') {
           const lines = store.receipts(hash);
           const chain = verifyChain(lines, hash);
-          json(res, 200, { ...summary(hash), chain_ok: chain.ok });
+          // With the topics every announce gave it, as the index shows them, so the owner's turn can announce again with the same (QX-13 section 3).
+          const topics = [...new Set(store.announcements(hash).flatMap((a) => ((a.event.body as { topics?: string[] }).topics ?? []).map((x) => x.toLowerCase())))];
+          json(res, 200, { ...summary(hash), topics, chain_ok: chain.ok });
           return;
         }
         if (sub === 'next') {
