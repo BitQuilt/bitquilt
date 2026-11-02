@@ -18,7 +18,7 @@ import { sheetOf } from './phrases.js';
 import { kept } from './pool.js';
 import { type Pattern, Quilt } from './quilt.js';
 import { goldText, kindWords, kindsText, layerByHash, stakeText } from './render.js';
-import { type Resolver, publicLibrary } from './resolver.js';
+import { type Resolver, publicLibrary, KEEP_EVERY_MS } from './resolver.js';
 import { isToolName, runTool } from './tools.js';
 
 /** The page's HTML: an asset of the single executable when this runs as one, else the file beside the source. */
@@ -244,6 +244,21 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       server.once('error', reject);
       server.listen(port, '127.0.0.1', () => {
         server.off('error', reject);
+        // The keeper's loop while the page is up (WORKSHOP.md section 2, stage one): what this node holds kept whole and current, one loop at a time.
+        let keeping = false;
+        const keep = async (): Promise<void> => {
+          if (keeping) return;
+          keeping = true;
+          try {
+            await resolver.keep();
+          } catch {
+            /* the next loop tries again */
+          } finally {
+            keeping = false;
+          }
+        };
+        setTimeout(() => void keep(), 120_000).unref();
+        setInterval(() => void keep(), KEEP_EVERY_MS).unref();
         resolve(server);
       });
     });

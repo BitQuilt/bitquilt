@@ -7,7 +7,7 @@
  */
 import { appendFileSync, existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type Envelope, type Event, type Hash, type Receipt, type State, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, problemHash, reduce, verifyChain, withSlash, isHash } from '@bitquilt/core';
+import { type Envelope, type Event, type Hash, type Receipt, type State, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, isHash, onlyAppends, problemHash, reduce, verifyChain, withSlash } from '@bitquilt/core';
 import { findOnRelays } from './relay.js';
 import { type Config, ensureHome } from './config.js';
 import type { Link } from './link.js';
@@ -66,6 +66,12 @@ const EMPTY_LIBRARY = (): Library => ({ problems: {}, pieces: {}, seeding: {} })
 
 /** What this node holds in its cache and serves to anyone by hash: problems, ledgers, blobs, and the bytes of all three. */
 export interface Held { problems: number; ledgers: number; blobs: number; bytes: number }
+
+/** What the keeper's loop did (WORKSHOP.md section 2, stage one): the problems held, the lines added to their chains and the identity log, the reads fetched, and the chains refused for not only growing. */
+export interface Kept { problems: number; added: number; reads: number; refused: string[] }
+
+/** How often a node that serves its page keeps: every half hour, the first two minutes after start. */
+export const KEEP_EVERY_MS = 30 * 60_000;
 
 /**
  * The library as the page's API and the window show it: names and counts, and what the node serves. The gold's
@@ -297,18 +303,82 @@ export class Resolver {
     return null;
   }
 
-  /** A problem's chained receipts from the first place that serves a chain that verifies, else the cache. */
-  async receipts(hash: Hash, link: Link, genesis: Hash = hash): Promise<Receipt[]> {
+  /**
+   * A problem's chained receipts, else the cache. Read (`open`): the first place's chain that verifies, kept where it
+   * only grew the one kept. Grow (`keep`): the first place's chain that verifies and grows the one kept, and where none
+   * does, the first that verifies, read and not kept; so a node that opened a problem from a second place goes on
+   * keeping the chain of the first.
+   */
+  async receipts(hash: Hash, link: Link, genesis: Hash = hash, note?: (line: string) => void, mode: 'read' | 'grow' = 'read'): Promise<Receipt[]> {
+    let read: Receipt[] | null = null;
     for (const p of this.places(link, hash)) {
       const lines = p.kind === 'mirror' ? await this.getFileLines(`${p.url}ledger/${hash}.jsonl`) : await this.getLines(`${p.url}p/${hash}/events`);
-      if (lines && verifyChain(lines, genesis).ok) {
-        writeFileSync(this.cachePath('ledger', hash), lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));
-        return lines;
-      }
+      if (!lines || !verifyChain(lines, genesis).ok) continue;
+      const added = this.keepLines(this.cachePath('ledger', hash), lines, `${hash}: chain from ${p.url}`, note);
+      if (added >= 0 || mode === 'read') return lines;
+      read ??= lines;
     }
+    if (read) return read;
     const cached = this.cachePath('ledger', hash);
     if (existsSync(cached)) return readFileSync(cached, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
     return [];
+  }
+
+  /**
+   * A chain is kept where it is a growth of the one kept, as the mirror keeps one (PROTOCOL.md, The mirror): this node
+   * follows one place's chain per log, and another place's chain for the same log, which has the same events in its
+   * own order, is read for the state it gives and not kept. The lines added, or -1 where the chain was not kept.
+   */
+  private keepLines(file: string, lines: Receipt[], label: string, note?: (line: string) => void): number {
+    const held = existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt) : [];
+    const growth = onlyAppends(held, lines);
+    if (!growth.ok) {
+      note?.(`${label} did not only grow: ${growth.problem}`);
+      return -1;
+    }
+    if (growth.added > 0 || !existsSync(file)) writeFileSync(file, lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));
+    return growth.added;
+  }
+
+  /**
+   * The keeper's loop over this node's cache (WORKSHOP.md section 2, stage one): every problem held is pulled again
+   * from the places known for it, its chain kept where it only grew, the reads its traces name fetched under their
+   * hashes (QX-19), and the identity log the same; so what a person's node touched stays whole and current, and what
+   * it serves at `/held`, `/p/<hash>/events` and `/b/<hash>` is worth pulling. The page runs it every half hour and
+   * the owner's turn once an hour; `quilt keep` runs it once.
+   */
+  async keep(): Promise<Kept> {
+    const out: Kept = { problems: 0, added: 0, reads: 0, refused: [] };
+    const note = (line: string) => out.refused.push(line);
+    const everywhere = new Set<string>();
+    for (const held of this.heldProblems()) {
+      const hash = held.problem;
+      const trackers = this.library.problems[hash]?.trackers ?? [];
+      for (const t of trackers) everywhere.add(t);
+      const link: Link = { hash, trackers, mirrors: [] };
+      out.problems += 1;
+      const before = this.cachedReceipts(hash).length;
+      const lines = await this.receipts(hash, link, hash, note, 'grow');
+      out.added += Math.max(0, this.cachedReceipts(hash).length - before);
+      out.reads += await this.fetchReads(lines, link);
+    }
+    const before = this.cachedIdentity().length;
+    await this.identity({ trackers: [...everywhere], mirrors: [] }, note, 'grow');
+    out.added += Math.max(0, this.cachedIdentity().length - before);
+    return out;
+  }
+
+  /** QX-19: the reads the traces on a chain name, each fetched from the places and kept under its hash where it is not here yet; how many were fetched. */
+  private async fetchReads(lines: Receipt[], link: Link): Promise<number> {
+    let fetched = 0;
+    for (const l of lines) {
+      if (l.event.type !== 'trace') continue;
+      for (const r of (l.event.body as { reads?: { hash?: Hash }[] }).reads ?? []) {
+        if (!r.hash || !isHash(r.hash) || existsSync(this.cachePath('blob', r.hash))) continue;
+        if (await this.blob(r.hash, link)) fetched += 1;
+      }
+    }
+    return fetched;
   }
 
   /** A tracker's receipts for a log, page by page as the x-quilt-next-since header leads; null where it does not answer. */
@@ -345,14 +415,17 @@ export class Resolver {
     }
   }
 
-  async identity(link: Link): Promise<Receipt[]> {
+  /** The identity log, as `receipts` reads or grows a chain. */
+  async identity(link: Link, note?: (line: string) => void, mode: 'read' | 'grow' = 'read'): Promise<Receipt[]> {
+    let read: Receipt[] | null = null;
     for (const p of this.places(link)) {
       const lines = p.kind === 'mirror' ? await this.getFileLines(`${p.url}ledger/identity.jsonl`) : await this.getLines(`${p.url}k/events`);
-      if (lines && verifyChain(lines, IDENTITY_LOG).ok) {
-        writeFileSync(join(this.home, 'cache', 'identity.jsonl'), lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));
-        return lines;
-      }
+      if (!lines || !verifyChain(lines, IDENTITY_LOG).ok) continue;
+      const added = this.keepLines(join(this.home, 'cache', 'identity.jsonl'), lines, `identity: log from ${p.url}`, note);
+      if (added >= 0 || mode === 'read') return lines;
+      read ??= lines;
     }
+    if (read) return read;
     const cached = join(this.home, 'cache', 'identity.jsonl');
     if (existsSync(cached)) return readFileSync(cached, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
     return [];
