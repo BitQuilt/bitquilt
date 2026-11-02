@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { textIssues } from '@bitquilt/core';
-import { REST_ASK, RESTS, gateRefusal, instruction, parseArgs, plain, question, readPiece, schemaOf, schemaRefusal, takeRests, traceSaid } from '../../../examples/worker-loop.mjs';
+import { REST_ASK, RESTS, fit, gateRefusal, instruction, parseArgs, plain, question, readPiece, schemaOf, schemaRefusal, takeRests, traceSaid } from '../../../examples/worker-loop.mjs';
 
 /**
  * The loop the workers with no person beside them share (examples/worker-loop.mjs): the flags, the piece read from
@@ -24,7 +24,13 @@ describe('the workers\' shared loop', () => {
     // A date field says its shape in words, since the tracker holds it to YYYY-MM-DD.
     const dated = readPiece('Piece d/1 (sha256:ab) x\nThe author wrote this brief: "When."\nThe return is an object with these fields: {"when":{"format":"date","maxLength":10,"type":"string"},"note":{"type":"string"}}; required: when; agreement is on: when.\n')!;
     expect(schemaOf(dated).properties.when).toEqual({ type: 'string', description: 'A date as YYYY-MM-DD' });
-    expect(schemaOf(dated).properties.note).toEqual({ type: 'string' });
+    // A string field the piece does not require says it may be left empty, since the strict shape asks for every field; fit leaves an empty one out.
+    expect(schemaOf(dated).properties.note).toEqual({ type: 'string', description: 'Empty where the record gives none' });
+    const bill = readPiece('Piece b/1 (sha256:ab) x\nThe author wrote this brief: "When."\nThe return is an object with these fields: {"last_action_date":{"format":"date","maxLength":10,"type":"string"},"enacted_date":{"format":"date","maxLength":10,"type":"string"},"notes":{"type":"string","maxLength":400},"n":{"type":"integer"}}; required: last_action_date; agreement is on: last_action_date.\n')!;
+    expect(schemaOf(bill).properties.enacted_date).toEqual({ type: 'string', description: 'A date as YYYY-MM-DD, or empty where the record gives none' });
+    expect(schemaOf(bill).properties.n).toEqual({ type: 'integer' });
+    expect(fit(bill, { last_action_date: '', enacted_date: '', notes: ' ', n: 3 })).toEqual({ last_action_date: '', n: 3 });
+    expect(fit(bill, { last_action_date: '2026-05-12', enacted_date: null, notes: 'x'.repeat(401) })).toEqual({ last_action_date: '2026-05-12', notes: 'x'.repeat(400) });
     expect(schemaRefusal('the tracker refused the reveal: return.last_action_date: a date, YYYY-MM-DD')).toBe('return.last_action_date: a date, YYYY-MM-DD');
     expect(schemaRefusal('return: no links or markup')).toBeNull();
     expect(schemaRefusal('nothing for this key on that problem right now')).toBeNull();

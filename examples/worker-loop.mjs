@@ -46,18 +46,34 @@ export function readPiece(text) {
 }
 
 /** One field of the piece's schema as the model's output schema: an enum as it is, a number, an integer or a boolean by type, a list of one of those, the rest strings. */
-function fieldSchema(def) {
+/**
+ * One field's shape for the model. Both vendors' strict shapes ask that every field be present, so a string field the
+ * piece does not require says it may be left empty, and `fit` leaves an empty one out of the return: a bill never
+ * enacted has no enacted date, and the tracker refuses a date field that holds anything but a date. A date field says
+ * its shape in words, since the tracker holds it to YYYY-MM-DD and a model told nothing writes dates every way.
+ */
+function fieldSchema(def, required = true) {
   if (def.enum) return { type: 'string', enum: def.enum };
   if (def.type === 'array') return { type: 'array', items: fieldSchema(def.items ?? {}), ...(def.maxItems ? { maxItems: def.maxItems } : {}) };
   const type = def.type === 'integer' ? 'integer' : def.type === 'number' ? 'number' : def.type === 'boolean' ? 'boolean' : 'string';
-  // A date field says its shape in words, since the tracker holds it to YYYY-MM-DD and a model told nothing writes dates every way.
-  return def.format === 'date' ? { type, description: 'A date as YYYY-MM-DD' } : { type };
+  if (def.format === 'date') return { type, description: required ? 'A date as YYYY-MM-DD' : 'A date as YYYY-MM-DD, or empty where the record gives none' };
+  return type === 'string' && !required ? { type, description: 'Empty where the record gives none' } : { type };
+}
+
+/** The answer with every string cut to the length the piece's schema allows, and every field the piece does not require left out where the model left it empty. */
+export function fit(piece, answer) {
+  for (const [k, def] of Object.entries(piece.properties)) {
+    const v = answer[k];
+    if (!piece.required.includes(k) && (v === null || v === undefined || (typeof v === 'string' && v.trim() === ''))) { delete answer[k]; continue; }
+    if (typeof v === 'string' && def.maxLength && v.length > def.maxLength) answer[k] = v.slice(0, def.maxLength);
+  }
+  return answer;
 }
 
 /** The JSON schema the answer takes, from the piece's own fields: every field given, nothing else, each in the shape the piece names. */
 export function schemaOf(piece) {
   const schema = { type: 'object', additionalProperties: false, required: [...Object.keys(piece.properties), 'rests'], properties: {} };
-  for (const [k, def] of Object.entries(piece.properties)) schema.properties[k] = fieldSchema(def);
+  for (const [k, def] of Object.entries(piece.properties)) schema.properties[k] = fieldSchema(def, piece.required.includes(k));
   schema.properties.rests = RESTS;
   return schema;
 }
@@ -172,11 +188,6 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
   /** The JSON a CLI command printed, read from its first brace: pnpm run writes its own two lines first unless given -s. */
   const jsonOut = (text) => JSON.parse(text.slice(text.indexOf('{')));
 
-  /** The answer with every string cut to the length the piece's schema allows. */
-  const fit = (piece, answer) => {
-    for (const [k, def] of Object.entries(piece.properties)) if (typeof answer[k] === 'string' && def.maxLength && answer[k].length > def.maxLength) answer[k] = answer[k].slice(0, def.maxLength);
-    return answer;
-  };
   /** The CLI's last line when a command failed. */
   const lastLine = (e) => (e.stderr || e.message).trim().split('\n').pop();
 
