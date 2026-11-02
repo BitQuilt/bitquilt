@@ -19,7 +19,9 @@ describe('the workers\' shared loop', () => {
     expect(piece).toMatchObject({ name: 'case/3', hash: 'sha256:0123abcd', brief: 'Read the report.', required: ['sex', 'quote'] });
     const { rests, ...properties } = schemaOf(piece).properties;
     expect(rests).toEqual(RESTS);
-    expect({ ...schemaOf(piece), properties }).toEqual({ type: 'object', additionalProperties: false, required: ['sex', 'age', 'quote', 'covers', 'rests'], properties: { sex: { type: 'string', enum: ['male', 'female', 'unknown'] }, age: { type: 'integer' }, quote: { type: 'string' }, covers: { type: 'array', maxItems: 4, items: { type: 'string', enum: ['a', 'b'] } } } });
+    // A list says its most in words, since the structured shapes refuse maxItems; fit cuts a longer one to it.
+    expect({ ...schemaOf(piece), properties }).toEqual({ type: 'object', additionalProperties: false, required: ['sex', 'age', 'quote', 'covers', 'rests'], properties: { sex: { type: 'string', enum: ['male', 'female', 'unknown'] }, age: { type: 'integer' }, quote: { type: 'string' }, covers: { type: 'array', description: 'At most 4 items', items: { type: 'string', enum: ['a', 'b'] } } } });
+    expect(fit(piece, { sex: 'male', age: 3, quote: 'q', covers: ['a', 'b', 'a', 'b', 'a'] })).toEqual({ sex: 'male', age: 3, quote: 'q', covers: ['a', 'b', 'a', 'b'] });
     expect(readPiece('nothing like a piece')).toBeNull();
     // A date field says its shape in words, since the tracker holds it to YYYY-MM-DD.
     const dated = readPiece('Piece d/1 (sha256:ab) x\nThe author wrote this brief: "When."\nThe return is an object with these fields: {"when":{"format":"date","maxLength":10,"type":"string"},"note":{"type":"string"}}; required: when; agreement is on: when.\n')!;

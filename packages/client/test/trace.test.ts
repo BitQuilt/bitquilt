@@ -228,6 +228,25 @@ describe('the seam decides itself (section 4)', () => {
     expect((await trackerState(pa)).pieces[0]).toMatchObject({ state: 'accepted_provisional', core: 'disputed', traced: 'both' });
   });
 
+  it('asks the tracker within the pool, so the piece comes back to the key set aside where the open pieces outnumber it', async () => {
+    // Five pieces and one read twice: the core's order hands an open piece first, and B's own fold still counts the reading the tracker set aside.
+    const pool = (await owner.publish({ ...pattern, slug: 'pool', pieces: { 'statement/*': { ...pattern.pieces['statement/*']!, count: 5 } } })).hash;
+    const piece = (await a.open(pool)).state.pieces[0]!.piece.hash;
+    await a.return(pool, piece, { verdict: 'supports', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: HOLDS }]);
+    await b.return(pool, piece, { verdict: 'contradicts', quote: 'q' });
+    expect((await trackerState(pool)).pieces[0]).toMatchObject({ state: 'needs_verify', aside: [b.identity!.address] });
+    process.env.QUILT_NEXT_ONLY = 'verify';
+    try {
+      const handed = await b.next(pool);
+      expect(handed.pick.piece.hash).toBe(piece);
+      expect(handed.seams[0]!.sides.map((s) => s.aside)).toEqual([false, true]);
+    } finally {
+      delete process.env.QUILT_NEXT_ONLY;
+    }
+    // Without the switch, B is handed an open piece, as the core orders them.
+    expect((await b.next(pool)).pick.state).toBe('open');
+  });
+
   it("sharpens the brief where two grounded readings read it apart: the sentence asked with both passages, the version published with it, the gold carried, the old problem replaced, and the away turn's line", async () => {
     expect((await trackerState(pa)).pieces[1]).toMatchObject({ state: 'disputed', aside: [] });
     // Not the owner: refused before anything is asked.
