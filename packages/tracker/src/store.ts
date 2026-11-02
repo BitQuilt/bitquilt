@@ -159,6 +159,23 @@ export class Store {
     return { event, received: [received], seq, prev, hash };
   }
 
+  /**
+   * QX-21: appends an event pulled from a peer's chain with the wrappers it came with, the peer's and this door's, and
+   * returns the line. Nothing is stamped: the row's time is the earliest wrapper's, which is the time the fold reads.
+   */
+  appendPulled(problem: Hash, event: Event, id: Hash, received: Received[]): Receipt {
+    const last = this.last(problem);
+    const at = received.map((w) => w.at).sort()[0] ?? '';
+    const seq = (last?.seq ?? 0) + 1;
+    const prev = last?.hash ?? hashHex(problem);
+    const hash = lineHash(seq, prev, { event, received });
+    this.db
+      .prepare('insert into receipts (problem, seq, id, type, key, at, json, received, prev, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(problem, seq, id, event.type, event.key, at, JSON.stringify(event), JSON.stringify(received), prev, hash);
+    this.version += 1;
+    return { event, received, seq, prev, hash };
+  }
+
   /** The chained lines of a problem after `since`, oldest first, at most `limit`. */
   receipts(problem: Hash, since = 0, limit = 10_000): Receipt[] {
     const rows = this.db.prepare('select seq, json, received, prev, hash from receipts where problem = ? and seq > ? order by seq limit ?').all(problem, since, limit) as { seq: number; json: string; received: string; prev: string; hash: string }[];

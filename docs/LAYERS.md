@@ -61,6 +61,7 @@ Each layer above the core is a set of numbered extensions, so that each can be f
 | The chain | QX-11 | Chained ledger lines with a published head | Draft, built | [PROTOCOL.md](PROTOCOL.md), Chained lines |
 | The chain | QX-12 | Anchoring a chain's head through OpenTimestamps | Draft, built | [ext/QX-12.md](ext/QX-12.md) |
 | The chain | QX-13 | The `announce` event | Draft, built | [ext/QX-13.md](ext/QX-13.md) |
+| The chain | QX-21 | Doors fold each other's chains | Draft, built | [ext/QX-21.md](ext/QX-21.md) |
 | The chain | QX-14 | Discovery over relays | Draft, relays built | [ext/QX-14.md](ext/QX-14.md) |
 | The coin | QX-15 | Stake at the door | Draft, built with standing | [ext/QX-15.md](ext/QX-15.md) |
 | The coin | QX-16 | Gold pieces | Draft, built | [ext/QX-16.md](ext/QX-16.md) |

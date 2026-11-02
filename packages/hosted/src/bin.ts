@@ -29,7 +29,7 @@ async function main(): Promise<void> {
     console.error('QUILT_KEY_SECRET is required: the keys this tracker holds are encrypted with it');
     process.exit(2);
   }
-  const { Store, createTracker } = await import('@bitquilt/tracker');
+  const { Store, createTracker, schedulePeerPulls } = await import('@bitquilt/tracker');
   const { createHosted } = await import('./hosted.js');
   const { port, host, dbPath, options } = trackerOptionsFromEnv(process.env);
   const store = new Store(dbPath);
@@ -62,6 +62,7 @@ async function main(): Promise<void> {
   };
   setTimeout(() => void ownersTurn(), 60_000).unref();
   setInterval(() => void ownersTurn(), 3_600_000).unref();
+  schedulePeerPulls(tracker, options.peers ?? [], (line) => console.log(line));
 }
 
 /** QUILT_WITNESS_RANGES as one JSON object of product to a list of ranges; anything else throws, naming the fault. */
