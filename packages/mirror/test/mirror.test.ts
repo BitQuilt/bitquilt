@@ -9,8 +9,8 @@ import { mirror } from '../src/mirror.js';
 
 /**
  * The mirror over two real trackers: it writes the layout from one, with chains that verify and names from version
- * events; only grows, and writes the output once the problem is complete; refuses a second tracker whose chain for the
- * problem is not a growth of the one it holds; passes over a chain whose pages have no end, keeping what it holds;
+ * events; only grows, and writes the output once the problem is complete; takes the events a second tracker has that
+ * it lacks onto its own chain, the union of both (stage two of one peer); passes over a chain whose pages have no end, keeping what it holds;
  * anchors the head of every chain when asked, keeping a stamp it already has; writes the record document of a
  * problem with a record piece (QX-20) with the tracker's own layer code, the same hash as the tracker states; and as
  * the keeper, reads a node by its held list, keeps a problem its source no longer lists with its chain still growing,
@@ -37,8 +37,8 @@ function envelope(): Envelope {
 
 let tick = Date.parse('2026-10-25T09:00:00Z');
 const now = () => new Date(tick).toISOString();
-async function startTracker(): Promise<{ server: Server; base: string }> {
-  const t = createTracker({ store: new Store(':memory:'), url: 'http://t.test/', now, ipSalt: 's' });
+async function startTracker(peers: string[] = []): Promise<{ server: Server; base: string }> {
+  const t = createTracker({ store: new Store(':memory:'), url: 'http://t.test/', now, ipSalt: 's', peers });
   const server = await t.listen(0);
   const a = server.address();
   return { server, base: typeof a === 'object' && a ? `http://127.0.0.1:${a.port}/` : '' };
@@ -107,14 +107,22 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
     expect(existsSync(join(out, 'outputs', P, 'output.json'))).toBe(true);
     expect(readFileSync(join(out, 'outputs', P, 'hash'), 'utf8')).toMatch(/^sha256:[0-9a-f]{64}\n$/);
   });
-  it('refuses a tracker whose chain for the problem is not a growth of the one it holds', async () => {
+  it('takes the events a second tracker has that it lacks onto its own chain, the union of both, and refuses nothing (stage two of one peer)', async () => {
     await handIn(two.base, B, P, pieces[0]!, { verdict: 'supports' }, 'b/y');
     const report = await mirror({ trackers: [two.base], out, now });
-    // The problem's chain and the identity log both differ from what the mirror holds: a mirror follows one tracker's chains.
-    expect(report.refused).toHaveLength(2);
-    expect(report.refused.every((r) => /did not only grow/.test(r))).toBe(true);
-    const lines = readFileSync(join(out, 'ledger', `${P}.jsonl`), 'utf8').split('\n').filter(Boolean);
-    expect(lines).toHaveLength(9);
+    expect(report.refused).toEqual([]);
+    expect(report.sources).toEqual([two.base]);
+    expect(report.problems[0]).toMatchObject({ hash: P, lines: 11, added: 2 });
+    const lines = readFileSync(join(out, 'ledger', `${P}.jsonl`), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
+    expect(lines).toHaveLength(11);
+    expect(verifyChain(lines, P).ok).toBe(true);
+    // Every line carries the tracker's wrapper and the mirror's own; every event is on the chain once.
+    expect(lines.every((l) => l.received.map((w) => w.by).join(',') === 'http://t.test/,mirror')).toBe(true);
+    expect(new Set(lines.map((l) => l.event.sig)).size).toBe(11);
+    // The two from the second tracker are the last two, in its order, and the mirror's hashes are its own, not the tracker's.
+    expect(lines.slice(9).map((l) => l.event.key)).toEqual([addr(B), addr(B)]);
+    const theirs = (await (await fetch(`${two.base}p/${P}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as Receipt);
+    expect(theirs.map((l) => l.hash)).not.toEqual(lines.slice(0, theirs.length).map((l) => l.hash));
   });
   it('passes over a chain whose pages have no end, and keeps the one it holds', async () => {
     const fetchImpl: typeof fetch = async (input, init) => {
@@ -124,7 +132,7 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
     const report = await mirror({ trackers: [one.base], out, now, fetchImpl });
     expect(report.problems).toEqual([]);
     expect(report.refused).toEqual([]);
-    expect(readFileSync(join(out, 'ledger', `${P}.jsonl`), 'utf8').split('\n').filter(Boolean)).toHaveLength(9);
+    expect(readFileSync(join(out, 'ledger', `${P}.jsonl`), 'utf8').split('\n').filter(Boolean)).toHaveLength(11);
   });
   it('anchors the head of every chain it holds when asked, and keeps a stamp it already has', async () => {
     const calendarBytes = new Uint8Array([0xf0, 0x10, 0x01, 0x02, 0x03, 0x00, 0x83, 0xdf, 0xe3, 0x0d, 0x2e, 0xf9, 0x0c, 0x8e]);
@@ -252,5 +260,18 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
     expect(third.problems).toEqual([]);
     expect(third.kept.sort()).toEqual(hashes.sort());
     expect(JSON.parse(readFileSync(join(keep, 'index.json'), 'utf8')).problems).toHaveLength(hashes.length);
+  });
+  it('follows each configured source\'s peers one hop, so a mirror pointed at one tracker keeps the swarm it names, and not when told not to', async () => {
+    const three = await startTracker([two.base]);
+    const swarm = mkdtempSync(join(tmpdir(), 'bitquilt-swarm-'));
+    const report = await mirror({ trackers: [three.base], out: swarm, now });
+    expect(report.sources).toEqual([three.base, two.base]);
+    expect(report.errors).toEqual([]);
+    expect(report.problems.map((p) => p.hash)).toContain(P);
+    expect(existsSync(join(swarm, 'ledger', `${P}.jsonl`))).toBe(true);
+    const alone = await mirror({ trackers: [three.base], out: mkdtempSync(join(tmpdir(), 'bitquilt-alone-')), now, peers: false });
+    expect(alone.sources).toEqual([three.base]);
+    expect(alone.problems).toEqual([]);
+    await new Promise<void>((r) => three.server.close(() => r()));
   });
 });

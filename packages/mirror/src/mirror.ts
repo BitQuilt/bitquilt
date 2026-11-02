@@ -1,12 +1,15 @@
 /**
  * The mirror (PROTOCOL.md, The mirror): the one automated writer to a repository's main, and the keeper. It pulls from
- * the sources it is given, a tracker by its index or a node by its held list (`node: true` in the well-known), checks
- * every envelope against its hash, every blob against its hash and every chain from its problem's hash, refuses a chain
- * that did anything but grow since the file it holds, and writes the layout a client reads raw. A problem it already
- * holds files for is taken by hash whether or not the source still lists it, so a problem hidden or replaced at its
- * source stays in the index and its chain keeps growing here; and the reads the chain's traces name (QX-19) are
- * fetched under their hashes beside the data blobs. A chain is a resolver's own, so a mirror follows one source's
- * chains; a second source's chain for the same problem is refused unless it is a growth of the first's:
+ * the sources it is given, a tracker by its index or a node by its held list (`node: true` in the well-known), and from
+ * each configured source's peers one hop behind it; checks every envelope against its hash, every blob against its hash
+ * and every chain from its problem's hash; and writes the layout a client reads raw. A problem it already holds files
+ * for is taken by hash whether or not the source still lists it, so a problem hidden or replaced at its source stays
+ * in the index and its chain keeps growing here; and the reads the chain's traces name (QX-19) are fetched under their
+ * hashes beside the data blobs. A chain is a resolver's own, and the mirror's is its own (stage two of one peer,
+ * WORKSHOP.md section 2): each source's chain is verified whole, and every event the mirror lacks, by id, whose shape
+ * and signature hold, is appended in the source's order with the source's wrappers kept and the mirror's added, so the
+ * mirror's chain is the union of its sources' events and only grows; the coin log alone is copied whole, one sequence,
+ * and refused where it did anything but grow:
  *
  *   problems/<hash>.json   blobs/<hash>   ledger/<hash>.jsonl   ledger/identity.jsonl   ledger/coin.jsonl (QX-17)
  *   names/<owner>/<slug>   outputs/<hash>/output.json   outputs/<hash>/record.json (QX-20)   keys.json   index.json   coin/balances.json   anchors/<problem>/<seq>.ots (QX-12, when asked)
@@ -25,7 +28,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
-  type Envelope, type Hash, type Receipt, type ReduceInput, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, onlyAppends, problemHash, reduce, signedBy, verifyChain, withSlash,
+  type Envelope, type Hash, type Receipt, type ReduceInput, IDENTITY_LOG, blobProblems, envelopeProblems, eventId, eventProblems, eventSignedByKey, hashBytes, nextLine, onlyAppends, problemHash, reduce, signedBy, verifyChain, withSlash,
 } from '@bitquilt/core';
 import { type BalanceView, type CoinParams, type CreditLine, type Layer, COIN_LOG, challengeLayer, coinLayer, recordDocument } from '@bitquilt/tracker';
 import { type AnchorReport, type ChainHead, anchorHeads } from './anchor.js';
@@ -35,6 +38,10 @@ export interface MirrorOptions {
   /** The sources: trackers, or nodes, each read by what its well-known says it is. */
   trackers: string[];
   out: string;
+  /** What the mirror's own wrapper on every line it appends says received the event: its name or address; `mirror` unless set. */
+  by?: string;
+  /** Follow each configured source's peers (its well-known `peers`) one hop, as sources of their own; on unless false. */
+  peers?: boolean;
   fetchImpl?: typeof fetch;
   now?: () => string;
   /** QX-12: stamp every chain's head through OpenTimestamps; true for the default calendars, or the calendars to ask. */
@@ -54,6 +61,8 @@ export interface DepositReader {
 }
 
 export interface MirrorReport {
+  /** Every source read this run: the configured ones, then the peers followed. */
+  sources: string[];
   problems: { hash: Hash; lines: number; added: number; complete: boolean }[];
   /** The problems held here that no source listed this run, kept as they were: hidden or replaced at their source, or the source gone. */
   kept: Hash[];
@@ -85,6 +94,8 @@ interface Context {
   index: Map<Hash, { envelope: Envelope; tracker: string | null }>;
   /** Every problem a source was asked for this run, taken or refused, so a refusal is said once. */
   tried: Set<Hash>;
+  /** What this mirror's own wrapper says. */
+  by: string;
 }
 
 export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
@@ -93,12 +104,19 @@ export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
     out: options.out,
     fetchImpl: options.fetchImpl ?? fetch,
     now: options.now ?? (() => new Date().toISOString()),
-    report: { problems: [], kept: [], identity: { lines: 0, added: 0 }, refused: [], errors: [] },
+    report: { sources: [], problems: [], kept: [], identity: { lines: 0, added: 0 }, refused: [], errors: [] },
     index: new Map(),
     tried: new Set(),
+    by: options.by ?? 'mirror',
   };
-  for (const source of options.trackers.map(withSlash)) {
-    const listed = await listedAt(ctx, source);
+  // The configured sources, and each one's peers one hop behind it: a mirror pointed at one tracker keeps the swarm it names.
+  const configured = [...new Set(options.trackers.map(withSlash))];
+  const sources = [...configured];
+  for (let i = 0; i < sources.length; i += 1) {
+    const source = sources[i]!;
+    const known = await describeSource(ctx, source);
+    if (options.peers !== false && configured.includes(source)) for (const peer of known.peers.map(withSlash)) if (!sources.includes(peer)) sources.push(peer);
+    const listed = await listedAt(ctx, source, known.node);
     if (!listed) {
       ctx.report.errors.push(`${source}: no index`);
       continue;
@@ -108,6 +126,7 @@ export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
     await takeIdentity(ctx, source);
     if (options.coin !== false) await takeCoin(ctx, source, options.chain ?? null);
   }
+  ctx.report.sources = sources;
   keepTheRest(ctx);
   const at = ctx.now();
   writeKeys(ctx, at);
@@ -135,10 +154,16 @@ async function getBytes(ctx: Context, url: string): Promise<Uint8Array | null> {
   }
 }
 
-/** The problems a source lists: a node's `/held` where its well-known says `node: true`, else a tracker's index at `/`; null where it lists nothing. */
-async function listedAt(ctx: Context, source: string): Promise<Hash[] | null> {
-  const known = (await getJson(ctx, `${source}.well-known/quilt`)) as { node?: boolean } | null;
-  const home = (await getJson(ctx, known?.node ? `${source}held` : source)) as { problems?: { problem: Hash }[] } | null;
+/** What a source's well-known says of it: whether it is a node, and the peers it names; a source with no well-known is read as a tracker with none. */
+async function describeSource(ctx: Context, source: string): Promise<{ node: boolean; peers: string[] }> {
+  const known = (await getJson(ctx, `${source}.well-known/quilt`)) as { node?: boolean; peers?: unknown } | null;
+  const peers = Array.isArray(known?.peers) ? known.peers.filter((p): p is string => typeof p === 'string' && /^https?:\/\//.test(p)) : [];
+  return { node: known?.node === true, peers };
+}
+
+/** The problems a source lists: a node's `/held`, else a tracker's index at `/`; null where it lists nothing. */
+async function listedAt(ctx: Context, source: string, node: boolean): Promise<Hash[] | null> {
+  const home = (await getJson(ctx, node ? `${source}held` : source)) as { problems?: { problem: Hash }[] } | null;
   return home?.problems ? home.problems.map((p) => p.problem) : null;
 }
 
@@ -240,8 +265,16 @@ function inputFor(ctx: Context, envelope: Envelope, at: string): ReduceInput {
   return { envelopes: chainEnvelopes, blobs, receipts, now: at };
 }
 
-/** A chain from a tracker, taken only if it verifies and only adds to what the mirror holds; refuses one that does not verify or did not only grow, and passes over one it could not read whole. */
-async function takeChain(ctx: Context, url: string, genesis: Hash, file: string, label: string): Promise<{ lines: Receipt[]; added: number } | null> {
+/**
+ * A log pulled from a source. The source's chain is read whole and verified from its genesis; one that does not
+ * verify is left whole, and one that could not be read whole is passed over. Then, as the union: every event the mirror
+ * lacks, by id, whose shape and signature hold, is appended to the mirror's own chain in the source's order, with the
+ * source's wrappers kept and the mirror's added (CORE.md section 5: the union of `received`, the earliest deciding the
+ * time), so the chain here is the union of every source's events and only grows; a file written by an earlier run from
+ * one source's chain verbatim is a prefix of it. As a whole (the coin log, QX-17): the source's chain is taken as it is,
+ * and refused where it did anything but grow, since a coin log is one sequence and a union of two is neither.
+ */
+async function takeChain(ctx: Context, url: string, genesis: Hash, file: string, label: string, mode: 'union' | 'whole' = 'union'): Promise<{ lines: Receipt[]; added: number } | null> {
   const lines = await getLines(ctx, url);
   if (!lines) return null;
   const check = verifyChain(lines, genesis);
@@ -250,13 +283,30 @@ async function takeChain(ctx: Context, url: string, genesis: Hash, file: string,
     return null;
   }
   const held = readLines(file);
-  const growth = onlyAppends(held, lines);
-  if (!growth.ok) {
-    ctx.report.refused.push(`${label}: chain from ${url} did not only grow: ${growth.problem}`);
-    return null;
+  if (mode === 'whole') {
+    const growth = onlyAppends(held, lines);
+    if (!growth.ok) {
+      ctx.report.refused.push(`${label}: chain from ${url} did not only grow: ${growth.problem}`);
+      return null;
+    }
+    if (growth.added > 0 || !existsSync(file)) writeLines(file, lines);
+    return { lines, added: growth.added };
   }
-  if (growth.added > 0 || !existsSync(file)) writeLines(file, lines);
-  return { lines, added: growth.added };
+  const have = new Set(held.map((l) => eventId(l.event)));
+  let added = 0;
+  for (const l of lines) {
+    const id = eventId(l.event);
+    if (have.has(id)) continue;
+    if (eventProblems(l.event).length || !eventSignedByKey(l.event)) {
+      ctx.report.refused.push(`${label}: event ${id} from ${url} does not check`);
+      continue;
+    }
+    held.push(nextLine(held, genesis, { event: l.event, received: [...l.received, { by: ctx.by, at: ctx.now() }] }));
+    have.add(id);
+    added += 1;
+  }
+  if (added > 0 || !existsSync(file)) writeLines(file, held);
+  return { lines: held, added };
 }
 
 /** The envelope's blobs, each from the file held here where it hashes right and from the tracker otherwise; null where one does not check. */
@@ -336,7 +386,7 @@ async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | nu
   const wellKnown = (await getJson(ctx, `${tracker}.well-known/quilt`)) as { coin?: (CoinParams & { home?: string | null; extension?: string }) | null } | null;
   const published = wellKnown?.coin ?? null;
   if (!published || !(published.home === 'here' || published.home === undefined || published.home === null)) return;
-  const log = await takeChain(ctx, `${tracker}coin/events`, COIN_LOG, join(ctx.out, 'ledger', 'coin.jsonl'), 'coin');
+  const log = await takeChain(ctx, `${tracker}coin/events`, COIN_LOG, join(ctx.out, 'ledger', 'coin.jsonl'), 'coin', 'whole');
   if (!log) return;
   const held = log.lines[log.lines.length - 1];
   const coin: NonNullable<MirrorReport['coin']> = { lines: log.lines.length, added: log.added, head: held?.seq ?? null, reproduced: null };
