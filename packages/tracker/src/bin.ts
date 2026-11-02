@@ -9,12 +9,13 @@ quietSqliteWarning();
 
 async function main(): Promise<void> {
   const { Store } = await import('./store.js');
-  const { createTracker } = await import('./tracker.js');
+  const { createTracker, schedulePeerPulls } = await import('./tracker.js');
   const { port, host, dbPath, options } = trackerOptionsFromEnv(process.env);
   const store = new Store(dbPath);
   const tracker = createTracker({ store, ...options });
   await tracker.listen(port, host);
   console.log(`bitquilt tracker at ${options.url} (db ${dbPath})`);
+  schedulePeerPulls(tracker, options.peers ?? [], (line) => console.log(line));
 }
 
 main().catch((err) => {

@@ -11,7 +11,7 @@ One container runs it. This file was written on a machine without Docker, so the
 | `QUILT_KEY_SECRET` | yes | The secret the hosted keys are encrypted with at rest. Make it once (`openssl rand -hex 32`) and keep it: without it every address the tracker handed out is lost. |
 | `QUILT_URL` | yes, in public | The origin the tracker says it is, with a trailing slash, and the one `/join` hands out in addresses: `https://tracker.example.org/`. |
 | `QUILT_NAME` | | A name the tracker gives itself at `/.well-known/quilt`. |
-| `QUILT_PEERS` | | Other trackers, comma separated, told to clients that ask. |
+| `QUILT_PEERS` | | Other trackers, comma separated: told to clients that ask, and their chains for the problems both hold pulled and folded through this door every five minutes (QX-21), the identity log too; the log says what each pull added and refused. |
 | `QUILT_IP_SALT` | | A salt for the hashed addresses the rate limits count by. Set one; the hash is all that is ever kept. |
 | `QUILT_LIMIT_KEY_HOUR`, `QUILT_LIMIT_IP_HOUR` | | Events an hour per key (120) and per address (600). |
 | `QUILT_STAMP_NAME` | | Bits of work a `name` event has to carry; 0 asks for none. |
