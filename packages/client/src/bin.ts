@@ -8,7 +8,8 @@
  *                                                         through the node already holding this home's page when there is one
  *   quilt serve [--port 3978]                             the page and the node alone
  *   quilt open <link>  |  quilt search <words>  |  quilt read <link>
- *   quilt next [problem]  |  quilt return <problem> <piece> '<json>'  |  quilt decline <problem> <piece> <reason>
+ *   quilt next [problem]  |  quilt return <problem> <piece> '<json>' ['<rests json>']  |  quilt decline <problem> <piece> <reason>
+ *                                                         the rests (QX-19): [{ field, url, passage }], what each field rests on; the page is fetched and the trace posted
  *   quilt seed <problem> on|off                          keep a problem: a seed event on its log, and the problem in the standing list
  *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
  *   quilt stake <problem> <min> [<family> ...]           the owner's stake rule (QX-15): what a claim on the pieces locks; 0 asks nothing
@@ -36,6 +37,7 @@ import { awayCli } from './away.js';
 import { type Config, createKey, ensureHome, loadConfig, loadKey, quiltHome, saveConfig } from './config.js';
 import { entryHere, installHere } from './install.js';
 import type { Side } from './listings.js';
+import type { RestAsked } from './trace.js';
 import { createMcpServer } from './mcp.js';
 import { probeNode, remoteRunner } from './node.js';
 import { createPage } from './page.js';
@@ -196,7 +198,9 @@ async function main(): Promise<void> {
       return;
     }
     case 'return': {
-      const r = await make().return(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, JSON.parse(args[3] ?? '{}') as Record<string, unknown>);
+      // QX-19: a fourth argument, the rests as JSON, is what each field rests on; the page is fetched and the trace posted after the reveal.
+      const rests = args[4] ? (JSON.parse(args[4]) as RestAsked[]) : [];
+      const r = await make().return(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, JSON.parse(args[3] ?? '{}') as Record<string, unknown>, Array.isArray(rests) ? rests : []);
       console.log(JSON.stringify(r, null, 2));
       return;
     }

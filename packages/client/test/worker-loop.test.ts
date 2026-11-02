@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { textIssues } from '@bitquilt/core';
-import { gateRefusal, instruction, parseArgs, plain, question, readPiece, schemaOf } from '../../../examples/worker-loop.mjs';
+import { REST_ASK, RESTS, gateRefusal, instruction, parseArgs, plain, question, readPiece, schemaOf, takeRests, traceSaid } from '../../../examples/worker-loop.mjs';
 
 /**
  * The loop the workers with no person beside them share (examples/worker-loop.mjs): the flags, the piece read from
@@ -17,14 +17,17 @@ describe('the workers\' shared loop', () => {
     const printed = 'Piece case/3 (sha256:0123abcd) on a problem.\nThe author wrote this brief: "Read the report."\nThe return is an object with these fields: {"sex":{"enum":["male","female","unknown"]},"age":{"type":"integer"},"quote":{"type":"string","maxLength":400},"covers":{"type":"array","maxItems":4,"items":{"enum":["a","b"]}}}; required: sex, quote; agreement is on: sex.\n';
     const piece = readPiece(printed)!;
     expect(piece).toMatchObject({ name: 'case/3', hash: 'sha256:0123abcd', brief: 'Read the report.', required: ['sex', 'quote'] });
-    expect(schemaOf(piece)).toEqual({ type: 'object', additionalProperties: false, required: ['sex', 'age', 'quote', 'covers'], properties: { sex: { type: 'string', enum: ['male', 'female', 'unknown'] }, age: { type: 'integer' }, quote: { type: 'string' }, covers: { type: 'array', maxItems: 4, items: { type: 'string', enum: ['a', 'b'] } } } });
+    const { rests, ...properties } = schemaOf(piece).properties;
+    expect(rests).toEqual(RESTS);
+    expect({ ...schemaOf(piece), properties }).toEqual({ type: 'object', additionalProperties: false, required: ['sex', 'age', 'quote', 'covers', 'rests'], properties: { sex: { type: 'string', enum: ['male', 'female', 'unknown'] }, age: { type: 'integer' }, quote: { type: 'string' }, covers: { type: 'array', maxItems: 4, items: { type: 'string', enum: ['a', 'b'] } } } });
     expect(readPiece('nothing like a piece')).toBeNull();
   });
   it('gives the model the brief as quoted words, the evidence when there is one, else what to do without it, and the fields', () => {
     const piece = readPiece('Piece a/1 (sha256:ab) x\nThe author wrote this brief: "Find the date."\nThe return is an object with these fields: {"date":{"type":"string"}}; required: date; agreement is on: date.\n')!;
-    expect(question(piece, 'The paper says 1918.')).toBe('The author wrote this brief: "Find the date."\n\nThe evidence:\n\nThe paper says 1918.\n\nAnswer with the fields: date.');
+    expect(question(piece, 'The paper says 1918.')).toBe(`The author wrote this brief: "Find the date."\n\nThe evidence:\n\nThe paper says 1918.\n\nAnswer with the fields: date. ${REST_ASK}`);
     expect(question(piece, '', 'Find the source first.')).toContain('Find the source first.\n\nAnswer with the fields: date.');
-    expect(question(piece, '')).toBe('The author wrote this brief: "Find the date."\n\nAnswer with the fields: date.');
+    expect(question(piece, '')).toBe(`The author wrote this brief: "Find the date."\n\nAnswer with the fields: date. ${REST_ASK}`);
+    expect(REST_ASK).toMatch(/^Under rests, /);
     expect(instruction('')).toMatch(/^You work one piece of a problem/);
     expect(instruction('')).toContain('no links or web addresses');
     expect(instruction('Copy the words exactly.')).toMatch(/ Copy the words exactly\.$/);
@@ -43,6 +46,16 @@ describe('the workers\' shared loop', () => {
     expect(clean.source).toBe(answer.source);
     expect(clean.year).toBe(1971);
     for (const v of Object.values(clean)) if (typeof v === 'string') expect(textIssues(v)).toEqual([]);
+  });
+  it('takes the rests out of an answer, keeping only well-formed ones, and says in the log line what became of the trace', () => {
+    const answer = { verdict: 'supports', rests: [{ field: 'verdict', url: 'https://example.org/p', passage: 'it holds' }, { field: 'quote', url: 'https://example.org/p', passage: '  ' }, 'no', { field: 1 }] };
+    expect(takeRests(answer)).toEqual([{ field: 'verdict', url: 'https://example.org/p', passage: 'it holds' }]);
+    expect(answer).toEqual({ verdict: 'supports' });
+    expect(takeRests({ verdict: 'supports' })).toEqual([]);
+    expect(traceSaid(null)).toBe('');
+    expect(traceSaid({ posted: { queued: false, at: 'http://t/' }, reads: 1, rested: ['verdict'], missing: [] })).toBe(', trace posted: verdict on 1 read');
+    expect(traceSaid({ posted: null, reads: 0, rested: [], missing: [{ field: 'verdict', url: 'u', why: 'the page answered 404' }] })).toBe(', no trace (left out: verdict: the page answered 404)');
+    expect(traceSaid({ posted: { queued: false, error: 'read 0: no such blob here; put it first' }, reads: 1, rested: ['verdict'], missing: [] })).toBe(', trace refused: read 0: no such blob here; put it first: verdict on 1 read');
     expect(gateRefusal('return: no links or markup')).toBe('no links or markup');
     expect(gateRefusal('return: no contact details')).toBe('no contact details');
     expect(gateRefusal('the tracker did not answer')).toBeNull();

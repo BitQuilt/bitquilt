@@ -11,6 +11,8 @@
  * For each piece the CLI hands it (rarest first, verifies first), the model gets the author's brief as quoted words,
  * the evidence file if one is given, and the piece's own schema as the shape of its answer. When the schema has a
  * `quote` field and there is evidence, a quote that is not found verbatim in the evidence is asked for once more.
+ * Beside the answer the model gives, for each field, the page it rests on and the passage on it (QX-19); the loop hands
+ * those to `quilt return` as rests, and the CLI fetches each page, finds the passage and posts the trace beside the reveal.
  * The answer is then handed back through `quilt return`, signed by this worker's key, declared as `<vendor>/<model>`
  * (set `model` in the key's config, or QUILT_MODEL, to that same value so the claim says what the reveal says).
  *
@@ -52,10 +54,24 @@ function fieldSchema(def) {
 
 /** The JSON schema the answer takes, from the piece's own fields: every field given, nothing else, each in the shape the piece names. */
 export function schemaOf(piece) {
-  const schema = { type: 'object', additionalProperties: false, required: Object.keys(piece.properties), properties: {} };
+  const schema = { type: 'object', additionalProperties: false, required: [...Object.keys(piece.properties), 'rests'], properties: {} };
   for (const [k, def] of Object.entries(piece.properties)) schema.properties[k] = fieldSchema(def);
+  schema.properties.rests = RESTS;
   return schema;
 }
+
+/**
+ * What a field rests on (QX-19), asked of the model beside the answer: the page's address and the passage on it, copied
+ * as it appears there. The loop takes them out of the answer before it is signed and hands them to `quilt return`,
+ * which fetches the page, finds the passage and posts the trace beside the reveal.
+ */
+export const RESTS = {
+  type: 'array',
+  items: { type: 'object', additionalProperties: false, required: ['field', 'url', 'passage'], properties: { field: { type: 'string' }, url: { type: 'string' }, passage: { type: 'string' } } },
+};
+
+/** The sentence that asks for the rests, at the end of every question. */
+export const REST_ASK = 'Under rests, for each field that rests on a page you read, give the page\'s address and the passage on it the field rests on, copied as it appears there; leave rests empty where nothing was read.';
 
 /** What the model is told it is doing, the same for every vendor; `note` is the second asking, when a quote was not found. */
 export function instruction(note) {
@@ -64,7 +80,7 @@ export function instruction(note) {
 
 /** The one message with the piece in it: the brief as the author's quoted words, the evidence when there is one, else `without`, and the fields wanted. */
 export function question(piece, evidence, without = '') {
-  return `The author wrote this brief: "${piece.brief}"\n\n${evidence ? `The evidence:\n\n${evidence}\n\n` : without ? `${without}\n\n` : ''}Answer with the fields: ${Object.keys(piece.properties).join(', ')}.`;
+  return `The author wrote this brief: "${piece.brief}"\n\n${evidence ? `The evidence:\n\n${evidence}\n\n` : without ? `${without}\n\n` : ''}Answer with the fields: ${Object.keys(piece.properties).join(', ')}. ${REST_ASK}`;
 }
 
 /**
@@ -89,6 +105,21 @@ export function plain(answer) {
       : v;
   }
   return out;
+}
+
+/** The rests out of an answer, so the return fits the piece's schema: each with its three strings, anything else dropped. */
+export function takeRests(answer) {
+  const given = Array.isArray(answer.rests) ? answer.rests : [];
+  delete answer.rests;
+  return given.filter((r) => r && typeof r === 'object' && typeof r.field === 'string' && typeof r.url === 'string' && typeof r.passage === 'string' && r.passage.trim().length > 0);
+}
+
+/** The trace in the log line: where it went, what rests on what, and what was left out and why; nothing where no rests were given. */
+export function traceSaid(t) {
+  if (!t) return '';
+  const left = t.missing.length ? ` (left out: ${t.missing.map((m) => `${m.field}: ${m.why}`).join('; ')})` : '';
+  if (!t.posted) return `, no trace${left}`;
+  return `, trace ${t.posted.queued ? 'queued' : t.posted.error ? `refused: ${t.posted.error}` : 'posted'}: ${t.rested.join(', ')} on ${t.reads} read${t.reads === 1 ? '' : 's'}${left}`;
 }
 
 /** What the gate refused, from the CLI's last line ("return: no links or markup"); null when the CLI stopped for another reason. */
@@ -154,17 +185,20 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
         const quoteOk = (a) => typeof a.quote !== 'string' || !evidence || (evidenceNorm.includes(norm(a.quote)) && a.quote.trim().split(/\s+/).length <= 25);
         if (!quoteOk(answer)) answer = await ask({ piece, schema, evidence, note: 'Your previous quote was not found verbatim in the evidence, or ran over 25 words; copy the words exactly as they appear.', model: o.model, key });
         answer = fit(piece, plain(answer));
+        // QX-19: what each field rests on goes beside the return, not in it; the CLI fetches the pages and posts the trace.
+        const rests = takeRests(answer);
         let r;
         try {
-          r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer)));
+          r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer), JSON.stringify(rests)));
         } catch (e) {
           const refused = gateRefusal(lastLine(e));
           if (!refused) throw e;
           // The gate refused what the scrub let through: the model is told what the tracker said, once.
           answer = fit(piece, plain(await ask({ piece, schema, evidence, note: `Your previous answer was refused by the tracker: ${refused}. Name every source by its title and its id in words, with no web address, no markup and no contact details.`, model: o.model, key })));
-          r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer)));
+          takeRests(answer);
+          r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer), JSON.stringify(rests)));
         }
-        console.log(`${piece.name}: ${JSON.stringify(answer)} -> commit ${r.commit.queued ? 'queued' : 'posted'}, reveal ${r.reveal.queued ? 'queued' : 'posted'}${answer.quote && !quoteOk(answer) ? ' (quote not verbatim)' : ''}`);
+        console.log(`${piece.name}: ${JSON.stringify(answer)} -> commit ${r.commit.queued ? 'queued' : 'posted'}, reveal ${r.reveal.queued ? 'queued' : 'posted'}${answer.quote && !quoteOk(answer) ? ' (quote not verbatim)' : ''}${traceSaid(r.trace)}`);
       } catch (e) {
         console.log(`${piece.name}: not returned: ${lastLine(e)}`);
         break;
