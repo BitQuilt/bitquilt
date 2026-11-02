@@ -282,16 +282,29 @@ export function seamsText(seams: readonly Seam[], name: (key: string) => string)
   return seams.map((s) => `On ${s.field}, ${SEAM_WHY[s.why]}: ${sideWords(s.sides[0], name)}; ${sideWords(s.sides[1], name)}.`);
 }
 
-/** QX-19 section 4: a seam two grounded readings opened, as the owner's node puts it to its agent for the sentence the brief lacks. */
-export interface SentenceAsk { family: string; brief: string; field: string; seam: Seam; piece: string }
+/**
+ * QX-19 section 4: a seam the owner's node puts to its agent for the sentence the brief lacks. `grounded` says both
+ * readings rest on the record; false, neither does, and the dispute has stood a lease with nothing to prefer.
+ */
+export interface SentenceAsk { family: string; brief: string; field: string; seam: Seam; piece: string; grounded: boolean }
 
-/** What the owner's node asks for: fixed text around the seam's own words, each side's passage quoted with its signer named, and the one sentence wanted back. */
+/**
+ * What the owner's node asks for: fixed text around the seam's own words, each side's passage quoted with its signer
+ * named where there is one, and the one sentence wanted back. Two grounded readings want the sentence that decides
+ * between them; two that rest on nothing want the sentence that says which record governs and where it is read.
+ */
 export function sentenceAsk(q: SentenceAsk): string {
-  const side = (s: SeamSide) => `${s.key} answered ${canonical(s.value)} and rested it on ${s.passage !== null && textIssues(s.passage).length === 0 ? `"${s.passage}"` : `a passage of ${s.span ? s.span[1] - s.span[0] : 0} bytes`}${s.read ? ` at ${s.read.url}` : ''}`;
+  const rested = (s: SeamSide) => `${s.key} answered ${canonical(s.value)} and rested it on ${s.passage !== null && textIssues(s.passage).length === 0 ? `"${s.passage}"` : `a passage of ${s.span ? s.span[1] - s.span[0] : 0} bytes`}${s.read ? ` at ${s.read.url}` : ''}`;
+  const bare = (s: SeamSide) => `${s.key} answered ${canonical(s.value)}`;
+  const [one, two] = q.seam.sides;
   return [
     `A brief reads: "${q.brief}"`,
-    `On piece ${q.piece}, two readers rested the field ${q.field} on the record and answered differently, ${SEAM_WHY[q.seam.why]}: ${side(q.seam.sides[0])}; ${side(q.seam.sides[1])}.`,
-    'Write the one sentence the brief lacks, to be added at its end for every piece of the family, that decides between these two readings: which record governs, or which category the passage falls under. Plain text under 400 characters, with no address and no markup. Answer with the sentence alone.',
+    q.grounded
+      ? `On piece ${q.piece}, two readers rested the field ${q.field} on the record and answered differently, ${SEAM_WHY[q.seam.why]}: ${rested(one)}; ${rested(two)}.`
+      : `On piece ${q.piece}, two readers answered the field ${q.field} differently and neither rested it on the record: ${bare(one)}; ${bare(two)}.`,
+    q.grounded
+      ? 'Write the one sentence the brief lacks, to be added at its end for every piece of the family, that decides between these two readings: which record governs, or which category the passage falls under. Plain text under 400 characters, with no address and no markup. Answer with the sentence alone.'
+      : 'Write the one sentence the brief lacks, to be added at its end for every piece of the family, that says which record governs and where it is read, so the next reader rests on it. Plain text under 400 characters, with no address and no markup. Answer with the sentence alone.',
   ].join('\n\n');
 }
 

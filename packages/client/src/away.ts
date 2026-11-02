@@ -13,9 +13,10 @@
  * that needs no model, and it is what a square verifies and the coin mints on.
  */
 import { execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { accessSync, appendFileSync, constants, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { delimiter, dirname, join } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import { isHash } from '@bitquilt/core';
 import type { Revealed } from './gold.js';
 import type { ServerEntry } from './install.js';
@@ -38,6 +39,15 @@ export const DEFAULT_CAP = 5;
 export const AWAY_FILE = 'away.json';
 export const AWAY_LOG = 'away.log';
 export const LAUNCHD_LABEL = 'org.bitquilt.quilt.away';
+
+/**
+ * The launchd label for a home: the plain label for the usual home, and the label with eight hex characters of the
+ * home's hash for any other, so two homes on one Mac, a person's and a maintainer's, each keep their own hourly turn.
+ * Until 2 November 2026 the label was one, and installing for a second home replaced the first's.
+ */
+export function launchdLabel(home: string, usual = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'quilt')): string {
+  return resolve(home) === resolve(usual) ? LAUNCHD_LABEL : `${LAUNCHD_LABEL}.${createHash('sha256').update(resolve(home)).digest('hex').slice(0, 8)}`;
+}
 /** How long one run may take before it is stopped. */
 export const RUN_TIMEOUT_MS = 10 * 60_000;
 export const NEEDS_AGENT = 'Needs Claude Code or Codex on this machine.';
@@ -357,10 +367,37 @@ export function goldText(gold: readonly Revealed[]): string {
   return `gold: ${posted.length} revealed${parts.length ? ` (${parts.join(', ')})` : ''}${refused ? `, ${refused} refused` : ''}`;
 }
 
+/** What the owner's part of a turn did: the gold revealed, the briefs sharpened, and both in a few words for a log line, or nothing when there was nothing to do. */
+export interface OwnerTurn { gold: Revealed[]; sharpened: Sharpened[]; said: string }
+
 /**
- * One turn: the owner's gold due revealed first (QX-16), whether or not an agent runs; then nothing when today's cap is
- * reached or no agent CLI is here; else the run recorded, the agent run with the connector under the cap, and a line in
- * away.log saying how it went.
+ * The owner's part of a turn, which needs no agent beside it: the gold due revealed (QX-16, gold.ts), and the briefs
+ * sharpened where two readings read them apart (QX-19 section 4), the sentence from `ask`, or nothing sharpened where
+ * there is no way to ask. A step that fails is written to the log and the turn goes on. A home's node runs it before its
+ * agent, and the hosted on-ramp runs it for the owners whose keys it holds.
+ */
+export async function ownerTurn(quilt: Quilt, ask: ((q: SentenceAsk) => Promise<string | null>) | null, log: (line: string) => void, now: () => Date = () => new Date()): Promise<OwnerTurn> {
+  let gold: Revealed[] = [];
+  let sharpened: Sharpened[] = [];
+  try {
+    gold = await quilt.revealDue();
+  } catch (e) {
+    log(`${now().toISOString()} gold: not run (${oneLine((e as Error).message, 200)})`);
+  }
+  if (ask) {
+    try {
+      sharpened = await quilt.sharpenDue(ask, now().toISOString());
+    } catch (e) {
+      log(`${now().toISOString()} sharpen: not run (${oneLine((e as Error).message, 200)})`);
+    }
+  }
+  return { gold, sharpened, said: [goldText(gold), sharpenText(sharpened)].filter(Boolean).join('; ') };
+}
+
+/**
+ * One turn: the owner's part first (the gold due revealed and the briefs sharpened), whether or not an agent runs; then
+ * nothing when today's cap is reached or no agent CLI is here; else the run recorded, the agent run with the connector
+ * under the cap, and a line in away.log saying how it went.
  */
 export async function awayTurn(o: TurnOptions): Promise<Turn> {
   const now = o.now ?? (() => new Date());
@@ -370,23 +407,12 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
   const agent = findAgent(dirs, o.exists);
   let gold: Revealed[] = [];
   let sharpened: Sharpened[] = [];
+  let goldSaid = '';
   if (o.quilt) {
-    try {
-      gold = await o.quilt().revealDue();
-    } catch (e) {
-      appendFileSync(log, `${now().toISOString()} gold: not run (${oneLine((e as Error).message, 200)})\n`);
-    }
-    // QX-19 section 4: the owner's briefs sharpened where two grounded readings read them apart, the sentence from the agent on this machine, or from the caller.
+    // The sentence a brief lacks comes from the agent on this machine, or from the caller.
     const ask = o.sentence ?? (agent ? (q: SentenceAsk) => agentSentence(agent, sentenceAsk(q), { cwd: o.home, env: { ...o.env, PATH: dirs.join(delimiter) }, timeoutMs: o.timeoutMs ?? RUN_TIMEOUT_MS }) : null);
-    if (ask) {
-      try {
-        sharpened = await o.quilt().sharpenDue(ask);
-      } catch (e) {
-        appendFileSync(log, `${now().toISOString()} sharpen: not run (${oneLine((e as Error).message, 200)})\n`);
-      }
-    }
+    ({ gold, sharpened, said: goldSaid } = await ownerTurn(o.quilt(), ask, (line) => appendFileSync(log, `${line}\n`), now));
   }
-  const goldSaid = [goldText(gold), sharpenText(sharpened)].filter(Boolean).join('; ');
   const before = readAway(file, now());
   const none = (why: string): Turn => {
     const line = goldSaid ? `${why} ${goldSaid}` : why;
@@ -451,9 +477,9 @@ export function plistText(o: { label: string; command: string; args: string[]; h
   ].join('\n');
 }
 
-/** Where the launchd user agent is written. */
-export function launchAgentFile(home = homedir()): string {
-  return join(home, 'Library', 'LaunchAgents', `${LAUNCHD_LABEL}.plist`);
+/** Where the launchd user agent for a label is written. */
+export function launchAgentFile(label = LAUNCHD_LABEL, userHome = homedir()): string {
+  return join(userHome, 'Library', 'LaunchAgents', `${label}.plist`);
 }
 
 /** The crontab line for a machine without launchd: the same command at the top of every hour. */
@@ -480,6 +506,8 @@ export interface ScheduleOptions {
   platform?: NodeJS.Platform;
   /** The plist's path; ~/Library/LaunchAgents/<label>.plist when left out. */
   file?: string;
+  /** The launchd label; the home's (`launchdLabel`) when left out. */
+  label?: string;
   uid?: number;
   ctl?: Launchctl;
 }
@@ -498,25 +526,26 @@ export interface Schedule {
 export function scheduleOf(o: ScheduleOptions & { command: string; args: string[]; home: string }): Schedule {
   const platform = o.platform ?? process.platform;
   if (platform !== 'darwin') return { kind: 'crontab', installed: false, loaded: false, file: null, crontab: crontabLine(o.command, o.args, o.home) };
-  const file = o.file ?? launchAgentFile();
+  const label = o.label ?? launchdLabel(o.home);
+  const file = o.file ?? launchAgentFile(label);
   const installed = existsSync(file);
-  const loaded = installed && (o.ctl ?? launchctl)(['print', `gui/${o.uid ?? uidHere()}/${LAUNCHD_LABEL}`]);
+  const loaded = installed && (o.ctl ?? launchctl)(['print', `gui/${o.uid ?? uidHere()}/${label}`]);
   return { kind: 'launchd', installed, loaded, file, crontab: null };
 }
 
 /** The plist written and loaded; one already loaded is unloaded first so launchd reads the new text. */
-export function installSchedule(o: { file: string; text: string; uid?: number; ctl?: Launchctl }): { file: string; loaded: boolean } {
+export function installSchedule(o: { file: string; text: string; label?: string; uid?: number; ctl?: Launchctl }): { file: string; loaded: boolean } {
   const ctl = o.ctl ?? launchctl;
   const uid = o.uid ?? uidHere();
   mkdirSync(dirname(o.file), { recursive: true });
   writeFileSync(o.file, o.text);
-  ctl(['bootout', `gui/${uid}/${LAUNCHD_LABEL}`]);
+  ctl(['bootout', `gui/${uid}/${o.label ?? LAUNCHD_LABEL}`]);
   return { file: o.file, loaded: ctl(['bootstrap', `gui/${uid}`, o.file]) };
 }
 
 /** The agent unloaded and its plist removed. */
-export function uninstallSchedule(o: { file: string; uid?: number; ctl?: Launchctl }): { file: string; removed: boolean } {
-  (o.ctl ?? launchctl)(['bootout', `gui/${o.uid ?? uidHere()}/${LAUNCHD_LABEL}`]);
+export function uninstallSchedule(o: { file: string; label?: string; uid?: number; ctl?: Launchctl }): { file: string; removed: boolean } {
+  (o.ctl ?? launchctl)(['bootout', `gui/${o.uid ?? uidHere()}/${o.label ?? LAUNCHD_LABEL}`]);
   const removed = existsSync(o.file);
   if (removed) unlinkSync(o.file);
   return { file: o.file, removed };
@@ -652,15 +681,17 @@ export async function awaySwitch(o: StateOptions & { on?: boolean | undefined; c
     const dirs = o.dirs ?? searchDirs(o.env);
     const agent = findAgent(dirs, o.exists);
     const { command, args } = awayCommand(o.entry);
+    const label = o.label ?? launchdLabel(o.home);
     if (!agent) note = NEEDS_AGENT;
     else if ((o.platform ?? process.platform) !== 'darwin') note = `No launchd here. The crontab line to add:\n${crontabLine(command, args, o.home)}`;
     else {
-      const file = o.file ?? launchAgentFile();
-      const r = installSchedule({ file, text: plistText({ label: LAUNCHD_LABEL, command, args, home: o.home, env: scheduleEnv(o.entry, dirs, o.home) }), ...(o.uid !== undefined ? { uid: o.uid } : {}), ...(o.ctl ? { ctl: o.ctl } : {}) });
+      const file = o.file ?? launchAgentFile(label);
+      const r = installSchedule({ file, label, text: plistText({ label, command, args, home: o.home, env: scheduleEnv(o.entry, dirs, o.home) }), ...(o.uid !== undefined ? { uid: o.uid } : {}), ...(o.ctl ? { ctl: o.ctl } : {}) });
       note = r.loaded ? `Installed: ${agent.name} runs one piece an hour, up to ${readAway(join(o.home, AWAY_FILE)).cap} a day. The agent is at ${file}.` : `Written to ${file}, but launchctl did not load it; it loads at the next login.`;
     }
   } else if (o.on === false && (o.platform ?? process.platform) === 'darwin') {
-    const r = uninstallSchedule({ file: o.file ?? launchAgentFile(), ...(o.uid !== undefined ? { uid: o.uid } : {}), ...(o.ctl ? { ctl: o.ctl } : {}) });
+    const label = o.label ?? launchdLabel(o.home);
+    const r = uninstallSchedule({ file: o.file ?? launchAgentFile(label), label, ...(o.uid !== undefined ? { uid: o.uid } : {}), ...(o.ctl ? { ctl: o.ctl } : {}) });
     note = r.removed ? 'Uninstalled: nothing runs while you are away.' : 'Nothing was installed.';
   }
   return awayState(o, note);

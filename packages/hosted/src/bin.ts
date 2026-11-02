@@ -9,7 +9,11 @@
  *   QUILT_OAUTH_ISSUER   the issuer its metadata names (the tracker's address without the trailing slash)
  *   QUILT_WITNESS_RANGES the address ranges each product publishes for its servers, as one JSON object of product to
  *                        ranges; the ranges in products.ts unless set
- * and QUILT_TRUSTED_PROXIES, which the tracker reads too.
+ *   ANTHROPIC_API_KEY, OPENAI_API_KEY, QUILT_SENTENCE_MODEL
+ *                        the vendor the owners' turn asks for the sentence a brief lacks (QX-19 section 4, sentence.ts);
+ *                        with neither key the turn reveals the gold due and sharpens nothing
+ * and QUILT_TRUSTED_PROXIES, which the tracker reads too. Every hour it runs the owners' turn for the members whose
+ * homes hold a problem or a gold, the first a minute after it starts.
  */
 import { randomBytes } from 'node:crypto';
 import { quietSqliteWarning, trackerOptionsFromEnv } from '@bitquilt/tracker/env';
@@ -40,6 +44,22 @@ async function main(): Promise<void> {
   await tracker.listen(port, host);
   console.log(`bitquilt tracker with the hosted on-ramp at ${options.url} (db ${dbPath}; addresses at ${options.url}join)`);
   console.log(oauth ? `the authorization server is on: products connect at ${options.url}mcp and the events say which (QX-18)` : 'QUILT_OAUTH_SECRET is unset: no OAuth, and an address is its own credential');
+  console.log(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY ? 'the owners\' turn runs every hour: the gold due revealed and the briefs sharpened for the keys held here' : 'the owners\' turn runs every hour: the gold due revealed; no vendor key is set, so no brief is sharpened');
+  // The owners' turn, hourly, one at a time: a turn still running when the hour comes round is left to finish.
+  let running = false;
+  const ownersTurn = async (): Promise<void> => {
+    if (running) return;
+    running = true;
+    try {
+      for (const t of await hosted.turn()) if (t.said) console.log(`owners' turn, ${t.address}: ${t.said}`);
+    } catch (err) {
+      console.log(`owners' turn: not run (${(err as Error).message})`);
+    } finally {
+      running = false;
+    }
+  };
+  setTimeout(() => void ownersTurn(), 60_000).unref();
+  setInterval(() => void ownersTurn(), 3_600_000).unref();
 }
 
 /** QUILT_WITNESS_RANGES as one JSON object of product to a list of ranges; anything else throws, naming the fault. */

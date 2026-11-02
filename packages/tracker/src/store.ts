@@ -222,6 +222,11 @@ export class Store {
     this.db.prepare('update members set key_taken_at = ? where token_hash = ? and key_taken_at is null').run(at, tokenHash);
   }
 
+  /** Every member, by the hash of their address token, oldest first: whom the hosted on-ramp's owner turn runs for. */
+  members(): string[] {
+    return (this.db.prepare('select token_hash from members order by created_at').all() as { token_hash: string }[]).map((r) => r.token_hash);
+  }
+
   /** When each member was made, first used and took the key home, and nothing else about them: what the funnel reads (counts.ts). */
   memberTimes(): MemberTimes[] {
     const rows = this.db.prepare('select created_at, first_used_at, key_taken_at from members order by created_at').all() as { created_at: string; first_used_at: string | null; key_taken_at: string | null }[];
