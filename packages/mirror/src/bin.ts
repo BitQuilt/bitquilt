@@ -1,9 +1,10 @@
 #!/usr/bin/env tsx
 /**
- * bitquilt-mirror --trackers https://a/,https://b/ --out ./mirror [--anchor [--calendars https://a.pool.opentimestamps.org,...]]
- * Pulls, verifies, and writes the mirror's files; with --anchor, stamps every chain's head through OpenTimestamps (QX-12).
- * Each flag has a variable of the repository job's: BITQUILT_TRACKERS, BITQUILT_MIRROR, BITQUILT_CALENDARS and
- * BITQUILT_ANCHOR (set to 1). QUILT_CHAIN_RPC, QUILT_CHAIN_ID and QUILT_CONTRACTS are shared with the coin's jobs:
+ * bitquilt-mirror --trackers https://a/,https://b/ --out ./mirror [--by <name>] [--no-peers] [--anchor [--calendars https://a.pool.opentimestamps.org,...]]
+ * Pulls from the sources and each one's peers one hop, verifies, keeps a chain of its own per log as the union of
+ * their events, and writes the mirror's files; with --anchor, stamps every chain's head through OpenTimestamps (QX-12).
+ * Each flag has a variable of the repository job's: BITQUILT_TRACKERS, BITQUILT_MIRROR, BITQUILT_MIRROR_BY (what the
+ * mirror's own wrapper says), BITQUILT_PEERS (0 to follow none), BITQUILT_CALENDARS and BITQUILT_ANCHOR (set to 1). QUILT_CHAIN_RPC, QUILT_CHAIN_ID and QUILT_CONTRACTS are shared with the coin's jobs:
  * set, the bin opens the connection and the mirror checks every credit line on the coin log against the deposit the
  * chain holds (the way back); without them a ledger with credits is refused. Exits 1 when a tracker's chain is
  * refused, so a job notices.
@@ -20,6 +21,8 @@ const trackers = (flag('--trackers') ?? process.env.BITQUILT_TRACKERS ?? '').spl
 const out = flag('--out') ?? process.env.BITQUILT_MIRROR ?? 'mirror';
 const calendars = (flag('--calendars') ?? process.env.BITQUILT_CALENDARS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 const anchor = args.includes('--anchor') || process.env.BITQUILT_ANCHOR === '1' ? (calendars.length ? { calendars } : true) : false;
+const by = flag('--by') ?? process.env.BITQUILT_MIRROR_BY;
+const peers = !(args.includes('--no-peers') || process.env.BITQUILT_PEERS === '0');
 if (!trackers.length) {
   console.error('usage: bitquilt-mirror --trackers <url,...> --out <dir>');
   process.exit(2);
@@ -29,7 +32,8 @@ if (process.env.QUILT_CHAIN_RPC) {
   const connection = chainFromEnv().chain;
   chain = { depositAt: (n) => depositAt(connection, n) };
 }
-mirror({ trackers, out, anchor, chain }).then((report) => {
+mirror({ trackers, out, anchor, chain, peers, ...(by ? { by } : {}) }).then((report) => {
+  console.log(`sources: ${report.sources.join(', ')}`);
   if (report.coin?.credits) console.log(`coin: ${report.coin.credits} credit${report.coin.credits === 1 ? '' : 's'} checked against the chain`);
   for (const p of report.problems) console.log(`${p.hash}: ${p.lines} lines, ${p.added} new${p.complete ? ', complete' : ''}`);
   console.log(`identity: ${report.identity.lines} lines, ${report.identity.added} new`);
