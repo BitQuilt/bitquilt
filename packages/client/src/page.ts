@@ -203,7 +203,15 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       }
       if (path === '/api/flush' && method === 'POST') return json(res, 200, await resolver.flush());
       // The node: what this client holds, served to anyone who asks.
-      if (path === '/.well-known/quilt') return json(res, 200, { quilt: 1, node: true, identity: IDENTITY_LOG, routes: ['/p/<hash>', '/p/<hash>/events', '/b/<hash>'] }, true);
+      if (path === '/.well-known/quilt') return json(res, 200, { quilt: 1, node: true, identity: IDENTITY_LOG, routes: ['/held', '/p/<hash>', '/p/<hash>/events', '/k/events', '/b/<hash>'] }, true);
+      // What this node holds, listed, and the identity log as it holds it: a mirror or another node learns and pulls from here with no tracker between (PROTOCOL.md, The mirror).
+      if (path === '/held' && method === 'GET') return json(res, 200, { quilt: 1, node: true, problems: resolver.heldProblems() }, true);
+      if (path === '/k/events' && method === 'GET') {
+        const lines = resolver.cachedIdentity();
+        res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'access-control-allow-origin': '*' });
+        res.end(lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));
+        return;
+      }
       let m: RegExpExecArray | null;
       if ((m = /^\/p\/(sha256:[0-9a-f]{64})(?:\/(events))?$/.exec(path)) && method === 'GET') {
         const hash = m[1] as Hash;

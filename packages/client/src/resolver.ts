@@ -7,7 +7,7 @@
  */
 import { appendFileSync, existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type Envelope, type Event, type Hash, type Receipt, type State, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, problemHash, reduce, verifyChain, withSlash } from '@bitquilt/core';
+import { type Envelope, type Event, type Hash, type Receipt, type State, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, problemHash, reduce, verifyChain, withSlash, isHash } from '@bitquilt/core';
 import { type Config, ensureHome } from './config.js';
 import type { Link } from './link.js';
 
@@ -418,6 +418,35 @@ export class Resolver {
   queued(): number {
     const file = join(this.home, 'queue.jsonl');
     return existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).length : 0;
+  }
+
+  /**
+   * Every problem this node holds, for `GET /held`: the envelope's hash, title, slug and owner, and how many lines of
+   * its chain are held, so another node or a mirror learns what to pull with no tracker between. Read from the folders.
+   */
+  heldProblems(): { problem: Hash; title: string; slug: string; owner: string; lines: number }[] {
+    const cache = join(this.home, 'cache');
+    if (!existsSync(cache)) return [];
+    const out: { problem: Hash; title: string; slug: string; owner: string; lines: number }[] = [];
+    for (const name of readdirSync(cache).sort()) {
+      if (!name.endsWith('.json') || !isHash(name.slice(0, -5))) continue;
+      const hash = name.slice(0, -5) as Hash;
+      try {
+        const e = JSON.parse(readFileSync(join(cache, name), 'utf8')) as Envelope;
+        const ledger = this.cachePath('ledger', hash);
+        const lines = existsSync(ledger) ? readFileSync(ledger, 'utf8').split('\n').filter(Boolean).length : 0;
+        out.push({ problem: hash, title: e.problem.title, slug: e.problem.slug, owner: e.problem.owner, lines });
+      } catch {
+        /* a file that is not an envelope is not listed */
+      }
+    }
+    return out;
+  }
+
+  /** The identity log as this node holds it, for `GET /k/events`. */
+  cachedIdentity(): Receipt[] {
+    const f = join(this.home, 'cache', 'identity.jsonl');
+    return existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt) : [];
   }
 
   /** What this node has in its cache, to serve to others. */

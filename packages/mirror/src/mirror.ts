@@ -1,9 +1,12 @@
 /**
- * The mirror (PROTOCOL.md, The mirror): the one automated writer to a repository's main. It pulls from the trackers it
- * is given, checks every envelope against its hash, every blob against its hash and every chain from its problem's hash,
- * refuses a chain that did anything but grow since the file it holds, and writes the layout a client reads raw. A chain is a
- * resolver's own, so a mirror follows one tracker's chains; a second tracker's chain for the same problem is refused unless it
- * is a growth of the first's:
+ * The mirror (PROTOCOL.md, The mirror): the one automated writer to a repository's main, and the keeper. It pulls from
+ * the sources it is given, a tracker by its index or a node by its held list (`node: true` in the well-known), checks
+ * every envelope against its hash, every blob against its hash and every chain from its problem's hash, refuses a chain
+ * that did anything but grow since the file it holds, and writes the layout a client reads raw. A problem it already
+ * holds files for is taken by hash whether or not the source still lists it, so a problem hidden or replaced at its
+ * source stays in the index and its chain keeps growing here; and the reads the chain's traces name (QX-19) are
+ * fetched under their hashes beside the data blobs. A chain is a resolver's own, so a mirror follows one source's
+ * chains; a second source's chain for the same problem is refused unless it is a growth of the first's:
  *
  *   problems/<hash>.json   blobs/<hash>   ledger/<hash>.jsonl   ledger/identity.jsonl   ledger/coin.jsonl (QX-17)
  *   names/<owner>/<slug>   outputs/<hash>/output.json   outputs/<hash>/record.json (QX-20)   keys.json   index.json   coin/balances.json   anchors/<problem>/<seq>.ots (QX-12, when asked)
@@ -19,7 +22,7 @@
  * A run is `mirror()`: one context carries what every step shares, and each step is a function below that says what
  * it refuses.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
   type Envelope, type Hash, type Receipt, type ReduceInput, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, onlyAppends, problemHash, reduce, signedBy, verifyChain, withSlash,
@@ -29,6 +32,7 @@ import { type AnchorReport, type ChainHead, anchorHeads } from './anchor.js';
 import { hiddenFromIdentity, keysFromIdentity } from './identity.js';
 
 export interface MirrorOptions {
+  /** The sources: trackers, or nodes, each read by what its well-known says it is. */
   trackers: string[];
   out: string;
   fetchImpl?: typeof fetch;
@@ -51,6 +55,8 @@ export interface DepositReader {
 
 export interface MirrorReport {
   problems: { hash: Hash; lines: number; added: number; complete: boolean }[];
+  /** The problems held here that no source listed this run, kept as they were: hidden or replaced at their source, or the source gone. */
+  kept: Hash[];
   identity: { lines: number; added: number };
   /** QX-17: the coin log held, whether the tracker's balances at its head reproduced here (null where the head moved between reads), and how many credits were checked against the chain. */
   coin?: { lines: number; added: number; head: number | null; reproduced: boolean | null; credits?: number };
@@ -75,7 +81,10 @@ interface Context {
   fetchImpl: typeof fetch;
   now: () => string;
   report: MirrorReport;
-  index: Map<Hash, { envelope: Envelope; tracker: string }>;
+  /** Every problem in this run's index with the source it came from, null for one kept from the files alone. */
+  index: Map<Hash, { envelope: Envelope; tracker: string | null }>;
+  /** Every problem a source was asked for this run, taken or refused, so a refusal is said once. */
+  tried: Set<Hash>;
 }
 
 export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
@@ -84,19 +93,22 @@ export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
     out: options.out,
     fetchImpl: options.fetchImpl ?? fetch,
     now: options.now ?? (() => new Date().toISOString()),
-    report: { problems: [], identity: { lines: 0, added: 0 }, refused: [], errors: [] },
+    report: { problems: [], kept: [], identity: { lines: 0, added: 0 }, refused: [], errors: [] },
     index: new Map(),
+    tried: new Set(),
   };
-  for (const tracker of options.trackers.map(withSlash)) {
-    const home = (await getJson(ctx, tracker)) as { problems?: { problem: Hash }[] } | null;
-    if (!home?.problems) {
-      ctx.report.errors.push(`${tracker}: no index`);
+  for (const source of options.trackers.map(withSlash)) {
+    const listed = await listedAt(ctx, source);
+    if (!listed) {
+      ctx.report.errors.push(`${source}: no index`);
       continue;
     }
-    for (const entry of home.problems) await takeProblem(ctx, tracker, entry.problem);
-    await takeIdentity(ctx, tracker);
-    if (options.coin !== false) await takeCoin(ctx, tracker, options.chain ?? null);
+    for (const hash of listed) await takeProblem(ctx, source, hash);
+    await takeHeld(ctx, source);
+    await takeIdentity(ctx, source);
+    if (options.coin !== false) await takeCoin(ctx, source, options.chain ?? null);
   }
+  keepTheRest(ctx);
   const at = ctx.now();
   writeKeys(ctx, at);
   writeIndex(ctx, at);
@@ -120,6 +132,64 @@ async function getBytes(ctx: Context, url: string): Promise<Uint8Array | null> {
     return r.ok ? new Uint8Array(await r.arrayBuffer()) : null;
   } catch {
     return null;
+  }
+}
+
+/** The problems a source lists: a node's `/held` where its well-known says `node: true`, else a tracker's index at `/`; null where it lists nothing. */
+async function listedAt(ctx: Context, source: string): Promise<Hash[] | null> {
+  const known = (await getJson(ctx, `${source}.well-known/quilt`)) as { node?: boolean } | null;
+  const home = (await getJson(ctx, known?.node ? `${source}held` : source)) as { problems?: { problem: Hash }[] } | null;
+  return home?.problems ? home.problems.map((p) => p.problem) : null;
+}
+
+/** The hashes of every problem whose envelope is held here. */
+function heldHere(ctx: Context): Hash[] {
+  const dir = join(ctx.out, 'problems');
+  return existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5) as Hash) : [];
+}
+
+/**
+ * The problems held here that the source did not list, taken from it by hash where it still serves them: a problem
+ * hidden or replaced at its source leaves its index and not its door, so its chain keeps growing here. One the source
+ * does not serve is left for `keepTheRest`.
+ */
+async function takeHeld(ctx: Context, source: string): Promise<void> {
+  for (const hash of heldHere(ctx)) {
+    if (ctx.index.has(hash) || ctx.tried.has(hash)) continue;
+    if (await getJson(ctx, `${source}p/${hash}`)) await takeProblem(ctx, source, hash);
+  }
+}
+
+/** Every problem held here that no source listed or served this run stays in the index as the files have it. */
+function keepTheRest(ctx: Context): void {
+  for (const hash of heldHere(ctx)) {
+    if (ctx.index.has(hash)) continue;
+    try {
+      const envelope = JSON.parse(readFileSync(join(ctx.out, 'problems', `${hash}.json`), 'utf8')) as Envelope;
+      ctx.index.set(hash, { envelope, tracker: null });
+      ctx.report.kept.push(hash);
+    } catch (err) {
+      ctx.report.errors.push(`${hash}: ${(err as Error).message}`);
+    }
+  }
+}
+
+/**
+ * QX-19: the reads a chain's traces name, each fetched from the source under its hash where it is not held here and
+ * written beside the data blobs; one that does not hash right is refused and not written, and one the source does
+ * not serve is passed over, since a trace is admitted at a door that held the read and a node may not.
+ */
+async function takeReads(ctx: Context, source: string, lines: Receipt[], label: string): Promise<void> {
+  const wanted = new Set<Hash>();
+  for (const l of lines) if (l.event.type === 'trace') for (const r of ((l.event.body as { reads?: { hash?: Hash }[] }).reads ?? [])) if (r.hash && !existsSync(join(ctx.out, 'blobs', r.hash))) wanted.add(r.hash);
+  for (const h of wanted) {
+    const bytes = await getBytes(ctx, `${source}b/${h}`);
+    if (!bytes) continue;
+    if (hashBytes(bytes) !== h) {
+      ctx.report.refused.push(`${label}: read ${h} from ${source} does not check`);
+      continue;
+    }
+    writeFileSync(join(ctx.out, 'blobs', h), bytes);
   }
 }
 
@@ -205,6 +275,7 @@ async function takeBlobs(ctx: Context, tracker: string, envelope: Envelope): Pro
 /** A problem from a tracker, taken once: refuses an envelope that does not check or is not its owner's, a blob that does not check, and a chain that does not verify or did not only grow; a problem taken from an earlier tracker is left as it is. */
 async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<void> {
   if (ctx.index.has(hash)) return;
+  ctx.tried.add(hash);
   const answer = await getJson(ctx, `${tracker}p/${hash}`);
   if (!answer || envelopeProblems(answer).length || problemHash(answer as Envelope) !== hash) {
     ctx.report.refused.push(`${hash}: envelope from ${tracker} does not check`);
@@ -224,6 +295,7 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
   if (!chain) return;
   writeFileSync(join(ctx.out, 'problems', `${hash}.json`), JSON.stringify(envelope, null, 2) + '\n');
   for (const [h, bytes] of blobs) writeFileSync(join(ctx.out, 'blobs', h), bytes);
+  await takeReads(ctx, tracker, chain.lines, hash);
   ctx.index.set(hash, { envelope, tracker });
   // Names and the output come from the events, not the tracker's word.
   for (const line of chain.lines) if (line.event.type === 'version' && line.event.key === envelope.problem.owner) {
