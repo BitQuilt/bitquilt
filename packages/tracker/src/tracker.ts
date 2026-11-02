@@ -268,6 +268,11 @@ export function createTracker(options: TrackerOptions): Tracker {
       if (!prev) throw new Refusal(400, 'prev: not a problem this tracker holds');
       if (prev.envelope.problem.owner !== e.problem.owner) throw new Refusal(400, 'prev: by another owner');
     }
+    // CORE.md section 2: `from` is another owner's problem this one forks; the same owner's next version sets `prev`. A fork of a problem not held here is taken on the forker's word, as the core takes it.
+    if (e.problem.from) {
+      const from = store.getEnvelope(e.problem.from);
+      if (from && from.envelope.problem.owner === e.problem.owner) throw new Refusal(400, 'from: by the same owner; a version sets prev');
+    }
     try {
       expandPieces(e.problem, blobs);
     } catch (err) {
@@ -614,29 +619,77 @@ export function createTracker(options: TrackerOptions): Tracker {
       coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
       // The list a client reads; the dispatcher in `handle` is kept in this order by hand.
       routes: [
-        '/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/k/<address>/standing', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden', '/counts',
+        '/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/k/<address>/standing', '/k/<address>/work', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden', '/counts',
         ...(options.coin ? ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/credits', '/coin/state'] : []),
       ],
     };
   }
 
-  /** A problem in one line for the index and the scrape: its title, counts, head, and what the extensions add. */
+  /**
+   * The work on a problem in numbers (APP.md, Search): what the directory shows beside the counts, so a reader can tell
+   * how much is done and of what quality without the state. `returned` counts pieces with a kept reveal or run over the
+   * layer's fold, `accepted` and `disputed` the layer's states, `verified` the squares the owner's gold matched (QX-16),
+   * `traced` the accepted squares by their grade (QX-19 section 3; a square accepted by runs or attest is in none of the
+   * three), `readers` the distinct roots that revealed or ran, `vendors` the distinct vendors among them, and `last` the
+   * receipt time of the latest reveal or run.
+   */
+  function workOf(pl: ProblemLayer): { returned: number; accepted: number; verified: number; disputed: number; traced: { both: number; one: number; none: number }; readers: number; vendors: number; last: string | null } {
+    const traced = { both: 0, one: 0, none: 0 };
+    let returned = 0;
+    let accepted = 0;
+    let verified = 0;
+    let disputed = 0;
+    const roots = new Set<string>();
+    const vendors = new Set<string>();
+    let last: string | null = null;
+    const grades = tracesOf(pl.problem, pl);
+    for (const v of pl.fold.pieces) {
+      const l = pl.byHash.get(v.piece.hash);
+      if (!l) continue;
+      if (v.reveals.length || v.runs.length) returned += 1;
+      if (l.state === 'accepted' || l.state === 'accepted_provisional') {
+        accepted += 1;
+        const g = grades.get(v.piece.hash)?.traced;
+        if (g) traced[g] += 1;
+      }
+      if (l.state === 'disputed' || l.state === 'challenged') disputed += 1;
+      if (l.verified) verified += 1;
+      for (const r of v.reveals) {
+        roots.add(r.root);
+        vendors.add(r.vendor);
+        if (last === null || r.at > last) last = r.at;
+      }
+      for (const r of v.runs) {
+        roots.add(r.root);
+        if (last === null || r.at > last) last = r.at;
+      }
+    }
+    return { returned, accepted, verified, disputed, traced, readers: roots.size, vendors: vendors.size, last };
+  }
+
+  /** A problem in one line for the index and the scrape: its title, counts, head, the work on it, and what the extensions add. */
   function summary(hash: Hash, layered: Layer = layer()) {
     const pl = layered.problems.get(hash);
     if (!pl) return null;
     const s = pl.fold;
     const counts: Record<string, number> = {};
     for (const v of pl.pieces) counts[v.state] = (counts[v.state] ?? 0) + 1;
+    const kinds: Record<string, number> = {};
+    for (const v of s.pieces) kinds[v.piece.verifier] = (kinds[v.piece.verifier] ?? 0) + 1;
     const head = store.head(hash);
-    const seed = seedInfo(inputFor(hash)!, pl.fold, layered.now);
+    const seed = seedInfo(pl.receipts, pl.fold, layered.now);
     return {
       problem: hash,
       title: s.envelope.problem.title,
       slug: s.envelope.problem.slug,
       owner: s.envelope.problem.owner,
+      owner_name: nameIn(pl)(s.envelope.problem.owner),
+      from: s.envelope.problem.from ?? null,
       done_when: s.envelope.problem.done_when,
       pieces: s.pieces.length,
       counts,
+      kinds,
+      work: workOf(pl),
       complete: s.complete,
       output: s.output?.hash ?? null,
       last: head?.at ?? null,
@@ -707,23 +760,25 @@ export function createTracker(options: TrackerOptions): Tracker {
    * again with grounds after its first reading was set aside is a side and not the reading set aside, and over the core's
    * fold where the layer has set a reading aside, so the seam shows which. The passages come from this store's blobs.
    */
+  // Computed once per layer object: the kept layer is one object until the store is written or five seconds pass,
+  // and the index, the state and the directory row all read it, so the trace scan runs once for them and not per request.
+  const tracesMemo = new WeakMap<ProblemLayer, Map<Hash, PieceTraces>>();
   function tracesOf(hash: Hash, pl: ProblemLayer): Map<Hash, PieceTraces> {
-    const receipts = inputFor(hash)!.receipts;
-    return new Map(pl.fold.pieces.map((v) => {
+    const hit = tracesMemo.get(pl);
+    if (hit) return hit;
+    const receipts = pl.receipts;
+    const out = new Map(pl.fold.pieces.map((v) => {
       const core = pl.core.byHash.get(v.piece.hash) ?? v;
       const traces = tracesKept(core, receipts, blobLength);
       const over = v.state === 'disputed' ? seamed(pl.fold, v, receipts, traces, passageOf) : seamed(pl.core, core, receipts, traces, passageOf);
-      return [v.piece.hash, { traces, traced: graded(v, receipts, traces), ...over }];
+      return [v.piece.hash, { traces, traced: graded(v, receipts, traces), ...over }] as const;
     }));
+    void hash;
+    tracesMemo.set(pl, out);
+    return out;
   }
   /** The seams `next` hands over with a piece: the same as the state shows (`tracesOf`). */
-  const seamsOf = (pl: ProblemLayer, receipts: Receipt[], hash: Hash): Seam[] => {
-    const v = pl.fold.byHash.get(hash);
-    if (!v) return [];
-    const core = pl.core.byHash.get(hash) ?? v;
-    const traces = tracesKept(core, receipts, blobLength);
-    return (v.state === 'disputed' ? seamed(pl.fold, v, receipts, traces, passageOf) : seamed(pl.core, core, receipts, traces, passageOf)).seams;
-  };
+  const seamsOf = (pl: ProblemLayer, hash: Hash): Seam[] => tracesOf(pl.problem, pl).get(hash)?.seams ?? [];
 
   /** The newest envelope here by the same owner whose `prev` is this problem: the version that replaced it, or null. The state says so, and `next` hands nothing on a replaced problem. */
   function supersededBy(hash: Hash): Hash | null {
@@ -854,7 +909,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     const input = inputFor(hash)!;
     const exclude = new Set<Hash>([...store.heldByOthers(hash, key, at), ...pl.unoffered]);
     if (!client.can.includes('person')) for (const p of pl.pieces) if (p.kind.kind === 'human') exclude.add(p.hash);
-    for (const h of watchExclusions(pl, input, key, seedInfo(input, state, at).seeders, at)) exclude.add(h);
+    for (const h of watchExclusions(pl, input, key, seedInfo(input.receipts, state, at).seeders, at)) exclude.add(h);
     // QX-15: a staked piece the key's free standing cannot cover, and on which it holds no lock, is not offered.
     const unaffordable = [...layered.unaffordable(hash, key)];
     for (const h of unaffordable) exclude.add(h);
@@ -873,7 +928,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     const { kind, stake } = pl.byHash.get(pick.piece.hash)!;
     holdFor(hash, pick.piece.hash, key, at);
     // QX-19 section 4: a piece whose readings differ goes out with its seams between the readings that stand, whether the layer still calls it disputed or has set one reading aside, so the next reader sees what each rests on.
-    const seams = seamsOf(pl, input.receipts, pick.piece.hash);
+    const seams = seamsOf(pl, pick.piece.hash);
     json(res, 200, {
       piece: pick.piece.hash, name: pick.piece.name, state: pick.state, brief: pick.brief, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h,
       verifier: pick.piece.verifier, kind: kind.kind, extension: kind.extension, strength: kind.strength, says: kind.says, weakest: kind.weakest, workspace: pick.piece.workspace ?? null, check: pick.piece.check ?? null,
@@ -897,7 +952,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     const count = store.nextOfferCount(key);
     const list = offerOrder(layered, inputs, key, client, at, count, (h, pl, input) => {
       const exclude = store.heldByOthers(h, key, at);
-      for (const x of watchExclusions(pl, input, key, seedInfo(input, pl.fold, at).seeders, at)) exclude.add(x);
+      for (const x of watchExclusions(pl, input, key, seedInfo(input.receipts, pl.fold, at).seeders, at)) exclude.add(x);
       for (const x of layered.unaffordable(h, key)) exclude.add(x);
       return exclude;
     });
@@ -991,6 +1046,24 @@ export function createTracker(options: TrackerOptions): Tracker {
           address, root, standing: layered.standing(root), locked: layered.locked(root), free: layered.free(root), founding: founding.get(root.toLowerCase()) ?? 0,
           locks: layered.liveLocks(root).map((l) => ({ problem: l.problem, piece: l.piece, amount: l.amount, at: l.at })), at: layered.now,
         });
+        return;
+      }
+      if ((m = /^\/k\/(0x[0-9a-fA-F]{40})\/work$/.exec(path)) && method === 'GET') {
+        // The directory's hot list (APP.md, "The window"): a key's latest readings, newest first, each with its state and grade as this tracker holds them. Receipts are by key, so a delegate's readings sit under the delegate's address; the root is said beside it.
+        const address = m[1]!;
+        if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
+        const asked = Number(u.searchParams.get('limit') ?? 20);
+        const limit = Math.min(50, Math.max(1, Number.isFinite(asked) ? Math.floor(asked) : 20));
+        const layered = layer();
+        const root = layered.rootOf(address);
+        const readings = store.revealsBy(address, limit).flatMap((r) => {
+          const pl = layered.problems.get(r.problem);
+          const l = pl?.byHash.get(r.piece);
+          if (!pl || !l) return [];
+          return [{ problem: r.problem, title: pl.fold.envelope.problem.title, piece: r.piece, name: l.name, at: r.at, state: l.state, verified: l.verified, traced: tracesOf(r.problem, pl).get(r.piece)?.traced ?? null }];
+        });
+        const first = layered.problems.values().next().value as ProblemLayer | undefined;
+        json(res, 200, { address, root, name: first ? nameIn(first)(root) : null, standing: layered.standing(root), readings, at: layered.now });
         return;
       }
       // Blobs and names.
