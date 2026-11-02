@@ -67,8 +67,10 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       return { text, handles: { address: me.address, model: me.model, trackers: me.trackers, queued: me.queued, standing: s, coin: c, witness: me.witness?.via ?? null } };
     }
     case 'quilt_open': {
-      const { hash: h, state, tracker, layer, hidden, gold } = await quilt.open(str('link'));
-      return { text: quilt.summary(h, state, tracker, layer, hidden, gold), handles: { problem: h, pieces: state.pieces.length, complete: state.complete } };
+      const { hash: h, state, tracker, layer, hidden, gold, superseded } = await quilt.open(str('link'));
+      // QX-19 section 4: a problem its owner sharpened says which version replaced it.
+      const replaced = superseded ? `\nIts owner replaced this version with ${superseded}; the work is there.` : '';
+      return { text: `${quilt.summary(h, state, tracker, layer, hidden, gold)}${replaced}`, handles: { problem: h, pieces: state.pieces.length, complete: state.complete, superseded } };
     }
     case 'quilt_search': {
       const found = await quilt.search(str('query'));

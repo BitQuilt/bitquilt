@@ -37,6 +37,7 @@ import { type KindInfo, type PanelView, applyVerifiers, leaseOf, ownerOf, panelS
 import { type CoinLockWord, type LockView, checkLock, hasLock, keepStakeRules, lockEnd, lockReleasedAt, liveAt, ruleAt, ruleProblem, stakeAsked } from './stake.js';
 import { type GoldCommitment, type GoldCount, type GoldState, type GoldView, checkGold, checkGoldReveal, goldCount, goldMatches, goldOn, missOn, outcomeOf } from './gold.js';
 import { type Dropped, type Folding, type ProblemEntry, acceptingRoots, creditBurns, creditedElsewhere, creditedRoots, newFolding, refreshCredits, rootOf } from './standing.js';
+import { pieceTraces } from './trace.js';
 import { drawOrder, offerSeats } from './sortition.js';
 
 export { rootFor, acceptingRoots, creditedRoots };
@@ -97,6 +98,8 @@ export interface PieceLayer {
   gold: GoldState;
   /** A square whose accepting set agreed with the owner's gold. */
   verified: boolean;
+  /** QX-19 section 4: the keys whose reading of this piece the layer set aside, since it rests on nothing where the other rests on the record. */
+  aside: Address[];
 }
 
 export interface ProblemLayer {
@@ -291,6 +294,33 @@ function strike(f: Folding, home: ProblemEntry, view: PieceView, d: string, leas
   return { ids, roots };
 }
 
+/**
+ * QX-19 section 4: in a dispute, a reading that rests on nothing where the other rests on the record is set aside: the
+ * piece is folded without that reveal, so it needs a second reading again, and the key whose reading was set aside may
+ * read it again, its commit unrevealed in that fold. To a fixed point, since the fold without one pair may show another.
+ * Nothing is docked: a disputed piece had no square. A trace that arrives later lifts it, since the layer is a function
+ * of the receipts; a reader that measures no blob, as the mirror does not, sets nothing aside.
+ */
+function setAsideUngrounded(f: Folding, blobLength: (hash: Hash) => number | null): void {
+  for (const e of f.entries.values()) {
+    for (let pass = 0; pass < 4; pass++) {
+      const found: Hash[] = [];
+      for (const v of e.fold.pieces) {
+        if (v.state !== 'disputed') continue;
+        const id = pieceTraces(e.fold, v, e.input.receipts, blobLength, () => null).aside;
+        if (id && !e.struck.has(id)) found.push(id);
+      }
+      if (found.length === 0) break;
+      for (const id of found) {
+        e.struck.add(id);
+        e.aside.add(id);
+      }
+      rereduce(f, e);
+    }
+  }
+  refreshCredits(f);
+}
+
 /** Undoes a miss's strike at `d` (QX-16 section 4): the events return to the fold, and each struck root regains from `d` the point docked, its point for the set and its lock. */
 function unstrike(f: Folding, home: ProblemEntry, c: GoldCommitment, d: string): void {
   const struck = new Set(c.struck);
@@ -473,7 +503,7 @@ function keepChallenge(f: Folding, c: LayerEvent, verdicts: Verdict[]): void {
  * resolved at `now` throughout, moves are dated at the receipts that made them. `coin` is the coin log's receipts, read
  * for burn credits (QX-17 section 4).
  */
-export function challengeLayer(input: { problems: ReduceInput[]; now: string; coin?: Receipt[]; founding?: Map<string, number> }): Layer {
+export function challengeLayer(input: { problems: ReduceInput[]; now: string; coin?: Receipt[]; founding?: Map<string, number>; blobLength?: (hash: Hash) => number | null }): Layer {
   const { now } = input;
   const f = newFolding(now, input.founding);
 
@@ -482,7 +512,7 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
     const core = reduce(p);
     if (f.entries.has(core.problem)) continue;
     const layered = applyVerifiers(core, p.receipts, now, { pool: () => [] });
-    f.entries.set(core.problem, { hash: core.problem, input: p, core, base: core, fold: layered.fold, layered, struck: new Set(), challenges: [], dropped: [], rules: [], golds: [] });
+    f.entries.set(core.problem, { hash: core.problem, input: p, core, base: core, fold: layered.fold, layered, struck: new Set(), aside: new Set(), challenges: [], dropped: [], rules: [], golds: [] });
   }
 
   // 2. The kinds and the credits to a fixed point (verifiers.md section 1): a judge panel's pool is the credits on other
@@ -500,13 +530,16 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
   // struck credit keeps its `until`, so a panel drawn before the strike keeps its pool (verifiers.md section 6), and a
   // panel drawn after it draws from what remains.
 
-  // 3. The stake rules each problem's owner set (QX-15 section 1).
+  // 3. QX-19 section 4: in a dispute, a reading that rests on nothing where the other rests on the record is set aside.
+  setAsideUngrounded(f, input.blobLength ?? (() => null));
+
+  // 4. The stake rules each problem's owner set (QX-15 section 1).
   keepStakeRules(f);
 
-  // 4. The burns on the coin log, credited as standing (QX-17 section 4).
+  // 5. The burns on the coin log, credited as standing (QX-17 section 4).
   creditBurns(f, input.coin ?? []);
 
-  // 5. The events this layer keeps or drops, once each by id across every problem, in receipt order; a verdict is read
+  // 6. The events this layer keeps or drops, once each by id across every problem, in receipt order; a verdict is read
   // under its challenge.
   const events = new Map<Hash, LayerEvent>();
   const verdicts = new Map<Hash, Verdict[]>();
@@ -542,10 +575,12 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
     }
   }
 
-  // 6. The views.
+  // 7. The views.
   const problems = new Map<Hash, ProblemLayer>();
   const all: ChallengeView[] = [];
   for (const e of f.entries.values()) {
+    const asideBy = new Map<Hash, Address[]>();
+    for (const r of e.input.receipts) if (r.event.piece && e.aside.has(eventId(r.event))) asideBy.set(r.event.piece, [...(asideBy.get(r.event.piece) ?? []), r.event.key]);
     const pieces: PieceLayer[] = e.fold.pieces.map((v) => {
       const own = e.challenges.filter((c) => c.piece === v.piece.hash);
       const last = own.length ? own[own.length - 1]! : null;
@@ -554,7 +589,7 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
       const kind = e.layered.kinds.get(v.piece.hash)!;
       const commitment = goldOn(e, v.piece.hash);
       const gold = commitment ? (outcomeOf(e, commitment, now) as GoldState) : null;
-      return { hash: v.piece.hash, name: v.piece.name, core, state, challenge: last, kind, attested: viaOf(v.accepting) === 'attest', panel: e.layered.byPiece.get(v.piece.hash) ?? null, stake: stakeAsked(ruleAt(e, now), v.piece), gold, verified: gold === 'match' };
+      return { hash: v.piece.hash, name: v.piece.name, core, state, challenge: last, kind, attested: viaOf(v.accepting) === 'attest', panel: e.layered.byPiece.get(v.piece.hash) ?? null, stake: stakeAsked(ruleAt(e, now), v.piece), gold, verified: gold === 'match', aside: asideBy.get(v.piece.hash) ?? [] };
     });
     const rule = ruleAt(e, now);
     problems.set(e.hash, {

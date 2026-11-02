@@ -211,7 +211,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       const input = inputFor(e.hash);
       if (input) problems.push(input);
     }
-    return challengeLayer({ problems, now: now(), ...(options.coin ? { coin: store.receipts(COIN_LOG) } : {}), ...(founding.size ? { founding } : {}) });
+    return challengeLayer({ problems, now: now(), blobLength: (h) => store.blobLength(h), ...(options.coin ? { coin: store.receipts(COIN_LOG) } : {}), ...(founding.size ? { founding } : {}) });
   }
 
   /** QX-17: the coin over the layer, from the coin log and the parameters; null where this tracker carries none. */
@@ -660,10 +660,10 @@ export function createTracker(options: TrackerOptions): Tracker {
           kind: l.kind.kind, extension: l.kind.extension, strength: l.kind.strength, says: l.kind.says, weakest: l.kind.weakest, attested: l.attested, panel: l.panel?.outcome ?? null,
           availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length, stake: l.stake, gold: l.gold, verified: l.verified,
           witnessed: witnessed.get(v.piece.hash) ?? [],
-          traces: t.traces.length, traced: t.traced, seams: t.seams,
+          traces: t.traces.length, traced: t.traced, seams: t.seams, aside: l.aside,
         };
       }),
-      gold: pl.goldCount, complete: s.complete, output: s.output?.hash ?? null, dropped: [...s.dropped, ...pl.dropped],
+      gold: pl.goldCount, complete: s.complete, output: s.output?.hash ?? null, dropped: [...s.dropped, ...pl.dropped], superseded: supersededBy(hash),
     };
   }
 
@@ -692,10 +692,34 @@ export function createTracker(options: TrackerOptions): Tracker {
     return b ? new TextDecoder().decode(b.subarray(span[0], span[1])) : null;
   }
 
-  /** QX-19: each piece's traces, the square's grade and the seams of a disputed piece, over the layer's fold and this store's blobs. */
+  /**
+   * QX-19: each piece's traces and the seams of a disputed piece over the core's fold, where both readings stand, and
+   * the square's grade over the layer's, whose accepting set is the one that counts; the passages from this store's blobs.
+   */
   function tracesOf(hash: Hash, pl: ProblemLayer): Map<Hash, PieceTraces> {
     const receipts = inputFor(hash)!.receipts;
-    return new Map(pl.fold.pieces.map((v) => [v.piece.hash, pieceTraces(pl.fold, v, receipts, blobLength, passageOf)]));
+    return new Map(pl.fold.pieces.map((v) => {
+      const core = pieceTraces(pl.core, pl.core.byHash.get(v.piece.hash) ?? v, receipts, blobLength, passageOf);
+      return [v.piece.hash, { ...core, traced: pieceTraces(pl.fold, v, receipts, blobLength, passageOf).traced }];
+    }));
+  }
+
+  /** The newest envelope here by the same owner whose `prev` is this problem: the version that replaced it, or null. The state says so, and `next` hands nothing on a replaced problem. */
+  function supersededBy(hash: Hash): Hash | null {
+    const owner = store.getEnvelope(hash)?.envelope.problem.owner;
+    if (!owner) return null;
+    return store.listEnvelopes().find((e) => e.envelope.problem.prev === hash && e.envelope.problem.owner === owner)?.hash ?? null;
+  }
+
+  /** The problems here their owners have replaced with a newer version, left out of the index and the offer: the work is on the versions that replaced them. */
+  function replaced(): Set<Hash> {
+    const out = new Set<Hash>();
+    const byHash = new Map(store.listEnvelopes().map((e) => [e.hash, e] as const));
+    for (const e of byHash.values()) {
+      const prev = e.envelope.problem.prev;
+      if (prev && byHash.get(prev)?.envelope.problem.owner === e.envelope.problem.owner) out.add(prev);
+    }
+    return out;
   }
 
   /** The name a root chose, as the problem's fold has it, or null. */
@@ -735,8 +759,9 @@ export function createTracker(options: TrackerOptions): Tracker {
     const out: unknown[] = [];
     const layered = layer();
     const hid = hidden();
+    const gone = replaced();
     for (const e of store.listEnvelopes()) {
-      if (hid.has(e.hash)) continue;
+      if (hid.has(e.hash) || gone.has(e.hash)) continue;
       const topics = [...(topicsByProblem.get(e.hash) ?? [])];
       const hay = `${e.envelope.problem.title} ${e.envelope.problem.slug} ${e.envelope.problem.done_when} ${topics.join(' ')}`.toLowerCase();
       if (q && !hay.includes(q)) continue;
@@ -796,6 +821,12 @@ export function createTracker(options: TrackerOptions): Tracker {
     const pl = layered.problems.get(hash);
     if (!pl) throw new Refusal(404, 'no such problem here');
     if (hidden().has(hash)) throw new Refusal(410, 'this problem is taken down here');
+    // A problem its owner has replaced with a newer version hands out nothing: the work is on the version that replaced it.
+    const superseded = supersededBy(hash);
+    if (superseded) {
+      json(res, 200, { piece: null, unaffordable: [], superseded });
+      return;
+    }
     const state = pl.fold;
     const at = now();
     // QX-4: a watch piece goes to the seeders first, and a seeder is handed it before anything else.
@@ -813,8 +844,9 @@ export function createTracker(options: TrackerOptions): Tracker {
     }
     const { kind, stake } = pl.byHash.get(pick.piece.hash)!;
     holdFor(hash, pick.piece.hash, key, at);
-    // QX-19: a disputed piece goes out with its seams, so the third reader replays both sides before it reads.
-    const seams = pick.state === 'disputed' ? pieceTraces(state, state.byHash.get(pick.piece.hash)!, input.receipts, blobLength, passageOf).seams : [];
+    // QX-19 section 4: a piece whose two readings differ goes out with its seams as the core's fold shows them, whether the layer still calls it disputed or has set one reading aside, so the next reader sees what the standing reading rests on.
+    const coreView = pl.core.byHash.get(pick.piece.hash);
+    const seams = coreView?.state === 'disputed' ? pieceTraces(pl.core, coreView, input.receipts, blobLength, passageOf).seams : [];
     json(res, 200, {
       piece: pick.piece.hash, name: pick.piece.name, state: pick.state, brief: pick.brief, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h,
       verifier: pick.piece.verifier, kind: kind.kind, extension: kind.extension, strength: kind.strength, says: kind.says, weakest: kind.weakest, workspace: pick.piece.workspace ?? null, check: pick.piece.check ?? null,
@@ -829,8 +861,9 @@ export function createTracker(options: TrackerOptions): Tracker {
     const layered = layer();
     const inputs = new Map<Hash, ReduceInput>();
     const hid = hidden();
+    const gone = replaced();
     for (const h of layered.problems.keys()) {
-      if (hid.has(h)) continue;
+      if (hid.has(h) || gone.has(h)) continue;
       const input = inputFor(h);
       if (input) inputs.set(h, input);
     }

@@ -29,22 +29,22 @@ type Trace = {
 type Grade = 'replayed' | 'agreed' | 'declared';
 ```
 
-**What a trace shows when two differ, and who settles it.** With traces, the difference between two readings is computable, and the kind of difference names the resolver; every resolver is a key.
+**What a trace shows when two differ, and what settles it.** With traces, the difference between two readings is computable, and what each side rests on says what went wrong, with nobody asked and no other vendor needed. The first live seams, on 2 November, were all of one shape: an anthropic reading against an openai one, which neither house could touch, since each refused a piece its own vendor had read. The rule below closes that, and replaced the first draft of this section, which had named a resolver for each kind (QX-19 section 4 has the sentences).
 
 ```ts
 type Seam = {
   piece: Hash; field: string;
-  readings: { root: Address; value: unknown; rests?: { read: Hash; span: [number, number] } }[];
+  readings: { root: Address; value: unknown; rests?: { read: Hash; span: [number, number] }; aside: boolean }[];
   why: 'source' | 'span' | 'reading' | 'unknown';
 };
 ```
 
-- `source`, different reads: `next` cuts a third production from a root independent of both and hands it both traces. It replays both, reads the brief for which source it names, and reveals. The core's own rule then holds: two of the three agree, and the square is accepted with the odd reading on record.
-- `span`, the same read and different spans: the same third production, and the mechanical half decides most of it, since one span is there and says what the field says and the other is not or does not.
-- `reading`, the same span read two ways: the brief is ambiguous, and no third reading repairs that. The seam goes into the output as a seam, both readings with the span they share, which is a true statement about the source; and the owner's node is handed it as a proposed `version` of the brief (a core event), which an owning key signs or declines by its own rule. A problem gets clearer the more it is worked, and no one has to be asked.
-- `unknown`, no traces on one side: the panel, as QX-1 and QX-2 draw it today, from roots with standing, which a swarm has.
+- A reading that rests on nothing loses to one that rests on the record. The layer sets it aside, as it sets aside a struck set, so the piece needs a second reading again and the same key may read it again with the seam in hand. A late trace lifts it.
+- Two readings that both rest on the record (`source`, `span`, `reading`) show a question that did not decide between them, and no third reading repairs that. The owner's node writes the sentence the brief lacks, with both passages in front of it, and publishes a version with it; the family reads again under the sharper question, and the version before stays in the chain with its seam. The question is fixed, not the reader.
+- Two readings that rest on nothing leave nothing to prefer: the piece stays disputed and `next` hands it on with the seam, as the core does.
+- A house is one reader, and its vendor is a setting. The core's `next` already prefers a piece no reading of which is the reader's vendor's and falls back to the rest; the house's own filter, which refused such a piece outright, is gone.
 
-What it makes possible: verification cheaper than work, so the second opinion is a spot check rather than a second production; sources that outlive their links, since the commons keeps the bytes it read; a square any node can open and replay without trusting a model for the mechanical half; and a dispute that settles itself with one more key instead of waiting for a panel of three. What it costs: storage for the reads, which the mirror already carries, and a pattern's choice of which fields must rest on a read. The witness (QX-18) says which product made the calls. The trace says what the calls read. Together they are most of what the open problem's direction 3 asked for.
+What it makes possible: verification cheaper than work, so the second opinion is a spot check rather than a second production; sources that outlive their links, since the commons keeps the bytes it read; a square any node can open and replay without trusting a model for the mechanical half; a dispute that settles itself; and a ledger that keeps the questions as they were and as they became, since every version with its seam stays in the chain. What it costs: storage for the reads, which the mirror already carries, a pattern's choice of which fields must rest on a read, and the family read again when its brief is sharpened. The witness (QX-18) says which product made the calls. The trace says what the calls read. Together they are most of what the open problem's direction 3 asked for.
 
 ## 2. One peer
 
@@ -77,6 +77,6 @@ Three more were weighed on 1 November and left, with the reason each waits.
 
 ## The order
 
-The owner's gold job first, a day, since it is the one place the live tracker waits for a person today and the coin has minted nothing because of it. Then traces, with the house workers writing one beside every reveal from the day it lands, so the live tracker carries traces before anything reads them. Then the three disputed squares as the first seams, settled by a third key under the rules above. Then the unattended run, first against a fresh tracker and then the live one, and monthly after. One peer runs beside all of it, a stage a month, each stage holding every test. Each shift is an extension document in `docs/ext/` with its fixtures, a second implementation in `impl/python` so it can go `Final`, and a pull request of its own. The open problem's status is rewritten at the end from what the runs showed.
+The owner's gold job first, a day, since it is the one place the live tracker waits for a person today and the coin has minted nothing because of it. Then traces, with the house workers writing one beside every reveal from the day it lands, so the live tracker carries traces before anything reads them. Then the seams deciding themselves, under the rules above, with the five disputed squares of 2 November as the first. Then the unattended run, first against a fresh tracker and then the live one, and monthly after. One peer runs beside all of it, a stage a month, each stage holding every test. Each shift is an extension document in `docs/ext/` with its fixtures, a second implementation in `impl/python` so it can go `Final`, and a pull request of its own. The open problem's status is rewritten at the end from what the runs showed.
 
 What is left alone: the site beyond a wrong word, the directories, the second tracker, the DHT, the bridge past what runs, the phone, anything whose purpose is a user, and anything that would ask a person for a thing.

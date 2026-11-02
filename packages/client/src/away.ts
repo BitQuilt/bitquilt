@@ -22,8 +22,8 @@ import type { ServerEntry } from './install.js';
 import { parseLink } from './link.js';
 import { inParallel } from './pool.js';
 import { say } from './phrases.js';
-import type { Quilt } from './quilt.js';
-import { layerByHash } from './render.js';
+import type { Quilt, Sharpened } from './quilt.js';
+import { type SentenceAsk, layerByHash, sentenceAsk } from './render.js';
 import type { ToolName } from './tools.js';
 
 /** The tools a run while away may call: the ones that read, take a piece, hand a return back and give one back. */
@@ -288,6 +288,8 @@ const oneLine = (s: string, max: number) => {
 
 export interface TurnOptions {
   home: string;
+  /** The sentence for a seam (QX-19 section 4), in place of the agent CLI's; the tests' way in. */
+  sentence?: (q: SentenceAsk) => Promise<string | null>;
   env: NodeJS.ProcessEnv;
   /** The connector entry for this very program (install.ts, entryHere). */
   entry: ServerEntry;
@@ -313,8 +315,35 @@ export interface Turn {
   said: string | null;
   /** The owner's gold revealed this turn, each with what the tracker decided or why it was refused. */
   gold: Revealed[];
+  /** The owner's briefs sharpened this turn (QX-19 section 4): each problem with a seam, the sentences and the version. */
+  sharpened: Sharpened[];
   line: string;
   record: AwayRecord;
+}
+
+/** The turn's sharpening in a few words for the log: how many versions were published and how many sentences were asked and not kept; nothing when there was no seam. */
+export function sharpenText(list: readonly Sharpened[]): string {
+  if (list.length === 0) return '';
+  const published = list.filter((s) => s.hash && s.posted.length).length;
+  const left = list.reduce((n, s) => n + s.sentences.filter((x) => !x.kept).length, 0);
+  const refused = list.reduce((n, s) => n + s.refused.length, 0);
+  return `sharpened: ${published} published${left ? `, ${left} sentence${left === 1 ? '' : 's'} not kept` : ''}${refused ? `, ${refused} refused` : ''}`;
+}
+
+/** The agent CLI as a function from a prompt to its one answer, with no tools: how the owner's node asks for the sentence a brief lacks (QX-19 section 4). */
+export function askInvocation(agent: Agent, prompt: string, lastMessage: string): Invocation {
+  return agent.name === 'claude'
+    ? { command: agent.path, model: CLAUDE_MODEL, args: ['-p', prompt, '--output-format', 'json', '--max-turns', '1', '--strict-mcp-config', '--mcp-config', JSON.stringify({ mcpServers: {} })] }
+    : { command: agent.path, model: 'codex', args: ['exec', '--skip-git-repo-check', '--sandbox', 'read-only', '-c', 'approval_policy="never"', '--output-last-message', lastMessage, prompt] };
+}
+
+/** The agent's one answer to a prompt, trimmed, or null where it failed or said nothing. */
+export async function agentSentence(agent: Agent, prompt: string, options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number }): Promise<string | null> {
+  const lastMessage = join(options.cwd, 'away.sentence');
+  const run = await runAgent(askInvocation(agent, prompt, lastMessage), options);
+  const said = agent.name === 'claude' ? saidByClaude(run.stdout) : readIfThere(lastMessage);
+  if (existsSync(lastMessage)) unlinkSync(lastMessage);
+  return run.code === 0 && said ? said.trim() : null;
 }
 
 /** The turn's reveals in a few words for the log: how many were posted, what the tracker decided, and how many it refused; nothing when there were none. */
@@ -337,24 +366,34 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
   const now = o.now ?? (() => new Date());
   const file = join(o.home, AWAY_FILE);
   const log = join(o.home, AWAY_LOG);
+  const dirs = o.dirs ?? searchDirs(o.env);
+  const agent = findAgent(dirs, o.exists);
   let gold: Revealed[] = [];
+  let sharpened: Sharpened[] = [];
   if (o.quilt) {
     try {
       gold = await o.quilt().revealDue();
     } catch (e) {
       appendFileSync(log, `${now().toISOString()} gold: not run (${oneLine((e as Error).message, 200)})\n`);
     }
+    // QX-19 section 4: the owner's briefs sharpened where two grounded readings read them apart, the sentence from the agent on this machine, or from the caller.
+    const ask = o.sentence ?? (agent ? (q: SentenceAsk) => agentSentence(agent, sentenceAsk(q), { cwd: o.home, env: { ...o.env, PATH: dirs.join(delimiter) }, timeoutMs: o.timeoutMs ?? RUN_TIMEOUT_MS }) : null);
+    if (ask) {
+      try {
+        sharpened = await o.quilt().sharpenDue(ask);
+      } catch (e) {
+        appendFileSync(log, `${now().toISOString()} sharpen: not run (${oneLine((e as Error).message, 200)})\n`);
+      }
+    }
   }
-  const goldSaid = goldText(gold);
+  const goldSaid = [goldText(gold), sharpenText(sharpened)].filter(Boolean).join('; ');
   const before = readAway(file, now());
   const none = (why: string): Turn => {
     const line = goldSaid ? `${why} ${goldSaid}` : why;
     if (goldSaid) appendFileSync(log, `${now().toISOString()} ${line}\n`);
-    return { ran: false, agent: null, model: null, code: null, timedOut: false, returned: 0, said: null, gold, line, record: before };
+    return { ran: false, agent: null, model: null, code: null, timedOut: false, returned: 0, said: null, gold, sharpened, line, record: before };
   };
   if (capReached(before)) return none(capText(before));
-  const dirs = o.dirs ?? searchDirs(o.env);
-  const agent = findAgent(dirs, o.exists);
   if (!agent) return none(NEEDS_AGENT);
   const lastMessage = join(o.home, 'away.last');
   const inv = agent.name === 'claude'
@@ -372,7 +411,7 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
   const line = `${started.toISOString()} ${agent.name} (${inv.model}) ${ended}; returned ${returned} (${after.returned} of ${after.cap} today)${goldSaid ? `; ${goldSaid}` : ''}${said ? `; said: ${oneLine(said, 300)}` : ''}`;
   const failed = run.timedOut || run.code !== 0;
   appendFileSync(log, [line, ...(failed ? [oneLine(run.stderr || run.stdout, 2000)] : [])].join('\n') + '\n');
-  return { ran: true, agent, model: inv.model, code: run.code, timedOut: run.timedOut, returned, said, gold, line, record: after };
+  return { ran: true, agent, model: inv.model, code: run.code, timedOut: run.timedOut, returned, said, gold, sharpened, line, record: after };
 }
 
 // The schedule

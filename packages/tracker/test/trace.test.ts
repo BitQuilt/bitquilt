@@ -8,7 +8,10 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  * reveal not kept, on a read not held, on a span past the read or past the limit, on a field the return lacks, with no
  * reads, and twice on one reveal; an accepted square is graded none, one and both as the traces arrive; a disputed
  * piece's seams say why the two readings differ, source, span, reading or unknown, with each side's passage, and the
- * seams go out with the piece when next hands it over; the well-known document names the extension.
+ * seams go out with the piece when next hands it over; the well-known document names the extension. And the seam
+ * decides itself (section 4): a reading that rests on nothing where the other rests on the record is set aside, the
+ * piece goes back out with the seam and the same key may read it again, a late trace lifts the set-aside, nothing is
+ * set aside where neither side rests on anything, and a problem its owner replaced hands out nothing and leaves the index.
  */
 const owner = key(9), A = key(1), B = key(2), C = key(3);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
@@ -128,8 +131,8 @@ describe('seams', () => {
     expect(s3.state).toBe('disputed');
     expect(s3.traced).toBeNull();
     expect(s3.seams).toEqual([{ field: 'verdict', why: 'source', sides: [
-      { key: addr(A), value: 'supports', read: read(page), span: span(PAGE, HOLDS), passage: HOLDS },
-      { key: addr(B), value: 'contradicts', read: read(other), span: span(OTHER, NEVER), passage: NEVER },
+      { key: addr(A), value: 'supports', read: read(page), span: span(PAGE, HOLDS), passage: HOLDS, aside: false },
+      { key: addr(B), value: 'contradicts', read: read(other), span: span(OTHER, NEVER), passage: NEVER, aside: false },
     ] }]);
 
     const spans = pieces['statement/4']!;
@@ -159,5 +162,72 @@ describe('seams', () => {
     expect((await post('/p', { envelope: fresh })).status).toBe(201);
     const plain = (await get(`/p/${problemHash(fresh)}/next?key=${addr(C)}&can=web&model=meta/llama`)) as { piece: Hash; state: string; seams: unknown[] };
     expect(plain).toMatchObject({ state: 'open', seams: [] });
+  });
+});
+
+describe('a seam decides itself (section 4)', () => {
+  let pa: Hash;
+  const ps: Record<string, Hash> = {};
+  type Layered = PieceState & { core: string; aside: Address[] };
+  const stateOf = async (problem: Hash, piece: Hash) => ((await get(`/p/${problem}/state`)) as { pieces: Layered[] }).pieces.find((x) => x.hash === piece)!;
+  async function returnedOn(problem: Hash, piece: Hash, k: Uint8Array, model: string, verdict: string): Promise<Hash> {
+    const ret = { verdict, quote: `as ${addr(k).slice(0, 6)} read it, ${verdict}` };
+    const nonce = newNonce();
+    await accepted(`/p/${problem}/events`, ev(k, 'commit', { h: commitHash(ret, nonce) }, problem, piece));
+    return accepted(`/p/${problem}/events`, ev(k, 'reveal', { return: ret, nonce, by: by(model) }, problem, piece));
+  }
+  const rested = (k: Uint8Array, problem: Hash, piece: Hash, reveal: Hash, at: [number, number]) => ev(k, 'trace', { reveal, reads: [read(page)], rests: [{ field: 'verdict', read: 0, span: at }] }, problem, piece);
+
+  beforeAll(async () => {
+    const e = envelope('aside', 3);
+    pa = problemHash(e);
+    expect((await post('/p', { envelope: e })).status).toBe(201);
+    for (const x of ((await get(`/p/${pa}/state`)) as { pieces: PieceState[] }).pieces) ps[x.name] = x.hash;
+  });
+
+  it('lifts the set-aside when the trace arrives, and sets nothing aside where neither side rests on anything', async () => {
+    // First, so that afterwards every piece of the problem needs a second reading and next hands statement/1 and nothing open.
+    const x = ps['statement/2']!;
+    const ra = await returnedOn(pa, x, A, 'anthropic/claude', 'supports');
+    const rb = await returnedOn(pa, x, B, 'openai/gpt-5', 'contradicts');
+    await accepted(`/p/${pa}/events`, rested(A, pa, x, ra, span(PAGE, HOLDS)));
+    expect(await stateOf(pa, x)).toMatchObject({ state: 'needs_verify', aside: [addr(B)] });
+    await accepted(`/p/${pa}/events`, rested(B, pa, x, rb, [0, span(PAGE, HOLDS)[1] + 1]));
+    const s = await stateOf(pa, x);
+    expect(s).toMatchObject({ state: 'disputed', core: 'disputed', aside: [] });
+    expect(s.seams).toMatchObject([{ why: 'reading', sides: [{ aside: false }, { aside: false }] }]);
+    const y = ps['statement/3']!;
+    await returnedOn(pa, y, A, 'anthropic/claude', 'supports');
+    await returnedOn(pa, y, B, 'openai/gpt-5', 'contradicts');
+    expect(await stateOf(pa, y)).toMatchObject({ state: 'disputed', aside: [], seams: [{ why: 'unknown', sides: [{ aside: false }, { aside: false }] }] });
+  });
+
+  it('sets aside the reading that rests on nothing where the other rests on the record, hands the piece back with the seam, and takes a second reading from the same key', async () => {
+    const x = ps['statement/1']!;
+    const ra = await returnedOn(pa, x, A, 'anthropic/claude', 'supports');
+    await returnedOn(pa, x, B, 'openai/gpt-5', 'contradicts');
+    await accepted(`/p/${pa}/events`, rested(A, pa, x, ra, span(PAGE, HOLDS)));
+    const s = await stateOf(pa, x);
+    expect(s).toMatchObject({ state: 'needs_verify', core: 'disputed', aside: [addr(B)], traced: null });
+    expect(s.seams).toMatchObject([{ field: 'verdict', why: 'unknown', sides: [{ key: addr(A), passage: HOLDS, aside: false }, { key: addr(B), passage: null, aside: true }] }]);
+    // B's commit is unrevealed in the layer's fold, so B is a candidate again, and is handed the piece with the seam.
+    const handed = (await get(`/p/${pa}/next?key=${addr(B)}&can=web&model=openai/gpt-5`)) as { piece: Hash | null; state: string; seams: { sides: { aside: boolean }[] }[] };
+    expect(handed).toMatchObject({ piece: x, state: 'needs_verify' });
+    expect(handed.seams[0]!.sides.map((side) => side.aside)).toEqual([false, true]);
+    // B reads again and agrees: the set is A's reading and B's second; the square is graded one; the core still calls the piece disputed.
+    await returnedOn(pa, x, B, 'openai/gpt-5', 'supports');
+    expect(await stateOf(pa, x)).toMatchObject({ state: 'accepted_provisional', core: 'disputed', aside: [addr(B)], traced: 'one' });
+  });
+
+  it('hands nothing on a problem its owner replaced with a newer version, says so in the state, and leaves it out of the index', async () => {
+    const e = signed(owner, 'aside', { 'statement/*': { count: 3, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so? The later section governs.', schema, agree: ['verdict'] } }, { prev: pa });
+    expect((await post('/p', { envelope: e })).status).toBe(201);
+    const newer = problemHash(e);
+    expect(((await get(`/p/${pa}/state`)) as { superseded: Hash | null }).superseded).toBe(newer);
+    expect(((await get(`/p/${newer}/state`)) as { superseded: Hash | null }).superseded).toBeNull();
+    expect(await get(`/p/${pa}/next?key=${addr(C)}&can=web&model=meta/llama`)).toMatchObject({ piece: null, superseded: newer });
+    const listed = ((await get('/search')) as { problems: { problem: Hash }[] }).problems.map((x) => x.problem);
+    expect(listed).toContain(newer);
+    expect(listed).not.toContain(pa);
   });
 });

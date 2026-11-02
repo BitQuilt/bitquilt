@@ -2,10 +2,14 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Hash } from '@bitquilt/core';
+import { AWAY_LOG, NEEDS_AGENT, awayTurn } from '../src/away.js';
+import { type SentenceAsk, sentenceAsk } from '../src/render.js';
 import { runTool } from '../src/tools.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
 import { drawText, fetchRead, locate, privateHost } from '../src/trace.js';
 import { instructs, json, mcpPair, quiltOver, startTracker } from './helpers.js';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * The trace (QX-19) from the client's side: a page is drawn to text without its scripts, styles and tags, and a passage
@@ -13,7 +17,11 @@ import { instructs, json, mcpPair, quiltOver, startTracker } from './helpers.js'
  * its hash, posts the trace with the span, and says what rests on what; a rest whose page cannot be read, whose passage
  * is not on it or whose field the return lacks is left out and said, and with nothing left nothing is posted; the
  * square's grade and the seams of a disputed piece reach the model as text with each side's passage quoted and its
- * signer named, through quilt_read and quilt_next; the tools' words describe.
+ * signer named, through quilt_read and quilt_next; the tools' words describe. And the seam decides itself (section 4):
+ * a reading that rests on nothing is set aside, said as such, and the same key is handed the piece again and read a
+ * second time; the owner's node sharpens a brief two grounded readings read apart, the sentence asked with both
+ * passages, the version published with it and `prev` set, the gold carried, the old problem said to be replaced and
+ * handing nothing, and the away turn's line counting it.
  */
 let server: Server;
 let base: string;
@@ -42,8 +50,8 @@ const pattern: Pattern = {
   },
 };
 
-type StateView = { pieces: { hash: Hash; state: string; traces: number; traced: string | null }[] };
-const trackerState = () => json<StateView>(`${base}p/${p}/state`);
+type StateView = { pieces: { hash: Hash; state: string; core?: string; traces: number; traced: string | null; aside?: string[] }[]; superseded?: Hash | null; gold?: { committed: number } };
+const trackerState = (of: Hash = p) => json<StateView>(`${base}p/${of}/state`);
 
 beforeAll(async () => {
   ({ server, base } = await startTracker({ limits: { keyPerHour: 1000, ipPerHour: 10000 } }));
@@ -180,5 +188,100 @@ describe('a return with rests', () => {
     expect(JSON.stringify(tools.tools.find((t) => t.name === 'quilt_return')!.inputSchema)).toContain('"rests"');
     expect(tools.tools.find((t) => t.name === 'quilt_next')!.description).toContain('QX-19');
     await close();
+  });
+});
+
+describe('the seam decides itself (section 4)', () => {
+  let pa: Hash;
+  const ps: Hash[] = [];
+  const aside: Pattern = { ...pattern, slug: 'aside', gold: { answers: { 'statement/3': { verdict: 'supports' } } } };
+
+  beforeAll(async () => {
+    // A gold's stake is the owner's standing, two a piece, and each version carries it again: the owner earns six squares on another owner's problem first.
+    const q = (await c.publish({ ...pattern, slug: 'standing', pieces: { 'statement/*': { ...pattern.pieces['statement/*']!, count: 6 } } })).hash;
+    for (const v of (await owner.open(q)).state.pieces) {
+      await owner.return(q, v.piece.hash, { verdict: 'supports', quote: 'it says so' });
+      await b.return(q, v.piece.hash, { verdict: 'supports', quote: 'indeed' });
+    }
+    expect(await owner.standing()).toMatchObject({ standing: 7, free: 7 });
+    pa = (await owner.publish(aside)).hash;
+    for (const v of (await a.open(pa)).state.pieces) ps.push(v.piece.hash);
+  });
+
+  it('sets aside a reading that rests on nothing, says so, hands the piece back to the same key with the seam, and accepts its second reading', async () => {
+    const piece = ps[0]!;
+    await a.return(pa, piece, { verdict: 'supports', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: HOLDS }]);
+    await b.return(pa, piece, { verdict: 'contradicts', quote: 'q' });
+    expect((await trackerState(pa)).pieces[0]).toMatchObject({ state: 'needs_verify', core: 'disputed', traces: 1, aside: [b.identity!.address] });
+    const read = await runTool(a, 'quilt_read', { problem: pa });
+    expect(read.text).toContain("statement/1 is disputed in the core's fold, with 2 returns; the tracker set one reading aside and calls it needs verify.");
+    expect(read.text).toContain(`${b.identity!.address} rests it on nothing kept, and that reading is set aside until it does.`);
+    // The second piece's two readings, both resting on the same words (the next test's seam), so that the pieces needing a second reading outnumber the open and next hands B the first piece again.
+    await a.return(pa, ps[1]!, { verdict: 'supports', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: HOLDS }]);
+    await b.return(pa, ps[1]!, { verdict: 'contradicts', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: HOLDS }]);
+    // B's commit is unrevealed in the tracker's fold, so B is handed the piece again, with the seam.
+    const handed = await runTool(b, 'quilt_next', { problem: pa });
+    expect(handed.handles.piece).toBe(piece);
+    expect(handed.text).toContain(`rests it on "${HOLDS}" at`);
+    expect(handed.text).toContain('and that reading is set aside until it does');
+    await b.return(pa, piece, { verdict: 'supports', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: NOT_AT_SCALE }]);
+    expect((await trackerState(pa)).pieces[0]).toMatchObject({ state: 'accepted_provisional', core: 'disputed', traced: 'both' });
+  });
+
+  it("sharpens the brief where two grounded readings read it apart: the sentence asked with both passages, the version published with it, the gold carried, the old problem replaced, and the away turn's line", async () => {
+    expect((await trackerState(pa)).pieces[1]).toMatchObject({ state: 'disputed', aside: [] });
+    // Not the owner: refused before anything is asked.
+    await expect(a.sharpen(pa, async () => 'x')).rejects.toThrow(/only the owner/);
+    const asked: SentenceAsk[] = [];
+    const sentence = 'Where the paper says the effect holds in every trial, the verdict is supports, whatever a later section says of scale.';
+    const r = await owner.sharpen(pa, async (q) => { asked.push(q); return sentence; });
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toMatchObject({ family: 'statement', field: 'verdict', piece: 'statement/2', brief: aside.pieces['statement/*']!.brief });
+    expect(asked[0]!.seam.why).toBe('reading');
+    const prompt = sentenceAsk(asked[0]!);
+    expect(prompt).toContain(`${a.identity!.address} answered "supports" and rested it on "${HOLDS}"`);
+    expect(prompt).toContain(`${b.identity!.address} answered "contradicts" and rested it on "${HOLDS}"`);
+    expect(prompt).toContain('Answer with the sentence alone.');
+    expect(r).toMatchObject({ problem: pa, sentences: [{ family: 'statement', field: 'verdict', sentence, kept: true, why: null }], posted: [base], refused: [] });
+    const newer = r.hash!;
+    expect(newer).not.toBe(pa);
+    // The version: prev set, the sentence at the end of the family's brief, every piece open again, the gold committed again.
+    const opened = await a.open(newer);
+    expect(opened.state.envelope.problem.prev).toBe(pa);
+    expect(opened.state.envelope.problem.pieces['statement/*']!.brief).toBe(`${aside.pieces['statement/*']!.brief} ${sentence}`);
+    expect(opened.state.pieces.map((v) => v.state)).toEqual(['open', 'open', 'open']);
+    expect((await trackerState(newer)).gold).toMatchObject({ committed: 1 });
+    expect(Object.keys(owner.library.gold![newer]!)).toHaveLength(1);
+    // The old problem: replaced, says so, hands nothing, and is not sharpened twice.
+    expect((await trackerState(pa)).superseded).toBe(newer);
+    expect((await runTool(a, 'quilt_open', { link: pa })).text).toContain(`Its owner replaced this version with ${newer}; the work is there.`);
+    await expect(c.next(pa)).rejects.toThrow(/replaced by its owner/);
+    expect(owner.library.problems[pa]!.next).toBe(newer);
+    expect(await owner.sharpen(pa, async () => 'again')).toMatchObject({ sentences: [], hash: newer });
+    // Over every problem the home knows: the replaced one is passed over, another owner's is passed over, and the first problem, whose third piece two grounded readings read apart earlier, is sharpened.
+    const due = await owner.sharpenDue(async () => 'The first section governs here too.');
+    expect(due).toHaveLength(1);
+    expect(due[0]).toMatchObject({ problem: p, sentences: [{ family: 'statement', kept: true }], posted: [base] });
+    expect(owner.library.problems[p]!.next).toBe(due[0]!.hash);
+    // The away turn: a seam on the new version, the sentence from the caller in place of an agent, and the line counts the version published.
+    const next = opened.state.pieces[0]!.piece.hash;
+    await a.return(newer, next, { verdict: 'supports', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: HOLDS }]);
+    await b.return(newer, next, { verdict: 'contradicts', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: NOT_AT_SCALE }]);
+    const home = owner.resolver.home;
+    const turn = await awayTurn({ home, env: { PATH: '/nonexistent' }, entry: { command: 'quilt', args: ['mcp'], env: {} }, dirs: ['/nonexistent'], quilt: () => owner, sentence: async () => 'The first section governs.' });
+    expect(turn.ran).toBe(false);
+    expect(turn.sharpened).toHaveLength(1);
+    expect(turn.sharpened[0]).toMatchObject({ problem: newer, sentences: [{ kept: true }] });
+    expect(turn.line).toBe(`${NEEDS_AGENT} sharpened: 1 published`);
+    expect(readFileSync(join(home, AWAY_LOG), 'utf8')).toContain(' sharpened: 1 published');
+    expect((await trackerState(newer)).superseded).toBe(turn.sharpened[0]!.hash);
+    // A sentence that does not pass the gate, or none at all, is not kept and nothing is published.
+    const third = turn.sharpened[0]!.hash!;
+    const t3 = (await a.open(third)).state.pieces[0]!.piece.hash;
+    await a.return(third, t3, { verdict: 'supports', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: HOLDS }]);
+    await b.return(third, t3, { verdict: 'contradicts', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: HOLDS }]);
+    expect(await owner.sharpen(third, async () => 'See https://example.org/rule for the rule.')).toMatchObject({ sentences: [{ kept: false }], hash: null, posted: [] });
+    expect(await owner.sharpen(third, async () => null)).toMatchObject({ sentences: [{ kept: false, why: 'no sentence' }], hash: null });
+    expect((await trackerState(third)).superseded).toBeNull();
   });
 });
