@@ -219,6 +219,27 @@ describe('a seam decides itself (section 4)', () => {
     expect(await stateOf(pa, x)).toMatchObject({ state: 'accepted_provisional', core: 'disputed', aside: [addr(B)], traced: 'one' });
   });
 
+  it("hands the piece back within the second reader's pool, asked with only=verify, where the open pieces outnumber it and the core's order would hand an open one", async () => {
+    const e = envelope('pool', 5);
+    const pp = problemHash(e);
+    expect((await post('/p', { envelope: e })).status).toBe(201);
+    const x = ((await get(`/p/${pp}/state`)) as { pieces: PieceState[] }).pieces.find((v) => v.name === 'statement/1')!.hash;
+    const ra = await returnedOn(pp, x, A, 'anthropic/claude', 'supports');
+    await returnedOn(pp, x, B, 'openai/gpt-5', 'contradicts');
+    await accepted(`/p/${pp}/events`, rested(A, pp, x, ra, span(PAGE, HOLDS)));
+    expect(await stateOf(pp, x)).toMatchObject({ state: 'needs_verify', aside: [addr(B)] });
+    // Four open pieces and one needing a reading: next alone hands B an open piece, as the core orders them.
+    const plain = (await get(`/p/${pp}/next?key=${addr(B)}&can=web&model=openai/gpt-5`)) as { piece: Hash | null; state: string };
+    expect(plain.state).toBe('open');
+    expect(plain.piece).not.toBe(x);
+    // Within the pool, the piece whose reading was set aside comes back to B with its seam.
+    const pooled = (await get(`/p/${pp}/next?key=${addr(B)}&can=web&model=openai/gpt-5&only=verify`)) as { piece: Hash | null; state: string; seams: { sides: { aside: boolean }[] }[] };
+    expect(pooled).toMatchObject({ piece: x, state: 'needs_verify' });
+    expect(pooled.seams[0]!.sides.map((side) => side.aside)).toEqual([false, true]);
+    // A word other than verify is refused.
+    expect((await fetch(`${t.base}/p/${pp}/next?key=${addr(B)}&can=web&model=openai/gpt-5&only=all`)).status).toBe(400);
+  });
+
   it('hands nothing on a problem its owner replaced with a newer version, says so in the state, and leaves it out of the index', async () => {
     const e = signed(owner, 'aside', { 'statement/*': { count: 3, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so? The later section governs.', schema, agree: ['verdict'] } }, { prev: pa });
     expect((await post('/p', { envelope: e })).status).toBe(201);

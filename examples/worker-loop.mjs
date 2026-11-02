@@ -52,22 +52,24 @@ export function readPiece(text) {
  * One field's shape for the model. Both vendors' strict shapes ask that every field be present, so a string field the
  * piece does not require says it may be left empty, and `fit` leaves an empty one out of the return: a bill never
  * enacted has no enacted date, and the tracker refuses a date field that holds anything but a date. A date field says
- * its shape in words, since the tracker holds it to YYYY-MM-DD and a model told nothing writes dates every way.
+ * its shape in words, since the tracker holds it to YYYY-MM-DD and a model told nothing writes dates every way. A list
+ * says its most in words too, since the structured shapes refuse maxItems, and `fit` cuts a longer one to it.
  */
 function fieldSchema(def, required = true) {
   if (def.enum) return { type: 'string', enum: def.enum };
-  if (def.type === 'array') return { type: 'array', items: fieldSchema(def.items ?? {}), ...(def.maxItems ? { maxItems: def.maxItems } : {}) };
+  if (def.type === 'array') return { type: 'array', items: fieldSchema(def.items ?? {}), ...(def.maxItems ? { description: `At most ${def.maxItems} items` } : {}) };
   const type = def.type === 'integer' ? 'integer' : def.type === 'number' ? 'number' : def.type === 'boolean' ? 'boolean' : 'string';
   if (def.format === 'date') return { type, description: required ? 'A date as YYYY-MM-DD' : 'A date as YYYY-MM-DD, or empty where the record gives none' };
   return type === 'string' && !required ? { type, description: 'Empty where the record gives none' } : { type };
 }
 
-/** The answer with every string cut to the length the piece's schema allows, and every field the piece does not require left out where the model left it empty. */
+/** The answer with every string cut to the length the piece's schema allows, every list to its most, and every field the piece does not require left out where the model left it empty. */
 export function fit(piece, answer) {
   for (const [k, def] of Object.entries(piece.properties)) {
     const v = answer[k];
     if (!piece.required.includes(k) && (v === null || v === undefined || (typeof v === 'string' && v.trim() === ''))) { delete answer[k]; continue; }
     if (typeof v === 'string' && def.maxLength && v.length > def.maxLength) answer[k] = v.slice(0, def.maxLength);
+    if (Array.isArray(v) && def.maxItems && v.length > def.maxItems) answer[k] = v.slice(0, def.maxItems);
   }
   return answer;
 }

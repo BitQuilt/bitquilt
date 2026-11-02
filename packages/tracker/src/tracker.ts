@@ -837,6 +837,13 @@ export function createTracker(options: TrackerOptions): Tracker {
     // QX-15: a staked piece the key's free standing cannot cover, and on which it holds no lock, is not offered.
     const unaffordable = [...layered.unaffordable(hash, key)];
     for (const h of unaffordable) exclude.add(h);
+    // The second reader's pool (QX-19 section 6): asked with only=verify, the pick is from the pieces in needs_verify or
+    // disputed alone, in this layer's fold. The core's order puts open pieces first wherever they outnumber those, so
+    // without this a key whose reading was set aside would be handed an open piece, and its own fold would not hand it
+    // the piece back, since the reading still stands there.
+    const only = query.get('only');
+    if (only !== null && only !== 'verify') throw new Refusal(400, 'only: verify, or left out');
+    if (only === 'verify') for (const v of state.pieces) if (v.state !== 'needs_verify' && v.state !== 'disputed') exclude.add(v.piece.hash);
     const pick = next(state, key, client, at, { exclude });
     if (!pick) {
       json(res, 200, { piece: null, unaffordable });

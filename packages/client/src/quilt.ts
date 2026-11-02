@@ -345,8 +345,8 @@ export class Quilt {
     const only = this.verifyOnly(state);
     const nothingToVerify = 'nothing to verify on that problem for this key right now';
     if (only && only.size === 0) throw new Error(nothingToVerify);
-    // 1. The tracker's word, where one answered: the piece it names, the stake it asks, the pieces this key cannot cover.
-    const asked = tracker ? await this.askedNext(hash, state, tracker) : { pick: null, stake: 0, unaffordable: [] as Hash[], seams: [] as Seam[] };
+    // 1. The tracker's word, where one answered: the piece it names, the stake it asks, the pieces this key cannot cover; asked within the pool where there is one.
+    const asked = tracker ? await this.askedNext(hash, state, tracker, only !== null) : { pick: null, stake: 0, unaffordable: [] as Hash[], seams: [] as Seam[] };
     let { pick, stake } = asked;
     // A piece the tracker named outside the pool is left where it is: the map picks within the pool, and the stake is then that piece's.
     const unaffordable = only ? asked.unaffordable.filter((h) => only.has(h)) : asked.unaffordable;
@@ -384,7 +384,8 @@ export class Quilt {
    * piece is never in the pool. Which piece among them is the core's choice (CORE.md section 7, step 3): it prefers one
    * no reading of which is this key's vendor's and falls back to the rest, and its own rule keeps a same-vendor pair from
    * making a set and a root from reading a piece twice; so this filter says nothing about vendors (QX-19 section 4).
-   * Null when the environment does not ask for it, and `next` takes anything.
+   * The tracker is asked within the same pool (`askedNext`), so a reading it set aside comes back to the key that made
+   * it. Null when the environment does not ask for it, and `next` takes anything.
    */
   private verifyOnly(state: State): Set<string> | null {
     if (process.env.QUILT_NEXT_ONLY !== 'verify') return null;
@@ -400,15 +401,17 @@ export class Quilt {
    * The tracker's assisted next: the piece it names for this key as a pick, the stake it asks of it (QX-15), and the
    * pieces it left out because this key's free standing cannot cover their stake. A tracker that names nothing is only
    * saying its holds are taken, and the map decides; one that does not answer names nothing. One that has taken the
-   * problem down (QX-6) takes no claim on it either, so that throws.
+   * problem down (QX-6) takes no claim on it either, so that throws. With `pool`, the tracker is asked within the second
+   * reader's pool (`only=verify`), so its pick is a piece with a reading on it, over its own fold: the one fold in which a
+   * reading it set aside does not stand (QX-19 section 4).
    */
-  private async askedNext(hash: Hash, state: State, tracker: string): Promise<{ pick: Pick | null; stake: number; unaffordable: Hash[]; seams: Seam[] }> {
+  private async askedNext(hash: Hash, state: State, tracker: string, pool = false): Promise<{ pick: Pick | null; stake: number; unaffordable: Hash[]; seams: Seam[] }> {
     const id = this.needKey();
     type Answer = { piece: Hash | null; state?: string; agree?: string[]; lease_h?: number; stake?: number; unaffordable?: Hash[]; seams?: Seam[] };
     let answer: Answer | null = null;
     let takenDown: string | null = null;
     try {
-      const r = await fetch(`${tracker}p/${hash}/next?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}`, { signal: AbortSignal.timeout(8000) });
+      const r = await fetch(`${tracker}p/${hash}/next?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}${pool ? '&only=verify' : ''}`, { signal: AbortSignal.timeout(8000) });
       if (r.ok) answer = (await r.json()) as Answer;
       else if (r.status === 410) takenDown = ((await r.json().catch(() => ({}))) as { error?: string }).error ?? 'taken down';
     } catch {
