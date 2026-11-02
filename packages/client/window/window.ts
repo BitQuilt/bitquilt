@@ -1,34 +1,44 @@
 /**
  * The directory window: the card's side of the MCP app (packages/client/src/window.ts is the server's). One
  * self-contained document, built by scripts/build-window.mjs into src/window.generated.ts. In a chat that shows MCP
- * apps it connects to the host, reads the handle from the tool result it was shown with (quilt_window, or quilt_search,
- * which names the same card), and draws everything it shows from the app-only tool quilt_window_io over the same
- * session; it loads nothing from anywhere else, and the host's own sandbox would refuse it if it tried. A button that
- * would do something in the person's name hands this chat one of the person's own phrases with the problem's link
- * filled in, so a piece is taken or a problem opened through quilt_next and quilt_open as always, with the host asking
- * first; nothing a stranger wrote goes into what the person's AI is told. Text is set with textContent, never as markup.
+ * apps it connects to the host, reads the handle from the tool result it was shown with (quilt_window, quilt_search,
+ * quilt_open or quilt_read, which name the same card), and draws everything it shows from the app-only tool
+ * quilt_window_io over the same session; it loads nothing from anywhere else, and the host's own sandbox would refuse
+ * it if it tried. A button that would do something in the person's name hands this chat one of the person's own
+ * phrases with the problem's link filled in, so a piece is taken or a problem opened through quilt_next and
+ * quilt_open as from any sentence of theirs, with the host asking first; nothing a stranger wrote goes into what the
+ * person's AI is told. Following a key is the one thing the card writes, in this home's library alone. Text is set
+ * with textContent, never as markup.
  *
- * Two views so far, Search and Me, and a status line with the trackers' totals.
+ * Five views, as Napster had its tabs: Search, Problem (the map), Hot list (the keys followed), Library (what this
+ * home keeps and serves), Me; and a status line with the trackers' totals.
  */
 import { App, applyDocumentTheme, applyHostFonts, applyHostStyleVariables, type McpUiHostContext } from '@modelcontextprotocol/ext-apps/app-with-deps';
 
 /** packages/client/package.json's version, put in by scripts/build-window.mjs at build time. */
 declare const __QUILT_VERSION__: string;
 
+type View = 'search' | 'problem' | 'hot' | 'library' | 'me';
 interface Row { problem: string; title: string; slug: string; owner: string; pieces: number; counts: Record<string, number>; topics: string[]; tracker: string; via: 'tracker' | 'relay'; link: string }
 interface Searched { op: 'search'; query: string; rows: Row[] }
-interface Me {
-  op: 'me';
-  address: string | null;
-  name: string | null;
-  model: string;
-  trackers: string[];
-  relays: string[];
+interface PieceRow { hash: string; name: string; verifier: string; kind: string | null; strength: string | null; weakest: boolean; attested: boolean; state: string; core: string; stake: number; gold: string | null; verified: boolean; traced: 'both' | 'one' | 'none' | null; traces: number; reveals: number; claims: number; seams: number }
+interface Opened {
+  op: 'open'; problem: string; link: string; title: string; done_when: string; slug: string; owner: string; owner_name: string | null; tracker: string | null; complete: boolean; superseded: string | null;
+  hidden: { by: string; why: string; at: string } | null; seeders: number; seeding: boolean; gold: { committed: number; pending: number; verified: number; missed: number } | null; readers: number; vendors: string[]; pieces: PieceRow[];
+}
+interface Hot { op: 'hot'; keys: { key: string; name: string | null; since: string; standing: number | null }[] }
+interface Lib {
+  op: 'library';
+  problems: Record<string, { title: string; slug: string; trackers: string[]; first: string; last: string; next?: string; link: string }>;
+  pieces: Record<string, { problem: string; name: string; when: string; what: 'claimed' | 'returned'; verifier?: string }>;
+  seeding: Record<string, string>;
+  gold: Record<string, { committed: number; revealed: number }>;
+  serving: { problems: number; ledgers: number; blobs: number; bytes: number };
   queued: number;
-  problems: number;
-  standing: { tracker: string; standing: number; locked: number; free: number } | null;
-  coin: { balance: number; free: number; home: string } | null;
-  witness: string | null;
+}
+interface Me {
+  op: 'me'; address: string | null; name: string | null; model: string; trackers: string[]; relays: string[]; queued: number; problems: number;
+  standing: { tracker: string; standing: number; locked: number; free: number } | null; coin: { balance: number; free: number; home: string } | null; witness: string | null;
   /** The person's own phrases, each with {link} where a problem's link goes. */
   phrases: Record<string, string>;
 }
@@ -38,9 +48,14 @@ interface Handle { address?: string | null; name?: string | null; trackers?: str
 
 const root = document.getElementById('window') as HTMLElement;
 const state = {
-  view: 'search' as 'search' | 'me',
+  view: 'search' as View,
   query: '',
   rows: null as Row[] | null,
+  opened: null as Opened | null,
+  /** The problem to open once the reader is reachable: a hash from the tool result's handles. */
+  wanted: '',
+  hot: null as Hot | null,
+  lib: null as Lib | null,
   me: null as Me | null,
   totals: null as Totals | null,
   busy: false,
@@ -58,6 +73,12 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLEle
   for (const k of kids) if (k !== null && k !== undefined) el.append(k);
   return el;
 }
+/** A button with what it does, in one call. */
+function btn(text: string, cls: string, act: () => void, disabled = false): HTMLButtonElement {
+  const b = h('button', { class: cls, type: 'button', textContent: text, disabled });
+  b.addEventListener('click', act);
+  return b;
+}
 const hostOf = (url: string): string => {
   try {
     return new URL(url).host;
@@ -66,6 +87,8 @@ const hostOf = (url: string): string => {
   }
 };
 const short = (address: string): string => (address.length > 12 ? `${address.slice(0, 8)}…${address.slice(-4)}` : address);
+const day = (iso: string): string => iso.slice(0, 10);
+const words = (s: string): string => s.replace(/_/g, ' ');
 /** The counts a row carries, summed into the three a person reads first. */
 function workOf(counts: Record<string, number>): { returned: number; accepted: number; disputed: number } {
   const n = (k: string) => counts[k] ?? 0;
@@ -102,52 +125,90 @@ function applyHost(ctx: McpUiHostContext | undefined): void {
   if (ctx.styles?.css?.fonts) applyHostFonts(ctx.styles.css.fonts);
 }
 
-// ---- drawing --------------------------------------------------------------
+// ---- reading ----------------------------------------------------------------
 
+/** One read, with the busy mark and the error line kept; `then` takes what came back. */
+async function reading<T>(op: string, body: Record<string, unknown>, then: (t: T) => void): Promise<void> {
+  state.busy = true;
+  state.error = '';
+  draw();
+  try {
+    then(await io<T>(op, body));
+  } catch (e) {
+    state.error = (e as Error).message;
+  }
+  state.busy = false;
+  draw();
+}
+const search = () => reading<Searched>('search', { query: state.query }, (r) => { state.rows = r.rows; });
+const openProblem = (link: string) => {
+  state.view = 'problem';
+  return reading<Opened>('open', { link }, (r) => { state.opened = r; });
+};
+const loadHot = () => reading<Hot>('hot', {}, (r) => { state.hot = r; });
+const loadLib = () => reading<Lib>('library', {}, (r) => { state.lib = r; });
+const follow = (key: string, on: boolean, name: string | null = null) => reading<Hot>('follow', { key, on, ...(name ? { name } : {}) }, (r) => { state.hot = r; });
+
+// ---- drawing ------------------------------------------------------------------
+
+const TABS: { view: View; label: string }[] = [{ view: 'search', label: 'Search' }, { view: 'problem', label: 'Problem' }, { view: 'hot', label: 'Hot list' }, { view: 'library', label: 'Library' }, { view: 'me', label: 'Me' }];
 const els = {
-  tabSearch: h('button', { class: 'tab on', type: 'button', textContent: 'Search' }),
-  tabMe: h('button', { class: 'tab', type: 'button', textContent: 'Me' }),
-  search: h('section', { class: 'view on' }),
-  me: h('section', { class: 'view' }),
+  tabs: new Map<View, HTMLButtonElement>(),
+  views: new Map<View, HTMLElement>(),
   q: h('input', { type: 'search', placeholder: 'a word of a title, a topic, a slug', autocomplete: 'off', maxLength: 200 }),
   go: h('button', { class: 'b primary', type: 'submit', textContent: 'Find it' }),
-  any: h('button', { class: 'b', type: 'button', textContent: 'Something to do' }),
   results: h('div', { class: 'results' }),
+  problem: h('div', { class: 'problem' }),
+  hot: h('div', { class: 'hot' }),
+  followKey: h('input', { type: 'text', placeholder: 'an address, 0x…', autocomplete: 'off', maxLength: 42, size: 24 }),
+  followName: h('input', { type: 'text', placeholder: 'a name for it', autocomplete: 'off', maxLength: 60, size: 14 }),
+  lib: h('div', { class: 'lib' }),
   meView: h('div', { class: 'me' }),
   status: h('p', { class: 'status' }),
   err: h('p', { class: 'err' }),
 };
 
 function shell(): void {
-  const form = h('form', { class: 'row' }, els.q, els.go, els.any);
-  form.addEventListener('submit', (e) => {
+  const nav = h('nav', { class: 'tabs' });
+  for (const t of TABS) {
+    const b = btn(t.label, 'tab', () => show(t.view));
+    els.tabs.set(t.view, b);
+    nav.append(b);
+  }
+  const searchForm = h('form', { class: 'row' }, els.q, els.go, btn('Something to do', 'b', () => void tell(phrase('find_something_to_do'))));
+  searchForm.addEventListener('submit', (e) => {
     e.preventDefault();
     state.query = els.q.value.trim();
     void search();
   });
-  els.any.addEventListener('click', () => void tell(phrase('find_something_to_do')));
-  els.tabSearch.addEventListener('click', () => show('search'));
-  els.tabMe.addEventListener('click', () => show('me'));
-  els.search.append(form, els.results);
-  els.me.append(els.meView);
-  root.replaceChildren(h('nav', { class: 'tabs' }, els.tabSearch, els.tabMe), els.search, els.me, els.err, els.status);
+  const followForm = h('form', { class: 'row' }, els.followKey, els.followName, h('button', { class: 'b', type: 'submit', textContent: 'Follow' }));
+  followForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const key = els.followKey.value.trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(key)) {
+      state.error = 'An address is 0x and forty hex characters.';
+      draw();
+      return;
+    }
+    void follow(key, true, els.followName.value.trim() || null);
+    els.followKey.value = '';
+    els.followName.value = '';
+  });
+  const sections: [View, HTMLElement][] = [
+    ['search', h('section', { class: 'view' }, searchForm, els.results)],
+    ['problem', h('section', { class: 'view' }, els.problem)],
+    ['hot', h('section', { class: 'view' }, els.hot, followForm)],
+    ['library', h('section', { class: 'view' }, els.lib)],
+    ['me', h('section', { class: 'view' }, els.meView)],
+  ];
+  for (const [view, el] of sections) els.views.set(view, el);
+  root.replaceChildren(nav, ...sections.map(([, el]) => el), els.err, els.status);
 }
 
-function show(view: 'search' | 'me'): void {
+function show(view: View): void {
   state.view = view;
-  draw();
-}
-
-async function search(): Promise<void> {
-  state.busy = true;
-  state.error = '';
-  draw();
-  try {
-    state.rows = (await io<Searched>('search', { query: state.query })).rows;
-  } catch (e) {
-    state.error = (e as Error).message;
-  }
-  state.busy = false;
+  if (view === 'hot' && !state.hot) void loadHot();
+  if (view === 'library' && !state.lib) void loadLib();
   draw();
 }
 
@@ -164,22 +225,140 @@ function drawResults(): void {
   const head = h('tr', {}, h('th', {}, 'Problem'), h('th', {}, 'By'), h('th', { class: 'n' }, 'Pieces'), h('th', { class: 'n' }, 'Returned'), h('th', { class: 'n' }, 'Accepted'), h('th', { class: 'n' }, 'Disputed'), h('th', {}, 'Where'), h('th', {}, ''));
   const body = rows.map((r) => {
     const w = workOf(r.counts);
-    const open = h('button', { class: 'b small', type: 'button', textContent: 'Open with my AI', disabled: !state.me }, undefined);
-    open.addEventListener('click', () => void tell(phrase('open_problem', r.link)));
-    const take = h('button', { class: 'b small', type: 'button', textContent: 'Take a piece', disabled: !state.me });
-    take.addEventListener('click', () => void tell(phrase('take_piece', r.link)));
+    const title = h('span', { class: 't' }, r.title);
+    title.addEventListener('click', () => void openProblem(r.link));
     return h('tr', {},
-      h('td', { class: 'title' }, h('span', { class: 't' }, r.title), h('span', { class: 's' }, `${r.slug}${r.topics.length ? `; ${r.topics.join(', ')}` : ''}`)),
+      h('td', { class: 'title' }, title, h('span', { class: 's' }, `${r.slug}${r.topics.length ? `; ${r.topics.join(', ')}` : ''}`)),
       h('td', {}, short(r.owner)),
       h('td', { class: 'n' }, String(r.pieces)),
       h('td', { class: 'n' }, String(w.returned)),
       h('td', { class: 'n' }, String(w.accepted)),
       h('td', { class: 'n' }, String(w.disputed)),
       h('td', {}, r.via === 'relay' ? `a relay; opens at ${hostOf(r.tracker)}` : hostOf(r.tracker)),
-      h('td', { class: 'acts' }, open, ' ', take),
+      h('td', { class: 'acts' }, btn('Open', 'b small', () => void openProblem(r.link)), ' ', btn('Take a piece', 'b small', () => void tell(phrase('take_piece', r.link)), !state.me)),
     );
   });
   els.results.replaceChildren(h('table', {}, h('thead', {}, head), h('tbody', {}, ...body)));
+}
+
+/** The map: one square a piece, coloured by its state, dotted where attested, ringed where verified, underlined where a stake is asked. */
+function mapOf(pieces: PieceRow[]): HTMLElement {
+  const m = h('div', { class: 'map' });
+  for (const p of pieces) {
+    const s = h('div', { class: `sq ${p.state}${p.attested ? ' attested' : ''}${p.verified ? ' verified' : ''}${p.stake ? ' staked' : ''}` });
+    const notes = [p.verifier, ...(p.strength ? [p.strength] : []), ...(p.weakest ? ['the weakest kind'] : []), ...(p.verified ? ['verified'] : []), ...(p.traced ? [`rests on kept reads on ${p.traced === 'both' ? 'both sides' : p.traced === 'one' ? 'one side' : 'neither side'}`] : [])];
+    s.title = `${p.name}: ${words(p.state)} (${notes.join(', ')})`;
+    m.append(s);
+  }
+  return m;
+}
+
+function drawProblem(): void {
+  const p = state.opened;
+  if (!p) {
+    els.problem.replaceChildren(h('p', { class: 'quiet' }, state.busy ? 'Opening.' : 'Open a problem from the search or the library.'));
+    return;
+  }
+  const followed = Boolean(state.hot?.keys.some((k) => k.key.toLowerCase() === p.owner.toLowerCase()));
+  const counts: Record<string, number> = {};
+  for (const x of p.pieces) counts[x.state] = (counts[x.state] ?? 0) + 1;
+  const w = workOf(counts);
+  const traced = p.pieces.filter((x) => x.traced === 'both').length;
+  const lines = [
+    `${p.pieces.length} pieces: ${w.returned} returned, ${w.accepted} accepted (${p.pieces.filter((x) => x.verified).length} verified by the owner's gold, ${traced} resting on kept reads on both sides), ${w.disputed} disputed${p.complete ? '; complete' : ''}.`,
+    `${p.readers} reader${p.readers === 1 ? '' : 's'}${p.vendors.length ? ` from ${p.vendors.length} vendor${p.vendors.length === 1 ? '' : 's'} (${p.vendors.join(', ')})` : ''}; ${p.seeders} seeder${p.seeders === 1 ? '' : 's'}${p.tracker ? `; at ${hostOf(p.tracker)}` : ''}.`,
+  ];
+  const acts = h('div', { class: 'acts' },
+    btn('Take a piece', 'b primary', () => void tell(phrase('take_piece', p.link)), !state.me),
+    btn('Open with my AI', 'b', () => void tell(phrase('open_problem', p.link)), !state.me),
+    btn(p.seeding ? 'Kept by this home' : 'Keep it', 'b', () => void tell(phrase('keep_problem', p.link)), !state.me || p.seeding),
+    btn(followed ? 'Unfollow the owner' : 'Follow the owner', 'b', () => void follow(p.owner, !followed, p.owner_name)),
+  );
+  const shown = p.pieces.slice(0, 80);
+  const table = h('table', {},
+    h('thead', {}, h('tr', {}, h('th', {}, 'Piece'), h('th', {}, 'State'), h('th', {}, 'Kind'), h('th', { class: 'n' }, 'Readers'), h('th', {}, 'Grade'), h('th', { class: 'n' }, 'Seams'))),
+    h('tbody', {}, ...shown.map((x) => h('tr', {},
+      h('td', {}, x.name),
+      h('td', {}, words(x.state) + (x.verified ? ', verified' : '')),
+      h('td', {}, `${x.verifier}${x.strength ? `, ${x.strength}` : ''}${x.attested ? ', attested' : ''}${x.stake ? `, a stake of ${x.stake}` : ''}`),
+      h('td', { class: 'n' }, String(x.reveals)),
+      h('td', {}, x.traced === 'both' ? 'both sides rest on kept reads' : x.traced === 'one' ? 'one side rests on a kept read' : x.traced === 'none' ? 'no kept read' : x.traces ? `${x.traces} trace${x.traces === 1 ? '' : 's'}` : ''),
+      h('td', { class: 'n' }, x.seams ? String(x.seams) : ''),
+    ))),
+  );
+  els.problem.replaceChildren(
+    h('h3', {}, p.title),
+    h('p', { class: 'meta' }, `Published by ${p.owner_name ?? short(p.owner)}${p.owner_name ? ` (${short(p.owner)})` : ''}; ${p.slug}.${p.superseded ? ' Its owner replaced this version; the work is on the newer one.' : ''}${p.hidden ? ` Taken down on this tracker by ${short(p.hidden.by)}: ${p.hidden.why}.` : ''}`),
+    h('p', {}, `Done when: ${p.done_when}`),
+    mapOf(p.pieces),
+    h('p', { class: 'meta' }, lines[0] ?? ''),
+    h('p', { class: 'meta' }, lines[1] ?? ''),
+    ...(p.gold ? [h('p', { class: 'meta' }, `Gold: ${p.gold.committed} committed, ${p.gold.verified} verified, ${p.gold.missed} missed, ${p.gold.pending} pending.`)] : []),
+    acts,
+    table,
+    ...(p.pieces.length > shown.length ? [h('p', { class: 'quiet' }, `${p.pieces.length - shown.length} more pieces are on the map above.`)] : []),
+  );
+}
+
+function drawHot(): void {
+  const hot = state.hot;
+  if (!hot) {
+    els.hot.replaceChildren(h('p', { class: 'quiet' }, state.busy ? 'Reading.' : 'The keys you follow, kept in this home\'s library and nowhere else.'));
+    return;
+  }
+  if (hot.keys.length === 0) {
+    els.hot.replaceChildren(h('p', { class: 'quiet' }, 'No key followed yet. Follow a problem\'s owner from its map, or an address here.'));
+    return;
+  }
+  const table = h('table', {},
+    h('thead', {}, h('tr', {}, h('th', {}, 'Key'), h('th', { class: 'n' }, 'Standing'), h('th', {}, 'Since'), h('th', {}, ''))),
+    h('tbody', {}, ...hot.keys.map((k) => h('tr', {},
+      h('td', {}, k.name ? `${k.name} ` : '', h('span', { class: 'mono' }, short(k.key))),
+      h('td', { class: 'n' }, k.standing === null ? '' : String(k.standing)),
+      h('td', {}, day(k.since)),
+      h('td', { class: 'acts' }, btn('Unfollow', 'b small', () => void follow(k.key, false))),
+    ))),
+  );
+  els.hot.replaceChildren(table);
+}
+
+function drawLib(): void {
+  const lib = state.lib;
+  if (!lib) {
+    els.lib.replaceChildren(h('p', { class: 'quiet' }, state.busy ? 'Reading.' : 'What this home keeps and serves.'));
+    return;
+  }
+  const s = lib.serving;
+  const problems = Object.entries(lib.problems).sort(([, a], [, b]) => b.last.localeCompare(a.last));
+  const pieces = Object.entries(lib.pieces).sort(([, a], [, b]) => b.when.localeCompare(a.when)).slice(0, 20);
+  const goldCommitted = Object.values(lib.gold).reduce((n, g) => n + g.committed, 0);
+  const goldRevealed = Object.values(lib.gold).reduce((n, g) => n + g.revealed, 0);
+  const dl = h('dl', {},
+    h('dt', {}, 'Serving'), h('dd', {}, `${s.problems} problem${s.problems === 1 ? '' : 's'}, ${s.ledgers} ledger${s.ledgers === 1 ? '' : 's'}, ${s.blobs} page${s.blobs === 1 ? '' : 's'}; ${Math.round(s.bytes / 1024)} KB`),
+    h('dt', {}, 'Gold'), h('dd', {}, goldCommitted ? `${goldCommitted} committed, ${goldRevealed} revealed` : 'none committed'),
+    h('dt', {}, 'Queued'), h('dd', {}, `${lib.queued} event${lib.queued === 1 ? '' : 's'} waiting for a tracker`),
+  );
+  const probs = problems.length
+    ? h('table', {},
+      h('thead', {}, h('tr', {}, h('th', {}, 'Problem'), h('th', {}, 'Last opened'), h('th', {}, ''))),
+      h('tbody', {}, ...problems.map(([hash, e]) => {
+        const title = h('span', { class: 't' }, e.title);
+        title.addEventListener('click', () => void openProblem(e.link));
+        return h('tr', {},
+          h('td', { class: 'title' }, title, h('span', { class: 's' }, `${e.slug}${lib.seeding[hash] ? '; kept' : ''}${e.next ? '; replaced by a newer version' : ''}`)),
+          h('td', {}, day(e.last)),
+          h('td', { class: 'acts' }, btn('Open', 'b small', () => void openProblem(e.link)), ' ', btn('Take a piece', 'b small', () => void tell(phrase('take_piece', e.link)), !state.me || Boolean(e.next))),
+        );
+      })),
+    )
+    : h('p', { class: 'quiet' }, 'No problem opened from this home yet.');
+  const done = pieces.length
+    ? h('table', {},
+      h('thead', {}, h('tr', {}, h('th', {}, 'Piece'), h('th', {}, 'What'), h('th', {}, 'When'))),
+      h('tbody', {}, ...pieces.map(([, e]) => h('tr', {}, h('td', {}, `${e.name} of ${lib.problems[e.problem]?.title ?? short(e.problem)}`), h('td', {}, e.what), h('td', {}, day(e.when))))),
+    )
+    : h('p', { class: 'quiet' }, 'No piece taken from this home yet.');
+  els.lib.replaceChildren(dl, h('h3', {}, 'Problems'), probs, h('h3', {}, 'Pieces'), done);
 }
 
 function drawMe(): void {
@@ -199,9 +378,7 @@ function drawMe(): void {
     ...(me.witness ? [h('dt', {}, 'Witness'), h('dd', {}, me.witness)] : []),
     h('dt', {}, 'Library'), h('dd', {}, `${me.problems} problem${me.problems === 1 ? '' : 's'}; ${me.queued} event${me.queued === 1 ? '' : 's'} queued`),
   );
-  const who = h('button', { class: 'b', type: 'button', textContent: 'Ask my AI who I am' });
-  who.addEventListener('click', () => void tell(phrase('who_am_i')));
-  els.meView.replaceChildren(dl, who);
+  els.meView.replaceChildren(dl, btn('Ask my AI who I am', 'b', () => void tell(phrase('who_am_i'))));
 }
 
 function drawStatus(): void {
@@ -218,12 +395,13 @@ function drawStatus(): void {
 }
 
 function draw(): void {
-  els.tabSearch.classList.toggle('on', state.view === 'search');
-  els.tabMe.classList.toggle('on', state.view === 'me');
-  els.search.classList.toggle('on', state.view === 'search');
-  els.me.classList.toggle('on', state.view === 'me');
+  for (const [view, b] of els.tabs) b.classList.toggle('on', state.view === view);
+  for (const [view, el] of els.views) el.classList.toggle('on', state.view === view);
   els.go.disabled = state.busy;
   drawResults();
+  drawProblem();
+  drawHot();
+  drawLib();
   drawMe();
   drawStatus();
   els.err.textContent = state.error || (state.told ? 'Handed to your AI; its answer comes in the chat.' : '');
@@ -233,12 +411,14 @@ function draw(): void {
 
 async function load(): Promise<void> {
   try {
-    const [me, totals] = await Promise.all([io<Me>('me'), io<Totals>('totals')]);
+    const [me, totals, hot] = await Promise.all([io<Me>('me'), io<Totals>('totals'), io<Hot>('hot')]);
     state.me = me;
     state.totals = totals;
+    state.hot = hot;
     els.q.value = state.query;
     draw();
-    if (state.query) await search();
+    if (state.wanted) await openProblem(state.wanted);
+    else if (state.query) await search();
   } catch (e) {
     state.error = (e as Error).message;
     draw();
@@ -250,11 +430,17 @@ async function start(): Promise<void> {
   draw();
   app = new App({ name: 'Quilt', version: __QUILT_VERSION__ });
   app.ontoolresult = (p) => {
-    const handles = (p.structuredContent as { handles?: { window?: Handle; query?: string } } | undefined)?.handles;
+    const handles = (p.structuredContent as { handles?: { window?: Handle; query?: string; problem?: string } } | undefined)?.handles;
     const hd = handles?.window;
     if (hd?.view === 'me') state.view = 'me';
     const query = hd?.query ?? handles?.query;
     if (typeof query === 'string') state.query = query;
+    // A problem the tool opened or read, or the one the window was asked to open on: the map comes up.
+    const wanted = hd?.link ?? handles?.problem;
+    if (typeof wanted === 'string' && wanted) {
+      state.wanted = wanted;
+      state.view = 'problem';
+    }
     if (p.isError) {
       state.error = 'The call that showed this window did not go through.';
       draw();

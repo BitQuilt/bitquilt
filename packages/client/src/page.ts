@@ -18,7 +18,7 @@ import { sheetOf } from './phrases.js';
 import { kept } from './pool.js';
 import { type Pattern, Quilt } from './quilt.js';
 import { goldText, kindWords, kindsText, layerByHash, stakeText } from './render.js';
-import type { Resolver } from './resolver.js';
+import { type Resolver, publicLibrary } from './resolver.js';
 import { isToolName, runTool } from './tools.js';
 
 /** The page's HTML: an asset of the single executable when this runs as one, else the file beside the source. */
@@ -142,7 +142,8 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         // The key's twelve words, kept at first use, shown this once: read and removed (resolver.ts, takeWords).
         return json(res, 200, { words: resolver.takeWords() });
       }
-      if (path === '/api/library') return json(res, 200, quilt.library);
+      // Names and counts, and what the node serves; the gold's answers stay in the home (resolver.ts, publicLibrary).
+      if (path === '/api/library') return json(res, 200, publicLibrary(quilt.library, quilt.resolver.serving()));
       if (path === '/api/attention') return json(res, 200, (await wanted.get(8_000).catch(() => null))?.[0] ?? await person.attention());
       if (path === '/api/phrases') {
         // The sheet the menu bar draws (phrases.ts): the home's state, the first phrase to say, and the phrases for what this person keeps, has worked and is wanted for. The trackers are asked only once an AI has connected.
