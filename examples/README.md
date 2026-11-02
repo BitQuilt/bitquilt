@@ -20,6 +20,8 @@ pnpm --filter quilt start serve                      # the page at http://localh
 
 `examples/tell-someone.json` is the app's own standing problem, its promotion, as twenty `attest` pieces ([docs/ext/verifiers.md](../docs/ext/verifiers.md), QX-10). A person's AI is handed one, the person tells someone about BitQuilt in their own name, and the AI hands back the record: whom they told, named by a public role only, how, on what day, what was said, and what came back. Quilt sends nothing. The record is signed with the member's key and accepted at once as their own word, the square marked attested, the weakest kind, and anyone with a ground to show can challenge it for three days. The brief and every field pass the plain-text gate: no contact details, no links, no handles, so the ledger names roles and never people. The core reads these pieces as `unknown`; the reference tracker's layer decides them, and `quilt next` says the kind and its weakness before the brief.
 
+`examples/readings-of-a-text.json` is a pattern of the `record:3` kind ([docs/ext/QX-20.md](../docs/ext/QX-20.md)): three questions about Article 1 of the Universal Declaration of Human Rights that have no empirical answer, each read three ways by three unrelated keys. Nothing is accepted and nothing struck; every reading stands as given, graded by whether it rests on a kept passage of the text, and the seams between the readings are the content. It is the kind for the problems the quilt was made for first: the ones where logging how a question is read is the work, and adjudicating a right answer would say less than the record does.
+
 To let Claude Code or Claude Desktop be the worker, add the connector as an MCP server that starts over stdio:
 
 ```bash

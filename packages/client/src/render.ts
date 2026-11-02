@@ -26,6 +26,8 @@ export const STATE_WORDS: Record<string, string> = {
   locked: 'locked',
   challenged: 'challenged',
   judging: 'a panel ranking candidates',
+  recording: 'readings being recorded',
+  recorded: 'recorded, every reading standing',
   unknown: 'a kind neither this client nor the tracker that answered implements',
 };
 
@@ -42,6 +44,8 @@ export const STATE_MARK: Record<string, string> = {
   locked: 'l',
   challenged: 'c',
   judging: 'j',
+  recording: 'r',
+  recorded: 'R',
   unknown: '?',
 };
 
@@ -54,6 +58,8 @@ export function legendText(): string {
 export function kindWords(verifier: string): KindWords {
   const judge = /^judge:([1-9]\d*)$/.exec(verifier);
   if (judge) return { kind: 'judge', extension: 'QX-2', strength: 'judged', says: `a panel of ${judge[1]} drawn by sortition ranks the candidates and a majority's first choice is accepted`, weakest: false };
+  const record = /^record:([2-9]|[1-9]\d{1,2})$/.exec(verifier);
+  if (record) return { kind: 'record', extension: 'QX-20', strength: 'recorded', says: `${record[1]} readings from roots unrelated to the owner and to each other are kept as given; none is accepted and none struck`, weakest: false };
   switch (verifier) {
     case 'check':
       return { kind: 'check', extension: null, strength: 'reproduced', says: 'two unrelated runs reproduce the patch', weakest: false };
@@ -84,6 +90,8 @@ export function waitsText(verifier: string | undefined): string {
       return 'The return is a candidate; once the candidates are in, a panel drawn by sortition ranks them.';
     case 'attest':
       return 'The record is accepted at once as the actor\'s own word, marked attested, and may be challenged for the window.';
+    case 'record':
+      return 'The reading stands as given. The piece is recorded once the readings it asks for are in, each from a root unrelated to the owner and to the other readers; nothing is accepted and nothing struck.';
     default:
       return 'What the piece waits for next is its verifier\'s to say.';
   }
@@ -280,6 +288,28 @@ function sideWords(x: SeamSide, name: (key: string) => string): string {
 /** QX-19: the seams of a disputed piece, one line each: the field, why the two readings differ, and what each side rests on, quoted with its signer named. */
 export function seamsText(seams: readonly Seam[], name: (key: string) => string): string[] {
   return seams.map((s) => `On ${s.field}, ${SEAM_WHY[s.why]}: ${sideWords(s.sides[0], name)}; ${sideWords(s.sides[1], name)}.`);
+}
+
+/**
+ * QX-20: the record pieces of a problem, each with its grade and every reading on it as the quoted words of the key
+ * that signed it, with the signer named; a reading that does not stand says why; and the seams between the standing
+ * readings, one line each. Empty where the problem has no record piece.
+ */
+export function recordedText(state: State, layer: LayerPiece[] | null = null): string {
+  const over = layerByHash(layer);
+  const lines: string[] = [];
+  const name = (k: string) => nameOf(state, k);
+  for (const v of state.pieces) {
+    const l = over.get(v.piece.hash);
+    const g = l?.record;
+    if (!g) continue;
+    const keys = new Set(g.keys.map((k) => k.toLowerCase()));
+    const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+    lines.push(`${v.piece.name} (${v.piece.verifier}; ${l!.state === 'recorded' ? 'recorded' : 'recording'}: ${g.standing} of ${g.wanted} readings, ${g.grounded} resting on kept reads, from ${plural(g.roots, 'root')} and ${plural(g.vendors, 'vendor')})`);
+    for (const r of v.reveals) lines.push(`  ${name(r.root)}${keys.has(r.key.toLowerCase()) ? '' : ' (not counted: related to the owner or to an earlier reader)'} returned: ${canonical(r.return)}`);
+    for (const s of seamsText(l!.seams ?? [], name)) lines.push(`  ${s}`);
+  }
+  return lines.join('\n');
 }
 
 /**

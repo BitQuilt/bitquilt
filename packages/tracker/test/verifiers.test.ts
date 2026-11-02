@@ -62,7 +62,10 @@ let told: Hash, vote: Hash, summary: Hash, after: Hash;
 
 describe('the verifier kinds in words', () => {
   it('names each kind, its registry number and its strength, and parses judge:n', () => {
-    expect(kindOf('judge:5')).toEqual({ kind: 'judge', panel: 5 });
+    expect(kindOf('judge:5')).toEqual({ kind: 'judge', panel: 5, wanted: null });
+    expect(kindOf('record:3')).toEqual({ kind: 'record', panel: null, wanted: 3 });
+    expect(kindOf('record:1')).toBeNull();
+    expect(describeKind('record:4')).toMatchObject({ kind: 'record', extension: 'QX-20', strength: 'recorded', weakest: false, wanted: 4 });
     expect(kindOf('judge:0')).toBeNull();
     expect(kindOf('oracle')).toBeNull();
     expect(describeKind('attest')).toMatchObject({ kind: 'attest', extension: 'QX-10', strength: 'attested', weakest: true });
@@ -76,7 +79,7 @@ describe('the verifier kinds in words', () => {
 describe('the verifier kinds at the tracker', () => {
   it('advertises the kinds, holds each piece open where the core says unknown, and keeps the dependent of an attest piece locked', async () => {
     const w = await get<{ verifiers: unknown; routes: string[] }>('/.well-known/quilt');
-    expect(w.verifiers).toEqual({ human: 'QX-3', 'judge:n': 'QX-2', attest: 'QX-10', judge_seed: 'first-candidate-receipt' });
+    expect(w.verifiers).toEqual({ human: 'QX-3', 'judge:n': 'QX-2', attest: 'QX-10', 'record:n': 'QX-20', judge_seed: 'first-candidate-receipt' });
     expect(w.routes).toContain('/p/<hash>/panels');
     expect((await post('/p', { envelope: Q })).status).toBe(201);
     expect((await post('/p', { envelope: P })).status).toBe(201);

@@ -23,7 +23,7 @@ import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems } from './g
 import { type CoinLayer, type CoinLockView, type CoinParams, type CoinWord, COIN, COIN_EVENTS, COIN_LOG, coinLayer } from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
 import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
-import { BLOB_MAX, type PieceTraces, type Seam, TRACE, TRACE_EVENTS, admitTrace, graded, seamed, tracesKept } from './trace.js';
+import { BLOB_MAX, type PieceTraces, type Seam, RECORD, TRACE, TRACE_EVENTS, admitTrace, graded, recordDocument, recordGraded, recordSeams, seamed, tracesKept } from './trace.js';
 import type { Store } from './store.js';
 
 /** The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under. */
@@ -416,6 +416,8 @@ export function createTracker(options: TrackerOptions): Tracker {
       // QX-15: on a staked piece, work is admitted only from a root with a live lock.
       const a = layer().admitProduction(under, event.piece!, event.key);
       if (!a.ok) throw new Refusal(400, a.why);
+      // QX-20 section 2: a record is fixed once its readings are in; no claim, commit, reveal or run is taken on it after.
+      if (kindOf(view.piece.verifier)?.kind === 'record' && layer().problems.get(under)?.byHash.get(event.piece!)?.state === 'recorded') throw new Refusal(400, 'the readings for this piece are in');
     }
     if (event.type === 'reveal') {
       const ret = (event.body as { return: Record<string, unknown> }).return;
@@ -611,15 +613,15 @@ export function createTracker(options: TrackerOptions): Tracker {
     return {
       quilt: 1, tracker: options.name ?? url, url, peers: options.peers ?? [], limits, stamp: { name: stampNeeded }, sortition: SEED,
       challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
-      verifiers: { human: EXTENSIONS.human, 'judge:n': EXTENSIONS.judge, attest: EXTENSIONS.attest, judge_seed: JUDGE_SEED },
+      verifiers: { human: EXTENSIONS.human, 'judge:n': EXTENSIONS.judge, attest: EXTENSIONS.attest, 'record:n': EXTENSIONS.record, judge_seed: JUDGE_SEED },
       chain: 'QX-11', seeding: SEEDING, reciprocity: RECIPROCITY, hide: HIDE, maintainers, founding: options.founding ?? {}, identity: IDENTITY, hosted: options.extra !== undefined,
       ...(options.extraWellKnown?.() ?? {}),
       // `stake.burn_rate` is the rate in force now, which with `burn_indexed` moves with the epochs; `coin.burn_rate` is the parameter, its floor.
-      stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: coin()!.burnRateAt(now()) } : {}) }, gold: { extension: GOLD }, trace: { extension: TRACE, blob_max: BLOB_MAX },
+      stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: coin()!.burnRateAt(now()) } : {}) }, gold: { extension: GOLD }, trace: { extension: TRACE, blob_max: BLOB_MAX }, record: { extension: RECORD },
       coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
       // The list a client reads; the dispatcher in `handle` is kept in this order by hand.
       routes: [
-        '/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/k/events', '/k/<address>/standing', '/k/<address>/work', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden', '/counts',
+        '/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/p/<hash>/record', '/k/events', '/k/<address>/standing', '/k/<address>/work', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden', '/counts',
         ...(options.coin ? ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/credits', '/coin/state'] : []),
       ],
     };
@@ -633,12 +635,13 @@ export function createTracker(options: TrackerOptions): Tracker {
    * three), `readers` the distinct roots that revealed or ran, `vendors` the distinct vendors among them, and `last` the
    * receipt time of the latest reveal or run.
    */
-  function workOf(pl: ProblemLayer): { returned: number; accepted: number; verified: number; disputed: number; traced: { both: number; one: number; none: number }; readers: number; vendors: number; last: string | null } {
+  function workOf(pl: ProblemLayer): { returned: number; accepted: number; verified: number; disputed: number; traced: { both: number; one: number; none: number }; readers: number; vendors: number; last: string | null; recorded: number } {
     const traced = { both: 0, one: 0, none: 0 };
     let returned = 0;
     let accepted = 0;
     let verified = 0;
     let disputed = 0;
+    let recorded = 0;
     const roots = new Set<string>();
     const vendors = new Set<string>();
     let last: string | null = null;
@@ -653,6 +656,7 @@ export function createTracker(options: TrackerOptions): Tracker {
         if (g) traced[g] += 1;
       }
       if (l.state === 'disputed' || l.state === 'challenged') disputed += 1;
+      if (l.state === 'recorded') recorded += 1;
       if (l.verified) verified += 1;
       for (const r of v.reveals) {
         roots.add(r.root);
@@ -664,7 +668,7 @@ export function createTracker(options: TrackerOptions): Tracker {
         if (last === null || r.at > last) last = r.at;
       }
     }
-    return { returned, accepted, verified, disputed, traced, readers: roots.size, vendors: vendors.size, last };
+    return { returned, accepted, verified, disputed, traced, readers: roots.size, vendors: vendors.size, last, recorded };
   }
 
   /** A problem in one line for the index and the scrape: its title, counts, head, the work on it, and what the extensions add. */
@@ -721,11 +725,18 @@ export function createTracker(options: TrackerOptions): Tracker {
           kind: l.kind.kind, extension: l.kind.extension, strength: l.kind.strength, says: l.kind.says, weakest: l.kind.weakest, attested: l.attested, panel: l.panel?.outcome ?? null,
           availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length, stake: l.stake, gold: l.gold, verified: l.verified,
           witnessed: witnessed.get(v.piece.hash) ?? [],
-          traces: t.traces.length, traced: t.traced, seams: t.seams, aside: l.aside,
+          traces: t.traces.length, traced: t.traced, seams: t.seams, aside: l.aside, record: t.record,
         };
       }),
-      gold: pl.goldCount, complete: s.complete, output: s.output?.hash ?? null, dropped: [...s.dropped, ...pl.dropped], superseded: supersededBy(hash),
+      gold: pl.goldCount, complete: s.complete, output: s.output?.hash ?? null, record_output: recordOf(hash, pl)?.hash ?? null, dropped: [...s.dropped, ...pl.dropped], superseded: supersededBy(hash),
     };
+  }
+
+  /** QX-20 section 4: the record document of a problem with a record piece once the layer calls it complete, with its hash; null otherwise. */
+  function recordOf(hash: Hash, pl: ProblemLayer): { document: unknown; hash: Hash } | null {
+    const records = new Map(pl.pieces.filter((p) => p.record).map((p) => [p.hash, p.record!] as const));
+    if (records.size === 0 || !pl.fold.complete) return null;
+    return recordDocument(hash, pl.fold, records, pl.receipts);
   }
 
   /**
@@ -770,8 +781,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     const out = new Map(pl.fold.pieces.map((v) => {
       const core = pl.core.byHash.get(v.piece.hash) ?? v;
       const traces = tracesKept(core, receipts, blobLength);
-      const over = v.state === 'disputed' ? seamed(pl.fold, v, receipts, traces, passageOf) : seamed(pl.core, core, receipts, traces, passageOf);
-      return [v.piece.hash, { traces, traced: graded(v, receipts, traces), ...over }] as const;
+      // QX-20 section 3: a record piece's seams are between its standing readings, with nothing set aside, and its grade is over them.
+      const record = pl.byHash.get(v.piece.hash)?.record ?? null;
+      const over = record ? { seams: recordSeams(pl.fold, v, record, receipts, traces, passageOf), aside: [] as Hash[] } : v.state === 'disputed' ? seamed(pl.fold, v, receipts, traces, passageOf) : seamed(pl.core, core, receipts, traces, passageOf);
+      return [v.piece.hash, { traces, traced: graded(v, receipts, traces), ...over, record: record ? recordGraded(v, record, receipts, traces) : null }] as const;
     }));
     void hash;
     tracesMemo.set(pl, out);
@@ -919,18 +932,20 @@ export function createTracker(options: TrackerOptions): Tracker {
     // the piece back, since the reading still stands there.
     const only = query.get('only');
     if (only !== null && only !== 'verify') throw new Refusal(400, 'only: verify, or left out');
-    if (only === 'verify') for (const v of state.pieces) if (v.state !== 'needs_verify' && v.state !== 'disputed') exclude.add(v.piece.hash);
+    // A record piece (QX-20) is outside that pool: a second reader confirms or disagrees, and a record takes no second opinion, only another reading.
+    if (only === 'verify') for (const v of state.pieces) if ((v.state !== 'needs_verify' && v.state !== 'disputed') || pl.byHash.get(v.piece.hash)?.record) exclude.add(v.piece.hash);
     const pick = next(state, key, client, at, { exclude });
     if (!pick) {
       json(res, 200, { piece: null, unaffordable });
       return;
     }
-    const { kind, stake } = pl.byHash.get(pick.piece.hash)!;
+    const { kind, stake, state: layerState } = pl.byHash.get(pick.piece.hash)!;
     holdFor(hash, pick.piece.hash, key, at);
     // QX-19 section 4: a piece whose readings differ goes out with its seams between the readings that stand, whether the layer still calls it disputed or has set one reading aside, so the next reader sees what each rests on.
     const seams = seamsOf(pl, pick.piece.hash);
+    // The state is the layer's word: the fold's, except `recording` where the fold holds a record piece under needs_verify (QX-20).
     json(res, 200, {
-      piece: pick.piece.hash, name: pick.piece.name, state: pick.state, brief: pick.brief, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h,
+      piece: pick.piece.hash, name: pick.piece.name, state: layerState, brief: pick.brief, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h,
       verifier: pick.piece.verifier, kind: kind.kind, extension: kind.extension, strength: kind.strength, says: kind.says, weakest: kind.weakest, workspace: pick.piece.workspace ?? null, check: pick.piece.check ?? null,
       stake, unaffordable, seams,
     });
@@ -983,7 +998,7 @@ export function createTracker(options: TrackerOptions): Tracker {
         return;
       }
       let m: RegExpExecArray | null;
-      if ((m = /^\/p\/(sha256:[0-9a-f]{64})(?:\/(events|state|scrape|next|challenges|panels))?$/.exec(path))) {
+      if ((m = /^\/p\/(sha256:[0-9a-f]{64})(?:\/(events|state|scrape|next|challenges|panels|record))?$/.exec(path))) {
         const hash = m[1] as Hash;
         const sub = m[2];
         if (!store.getEnvelope(hash)) throw new Refusal(404, 'no such problem here');
@@ -1010,6 +1025,14 @@ export function createTracker(options: TrackerOptions): Tracker {
           // With the topics every announce gave it, as the index shows them, so the owner's turn can announce again with the same (QX-13 section 3).
           const topics = [...new Set(store.announcements(hash).flatMap((a) => ((a.event.body as { topics?: string[] }).topics ?? []).map((x) => x.toLowerCase())))];
           json(res, 200, { ...summary(hash), topics, chain_ok: chain.ok });
+          return;
+        }
+        if (sub === 'record') {
+          // QX-20 section 4: the record document, once the layer calls the problem complete; its hash is the state's `record_output`.
+          const pl = view(hash);
+          const doc = pl ? recordOf(hash, pl) : null;
+          if (!doc) throw new Refusal(404, 'no record document yet: the problem is not complete, or has no record piece');
+          json(res, 200, { hash: doc.hash, ...(doc.document as Record<string, unknown>) });
           return;
         }
         if (sub === 'next') {

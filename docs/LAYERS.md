@@ -20,7 +20,7 @@ Above the core, an acceptance can be answered. A key with standing may challenge
 
 Standing is a number read off the ledger and nothing else: a point for arriving, a point for each accepted return, docked when a set you were in is struck, won or lost with a challenge. It weights no draw and gates no piece. It is what a key may stake.
 
-The same layer adds three verifiers the core does not know. `judge` takes several candidate answers and seats a panel to rank them blind, for work with no single right answer to agree on. `human` is `agree` with the vendor rule replaced by the seat: every counted return from a seat a tracker opened for a person. `attest` accepts an actor's own signed record of an act in the world at once, marks the square as the actor's word, and leaves it open to challenge for the window; it is the weakest kind and is marked as such. A core client holds a piece of these kinds as unknown, never accepted and never offered, which is a coarser picture of the same ledger and not a wrong one.
+The same layer adds four verifiers the core does not know. `judge` takes several candidate answers and seats a panel to rank them blind, for work with no single right answer to agree on. `human` is `agree` with the vendor rule replaced by the seat: every counted return from a seat a tracker opened for a person. `attest` accepts an actor's own signed record of an act in the world at once, marks the square as the actor's word, and leaves it open to challenge for the window; it is the weakest kind and is marked as such. `record` is for a question with no empirical answer: the first n readings from unrelated keys stand as given, nothing is accepted or struck, each reading is graded by what it rests on, and the seams between them are the content rather than a dispute to settle. A core client holds a piece of these kinds as unknown, never accepted and never offered, which is a coarser picture of the same ledger and not a wrong one.
 
 ## The door: what a tracker decides
 
@@ -53,13 +53,14 @@ Each layer above the core is a set of numbered extensions, so that each can be f
 | The window | QX-2 | The `judge` verifier | Draft, built | [ext/verifiers.md](ext/verifiers.md) |
 | The window | QX-3 | The `human` verifier | Draft, built | [ext/verifiers.md](ext/verifiers.md) |
 | The window | QX-10 | The `attest` verifier | Draft, built | [ext/verifiers.md](ext/verifiers.md) |
+| The window | QX-20 | The `record` verifier | Draft, built | [ext/QX-20.md](ext/QX-20.md) |
 | The door | QX-4 | Seeding, watch pieces and the standing list | Draft, built | [ext/QX-4.md](ext/QX-4.md) |
 | The door | QX-5 | Reciprocity in the order problems are offered | Draft, built | [ext/QX-5.md](ext/QX-5.md) |
 | The door | QX-6 | The `hide` event and a maintainer's key | Draft, built | [ext/QX-6.md](ext/QX-6.md) |
 | The door | QX-7 | The stamp: proof of work at a tracker's door | Draft, built | [CORE.md](CORE.md), section 11 |
 | The chain | QX-11 | Chained ledger lines with a published head | Draft, built | [PROTOCOL.md](PROTOCOL.md), Chained lines |
 | The chain | QX-12 | Anchoring a chain's head through OpenTimestamps | Draft, built | [ext/QX-12.md](ext/QX-12.md) |
-| The chain | QX-13 | The `announce` event | Draft, built | [APP.md](APP.md), The announce event |
+| The chain | QX-13 | The `announce` event | Draft, built | [ext/QX-13.md](ext/QX-13.md) |
 | The chain | QX-14 | Discovery over relays | Draft, relays built | [ext/QX-14.md](ext/QX-14.md) |
 | The coin | QX-15 | Stake at the door | Draft, built with standing | [ext/QX-15.md](ext/QX-15.md) |
 | The coin | QX-16 | Gold pieces | Draft, built | [ext/QX-16.md](ext/QX-16.md) |

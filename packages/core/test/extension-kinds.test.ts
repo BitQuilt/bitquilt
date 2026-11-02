@@ -10,10 +10,11 @@ import { reduce } from '../src/reduce.js';
 import { addr, byOf, clock, key } from './helpers.js';
 
 /**
- * The core reads the three extension verifier kinds (human, judge:n, attest; docs/ext/verifiers.md) as `unknown`, and
- * nothing that happens on such a piece changes that: not two people agreeing, not a candidate revealed, not an actor's
- * record. Its dependents stay locked, it is never offered, and the problem has no output. The extension decides on top
- * in the tracker; here is the floor it stands on, and the fixtures that fix it.
+ * The core reads the four extension verifier kinds (human, judge:n, attest; docs/ext/verifiers.md; and record:n,
+ * docs/ext/QX-20.md) as `unknown`, and nothing that happens on such a piece changes that: not two people agreeing, not
+ * a candidate revealed, not an actor's record, not three readings from three roots. Its dependents stay locked, it is
+ * never offered, and the problem has no output. The extension decides on top in the tracker; here is the floor it
+ * stands on, and the fixtures that fix it.
  */
 const owner = key(9), A = key(1), B = key(2), C = key(3);
 const t = clock('2026-10-25T12:00:00Z');
@@ -30,6 +31,8 @@ const problem: Envelope['problem'] = {
     summary: { verifier: 'judge:3', candidates: 2, requires: ['web'], brief: 'Summarise the paper.', schema: text },
     told: { verifier: 'attest', requires: [], brief: 'Tell one person and record it.', schema: told },
     after: { verifier: 'agree', requires: ['web'], inputs: ['told'], brief: 'Did they answer?', schema: verdict, agree: ['verdict'] },
+    readings: { verifier: 'record:3', requires: ['web'], brief: 'Does the paper say so? Read it your way.', schema: verdict, agree: ['verdict'] },
+    then: { verifier: 'agree', requires: ['web'], inputs: ['readings'], brief: 'Once the readings are in: do they differ?', schema: verdict, agree: ['verdict'] },
     plain: { verifier: 'agree', requires: ['web'], brief: 'A piece of the core\'s own kind.', schema: verdict, agree: ['verdict'] },
   },
   data: {},
@@ -52,7 +55,7 @@ function handIn(k: Uint8Array, piece: string, minute: number, ret: Record<string
 describe('the core and the extension kinds', () => {
   it('holds every extension kind as unknown with nothing on it, locks what waits on one, and offers none of them', () => {
     const states = Object.fromEntries(empty.pieces.map((v) => [v.piece.name, v.state]));
-    expect(states).toEqual({ vote: 'unknown', summary: 'unknown', told: 'unknown', after: 'locked', plain: 'open' });
+    expect(states).toEqual({ vote: 'unknown', summary: 'unknown', told: 'unknown', after: 'locked', readings: 'unknown', then: 'locked', plain: 'open' });
     expect(next(empty, addr(A), { can: ['web', 'person'], model: 'human' }, t(0))?.piece.name).toBe('plain');
   });
 
@@ -66,12 +69,16 @@ describe('the core and the extension kinds', () => {
       ...handIn(C, pieceOf('told'), 10, { who: 'a maintainer of a tracker', how: 'conversation' }, 'google/gemini'),
       ...handIn(A, pieceOf('plain'), 12, { verdict: 'supports', quote: 'q1' }, 'anthropic/claude'),
       ...handIn(B, pieceOf('plain'), 14, { verdict: 'supports', quote: 'q2' }, 'openai/gpt'),
+      ...handIn(A, pieceOf('readings'), 16, { verdict: 'supports', quote: 'r1' }, 'anthropic/claude'),
+      ...handIn(B, pieceOf('readings'), 18, { verdict: 'contradicts', quote: 'r2' }, 'openai/gpt'),
+      ...handIn(C, pieceOf('readings'), 20, { verdict: 'supports', quote: 'r3' }, 'google/gemini'),
     ];
     for (const now of [t(20), t(60 * 50)]) {
       const state = reduce({ envelopes: [envelope], blobs: new Map(), receipts, now });
       const states = Object.fromEntries(state.pieces.map((v) => [v.piece.name, v.state]));
-      expect(states).toEqual({ vote: 'unknown', summary: 'unknown', told: 'unknown', after: 'locked', plain: now === t(20) ? 'accepted_provisional' : 'accepted' });
-      for (const name of ['vote', 'summary', 'told']) expect(state.byHash.get(pieceOf(name))!.accepting).toBeNull();
+      expect(states).toEqual({ vote: 'unknown', summary: 'unknown', told: 'unknown', after: 'locked', readings: 'unknown', then: 'locked', plain: now === t(20) ? 'accepted_provisional' : 'accepted' });
+      for (const name of ['vote', 'summary', 'told', 'readings']) expect(state.byHash.get(pieceOf(name))!.accepting).toBeNull();
+      expect(state.byHash.get(pieceOf('readings'))!.reveals).toHaveLength(3);
       // The reveals themselves are valid and folded; only the verifier is unknown. The rank is an event of no core type, passed over.
       expect(state.byHash.get(pieceOf('vote'))!.reveals).toHaveLength(2);
       expect(state.byHash.get(pieceOf('summary'))!.reveals).toHaveLength(2);

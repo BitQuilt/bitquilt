@@ -33,7 +33,7 @@ import {
   type Address, type Event, type Hash, type PieceState, type PieceView, type Receipt, type ReduceInput, type Return, type State,
   byAtThenId, commitHash, eventId, eventSignedByKey, isHash, isRecord, orderReceipts, plusHours, reduce, returnProblems,
 } from '@bitquilt/core';
-import { type KindInfo, type PanelView, applyVerifiers, leaseOf, ownerOf, panelSeatProblem, rankBodyProblems, rankingProblem, rootFor, viaOf, windowOf } from './verifiers.js';
+import { type KindInfo, type PanelView, type RecordView, applyVerifiers, leaseOf, ownerOf, panelSeatProblem, rankBodyProblems, rankingProblem, rootFor, viaOf, windowOf } from './verifiers.js';
 import { type CoinLockWord, type LockView, checkLock, hasLock, keepStakeRules, lockEnd, lockReleasedAt, liveAt, ruleAt, ruleProblem, stakeAsked } from './stake.js';
 import { type GoldCommitment, type GoldCount, type GoldState, type GoldView, checkGold, checkGoldReveal, goldCount, goldMatches, goldOn, missOn, outcomeOf } from './gold.js';
 import { type Dropped, type Folding, type ProblemEntry, acceptingRoots, creditBurns, creditedElsewhere, creditedRoots, newFolding, refreshCredits, rootOf } from './standing.js';
@@ -50,7 +50,7 @@ export const SEED = 'challenge-receipt';
 export const SIDES = ['challenger', 'author'] as const;
 export type Side = (typeof SIDES)[number];
 export type Outcome = 'open' | 'held' | 'failed' | 'void';
-export type LayerState = PieceState | 'challenged' | 'judging';
+export type LayerState = PieceState | 'challenged' | 'judging' | 'recording' | 'recorded';
 export const CHALLENGE_EVENTS: ReadonlySet<string> = new Set(['challenge', 'verdict']);
 
 export interface VerdictView { id: Hash; key: Address; root: Address; at: string; for: Side; return: Return | null }
@@ -100,6 +100,8 @@ export interface PieceLayer {
   verified: boolean;
   /** QX-19 section 4: the keys whose reading of this piece the layer set aside, since it rests on nothing where the other rests on the record. */
   aside: Address[];
+  /** QX-20: on a record piece, its standing readings; null on every other kind. */
+  record: RecordView | null;
 }
 
 export interface ProblemLayer {
@@ -181,7 +183,7 @@ interface LayerEvent { id: Hash; kind: LayerEventKind; event: Event; at: string;
 interface Verdict { id: Hash; event: Event; at: string }
 
 /** The states a piece still takes work in (QX-15 section 2): what `unaffordable` measures a key's free standing against. */
-const UNDONE: ReadonlySet<string> = new Set(['open', 'in_flight', 'sealed', 'needs_verify', 'disputed']);
+const UNDONE: ReadonlySet<string> = new Set(['open', 'in_flight', 'sealed', 'needs_verify', 'disputed', 'recording']);
 
 /** Why this is not a well-formed challenge body, or nothing. */
 export function challengeBodyProblems(body: unknown): string[] {
@@ -586,11 +588,13 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
       const own = e.challenges.filter((c) => c.piece === v.piece.hash);
       const last = own.length ? own[own.length - 1]! : null;
       const core = e.core.byHash.get(v.piece.hash)?.state ?? v.state;
-      const state: LayerState = last?.outcome === 'open' ? 'challenged' : v.state;
+      const record = e.layered.records.get(v.piece.hash) ?? null;
+      // QX-20: a record piece some readings stand on is held under needs_verify in the fold, so the core's `next` offers it; here it says recording.
+      const state: LayerState = last?.outcome === 'open' ? 'challenged' : record && v.state === 'needs_verify' ? 'recording' : v.state;
       const kind = e.layered.kinds.get(v.piece.hash)!;
       const commitment = goldOn(e, v.piece.hash);
       const gold = commitment ? (outcomeOf(e, commitment, now) as GoldState) : null;
-      return { hash: v.piece.hash, name: v.piece.name, core, state, challenge: last, kind, attested: viaOf(v.accepting) === 'attest', panel: e.layered.byPiece.get(v.piece.hash) ?? null, stake: stakeAsked(ruleAt(e, now), v.piece), gold, verified: gold === 'match', aside: asideBy.get(v.piece.hash) ?? [] };
+      return { hash: v.piece.hash, name: v.piece.name, core, state, challenge: last, kind, attested: viaOf(v.accepting) === 'attest', panel: e.layered.byPiece.get(v.piece.hash) ?? null, stake: stakeAsked(ruleAt(e, now), v.piece), gold, verified: gold === 'match', aside: asideBy.get(v.piece.hash) ?? [], record };
     });
     const rule = ruleAt(e, now);
     problems.set(e.hash, {

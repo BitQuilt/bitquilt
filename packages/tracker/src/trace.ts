@@ -3,12 +3,16 @@
  * its hash, and for each field of the return the read and the span of it the value rests on. The door checks the shape
  * and that every read is held (section 1); the layer grades an accepted square by whether both of its reveals rest on
  * kept reads (section 3) and, where reveals differ, says why from the traces, pair by pair, and which readings rest on
- * nothing where another rests on the record (section 4): those the layer sets aside (challenge.ts). Pure over the
- * fold, the receipts, and a way to measure and read a blob. Nothing here changes what the core calls a piece.
+ * nothing where another rests on the record (section 4): those the layer sets aside (challenge.ts). On a record piece
+ * (QX-20) the same traces grade the standing readings and give the seams between them, with nothing set aside, and
+ * the record document states each reading with its trace as the chain has it. Pure over the fold, the receipts, and a
+ * way to measure and read a blob. Nothing here changes what the core calls a piece.
  */
-import { type Address, type Event, type Hash, type PieceView, type Receipt, type Reveal, type State, agreeFields, earliestReceipt, eventId, isHash, returnsAgree } from '@bitquilt/core';
+import { type Address, type Event, type Hash, type PieceView, type Receipt, type Reveal, type Schema, type State, agreeFields, earliestReceipt, eventId, hashCanonical, isHash, returnsAgree } from '@bitquilt/core';
+import type { RecordView } from './verifiers.js';
 
 export const TRACE = 'QX-19';
+export const RECORD = 'QX-20';
 export const TRACE_EVENTS: ReadonlySet<string> = new Set(['trace']);
 export const READS_MAX = 16;
 export const RESTS_MAX = 64;
@@ -28,8 +32,10 @@ export type SeamWhy = 'source' | 'span' | 'reading' | 'unknown';
 /** One reading's side of a seam; `aside` says the layer folds the piece without it (section 4). */
 export interface SeamSide { key: Address; value: unknown; read: Read | null; span: [number, number] | null; passage: string | null; aside: boolean }
 export interface Seam { field: string; why: SeamWhy; sides: [SeamSide, SeamSide] }
-/** A piece's traces, its grade, its seams, and the ids of the reveals set aside, where there are any (section 4). */
-export interface PieceTraces { traces: TraceView[]; traced: Traced | null; seams: Seam[]; aside: Hash[] }
+/** QX-20 section 3: a record piece's grade: the readings wanted and standing, how many rest every agreed field on a kept read, from how many roots and vendors, and the keys that signed the standing ones. */
+export interface RecordGrade { wanted: number; standing: number; grounded: number; roots: number; vendors: number; keys: Address[] }
+/** A piece's traces, its grade, its seams, the ids of the reveals set aside, where there are any (section 4), and on a record piece its grade (QX-20). */
+export interface PieceTraces { traces: TraceView[]; traced: Traced | null; seams: Seam[]; aside: Hash[]; record: RecordGrade | null }
 export type Admission = { ok: true } | { ok: false; why: string };
 
 const isTime = (s: unknown): s is string => typeof s === 'string' && !Number.isNaN(Date.parse(s));
@@ -86,14 +92,11 @@ export function admitTrace(view: PieceView, receipts: Receipt[], event: Event, k
 }
 
 /**
- * Every two reveals from unrelated roots that differ on an agreed field, pair by pair in the order they were kept. A
- * piece with three readings has up to three pairs, and each is judged on its own (section 4); until 2 November 2026
- * the first pair alone was, and a third reading that rested on the record counted for nothing.
+ * Every two of the reveals given, from unrelated roots, that differ on an agreed field, pair by pair in the order they
+ * were kept. A piece with three readings has up to three pairs, and each is judged on its own (section 4); until
+ * 2 November 2026 the first pair alone was, and a third reading that rested on the record counted for nothing.
  */
-function disputingPairs(fold: State, view: PieceView, fields: string[]): [Reveal, Reveal][] {
-  const schema = view.piece.schema;
-  if (!schema) return [];
-  const rs = view.reveals;
+function disputingPairs(fold: State, schema: Schema, fields: string[], rs: readonly Reveal[]): [Reveal, Reveal][] {
   const pairs: [Reveal, Reveal][] = [];
   for (let i = 0; i < rs.length; i += 1) for (let j = i + 1; j < rs.length; j += 1) {
     const a = rs[i]!;
@@ -129,6 +132,15 @@ export function tracesKept(view: PieceView, receipts: Receipt[], blobLength: (ha
   return traces;
 }
 
+/**
+ * The traces as the chain states them, whether or not the reads are held here: every blob measured as long as any span
+ * asks. What the record document (QX-20 section 4) carries, so that a mirror with no blobs writes the same document as
+ * the tracker that kept them; whether the bytes are held is the state route's word, not the document's.
+ */
+export function tracesStated(view: PieceView, receipts: Receipt[]): TraceView[] {
+  return tracesKept(view, receipts, () => Number.MAX_SAFE_INTEGER);
+}
+
 /** The trace on a reveal, by the reveal's key and time, or null; and the rest a trace gives a field, or null. */
 function matching(view: PieceView, receipts: Receipt[], traces: readonly TraceView[]): { byId: Map<Hash, Reveal>; traceOf: (rv: Reveal) => TraceView | null; restFor: (t: TraceView | null, field: string) => Rest | null } {
   const byId = revealsById(view, receipts);
@@ -142,6 +154,11 @@ function matching(view: PieceView, receipts: Receipt[], traces: readonly TraceVi
   };
 }
 
+/** Section 3's rule for one reveal: it rests every agreed field on a kept read. */
+function restsAll(t: TraceView | null, fields: readonly string[], restFor: (t: TraceView | null, field: string) => Rest | null): boolean {
+  return t !== null && fields.every((f) => restFor(t, f) !== null);
+}
+
 /**
  * The square's grade (section 3), over the fold whose accepting set counts: `both`, `one` or `none` of its reveals rest
  * every agreed field on a kept read; null where no two reveals accept the piece.
@@ -150,11 +167,46 @@ export function graded(view: PieceView, receipts: Receipt[], traces: readonly Tr
   if (view.accepting?.kind !== 'agree') return null;
   const { traceOf, restFor } = matching(view, receipts, traces);
   const fields = view.piece.schema ? agreeFields(view.piece.schema, view.piece.agree) : [];
-  const n = view.accepting.reveals.filter((rv) => {
-    const t = traceOf(rv);
-    return t !== null && fields.every((f) => restFor(t, f) !== null);
-  }).length;
+  const n = view.accepting.reveals.filter((rv) => restsAll(traceOf(rv), fields, restFor)).length;
   return n === 2 ? 'both' : n === 1 ? 'one' : 'none';
+}
+
+/** QX-20 section 3: a record piece's grade over its standing readings, by the same rule as a square's: each is grounded when its trace rests every agreed field on a kept read. */
+export function recordGraded(view: PieceView, record: RecordView, receipts: Receipt[], traces: readonly TraceView[]): RecordGrade {
+  const { traceOf, restFor } = matching(view, receipts, traces);
+  const fields = view.piece.schema ? agreeFields(view.piece.schema, view.piece.agree) : [];
+  const standing = record.standing;
+  return {
+    wanted: record.wanted,
+    standing: standing.length,
+    grounded: standing.filter((rv) => restsAll(traceOf(rv), fields, restFor)).length,
+    roots: new Set(standing.map((r) => r.root)).size,
+    vendors: new Set(standing.map((r) => r.vendor)).size,
+    keys: standing.map((r) => r.key),
+  };
+}
+
+/** The seams between two readings: one per agreed field they differ on, each side with what it rests on. */
+function pairSeams(schema: Schema, fields: readonly string[], pair: [Reveal, Reveal], side: (rv: Reveal, field: string) => SeamSide): Seam[] {
+  const own: Seam[] = [];
+  for (const f of fields) {
+    if (returnsAgree(schema, [f], pair[0].return, pair[1].return)) continue;
+    const a = side(pair[0], f);
+    const b = side(pair[1], f);
+    own.push({ field: f, why: whyOf(a, b), sides: [a, b] });
+  }
+  return own;
+}
+
+/** One reading's side of a seam on a field: the key, the value, and the read, span and passage its trace gives the field. */
+function sideOf(view: PieceView, receipts: Receipt[], traces: readonly TraceView[], passage: (hash: Hash, span: [number, number]) => string | null): (rv: Reveal, field: string) => SeamSide {
+  const { traceOf, restFor } = matching(view, receipts, traces);
+  return (rv, field) => {
+    const t = traceOf(rv);
+    const rest = restFor(t, field);
+    const read = rest && t ? t.reads[rest.read] ?? null : null;
+    return { key: rv.key, value: (rv.return as Record<string, unknown>)[field], read, span: rest ? rest.span : null, passage: rest && read ? passage(read.hash, rest.span) : null, aside: false };
+  };
 }
 
 /**
@@ -169,26 +221,14 @@ export function seamed(fold: State, view: PieceView, receipts: Receipt[], traces
   const schema = view.piece.schema;
   if (!schema || view.state !== 'disputed') return { seams, aside };
   const fields = agreeFields(schema, view.piece.agree);
-  const pairs = disputingPairs(fold, view, fields);
+  const pairs = disputingPairs(fold, schema, fields, view.reveals);
   if (pairs.length === 0) return { seams, aside };
-  const { byId, traceOf, restFor } = matching(view, receipts, traces);
-  const side = (rv: Reveal, field: string): SeamSide => {
-    const t = traceOf(rv);
-    const rest = restFor(t, field);
-    const read = rest && t ? t.reads[rest.read] ?? null : null;
-    return { key: rv.key, value: (rv.return as Record<string, unknown>)[field], read, span: rest ? rest.span : null, passage: rest && read ? passage(read.hash, rest.span) : null, aside: false };
-  };
+  const side = sideOf(view, receipts, traces, passage);
   const grounded = (s: SeamSide) => s.read !== null && s.span !== null;
   const losers = new Set<Reveal>();
   const owners: [Reveal, Reveal][] = [];
   for (const pair of pairs) {
-    const own: Seam[] = [];
-    for (const f of fields) {
-      if (returnsAgree(schema, [f], pair[0].return, pair[1].return)) continue;
-      const a = side(pair[0], f);
-      const b = side(pair[1], f);
-      own.push({ field: f, why: whyOf(a, b), sides: [a, b] });
-    }
+    const own = pairSeams(schema, fields, pair, side);
     const loses = (i: 0 | 1) => own.length > 0 && own.every((s) => !grounded(s.sides[i]) && grounded(s.sides[i === 0 ? 1 : 0]));
     if (loses(0)) losers.add(pair[0]);
     else if (loses(1)) losers.add(pair[1]);
@@ -197,6 +237,7 @@ export function seamed(fold: State, view: PieceView, receipts: Receipt[], traces
       owners.push(pair);
     }
   }
+  const { byId } = matching(view, receipts, traces);
   for (const [id, rv] of byId) if (losers.has(rv)) aside.push(id);
   seams.forEach((s, i) => {
     if (losers.has(owners[i]![0])) s.sides[0].aside = true;
@@ -205,8 +246,58 @@ export function seamed(fold: State, view: PieceView, receipts: Receipt[], traces
   return { seams, aside };
 }
 
-/** The three over one fold: the traces kept, the grade, and the seams with the reveals to set aside. The layer's fold is asked this way (challenge.ts). */
+/**
+ * QX-20 section 3: the seams between a record piece's standing readings, pair by pair, on every agreed field two of
+ * them differ on, each side with what it rests on. No side is set aside: on a record piece the seams are the content,
+ * and a reading that rests on nothing stands and says so.
+ */
+export function recordSeams(fold: State, view: PieceView, record: RecordView, receipts: Receipt[], traces: readonly TraceView[], passage: (hash: Hash, span: [number, number]) => string | null): Seam[] {
+  const schema = view.piece.schema;
+  if (!schema) return [];
+  const fields = agreeFields(schema, view.piece.agree);
+  const side = sideOf(view, receipts, traces, passage);
+  return disputingPairs(fold, schema, fields, record.standing).flatMap((pair) => pairSeams(schema, fields, pair, side));
+}
+
+/** The three over one fold: the traces kept, the grade, and the seams with the reveals to set aside. The layer's fold is asked this way (challenge.ts); a record piece's grade is the tracker's to add. */
 export function pieceTraces(fold: State, view: PieceView, receipts: Receipt[], blobLength: (hash: Hash) => number | null, passage: (hash: Hash, span: [number, number]) => string | null): PieceTraces {
   const traces = tracesKept(view, receipts, blobLength);
-  return { traces, traced: graded(view, receipts, traces), ...seamed(fold, view, receipts, traces, passage) };
+  return { traces, traced: graded(view, receipts, traces), ...seamed(fold, view, receipts, traces, passage), record: null };
+}
+
+/**
+ * QX-20 section 4: the record document of a complete problem, one entry per piece in file order as the core's output
+ * has it (CORE.md section 6), with a record piece's entry carrying its standing readings: the signer's root and key,
+ * the vendor and model declared, the time, the return whole, and the trace as the chain states it, or null. A function
+ * of the envelope and the receipts alone, so a mirror writes the same document and the same hash as the tracker.
+ */
+export function recordDocument(problem: Hash, fold: State, records: ReadonlyMap<Hash, RecordView>, receipts: Receipt[]): { document: unknown; hash: Hash } {
+  const pieces = fold.pieces.map((v) => {
+    const base = { name: v.piece.name, piece: v.piece.hash, state: v.state };
+    const rec = records.get(v.piece.hash);
+    if (rec) {
+      const traces = tracesStated(v, receipts);
+      const { traceOf } = matching(v, receipts, traces);
+      const readings = rec.standing.map((r) => {
+        const t = traceOf(r);
+        return { signer: r.root, key: r.key, vendor: r.vendor, model: r.by.model, at: r.at, return: r.return, trace: t ? { reads: t.reads, rests: t.rests } : null };
+      });
+      return { ...base, wanted: rec.wanted, readings };
+    }
+    if (!v.accepting) return base;
+    if (v.accepting.kind === 'agree') {
+      const fields = agreeFields(v.piece.schema!, v.piece.agree);
+      const agreed: Record<string, unknown> = {};
+      for (const f of fields) agreed[f] = v.accepting.reveals[0].return[f];
+      const evidence = v.accepting.reveals.map((r) => {
+        const rest: Record<string, unknown> = {};
+        for (const [k, val] of Object.entries(r.return)) if (!fields.includes(k)) rest[k] = val;
+        return { signer: r.root, ...rest };
+      });
+      return { ...base, agreed, evidence };
+    }
+    return { ...base, patch: v.accepting.patch.return.patch, author: v.accepting.patch.root, runs: v.accepting.runs.map((r) => ({ signer: r.root, exit: r.exit, score: r.score, image: r.image, host: r.host })) };
+  });
+  const document = { quilt: 1, problem, extension: RECORD, pieces };
+  return { document, hash: hashCanonical(document) };
 }

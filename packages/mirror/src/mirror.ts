@@ -6,7 +6,7 @@
  * is a growth of the first's:
  *
  *   problems/<hash>.json   blobs/<hash>   ledger/<hash>.jsonl   ledger/identity.jsonl   ledger/coin.jsonl (QX-17)
- *   names/<owner>/<slug>   outputs/<hash>/output.json   keys.json   index.json   coin/balances.json   anchors/<problem>/<seq>.ots (QX-12, when asked)
+ *   names/<owner>/<slug>   outputs/<hash>/output.json   outputs/<hash>/record.json (QX-20)   keys.json   index.json   coin/balances.json   anchors/<problem>/<seq>.ots (QX-12, when asked)
  *
  * No `.head` file is written: the head is the ledger file's last line, stamped under `anchors/`. The mirror reads no
  * chain itself; the bin hands it one when the environment names it.
@@ -24,7 +24,7 @@ import { dirname, join } from 'node:path';
 import {
   type Envelope, type Hash, type Receipt, type ReduceInput, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, onlyAppends, problemHash, reduce, signedBy, verifyChain, withSlash,
 } from '@bitquilt/core';
-import { type BalanceView, type CoinParams, type CreditLine, COIN_LOG, challengeLayer, coinLayer } from '@bitquilt/tracker';
+import { type BalanceView, type CoinParams, type CreditLine, type Layer, COIN_LOG, challengeLayer, coinLayer, recordDocument } from '@bitquilt/tracker';
 import { type AnchorReport, type ChainHead, anchorHeads } from './anchor.js';
 import { hiddenFromIdentity, keysFromIdentity } from './identity.js';
 
@@ -100,6 +100,7 @@ export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
   const at = ctx.now();
   writeKeys(ctx, at);
   writeIndex(ctx, at);
+  writeRecords(ctx, at);
   if (options.anchor) await anchorAll(ctx, options.anchor);
   return ctx.report;
 }
@@ -312,6 +313,33 @@ async function checkCredits(chain: DepositReader | null, credits: CreditLine[]):
     if (!d.made || d.root.toLowerCase() !== c.root.toLowerCase() || BigInt(d.amount) !== BigInt(c.amount)) return `the credit for deposit ${c.deposit} (${c.amount} to ${c.root}) is not what the chain holds`;
   }
   return null;
+}
+
+/**
+ * QX-20 section 4: `outputs/<hash>/record.json` and its hash beside it, for every problem with a record piece that the
+ * tracker's own layer calls complete over the chains held here. The core writes no output for such a problem, since it
+ * holds a record piece as unknown; the layer's document is a function of the envelope and the receipts alone, so the
+ * hash here is the tracker's `record_output` where the chains are the same.
+ */
+function writeRecords(ctx: Context, at: string): void {
+  const inputs: ReduceInput[] = [];
+  for (const { envelope } of ctx.index.values()) inputs.push(inputFor(ctx, envelope, at));
+  if (inputs.length === 0) return;
+  let layer: Layer;
+  try {
+    layer = challengeLayer({ problems: inputs, now: at });
+  } catch (err) {
+    ctx.report.errors.push(`records: ${(err as Error).message}`);
+    return;
+  }
+  for (const [hash, pl] of layer.problems) {
+    const records = new Map(pl.pieces.filter((p) => p.record).map((p) => [p.hash, p.record!] as const));
+    if (records.size === 0 || !pl.fold.complete) continue;
+    const doc = recordDocument(hash, pl.fold, records, pl.receipts);
+    mkdirSync(join(ctx.out, 'outputs', hash), { recursive: true });
+    writeFileSync(join(ctx.out, 'outputs', hash, 'record.json'), JSON.stringify(doc.document, null, 2) + '\n');
+    writeFileSync(join(ctx.out, 'outputs', hash, 'record_hash'), `${doc.hash}\n`);
+  }
 }
 
 /** keys.json: each address's latest name and the delegations in force at `at`, folded from the identity log alone. */

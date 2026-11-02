@@ -26,7 +26,7 @@ export interface NostrEvent {
 }
 
 /** The work on a problem as an announce states it (QX-13): the tracker's row when it was posted, or zeros at publish. */
-export interface AnnouncedWork { returned: number; accepted: number; verified: number; disputed: number; traced: { both: number; one: number; none: number }; readers: number; vendors: number; last: string | null }
+export interface AnnouncedWork { returned: number; accepted: number; verified: number; disputed: number; traced: { both: number; one: number; none: number }; readers: number; vendors: number; last: string | null; /** QX-20: the record pieces whose readings are in; absent from an announce made before the kind. */ recorded?: number }
 
 export const NO_WORK: AnnouncedWork = { returned: 0, accepted: 0, verified: 0, disputed: 0, traced: { both: 0, one: 0, none: 0 }, readers: 0, vendors: 0, last: null };
 
@@ -82,7 +82,7 @@ export function announcedWork(x: unknown): AnnouncedWork | null {
   if (!['returned', 'accepted', 'verified', 'disputed', 'readers', 'vendors'].every((k) => whole(w[k]))) return null;
   if (!t || typeof t !== 'object' || !['both', 'one', 'none'].every((k) => whole(t[k]))) return null;
   if (w.last !== null && (typeof w.last !== 'string' || Number.isNaN(Date.parse(w.last)))) return null;
-  return { returned: w.returned as number, accepted: w.accepted as number, verified: w.verified as number, disputed: w.disputed as number, traced: { both: t.both as number, one: t.one as number, none: t.none as number }, readers: w.readers as number, vendors: w.vendors as number, last: w.last as string | null };
+  return { returned: w.returned as number, accepted: w.accepted as number, verified: w.verified as number, disputed: w.disputed as number, traced: { both: t.both as number, one: t.one as number, none: t.none as number }, readers: w.readers as number, vendors: w.vendors as number, last: w.last as string | null, ...(whole(w.recorded) ? { recorded: w.recorded as number } : {}) };
 }
 
 /**
