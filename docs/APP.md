@@ -65,12 +65,17 @@ The core has no topics field and should not grow one. An index needs something t
 ```json
 { "quilt": 1, "type": "announce", "problem": "sha256:…", "key": "0x…", "ts": "…",
   "body": { "title": "…", "slug": "…", "done_when": "…", "topics": ["citations", "ai-safety"],
-            "counts": { "pieces": 912, "accepted": 640, "open": 180 }, "trackers": ["https://…/"], "mirrors": ["https://…/"] },
+            "owner": "0x…", "from": null, "pieces": 912, "counts": { "open": 180, "accepted": 640 },
+            "work": { "returned": 700, "accepted": 640, "verified": 120, "disputed": 3, "traced": { "both": 400, "one": 150, "none": 60 }, "readers": 14, "vendors": 3, "last": "…" },
+            "trackers": ["https://…/"], "mirrors": ["https://…/"] },
   "sig": "0x…" }
 ```
 
+[QX-13](ext/QX-13.md) is the document: every field, what the door checks, and who announces when. In short:
+
 - `title`, `slug` and `done_when` must match the envelope's, and the app checks that they do once it has fetched the envelope; an announcement that lies about them is dropped and its key noted.
 - `topics` are at most eight short words through the plain-text gate, and are the announcer's own.
+- `owner`, `from`, `pieces`, `counts` and `work` (since 2 November 2026) say who owns the problem, what it forks, and the tracker's directory row as the announcer saw it, so a problem found on a relay alone shows what a problem found on a tracker shows, as a dated snapshot; the owner's turn announces again when the work has moved.
 - `counts` are a snapshot and the announcer's word; the app replaces them with its own reduction once it has the ledger.
 - An owner's announcement ranks above a seeder's, and a result says who announced it.
 - A problem can be re-announced with better topics or new counts without changing its name, and an announcement of a version supersedes those of its ancestors along `prev`.

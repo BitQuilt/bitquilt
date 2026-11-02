@@ -54,6 +54,8 @@ export interface HostedOptions {
   sentence?: Sentence | null;
   /** The environment the sentence's vendor key is read from; the process's when left out. */
   env?: NodeJS.ProcessEnv;
+  /** The relays a member's Quilt searches and announces on (QX-14), so a hosted search reaches past this tracker; none when left out. */
+  relays?: string[];
 }
 
 /** One owner's turn as the on-ramp ran it: whose, and what it did. */
@@ -153,7 +155,7 @@ export function createHosted(options: HostedOptions): Hosted {
     const member = store.getMember(hash);
     if (!member) return null;
     const secret = secretFromHex(decrypt(keySecret, member.keyEnc));
-    const config: Config = { ...DEFAULT_CONFIG, trackers: [trackerUrl()], can: ['web'], ...(member.name ? { name: member.name } : {}) };
+    const config: Config = { ...DEFAULT_CONFIG, trackers: [trackerUrl()], relays: options.relays ?? [], can: ['web'], ...(member.name ? { name: member.name } : {}) };
     const home = join(options.home, hash);
     const resolver = new Resolver(config, home, options.fetchImpl ?? fetch, { 'x-quilt-custody': custodySecret, ...witnessHeaders(witness) });
     return new Quilt(config, { secret, address: addressOf(secret) }, resolver, hostName, witness);

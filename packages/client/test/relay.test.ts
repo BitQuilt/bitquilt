@@ -1,8 +1,8 @@
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Hash } from '@bitquilt/core';
+import { type Hash, signEvent } from '@bitquilt/core';
 import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
-import { KIND, announcementEvent, readAnnouncement } from '../src/relay.js';
+import { KIND, announcementEvent, readAnnouncement, searchFilters, searchRelays } from '../src/relay.js';
 import { Resolver } from '../src/resolver.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
 import { hex, quiltOver, startTracker, tempHome } from './helpers.js';
@@ -10,7 +10,11 @@ import { startRelay } from './relay-server.js';
 
 /**
  * QX-14: a publish reaches the relays as a signed event of its own; a client with no tracker finds the problem there
- * and can open it from the tracker the announce named; a relay event that fails any check is dropped.
+ * and can open it from the tracker the announce named; a relay event that fails any check is dropped. And QX-13: the
+ * announce states the owner, the fork, the pieces, the counts and the work; the owner's turn announces again once the
+ * work has moved and not while it has not; a search merges the tracker's row and the relay's announce as one problem
+ * held at both; a slow relay's events are kept, a topic is asked by its tag, a gated title is dropped, and the owner's
+ * announce is kept over a seeder's.
  */
 let server: Server;
 let base: string;
@@ -90,5 +94,58 @@ describe('discovery over relays (QX-14)', () => {
     await new Promise<void>((resolve) => { ws.addEventListener('open', () => { ws.send(JSON.stringify(['EVENT', later])); }); ws.addEventListener('message', () => { ws.close(); resolve(); }); });
     expect(relay.events.size).toBe(1);
     expect([...relay.events.values()][0]!.id).toBe(later.id);
+  });
+  it('states the owner, the fork, the pieces, the counts and the work at publish (QX-13)', () => {
+    const ev = [...relay.events.values()][0]!;
+    const body = (JSON.parse(ev.content) as { body: Record<string, unknown> }).body;
+    expect(body).toMatchObject({ owner: owner.identity!.address, from: null, pieces: 2, counts: { open: 2 }, work: { returned: 0, accepted: 0, verified: 0, disputed: 0, traced: { both: 0, one: 0, none: 0 }, readers: 0, vendors: 0, last: null } });
+    expect(readAnnouncement(ev, relay.url)).toMatchObject({ owner: owner.identity!.address, announcer: owner.identity!.address, from: null, pieces: 2, counts: { open: 2 }, work: { returned: 0 } });
+  });
+  it("announces again from the owner's turn once the work has moved, with the tracker's row and the same topics, and not again while it has not; a search then names the problem once, held at the tracker and the relay", async () => {
+    const mk = quiltOver(base);
+    const a = mk(2, 'anthropic/claude');
+    const b = mk(3, 'openai/gpt-5', 'ChatGPT');
+    const piece = (await a.open(problem)).state.pieces[0]!.piece.hash;
+    await a.return(problem, piece, { verdict: 'supports', quote: 'q' });
+    await b.return(problem, piece, { verdict: 'supports', quote: 'q' });
+    expect(await owner.announceDue()).toEqual([problem]);
+    const body = (JSON.parse([...relay.events.values()][0]!.content) as { body: { owner: string; topics: string[]; work: { accepted: number; readers: number; vendors: number } } }).body;
+    expect(body).toMatchObject({ owner: owner.identity!.address, topics: ['citations', 'reading'], work: { accepted: 1, readers: 2, vendors: 2 } });
+    expect(await owner.announceDue()).toEqual([]);
+    expect(owner.library.problems[problem]!.announced?.mark).toBe('1/1/0/0/2');
+    const found = await owner.search('reading');
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ problem, via: 'tracker', held: [base, relay.url], root: problem, from: null, announcer: null });
+    expect(found[0]!.work).toMatchObject({ accepted: 1, readers: 2 });
+    // The finder, with the relay alone, reads the same numbers from the announce, and says who announced and when.
+    const afar = await finder.search('reading');
+    expect(afar[0]).toMatchObject({ problem, via: 'relay', held: [relay.url], announcer: owner.identity!.address });
+    expect(afar[0]!.work).toMatchObject({ accepted: 1 });
+    expect(afar[0]!.announced).toMatch(/^20/);
+  });
+  it("keeps what a slow relay sent before the deadline, asks a topic by its tag, drops an announce whose words fail the gate, and keeps the owner's announce over a seeder's", async () => {
+    const slow = await startRelay({ holdEose: true });
+    const ev = [...relay.events.values()][0]!;
+    const put = (url: string, e: unknown) => new Promise<void>((resolve) => {
+      const ws = new WebSocket(url);
+      ws.addEventListener('open', () => ws.send(JSON.stringify(['EVENT', e])));
+      ws.addEventListener('message', () => { ws.close(); resolve(); });
+    });
+    await put(slow.url, ev);
+    const got = await searchRelays([slow.url], 'reading', 400);
+    expect(got.map((x) => x.problem)).toEqual([problem]);
+    expect(slow.requests.at(-1)).toEqual([{ kinds: [KIND], limit: 200 }, { kinds: [KIND], '#t': ['reading'], limit: 200 }]);
+    expect(searchFilters('two words', 10)).toEqual([{ kinds: [KIND], limit: 10 }]);
+    await slow.close();
+    // A title with an address in it: every signature holds, and the reader drops it all the same, since a relay admits anything.
+    const bad = signEvent({ quilt: 1, type: 'announce', problem, key: owner.identity!.address, ts: new Date().toISOString(), body: { title: 'See https://example.org now', slug: pattern.slug, done_when: pattern.done_when, topics: [], trackers: [base], mirrors: [] } }, owner.identity!.secret);
+    expect(readAnnouncement(announcementEvent(bad, owner.identity!.secret), relay.url)).toBeNull();
+    // A seeder's announce, later than the owner's and naming the owner: the owner's is the one kept.
+    const seeded = signEvent({ quilt: 1, type: 'announce', problem, key: finder.identity!.address, ts: new Date().toISOString(), body: { title: pattern.title, slug: pattern.slug, done_when: pattern.done_when, topics: ['reading', 'seeded'], owner: owner.identity!.address, trackers: [base], mirrors: [] } }, finder.identity!.secret);
+    await put(relay.url, announcementEvent(seeded, finder.identity!.secret, ev.created_at + 600));
+    expect(relay.events.size).toBe(2);
+    const found = await searchRelays([relay.url], 'reading');
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ announcer: owner.identity!.address, owner: owner.identity!.address });
   });
 });

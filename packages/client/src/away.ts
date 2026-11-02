@@ -367,8 +367,8 @@ export function goldText(gold: readonly Revealed[]): string {
   return `gold: ${posted.length} revealed${parts.length ? ` (${parts.join(', ')})` : ''}${refused ? `, ${refused} refused` : ''}`;
 }
 
-/** What the owner's part of a turn did: the gold revealed, the briefs sharpened, and both in a few words for a log line, or nothing when there was nothing to do. */
-export interface OwnerTurn { gold: Revealed[]; sharpened: Sharpened[]; said: string }
+/** What the owner's part of a turn did: the gold revealed, the briefs sharpened, the problems announced again, and all three in a few words for a log line, or nothing when there was nothing to do. */
+export interface OwnerTurn { gold: Revealed[]; sharpened: Sharpened[]; announced: string[]; said: string }
 
 /**
  * The owner's part of a turn, which needs no agent beside it: the gold due revealed (QX-16, gold.ts), and the briefs
@@ -391,7 +391,14 @@ export async function ownerTurn(quilt: Quilt, ask: ((q: SentenceAsk) => Promise<
       log(`${now().toISOString()} sharpen: not run (${oneLine((e as Error).message, 200)})`);
     }
   }
-  return { gold, sharpened, said: [goldText(gold), sharpenText(sharpened)].filter(Boolean).join('; ') };
+  // QX-13 section 3: the problems this key owns announced again where the work on them moved.
+  let announced: string[] = [];
+  try {
+    announced = await quilt.announceDue();
+  } catch (e) {
+    log(`${now().toISOString()} announce: not run (${oneLine((e as Error).message, 200)})`);
+  }
+  return { gold, sharpened, announced, said: [goldText(gold), sharpenText(sharpened), announced.length ? `announced: ${announced.length}` : ''].filter(Boolean).join('; ') };
 }
 
 /**

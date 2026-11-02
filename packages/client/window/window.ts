@@ -19,7 +19,8 @@ import { App, applyDocumentTheme, applyHostFonts, applyHostStyleVariables, type 
 declare const __QUILT_VERSION__: string;
 
 type View = 'search' | 'problem' | 'hot' | 'library' | 'me';
-interface Row { problem: string; title: string; slug: string; owner: string; pieces: number; counts: Record<string, number>; topics: string[]; tracker: string; via: 'tracker' | 'relay'; link: string }
+interface Work { returned: number; accepted: number; verified: number; disputed: number; traced: { both: number; one: number; none: number }; readers: number; vendors: number; last: string | null }
+interface Row { problem: string; title: string; slug: string; owner: string; owner_name?: string | null; from?: string | null; root?: string; pieces: number; counts: Record<string, number>; work?: Work | null; topics: string[]; tracker: string; via: 'tracker' | 'relay'; held?: string[]; announced?: string | null; link: string }
 interface Searched { op: 'search'; query: string; rows: Row[] }
 interface PieceRow { hash: string; name: string; verifier: string; kind: string | null; strength: string | null; weakest: boolean; attested: boolean; state: string; core: string; stake: number; gold: string | null; verified: boolean; traced: 'both' | 'one' | 'none' | null; traces: number; reveals: number; claims: number; seams: number }
 interface Opened {
@@ -222,19 +223,26 @@ function drawResults(): void {
     els.results.replaceChildren(h('p', { class: 'quiet' }, 'No problem matched on the trackers and relays this client knows.'));
     return;
   }
-  const head = h('tr', {}, h('th', {}, 'Problem'), h('th', {}, 'By'), h('th', { class: 'n' }, 'Pieces'), h('th', { class: 'n' }, 'Returned'), h('th', { class: 'n' }, 'Accepted'), h('th', { class: 'n' }, 'Disputed'), h('th', {}, 'Where'), h('th', {}, ''));
+  // The Napster columns with the quilt's nouns: the work from the tracker's row where it has one (APP.md, Search), else from the counts.
+  const head = h('tr', {}, h('th', {}, 'Problem'), h('th', {}, 'By'), h('th', { class: 'n' }, 'Pieces'), h('th', { class: 'n' }, 'Returned'), h('th', { class: 'n' }, 'Accepted'), h('th', { class: 'n' }, 'Verified'), h('th', { class: 'n' }, 'Both sides'), h('th', { class: 'n' }, 'Readers'), h('th', { class: 'n' }, 'Disputed'), h('th', {}, 'Where'), h('th', {}, ''));
   const body = rows.map((r) => {
-    const w = workOf(r.counts);
+    const w = r.work ?? { ...workOf(r.counts), verified: 0, traced: { both: 0, one: 0, none: 0 }, readers: 0, vendors: 0, last: null };
     const title = h('span', { class: 't' }, r.title);
     title.addEventListener('click', () => void openProblem(r.link));
-    return h('tr', {},
-      h('td', { class: 'title' }, title, h('span', { class: 's' }, `${r.slug}${r.topics.length ? `; ${r.topics.join(', ')}` : ''}`)),
-      h('td', {}, short(r.owner)),
+    const fork = r.from ? `; forks ${short(r.from)}` : '';
+    const held = r.held?.length ?? 1;
+    const where = `${r.via === 'relay' ? 'a relay; opens at ' : ''}${hostOf(r.tracker)}${held > 1 ? ` and ${held - 1} more` : ''}${r.announced ? `; as announced ${day(r.announced)}` : ''}`;
+    return h('tr', { class: r.root && r.root !== r.problem ? 'fork' : '' },
+      h('td', { class: 'title' }, title, h('span', { class: 's' }, `${r.slug}${r.topics.length ? `; ${r.topics.join(', ')}` : ''}${fork}`)),
+      h('td', {}, r.owner_name ?? short(r.owner)),
       h('td', { class: 'n' }, String(r.pieces)),
       h('td', { class: 'n' }, String(w.returned)),
       h('td', { class: 'n' }, String(w.accepted)),
+      h('td', { class: 'n' }, String(w.verified)),
+      h('td', { class: 'n' }, String(w.traced.both)),
+      h('td', { class: 'n' }, w.readers ? `${w.readers} / ${w.vendors}` : '0'),
       h('td', { class: 'n' }, String(w.disputed)),
-      h('td', {}, r.via === 'relay' ? `a relay; opens at ${hostOf(r.tracker)}` : hostOf(r.tracker)),
+      h('td', {}, where),
       h('td', { class: 'acts' }, btn('Open', 'b small', () => void openProblem(r.link)), ' ', btn('Take a piece', 'b small', () => void tell(phrase('take_piece', r.link)), !state.me)),
     );
   });

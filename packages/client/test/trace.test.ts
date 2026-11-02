@@ -291,7 +291,7 @@ describe('the seam decides itself (section 4)', () => {
     expect(turn.ran).toBe(false);
     expect(turn.sharpened).toHaveLength(1);
     expect(turn.sharpened[0]).toMatchObject({ problem: newer, sentences: [{ kept: true }] });
-    expect(turn.line).toBe(`${NEEDS_AGENT} sharpened: 1 published`);
+    expect(turn.line).toContain(`${NEEDS_AGENT} sharpened: 1 published`);
     expect(readFileSync(join(home, AWAY_LOG), 'utf8')).toContain(' sharpened: 1 published');
     expect((await trackerState(newer)).superseded).toBe(turn.sharpened[0]!.hash);
     // A sentence that does not pass the gate, or none at all, is not kept and nothing is published.

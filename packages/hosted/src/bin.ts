@@ -9,6 +9,7 @@
  *   QUILT_OAUTH_ISSUER   the issuer its metadata names (the tracker's address without the trailing slash)
  *   QUILT_WITNESS_RANGES the address ranges each product publishes for its servers, as one JSON object of product to
  *                        ranges; the ranges in products.ts unless set
+ *   QUILT_RELAYS         the relays a member's Quilt searches and announces on (QX-14), comma separated; none unless set
  *   ANTHROPIC_API_KEY, OPENAI_API_KEY, QUILT_SENTENCE_MODEL
  *                        the vendor the owners' turn asks for the sentence a brief lacks (QX-19 section 4, sentence.ts);
  *                        with neither key the turn reveals the gold due and sharpens nothing
@@ -36,8 +37,9 @@ async function main(): Promise<void> {
   const oauthSecret = process.env.QUILT_OAUTH_SECRET;
   const ranges = process.env.QUILT_WITNESS_RANGES ? witnessRanges(process.env.QUILT_WITNESS_RANGES) : undefined;
   const oauth = oauthSecret ? { secret: oauthSecret, ...(process.env.QUILT_OAUTH_ISSUER ? { issuer: process.env.QUILT_OAUTH_ISSUER } : {}), ...(ranges ? { ranges } : {}) } : undefined;
+  const relays = (process.env.QUILT_RELAYS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   const hosted = createHosted({
-    store, trackerUrl: options.url, keySecret, home: process.env.QUILT_HOSTED_HOME ?? './quilt-hosted', custodySecret,
+    store, trackerUrl: options.url, keySecret, home: process.env.QUILT_HOSTED_HOME ?? './quilt-hosted', custodySecret, relays,
     ...(options.name ? { name: options.name } : {}), ...(oauth ? { oauth } : {}), ...(options.trustedProxies ? { trustedProxies: options.trustedProxies } : {}),
   });
   const tracker = createTracker({ store, custodySecret, extra: hosted.routes, extraWellKnown: hosted.describe, ...options });
