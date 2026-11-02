@@ -4,9 +4,11 @@
  * projections and nonces stay in the home's library and never leave it. Each works through the door its Quilt hands it
  * (door.ts); the Quilt's `commitGold` and `revealGold` call these.
  */
-import { type Hash, type Piece, agreeFields, commitHash, eventId, newNonce } from '@bitquilt/core';
+import { type Hash, type Piece, agreeFields, commitHash, eventId, isHash, newNonce } from '@bitquilt/core';
 import type { Door } from './door.js';
-import type { Posted } from './resolver.js';
+import type { LayerPiece } from './listings.js';
+import { layerByHash } from './render.js';
+import type { Library, Posted } from './resolver.js';
 
 /**
  * The owner's gold on a problem, posted after publishing or at it: each answer projected to the piece's agreed fields
@@ -79,4 +81,50 @@ export async function revealGold(door: Door, problem: Hash, piece: Hash): Promis
   const layer = posted.at ? await door.layerOf(problem, posted.at) : null;
   const outcome = layer?.find((l) => l.hash === piece)?.gold ?? null;
   return { id: eventId(event), ...posted, name: kept.name, outcome };
+}
+
+/** A piece whose gold is due: committed from this home, accepted as the tracker holds it, and not yet revealed. */
+export interface GoldDue { problem: Hash; piece: Hash; name: string }
+
+/** The states in which the gold on a piece is due: an accepting set stands, so a match verifies it and a miss strikes it (QX-16 section 3). */
+export const GOLD_DUE_STATES: readonly string[] = ['accepted_provisional', 'accepted', 'challenged'];
+
+/** The pieces of a problem whose gold is due, from the library and the tracker's layer over the problem. */
+export function goldDue(library: Library, problem: Hash, over: Map<Hash, LayerPiece>): GoldDue[] {
+  const due: GoldDue[] = [];
+  for (const [piece, g] of Object.entries(library.gold?.[problem] ?? {})) {
+    const l = over.get(piece as Hash);
+    if (l && !l.gold && !g.revealed && GOLD_DUE_STATES.includes(l.state)) due.push({ problem, piece: piece as Hash, name: g.name });
+  }
+  return due;
+}
+
+/** One piece of a run: what the tracker decided on the reveal, or why the reveal was not posted. */
+export interface Revealed extends GoldDue { outcome: string | null; error: string | null }
+
+/**
+ * The owner's reveals, run with nobody asked: every problem this home holds gold on is read from its tracker, and each
+ * piece whose gold is due is revealed in turn, so a square verifies and the coin mints on it without anyone remembering.
+ * The away turn runs this every hour and `quilt gold reveal` with no piece runs it once. A reveal the tracker refuses is
+ * recorded with its reason and left for the next run; a tracker that does not answer leaves its problem for the next
+ * run too. With `post` false the due pieces are listed and nothing is posted.
+ */
+export async function revealDue(door: Door, post = true): Promise<Revealed[]> {
+  const out: Revealed[] = [];
+  for (const problem of Object.keys(door.library.gold ?? {}).filter((h) => isHash(h)) as Hash[]) {
+    const layer = await door.firstAnswer(door.trackersFor(problem), (t) => door.layerOf(problem, t));
+    for (const d of goldDue(door.library, problem, layerByHash(layer))) {
+      if (!post) {
+        out.push({ ...d, outcome: null, error: null });
+        continue;
+      }
+      try {
+        const r = await revealGold(door, problem, d.piece);
+        out.push({ ...d, outcome: r.outcome, error: null });
+      } catch (e) {
+        out.push({ ...d, outcome: null, error: (e as Error).message });
+      }
+    }
+  }
+  return out;
 }

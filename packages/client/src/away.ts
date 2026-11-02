@@ -9,12 +9,15 @@
  * (away.json) that the connector reads and writes, so a run that got past the driver still stops at the cap, and the
  * claim's `can` leaves out `person` (config.ts), so a piece that wants a person is not offered. The schedule is a
  * launchd user agent on a Mac and a crontab line elsewhere. Every run is appended to away.log beside the record.
+ * Before the agent, and whether or not one is here, a turn reveals the owner's gold that has come due (QX-16, gold.ts):
+ * that needs no model, and it is what a square verifies and the coin mints on.
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { accessSync, appendFileSync, constants, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { isHash } from '@bitquilt/core';
+import type { Revealed } from './gold.js';
 import type { ServerEntry } from './install.js';
 import { parseLink } from './link.js';
 import { inParallel } from './pool.js';
@@ -295,9 +298,11 @@ export interface TurnOptions {
   codexConfig?: string;
   timeoutMs?: number;
   now?: () => Date;
+  /** The Quilt over this home, for the owner's gold due (QX-16); the gold step is skipped when left out. */
+  quilt?: () => Quilt;
 }
 
-/** One turn: whether an agent ran, which, how it ended, how many pieces the record gained, what the agent said last, and the line appended to the log. */
+/** One turn: whether an agent ran, which, how it ended, how many pieces the record gained, what the agent said last, the gold revealed, and the line appended to the log. */
 export interface Turn {
   ran: boolean;
   agent: Agent | null;
@@ -306,19 +311,47 @@ export interface Turn {
   timedOut: boolean;
   returned: number;
   said: string | null;
+  /** The owner's gold revealed this turn, each with what the tracker decided or why it was refused. */
+  gold: Revealed[];
   line: string;
   record: AwayRecord;
 }
 
+/** The turn's reveals in a few words for the log: how many were posted, what the tracker decided, and how many it refused; nothing when there were none. */
+export function goldText(gold: readonly Revealed[]): string {
+  if (gold.length === 0) return '';
+  const posted = gold.filter((g) => !g.error);
+  const count = (outcome: string) => posted.filter((g) => g.outcome === outcome).length;
+  const undecided = posted.length - count('match') - count('miss');
+  const parts = [count('match') ? `${count('match')} match` : '', count('miss') ? `${count('miss')} miss` : '', undecided ? `${undecided} undecided` : ''].filter(Boolean);
+  const refused = gold.length - posted.length;
+  return `gold: ${posted.length} revealed${parts.length ? ` (${parts.join(', ')})` : ''}${refused ? `, ${refused} refused` : ''}`;
+}
+
 /**
- * One turn: nothing when today's cap is reached or no agent CLI is here; else the run recorded, the agent run with
- * the connector under the cap, and a line in away.log saying how it went.
+ * One turn: the owner's gold due revealed first (QX-16), whether or not an agent runs; then nothing when today's cap is
+ * reached or no agent CLI is here; else the run recorded, the agent run with the connector under the cap, and a line in
+ * away.log saying how it went.
  */
 export async function awayTurn(o: TurnOptions): Promise<Turn> {
   const now = o.now ?? (() => new Date());
   const file = join(o.home, AWAY_FILE);
+  const log = join(o.home, AWAY_LOG);
+  let gold: Revealed[] = [];
+  if (o.quilt) {
+    try {
+      gold = await o.quilt().revealDue();
+    } catch (e) {
+      appendFileSync(log, `${now().toISOString()} gold: not run (${oneLine((e as Error).message, 200)})\n`);
+    }
+  }
+  const goldSaid = goldText(gold);
   const before = readAway(file, now());
-  const none = (line: string): Turn => ({ ran: false, agent: null, model: null, code: null, timedOut: false, returned: 0, said: null, line, record: before });
+  const none = (why: string): Turn => {
+    const line = goldSaid ? `${why} ${goldSaid}` : why;
+    if (goldSaid) appendFileSync(log, `${now().toISOString()} ${line}\n`);
+    return { ran: false, agent: null, model: null, code: null, timedOut: false, returned: 0, said: null, gold, line, record: before };
+  };
   if (capReached(before)) return none(capText(before));
   const dirs = o.dirs ?? searchDirs(o.env);
   const agent = findAgent(dirs, o.exists);
@@ -336,10 +369,10 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
   const returned = Math.max(0, after.returned - before.returned);
   const seconds = Math.round((now().getTime() - started.getTime()) / 1000);
   const ended = run.timedOut ? `stopped after ${seconds}s` : `exit ${run.code} in ${seconds}s`;
-  const line = `${started.toISOString()} ${agent.name} (${inv.model}) ${ended}; returned ${returned} (${after.returned} of ${after.cap} today)${said ? `; said: ${oneLine(said, 300)}` : ''}`;
+  const line = `${started.toISOString()} ${agent.name} (${inv.model}) ${ended}; returned ${returned} (${after.returned} of ${after.cap} today)${goldSaid ? `; ${goldSaid}` : ''}${said ? `; said: ${oneLine(said, 300)}` : ''}`;
   const failed = run.timedOut || run.code !== 0;
-  appendFileSync(join(o.home, AWAY_LOG), [line, ...(failed ? [oneLine(run.stderr || run.stdout, 2000)] : [])].join('\n') + '\n');
-  return { ran: true, agent, model: inv.model, code: run.code, timedOut: run.timedOut, returned, said, line, record: after };
+  appendFileSync(log, [line, ...(failed ? [oneLine(run.stderr || run.stdout, 2000)] : [])].join('\n') + '\n');
+  return { ran: true, agent, model: inv.model, code: run.code, timedOut: run.timedOut, returned, said, gold, line, record: after };
 }
 
 // The schedule

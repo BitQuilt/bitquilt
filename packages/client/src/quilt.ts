@@ -521,11 +521,8 @@ export class Quilt {
         const [panels, challenges] = await Promise.all([this.panels(problem, tracker), this.challenges(problem, tracker)]);
         for (const p of panels) if (p.outcome === 'open' && p.seats.some((s) => s.root === me && s.lapsed_at === null && !s.rank)) item(p.piece, p.name, 'rank');
         for (const c of challenges) if (c.outcome === 'open' && c.seats.some((s) => s.root === me && s.lapsed_at === null && !s.verdict)) item(c.piece, c.name, 'verdict');
-        // QX-16: a piece this key committed gold on, accepted and not yet revealed, as the tracker holds it.
-        for (const [piece, g] of Object.entries(this.library.gold?.[problem] ?? {})) {
-          const l = over.get(piece as Hash);
-          if (l && !l.gold && !g.revealed && ['accepted_provisional', 'accepted', 'challenged'].includes(l.state)) item(piece as Hash, g.name, 'gold');
-        }
+        // QX-16: a piece this key committed gold on, accepted and not yet revealed, as the tracker holds it (gold.ts, goldDue).
+        for (const d of gold.goldDue(this.library, problem, over)) item(d.piece, d.name, 'gold');
       }
       for (const v of state.pieces) {
         const st = over.get(v.piece.hash)?.state ?? v.state;
@@ -777,5 +774,10 @@ export class Quilt {
   /** The owner's reveal of the gold on a piece, and what the tracker decided (gold.ts, `revealGold`). */
   revealGold(problem: Hash, piece: Hash): Promise<Posted & { id: Hash; name: string; outcome: string | null }> {
     return gold.revealGold(this.door, problem, piece);
+  }
+
+  /** The owner's reveals run with nobody asked: every piece whose gold is due, revealed in turn, or with `post` false listed with nothing posted (gold.ts, `revealDue`). */
+  revealDue(post = true): Promise<gold.Revealed[]> {
+    return gold.revealDue(this.door, post);
   }
 }
