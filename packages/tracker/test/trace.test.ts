@@ -238,6 +238,13 @@ describe('a seam decides itself (section 4)', () => {
     expect(pooled.seams[0]!.sides.map((side) => side.aside)).toEqual([false, true]);
     // A word other than verify is refused.
     expect((await fetch(`${t.base}/p/${pp}/next?key=${addr(B)}&can=web&model=openai/gpt-5&only=all`)).status).toBe(400);
+    // B reads again with the seam in hand, rests the reading on the record this time, and still differs: the layer calls
+    // the piece disputed between the two readings that stand, and the seam is theirs, B's first still set aside.
+    const rb = await returnedOn(pp, x, B, 'openai/gpt-5', 'contradicts');
+    await accepted(`/p/${pp}/events`, rested(B, pp, x, rb, span(PAGE, NOT_AT_SCALE)));
+    const s = await stateOf(pp, x);
+    expect(s).toMatchObject({ state: 'disputed', core: 'disputed', aside: [addr(B)] });
+    expect(s.seams).toMatchObject([{ field: 'verdict', why: 'span', sides: [{ key: addr(A), passage: HOLDS, aside: false }, { key: addr(B), passage: NOT_AT_SCALE, aside: false }] }]);
   });
 
   it('hands nothing on a problem its owner replaced with a newer version, says so in the state, and leaves it out of the index', async () => {

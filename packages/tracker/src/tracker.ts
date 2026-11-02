@@ -23,7 +23,7 @@ import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems } from './g
 import { type CoinLayer, type CoinLockView, type CoinParams, type CoinWord, COIN, COIN_EVENTS, COIN_LOG, coinLayer } from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
 import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
-import { BLOB_MAX, type PieceTraces, TRACE, TRACE_EVENTS, admitTrace, pieceTraces } from './trace.js';
+import { BLOB_MAX, type PieceTraces, type Seam, TRACE, TRACE_EVENTS, admitTrace, pieceTraces } from './trace.js';
 import type { Store } from './store.js';
 
 /** The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under. */
@@ -693,14 +693,28 @@ export function createTracker(options: TrackerOptions): Tracker {
   }
 
   /**
-   * QX-19: each piece's traces and the seams of a disputed piece over the core's fold, where both readings stand, and
-   * the square's grade over the layer's, whose accepting set is the one that counts; the passages from this store's blobs.
+   * QX-19 section 4: a piece's seams, between the readings that stand. Over the layer's fold where it still calls the
+   * piece disputed, so a key that read again with grounds after its first reading was set aside is a side, not the
+   * reading set aside; over the core's fold where the layer has set a reading aside, so the seam shows which; none where
+   * neither calls the piece disputed.
+   */
+  function seamsOf(pl: ProblemLayer, receipts: Receipt[], hash: Hash): Seam[] {
+    const layered = pl.fold.byHash.get(hash);
+    if (layered?.state === 'disputed') return pieceTraces(pl.fold, layered, receipts, blobLength, passageOf).seams;
+    const core = pl.core.byHash.get(hash);
+    return core?.state === 'disputed' ? pieceTraces(pl.core, core, receipts, blobLength, passageOf).seams : [];
+  }
+
+  /**
+   * QX-19: each piece's traces as the door kept them, over the core's fold; its seams between the readings that stand
+   * (`seamsOf`); and the square's grade over the layer's fold, whose accepting set is the one that counts; the passages
+   * from this store's blobs.
    */
   function tracesOf(hash: Hash, pl: ProblemLayer): Map<Hash, PieceTraces> {
     const receipts = inputFor(hash)!.receipts;
     return new Map(pl.fold.pieces.map((v) => {
       const core = pieceTraces(pl.core, pl.core.byHash.get(v.piece.hash) ?? v, receipts, blobLength, passageOf);
-      return [v.piece.hash, { ...core, traced: pieceTraces(pl.fold, v, receipts, blobLength, passageOf).traced }];
+      return [v.piece.hash, { ...core, seams: seamsOf(pl, receipts, v.piece.hash), traced: pieceTraces(pl.fold, v, receipts, blobLength, passageOf).traced }];
     }));
   }
 
@@ -851,9 +865,8 @@ export function createTracker(options: TrackerOptions): Tracker {
     }
     const { kind, stake } = pl.byHash.get(pick.piece.hash)!;
     holdFor(hash, pick.piece.hash, key, at);
-    // QX-19 section 4: a piece whose two readings differ goes out with its seams as the core's fold shows them, whether the layer still calls it disputed or has set one reading aside, so the next reader sees what the standing reading rests on.
-    const coreView = pl.core.byHash.get(pick.piece.hash);
-    const seams = coreView?.state === 'disputed' ? pieceTraces(pl.core, coreView, input.receipts, blobLength, passageOf).seams : [];
+    // QX-19 section 4: a piece whose readings differ goes out with its seams between the readings that stand, whether the layer still calls it disputed or has set one reading aside, so the next reader sees what each rests on.
+    const seams = seamsOf(pl, input.receipts, pick.piece.hash);
     json(res, 200, {
       piece: pick.piece.hash, name: pick.piece.name, state: pick.state, brief: pick.brief, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h,
       verifier: pick.piece.verifier, kind: kind.kind, extension: kind.extension, strength: kind.strength, says: kind.says, weakest: kind.weakest, workspace: pick.piece.workspace ?? null, check: pick.piece.check ?? null,
