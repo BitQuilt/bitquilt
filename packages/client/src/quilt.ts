@@ -341,7 +341,8 @@ export class Quilt {
     const now = this.stamp();
     const trackers = this.trackersFor(resolved.hash, [...(resolved.tracker ? [resolved.tracker] : []), ...link.trackers]);
     const entry = this.library.problems[resolved.hash];
-    this.library.problems[resolved.hash] = { title: state.envelope.problem.title, slug: state.envelope.problem.slug, trackers, first: entry?.first ?? now, last: now, ...(entry?.next ? { next: entry.next } : {}) };
+    // The rest of the entry stays: the version it was replaced by, its topics, and the mark of the last announce (QX-13 section 3).
+    this.library.problems[resolved.hash] = { ...entry, title: state.envelope.problem.title, slug: state.envelope.problem.slug, trackers, first: entry?.first ?? now, last: now };
     this.save();
     const st = resolved.tracker ? await this.trackerState(resolved.hash, resolved.tracker) : null;
     const scrape = resolved.tracker ? await this.scrapeOf(resolved.hash, resolved.tracker) : null;

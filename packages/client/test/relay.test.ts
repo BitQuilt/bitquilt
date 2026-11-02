@@ -94,6 +94,8 @@ describe('discovery over relays (QX-14)', () => {
     await new Promise<void>((resolve) => { ws.addEventListener('open', () => { ws.send(JSON.stringify(['EVENT', later])); }); ws.addEventListener('message', () => { ws.close(); resolve(); }); });
     expect(relay.events.size).toBe(1);
     expect([...relay.events.values()][0]!.id).toBe(later.id);
+    // That event is dated a minute ahead, and a relay keeps the latest, so an announce made now could not replace it; put the present one back.
+    relay.events.set(`${good.pubkey}:${good.kind}:${problem}`, good);
   });
   it('states the owner, the fork, the pieces, the counts and the work at publish (QX-13)', () => {
     const ev = [...relay.events.values()][0]!;
