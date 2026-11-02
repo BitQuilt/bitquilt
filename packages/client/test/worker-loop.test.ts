@@ -63,6 +63,10 @@ describe('the workers\' shared loop', () => {
     expect(traceSaid({ posted: { queued: false, at: 'http://t/' }, reads: 1, rested: ['verdict'], missing: [] })).toBe(', trace posted: verdict on 1 read');
     expect(traceSaid({ posted: null, reads: 0, rested: [], missing: [{ field: 'verdict', url: 'u', why: 'the page answered 404' }] })).toBe(', no trace (left out: verdict: the page answered 404)');
     expect(traceSaid({ posted: { queued: false, error: 'read 0: no such blob here; put it first' }, reads: 1, rested: ['verdict'], missing: [] })).toBe(', trace refused: read 0: no such blob here; put it first: verdict on 1 read');
+    // A passage the client could not place is named in the log by its first words and its page, so the miss can be read.
+    const miss = [{ field: 'verdict', url: 'https://example.org/a', why: 'the passage is not on the page as fetched' }];
+    expect(traceSaid({ posted: null, reads: 0, rested: [], missing: miss }, [{ field: 'verdict', url: 'https://example.org/a', passage: 'one two three four five six seven' }])).toBe(', no trace (left out: verdict: the passage is not on the page as fetched ("one two three four five six..." on example.org))');
+    expect(traceSaid({ posted: null, reads: 0, rested: [], missing: miss }, [{ field: 'other', url: 'https://example.org/a', passage: 'x' }])).toBe(', no trace (left out: verdict: the passage is not on the page as fetched)');
     expect(gateRefusal('return: no links or markup')).toBe('no links or markup');
     expect(gateRefusal('return: no contact details')).toBe('no contact details');
     expect(gateRefusal('the tracker did not answer')).toBeNull();
