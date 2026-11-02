@@ -113,6 +113,12 @@ export class Store {
     return row ? new Uint8Array(row.bytes) : null;
   }
 
+  /** How many bytes a blob has, without reading it, or null where this store has none: what a trace's spans are measured against (QX-19). */
+  blobLength(hash: Hash): number | null {
+    const row = this.db.prepare('select length(bytes) as n from blobs where hash = ?').get(hash) as { n: number } | undefined;
+    return row ? row.n : null;
+  }
+
   /** The blobs a chain of envelopes names, those this store holds. */
   blobsFor(chain: Envelope[]): Map<Hash, Uint8Array> {
     const m = new Map<Hash, Uint8Array>();
