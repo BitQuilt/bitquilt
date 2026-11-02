@@ -282,7 +282,7 @@ quilt:0x4e5f…/safety-report-2026?tr=https://workshop.example/
 https://workshop.example/p/sha256:9f3a…
 ```
 
-The first names an exact version. The second names a problem by its owner and slug and resolves to the latest `version` event the owner signed. The third is the HTTPS form, which is also the tracker's endpoint, and is what people paste into a chat or a browser. The connector recognises all three. Resolution order: the link's hints, the client's own tracker list, its mirror list, its cache. The scheme is `quilt:`.
+The first names an exact version. The second names a problem by its owner and slug and resolves to the latest `version` event the owner signed. The third is the HTTPS form, which is also the tracker's endpoint, and is what people paste into a chat or a browser. The connector recognises all three. Resolution order: the link's hints, the client's own tracker list, its mirror list, its cache, and then the relays (QX-14), asked for the problem's announcements by its hash, whose hints are asked in turn. The scheme is `quilt:`.
 
 ## The tracker
 
