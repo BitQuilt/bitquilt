@@ -15,4 +15,4 @@ export interface Rest { field: string; url: string; passage: string }
 export const RESTS: { type: 'array'; items: { type: 'object'; additionalProperties: false; required: string[]; properties: Record<string, { type: 'string' }> } };
 export const REST_ASK: string;
 export function takeRests(answer: Record<string, unknown>): Rest[];
-export function traceSaid(t: { posted: { queued: boolean; at?: string; error?: string } | null; reads: number; rested: string[]; missing: { field: string; url: string; why: string }[] } | null): string;
+export function traceSaid(t: { posted: { queued: boolean; at?: string; error?: string } | null; reads: number; rested: string[]; missing: { field: string; url: string; why: string }[] } | null, rests?: Rest[]): string;

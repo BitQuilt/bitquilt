@@ -117,9 +117,18 @@ export function takeRests(answer) {
 }
 
 /** The trace in the log line: where it went, what rests on what, and what was left out and why; nothing where no rests were given. */
-export function traceSaid(t) {
+/** The first words of a passage the client could not place, with the page's host, so a miss in the log says what the model handed over. */
+function leftOut(m, rests) {
+  const rest = rests.find((r) => r.field === m.field && r.url === m.url);
+  if (!rest) return '';
+  const words = rest.passage.trim().split(/\s+/);
+  let host = rest.url;
+  try { host = new URL(rest.url).hostname; } catch {}
+  return ` ("${words.slice(0, 6).join(' ')}${words.length > 6 ? '...' : ''}" on ${host})`;
+}
+export function traceSaid(t, rests = []) {
   if (!t) return '';
-  const left = t.missing.length ? ` (left out: ${t.missing.map((m) => `${m.field}: ${m.why}`).join('; ')})` : '';
+  const left = t.missing.length ? ` (left out: ${t.missing.map((m) => `${m.field}: ${m.why}${leftOut(m, rests)}`).join('; ')})` : '';
   if (!t.posted) return `, no trace${left}`;
   return `, trace ${t.posted.queued ? 'queued' : t.posted.error ? `refused: ${t.posted.error}` : 'posted'}: ${t.rested.join(', ')} on ${t.reads} read${t.reads === 1 ? '' : 's'}${left}`;
 }
@@ -194,7 +203,7 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
         if (!quoteOk(answer)) answer = await ask({ piece, schema, evidence, note: 'Your previous quote was not found verbatim in the evidence, or ran over 25 words; copy the words exactly as they appear.', model: o.model, key });
         answer = fit(piece, plain(answer));
         // QX-19: what each field rests on goes beside the return, not in it; the CLI fetches the pages and posts the trace.
-        const rests = takeRests(answer);
+        let rests = takeRests(answer);
         let r;
         try {
           r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer), JSON.stringify(rests)));
@@ -209,9 +218,10 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
             : `Your previous answer was refused by the tracker: ${misshapen}. Answer again with every field in the shape the schema asks, a date as YYYY-MM-DD.`;
           answer = fit(piece, plain(await ask({ piece, schema, evidence, note, model: o.model, key })));
           const again = takeRests(answer);
-          r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer), JSON.stringify(again.length ? again : rests)));
+          if (again.length) rests = again;
+          r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer), JSON.stringify(rests)));
         }
-        console.log(`${piece.name}: ${JSON.stringify(answer)} -> commit ${r.commit.queued ? 'queued' : 'posted'}, reveal ${r.reveal.queued ? 'queued' : 'posted'}${answer.quote && !quoteOk(answer) ? ' (quote not verbatim)' : ''}${traceSaid(r.trace)}`);
+        console.log(`${piece.name}: ${JSON.stringify(answer)} -> commit ${r.commit.queued ? 'queued' : 'posted'}, reveal ${r.reveal.queued ? 'queued' : 'posted'}${answer.quote && !quoteOk(answer) ? ' (quote not verbatim)' : ''}${traceSaid(r.trace, rests)}`);
       } catch (e) {
         console.log(`${piece.name}: not returned: ${lastLine(e)}`);
         break;
