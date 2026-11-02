@@ -11,7 +11,7 @@
  */
 import { type Address, type Hash, type Pick, type PieceView, type Receipt, type State, agreeFields, canonical, returnsAgree, textIssues } from '@bitquilt/core';
 import { makeLink } from './link.js';
-import type { ChallengeListing, GoldCount, KindWords, LayerPiece, Opened, PanelListing, Witness } from './listings.js';
+import type { ChallengeListing, GoldCount, KindWords, LayerPiece, Opened, PanelListing, Seam, SeamSide, Witness } from './listings.js';
 
 /** Each state in the words the legend uses, in the legend's order: the core's ten, then the two the layer adds, then the mark for a kind nobody here implements. */
 export const STATE_WORDS: Record<string, string> = {
@@ -235,6 +235,7 @@ export function acceptedText(state: State, layer: LayerPiece[] | null = null, wi
   const over = layerByHash(layer);
   const lines: string[] = [];
   let anyWitness = false;
+  let anyTraced = false;
   const who = (piece: Hash, key: string, root: string): string => {
     const w = witnessed.get(witnessKey(piece, key));
     if (w) anyWitness = true;
@@ -242,8 +243,11 @@ export function acceptedText(state: State, layer: LayerPiece[] | null = null, wi
   };
   for (const v of state.pieces) {
     if (v.accepting) {
-      const verified = over.get(v.piece.hash)?.verified ? ' (verified: the set agreed with the answer the owner committed to before the work)' : '';
-      if (v.accepting.kind === 'agree') for (const r of v.accepting.reveals) lines.push(`${v.piece.name}${verified}, ${who(v.piece.hash, r.key, r.root)} returned: ${canonical(r.return)}`);
+      const l = over.get(v.piece.hash);
+      const verified = l?.verified ? ' (verified: the set agreed with the answer the owner committed to before the work)' : '';
+      const rests = tracedWords(l?.traced);
+      if (rests) anyTraced = true;
+      if (v.accepting.kind === 'agree') for (const r of v.accepting.reveals) lines.push(`${v.piece.name}${verified}${rests}, ${who(v.piece.hash, r.key, r.root)} returned: ${canonical(r.return)}`);
       else lines.push(`${v.piece.name}${verified}, ${who(v.piece.hash, v.accepting.patch.key, v.accepting.patch.root)} returned a patch of ${(v.accepting.patch.return.patch as string).length} characters, run by ${v.accepting.runs.map((r) => r.root).join(' and ')}`);
       continue;
     }
@@ -253,7 +257,29 @@ export function acceptedText(state: State, layer: LayerPiece[] | null = null, wi
     for (const r of v.reveals) lines.push(`${v.piece.name} (${l.verifier}; ${how}), ${who(v.piece.hash, r.key, r.root)} returned: ${canonical(r.return)}`);
   }
   if (anyWitness) lines.push('A witness is the tracker\'s word (QX-18): its hosted on-ramp saw the token behind that return come through the product\'s OAuth callback. It says the product made the calls, not who wrote the answer.');
+  if (anyTraced) lines.push('A kept read is what a return rests on (QX-19): a page\'s text under its hash and the span of it a field stands on, which anyone can fetch from the tracker and compare with the page.');
   return lines.length ? lines.join('\n') : 'Nothing accepted yet.';
+}
+
+/** QX-19: the grade of an accepted square in a few words, or nothing where the tracker gave none. */
+export function tracedWords(traced: LayerPiece['traced']): string {
+  return traced === 'both' ? ' (rests on kept reads on both sides)' : traced === 'one' ? ' (rests on kept reads on one side)' : traced === 'none' ? ' (rests on no kept read)' : '';
+}
+
+const SEAM_WHY: Record<Seam['why'], string> = { source: 'the two rest on different reads', span: 'the same read, at different places', reading: 'the same words, read two ways', unknown: 'one side rests on nothing kept' };
+
+/** One side of a seam as words: who, and the passage quoted where it passes the plain-text gate, else where to fetch it. */
+function sideWords(x: SeamSide, name: (key: string) => string): string {
+  const who = x.name ?? name(x.key);
+  if (!x.read || !x.span) return `${who} rests it on nothing kept`;
+  const where = `${x.read.url} (${x.read.hash}, bytes ${x.span[0]} to ${x.span[1]})`;
+  if (x.passage === null) return `${who} rests it on ${where}`;
+  return textIssues(x.passage).length ? `${who} rests it on a passage of ${x.span[1] - x.span[0]} bytes at ${where}, which does not pass the plain-text gate and is not shown here` : `${who} rests it on "${x.passage}" at ${where}`;
+}
+
+/** QX-19: the seams of a disputed piece, one line each: the field, why the two readings differ, and what each side rests on, quoted with its signer named. */
+export function seamsText(seams: readonly Seam[], name: (key: string) => string): string[] {
+  return seams.map((s) => `On ${s.field}, ${SEAM_WHY[s.why]}: ${sideWords(s.sides[0], name)}; ${sideWords(s.sides[1], name)}.`);
 }
 
 /**
@@ -273,6 +299,8 @@ export function disputedText(state: State, layer: LayerPiece[] | null = null, me
       const differ = agreeFields(schema, v.piece.agree).filter((f) => v.reveals.some((a, i) => v.reveals.slice(i + 1).some((b) => !returnsAgree(schema, [f], a.return, b.return))));
       if (differ.length) lines.push(`The returns differ on ${differ.join(', ')}.`);
     }
+    // QX-19: why they differ, from what each rests on, as the tracker read the traces.
+    lines.push(...seamsText(over.get(v.piece.hash)?.seams ?? [], (k) => nameOf(state, k)));
     for (const r of v.reveals) {
       const who = `${nameOf(state, r.root)} (${r.by.model})${mine(r.root) || mine(r.key) ? ', this key,' : ''}`;
       lines.push(`${who} returned: ${canonical(r.return)}`);

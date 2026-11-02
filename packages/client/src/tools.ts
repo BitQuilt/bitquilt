@@ -9,8 +9,9 @@ import type { Address, DeclineReason, Hash } from '@bitquilt/core';
 import { HOW_QUILT_WORKS } from './about.js';
 import type { Side } from './listings.js';
 import type { Pattern, Quilt } from './quilt.js';
-import { kindWords, sessionWitnessText } from './render.js';
+import { kindWords, seamsText, sessionWitnessText } from './render.js';
 import type { Posted } from './resolver.js';
+import { type RestAsked, traceText } from './trace.js';
 
 export interface ToolResult {
   text: string;
@@ -77,15 +78,20 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       return { text, handles: { problems: found.map((p) => p.problem) } };
     }
     case 'quilt_next': {
-      const { hash: h, pick, posted, owner, stake, lock } = await quilt.next(str('problem'));
+      const { hash: h, pick, posted, owner, stake, lock, seams } = await quilt.next(str('problem'));
       const locked = lock === 'coin' ? `, after a lock of ${stake} backed by coin on the coin log` : lock === 'standing' ? `, after a lock of ${stake}` : '';
-      const text = `${quilt.pieceText(h, pick, owner, stake)}\n${posted.queued ? 'The claim waits in the queue; no tracker answered.' : `The claim was posted to ${posted.at}${locked}.`}`;
+      // QX-19: a disputed piece comes with its seams, so the reader replays both sides before it reads.
+      const seamLines = seams.length ? `\n${seamsText(seams, (k) => k).join('\n')}` : '';
+      const text = `${quilt.pieceText(h, pick, owner, stake)}${seamLines}\n${posted.queued ? 'The claim waits in the queue; no tracker answered.' : `The claim was posted to ${posted.at}${locked}.`}`;
       const k = kindWords(pick.piece.verifier);
       return { text, handles: { problem: h, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: k.kind, strength: k.strength, weakest: k.weakest, requires: pick.requires, lease_h: pick.lease_h, agree: pick.agree, schema: pick.schema ?? null, stake, lock } };
     }
     case 'quilt_return': {
-      const r = await quilt.return(hash('problem'), hash('piece'), (input.return ?? {}) as Record<string, unknown>);
-      return { text: `Commit ${where(r.commit)}; reveal ${where(r.reveal)}. ${r.waits}`, handles: { problem: input.problem, piece: input.piece, commit: r.commit, reveal: r.reveal } };
+      // QX-19: the rests as given, each a field, a page and the words on it; anything else in the list is left out.
+      const rests = (Array.isArray(input.rests) ? input.rests : []).filter((x): x is RestAsked => !!x && typeof x === 'object' && typeof (x as RestAsked).field === 'string' && typeof (x as RestAsked).url === 'string' && typeof (x as RestAsked).passage === 'string');
+      const r = await quilt.return(hash('problem'), hash('piece'), (input.return ?? {}) as Record<string, unknown>, rests);
+      const traced = r.trace ? ` ${traceText(r.trace)}` : '';
+      return { text: `Commit ${where(r.commit)}; reveal ${where(r.reveal)}. ${r.waits}${traced}`, handles: { problem: input.problem, piece: input.piece, commit: r.commit, reveal: r.reveal, trace: r.trace ? { reads: r.trace.reads, rested: r.trace.rested, missing: r.trace.missing } : null } };
     }
     case 'quilt_decline': {
       // One of the core's DECLINE_REASONS; `decline` refuses any other before it is signed.
