@@ -49,7 +49,9 @@ export function readPiece(text) {
 function fieldSchema(def) {
   if (def.enum) return { type: 'string', enum: def.enum };
   if (def.type === 'array') return { type: 'array', items: fieldSchema(def.items ?? {}), ...(def.maxItems ? { maxItems: def.maxItems } : {}) };
-  return { type: def.type === 'integer' ? 'integer' : def.type === 'number' ? 'number' : def.type === 'boolean' ? 'boolean' : 'string' };
+  const type = def.type === 'integer' ? 'integer' : def.type === 'number' ? 'number' : def.type === 'boolean' ? 'boolean' : 'string';
+  // A date field says its shape in words, since the tracker holds it to YYYY-MM-DD and a model told nothing writes dates every way.
+  return def.format === 'date' ? { type, description: 'A date as YYYY-MM-DD' } : { type };
 }
 
 /** The JSON schema the answer takes, from the piece's own fields: every field given, nothing else, each in the shape the piece names. */
@@ -122,6 +124,12 @@ export function traceSaid(t) {
   return `, trace ${t.posted.queued ? 'queued' : t.posted.error ? `refused: ${t.posted.error}` : 'posted'}: ${t.rested.join(', ')} on ${t.reads} read${t.reads === 1 ? '' : 's'}${left}`;
 }
 
+/** What the tracker's schema check refused, from the CLI's last line ("the tracker refused the reveal: return.date: a date, YYYY-MM-DD"); null when it stopped for another reason. */
+export function schemaRefusal(said) {
+  const m = /the tracker refused the reveal: (return\.[^\n]+)/.exec(said);
+  return m ? m[1] : null;
+}
+
 /** What the gate refused, from the CLI's last line ("return: no links or markup"); null when the CLI stopped for another reason. */
 export function gateRefusal(said) {
   const m = /no (links or markup|contact details|instructions to other machines|shouting)/.exec(said);
@@ -191,12 +199,17 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
         try {
           r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer), JSON.stringify(rests)));
         } catch (e) {
-          const refused = gateRefusal(lastLine(e));
-          if (!refused) throw e;
-          // The gate refused what the scrub let through: the model is told what the tracker said, once.
-          answer = fit(piece, plain(await ask({ piece, schema, evidence, note: `Your previous answer was refused by the tracker: ${refused}. Name every source by its title and its id in words, with no web address, no markup and no contact details.`, model: o.model, key })));
-          takeRests(answer);
-          r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer), JSON.stringify(rests)));
+          const said = lastLine(e);
+          const refused = gateRefusal(said);
+          const misshapen = schemaRefusal(said);
+          if (!refused && !misshapen) throw e;
+          // The gate refused what the scrub let through, or a field was not in the shape the schema asks: the model is told what the tracker said, once.
+          const note = refused
+            ? `Your previous answer was refused by the tracker: ${refused}. Name every source by its title and its id in words, with no web address, no markup and no contact details.`
+            : `Your previous answer was refused by the tracker: ${misshapen}. Answer again with every field in the shape the schema asks, a date as YYYY-MM-DD.`;
+          answer = fit(piece, plain(await ask({ piece, schema, evidence, note, model: o.model, key })));
+          const again = takeRests(answer);
+          r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer), JSON.stringify(again.length ? again : rests)));
         }
         console.log(`${piece.name}: ${JSON.stringify(answer)} -> commit ${r.commit.queued ? 'queued' : 'posted'}, reveal ${r.reveal.queued ? 'queued' : 'posted'}${answer.quote && !quoteOk(answer) ? ' (quote not verbatim)' : ''}${traceSaid(r.trace)}`);
       } catch (e) {

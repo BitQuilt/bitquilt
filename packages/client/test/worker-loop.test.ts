@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { textIssues } from '@bitquilt/core';
-import { REST_ASK, RESTS, gateRefusal, instruction, parseArgs, plain, question, readPiece, schemaOf, takeRests, traceSaid } from '../../../examples/worker-loop.mjs';
+import { REST_ASK, RESTS, gateRefusal, instruction, parseArgs, plain, question, readPiece, schemaOf, schemaRefusal, takeRests, traceSaid } from '../../../examples/worker-loop.mjs';
 
 /**
  * The loop the workers with no person beside them share (examples/worker-loop.mjs): the flags, the piece read from
@@ -21,6 +21,13 @@ describe('the workers\' shared loop', () => {
     expect(rests).toEqual(RESTS);
     expect({ ...schemaOf(piece), properties }).toEqual({ type: 'object', additionalProperties: false, required: ['sex', 'age', 'quote', 'covers', 'rests'], properties: { sex: { type: 'string', enum: ['male', 'female', 'unknown'] }, age: { type: 'integer' }, quote: { type: 'string' }, covers: { type: 'array', maxItems: 4, items: { type: 'string', enum: ['a', 'b'] } } } });
     expect(readPiece('nothing like a piece')).toBeNull();
+    // A date field says its shape in words, since the tracker holds it to YYYY-MM-DD.
+    const dated = readPiece('Piece d/1 (sha256:ab) x\nThe author wrote this brief: "When."\nThe return is an object with these fields: {"when":{"format":"date","maxLength":10,"type":"string"},"note":{"type":"string"}}; required: when; agreement is on: when.\n')!;
+    expect(schemaOf(dated).properties.when).toEqual({ type: 'string', description: 'A date as YYYY-MM-DD' });
+    expect(schemaOf(dated).properties.note).toEqual({ type: 'string' });
+    expect(schemaRefusal('the tracker refused the reveal: return.last_action_date: a date, YYYY-MM-DD')).toBe('return.last_action_date: a date, YYYY-MM-DD');
+    expect(schemaRefusal('return: no links or markup')).toBeNull();
+    expect(schemaRefusal('nothing for this key on that problem right now')).toBeNull();
   });
   it('gives the model the brief as quoted words, the evidence when there is one, else what to do without it, and the fields', () => {
     const piece = readPiece('Piece a/1 (sha256:ab) x\nThe author wrote this brief: "Find the date."\nThe return is an object with these fields: {"date":{"type":"string"}}; required: date; agreement is on: date.\n')!;
