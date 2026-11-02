@@ -114,11 +114,9 @@ function whyOf(a: SeamSide, b: SeamSide): SeamWhy {
 
 /**
  * A piece's traces in receipt order, each held to section 1 as the door holds it, so a ledger another door admitted
- * reads the same; the square's grade (section 3); and, where the piece is disputed, its seams, pair by pair, and the
- * reveals to set aside: in each pair, the side that rests on nothing on every field the two differ on, where the other
- * rests on a kept read on each (section 4). `passage` reads a span of a blob as text, or null where the blob is not here.
+ * reads the same. Over the fold the door reduces, the core's: a trace names a reveal, and the core's fold has them all.
  */
-export function pieceTraces(fold: State, view: PieceView, receipts: Receipt[], blobLength: (hash: Hash) => number | null, passage: (hash: Hash, span: [number, number]) => string | null): PieceTraces {
+export function tracesKept(view: PieceView, receipts: Receipt[], blobLength: (hash: Hash) => number | null): TraceView[] {
   const traces: TraceView[] = [];
   const ordered = receipts.map((r) => ({ r, at: earliestReceipt(r) ?? '' })).sort((x, y) => x.at.localeCompare(y.at));
   for (const { r, at } of ordered) {
@@ -128,60 +126,87 @@ export function pieceTraces(fold: State, view: PieceView, receipts: Receipt[], b
     const b = e.body as unknown as TraceBody;
     traces.push({ id: eventId(e), key: e.key, at, reveal: b.reveal, reads: b.reads, rests: b.rests });
   }
+  return traces;
+}
+
+/** The trace on a reveal, by the reveal's key and time, or null; and the rest a trace gives a field, or null. */
+function matching(view: PieceView, receipts: Receipt[], traces: readonly TraceView[]): { byId: Map<Hash, Reveal>; traceOf: (rv: Reveal) => TraceView | null; restFor: (t: TraceView | null, field: string) => Rest | null } {
   const byId = revealsById(view, receipts);
-  const traceOf = (rv: Reveal): TraceView | null => traces.find((t) => {
-    const k = byId.get(t.reveal);
-    return k !== undefined && k.key === rv.key && k.at === rv.at;
-  }) ?? null;
+  return {
+    byId,
+    traceOf: (rv) => traces.find((t) => {
+      const k = byId.get(t.reveal);
+      return k !== undefined && k.key === rv.key && k.at === rv.at;
+    }) ?? null,
+    restFor: (t, field) => t?.rests.find((x) => x.field === field) ?? null,
+  };
+}
+
+/**
+ * The square's grade (section 3), over the fold whose accepting set counts: `both`, `one` or `none` of its reveals rest
+ * every agreed field on a kept read; null where no two reveals accept the piece.
+ */
+export function graded(view: PieceView, receipts: Receipt[], traces: readonly TraceView[]): Traced | null {
+  if (view.accepting?.kind !== 'agree') return null;
+  const { traceOf, restFor } = matching(view, receipts, traces);
   const fields = view.piece.schema ? agreeFields(view.piece.schema, view.piece.agree) : [];
-  const restFor = (t: TraceView | null, field: string): Rest | null => t?.rests.find((x) => x.field === field) ?? null;
-  const tracedReveal = (rv: Reveal): boolean => {
+  const n = view.accepting.reveals.filter((rv) => {
     const t = traceOf(rv);
     return t !== null && fields.every((f) => restFor(t, f) !== null);
-  };
-  let traced: Traced | null = null;
-  if (view.accepting?.kind === 'agree') {
-    const n = view.accepting.reveals.filter(tracedReveal).length;
-    traced = n === 2 ? 'both' : n === 1 ? 'one' : 'none';
-  }
+  }).length;
+  return n === 2 ? 'both' : n === 1 ? 'one' : 'none';
+}
+
+/**
+ * Where the fold calls the piece disputed, its seams, pair by pair, and the reveals to set aside (section 4): in each
+ * pair, the side that rests on nothing on every field the two differ on, where the other rests on a kept read on each,
+ * loses; mixed, neither does. A reading that loses any pair is set aside, and every seam it is a side of says so.
+ * `passage` reads a span of a blob as text, or null where the blob is not here.
+ */
+export function seamed(fold: State, view: PieceView, receipts: Receipt[], traces: readonly TraceView[], passage: (hash: Hash, span: [number, number]) => string | null): { seams: Seam[]; aside: Hash[] } {
   const seams: Seam[] = [];
   const aside: Hash[] = [];
-  const pairs = view.state === 'disputed' ? disputingPairs(fold, view, fields) : [];
-  if (pairs.length && view.piece.schema) {
-    const schema = view.piece.schema;
-    const side = (rv: Reveal, field: string): SeamSide => {
-      const t = traceOf(rv);
-      const rest = restFor(t, field);
-      const read = rest && t ? t.reads[rest.read] ?? null : null;
-      return { key: rv.key, value: (rv.return as Record<string, unknown>)[field], read, span: rest ? rest.span : null, passage: rest && read ? passage(read.hash, rest.span) : null, aside: false };
-    };
-    // Section 4: a reading that rests on nothing loses to one that rests on the record. In each pair, the side with no
-    // rest on any field the two differ on, where the other side rests each on a kept read, loses; mixed, neither does.
-    // A reading that loses any pair is set aside, and every seam it is a side of says so.
-    const grounded = (s: SeamSide) => s.read !== null && s.span !== null;
-    const losers = new Set<Reveal>();
-    const owners: [Reveal, Reveal][] = [];
-    for (const pair of pairs) {
-      const own: Seam[] = [];
-      for (const f of fields) {
-        if (returnsAgree(schema, [f], pair[0].return, pair[1].return)) continue;
-        const a = side(pair[0], f);
-        const b = side(pair[1], f);
-        own.push({ field: f, why: whyOf(a, b), sides: [a, b] });
-      }
-      const loses = (i: 0 | 1) => own.length > 0 && own.every((s) => !grounded(s.sides[i]) && grounded(s.sides[i === 0 ? 1 : 0]));
-      if (loses(0)) losers.add(pair[0]);
-      else if (loses(1)) losers.add(pair[1]);
-      for (const s of own) {
-        seams.push(s);
-        owners.push(pair);
-      }
+  const schema = view.piece.schema;
+  if (!schema || view.state !== 'disputed') return { seams, aside };
+  const fields = agreeFields(schema, view.piece.agree);
+  const pairs = disputingPairs(fold, view, fields);
+  if (pairs.length === 0) return { seams, aside };
+  const { byId, traceOf, restFor } = matching(view, receipts, traces);
+  const side = (rv: Reveal, field: string): SeamSide => {
+    const t = traceOf(rv);
+    const rest = restFor(t, field);
+    const read = rest && t ? t.reads[rest.read] ?? null : null;
+    return { key: rv.key, value: (rv.return as Record<string, unknown>)[field], read, span: rest ? rest.span : null, passage: rest && read ? passage(read.hash, rest.span) : null, aside: false };
+  };
+  const grounded = (s: SeamSide) => s.read !== null && s.span !== null;
+  const losers = new Set<Reveal>();
+  const owners: [Reveal, Reveal][] = [];
+  for (const pair of pairs) {
+    const own: Seam[] = [];
+    for (const f of fields) {
+      if (returnsAgree(schema, [f], pair[0].return, pair[1].return)) continue;
+      const a = side(pair[0], f);
+      const b = side(pair[1], f);
+      own.push({ field: f, why: whyOf(a, b), sides: [a, b] });
     }
-    for (const [id, rv] of byId) if (losers.has(rv)) aside.push(id);
-    seams.forEach((s, i) => {
-      if (losers.has(owners[i]![0])) s.sides[0].aside = true;
-      if (losers.has(owners[i]![1])) s.sides[1].aside = true;
-    });
+    const loses = (i: 0 | 1) => own.length > 0 && own.every((s) => !grounded(s.sides[i]) && grounded(s.sides[i === 0 ? 1 : 0]));
+    if (loses(0)) losers.add(pair[0]);
+    else if (loses(1)) losers.add(pair[1]);
+    for (const s of own) {
+      seams.push(s);
+      owners.push(pair);
+    }
   }
-  return { traces, traced, seams, aside };
+  for (const [id, rv] of byId) if (losers.has(rv)) aside.push(id);
+  seams.forEach((s, i) => {
+    if (losers.has(owners[i]![0])) s.sides[0].aside = true;
+    if (losers.has(owners[i]![1])) s.sides[1].aside = true;
+  });
+  return { seams, aside };
+}
+
+/** The three over one fold: the traces kept, the grade, and the seams with the reveals to set aside. The layer's fold is asked this way (challenge.ts). */
+export function pieceTraces(fold: State, view: PieceView, receipts: Receipt[], blobLength: (hash: Hash) => number | null, passage: (hash: Hash, span: [number, number]) => string | null): PieceTraces {
+  const traces = tracesKept(view, receipts, blobLength);
+  return { traces, traced: graded(view, receipts, traces), ...seamed(fold, view, receipts, traces, passage) };
 }
