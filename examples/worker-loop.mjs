@@ -31,6 +31,17 @@ import { readFileSync } from 'node:fs';
 
 const SWITCHES = new Set(['--second-only', '--all']);
 
+/**
+ * A stop, as docker sends one when a deploy rebuilds the house (SIGTERM): the flag is read between pieces, so the piece
+ * in hand is finished and returned and no other is taken. Killed instead, a worker leaves a claim that stands for its
+ * lease with no reveal behind it.
+ */
+export function stopOn(signals = process) {
+  const stop = { asked: false };
+  signals.once('SIGTERM', () => { stop.asked = true; });
+  return stop;
+}
+
 /** The flags as every worker takes them: the problem and the evidence file by position, the rest named. */
 export function parseArgs(args, defaultModel) {
   const flag = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
@@ -188,6 +199,7 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
     console.error(`usage: ${keyName}=… node ${file} <problem hash> [evidence.txt] [--model m] [--max n] [--second-only]\n       ${keyName}=… node ${file} --all --second-only [--max n] [--model m]`);
     process.exit(2);
   }
+  const stop = stopOn();
   const evidence = o.evidenceFile ? readFileSync(o.evidenceFile, 'utf8') : '';
   const evidenceNorm = norm(evidence);
   const bin = (process.env.QUILT_BIN ?? 'quilt').split(' ');
@@ -210,6 +222,7 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
   async function work(problem, budget) {
     let n = 0;
     for (; n < budget; n++) {
+      if (stop.asked) break;
       let text;
       try { text = quilt('next', problem); } catch (e) {
         const said = lastLine(e);
@@ -267,7 +280,7 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
     const list = await waiting();
     console.log(`${list.length} problem${list.length === 1 ? '' : 's'} with pieces waiting on a second reading${o.secondOnly ? '' : ' (every piece is taken, --second-only not given)'}`);
     for (const [i, p] of list.entries()) {
-      if (n >= o.max) break;
+      if (n >= o.max || stop.asked) break;
       if (i > 0) await pause(2000);
       console.log(`${p.problem.slice(0, 19)} "${p.title}": ${p.waiting} waiting`);
       n += await work(p.problem, o.max - n);
@@ -275,5 +288,5 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
   } else {
     n = await work(o.problem, o.max);
   }
-  console.log(`${n} piece${n === 1 ? '' : 's'} returned as ${vendor}/${o.model}${o.secondOnly ? ', each a second reading' : ''}`);
+  console.log(`${n} piece${n === 1 ? '' : 's'} returned as ${vendor}/${o.model}${o.secondOnly ? ', each a second reading' : ''}${stop.asked ? '; stopped, and no other taken' : ''}`);
 }

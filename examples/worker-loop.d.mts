@@ -2,6 +2,8 @@
 export interface Piece { name: string; hash: string; brief: string; properties: Record<string, { type?: string; enum?: string[]; maxLength?: number }>; required: string[]; seams?: string[] }
 export interface WorkerArgs { problem: string | undefined; evidenceFile: string | undefined; model: string; max: number; secondOnly: boolean; all: boolean }
 export function parseArgs(args: string[], defaultModel: string): WorkerArgs;
+/** A stop (SIGTERM) as the loop reads it between pieces: the piece in hand is finished and no other taken. */
+export function stopOn(signals?: { once(event: 'SIGTERM', listener: () => void): unknown }): { asked: boolean };
 export function readPiece(text: string): Piece | null;
 export function schemaOf(piece: Piece): { type: 'object'; additionalProperties: false; required: string[]; properties: Record<string, unknown> };
 export function instruction(note: string): string;

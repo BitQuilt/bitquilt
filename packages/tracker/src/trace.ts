@@ -2,8 +2,8 @@
  * The trace (QX-19): what a return rests on. Beside its reveal a key posts the reads it made, each kept as a blob under
  * its hash, and for each field of the return the read and the span of it the value rests on. The door checks the shape
  * and that every read is held (section 1); the layer grades an accepted square by whether both of its reveals rest on
- * kept reads (section 3) and, where two reveals differ, says why from the traces and which reading, if either, rests on
- * nothing where the other rests on the record (section 4): that one the layer sets aside (challenge.ts). Pure over the
+ * kept reads (section 3) and, where reveals differ, says why from the traces, pair by pair, and which readings rest on
+ * nothing where another rests on the record (section 4): those the layer sets aside (challenge.ts). Pure over the
  * fold, the receipts, and a way to measure and read a blob. Nothing here changes what the core calls a piece.
  */
 import { type Address, type Event, type Hash, type PieceView, type Receipt, type Reveal, type State, agreeFields, earliestReceipt, eventId, isHash, returnsAgree } from '@bitquilt/core';
@@ -28,8 +28,8 @@ export type SeamWhy = 'source' | 'span' | 'reading' | 'unknown';
 /** One reading's side of a seam; `aside` says the layer folds the piece without it (section 4). */
 export interface SeamSide { key: Address; value: unknown; read: Read | null; span: [number, number] | null; passage: string | null; aside: boolean }
 export interface Seam { field: string; why: SeamWhy; sides: [SeamSide, SeamSide] }
-/** A piece's traces, its grade, its seams, and the id of the reveal set aside, where one is (section 4). */
-export interface PieceTraces { traces: TraceView[]; traced: Traced | null; seams: Seam[]; aside: Hash | null }
+/** A piece's traces, its grade, its seams, and the ids of the reveals set aside, where there are any (section 4). */
+export interface PieceTraces { traces: TraceView[]; traced: Traced | null; seams: Seam[]; aside: Hash[] }
 export type Admission = { ok: true } | { ok: false; why: string };
 
 const isTime = (s: unknown): s is string => typeof s === 'string' && !Number.isNaN(Date.parse(s));
@@ -85,18 +85,23 @@ export function admitTrace(view: PieceView, receipts: Receipt[], event: Event, k
   return { ok: true };
 }
 
-/** The two reveals from unrelated roots that differ on an agreed field, in the order they were kept, or null. */
-function disputingPair(fold: State, view: PieceView, fields: string[]): [Reveal, Reveal] | null {
+/**
+ * Every two reveals from unrelated roots that differ on an agreed field, pair by pair in the order they were kept. A
+ * piece with three readings has up to three pairs, and each is judged on its own (section 4); until 2 November 2026
+ * the first pair alone was, and a third reading that rested on the record counted for nothing.
+ */
+function disputingPairs(fold: State, view: PieceView, fields: string[]): [Reveal, Reveal][] {
   const schema = view.piece.schema;
-  if (!schema) return null;
+  if (!schema) return [];
   const rs = view.reveals;
+  const pairs: [Reveal, Reveal][] = [];
   for (let i = 0; i < rs.length; i += 1) for (let j = i + 1; j < rs.length; j += 1) {
     const a = rs[i]!;
     const b = rs[j]!;
     if (fold.related(a.root, b.root, b.at)) continue;
-    if (!returnsAgree(schema, fields, a.return, b.return)) return [a, b];
+    if (!returnsAgree(schema, fields, a.return, b.return)) pairs.push([a, b]);
   }
-  return null;
+  return pairs;
 }
 
 /** Why two sides differ, read from what each rests on (section 4). */
@@ -109,9 +114,9 @@ function whyOf(a: SeamSide, b: SeamSide): SeamWhy {
 
 /**
  * A piece's traces in receipt order, each held to section 1 as the door holds it, so a ledger another door admitted
- * reads the same; the square's grade (section 3); and, where the piece is disputed, its seams, and the reveal to set
- * aside: the side that rests on nothing on every field the two differ on, where the other rests on a kept read on each
- * (section 4). `passage` reads a span of a blob as text, or null where the blob is not here.
+ * reads the same; the square's grade (section 3); and, where the piece is disputed, its seams, pair by pair, and the
+ * reveals to set aside: in each pair, the side that rests on nothing on every field the two differ on, where the other
+ * rests on a kept read on each (section 4). `passage` reads a span of a blob as text, or null where the blob is not here.
  */
 export function pieceTraces(fold: State, view: PieceView, receipts: Receipt[], blobLength: (hash: Hash) => number | null, passage: (hash: Hash, span: [number, number]) => string | null): PieceTraces {
   const traces: TraceView[] = [];
@@ -140,9 +145,9 @@ export function pieceTraces(fold: State, view: PieceView, receipts: Receipt[], b
     traced = n === 2 ? 'both' : n === 1 ? 'one' : 'none';
   }
   const seams: Seam[] = [];
-  let aside: Hash | null = null;
-  const pair = view.state === 'disputed' ? disputingPair(fold, view, fields) : null;
-  if (pair && view.piece.schema) {
+  const aside: Hash[] = [];
+  const pairs = view.state === 'disputed' ? disputingPairs(fold, view, fields) : [];
+  if (pairs.length && view.piece.schema) {
     const schema = view.piece.schema;
     const side = (rv: Reveal, field: string): SeamSide => {
       const t = traceOf(rv);
@@ -150,22 +155,33 @@ export function pieceTraces(fold: State, view: PieceView, receipts: Receipt[], b
       const read = rest && t ? t.reads[rest.read] ?? null : null;
       return { key: rv.key, value: (rv.return as Record<string, unknown>)[field], read, span: rest ? rest.span : null, passage: rest && read ? passage(read.hash, rest.span) : null, aside: false };
     };
-    for (const f of fields) {
-      if (returnsAgree(schema, [f], pair[0].return, pair[1].return)) continue;
-      const a = side(pair[0], f);
-      const b = side(pair[1], f);
-      seams.push({ field: f, why: whyOf(a, b), sides: [a, b] });
-    }
-    // Section 4: a reading that rests on nothing loses to one that rests on the record. The side with no rest on any
-    // field the two differ on, where the other side rests each on a kept read, is set aside; mixed, neither is.
+    // Section 4: a reading that rests on nothing loses to one that rests on the record. In each pair, the side with no
+    // rest on any field the two differ on, where the other side rests each on a kept read, loses; mixed, neither does.
+    // A reading that loses any pair is set aside, and every seam it is a side of says so.
     const grounded = (s: SeamSide) => s.read !== null && s.span !== null;
-    const loses = (i: 0 | 1) => seams.length > 0 && seams.every((s) => !grounded(s.sides[i]) && grounded(s.sides[i === 0 ? 1 : 0]));
-    const loser = loses(0) ? 0 : loses(1) ? 1 : null;
-    if (loser !== null) {
-      const id = [...byId].find(([, rv]) => rv === pair[loser])?.[0];
-      aside = id ?? null;
-      for (const s of seams) s.sides[loser].aside = true;
+    const losers = new Set<Reveal>();
+    const owners: [Reveal, Reveal][] = [];
+    for (const pair of pairs) {
+      const own: Seam[] = [];
+      for (const f of fields) {
+        if (returnsAgree(schema, [f], pair[0].return, pair[1].return)) continue;
+        const a = side(pair[0], f);
+        const b = side(pair[1], f);
+        own.push({ field: f, why: whyOf(a, b), sides: [a, b] });
+      }
+      const loses = (i: 0 | 1) => own.length > 0 && own.every((s) => !grounded(s.sides[i]) && grounded(s.sides[i === 0 ? 1 : 0]));
+      if (loses(0)) losers.add(pair[0]);
+      else if (loses(1)) losers.add(pair[1]);
+      for (const s of own) {
+        seams.push(s);
+        owners.push(pair);
+      }
     }
+    for (const [id, rv] of byId) if (losers.has(rv)) aside.push(id);
+    seams.forEach((s, i) => {
+      if (losers.has(owners[i]![0])) s.sides[0].aside = true;
+      if (losers.has(owners[i]![1])) s.sides[1].aside = true;
+    });
   }
   return { traces, traced, seams, aside };
 }

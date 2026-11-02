@@ -1,6 +1,7 @@
+import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
 import { textIssues } from '@bitquilt/core';
-import { REST_ASK, RESTS, fit, gateRefusal, instruction, parseArgs, plain, question, readPiece, schemaOf, schemaRefusal, takeRests, traceSaid } from '../../../examples/worker-loop.mjs';
+import { REST_ASK, RESTS, fit, gateRefusal, instruction, parseArgs, plain, question, readPiece, schemaOf, schemaRefusal, stopOn, takeRests, traceSaid } from '../../../examples/worker-loop.mjs';
 
 /**
  * The loop the workers with no person beside them share (examples/worker-loop.mjs): the flags, the piece read from
@@ -85,5 +86,12 @@ describe('the workers\' shared loop', () => {
     expect(gateRefusal('return: no links or markup')).toBe('no links or markup');
     expect(gateRefusal('return: no contact details')).toBe('no contact details');
     expect(gateRefusal('the tracker did not answer')).toBeNull();
+  });
+  it('reads a stop between pieces: the flag SIGTERM sets, so the piece in hand is finished and no other taken', () => {
+    const signals = new EventEmitter();
+    const stop = stopOn(signals);
+    expect(stop.asked).toBe(false);
+    signals.emit('SIGTERM');
+    expect(stop.asked).toBe(true);
   });
 });
