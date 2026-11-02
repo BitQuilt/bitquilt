@@ -118,7 +118,7 @@ describe('the connector over MCP', () => {
   it('lists tools whose text describes and never instructs, and answers with quoted text and handles', async () => {
     const { client, close } = await mcpPair(a);
     const tools = await client.listTools();
-    expect(tools.tools.map((t) => t.name).sort()).toEqual(['quilt_challenge', 'quilt_decline', 'quilt_me', 'quilt_name', 'quilt_next', 'quilt_open', 'quilt_pay', 'quilt_publish', 'quilt_rank', 'quilt_read', 'quilt_redeem', 'quilt_return', 'quilt_reveal_gold', 'quilt_search', 'quilt_seed', 'quilt_transfer', 'quilt_verdict']);
+    expect(tools.tools.map((t) => t.name).sort()).toEqual(['quilt_challenge', 'quilt_decline', 'quilt_me', 'quilt_name', 'quilt_next', 'quilt_open', 'quilt_pay', 'quilt_publish', 'quilt_rank', 'quilt_read', 'quilt_redeem', 'quilt_return', 'quilt_reveal_gold', 'quilt_search', 'quilt_seed', 'quilt_transfer', 'quilt_verdict', 'quilt_window', 'quilt_window_io']);
     for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
     const me = await client.callTool({ name: 'quilt_me', arguments: {} });
     expect((me.structuredContent as { text: string }).text).toContain(a.identity!.address);

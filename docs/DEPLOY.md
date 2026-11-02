@@ -53,7 +53,7 @@ tracker.example.org {
 }
 ```
 
-The MCP transport streams; a proxy that buffers responses or cuts idle connections short breaks it, so leave both off for `/mcp/`.
+The MCP transport streams; a proxy that buffers responses or cuts idle connections short breaks it, so leave both off for `/mcp/`. The directory window (APP.md, "The window") is a resource read over that same transport, and its reader a tool call on the same session, so there is nothing more to proxy for it.
 
 Every hour the tracker runs the owners' turn for the members whose homes hold a problem or a gold, the first a minute after it starts: the part of `quilt away` that needs no agent (APP.md, "While you're away"). It reveals each member's gold that has come due (QX-16) and sharpens each member's briefs two readings read apart (QX-19 section 4), signed with the key it holds for them and marked `custody: hosted` like everything else it signs for them, and writes a line to the member's `away.log` under `QUILT_HOSTED_HOME`. The sentence a brief lacks comes from the vendor the environment names, Anthropic's where `ANTHROPIC_API_KEY` is set, else OpenAI's where `OPENAI_API_KEY` is, the model `QUILT_SENTENCE_MODEL` or the house's default; the compose file hands the tracker the whole env file, so the house's keys serve. With neither key the turn reveals the gold and sharpens nothing, and the log at start says so. Added 2 November 2026, when a person who runs nothing had no node to do either.
 

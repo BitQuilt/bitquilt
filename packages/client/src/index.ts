@@ -6,6 +6,7 @@ export * from './render.js';
 export { Resolver, askJson, type Library, type Posted, type Resolved } from './resolver.js';
 export { Quilt, modelFor, type AttentionItem, type CoinBalance, type Handed, type Pattern, type Sharpened, type Standing } from './quilt.js';
 export { AWAY_LOG, launchdLabel, ownerTurn, type OwnerTurn } from './away.js';
+export { WINDOW_OPS, WINDOW_PHRASES, WINDOW_URI, WINDOW_URI_NOW, windowAnswer } from './window.js';
 export { createMcpServer } from './mcp.js';
 export { TOOL_NAMES, isToolName, localRunner, runTool, type ToolInput, type ToolName, type ToolResult, type ToolRunner } from './tools.js';
 export { probeNode, remoteRunner, type NodeProbe } from './node.js';

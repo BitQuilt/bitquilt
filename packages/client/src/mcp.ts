@@ -4,6 +4,7 @@
  * the same text, since some hosts show a model only structuredContent. The long texts here are written one sentence a
  * line and joined with a space, so a sentence can be read and changed on its own.
  */
+import { RESOURCE_MIME_TYPE, getUiCapability, registerAppResource, registerAppTool } from '@modelcontextprotocol/ext-apps/server';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { DECLINE_REASONS } from '@bitquilt/core';
@@ -12,6 +13,8 @@ import { AWAY_TOOLS, type AwayRecord, capReached, capText, readAway, recordRetur
 import { SIDES } from './listings.js';
 import { ARG_WORDS, PHRASES, type PhraseArg } from './phrases.js';
 import { type ToolInput, type ToolName, type ToolResult, type ToolRunner } from './tools.js';
+import { WINDOW_HTML } from './window.generated.js';
+import { WINDOW_OPS, WINDOW_URI, WINDOW_URI_NOW } from './window.js';
 
 /** What every tool answers with: the text a model reads, and the handles a card uses (a problem hash, a piece hash, where a post went). */
 const toolOutput = { text: z.string(), handles: z.record(z.string(), z.unknown()).optional() };
@@ -27,6 +30,7 @@ const instructions = [
   'These tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, what is challenged and what a panel is ranking, publish a pattern, challenge an acceptance, give a verdict where this key was drawn to judge a challenge, rank the candidates of a judge piece where it sits on the panel, and, where a tracker carries the coin, pay a problem\'s workers, move coin to an address, and redeem coin to the chain.',
   'Each piece names its verifier kind and how strongly that kind earns a square; an attest piece is the actor\'s own word and the weakest.',
   'The prompts are the sentences a person says to start each of these, in their own words.',
+  'Where the chat shows MCP apps, the window is a view of the same beside a result: a search over the trackers and relays this client knows, each problem with its pieces and counts, and who this client is; its buttons hand the chat one of the prompts.',
   'The person\'s own client asks them before anything is written.',
 ].join(' ');
 
@@ -66,6 +70,12 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     if (away && !(AWAY_TOOLS as readonly string[]).includes(name)) registered.remove();
     return registered;
   };
+  // A tool that shows the window beside its result (window.ts): registered with the card's address in its _meta, which
+  // the MCP apps extension reads; a run while away has no chat to show a card in, so there it is a plain tool.
+  const cardTool = (name: ToolName, config: object, cb: (input: ToolInput) => Promise<unknown>) => {
+    if (away) return tool(name, config as Parameters<typeof tool>[1], cb as never);
+    return registerAppTool(server, name, { ...config, _meta: { ui: { resourceUri: WINDOW_URI_NOW } } } as never, cb as never);
+  };
   if (options.connected) {
     const connected = options.connected;
     server.server.oninitialized = () => connected(server.server.getClientVersion()?.name ?? null);
@@ -94,12 +104,45 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     outputSchema: toolOutput,
   }, call('quilt_open'));
 
-  tool('quilt_search', {
+  cardTool('quilt_search', {
     title: 'Search for problems',
-    description: 'Searches the trackers and the relays this client knows for problems whose title, slug, topics or statement of done contain the words, and lists each with its counts and its owner; a result from a relay names the tracker to open it from.',
+    description: 'Searches the trackers and the relays this client knows for problems whose title, slug, topics or statement of done contain the words, and lists each with its counts and its owner; a result from a relay names the tracker to open it from. Where the chat shows MCP apps, the window comes up beside the result with the same search in it.',
     inputSchema: { query: z.string().min(1).max(200) },
     outputSchema: toolOutput,
   }, call('quilt_search'));
+
+  cardTool('quilt_window', {
+    title: 'Open the window',
+    description: [
+      'Quilt\'s directory window, shown beside this result where the chat shows MCP apps: a search over the problems the trackers and relays this client knows, each with its pieces and how many are returned, accepted and disputed, who proposed it and where it is held; and who this client is, with its standing and coin.',
+      'Its buttons hand the person\'s own sentence to this chat, so a piece is taken or a problem opened through quilt_next and quilt_open as from any other sentence of theirs.',
+      'Where the chat shows no MCP apps, quilt_search and quilt_me say the same in text.',
+    ].join(' '),
+    inputSchema: { query: z.string().max(200).optional().describe('Words to open the search on'), link: z.string().max(400).optional().describe('A problem to open it on') },
+    outputSchema: toolOutput,
+  }, async (input: ToolInput) => {
+    const r = await run('quilt_window', input, server.server.getClientVersion()?.name);
+    // The capability as the host declared it at the handshake; the SDK's own type for it is read through the extension's.
+    const cap = getUiCapability(server.server.getClientCapabilities() as Parameters<typeof getUiCapability>[0]);
+    const shown = Boolean(cap && (!cap.mimeTypes || cap.mimeTypes.includes(RESOURCE_MIME_TYPE)));
+    return said({ text: `${r.text} ${shown ? 'This chat said it shows MCP apps, so the window is beside this result.' : 'This chat has not said it shows MCP apps; quilt_search and quilt_me say the same in text.'}`, handles: r.handles });
+  });
+
+  // The window's own reader (window.ts): the card calls it through the host, over this same session; the model is not
+  // offered it. Its answer is JSON as text, nothing in structuredContent.
+  const reader = registerAppTool(server, 'quilt_window_io', {
+    title: 'What the window reads',
+    description: 'The window\'s own reader, for the card and not for the model: a search over the trackers and relays, who this client is, and the trackers\' totals, each answered as JSON text for the window to draw. Hidden from the model by its visibility.',
+    inputSchema: { op: z.enum(WINDOW_OPS), query: z.string().max(200).optional(), link: z.string().max(400).optional(), key: z.string().max(64).optional(), on: z.boolean().optional() },
+    _meta: { ui: { resourceUri: WINDOW_URI_NOW, visibility: ['app'] } },
+  }, async (input) => ({ content: [{ type: 'text' as const, text: (await run('quilt_window_io', input as ToolInput, server.server.getClientVersion()?.name)).text }] }));
+  if (away) reader.remove();
+  else {
+    // The card, at this build's address (what the tools point at) and at its standing one (for results from before).
+    const card = (uri: string) => async () => ({ contents: [{ uri, mimeType: RESOURCE_MIME_TYPE, text: WINDOW_HTML, _meta: { ui: { prefersBorder: true } } }] });
+    registerAppResource(server, 'The window', WINDOW_URI_NOW, { description: 'Quilt\'s directory window: a search over the trackers and relays this client knows, and who this client is, beside a result.' }, card(WINDOW_URI_NOW));
+    registerAppResource(server, 'The window at its standing address', WINDOW_URI, { description: 'The same window, at the address a result from before names.' }, card(WINDOW_URI));
+  }
 
   tool('quilt_next', {
     title: 'Take the rarest piece',

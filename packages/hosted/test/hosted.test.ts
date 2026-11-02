@@ -9,7 +9,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { type Hash, type Receipt, addressOf, secretFromHex } from '@bitquilt/core';
 import { Store, createTracker } from '@bitquilt/tracker';
-import { AWAY_LOG, DEFAULT_CONFIG, Quilt, Resolver, createKey, loadKey, type Pattern, type SentenceAsk } from 'quilt';
+import { AWAY_LOG, DEFAULT_CONFIG, Quilt, Resolver, WINDOW_URI_NOW, createKey, loadKey, type Pattern, type SentenceAsk } from 'quilt';
 import { type Hosted, createHosted } from '../src/hosted.js';
 import { answerText, sentenceVendor, vendorSentence } from '../src/sentence.js';
 
@@ -90,6 +90,16 @@ describe('the hosted on-ramp', () => {
     expect(mine.every((l) => l.received[0]!.custody === 'hosted' && l.received[0]!.seat === 'ai')).toBe(true);
     // The bare address names no witness (QX-18): only a token from the authorization server brings one.
     expect(mine.every((l) => !('via' in l.received[0]!))).toBe(true);
+    // The directory window (APP.md): the card's document is a resource of the same session, and its reader answers over it.
+    expect((await client.listResources()).resources.map((r) => r.uri)).toContain(WINDOW_URI_NOW);
+    const doc = (await client.readResource({ uri: WINDOW_URI_NOW })).contents[0] as { mimeType?: string; text?: string };
+    expect(doc.mimeType).toBe('text/html;profile=mcp-app');
+    expect(doc.text).toContain('<title>Quilt</title>');
+    const found = await client.callTool({ name: 'quilt_window_io', arguments: { op: 'search', query: 'hosted' } });
+    const rows = (JSON.parse((found.content as { text: string }[])[0]!.text) as { rows: { problem: string; link: string }[] }).rows;
+    expect(rows.map((r) => r.problem)).toContain(problem);
+    expect(rows[0]!.link).toMatch(/^quilt:sha256:/);
+    expect(found.structuredContent).toBeUndefined();
     await client.close();
   });
   it('serves the sheet at the address to a browser, with its data beside it, connected once an AI has been', async () => {

@@ -9,6 +9,7 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, w
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildWindow } from './build-window.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
@@ -23,6 +24,8 @@ const targets = [
   { name: 'bitquilt-tracker', entry: 'packages/tracker/src/bin.ts', assets: {} },
 ];
 
+// The window first, so the bundle carries the document that matches its sources (window.generated.ts is not committed).
+await buildWindow();
 for (const t of targets) {
   const bundle = join(dist, `${t.name}.cjs`);
   await build({

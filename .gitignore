@@ -2,6 +2,9 @@ node_modules/
 dist/
 coverage/
 *.tsbuildinfo
+
+# The directory window, built from packages/client/window by scripts/build-window.mjs before every check and build
+packages/client/src/window.generated.ts
 .DS_Store
 .quilt/
 .env

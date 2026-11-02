@@ -55,7 +55,12 @@ describe('the MCP Bundle for Claude Desktop', () => {
     for (const text of [manifest.description, manifest.long_description ?? '', ...Object.values(manifest.user_config).flatMap((c) => [c.title, c.description])]) expect(text).not.toMatch(instructs);
   });
 
-  it('starts over stdio from the unpacked files, under a folder that declares ES modules, finds its page, and lists the seventeen tools the manifest names', async () => {
+  it('carries the directory window in the bundle, at the address its tools name', () => {
+    // The window rides in the server's own file as a string (window.generated.ts), so the bundle needs no asset for it.
+    expect(readFileSync(join(unpacked, 'server', 'index.js'), 'utf8')).toContain('ui://quilt/window.');
+  });
+
+  it('starts over stdio from the unpacked files, under a folder that declares ES modules, finds its page, and lists the nineteen tools the manifest names', async () => {
     const home = join(out, 'home');
     // Where the app unpacks it is not the bundle's to choose; a package.json above it saying ES modules changes nothing.
     writeFileSync(join(out, 'package.json'), JSON.stringify({ type: 'module' }));
@@ -69,7 +74,7 @@ describe('the MCP Bundle for Claude Desktop', () => {
     await client.connect(transport);
     const tools = await client.listTools();
     const names = tools.tools.map((t) => t.name).sort();
-    expect(names).toEqual(['quilt_challenge', 'quilt_decline', 'quilt_me', 'quilt_name', 'quilt_next', 'quilt_open', 'quilt_pay', 'quilt_publish', 'quilt_rank', 'quilt_read', 'quilt_redeem', 'quilt_return', 'quilt_reveal_gold', 'quilt_search', 'quilt_seed', 'quilt_transfer', 'quilt_verdict']);
+    expect(names).toEqual(['quilt_challenge', 'quilt_decline', 'quilt_me', 'quilt_name', 'quilt_next', 'quilt_open', 'quilt_pay', 'quilt_publish', 'quilt_rank', 'quilt_read', 'quilt_redeem', 'quilt_return', 'quilt_reveal_gold', 'quilt_search', 'quilt_seed', 'quilt_transfer', 'quilt_verdict', 'quilt_window', 'quilt_window_io']);
     expect(names).toEqual(manifest.tools.map((t) => t.name).sort());
     for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
     // The prompts: the manifest's list is the phrases' (phrases.ts), each text the phrase with its arguments in braces.
