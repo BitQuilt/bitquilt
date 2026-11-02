@@ -140,6 +140,15 @@ describe('the reference tracker', () => {
     expect((await get<Found>('/search?q=nothing-like-this')).problems).toEqual([]);
     const home = await get<Found>('/');
     expect(home.problems[0]!.title).toBe('A report');
+    // The directory row (APP.md, Search): the work on the problem, the pieces by kind, the owner's name and what it forks, beside the counts.
+    type Row = { from: Hash | null; owner_name: string | null; kinds: Record<string, number>; work: { returned: number; accepted: number; readers: number; vendors: number; last: string | null } };
+    const row = home.problems[0] as unknown as Row;
+    expect(row).toMatchObject({ from: null, owner_name: null, kinds: { agree: 3 } });
+    expect(row.work.accepted).toBe(1);
+    expect(row.work.returned).toBeGreaterThanOrEqual(1);
+    expect(row.work.readers).toBeGreaterThanOrEqual(2);
+    expect(row.work.vendors).toBeGreaterThanOrEqual(2);
+    expect(row.work.last).toMatch(/^2026-10-24T/);
   });
   it('resolves a name through a version event', async () => {
     const version = ev(owner, 'version', { slug: 'report', hash: P }, P);

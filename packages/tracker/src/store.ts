@@ -294,6 +294,12 @@ export class Store {
     this.db.prepare('update oauth_grants set revoked_at = ? where id = ? and revoked_at is null').run(at, id);
   }
 
+  /** A key's latest reveals across every log, newest first, by the index on (key, at): what the directory's hot list reads (APP.md, "The window"). */
+  revealsBy(key: string, limit: number): { problem: Hash; piece: Hash; at: string }[] {
+    const rows = this.db.prepare(`select problem, json_extract(json, '$.piece') as piece, at from receipts where key = ? and type = 'reveal' order by at desc limit ?`).all(key, limit) as { problem: string; piece: string; at: string }[];
+    return rows.map((r) => ({ problem: r.problem as Hash, piece: r.piece as Hash, at: r.at }));
+  }
+
   /** QX-18: a problem's reveals whose receipts carry a witness, read without parsing the rest of the chain. */
   witnessedReveals(problem: Hash): { key: string; piece: Hash; received: Received[] }[] {
     const rows = this.db.prepare(`select key, json_extract(json, '$.piece') as piece, received from receipts where problem = ? and type = 'reveal' and received like '%"via":%' order by seq`).all(problem) as { key: string; piece: string; received: string }[];

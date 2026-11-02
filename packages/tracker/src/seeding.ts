@@ -4,7 +4,7 @@
  * already keeps; and the order problems are offered in when a worker names none: reciprocal first, rarest next, every
  * tenth offer to a newcomer. Nothing here changes what the core accepts; it changes who is asked first.
  */
-import { type Address, type Client, type Hash, type Pick, type ReduceInput, type State, isRecord, next } from '@bitquilt/core';
+import { type Address, type Client, type Hash, type Pick, type Receipt, type ReduceInput, type State, isRecord, next } from '@bitquilt/core';
 import type { Layer, ProblemLayer } from './challenge.js';
 import { acceptingRoots } from './standing.js';
 import { leaseOf } from './verifiers.js';
@@ -22,10 +22,10 @@ export interface SeedInfo {
 }
 
 /** Who seeds the problem at `now`, and the latest `seed` with `on` at or before it, from the problem's receipts in order. */
-export function seedInfo(input: ReduceInput, fold: State, now: string): SeedInfo {
+export function seedInfo(receipts: readonly Receipt[], fold: State, now: string): SeedInfo {
   const latest = new Map<Address, boolean>();
   let last: string | null = null;
-  for (const r of input.receipts) {
+  for (const r of receipts) {
     const e = r.event;
     if (e.type !== 'seed') continue;
     const at = r.received[0]?.at;

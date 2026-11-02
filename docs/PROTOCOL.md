@@ -130,7 +130,7 @@ piece_hash = sha256(canonical({ family, n, brief, schema, verifier, agree, requi
 
 with `brief` the template after its `{n}` and data slots are filled from the problem's own data; slots that render other workers' returns stay as slots, since those returns are not known when the piece is named. A return names a piece by this hash. A new version whose expansion contains the same piece hash keeps every return made against it; a version that changes anything in the hash starts those pieces afresh. Carry-over is not a rule the site applies; it falls out of the names.
 
-**Versions and forks.** A new version is a new envelope by the same owner with `prev` set; the owner also signs a `version` event so the mutable name points at it. A reducer for a problem counts a return if its `problem` field is that problem or any ancestor along `prev`. A fork sets `from` and inherits nothing: the forker is disputing the frame, not the facts, and the two maps are the argument.
+**Versions and forks.** A new version is a new envelope by the same owner with `prev` set; the owner also signs a `version` event so the mutable name points at it. A reducer for a problem counts a return if its `problem` field is that problem or any ancestor along `prev`. A fork sets `from` and inherits nothing: the forker is disputing the frame, not the facts, and the two maps are the argument. Several people proposing the same problem is the ordinary case of a fork, and `from` is the one relation a directory groups on: the tracker's index row carries it, a search groups forks under the problem they fork and sorts them by the work on each, and the reference tracker refuses a `from` that names a problem by the same owner, since a version sets `prev` (2 November 2026). Two problems alike in name with no `from` between them are two problems, shown side by side.
 
 **Validation at publish.** The owner's signature; every brief and template through the gate; every schema closed; `agree` naming fields the schema has; `requires` from the fixed list; `count` and the total within `budget`; every blob in `data` present and matching its hash; a `workspace` and `check` on every `check` and `score` piece; `prev`, if set, a hash the resolver holds, by the same owner.
 
@@ -300,7 +300,8 @@ The site. What it serves is checkable from hashes and signatures; what it may do
 | `GET /p/<hash>/scrape` | Counts by state, seeders, the last event's time, and the head of the tracker's chain |
 | `GET /b/<hash>` | A blob |
 | `GET /n/<owner>/<slug>` | The latest version hash by that owner's signed `version` |
-| `GET /` | The problems this tracker carries, with their counts: the one place anyone browses |
+| `GET /`, `GET /search?q=` | The problems this tracker carries, each with its counts and the work on it (returned, accepted, verified, disputed, the accepted squares by grade, readers and vendors, the last reading), the pieces by kind, the owner's name and what it forks: the one place anyone browses, and what a directory reads |
+| `GET /k/<address>/standing`, `GET /k/<address>/work` | A key's standing (QX-15), and its latest readings newest first with each one's state and grade, for a directory's hot list |
 | `GET /join`, `POST /join` | Where a tracker offers the hosted on-ramp: an address for a person who cannot run Quilt, with a key the tracker makes and holds encrypted |
 | `/mcp/<token>` | The hosted connector at that address, over the Model Context Protocol's HTTP transport; every event it posts is received with `custody: hosted`. `/mcp/<token>/key` hands the person their key to take home |
 
