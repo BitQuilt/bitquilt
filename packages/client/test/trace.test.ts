@@ -2,7 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Hash } from '@bitquilt/core';
-import { AWAY_LOG, NEEDS_AGENT, awayTurn } from '../src/away.js';
+import { AWAY_LOG, NEEDS_AGENT, awayTurn, ownerTurn } from '../src/away.js';
 import { type SentenceAsk, sentenceAsk } from '../src/render.js';
 import { runTool } from '../src/tools.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
@@ -302,5 +302,42 @@ describe('the seam decides itself (section 4)', () => {
     expect(await owner.sharpen(third, async () => 'See https://example.org/rule for the rule.')).toMatchObject({ sentences: [{ kept: false }], hash: null, posted: [] });
     expect(await owner.sharpen(third, async () => null)).toMatchObject({ sentences: [{ kept: false, why: 'no sentence' }], hash: null });
     expect((await trackerState(third)).superseded).toBeNull();
+  });
+
+  it('sends a dispute nobody grounds to the owner\'s node once it has stood a lease: the sentence asked with both answers and no passage, and the version published', async () => {
+    const bare = (await owner.publish({ ...pattern, slug: 'bare', pieces: { 'statement/*': { ...pattern.pieces['statement/*']!, count: 1 } } })).hash;
+    const piece = (await a.open(bare)).state.pieces[0]!.piece.hash;
+    await a.return(bare, piece, { verdict: 'supports', quote: 'q' });
+    await b.return(bare, piece, { verdict: 'contradicts', quote: 'q' });
+    expect((await trackerState(bare)).pieces[0]).toMatchObject({ state: 'disputed', aside: [] });
+    // Fresh, the dispute is the next reader's: nothing is asked.
+    const asked: SentenceAsk[] = [];
+    const ask = async (q: SentenceAsk) => { asked.push(q); return 'The record is the paper itself, read at the publisher, not a summary of it.'; };
+    expect(await owner.sharpen(bare, ask)).toMatchObject({ sentences: [], hash: null });
+    expect(asked).toHaveLength(0);
+    // A lease past the last reveal with nothing to prefer: the owner's node is asked which record governs, with no passage to show.
+    const later = new Date(Date.now() + 3 * 3_600_000).toISOString();
+    const r = await owner.sharpen(bare, ask, later);
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toMatchObject({ family: 'statement', field: 'verdict', piece: 'statement/1', grounded: false });
+    const prompt = sentenceAsk(asked[0]!);
+    expect(prompt).toContain(`neither rested it on the record: ${a.identity!.address} answered "supports"; ${b.identity!.address} answered "contradicts".`);
+    expect(prompt).toContain('says which record governs and where it is read');
+    expect(prompt).not.toContain('and rested it on');
+    expect(r).toMatchObject({ problem: bare, sentences: [{ kept: true }], posted: [base] });
+    expect((await trackerState(bare)).superseded).toBe(r.hash);
+    // The owner's part of a turn runs it with the clock it is given, and the line counts it.
+    const home = owner.resolver.home;
+    const newer = r.hash!;
+    const next = (await a.open(newer)).state.pieces[0]!.piece.hash;
+    await a.return(newer, next, { verdict: 'supports', quote: 'q' });
+    await b.return(newer, next, { verdict: 'contradicts', quote: 'q' });
+    const lines: string[] = [];
+    // The grounded seam an earlier test left unsharpened, its sentence refused then, is sharpened in the same turn.
+    const t = await ownerTurn(owner, ask, (l) => lines.push(l), () => new Date(Date.now() + 6 * 3_600_000));
+    expect(t.sharpened.map((s) => s.problem)).toContain(newer);
+    expect(t.said).toMatch(/sharpened: [12] published/);
+    expect(lines).toEqual([]);
+    expect(home).toBeTruthy();
   });
 });

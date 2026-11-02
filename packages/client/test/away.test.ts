@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Hash } from '@bitquilt/core';
 import {
   AWAY_FILE, AWAY_LOG, AWAY_TOOLS, LAUNCHD_LABEL, NEEDS_AGENT, awayCommand, awayPrompt, awayStatus, awaySummary, awaySwitch, awayTurn, capText, claudeInvocation, codexInvocation, codexModel,
-  crontabLine, findAgent, installSchedule, localDay, plistText, readAway, recordReturn, recordRun, rolledOver, scheduleEnv, scheduleOf, searchDirs, setCap, uninstallSchedule, writeAway,
+  crontabLine, findAgent, installSchedule, launchAgentFile, launchdLabel, localDay, plistText, readAway, recordReturn, recordRun, rolledOver, scheduleEnv, scheduleOf, searchDirs, setCap, uninstallSchedule, writeAway,
 } from '../src/away.js';
 import { DEFAULT_CONFIG, loadConfig } from '../src/config.js';
 import { awayInstructions } from '../src/mcp.js';
@@ -198,6 +198,23 @@ describe('the schedule', () => {
     expect(plistText({ label: 'l', command: 'a&b', args: [], home: '/h', env: {} })).toContain('<string>a&amp;b</string>');
     expect(crontabLine('/opt/quilt', ['away'], '/Users/x/.config/quilt')).toBe('0 * * * * QUILT_HOME=/Users/x/.config/quilt /opt/quilt away >> /Users/x/.config/quilt/away.out 2>> /Users/x/.config/quilt/away.err');
     expect(crontabLine('/opt/q', ['away'], "/Users/o'b/h")).toContain(`'/Users/o'\\''b/h'`);
+  });
+  it('gives the usual home the plain label and any other home its own, from the home\'s path, so two homes on one Mac each keep their turn', () => {
+    expect(launchdLabel('/Users/x/.config/quilt', '/Users/x/.config/quilt')).toBe(LAUNCHD_LABEL);
+    expect(launchdLabel('/Users/x/.config/quilt/', '/Users/x/.config/quilt')).toBe(LAUNCHD_LABEL);
+    const other = launchdLabel('/Users/x/.config/quilt-maintainers', '/Users/x/.config/quilt');
+    expect(other).toMatch(/^org\.bitquilt\.quilt\.away\.[0-9a-f]{8}$/);
+    expect(launchdLabel('/Users/x/.config/quilt-maintainers', '/Users/x/.config/quilt')).toBe(other);
+    expect(launchdLabel('/Users/x/other', '/Users/x/.config/quilt')).not.toBe(other);
+    expect(launchAgentFile(other, '/Users/x')).toBe(`/Users/x/Library/LaunchAgents/${other}.plist`);
+    // The schedule's checks and its install carry the label.
+    const calls: string[][] = [];
+    const ctl = (args: string[]) => { calls.push(args); return true; };
+    const file = join(tempHome('quilt-away-label-'), `${other}.plist`);
+    installSchedule({ file, text: 'plist', label: other, uid: 501, ctl });
+    scheduleOf({ platform: 'darwin', file, label: other, uid: 501, ctl, command: '/opt/quilt', args: ['away'], home: '/Users/x/.config/quilt-maintainers' });
+    uninstallSchedule({ file, label: other, uid: 501, ctl });
+    expect(calls).toEqual([['bootout', `gui/501/${other}`], ['bootstrap', 'gui/501', file], ['print', `gui/501/${other}`], ['bootout', `gui/501/${other}`]]);
   });
   it('installs by writing the plist and loading it, says whether launchd has it, and uninstalls by unloading and removing it', () => {
     const calls: string[][] = [];

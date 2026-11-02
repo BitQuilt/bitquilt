@@ -1,30 +1,48 @@
-import { randomBytes } from 'node:crypto';
-import { mkdtempSync } from 'node:fs';
-import type { Server } from 'node:http';
+import { createHash, randomBytes } from 'node:crypto';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { type Server, createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { type Receipt, addressOf, secretFromHex } from '@bitquilt/core';
+import { type Hash, type Receipt, addressOf, secretFromHex } from '@bitquilt/core';
 import { Store, createTracker } from '@bitquilt/tracker';
-import { DEFAULT_CONFIG, Quilt, Resolver, createKey, loadKey, type Pattern } from 'quilt';
-import { createHosted } from '../src/hosted.js';
+import { AWAY_LOG, DEFAULT_CONFIG, Quilt, Resolver, createKey, loadKey, type Pattern, type SentenceAsk } from 'quilt';
+import { type Hosted, createHosted } from '../src/hosted.js';
+import { answerText, sentenceVendor, vendorSentence } from '../src/sentence.js';
 
 /**
  * The hosted on-ramp beside a tracker: an address handed out with a key the tracker holds, the join page served; the
  * connector served at that address over MCP, declaring the host and marking custody on every event it posts; the key
  * taken home by its address, and a session from one address refused at another; the sheet a browser gets at the same
- * address, with its data beside it.
+ * address, with its data beside it. And the owners' turn (QX-19 section 4, QX-16): the on-ramp sharpens a hosted
+ * owner's brief where two grounded readings read it apart, with the sentence from the vendor its environment names,
+ * and passes over a member with nothing to do.
  */
 let server: Server;
 let base: string;
 let problem: string;
+let hosted: Hosted;
+let pages: Server;
+let site: string;
+const hostedHome = mkdtempSync(join(tmpdir(), 'hosted-'));
 const custodySecret = randomBytes(16).toString('hex');
 const store = new Store(':memory:');
+const PAGE = '<!doctype html><html><body><p>The paper says the effect holds in every trial.</p><p>A later section says it does not hold at scale.</p></body></html>';
+const HOLDS = 'the effect holds in every trial';
+const NOT_AT_SCALE = 'it does not hold at scale';
+const asked: SentenceAsk[] = [];
 
 beforeAll(async () => {
-  const hosted = createHosted({ store, trackerUrl: () => base, keySecret: 'test-secret', home: mkdtempSync(join(tmpdir(), 'hosted-')), custodySecret });
+  pages = createServer((req, res) => {
+    res.writeHead(req.url === '/paper' ? 200 : 404, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(req.url === '/paper' ? PAGE : 'no');
+  });
+  await new Promise<void>((r) => pages.listen(0, '127.0.0.1', () => r()));
+  site = `http://127.0.0.1:${(pages.address() as AddressInfo).port}`;
+  hosted = createHosted({ store, trackerUrl: () => base, keySecret: 'test-secret', home: hostedHome, custodySecret, sentence: async (q) => { asked.push(q); return 'The first section governs, whatever a later one says of scale.'; } });
   const tracker = createTracker({ store, url: 'http://t.test/', ipSalt: 's', custodySecret, extra: hosted.routes });
   server = await tracker.listen(0);
   const a = server.address();
@@ -36,7 +54,7 @@ beforeAll(async () => {
   const pattern: Pattern = { title: 'Hosted', done_when: 'Done.', slug: 'hosted', pieces: { 'cite/*': { count: 2, verifier: 'agree', requires: ['web'], brief: 'Citation {n}: {cite.s}', data: { cite: 'cites' }, schema: { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } } } }, data: { cites: [{ s: 'one' }, { s: 'two' }] } };
   problem = (await owner.publish(pattern)).hash;
 });
-afterAll(() => new Promise<void>((r) => server.close(() => r())));
+afterAll(() => Promise.all([new Promise<void>((r) => server.close(() => r())), new Promise<void>((r) => pages.close(() => r()))]));
 
 describe('the hosted on-ramp', () => {
   let url: string;
@@ -116,5 +134,71 @@ describe('the hosted on-ramp', () => {
     const r = await fetch(otherUrl, { method: 'POST', headers: { 'content-type': 'application/json', 'mcp-session-id': sid, accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 9, method: 'tools/list' }) });
     expect(r.status).toBe(403);
     await client.close();
+  });
+});
+
+describe('the owners\' turn', () => {
+  it('sharpens a hosted owner\'s brief where two grounded readings read it apart, signed with the key it holds, and passes over a member with nothing to do', async () => {
+    // A member publishes through the connector, so the problem is in the home the on-ramp keeps for them.
+    const made = (await (await fetch(`${base}join`, { method: 'POST' })).json()) as { address: string; url: string };
+    const client = new Client({ name: 'claude-ai', version: '1.0' });
+    await client.connect(new StreamableHTTPClientTransport(new URL(made.url)));
+    const pattern: Pattern = { title: 'Traced', done_when: 'Done.', slug: 'traced', pieces: { 'statement/*': { count: 1, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string', maxLength: 160 } } }, agree: ['verdict'] } } };
+    const published = await client.callTool({ name: 'quilt_publish', arguments: { pattern } });
+    const hash = /Published (sha256:[0-9a-f]+)/.exec((published.structuredContent as { text: string }).text)![1]! as Hash;
+    await client.close();
+    // Two readers of different vendors rest the field on the same page at different places.
+    const reader = (n: number, model: string, host: string): Quilt => {
+      const home = mkdtempSync(join(tmpdir(), `reader-${n}-`));
+      createKey(home, { secretHex: '00'.repeat(31) + `0${n}` });
+      const config = { ...DEFAULT_CONFIG, trackers: [base], model };
+      return new Quilt(config, loadKey(home), new Resolver(config, home), host);
+    };
+    const a = reader(1, 'anthropic/claude', 'Claude Code');
+    const b = reader(2, 'openai/gpt-5', 'ChatGPT');
+    const piece = (await a.open(hash)).state.pieces[0]!.piece.hash;
+    await a.return(hash, piece, { verdict: 'supports', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: HOLDS }]);
+    await b.return(hash, piece, { verdict: 'contradicts', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: NOT_AT_SCALE }]);
+    const state = (await (await fetch(`${base}p/${hash}/state`)).json()) as { pieces: { state: string; seams: { why: string }[] }[] };
+    expect(state.pieces[0]).toMatchObject({ state: 'disputed', seams: [{ why: 'span' }] });
+    // The turn: the member's brief sharpened with the sentence, the version published under their key, the line in their log. A member with nothing in their home is passed over, and one who only worked another owner's problem has nothing to say.
+    const turns = await hosted.turn();
+    const mine = turns.filter((t) => t.said);
+    expect(mine.map((t) => t.address)).toEqual([made.address]);
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toMatchObject({ family: 'statement', field: 'verdict', grounded: true });
+    expect(mine[0]!.sharpened[0]).toMatchObject({ problem: hash, sentences: [{ kept: true }] });
+    expect(mine[0]!.said).toBe('sharpened: 1 published');
+    const newer = mine[0]!.sharpened[0]!.hash!;
+    const after = (await (await fetch(`${base}p/${hash}/state`)).json()) as { superseded: string | null };
+    expect(after.superseded).toBe(newer);
+    const receipts = (await (await fetch(`${base}p/${newer}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as Receipt);
+    expect(receipts.filter((r) => r.event.key === made.address).every((r) => r.received[0]!.custody === 'hosted')).toBe(true);
+    const memberHash = createHash('sha256').update(/\/mcp\/([0-9a-f]{64})$/.exec(made.url)![1]!).digest('hex');
+    expect(readFileSync(join(hostedHome, memberHash, AWAY_LOG), 'utf8')).toContain(' sharpened: 1 published');
+    // Nothing more to do: the next turn says nothing for anyone.
+    expect((await hosted.turn()).filter((t) => t.said)).toEqual([]);
+  });
+  it('asks the vendor the environment names, Anthropic first, and reads the text of its answer; with no key there is no way to ask', async () => {
+    expect(sentenceVendor({})).toBeNull();
+    expect(sentenceVendor({ OPENAI_API_KEY: 'k' })).toMatchObject({ vendor: 'openai', model: 'gpt-6-luna' });
+    expect(sentenceVendor({ ANTHROPIC_API_KEY: 'k', OPENAI_API_KEY: 'k', QUILT_SENTENCE_MODEL: 'm' })).toMatchObject({ vendor: 'anthropic', model: 'm' });
+    expect(answerText('anthropic', { content: [{ type: 'text', text: ' The sentence. ' }] })).toBe('The sentence.');
+    expect(answerText('anthropic', { content: [] })).toBeNull();
+    expect(answerText('openai', { output: [{ type: 'message', content: [{ type: 'output_text', text: 'One.' }] }] })).toBe('One.');
+    expect(answerText('openai', {})).toBeNull();
+    expect(vendorSentence({})).toBeNull();
+    const calls: { url: string; headers: Record<string, string>; body: string }[] = [];
+    const fake = (async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), headers: init!.headers as Record<string, string>, body: String(init!.body) });
+      return new Response(JSON.stringify({ content: [{ type: 'text', text: 'The first section governs.' }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+    const ask = vendorSentence({ ANTHROPIC_API_KEY: 'secret-key' }, fake)!;
+    const q: SentenceAsk = { family: 'statement', brief: 'Does it?', field: 'verdict', piece: 'statement/1', grounded: false, seam: { field: 'verdict', why: 'unknown', sides: [{ key: '0xa', value: 'supports', read: null, span: null, passage: null, aside: false }, { key: '0xb', value: 'contradicts', read: null, span: null, passage: null, aside: false }] } };
+    expect(await ask(q)).toBe('The first section governs.');
+    expect(calls[0]!.url).toBe('https://api.anthropic.com/v1/messages');
+    expect(calls[0]!.headers['x-api-key']).toBe('secret-key');
+    expect(JSON.parse(calls[0]!.body)).toMatchObject({ model: 'claude-opus-5-5', messages: [{ role: 'user' }] });
+    expect(JSON.parse(calls[0]!.body).messages[0].content).toContain('neither rested it on the record');
   });
 });

@@ -15,11 +15,13 @@ import { join } from 'node:path';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
+import { appendFileSync } from 'node:fs';
 import { type Address, addressOf, randomSecretKey, secretFromHex, secretToHex, withSlash } from '@bitquilt/core';
 import { PRIVATE_RANGES, type Store, clientAddress, rangesOf } from '@bitquilt/tracker';
-import { type Config, DEFAULT_CONFIG, Quilt, Resolver, type Witness, createMcpServer, localRunner, sheetOf } from 'quilt';
+import { AWAY_LOG, type Config, DEFAULT_CONFIG, type OwnerTurn, Quilt, Resolver, type Witness, createMcpServer, localRunner, ownerTurn, sheetOf } from 'quilt';
 import { joinPage } from './join-page.js';
 import { type OAuthServer, createOAuth } from './oauth.js';
+import { type Sentence, vendorSentence } from './sentence.js';
 import { SHEET_PAGE } from './sheet-page.js';
 
 export interface HostedOptions {
@@ -48,7 +50,14 @@ export interface HostedOptions {
   trustedProxies?: readonly string[];
   now?: () => string;
   fetchImpl?: typeof fetch;
+  /** The sentence a brief lacks, for the owners' turn (QX-19 section 4): the vendor the environment names when left out; the tests' way in. */
+  sentence?: Sentence | null;
+  /** The environment the sentence's vendor key is read from; the process's when left out. */
+  env?: NodeJS.ProcessEnv;
 }
+
+/** One owner's turn as the on-ramp ran it: whose, and what it did. */
+export interface MemberTurn extends OwnerTurn { address: Address }
 
 export interface Hosted {
   routes(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean>;
@@ -56,6 +65,12 @@ export interface Hosted {
   describe(): Record<string, unknown>;
   join(): { token: string; address: Address; url: string };
   sessions(): number;
+  /**
+   * The owners' turn (the part of `quilt away` that needs no agent): for every member whose home holds a problem or a
+   * gold, the gold due revealed and the briefs sharpened, signed with the key this tracker holds for them, each turn's
+   * line written to the member's away.log. The binary runs it every hour; a member with nothing to do is passed over.
+   */
+  turn(): Promise<MemberTurn[]>;
 }
 
 /** Who a connector session is for: the member, by the hash of their address token, and the witness its token carries, or none for the bare address. */
@@ -142,6 +157,22 @@ export function createHosted(options: HostedOptions): Hosted {
     const home = join(options.home, hash);
     const resolver = new Resolver(config, home, options.fetchImpl ?? fetch, { 'x-quilt-custody': custodySecret, ...witnessHeaders(witness) });
     return new Quilt(config, { secret, address: addressOf(secret) }, resolver, hostName, witness);
+  }
+
+  // QX-19 section 4, QX-16: the owners' turn. A person who runs nothing has no node to reveal their gold or sharpen
+  // their briefs, so the on-ramp, which signs for them, does it for every member whose home holds a problem or a gold.
+  const sentence: Sentence | null = options.sentence === undefined ? vendorSentence(options.env ?? process.env, options.fetchImpl ?? fetch) : options.sentence;
+  async function turn(): Promise<MemberTurn[]> {
+    const out: MemberTurn[] = [];
+    for (const hash of store.members()) {
+      const q = quiltFor(hash, undefined);
+      if (!q || (Object.keys(q.library.problems).length === 0 && Object.keys(q.library.gold ?? {}).length === 0)) continue;
+      const log = join(options.home, hash, AWAY_LOG);
+      const t = await ownerTurn(q, sentence, (line) => appendFileSync(log, `${line}\n`), () => new Date(now()));
+      if (t.said) appendFileSync(log, `${now()} ${t.said}\n`);
+      out.push({ address: q.identity!.address, ...t });
+    }
+    return out;
   }
 
   function sweep(): void {
@@ -310,5 +341,5 @@ export function createHosted(options: HostedOptions): Hosted {
     return false;
   }
 
-  return { routes, describe: () => oauth?.describe() ?? {}, join: mint, sessions: () => sessions.size };
+  return { routes, describe: () => oauth?.describe() ?? {}, join: mint, sessions: () => sessions.size, turn };
 }

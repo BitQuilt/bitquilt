@@ -86,8 +86,13 @@ export async function revealGold(door: Door, problem: Hash, piece: Hash): Promis
 /** A piece whose gold is due: committed from this home, accepted as the tracker holds it, and not yet revealed. */
 export interface GoldDue { problem: Hash; piece: Hash; name: string }
 
-/** The states in which the gold on a piece is due: an accepting set stands, so a match verifies it and a miss strikes it (QX-16 section 3). */
-export const GOLD_DUE_STATES: readonly string[] = ['accepted_provisional', 'accepted', 'challenged'];
+/**
+ * The states in which the gold on a piece is due: an accepting set stands and its window is open, so a match verifies
+ * it and a miss strikes it (QX-16 section 3). Once the window has closed the piece is `accepted`, the tracker refuses the
+ * reveal, and the commitment has lapsed: the square is accepted and not verified, and nothing is due on it. Until
+ * 2 November 2026 `accepted` was listed as due, and the owner's turn posted reveals the tracker refused.
+ */
+export const GOLD_DUE_STATES: readonly string[] = ['accepted_provisional', 'challenged'];
 
 /** The pieces of a problem whose gold is due, from the library and the tracker's layer over the problem. */
 export function goldDue(library: Library, problem: Hash, over: Map<Hash, LayerPiece>): GoldDue[] {

@@ -734,14 +734,15 @@ export class Quilt {
   }
 
   /**
-   * QX-19 section 4: the owner's node sharpens a brief two grounded readings read apart. For each family of this
-   * problem with a piece the core calls disputed on a `source`, `span` or `reading` seam, `ask` is given the brief, the
-   * field and both sides, and answers with the sentence the brief lacks, or null to leave it. Each sentence kept goes at
-   * the end of its family's brief in a version of the problem, `prev` this one, posted as `publish` posts, with the
-   * announce's topics, and the gold the home holds for this problem is committed again on the new pieces. A problem
-   * already replaced is left as it is, and the home notes which version replaced which.
+   * QX-19 section 4: the owner's node sharpens a brief two readings read apart. For each family of this problem with a
+   * piece the core calls disputed on a `source`, `span` or `reading` seam, or disputed between readings that rest on
+   * nothing once the dispute has stood a lease past its last reveal, `ask` is given the brief, the field and both
+   * sides, and answers with the sentence the brief lacks, or null to leave it. Each sentence kept goes at the end of
+   * its family's brief in a version of the problem, `prev` this one, posted as `publish` posts, with the announce's
+   * topics, and the gold the home holds for this problem is committed again on the new pieces. A problem already
+   * replaced is left as it is, and the home notes which version replaced which. `now` is the clock the lease is read by.
    */
-  async sharpen(problem: Hash, ask: (q: SentenceAsk) => Promise<string | null>): Promise<Sharpened> {
+  async sharpen(problem: Hash, ask: (q: SentenceAsk) => Promise<string | null>, now = new Date().toISOString()): Promise<Sharpened> {
     const id = this.needKey();
     const { state, layer, superseded } = await this.open(problem);
     const old = state.envelope.problem;
@@ -755,20 +756,32 @@ export class Quilt {
       return { problem, sentences: [], hash: superseded, posted: [], refused: [] };
     }
     const over = layerByHash(layer);
-    const seams = new Map<string, { piece: string; seam: Seam }>();
+    const seams = new Map<string, { piece: string; seam: Seam; grounded: boolean }>();
+    const grounded = (x: SeamSide) => x.read !== null && x.span !== null;
     for (const v of state.pieces) {
       const l = over.get(v.piece.hash);
-      const seam = l?.seams?.find((s) => s.why !== 'unknown');
-      if (!seam || (l?.core ?? v.state) !== 'disputed' || seams.has(v.piece.family)) continue;
-      seams.set(v.piece.family, { piece: v.piece.name, seam });
+      if ((l?.core ?? v.state) !== 'disputed' || seams.has(v.piece.family) || !l?.seams?.length) continue;
+      // Two readings that both rest on the record: the seam says why they differ, and the sentence decides between them.
+      const both = l.seams.find((s) => s.why !== 'unknown');
+      if (both) {
+        seams.set(v.piece.family, { piece: v.piece.name, seam: both, grounded: true });
+        continue;
+      }
+      // Readings that rest on nothing, none set aside, and the dispute a lease old since its last reveal: nothing a
+      // reader could prefer, so the sentence says which record governs and where it is read.
+      if (l.state !== 'disputed' || l.seams.some((s) => s.sides.some(grounded))) continue;
+      const leaseMs = (v.piece.lease_h ?? old.settings.lease_h) * 3_600_000;
+      const last = v.reveals.reduce((t, r) => (r.at > t ? r.at : t), '');
+      if (!last || Date.parse(last) + leaseMs > Date.parse(now)) continue;
+      seams.set(v.piece.family, { piece: v.piece.name, seam: l.seams[0]!, grounded: false });
     }
     const sentences: Sharpened['sentences'] = [];
     const pieces = structuredClone(old.pieces);
-    for (const [family, { piece, seam }] of seams) {
+    for (const [family, { piece, seam, grounded: both }] of seams) {
       const key = Object.keys(pieces).find((k) => k === `${family}/*` || k === family || k === piece);
       const def = key ? pieces[key] : undefined;
       if (!def) continue;
-      const said = (await ask({ family, brief: def.brief, field: seam.field, seam, piece }))?.replace(/\s+/g, ' ').trim() ?? '';
+      const said = (await ask({ family, brief: def.brief, field: seam.field, seam, piece, grounded: both }))?.replace(/\s+/g, ' ').trim() ?? '';
       const why = !said ? 'no sentence' : said.length > SENTENCE_MAX ? `over ${SENTENCE_MAX} characters` : textIssues(said)[0] ?? null;
       sentences.push({ family, field: seam.field, sentence: said || null, kept: why === null, why });
       if (why === null) def.brief = `${def.brief} ${said}`;
@@ -799,13 +812,13 @@ export class Quilt {
   }
 
   /** The owner's sharpening over every problem the home knows and this key owns, each once (QX-19 section 4); the away turn runs it before its agent. A problem with no such seam is passed over in silence. */
-  async sharpenDue(ask: (q: SentenceAsk) => Promise<string | null>): Promise<Sharpened[]> {
+  async sharpenDue(ask: (q: SentenceAsk) => Promise<string | null>, now = new Date().toISOString()): Promise<Sharpened[]> {
     if (!this.identity) return [];
     const out: Sharpened[] = [];
     for (const h of new Set([...Object.keys(this.library.problems), ...Object.keys(this.library.gold ?? {})])) {
       if (!isHash(h) || this.library.problems[h]?.next) continue;
       try {
-        const r = await this.sharpen(h, ask);
+        const r = await this.sharpen(h, ask, now);
         if (r.sentences.length) out.push(r);
       } catch (e) {
         if ((e as Error).message !== NOT_OWNER) out.push({ problem: h, sentences: [], hash: null, posted: [], refused: [(e as Error).message] });
