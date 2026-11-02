@@ -12,6 +12,7 @@ import type { Pattern, Quilt } from './quilt.js';
 import { kindWords, seamsText, sessionWitnessText } from './render.js';
 import type { Posted } from './resolver.js';
 import { type RestAsked, traceText } from './trace.js';
+import { windowAnswer } from './window.js';
 
 export interface ToolResult {
   text: string;
@@ -23,7 +24,7 @@ export type ToolInput = Record<string, unknown>;
 /** Runs one tool by name for the host that asked (the client's name at connection, which the model declared follows). */
 export type ToolRunner = (name: ToolName, input: ToolInput, host: string | undefined) => Promise<ToolResult>;
 
-export const TOOL_NAMES = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold', 'quilt_pay', 'quilt_transfer', 'quilt_redeem'] as const;
+export const TOOL_NAMES = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold', 'quilt_pay', 'quilt_transfer', 'quilt_redeem', 'quilt_window', 'quilt_window_io'] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 export function isToolName(s: string): s is ToolName {
@@ -77,8 +78,18 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       const text = found.length
         ? found.map((p) => `${p.problem}\n  titled by ${p.owner}: "${p.title}" (${p.slug})${p.topics.length ? `; topics: ${p.topics.join(', ')}` : ''}\n  ${p.pieces} pieces: ${Object.entries(p.counts).map(([k, n]) => `${n} ${k.replace('_', ' ')}`).join(', ')}; at ${p.tracker}`).join('\n')
         : 'No problem matched on the trackers and relays this client knows.';
-      return { text, handles: { problems: found.map((p) => p.problem) } };
+      return { text, handles: { problems: found.map((p) => p.problem), query: str('query') } };
     }
+    case 'quilt_window': {
+      // The handle the card reads: who this client is and what to open on. No one's words; the card reads the rest through quilt_window_io.
+      const me = quilt.me();
+      const query = str('query');
+      const link = str('link');
+      const text = `The directory window for ${me.address ?? 'a key not yet made'}${me.name ? ` (${me.name})` : ''}, over ${me.trackers.join(', ')}${me.relays.length ? ` and ${me.relays.length} relay${me.relays.length === 1 ? '' : 's'}` : ''}: a search over the problems they know, each with its pieces and counts, and who this client is.`;
+      return { text, handles: { window: { address: me.address, name: me.name, trackers: me.trackers, host: quilt.hostName ?? null, view: 'search', query: query || null, link: link || null } } };
+    }
+    case 'quilt_window_io':
+      return { text: JSON.stringify(await windowAnswer(quilt, input)), handles: {} };
     case 'quilt_next': {
       const { hash: h, pick, posted, owner, stake, lock, seams } = await quilt.next(str('problem'));
       const locked = lock === 'coin' ? `, after a lock of ${stake} backed by coin on the coin log` : lock === 'standing' ? `, after a lock of ${stake}` : '';

@@ -9,6 +9,7 @@ import { build } from 'esbuild';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildWindow } from './build-window.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outFlag = process.argv.indexOf('--out');
@@ -20,7 +21,7 @@ const version = JSON.parse(readFileSync(join(root, 'packages', 'client', 'packag
 // The names of the connector's tools, as the app shows them in its install dialog; the test checks them against what
 // the server lists. The key is not a setting: it stays where quilt keeps it, under QUILT_HOME (~/.config/quilt unless
 // that is set), so the key made by quilt init is the one the extension signs with.
-const tools = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_challenge', 'quilt_verdict', 'quilt_rank', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold', 'quilt_pay', 'quilt_transfer', 'quilt_redeem'];
+const tools = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_challenge', 'quilt_verdict', 'quilt_rank', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold', 'quilt_pay', 'quilt_transfer', 'quilt_redeem', 'quilt_window', 'quilt_window_io'];
 // The prompts are the phrases (packages/client/src/phrases.ts), one each, their text with the arguments in braces; the test
 // checks each against what the server says with those words filled in.
 const prompts = [
@@ -50,7 +51,7 @@ const manifest = {
   version,
   description: "A client of BitQuilt: problems published as patterns of pieces, worked by many people's AIs, each return signed.",
   long_description:
-    'Quilt is the MCP server your AI connects to, with a page on localhost. Its tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, challenge an acceptance or give a verdict on one, rank the candidates of a judge piece where your key sits on its panel, keep a problem as a seeder, publish a pattern, reveal the gold you committed on a piece of your own problem, and pay a problem\'s workers in coin where a tracker carries it. Claude asks you before anything is written. The key the returns are signed with lives in your own config folder (~/.config/quilt, or QUILT_HOME), made the first time your AI signs; its twelve words wait on Quilt\'s page at http://localhost:3978/ to be written down once. The trackers it asks are a setting here. Asked how Quilt works, your AI explains it: the connector carries the account in plain words.',
+    'Quilt is the MCP server your AI connects to, with a page on localhost. Its tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, challenge an acceptance or give a verdict on one, rank the candidates of a judge piece where your key sits on its panel, keep a problem as a seeder, publish a pattern, reveal the gold you committed on a piece of your own problem, and pay a problem\'s workers in coin where a tracker carries it; where the chat shows MCP apps, a directory window comes up beside a search. Claude asks you before anything is written. The key the returns are signed with lives in your own config folder (~/.config/quilt, or QUILT_HOME), made the first time your AI signs; its twelve words wait on Quilt\'s page at http://localhost:3978/ to be written down once. The trackers it asks are a setting here. Asked how Quilt works, your AI explains it: the connector carries the account in plain words.',
   author: { name: 'BitQuilt', url: 'https://bitquilt.org/' },
   homepage: 'https://bitquilt.org/',
   license: 'Apache-2.0',
@@ -84,6 +85,8 @@ rmSync(stage, { recursive: true, force: true });
 mkdirSync(join(stage, 'server'), { recursive: true });
 mkdirSync(join(stage, 'page'), { recursive: true });
 const entry = join(stage, 'server', 'index.js');
+// The window first, so the bundle carries the document that matches its sources (window.generated.ts is not committed).
+await buildWindow();
 await build({
   entryPoints: [join(root, 'packages', 'client', 'src', 'bin.ts')],
   bundle: true,

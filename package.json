@@ -11,7 +11,8 @@
   "packageManager": "pnpm@10.30.3",
   "scripts": {
     "typecheck": "pnpm -r --if-present typecheck",
-    "test": "vitest run",
+    "test": "node scripts/build-window.mjs && vitest run",
+    "build:window": "node scripts/build-window.mjs",
     "check": "pnpm typecheck && pnpm test",
     "conform": "pnpm --filter @bitquilt/core conform",
     "build:bin": "node scripts/build-binaries.mjs",
