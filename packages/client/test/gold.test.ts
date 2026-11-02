@@ -1,21 +1,26 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash } from '@bitquilt/core';
+import { AWAY_LOG, NEEDS_AGENT, awayTurn, goldText } from '../src/away.js';
 import { runTool } from '../src/tools.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
-import { instructs, json, mcpPair, quiltOver, startTracker } from './helpers.js';
+import { instructs, json, mcpPair, quiltOver, startTracker, tempHome } from './helpers.js';
 
 /**
  * Gold pieces (QX-16) from the client's side: an owner publishes with the answers to some pieces, which leave the home
  * only as blind hashes naming no piece while the projections and nonces stay in the library; attention lists a reveal due once a piece is
  * accepted; the reveal through the tool marks the square verified, or strikes the set on a miss and says so; the
- * summary counts the gold; the tools describe and never instruct.
+ * summary counts the gold; the tools describe and never instruct. And the reveals run with nobody asked (`revealDue`):
+ * the away turn reveals every piece whose gold is due before its agent, whether or not one is here, says in its line
+ * what the tracker decided, posts nothing twice, and keeps a refusal rather than throwing; `quilt gold due` lists them.
  */
 let server: Server;
 let base: string;
-let owner: Quilt, other: Quilt, a: Quilt, b: Quilt;
+let owner: Quilt, other: Quilt, a: Quilt, b: Quilt, owner2: Quilt;
 let p: Hash, q: Hash;
 
 const pattern = (slug: string, count: number): Pattern => ({
@@ -39,6 +44,7 @@ beforeAll(async () => {
   other = mk(8, 'anthropic/claude');
   a = mk(1, 'anthropic/claude');
   b = mk(2, 'openai/gpt-5', 'ChatGPT');
+  owner2 = mk(7, 'anthropic/claude');
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
@@ -138,4 +144,71 @@ describe('gold pieces, from the client', () => {
     expect(JSON.stringify(tools.tools.find((t) => t.name === 'quilt_challenge')!.inputSchema)).toContain('"minimum":0');
     await close();
   });
+});
+
+describe('the reveals run with nobody asked', () => {
+  let d: Hash;
+  const entry = { command: '/opt/quilt', args: ['mcp'], env: {} };
+  const nobody = { env: { PATH: '/nonexistent' }, entry, dirs: ['/nonexistent'] };
+
+  it('lists nothing due before a square is accepted, then reveals what is due in the away turn before any agent, and the line says what was decided', async () => {
+    // Standing first: four plain squares on another owner's problem, since a gold's stake is two a commitment; a fresh key starts at one.
+    const plain = (await a.publish(pattern('plain', 4))).hash;
+    for (let i = 0; i < 4; i++) {
+      const pi = await pieceOf(plain, i);
+      await owner2.return(plain, pi, { verdict: 'supports', quote: 'yes' });
+      await b.return(plain, pi, { verdict: 'supports', quote: 'yes' });
+    }
+    expect(await owner2.standing()).toMatchObject({ standing: 5, free: 5 });
+    d = (await owner2.publish({ ...pattern('due', 3), gold: { answers: { 'statement/1': { verdict: 'supports', quote: '' }, 'statement/2': { verdict: 'contradicts', quote: '' } } } })).hash;
+    expect(await owner2.revealDue(false)).toEqual([]);
+    expect(await owner2.revealDue()).toEqual([]);
+    const d1 = await pieceOf(d, 0);
+    await a.return(d, d1, { verdict: 'supports', quote: 'q' });
+    await b.return(d, d1, { verdict: 'supports', quote: 'q' });
+    // Due, and listing posts nothing: the tracker still shows no reveal.
+    expect(await owner2.revealDue(false)).toEqual([{ problem: d, piece: d1, name: 'statement/1', outcome: null, error: null }]);
+    expect((await trackerState(d)).pieces[0]).toMatchObject({ gold: null, verified: false });
+    const home = owner2.resolver.home;
+    const turn = await awayTurn({ ...nobody, home, quilt: () => owner2 });
+    expect(turn.ran).toBe(false);
+    expect(turn.gold).toEqual([{ problem: d, piece: d1, name: 'statement/1', outcome: 'match', error: null }]);
+    expect(turn.line).toBe(`${NEEDS_AGENT} gold: 1 revealed (1 match)`);
+    expect(readFileSync(join(home, AWAY_LOG), 'utf8')).toContain(' gold: 1 revealed (1 match)');
+    expect((await trackerState(d)).pieces[0]).toMatchObject({ gold: 'match', verified: true });
+    expect(await owner2.revealDue(false)).toEqual([]);
+    // A turn with nothing due leaves the line as it was and writes nothing.
+    const quiet = await awayTurn({ ...nobody, home, quilt: () => owner2 });
+    expect(quiet).toMatchObject({ ran: false, gold: [], line: NEEDS_AGENT });
+    expect(readFileSync(join(home, AWAY_LOG), 'utf8').split('\n').filter((l) => l.includes('gold:'))).toHaveLength(1);
+  });
+
+  it('strikes the set on a miss, posts nothing twice, and keeps a refusal with its reason rather than throwing', async () => {
+    const d2 = await pieceOf(d, 1);
+    const d3 = await pieceOf(d, 2);
+    await a.return(d, d2, { verdict: 'supports', quote: 'q' });
+    await b.return(d, d2, { verdict: 'supports', quote: 'q' });
+    // A commitment the library claims and the ledger never saw: the tracker refuses its reveal, and the run says so and goes on.
+    owner2.library.gold![d]![d3] = { name: 'statement/3', projection: { verdict: 'supports' }, nonce: '00'.repeat(16) };
+    await a.return(d, d3, { verdict: 'supports', quote: 'q' });
+    await b.return(d, d3, { verdict: 'supports', quote: 'q' });
+    const run = await owner2.revealDue();
+    expect(run).toHaveLength(2);
+    expect(run[0]).toEqual({ problem: d, piece: d2, name: 'statement/2', outcome: 'miss', error: null });
+    expect(run[1]).toMatchObject({ problem: d, piece: d3, name: 'statement/3', outcome: null });
+    expect(run[1]!.error).toMatch(/commitment/);
+    expect(goldText(run)).toBe('gold: 1 revealed (1 miss), 1 refused');
+    expect((await trackerState(d)).pieces[1]).toMatchObject({ state: 'open', gold: 'miss', verified: false });
+    // The miss is on the ledger, so it is not due again; the refused one is asked again next time, and refused again.
+    const again = await owner2.revealDue();
+    expect(again.map((r) => [r.name, r.outcome, r.error !== null])).toEqual([['statement/3', null, true]]);
+    expect(goldText([])).toBe('');
+  });
+
+  it('is wired as `quilt gold due` from the command line: a home with no gold lists nothing and posts nothing', () => {
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+    const home = tempHome('quilt-gold-cli-');
+    const out = execFileSync(process.execPath, ['--import', 'tsx', join(root, 'packages', 'client', 'src', 'bin.ts'), 'gold', 'due'], { cwd: root, encoding: 'utf8', env: { ...process.env, QUILT_HOME: home, QUILT_TRACKERS: base } });
+    expect(JSON.parse(out)).toEqual([]);
+  }, 60_000);
 });
