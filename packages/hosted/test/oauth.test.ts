@@ -114,6 +114,9 @@ async function person(authorization: URL, address: string, expect_: { name: stri
   expect(page.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
   const html = await page.text();
   expect(html).toContain('Let a client use your Quilt');
+  // Sign-up inside the connection: the page's own button calls the join route, and the address it makes answers the request.
+  expect(html).toContain('Make me an address');
+  expect(html).toContain("fetch('/join', { method: 'POST' })");
   expect(html).not.toMatch(/(src|href)="https?:/);
   const info = (await (await fetch(`${base}oauth/authorize/request${authorization.search}`)).json()) as { client: { name: string | null; host: string | null }; redirect: { product: string | null }; via: string };
   expect(info.client.name).toBe(expect_.name);
@@ -122,6 +125,9 @@ async function person(authorization: URL, address: string, expect_: { name: stri
   if (expect_.host !== undefined) expect(info.client.host).toBe(expect_.host);
   const params = Object.fromEntries(authorization.searchParams);
   expect((await postJson('oauth/authorize', { ...params, allow: true, address: 'f'.repeat(64) })).status).toBe(400);
+  // An address made on the page itself, through the join route, answers the request as a pasted one does.
+  const made = (await (await fetch(`${base}join`, { method: 'POST' })).json()) as { url: string };
+  expect(((await (await postJson('oauth/authorize', { ...params, allow: true, address: made.url })).json()) as { redirect?: string }).redirect).toContain('code=');
   const r = (await (await postJson('oauth/authorize', { ...params, allow: true, address })).json()) as { redirect: string };
   const landed = new URL(r.redirect);
   return { code: landed.searchParams.get('code')!, state: landed.searchParams.get('state'), iss: landed.searchParams.get('iss'), landed: `${landed.origin}${landed.pathname}` };

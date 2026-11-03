@@ -2,7 +2,9 @@
  * The authorization page (QX-18): where a person lets a client, claude.ai or ChatGPT or any other, hold a token for
  * their address. It says which client asks: by the host of its metadata document where it has one, which only that
  * host's owner can serve, and by its own name, quoted; where the answer goes, which is what the tracker's mark reads;
- * what the token lets the client do and what it does not; and it takes the address the person holds as their proof. One self-contained document, as the join page and the sheet are: nothing is loaded from
+ * what the token lets the client do and what it does not; and it takes the address the person holds as their proof, or
+ * makes them one there (the join route, called from the page), so a person new to Quilt signs up inside the
+ * connection and pastes nothing. One self-contained document, as the join page and the sheet are: nothing is loaded from
  * elsewhere, and what the script puts on the page it sets with `textContent`. It reads the request at
  * `/oauth/authorize/request` and posts the answer to `/oauth/authorize`, then follows the redirect it is given.
  */
@@ -25,8 +27,10 @@ input{font:inherit;width:100%;box-sizing:border-box;padding:10px 12px;border-rad
 .row{display:flex;gap:10px;margin-top:12px}
 button{font:inherit;padding:10px 18px;border-radius:6px;border:1.5px solid #2b3f7a;background:#2b3f7a;color:#fff;cursor:pointer}
 button.plain{background:transparent;color:#2b3f7a}
+button.small{padding:6px 12px;white-space:nowrap}
+pre{font-family:ui-monospace,Menlo,monospace;font-size:.9rem;background:#e3e6eb;padding:10px 12px;border-radius:6px;white-space:pre-wrap;word-break:break-all;margin:0;flex:1}
 #err{color:#a1281e}
-@media (prefers-color-scheme: dark){body{background:#151922;color:#e6e9f0}.card{background:#1e2330}.q{color:#aab2c5}input{background:#1e2330;border-color:#4a546b}button.plain{color:#aab8e8;border-color:#aab8e8}#err{color:#f08a80}}
+@media (prefers-color-scheme: dark){body{background:#151922;color:#e6e9f0}.card{background:#1e2330}.q{color:#aab2c5}input{background:#1e2330;border-color:#4a546b}button.plain{color:#aab8e8;border-color:#aab8e8}pre{background:#262c3a}#err{color:#f08a80}}
 </style>
 </head>
 <body>
@@ -44,6 +48,12 @@ button.plain{background:transparent;color:#2b3f7a}
 <h2>Your address</h2>
 <p class="q">Paste the long address the join page gave you, or its last part. It is the proof that the address is yours; this page is at <code id="host"></code>, and only this tracker reads it.</p>
 <input id="address" type="password" autocomplete="off" spellcheck="false" aria-label="Your address on this tracker">
+<p class="q">New to Quilt? <button id="make" class="plain small" type="button">Make me an address</button> This tracker makes a key, keeps it encrypted, and signs for you until you take it home; every event it writes for you says so.</p>
+<div id="made" class="card" hidden>
+<p>Your address here, filled in above. It is the key to your Quilt on this tracker: anyone who has it can act as you, so keep it to yourself. Opened in a browser it is your sheet, and it brings the key home later.</p>
+<div class="row"><pre id="url"></pre><button id="copyUrl" class="plain small" type="button">Copy</button></div>
+<p class="q">Press Allow, and the client holds a token for it.</p>
+</div>
 <div class="row"><button id="allow">Allow</button><button id="decline" class="plain">Decline</button></div>
 </div>
 <p id="err" hidden></p>
@@ -92,6 +102,24 @@ button.plain{background:transparent;color:#2b3f7a}
   };
   $('allow').addEventListener('click', function () { answer(true); });
   $('decline').addEventListener('click', function () { answer(false); });
+  // Sign-up inside the connection: the join route makes an address, as the join page's button does, and it goes into the field above.
+  var copy = function (button, value) {
+    navigator.clipboard.writeText(value).then(function () { button.textContent = 'Copied'; setTimeout(function () { button.textContent = 'Copy'; }, 1500); });
+  };
+  $('make').addEventListener('click', function () {
+    $('make').disabled = true;
+    fetch('/join', { method: 'POST' })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; }); })
+      .then(function (j) {
+        $('address').value = j.url;
+        $('url').textContent = j.url;
+        $('made').hidden = false;
+        $('make').hidden = true;
+        $('allow').focus();
+      })
+      .catch(function (e) { $('make').disabled = false; fail(e.message); });
+  });
+  $('copyUrl').addEventListener('click', function () { copy($('copyUrl'), $('url').textContent); });
   $('address').addEventListener('keydown', function (e) { if (e.key === 'Enter') answer(true); });
 })();
 </script>
