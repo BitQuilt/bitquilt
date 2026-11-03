@@ -38,8 +38,8 @@ export function quiltEntry(options: { sea: boolean; execPath: string; repoRoot: 
   for (const k of ['QUILT_TRACKERS', 'QUILT_PORT_PAGE'] as const) if (options.env[k]) env[k] = options.env[k]!;
   return options.sea
     ? { command: options.execPath, args: ['mcp'], env }
-    // Silent, so stdout carries the connector's protocol alone: pnpm's script banner before the first JSON-RPC line closes an agent's connection.
-    : { command: 'pnpm', args: ['-s', '--filter', 'quilt', '--dir', options.repoRoot, 'start', 'mcp'], env };
+    // The development command runs tsx itself, not through pnpm: an agent CLI's connection probe closes a server behind the pnpm wrapper, and connects to this one.
+    : { command: `${options.repoRoot}/node_modules/.bin/tsx`, args: [`${options.repoRoot}/packages/client/src/bin.ts`, 'mcp'], env };
 }
 
 /** The config with `mcpServers.quilt` set to the entry; everything else in it kept as it was. */
