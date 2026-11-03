@@ -5,7 +5,7 @@
  * the hosted on-ramp's members, and the clients, codes and grants of its authorization server (QX-18).
  */
 import { DatabaseSync } from 'node:sqlite';
-import { type Envelope, type Event, type Hash, type Receipt, type Received, lineHash, hashHex } from '@bitquilt/core';
+import { type Envelope, type Event, type Hash, type Receipt, type Received, eventId, lineHash, hashHex } from '@bitquilt/core';
 import type { MemberTimes } from './counts.js';
 
 /** A client registered with the hosted on-ramp's authorization server (QX-18): its metadata as kept, and the hash of its secret where it has one. */
@@ -185,6 +185,46 @@ export class Store {
   /** The chain's last line: its seq, hash and time, or null for a chain with no line. */
   head(problem: Hash): { seq: number; hash: string; at: string } | null {
     return this.last(problem);
+  }
+
+  // The node's store of chained logs (the client's `Chains`; WORKSHOP.md section 2, one peer): the same methods a
+  // home's cache answers, so a door and a node are over this one store, and what the door admits is what the node
+  // serves and keeps.
+
+  envelopeOf(hash: Hash): Envelope | null {
+    return this.getEnvelope(hash)?.envelope ?? null;
+  }
+
+  /** Every line of a log, oldest first: a problem's by its hash, the identity log by its constant. */
+  lines(log: Hash): Receipt[] {
+    return this.receipts(log, 0, Number.MAX_SAFE_INTEGER);
+  }
+
+  /** Lines kept as another place gave them, with their seq, prev and hash: the node's keep after a chain only grew (PROTOCOL.md, The mirror). */
+  appendLines(log: Hash, lines: Receipt[]): void {
+    const insert = this.db.prepare('insert into receipts (problem, seq, id, type, key, at, json, received, prev, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    const last = this.last(log);
+    let seq = last?.seq ?? 0;
+    let prev = last?.hash ?? hashHex(log);
+    for (const l of lines) {
+      seq += 1;
+      const at = l.received.map((w) => w.at).sort()[0] ?? '';
+      const hash = l.hash ?? lineHash(seq, prev, { event: l.event, received: l.received });
+      insert.run(log, seq, eventId(l.event), l.event.type, l.event.key, at, JSON.stringify(l.event), JSON.stringify(l.received), l.prev ?? prev, hash);
+      prev = hash;
+      this.version += 1;
+    }
+  }
+
+  /** What is held: problems, logs with a line, blobs, and the bytes of all three. */
+  held(): { problems: number; ledgers: number; blobs: number; bytes: number } {
+    const one = (sql: string): number => Number((this.db.prepare(sql).get() as { n: number | null }).n ?? 0);
+    return {
+      problems: one('select count(*) as n from envelopes'),
+      ledgers: one('select count(distinct problem) as n from receipts'),
+      blobs: one('select count(*) as n from blobs'),
+      bytes: one('select coalesce(sum(length(json)), 0) as n from envelopes') + one('select coalesce(sum(length(json) + length(received)), 0) as n from receipts') + one('select coalesce(sum(length(bytes)), 0) as n from blobs'),
+    };
   }
 
   putName(owner: string, slug: string, hash: Hash, at: string): void {

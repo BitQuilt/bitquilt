@@ -125,6 +125,21 @@ importers:
         specifier: workspace:*
         version: link:../tracker
 
+  packages/node:
+    dependencies:
+      '@bitquilt/core':
+        specifier: workspace:*
+        version: link:../core
+      '@bitquilt/hosted':
+        specifier: workspace:*
+        version: link:../hosted
+      '@bitquilt/tracker':
+        specifier: workspace:*
+        version: link:../tracker
+      quilt:
+        specifier: workspace:*
+        version: link:../client
+
   packages/tracker:
     dependencies:
       '@bitquilt/core':

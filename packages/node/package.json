@@ -1,0 +1,19 @@
+{
+  "name": "@bitquilt/node",
+  "version": "0.1.0",
+  "description": "One node, with roles: admit is being a door, work is signing with a home's key, keep is mirroring chains, host is custody for people who cannot run one; the four over one store.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": { "bitquilt-node": "./src/bin.ts" },
+  "exports": { ".": { "types": "./src/index.ts", "import": "./src/index.ts" } },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "tsx src/bin.ts"
+  },
+  "dependencies": {
+    "@bitquilt/core": "workspace:*",
+    "@bitquilt/hosted": "workspace:*",
+    "@bitquilt/tracker": "workspace:*",
+    "quilt": "workspace:*"
+  }
+}
