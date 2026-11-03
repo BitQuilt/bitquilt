@@ -133,6 +133,9 @@ importers:
       '@bitquilt/hosted':
         specifier: workspace:*
         version: link:../hosted
+      '@bitquilt/mirror':
+        specifier: workspace:*
+        version: link:../mirror
       '@bitquilt/tracker':
         specifier: workspace:*
         version: link:../tracker

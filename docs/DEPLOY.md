@@ -44,7 +44,7 @@ curl -s http://127.0.0.1:3977/.well-known/quilt
 
 answers with the tracker's name, its routes, and `"hosted": true`.
 
-The same image carries `bitquilt-node` (`pnpm --filter @bitquilt/node start`), one node with roles (WORKSHOP.md section 2): `QUILT_ROLES` names them, comma separated, from `admit` (the door, the names in the table above), `work` (a Quilt and its page), `keep` (the keeper's loop) and `host` (custody beside the door, `QUILT_KEY_SECRET` and the rest the on-ramp reads), over one store at `QUILT_HOME/node.db`. `admit,host` is the hosted tracker; `admit` alone is the second door; the compose file names the two binaries, which are these two starts.
+The same image carries `bitquilt-node` (`pnpm --filter @bitquilt/node start`), one node with roles (WORKSHOP.md section 2): `QUILT_ROLES` names them, comma separated, from `admit` (the door, the names in the table above), `work` (a Quilt and its page), `keep` (the mirror's pull over the store, from `QUILT_SOURCES` or the door's peers and the config's trackers, where there is no door) and `host` (custody beside the door, `QUILT_KEY_SECRET` and the rest the on-ramp reads), over one store at `QUILT_HOME/node.db`, or at `QUILT_DB` where a door kept a database before. The compose file runs it for both doors: `admit,host` for the public tracker over `/data/tracker.db`, `admit` for the second door. The mirror binary is the same pull over its folder of files with the publication written after it, which is what the repository's mirror job runs.
 
 ## The public door
 

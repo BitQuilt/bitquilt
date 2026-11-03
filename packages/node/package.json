@@ -13,6 +13,7 @@
   "dependencies": {
     "@bitquilt/core": "workspace:*",
     "@bitquilt/hosted": "workspace:*",
+    "@bitquilt/mirror": "workspace:*",
     "@bitquilt/tracker": "workspace:*",
     "quilt": "workspace:*"
   }

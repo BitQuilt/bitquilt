@@ -80,6 +80,30 @@ describe('one node with roles (WORKSHOP.md section 2, stage three)', () => {
     expect(b.store.held().problems).toBe(1);
     expect(b.resolver.heldProblems()).toMatchObject([{ problem, lines: mine.length }]);
   });
+  it("with keep alone: the mirror's pull over its own store, from the sources given, the lines carrying the source's wrapper and this node's; a second keep adds nothing", async () => {
+    const k = await start({ home: tempHome('quilt-node-k-'), roles: ['keep'], sources: [urlA], by: 'keeper', loops: false });
+    try {
+      expect(k.tracker).toBeNull();
+      expect(k.page).toBeNull();
+      const first = await k.keep();
+      expect(first.pulls).toEqual([]);
+      expect(first.swarm).not.toBeNull();
+      expect(first.swarm!.sources).toEqual([urlA]);
+      expect(first.swarm!.problems.map((p) => p.hash)).toEqual([problem]);
+      expect(first.swarm!.refused).toEqual([]);
+      const theirs = await lines(`${urlA}p/${problem}/events`);
+      expect(first.swarm!.problems[0]!.added).toBe(theirs.length);
+      const mine = k.store.lines(problem);
+      expect(mine.map((l) => l.event.sig)).toEqual(theirs.map((l) => l.event.sig));
+      for (const l of mine) expect(l.received.map((w) => w.by)).toEqual([urlA, 'keeper']);
+      expect(k.store.held().problems).toBe(1);
+      expect(k.resolver.heldProblems()).toMatchObject([{ problem, lines: theirs.length }]);
+      const again = await k.keep();
+      expect(again.swarm!.problems[0]).toMatchObject({ hash: problem, added: 0 });
+    } finally {
+      await k.close();
+    }
+  });
   it('with work alone: no door, a page that says it is a node, and what it opens kept in its own store', async () => {
     expect(c.tracker).toBeNull();
     expect(c.door).toBeNull();

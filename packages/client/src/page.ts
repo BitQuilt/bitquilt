@@ -57,6 +57,8 @@ export interface PageOptions {
   /** The person at the page hands in as a person (`Quilt.asPerson`): the same key, model `human`, capability `person`. */
   person: Quilt;
   resolver: Resolver;
+  /** The keeper's loop while the page is up (WORKSHOP.md section 2, stage one); on unless false, which a node that runs the loop itself passes. */
+  keep?: boolean;
 }
 
 export function createPage(options: PageOptions): { handle(req: IncomingMessage, res: ServerResponse): Promise<void>; listen(port: number): Promise<Server> } {
@@ -244,21 +246,23 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       server.once('error', reject);
       server.listen(port, '127.0.0.1', () => {
         server.off('error', reject);
-        // The keeper's loop while the page is up (WORKSHOP.md section 2, stage one): what this node holds kept whole and current, one loop at a time.
-        let keeping = false;
-        const keep = async (): Promise<void> => {
-          if (keeping) return;
-          keeping = true;
-          try {
-            await resolver.keep();
-          } catch {
-            /* the next loop tries again */
-          } finally {
-            keeping = false;
-          }
-        };
-        setTimeout(() => void keep(), 120_000).unref();
-        setInterval(() => void keep(), KEEP_EVERY_MS).unref();
+        // The keeper's loop while the page is up (WORKSHOP.md section 2, stage one): what this node holds kept whole and current, one loop at a time; a node that runs the loop itself passes keep: false.
+        if (options.keep !== false) {
+          let keeping = false;
+          const keep = async (): Promise<void> => {
+            if (keeping) return;
+            keeping = true;
+            try {
+              await resolver.keep();
+            } catch {
+              /* the next loop tries again */
+            } finally {
+              keeping = false;
+            }
+          };
+          setTimeout(() => void keep(), 120_000).unref();
+          setInterval(() => void keep(), KEEP_EVERY_MS).unref();
+        }
         resolve(server);
       });
     });
