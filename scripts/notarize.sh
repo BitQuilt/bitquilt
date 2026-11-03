@@ -9,6 +9,17 @@
 # or, with no profile in reach, the key itself: QUILT_NOTARY_KEY=<AuthKey.p8> QUILT_NOTARY_KEY_ID=… QUILT_NOTARY_ISSUER=… bash scripts/notarize.sh
 set -euo pipefail
 
+# Stapling asks Apple's ticket service, which drops a connection now and then right after a notarization it has
+# accepted (the release of 3 November 2026 lost one that way); it is asked again, a few times, before the build is given up.
+staple() {
+  for try in 1 2 3 4; do
+    xcrun stapler staple "$1" && return 0
+    echo "staple of $1 failed on try $try; asking again in 30 seconds" >&2
+    sleep 30
+  done
+  return 1
+}
+
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app="$root/dist/Quilt.app"
 zip="$root/dist/Quilt.app.zip"
@@ -43,7 +54,7 @@ else
   ditto -c -k --keepParent "$app" "$zip"
   echo "Submitting $zip under $with"
   xcrun notarytool submit "$zip" "${creds[@]}" --wait
-  xcrun stapler staple "$app"
+  staple "$app"
   rm -f "$zip"
 fi
 spctl --assess --type execute -vv "$app"
@@ -61,6 +72,6 @@ rm -rf "$stage"
 codesign --force --timestamp --sign "$identity" "$dmg"
 echo "Submitting $dmg under $with"
 xcrun notarytool submit "$dmg" "${creds[@]}" --wait
-xcrun stapler staple "$dmg"
+staple "$dmg"
 spctl --assess --type open --context context:primary-signature -vv "$dmg"
 echo "Notarized and stapled: $app and $dmg; the image is the file to attach to the release"
