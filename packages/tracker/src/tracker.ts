@@ -354,6 +354,22 @@ export function createTracker(options: TrackerOptions): Tracker {
     return null;
   }
 
+  /** QX-21 section 2: the reads a peer's trace names that this door lacks, fetched from the peer under their hashes and kept where they check; one that does not is left to the trace's own refusal. */
+  async function takeReads(peer: string, event: Event): Promise<void> {
+    for (const read of ((event.body as { reads?: { hash?: unknown }[] }).reads ?? [])) {
+      const hash = read.hash;
+      if (!isHash(hash) || store.getBlob(hash)) continue;
+      try {
+        const r = await fetchImpl(`${peer}b/${hash}`, { signal: AbortSignal.timeout(30_000) });
+        if (!r.ok) continue;
+        const bytes = new Uint8Array(await r.arrayBuffer());
+        if (hashBytes(bytes) === hash) store.putBlob(hash, bytes);
+      } catch {
+        /* the trace says what is missing */
+      }
+    }
+  }
+
   /**
    * QX-21 section 2: one log of a peer's, pulled and folded through this door. The chain is taken whole and left whole
    * where it does not verify; each event this tracker lacks is admitted as a post would be, in the peer's order, with
@@ -384,6 +400,8 @@ export function createTracker(options: TrackerOptions): Tracker {
         continue;
       }
       const hosted = line.received.some((w) => w.custody === 'hosted');
+      // QX-19 section 2: a trace is admitted where its reads are held, so the reads it names are taken from the peer under their hashes first, as the mirror and a node's keep take them.
+      if (event.type === 'trace') await takeReads(peer, event);
       exact += 1;
       try {
         const admitted = log.kind === 'identity' ? admitIdentityEvent(event) : await admitProblemEvent(event, (log as { hash: Hash }).hash, hosted);
@@ -397,7 +415,6 @@ export function createTracker(options: TrackerOptions): Tracker {
         exact -= 1;
       }
     }
-    void peer;
   }
 
   /** QX-21: every peer in turn, its identity log first and then its chain for every problem held here; the coin log is one sequence and is not pulled (QX-17). */

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Hash, type Receipt, IDENTITY_LOG, commitHash, newNonce, problemHash, verifyChain } from '@bitquilt/core';
+import { type Hash, type Receipt, IDENTITY_LOG, commitHash, eventId, hashBytes, newNonce, problemHash, verifyChain } from '@bitquilt/core';
 import { addr, boot, envelope, key } from './helpers.js';
 
 /**
@@ -86,6 +86,23 @@ describe('doors fold each other\'s chains (QX-21)', () => {
     expect((await two.tracker.pullPeers())[0]).toMatchObject({ added: 0, refused: [], errors: [] });
   });
 
+  it("takes the reads a peer's trace names before admitting it, so a trace that rests on a page kept at the peer folds here with its page", async () => {
+    const text = 'The paper says so, in its first section.';
+    const bytes = new TextEncoder().encode(text);
+    const page = hashBytes(bytes);
+    expect((await fetch(`${one.base}/b/${page}`, { method: 'PUT', body: bytes })).status).toBe(202);
+    const lines = (await (await fetch(`${one.base}/p/${P}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as Receipt);
+    const reveal = lines.find((l) => l.event.type === 'reveal' && l.event.key === addr(A) && l.event.piece === s1)!.event;
+    const reads = [{ url: 'https://example.org/paper', hash: page, at: '2026-11-02T11:00:00Z', media: 'text/plain' }];
+    await one.accepted(`/p/${P}/events`, one.ev(A, 'trace', { reveal: eventId(reveal), reads, rests: [{ field: 'verdict', read: 0, span: [0, 18] }] }, P, s1));
+    expect((await fetch(`${two.base}/b/${page}`)).status).toBe(404);
+    two.clock.tick = one.clock.tick + 60_000;
+    const [fromOne] = await two.tracker.pullPeers();
+    expect(fromOne).toMatchObject({ added: 1, refused: [], errors: [] });
+    expect(new TextDecoder().decode(await (await fetch(`${two.base}/b/${page}`)).arrayBuffer())).toBe(text);
+    const mine = (await (await fetch(`${two.base}/p/${P}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as Receipt);
+    expect(mine.filter((l) => l.event.type === 'trace')).toHaveLength(1);
+  });
   it('pulls the identity log first, so a name on the peer is a name here', async () => {
     expect((await one.post('/k/events', one.ev(owner, 'name', { name: 'Ada' }))).status).toBe(202);
     expect((await two.get<{ name: string | null }>(`/k/${addr(owner)}/work`)).name).toBeNull();
