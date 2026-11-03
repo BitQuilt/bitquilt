@@ -21,7 +21,7 @@ describe('quilt install claude', () => {
     expect(e).toEqual({ command: '/opt/quilt', args: ['mcp'], env: { QUILT_HOME: '/h', QUILT_MODEL: 'anthropic/claude', QUILT_TRACKERS: 'http://t/' } });
     expect(quiltEntry({ sea: true, execPath: '/opt/quilt', repoRoot: '/r', home: '/h', env: { QUILT_MODEL: 'anthropic/claude-opus-5-5' } }).env.QUILT_MODEL).toBe('anthropic/claude-opus-5-5');
     const dev = quiltEntry({ sea: false, execPath: '/usr/bin/node', repoRoot: '/r', home: '/h', env: {} });
-    expect([dev.command, dev.args]).toEqual(['/r/node_modules/.bin/tsx', ['/r/packages/client/src/bin.ts', 'mcp']]);
+    expect([dev.command, dev.args]).toEqual(['/usr/bin/node', ['/r/node_modules/tsx/dist/cli.mjs', '/r/packages/client/src/bin.ts', 'mcp']]);
   });
   it('keeps everything else in the file and the other servers', () => {
     const out = withQuilt({ preferences: { a: 1 }, mcpServers: { other: { command: 'x' } } }, { command: '/q', args: ['mcp'], env: {} });
