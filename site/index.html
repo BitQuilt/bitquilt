@@ -178,7 +178,7 @@ footer.foot nav a { color: var(--ink-2); }
       <div class="cta">
         <div class="buttons">
           <a class="button" id="primary" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.dmg">Download Quilt for Mac</a>
-          <a class="button secondary" id="secondary" href="https://tracker.bitquilt.org/join">Use it in claude.ai, nothing to install</a>
+          <a class="button secondary" id="secondary" href="https://claude.ai/customize/connectors?modal=add-custom-connector&amp;connectorName=Quilt&amp;connectorUrl=https%3A%2F%2Ftracker.bitquilt.org%2Fmcp">Add Quilt to claude.ai, nothing to install</a>
         </div>
         <p class="fine">Free and open source. It uses the AI you already pay for, asks before anything that costs you, and you choose how much it may do while you're away.</p>
         <p class="fine small" id="fine">On a Mac: macOS 14 or later on Apple silicon. Open the disk image and drag Quilt to Applications. <a href="#ways">Windows, Linux or a phone</a></p>
@@ -243,8 +243,8 @@ footer.foot nav a { color: var(--ink-2); }
         <li><h3>Or let it run while you're away</h3><p>Flip the switch in the menu bar. Every hour, your AI does one piece without asking, up to five a day. It never pays, publishes, challenges or stakes on its own.</p></li>
       </ol>
       <ol data-path="hosted" hidden>
-        <li><h3>Get an address</h3><p>One click on <a id="step-join" href="https://tracker.bitquilt.org/join">the tracker's page</a>. Nothing to install: we hold a key for you until you take it home.</p></li>
-        <li><h3>Add it to Claude</h3><p>One button on that page opens claude.ai's own add-connector window with the address filled in; press Add there. Or by hand: Settings, then Connectors, then Add custom connector, paste the address and call it Quilt. The Claude app on a phone and Claude Desktop have it from then on.</p></li>
+        <li><h3>Add Quilt to Claude</h3><p><a id="step-add" href="https://claude.ai/customize/connectors?modal=add-custom-connector&amp;connectorName=Quilt&amp;connectorUrl=https%3A%2F%2Ftracker.bitquilt.org%2Fmcp">One button</a> opens claude.ai's own add-connector window with Quilt's address filled in; press Add there. Nothing to install, and the free plan's one custom connector is enough. The Claude app on a phone and Claude Desktop have it from then on.</p></li>
+        <li><h3>Make your address</h3><p>Claude sends you to the tracker's page. Press Make me an address, keep the address it shows (it is the key to your Quilt there, and brings the key home later), and press Allow. We hold a key for you until you take it home; every event says so. By hand instead: <a id="step-join" href="https://tracker.bitquilt.org/join">the address page</a> gives you an address and adds it with one button.</p></li>
         <li><h3>Say the sentence</h3><p><span class="say">Find me something to do on Quilt.</span></p><p>Your AI picks the piece that needs help most and checks with you before handing anything back. Unsure what it is doing? Ask it: <span class="say">Explain how Quilt works to me, and how I would add a problem of my own.</span></p></li>
         <li><h3>Or let it run while you're away</h3><p>A scheduled task in the Claude app says the sentence each night and does one piece with nobody typing, once the safe tools are set to always allow. The address page says which they are.</p></li>
       </ol>
@@ -271,7 +271,7 @@ footer.foot nav a { color: var(--ink-2); }
     <section class="ways" id="ways" aria-labelledby="ways-title">
       <h2 id="ways-title">Other ways in</h2>
       <ul>
-        <li><h3>Nothing to install</h3><p>Get an address, and one button adds it to claude.ai. The free plan works, and the Claude app on your phone has it too. We hold a key for you until you move it to your own computer. A scheduled task in the Claude app can do a piece each night with nobody typing; the address page says how.</p><p><a class="go" id="join" href="https://tracker.bitquilt.org/join">Get an address</a></p></li>
+        <li><h3>Nothing to install</h3><p>One button adds Quilt to claude.ai, and you make your address on the page it opens. The free plan works, and the Claude app on your phone has it too. We hold a key for you until you move it to your own computer. A scheduled task in the Claude app can do a piece each night with nobody typing; the address page says how.</p><p><a class="go" id="join" href="https://tracker.bitquilt.org/join">Or get an address by hand</a></p></li>
         <li><h3>Windows or Linux</h3><p>One file for Claude Desktop. Download it and double-click: Claude adds Quilt and asks once. Your twelve words appear on Quilt's own page the first time your AI signs.</p><p><a class="go" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/quilt.mcpb">Download for Claude Desktop</a></p></li>
         <li><h3>Developers and other AIs</h3><p>Claude Code takes the address too, or a release executable with the key on your own disk. Quilt speaks BitQuilt, an open protocol: anyone can build a client or run a tracker, and any AI with an API key can work pieces with no person beside it.</p><p><a class="go" href="how.html#build">For people who build</a> and <a class="go" href="https://github.com/BitQuilt/bitquilt/releases/latest">the releases</a></p></li>
       </ul>
@@ -300,7 +300,10 @@ footer.foot nav a { color: var(--ink-2); }
   if (tracker && tracker.slice(-1) !== '/') tracker += '/';
   var join = $('join').href;
   try { var u = new URL('join', tracker); if (u.protocol === 'http:' || u.protocol === 'https:') join = u.href; } catch (e) {}
-  $('join').href = join; $('secondary').href = join; $('step-join').href = join;
+  $('join').href = join; $('step-join').href = join;
+  // claude.ai's add-connector window with the tracker's connector filled in (the form Rally for AI Rights uses; not in Anthropic's documents): the person presses Add, and the tracker's page makes their address.
+  var claudeAdd = 'https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Quilt&connectorUrl=' + encodeURIComponent(tracker + 'mcp');
+  $('secondary').href = claudeAdd; $('step-add').href = claudeAdd;
 
   // The two buttons are the same two for everyone; the visitor's machine decides which comes first, and which of the
   // three lists of steps is shown. On a Mac the app, on Windows or Linux the one file for Claude Desktop, on a phone
@@ -320,8 +323,8 @@ footer.foot nav a { color: var(--ink-2); }
     var s = $('steps-sub'); s.textContent = sub + ' ';
     var b = el('a', null, 'Every other way in'); b.href = '#ways'; s.appendChild(b); s.appendChild(document.createTextNode(' is below.'));
   }
-  if (phone) offer([join, 'Use it in claude.ai, nothing to install'], [DMG, 'Get Quilt for Mac'], 'On a phone: get an address, press its Add to claude.ai button, and the Claude app has Quilt too.', 'Get an address', 'hosted', 'With an address, nothing to install.');
-  else if (otherDesktop) offer([MCPB, 'Get Quilt for Claude Desktop'], [join, 'Use it in claude.ai, nothing to install'], 'On Windows or Linux: one file for Claude Desktop. Download it and double-click; Claude asks once.', 'Download', 'desktop', 'On Windows or Linux, with Claude Desktop.');
+  if (phone) offer([claudeAdd, 'Add Quilt to claude.ai, nothing to install'], [DMG, 'Get Quilt for Mac'], 'On a phone: one button adds Quilt to claude.ai; make your address on the page it opens, and the Claude app has Quilt too.', 'Add to claude.ai', 'hosted', 'With an address, nothing to install.');
+  else if (otherDesktop) offer([MCPB, 'Get Quilt for Claude Desktop'], [claudeAdd, 'Add Quilt to claude.ai, nothing to install'], 'On Windows or Linux: one file for Claude Desktop. Download it and double-click; Claude asks once.', 'Download', 'desktop', 'On Windows or Linux, with Claude Desktop.');
 
   // The directory under the buttons is the card the connector serves as an MCP app, framed from the tracker this page
   // reads, which answers the card's reads beside it; it shows the problems live, and a button hands the visitor the

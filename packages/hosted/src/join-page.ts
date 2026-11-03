@@ -18,7 +18,7 @@ const text = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;
  * mark that follows; and what it does not say. Written one sentence a line and joined.
  */
 const WITNESS = [
-  'In claude.ai or ChatGPT, this tracker\'s connector, <code id="oauth">its address without the last part</code>, can go in place of the long address: the product opens a page here, you paste the long address there once, and the product holds a token for it.',
+  'In claude.ai or ChatGPT, this tracker\'s connector, <code id="oauth">its address without the last part</code>, can go in place of the long address: the product opens a page here, you paste the long address there once, or make a new one there, and the product holds a token for it.',
   'The tracker then knows which product\'s callback the token came through, and writes it beside custody on every event it posts for you: via: claude.ai, via: chatgpt.com, or via: other with the name the client gave itself.',
   'That witness says the product made the calls, not who wrote the answer: you can still type one and have the product hand it back.',
   'A connector on your own machine has no witness, since any program there can give itself any name, and the long address added on its own carries none.',
