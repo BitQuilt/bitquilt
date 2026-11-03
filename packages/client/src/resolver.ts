@@ -5,12 +5,15 @@
  * client's side of PROTOCOL.md's resolvers: it asks them and keeps what they answer; the node in page.ts is the part
  * of Quilt that is a resolver.
  */
-import { appendFileSync, existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Envelope, type Event, type Hash, type Receipt, type State, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, isHash, onlyAppends, problemHash, reduce, verifyChain, withSlash } from '@bitquilt/core';
 import { findOnRelays } from './relay.js';
 import { type Config, ensureHome } from './config.js';
+import { type Chains, FileChains, type Held } from './chains.js';
 import type { Link } from './link.js';
+
+export type { Held } from './chains.js';
 
 /**
  * Fetches JSON with a timeout: null where the place does not answer in time, answers with an error, or answers with
@@ -64,9 +67,6 @@ export interface Library {
 
 const EMPTY_LIBRARY = (): Library => ({ problems: {}, pieces: {}, seeding: {} });
 
-/** What this node holds in its cache and serves to anyone by hash: problems, ledgers, blobs, and the bytes of all three. */
-export interface Held { problems: number; ledgers: number; blobs: number; bytes: number }
-
 /** What the keeper's loop did (WORKSHOP.md section 2, stage one): the problems held, the lines added to their chains and the identity log, the reads fetched, and the chains refused for not only growing. */
 export interface Kept { problems: number; added: number; reads: number; refused: string[] }
 
@@ -93,11 +93,15 @@ export class Resolver {
   /** The file's size and time when it was last read or written, so another process's write is seen before this one's next. */
   private stamp = '';
 
-  constructor(readonly config: Config, home: string, fetchImpl: typeof fetch = fetch, postHeaders: Record<string, string> = {}) {
+  /** The store this node keeps in and serves from (WORKSHOP.md section 2): the home's cache folder unless a store is given, as a node with a door gives the door's. */
+  readonly chains: Chains;
+
+  constructor(readonly config: Config, home: string, fetchImpl: typeof fetch = fetch, postHeaders: Record<string, string> = {}, chains?: Chains) {
     this.home = ensureHome(home);
     this.fetchImpl = fetchImpl;
     this.postHeaders = postHeaders;
     this.libraryFile = join(this.home, 'library.json');
+    this.chains = chains ?? new FileChains(this.home);
   }
 
   private fileStamp(): string {
@@ -150,35 +154,9 @@ export class Resolver {
     this.stamp = this.fileStamp();
   }
 
-  /** What this node holds in its cache and serves by hash (`/p/<hash>`, `/p/<hash>/events`, `/b/<hash>`): a count of each and the bytes, read from the folders. */
+  /** What this node holds and serves by hash (`/p/<hash>`, `/p/<hash>/events`, `/b/<hash>`): a count of each and the bytes. */
   serving(): Held {
-    const cache = join(this.home, 'cache');
-    const count = (dir: string, keep: (name: string) => boolean): { n: number; bytes: number } => {
-      let n = 0;
-      let bytes = 0;
-      let names: string[] = [];
-      try {
-        names = readdirSync(dir);
-      } catch {
-        return { n, bytes };
-      }
-      for (const name of names) {
-        if (!keep(name)) continue;
-        try {
-          const st = statSync(join(dir, name));
-          if (!st.isFile()) continue;
-          n += 1;
-          bytes += st.size;
-        } catch {
-          /* gone between the listing and the stat */
-        }
-      }
-      return { n, bytes };
-    };
-    const problems = count(cache, (name) => name.endsWith('.json') && name !== 'identity.jsonl');
-    const ledgers = count(join(cache, 'ledger'), (name) => name.endsWith('.jsonl'));
-    const blobs = count(join(cache, 'blobs'), () => true);
-    return { problems: problems.n, ledgers: ledgers.n, blobs: blobs.n, bytes: problems.bytes + ledgers.bytes + blobs.bytes };
+    return this.chains.held();
   }
 
   /** QX-14 section 3: the places the relays' announcements named for a hash, learned when no place this resolver knew answered for it, and kept for the rest of the session; an empty entry says the relays were asked and knew nothing. */
@@ -260,16 +238,12 @@ export class Resolver {
     return null;
   }
 
-  cachePath(kind: 'envelope' | 'blob' | 'ledger', hash: string): string {
-    return kind === 'envelope' ? join(this.home, 'cache', `${hash}.json`) : kind === 'blob' ? join(this.home, 'cache', 'blobs', hash) : join(this.home, 'cache', 'ledger', `${hash}.jsonl`);
-  }
-
   async envelope(hash: Hash, link: Link): Promise<{ envelope: Envelope; from: string | null } | null> {
     const asked = async (): Promise<{ envelope: Envelope; from: string | null } | null> => {
       for (const p of this.places(link, hash)) {
         const j = await this.getJson(p.kind === 'mirror' ? `${p.url}problems/${hash}.json` : `${p.url}p/${hash}`);
         if (j && envelopeProblems(j).length === 0 && problemHash(j as Envelope) === hash) {
-          writeFileSync(this.cachePath('envelope', hash), JSON.stringify(j));
+          if (!this.chains.envelopeOf(hash)) this.chains.putEnvelope(hash, j as Envelope, new Date().toISOString());
           return { envelope: j as Envelope, from: p.kind === 'tracker' ? p.url : null };
         }
       }
@@ -277,26 +251,20 @@ export class Resolver {
     };
     const got = await asked();
     if (got) return got;
-    const cached = this.cachePath('envelope', hash);
-    if (existsSync(cached)) {
-      const j = JSON.parse(readFileSync(cached, 'utf8')) as Envelope;
-      if (problemHash(j) === hash) return { envelope: j, from: null };
-    }
+    const cached = this.chains.envelopeOf(hash);
+    if (cached && problemHash(cached) === hash) return { envelope: cached, from: null };
     // QX-14 section 3: no place known and nothing kept; the relays may say where the problem is held, and then those places are asked.
     if (await this.learnFromRelays(hash)) return asked();
     return null;
   }
 
   async blob(hash: Hash, link: Link): Promise<Uint8Array | null> {
-    const cached = this.cachePath('blob', hash);
-    if (existsSync(cached)) {
-      const b = new Uint8Array(readFileSync(cached));
-      if (hashBytes(b) === hash) return b;
-    }
+    const cached = this.chains.getBlob(hash);
+    if (cached && hashBytes(cached) === hash) return cached;
     for (const p of this.places(link, link.hash ?? null)) {
       const b = await this.getBytes(p.kind === 'mirror' ? `${p.url}blobs/${hash}` : `${p.url}b/${hash}`);
       if (b && hashBytes(b) === hash) {
-        writeFileSync(cached, b);
+        this.chains.putBlob(hash, b);
         return b;
       }
     }
@@ -314,14 +282,12 @@ export class Resolver {
     for (const p of this.places(link, hash)) {
       const lines = p.kind === 'mirror' ? await this.getFileLines(`${p.url}ledger/${hash}.jsonl`) : await this.getLines(`${p.url}p/${hash}/events`);
       if (!lines || !verifyChain(lines, genesis).ok) continue;
-      const added = this.keepLines(this.cachePath('ledger', hash), lines, `${hash}: chain from ${p.url}`, note);
+      const added = this.keepLines(hash, lines, `${hash}: chain from ${p.url}`, note);
       if (added >= 0 || mode === 'read') return lines;
       read ??= lines;
     }
     if (read) return read;
-    const cached = this.cachePath('ledger', hash);
-    if (existsSync(cached)) return readFileSync(cached, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
-    return [];
+    return this.chains.lines(hash);
   }
 
   /**
@@ -329,14 +295,14 @@ export class Resolver {
    * follows one place's chain per log, and another place's chain for the same log, which has the same events in its
    * own order, is read for the state it gives and not kept. The lines added, or -1 where the chain was not kept.
    */
-  private keepLines(file: string, lines: Receipt[], label: string, note?: (line: string) => void): number {
-    const held = existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt) : [];
+  private keepLines(log: Hash, lines: Receipt[], label: string, note?: (line: string) => void): number {
+    const held = this.chains.lines(log);
     const growth = onlyAppends(held, lines);
     if (!growth.ok) {
       note?.(`${label} did not only grow: ${growth.problem}`);
       return -1;
     }
-    if (growth.added > 0 || !existsSync(file)) writeFileSync(file, lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));
+    if (growth.added > 0 || held.length === 0) this.chains.appendLines(log, lines.slice(held.length));
     return growth.added;
   }
 
@@ -374,7 +340,7 @@ export class Resolver {
     for (const l of lines) {
       if (l.event.type !== 'trace') continue;
       for (const r of (l.event.body as { reads?: { hash?: Hash }[] }).reads ?? []) {
-        if (!r.hash || !isHash(r.hash) || existsSync(this.cachePath('blob', r.hash))) continue;
+        if (!r.hash || !isHash(r.hash) || this.chains.getBlob(r.hash)) continue;
         if (await this.blob(r.hash, link)) fetched += 1;
       }
     }
@@ -421,14 +387,12 @@ export class Resolver {
     for (const p of this.places(link)) {
       const lines = p.kind === 'mirror' ? await this.getFileLines(`${p.url}ledger/identity.jsonl`) : await this.getLines(`${p.url}k/events`);
       if (!lines || !verifyChain(lines, IDENTITY_LOG).ok) continue;
-      const added = this.keepLines(join(this.home, 'cache', 'identity.jsonl'), lines, `identity: log from ${p.url}`, note);
+      const added = this.keepLines(IDENTITY_LOG, lines, `identity: log from ${p.url}`, note);
       if (added >= 0 || mode === 'read') return lines;
       read ??= lines;
     }
     if (read) return read;
-    const cached = join(this.home, 'cache', 'identity.jsonl');
-    if (existsSync(cached)) return readFileSync(cached, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
-    return [];
+    return this.chains.lines(IDENTITY_LOG);
   }
 
   /** Everything the reducer needs for a problem, from the places that answer, checked, and kept. */
@@ -529,43 +493,26 @@ export class Resolver {
    * its chain are held, so another node or a mirror learns what to pull with no tracker between. Read from the folders.
    */
   heldProblems(): { problem: Hash; title: string; slug: string; owner: string; lines: number }[] {
-    const cache = join(this.home, 'cache');
-    if (!existsSync(cache)) return [];
-    const out: { problem: Hash; title: string; slug: string; owner: string; lines: number }[] = [];
-    for (const name of readdirSync(cache).sort()) {
-      if (!name.endsWith('.json') || !isHash(name.slice(0, -5))) continue;
-      const hash = name.slice(0, -5) as Hash;
-      try {
-        const e = JSON.parse(readFileSync(join(cache, name), 'utf8')) as Envelope;
-        const ledger = this.cachePath('ledger', hash);
-        const lines = existsSync(ledger) ? readFileSync(ledger, 'utf8').split('\n').filter(Boolean).length : 0;
-        out.push({ problem: hash, title: e.problem.title, slug: e.problem.slug, owner: e.problem.owner, lines });
-      } catch {
-        /* a file that is not an envelope is not listed */
-      }
-    }
-    return out;
+    return this.chains.listEnvelopes()
+      .sort((a, b) => (a.hash < b.hash ? -1 : a.hash > b.hash ? 1 : 0))
+      .map(({ hash, envelope: e }) => ({ problem: hash, title: e.problem.title, slug: e.problem.slug, owner: e.problem.owner, lines: this.chains.lines(hash).length }));
   }
 
   /** The identity log as this node holds it, for `GET /k/events`. */
   cachedIdentity(): Receipt[] {
-    const f = join(this.home, 'cache', 'identity.jsonl');
-    return existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt) : [];
+    return this.chains.lines(IDENTITY_LOG);
   }
 
-  /** What this node has in its cache, to serve to others. */
+  /** What this node holds, to serve to others. */
   cachedEnvelope(hash: Hash): Envelope | null {
-    const f = this.cachePath('envelope', hash);
-    return existsSync(f) ? (JSON.parse(readFileSync(f, 'utf8')) as Envelope) : null;
+    return this.chains.envelopeOf(hash);
   }
 
   cachedReceipts(hash: Hash): Receipt[] {
-    const f = this.cachePath('ledger', hash);
-    return existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt) : [];
+    return this.chains.lines(hash);
   }
 
   cachedBlob(hash: Hash): Uint8Array | null {
-    const f = this.cachePath('blob', hash);
-    return existsSync(f) ? new Uint8Array(readFileSync(f)) : null;
+    return this.chains.getBlob(hash);
   }
 }
