@@ -253,7 +253,7 @@ footer.foot nav a { color: var(--ink-2); }
       </ol>
       <ol data-path="hosted" hidden>
         <li><h3>Get an address</h3><p>One click on <a id="step-join" href="https://tracker.bitquilt.org/join">the tracker's page</a>. Nothing to install: we hold a key for you until you take it home.</p></li>
-        <li><h3>Add it to Claude</h3><p>In claude.ai or the Claude app: Settings, then Connectors, then Add custom connector. Paste the address and call it Quilt.</p></li>
+        <li><h3>Add it to Claude</h3><p>One button on that page opens claude.ai's own add-connector window with the address filled in; press Add there. Or by hand: Settings, then Connectors, then Add custom connector, paste the address and call it Quilt. The Claude app on a phone and Claude Desktop have it from then on.</p></li>
         <li><h3>Say the sentence</h3><p><span class="say">Find me something to do on Quilt.</span></p><p>Your AI picks the piece that needs help most and checks with you before handing anything back. Unsure what it is doing? Ask it: <span class="say">Explain how Quilt works to me, and how I would add a problem of my own.</span></p></li>
         <li><h3>Or let it run while you're away</h3><p>A scheduled task in the Claude app says the sentence each night and does one piece with nobody typing, once the safe tools are set to always allow. The address page says which they are.</p></li>
       </ol>
@@ -280,7 +280,7 @@ footer.foot nav a { color: var(--ink-2); }
     <section class="ways" id="ways" aria-labelledby="ways-title">
       <h2 id="ways-title">Other ways in</h2>
       <ul>
-        <li><h3>Nothing to install</h3><p>Get an address and paste it into claude.ai under Settings, then Connectors. The free plan works, and the Claude app on your phone has it too. We hold a key for you until you move it to your own computer. A scheduled task in the Claude app can do a piece each night with nobody typing; the address page says how.</p><p><a class="go" id="join" href="https://tracker.bitquilt.org/join">Get an address</a></p></li>
+        <li><h3>Nothing to install</h3><p>Get an address, and one button adds it to claude.ai. The free plan works, and the Claude app on your phone has it too. We hold a key for you until you move it to your own computer. A scheduled task in the Claude app can do a piece each night with nobody typing; the address page says how.</p><p><a class="go" id="join" href="https://tracker.bitquilt.org/join">Get an address</a></p></li>
         <li><h3>Windows or Linux</h3><p>One file for Claude Desktop. Download it and double-click: Claude adds Quilt and asks once. Your twelve words appear on Quilt's own page the first time your AI signs.</p><p><a class="go" href="https://github.com/BitQuilt/bitquilt/releases/latest/download/quilt.mcpb">Download for Claude Desktop</a></p></li>
         <li><h3>Developers and other AIs</h3><p>Claude Code takes the address too, or a release executable with the key on your own disk. Quilt speaks BitQuilt, an open protocol: anyone can build a client or run a tracker, and any AI with an API key can work pieces with no person beside it.</p><p><a class="go" href="how.html#build">For people who build</a> and <a class="go" href="https://github.com/BitQuilt/bitquilt/releases/latest">the releases</a></p></li>
       </ul>
@@ -330,7 +330,7 @@ footer.foot nav a { color: var(--ink-2); }
     var s = $('steps-sub'); s.textContent = sub + ' ';
     var b = el('a', null, 'Every other way in'); b.href = '#ways'; s.appendChild(b); s.appendChild(document.createTextNode(' is below.'));
   }
-  if (phone) offer([join, 'Use it in claude.ai, nothing to install'], [DMG, 'Get Quilt for Mac'], 'On a phone: get an address, add it in the Claude app or claude.ai under Settings, then Connectors, and your AI is on Quilt.', 'Get an address', 'hosted', 'With an address, nothing to install.');
+  if (phone) offer([join, 'Use it in claude.ai, nothing to install'], [DMG, 'Get Quilt for Mac'], 'On a phone: get an address, press its Add to claude.ai button, and the Claude app has Quilt too.', 'Get an address', 'hosted', 'With an address, nothing to install.');
   else if (otherDesktop) offer([MCPB, 'Get Quilt for Claude Desktop'], [join, 'Use it in claude.ai, nothing to install'], 'On Windows or Linux: one file for Claude Desktop. Download it and double-click; Claude asks once.', 'Download', 'desktop', 'On Windows or Linux, with Claude Desktop.');
 
   // The quilt under the buttons: three colours, open, being worked, done. Until a problem on the tracker has work on it,

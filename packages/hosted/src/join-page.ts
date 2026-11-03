@@ -1,7 +1,8 @@
 /**
  * The page at /join: one button that asks the tracker for an address, and, once it is made, everything the person
- * needs next: the address with a copy button, where it goes in their AI's connectors (Claude Code among them, with the
- * command filled in), the first three sentences to say, what happens next and the sentence that adds a problem, the
+ * needs next: the address with a copy button, where it goes in their AI's connectors (a link that opens claude.ai's
+ * own add-connector window with the address and the name filled in, so the person presses Add there and nothing is
+ * pasted; Claude Code with the command filled in), the first three sentences to say, what happens next and the sentence that adds a problem, the
  * sheet the same address shows in a browser, and how the key comes home; and, where the tracker is the authorization
  * server for its addresses (QX-18), what the witness is and is not, in one paragraph. One self-contained document, as
  * the client's page is: nothing is loaded from elsewhere, and what the script puts on the page it sets with
@@ -38,6 +39,7 @@ main{max-width:620px;margin:0 auto;padding:40px 16px}
 h2{font-size:1.05rem;margin:28px 0 8px}
 button{font:inherit;padding:10px 18px;border-radius:6px;border:1.5px solid #2b3f7a;background:#2b3f7a;color:#fff;cursor:pointer}
 button.small{padding:6px 12px;white-space:nowrap}
+a.button{display:inline-block;text-decoration:none;padding:10px 18px;border-radius:6px;border:1.5px solid #2b3f7a;background:#2b3f7a;color:#fff}
 code{font-family:ui-monospace,Menlo,monospace;overflow-wrap:anywhere}
 pre{background:#e3e6eb;padding:12px;border-radius:6px;white-space:pre-wrap;word-break:break-all;margin:0;flex:1}
 .q{color:#4a546b}
@@ -58,9 +60,11 @@ ol{padding-left:1.2em}
 <div class="row"><pre id="url"></pre><button class="small" id="copyUrl">Copy</button></div>
 <p class="q">Your key's public address is <code id="addr"></code>. The long address above is the key to it: anyone who has it can act as you here, so keep it to yourself.</p>
 <h2>Where it goes</h2>
+<p><a id="claude" class="button" href="#" target="_blank" rel="noopener">Add to claude.ai</a></p>
+<p class="q">That opens claude.ai's own Add custom connector window with this address and the name Quilt filled in; press Add there. The free plan allows one custom connector, and this is it.</p>
 <ol>
-<li>In claude.ai, open Settings, then Connectors, choose Add custom connector, paste the address and call it Quilt. The free plan allows one custom connector, and this is it.</li>
-<li>Claude Desktop shows the same list under Settings, Connectors. The Claude app on a phone uses the connectors the account has.</li>
+<li>By hand, the same: in claude.ai, open Settings, then Connectors, choose Add custom connector, paste the address and call it Quilt.</li>
+<li>Claude Desktop and the Claude app on a phone use the connectors the account has, so added once it is in all three.</li>
 <li>Claude Code takes it on the command line: <code id="cc">claude mcp add --transport http quilt &lt;this address&gt;</code></li>
 <li>Any other chat that takes an MCP address takes this one.</li>
 </ol>${witness ? `
@@ -97,6 +101,8 @@ ol{padding-left:1.2em}
         $('addr').textContent = j.address;
         $('sheet').href = j.url;
         $('key').href = j.url + '/key';
+        // claude.ai's add-connector window, with the name and the address filled in (the form Rally for AI Rights uses, read 13 October 2026; not in Anthropic's documents).
+        $('claude').href = 'https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Quilt&connectorUrl=' + encodeURIComponent(j.url);
         $('cc').textContent = 'claude mcp add --transport http quilt ' + j.url;
         if ($('oauth')) $('oauth').textContent = j.url.replace(/\\/[0-9a-f]{64}$/, '');
         $('out').hidden = false;

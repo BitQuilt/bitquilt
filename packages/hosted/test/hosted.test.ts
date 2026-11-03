@@ -127,6 +127,9 @@ describe('the hosted on-ramp', () => {
     expect(joinHtml).toContain('Find me something to do on Quilt.');
     expect(joinHtml).toContain('Explain how Quilt works to me, and how I would add a problem of my own.');
     expect(joinHtml).toContain('claude mcp add --transport http quilt');
+    // The add-to-claude.ai link: its address is filled in by the page's script once the address is made, so the document itself links nowhere else.
+    expect(joinHtml).toContain('id="claude" class="button" href="#"');
+    expect(joinHtml).toContain('https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Quilt&connectorUrl=');
     expect(joinHtml).not.toMatch(/(src|href)="https?:/);
     // With no token key, there is no authorization server: no witness paragraph, and no connector without an address.
     expect(joinHtml).not.toContain('The witness');
