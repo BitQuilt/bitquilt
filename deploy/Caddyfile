@@ -3,9 +3,21 @@
 # No trusted_proxies, on purpose: Caddy then ignores a client's own X-Forwarded-* headers and writes the client's
 # address itself, which is what the tracker's rate limits and the witness's address binding read (QX-18 section 7).
 # A proxy put in front of Caddy is named here in trusted_proxies and in QUILT_TRUSTED_PROXIES both.
+# The second peer lives under the same name (docs/DEPLOY.md, "The second peer"): the second door at /two/ and the
+# relay at /relay, each handed the path past its prefix, since the host's firewall admits 80 and 443 alone.
 tracker.bitquilt.org {
     encode zstd gzip
-    reverse_proxy tracker:3977 {
-        flush_interval -1
+    handle_path /two/* {
+        reverse_proxy tracker-two:3977 {
+            flush_interval -1
+        }
+    }
+    handle_path /relay* {
+        reverse_proxy relay:7777
+    }
+    handle {
+        reverse_proxy tracker:3977 {
+            flush_interval -1
+        }
     }
 }

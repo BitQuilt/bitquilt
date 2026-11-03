@@ -407,7 +407,9 @@ export class Quilt {
   /**
    * QX-13 section 3: the owner's turn announces a problem again where the work on it has moved since the last announce
    * this home recorded, with the tracker's row of the moment, the same topics and the same signer, to the problem's
-   * trackers and this home's relays. A problem this key does not own, or has replaced, is passed over. The hashes announced.
+   * trackers and this home's relays, and where a relay this home is configured with has not been offered the announce
+   * yet, so a relay added later gets every owned problem at the next turn, once; one that is down then gets the next
+   * announce the work earns. A problem this key does not own, or has replaced, is passed over. The hashes announced.
    */
   async announceDue(): Promise<Hash[]> {
     const id = this.identity;
@@ -416,16 +418,18 @@ export class Quilt {
     for (const [h, entry] of Object.entries(this.library.problems)) {
       if (!isHash(h) || entry.next) continue;
       const trackers = entry.trackers.length ? entry.trackers : this.config.trackers;
+      const offered = entry.announced?.relays ?? [];
+      const unoffered = this.config.relays.filter((r) => !offered.includes(r));
       const row = await this.firstAnswer(trackers, (t) => this.rowOf(h, t));
       if (!row || !row.work || row.owner.toLowerCase() !== id.address.toLowerCase()) continue;
       const mark = [row.work.returned, row.work.accepted, row.work.verified, row.work.disputed, row.work.readers].join('/');
-      if (entry.announced?.mark === mark) continue;
+      if (entry.announced?.mark === mark && unoffered.length === 0) continue;
       const topics = entry.topics ?? row.topics ?? [];
       const body = { title: row.title, slug: row.slug, done_when: row.done_when, topics, owner: id.address, from: row.from ?? null, pieces: row.pieces, counts: row.counts, work: row.work, trackers, mirrors: this.config.mirrors };
       const announce = this.sign({ quilt: 1, type: 'announce', problem: h, key: id.address, ts: this.stamp(), body });
       await this.resolver.post(announce, h, trackers);
       if (this.config.relays.length) await postToRelays(this.config.relays, announcementEvent(announce, id.secret));
-      entry.announced = { at: this.stamp(), mark };
+      entry.announced = { at: this.stamp(), mark, relays: [...new Set([...offered, ...this.config.relays])] };
       if (!entry.topics) entry.topics = topics;
       this.save();
       out.push(h);
@@ -833,7 +837,7 @@ export class Quilt {
       await this.resolver.post(version, hash, posted);
     }
     const now = this.stamp();
-    this.library.problems[hash] = { title: problem.title, slug: problem.slug, trackers: posted, first: now, last: now, topics, announced: { at: now, mark: [0, 0, 0, 0, 0].join('/') } };
+    this.library.problems[hash] = { title: problem.title, slug: problem.slug, trackers: posted, first: now, last: now, topics, announced: { at: now, mark: [0, 0, 0, 0, 0].join('/'), relays: [...this.config.relays] } };
     this.save();
     return { hash, link: makeLink(hash, posted, problem.slug), posted, refused, relays, gold: null };
   }

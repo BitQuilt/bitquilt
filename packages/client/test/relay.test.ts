@@ -142,6 +142,20 @@ describe('discovery over relays (QX-14)', () => {
     expect(afar[0]!.work).toMatchObject({ accepted: 1 });
     expect(afar[0]!.announced).toMatch(/^20/);
   });
+  it("announces again, once, where a relay this home gained since has not been offered the announce, and not again while the work stands", async () => {
+    const later = await startRelay();
+    try {
+      owner.config.relays.push(later.url);
+      expect(owner.library.problems[problem]!.announced?.relays).toEqual([relay.url]);
+      expect(await owner.announceDue()).toEqual([problem]);
+      expect(later.events.size).toBe(1);
+      expect(owner.library.problems[problem]!.announced).toMatchObject({ mark: '1/1/0/0/2', relays: [relay.url, later.url] });
+      expect(await owner.announceDue()).toEqual([]);
+    } finally {
+      owner.config.relays.pop();
+      await later.close();
+    }
+  });
   it("keeps what a slow relay sent before the deadline, asks a topic by its tag, drops an announce whose words fail the gate, and keeps the owner's announce over a seeder's", async () => {
     const slow = await startRelay({ holdEose: true });
     const ev = [...relay.events.values()][0]!;

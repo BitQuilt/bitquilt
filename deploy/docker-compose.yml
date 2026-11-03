@@ -72,8 +72,41 @@ services:
       - house_openai:/house-openai
     depends_on:
       - tracker
+  # The second peer (docs/DEPLOY.md, "The second peer"): the reference tracker alone, with its own store, at /two/ under
+  # the same name, naming the first door as its peer as the first names it, so the two fold each other's chains every
+  # five minutes (QX-21). No on-ramp and no coin here: the coin log has one home (QX-17).
+  tracker-two:
+    build:
+      context: ..
+    restart: unless-stopped
+    command: ["pnpm", "--filter", "@bitquilt/tracker", "start"]
+    environment:
+      QUILT_URL: ${TWO_URL:-https://tracker.bitquilt.org/two/}
+      QUILT_NAME: ${TWO_NAME:-BitQuilt, second door}
+      QUILT_PEERS: ${QUILT_URL:-https://tracker.bitquilt.org/}
+      QUILT_MAINTAINERS: ${QUILT_MAINTAINERS:-}
+      QUILT_FOUNDING_STANDING: ${QUILT_FOUNDING_STANDING:-}
+      QUILT_IP_SALT: ${QUILT_IP_SALT:-}
+      QUILT_LIMIT_KEY_HOUR: ${QUILT_LIMIT_KEY_HOUR:-120}
+      QUILT_LIMIT_IP_HOUR: ${QUILT_LIMIT_IP_HOUR:-600}
+      QUILT_STAMP_NAME: ${QUILT_STAMP_NAME:-0}
+    volumes:
+      - data_two:/data
+    expose:
+      - "3977"
+  # The relay (QX-14): a Nostr relay of this host's own at /relay, where members' Quilts announce and search, so the
+  # swarm's directory runs here while nothing is said on a public relay. Its database is the volume.
+  relay:
+    image: dockurr/strfry
+    restart: unless-stopped
+    volumes:
+      - relay:/app/strfry-db
+    expose:
+      - "7777"
 volumes:
   data:
+  data_two:
+  relay:
   caddy_data:
   caddy_config:
   house:
