@@ -24,8 +24,10 @@ export const WINDOW_URI = 'ui://quilt/window.html';
 export const WINDOW_HASH = createHash('sha256').update(WINDOW_HTML).digest('hex').slice(0, 10);
 export const WINDOW_URI_NOW = `ui://quilt/window.${WINDOW_HASH}.html`;
 /** What the card may ask the reader for. */
-export const WINDOW_OPS = ['search', 'open', 'library', 'hot', 'follow', 'me', 'totals'] as const;
+export const WINDOW_OPS = ['search', 'open', 'library', 'hot', 'follow', 'me', 'totals', 'phrases'] as const;
 export type WindowOp = (typeof WINDOW_OPS)[number];
+/** What a reader with no person behind it answers, the on-ramp's `/window/io` for a site: nothing of a home, and nothing written. */
+export const WINDOW_READ_OPS: readonly WindowOp[] = ['search', 'open', 'totals', 'phrases'];
 /** The phrases the card's buttons hand the person's AI, each with `{link}` where a problem's link goes (phrases.ts). */
 export const WINDOW_PHRASES = ['open_problem', 'take_piece', 'keep_problem', 'find_something_to_do', 'who_am_i'] as const;
 
@@ -43,8 +45,10 @@ async function hot(quilt: Quilt, library: Library): Promise<Record<string, unkno
  * briefs; `library` is what the home keeps and serves, names and counts, with no gold answer in it; `hot` is the keys
  * this person follows and `follow` adds or drops one; `me` is who this client is, with its standing and coin and the
  * phrase templates; `totals` is the swarm counted once per problem, by hash, over every tracker's index, with what each
- * tracker lists.
+ * tracker lists; `phrases` is the phrase templates alone, for the card on a site, where there is no person to be.
  */
+const phrasesOf = (): Record<string, string> => Object.fromEntries(WINDOW_PHRASES.map((name) => [name, say(name, { link: '{link}' })]));
+
 export async function windowAnswer(quilt: Quilt, input: Record<string, unknown>): Promise<Record<string, unknown>> {
   const op = String(input.op ?? '');
   const str = (k: string): string => (typeof input[k] === 'string' ? (input[k] as string) : '');
@@ -98,9 +102,10 @@ export async function windowAnswer(quilt: Quilt, input: Record<string, unknown>)
     case 'me': {
       const me = quilt.me();
       const [standing, coin] = await Promise.all([quilt.standing(), quilt.coin()]);
-      const phrases = Object.fromEntries(WINDOW_PHRASES.map((name) => [name, say(name, { link: '{link}' })]));
-      return { op, address: me.address, name: me.name, model: me.model, trackers: me.trackers, relays: me.relays, queued: me.queued, problems: me.problems, standing, coin, witness: me.witness?.via ?? null, phrases };
+      return { op, address: me.address, name: me.name, model: me.model, trackers: me.trackers, relays: me.relays, queued: me.queued, problems: me.problems, standing, coin, witness: me.witness?.via ?? null, phrases: phrasesOf() };
     }
+    case 'phrases':
+      return { op, phrases: phrasesOf() };
     case 'totals': {
       // Doors that fold each other hold the same problems (QX-21), so the swarm is counted once per problem, by hash, over every tracker's index; where two differ on one, the row further along its chain is read. Each tracker says how many it lists, or null where it gave no answer.
       type Row = { problem?: string; pieces?: number; counts?: Record<string, number>; head?: { seq?: number } | null };

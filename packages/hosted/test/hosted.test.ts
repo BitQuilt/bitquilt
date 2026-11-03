@@ -131,6 +131,24 @@ describe('the hosted on-ramp', () => {
     expect(joinHtml).toContain('id="claude" class="button" href="#"');
     expect(joinHtml).toContain('https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Quilt&connectorUrl=');
     expect(joinHtml).not.toMatch(/(src|href)="https?:/);
+    // The window for a site: the card as a page any site may frame, and its reader beside it, answering the read-only ops alone over this tracker.
+    const win = await fetch(`${base}window`);
+    expect(win.headers.get('content-type')).toMatch(/text\/html/);
+    expect(win.headers.get('content-security-policy')).toContain('frame-ancestors *');
+    expect(await win.text()).toContain('<title>Quilt</title>');
+    const io = (q: string) => fetch(`${base}window/io?${q}`);
+    const totals = (await (await io('op=totals')).json()) as { problems: number; trackers: { tracker: string; problems: number | null }[] };
+    expect(totals.problems).toBeGreaterThanOrEqual(1);
+    expect(totals.trackers).toEqual([{ tracker: base, problems: totals.problems }]);
+    const found = (await (await io('op=search&query=')).json()) as { rows: { via: string; link: string; title: string }[] };
+    expect(found.rows.length).toBeGreaterThanOrEqual(1);
+    expect(found.rows[0]).toMatchObject({ via: 'tracker' });
+    const opened = (await (await io(`op=open&link=${encodeURIComponent(found.rows[0]!.link)}`)).json()) as { title: string; pieces: unknown[] };
+    expect(opened.title).toBe(found.rows[0]!.title);
+    expect(opened.pieces.length).toBeGreaterThanOrEqual(1);
+    expect(((await (await io('op=phrases')).json()) as { phrases: Record<string, string> }).phrases.take_piece).toBe('Open {link} on Quilt and take a piece.');
+    expect((await io('op=me')).status).toBe(404);
+    expect((await io(`op=follow&key=0x${'1'.repeat(40)}`)).status).toBe(404);
     // With no token key, there is no authorization server: no witness paragraph, and no connector without an address.
     expect(joinHtml).not.toContain('The witness');
     expect((await fetch(`${base}mcp`, { method: 'POST', body: '{}' })).status).toBe(404);

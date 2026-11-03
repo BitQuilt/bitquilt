@@ -18,7 +18,7 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { appendFileSync } from 'node:fs';
 import { type Address, addressOf, randomSecretKey, secretFromHex, secretToHex, withSlash } from '@bitquilt/core';
 import { PRIVATE_RANGES, type Store, clientAddress, rangesOf } from '@bitquilt/tracker';
-import { AWAY_LOG, type Config, DEFAULT_CONFIG, type OwnerTurn, Quilt, Resolver, type Witness, createMcpServer, localRunner, ownerTurn, sheetOf } from 'quilt';
+import { AWAY_LOG, type Config, DEFAULT_CONFIG, type OwnerTurn, Quilt, Resolver, WINDOW_HTML, WINDOW_READ_OPS, type Witness, createMcpServer, localRunner, ownerTurn, sheetOf, windowAnswer } from 'quilt';
 import { joinPage } from './join-page.js';
 import { type OAuthServer, createOAuth } from './oauth.js';
 import { type Sentence, vendorSentence } from './sentence.js';
@@ -36,6 +36,8 @@ export interface HostedOptions {
   custodySecret: string;
   /** How many addresses one network address may be handed in an hour (20). */
   joinsPerHour?: number;
+  /** How many reads of the site's window reader (`/window/io`) one network address may make in an hour; 1200 unless set. */
+  readsPerHour?: number;
   /** What the tracker calls itself, named on the authorization page; its address when none. */
   name?: string;
   /**
@@ -121,6 +123,32 @@ export function createHosted(options: HostedOptions): Hosted {
   const trackerUrl = (): string => withSlash(typeof options.trackerUrl === 'function' ? options.trackerUrl() : options.trackerUrl);
   const now = options.now ?? (() => new Date().toISOString());
   const joinsPerHour = options.joinsPerHour ?? 20;
+  const readsPerHour = options.readsPerHour ?? 1200;
+
+  // The site's reader (APP.md, "The window"): the card at /window and its read-only ops at /window/io, answered by a
+  // Quilt with no key over this tracker and the relays, as a member's search sees the swarm. What it opens is kept under
+  // a home of its own beside the members', which store.members() never lists. Each answer is kept twenty seconds, since
+  // a site's visitors ask the same things.
+  let readerQuilt: Quilt | null = null;
+  const readerOf = (): Quilt => {
+    if (!readerQuilt) {
+      const config: Config = { ...DEFAULT_CONFIG, trackers: [trackerUrl()], relays: options.relays ?? [], can: ['web'] };
+      readerQuilt = new Quilt(config, null, new Resolver(config, join(options.home, 'reader')), 'site');
+    }
+    return readerQuilt;
+  };
+  const readerKept = new Map<string, { at: number; answer: Promise<Record<string, unknown>> }>();
+  function readerAnswer(op: string, input: Record<string, string>): Promise<Record<string, unknown>> {
+    const key = JSON.stringify([op, input]);
+    const t = Date.now();
+    const had = readerKept.get(key);
+    if (had && t - had.at < 20_000) return had.answer;
+    if (readerKept.size > 500) readerKept.clear();
+    const answer = windowAnswer(readerOf(), { op, ...input });
+    readerKept.set(key, { at: t, answer });
+    answer.catch(() => readerKept.delete(key));
+    return answer;
+  }
   mkdirSync(options.home, { recursive: true });
   const sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer; member: string; witness: Witness | null; last: number }>();
   const joinHtml = joinPage(options.oauth !== undefined);
@@ -272,6 +300,33 @@ export function createHosted(options: HostedOptions): Hosted {
       const b = oauth.bearer(req);
       if (b.kind !== 'granted') oauth.challenge(res, b.kind === 'refused' ? b.why : undefined);
       else await mcp(req, res, { member: b.tokenHash, witness: b.witness });
+      return true;
+    }
+    // The directory window for a site (APP.md, "The window"): the card as a page, which any site may frame, since it holds nothing of anyone's and reads what /search reads; and the read-only ops beside it, over the reader with no key.
+    if (path === '/window' && method === 'GET') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors *; base-uri 'none'", 'cache-control': 'public, max-age=300' });
+      res.end(WINDOW_HTML);
+      return true;
+    }
+    if (path === '/window/io') {
+      if (method !== 'GET') {
+        json(res, 405, { error: 'GET' });
+        return true;
+      }
+      const op = url.searchParams.get('op') ?? '';
+      if (!(WINDOW_READ_OPS as readonly string[]).includes(op)) {
+        json(res, 404, { error: `the site's reader answers ${WINDOW_READ_OPS.join(', ')}` });
+        return true;
+      }
+      if (store.hit(`window:${addressHash(req)}`, now().slice(0, 13), readsPerHour)) {
+        json(res, 429, { error: 'over the hour\'s limit for reads from here' });
+        return true;
+      }
+      try {
+        json(res, 200, await readerAnswer(op, { query: (url.searchParams.get('query') ?? '').slice(0, 200), link: (url.searchParams.get('link') ?? '').slice(0, 400) }));
+      } catch (e) {
+        json(res, 400, { error: (e as Error).message });
+      }
       return true;
     }
     if (path === '/join') {

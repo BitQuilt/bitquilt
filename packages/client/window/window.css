@@ -47,3 +47,5 @@ dt { color: var(--muted); } dd { margin: 0; word-break: break-all; }
 .err { color: #b4432c; margin: 8px 0 0; }
 .err:empty { display: none; }
 .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+/* A narrow frame, a phone or a site's column: the five columns read least fold away, and the title, who, the pieces, the returned and the accepted stay with the buttons. */
+@media (max-width: 640px) { .results th:nth-child(n+6):not(:last-child), .results td:nth-child(n+6):not(:last-child) { display: none; } }

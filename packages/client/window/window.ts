@@ -13,6 +13,11 @@
  * Five views, as Napster had its tabs: Search, Problem (the map), Hot list (the keys followed), Library (what this
  * home keeps and serves), Me; and a status line with the swarm's totals, each problem counted once however many doors
  * hold it.
+ *
+ * The same document stands on a site, where no chat holds it: the on-ramp serves it at /window, and `?reader=` names
+ * the route beside it that answers the read-only ops over the tracker's own view, so bitquilt.org frames the live
+ * directory. There is no person in it: the personal tabs are not shown, nothing is followed, and a button that would
+ * hand the person's AI a phrase copies the phrase instead, for the person to say in a chat of their own.
  */
 import { App, applyDocumentTheme, applyHostFonts, applyHostStyleVariables, type McpUiHostContext } from '@modelcontextprotocol/ext-apps/app-with-deps';
 
@@ -45,6 +50,8 @@ interface Me {
   phrases: Record<string, string>;
 }
 interface Totals { op: 'totals'; problems: number; pieces: number; counts: Record<string, number>; trackers: { tracker: string; problems: number | null }[] }
+/** The phrase templates alone, for the card on a site, where there is no person to be. */
+interface Phrases { op: 'phrases'; phrases: Record<string, string> }
 /** What the tool that showed this card handed it: who the client is and what to open on. No one's words. */
 interface Handle { address?: string | null; name?: string | null; trackers?: string[]; host?: string | null; view?: string; query?: string | null; link?: string | null }
 
@@ -59,13 +66,20 @@ const state = {
   hot: null as Hot | null,
   lib: null as Lib | null,
   me: null as Me | null,
+  /** The person's own phrases, each with {link} where a problem's link goes: from `me` in a chat, from `phrases` on a site. */
+  phrases: null as Record<string, string> | null,
   totals: null as Totals | null,
   busy: false,
   error: '',
-  /** Something was just handed to the person's AI: the answer comes in the chat, under the card. */
+  /** Something was just handed to the person's AI: the answer comes in the chat, under the card. On a site, the sentence copied for the person to say. */
   told: '',
+  copied: false,
 };
 let app: App | null = null;
+/** On a site: the reader's address from the page's own query, resolved against this document (`window/io` beside `/window`); in a chat, none. */
+const params = new URLSearchParams(location.search);
+const reader = params.get('reader') ? new URL(params.get('reader') as string, location.href).href : null;
+const standalone = reader !== null;
 
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> & { class?: string } = {}, ...kids: Array<Node | string | null | undefined>): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
@@ -105,6 +119,23 @@ function workOf(counts: Record<string, number>): { returned: number; accepted: n
 
 /** The reader behind the card: the app-only tool, over the session the host relays, answering JSON as text. */
 async function io<T>(op: string, body: Record<string, unknown> = {}): Promise<T> {
+  if (reader) {
+    // On a site: the same ops as plain GETs to the reader beside this document; the on-ramp answers the read-only ones and refuses the rest.
+    const q = new URLSearchParams({ op });
+    for (const [k, v] of Object.entries(body)) if (v !== undefined && v !== null) q.set(k, String(v));
+    const r = await fetch(`${reader}?${q}`, { headers: { accept: 'application/json' } });
+    const text = await r.text();
+    if (!r.ok) {
+      let why = text;
+      try {
+        why = (JSON.parse(text) as { error?: string }).error ?? text;
+      } catch {
+        /* the body as it came */
+      }
+      throw new Error(why || 'The reader did not answer.');
+    }
+    return JSON.parse(text) as T;
+  }
   if (!app) throw new Error('This window has no host to read through.');
   const r = await app.callServerTool({ name: 'quilt_window_io', arguments: { op, ...body } });
   const first = r.content?.[0];
@@ -115,12 +146,28 @@ async function io<T>(op: string, body: Record<string, unknown> = {}): Promise<T>
 
 /** One of the person's own phrases, handed to this chat as the person's message; the AI answers under the card. */
 async function tell(text: string): Promise<void> {
-  if (!app || !text) return;
+  if (!text) return;
+  if (standalone) {
+    // No AI is in this page: the sentence is copied, and shown, for the person to say in any chat where Quilt is connected.
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    } catch {
+      /* shown instead */
+    }
+    state.told = text;
+    state.copied = copied;
+    state.error = '';
+    draw();
+    return;
+  }
+  if (!app) return;
   await app.sendMessage({ role: 'user', content: [{ type: 'text', text }] });
   state.told = text;
   draw();
 }
-const phrase = (name: string, link = ''): string => (state.me?.phrases[name] ?? '').replace('{link}', link);
+const phrase = (name: string, link = ''): string => (state.phrases?.[name] ?? '').replace('{link}', link);
 
 function applyHost(ctx: McpUiHostContext | undefined): void {
   if (!ctx) return;
@@ -174,7 +221,8 @@ const els = {
 
 function shell(): void {
   const nav = h('nav', { class: 'tabs' });
-  for (const t of TABS) {
+  // On a site there is no person: the search and the map alone.
+  for (const t of TABS.filter((t) => !standalone || t.view === 'search' || t.view === 'problem')) {
     const b = btn(t.label, 'tab', () => show(t.view));
     els.tabs.set(t.view, b);
     nav.append(b);
@@ -246,7 +294,7 @@ function drawResults(): void {
       h('td', { class: 'n' }, w.readers ? `${w.readers} / ${w.vendors}` : '0'),
       h('td', { class: 'n' }, String(w.disputed)),
       h('td', {}, where),
-      h('td', { class: 'acts' }, btn('Open', 'b small', () => void openProblem(r.link)), ' ', btn('Take a piece', 'b small', () => void tell(phrase('take_piece', r.link)), !state.me)),
+      h('td', { class: 'acts' }, btn('Open', 'b small', () => void openProblem(r.link)), ' ', btn('Take a piece', 'b small', () => void tell(phrase('take_piece', r.link)), !state.phrases)),
     );
   });
   els.results.replaceChildren(h('table', {}, h('thead', {}, head), h('tbody', {}, ...body)));
@@ -280,10 +328,10 @@ function drawProblem(): void {
     `${p.readers} reader${p.readers === 1 ? '' : 's'}${p.vendors.length ? ` from ${p.vendors.length} vendor${p.vendors.length === 1 ? '' : 's'} (${p.vendors.join(', ')})` : ''}; ${p.seeders} seeder${p.seeders === 1 ? '' : 's'}${p.tracker ? `; at ${placeOf(p.tracker)}` : ''}.`,
   ];
   const acts = h('div', { class: 'acts' },
-    btn('Take a piece', 'b primary', () => void tell(phrase('take_piece', p.link)), !state.me),
-    btn('Open with my AI', 'b', () => void tell(phrase('open_problem', p.link)), !state.me),
-    btn(p.seeding ? 'Kept by this home' : 'Keep it', 'b', () => void tell(phrase('keep_problem', p.link)), !state.me || p.seeding),
-    btn(followed ? 'Unfollow the owner' : 'Follow the owner', 'b', () => void follow(p.owner, !followed, p.owner_name)),
+    btn('Take a piece', 'b primary', () => void tell(phrase('take_piece', p.link)), !state.phrases),
+    btn('Open with my AI', 'b', () => void tell(phrase('open_problem', p.link)), !state.phrases),
+    btn(p.seeding ? 'Kept by this home' : 'Keep it', 'b', () => void tell(phrase('keep_problem', p.link)), !state.phrases || p.seeding),
+    ...(standalone ? [] : [btn(followed ? 'Unfollow the owner' : 'Follow the owner', 'b', () => void follow(p.owner, !followed, p.owner_name))]),
   );
   const shown = p.pieces.slice(0, 80);
   const table = h('table', {},
@@ -358,7 +406,7 @@ function drawLib(): void {
         return h('tr', {},
           h('td', { class: 'title' }, title, h('span', { class: 's' }, `${e.slug}${lib.seeding[hash] ? '; kept' : ''}${e.next ? '; replaced by a newer version' : ''}`)),
           h('td', {}, day(e.last)),
-          h('td', { class: 'acts' }, btn('Open', 'b small', () => void openProblem(e.link)), ' ', btn('Take a piece', 'b small', () => void tell(phrase('take_piece', e.link)), !state.me || Boolean(e.next))),
+          h('td', { class: 'acts' }, btn('Open', 'b small', () => void openProblem(e.link)), ' ', btn('Take a piece', 'b small', () => void tell(phrase('take_piece', e.link)), !state.phrases || Boolean(e.next))),
         );
       })),
     )
@@ -414,15 +462,29 @@ function draw(): void {
   drawLib();
   drawMe();
   drawStatus();
-  els.err.textContent = state.error || (state.told ? 'Handed to your AI; its answer comes in the chat.' : '');
+  if (state.error) els.err.textContent = state.error;
+  else if (state.told && standalone) els.err.replaceChildren(state.copied ? 'Copied: ' : 'Say this: ', h('span', { class: 'mono' }, state.told), ' Say it in any chat where Quilt is connected. ', h('a', { href: new URL('join', location.href).href, target: '_blank', rel: 'noopener' }, 'No Quilt yet? Get an address.'));
+  else els.err.textContent = state.told ? 'Handed to your AI; its answer comes in the chat.' : '';
 }
 
 // ---- start ----------------------------------------------------------------
 
 async function load(): Promise<void> {
   try {
+    if (standalone) {
+      // The phrases and the totals, then the directory at once, since a visitor has asked for nothing yet.
+      const [phrases, totals] = await Promise.all([io<Phrases>('phrases'), io<Totals>('totals')]);
+      state.phrases = phrases.phrases;
+      state.totals = totals;
+      els.q.value = state.query;
+      draw();
+      if (state.wanted) await openProblem(state.wanted);
+      else await search();
+      return;
+    }
     const [me, totals, hot] = await Promise.all([io<Me>('me'), io<Totals>('totals'), io<Hot>('hot')]);
     state.me = me;
+    state.phrases = me.phrases;
     state.totals = totals;
     state.hot = hot;
     els.q.value = state.query;
@@ -438,6 +500,17 @@ async function load(): Promise<void> {
 async function start(): Promise<void> {
   shell();
   draw();
+  if (standalone) {
+    // On a site: no host to connect to; the page's own query says what to search or open.
+    state.query = (params.get('query') ?? '').slice(0, 200);
+    const link = params.get('link');
+    if (link) {
+      state.wanted = link;
+      state.view = 'problem';
+    }
+    await load();
+    return;
+  }
   app = new App({ name: 'Quilt', version: __QUILT_VERSION__ });
   app.ontoolresult = (p) => {
     const handles = (p.structuredContent as { handles?: { window?: Handle; query?: string; problem?: string } } | undefined)?.handles;
