@@ -16,7 +16,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { accessSync, appendFileSync, constants, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { delimiter, dirname, join, resolve } from 'node:path';
+import { delimiter, dirname, join, posix, resolve } from 'node:path';
 import { isHash } from '@bitquilt/core';
 import type { Revealed } from './gold.js';
 import type { ServerEntry } from './install.js';
@@ -510,7 +510,8 @@ export function plistText(o: { label: string; command: string; args: string[]; h
 
 /** Where the launchd user agent for a label is written. */
 export function launchAgentFile(label = LAUNCHD_LABEL, userHome = homedir()): string {
-  return join(userHome, 'Library', 'LaunchAgents', `${label}.plist`);
+  // A launchd path is a Mac's, so it is joined the Mac's way wherever this runs.
+  return posix.join(userHome, 'Library', 'LaunchAgents', `${label}.plist`);
 }
 
 /** The crontab line for a machine without launchd: the same command at the top of every hour. */
