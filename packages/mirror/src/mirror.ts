@@ -22,16 +22,21 @@
  * the head, not the arithmetic; a second implementation of coin.ts would check that. The tracker's balances are kept
  * only where the mirror's own agree.
  *
- * A run is `mirror()`: one context carries what every step shares, and each step is a function below that says what
- * it refuses.
+ * The keeping is over a store (files.ts: envelopes, blobs and the lines of each log), the mirror's layout under its
+ * folder here and a tracker's store in a node (WORKSHOP.md section 2, one peer): `keep()` is the pull alone, which a
+ * node with the `keep` role runs over the store its door writes, and `mirror()` is the same pull over the files with
+ * the publication after it, the names, the outputs, the index, the keys, the balances and the anchors.
+ *
+ * A run is one context carrying what every step shares, and each step is a function below that says what it refuses.
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
   type Envelope, type Hash, type Receipt, type ReduceInput, IDENTITY_LOG, blobProblems, envelopeProblems, eventId, eventProblems, eventSignedByKey, hashBytes, nextLine, onlyAppends, problemHash, reduce, signedBy, verifyChain, withSlash,
 } from '@bitquilt/core';
 import { type BalanceView, type CoinParams, type CreditLine, type Layer, COIN_LOG, challengeLayer, coinLayer, recordDocument } from '@bitquilt/tracker';
 import { type AnchorReport, type ChainHead, anchorHeads } from './anchor.js';
+import { type KeptStore, MirrorFiles } from './files.js';
 import { hiddenFromIdentity, keysFromIdentity } from './identity.js';
 
 export interface MirrorOptions {
@@ -60,6 +65,25 @@ export interface DepositReader {
   depositAt(n: number): Promise<{ root: string; amount: bigint | number; made: boolean }>;
 }
 
+/** The pull alone, over a store given: what a node with the `keep` role runs (WORKSHOP.md section 2). */
+export interface KeepOptions {
+  /** The store kept in: the mirror's files, or a node's store, each answering files.ts's methods. */
+  store: KeptStore;
+  /** The sources: trackers, or nodes, each read by what its well-known says it is. */
+  sources: string[];
+  /** The folder the publication goes to (the names, the outputs, the coin's balances); none for a node that keeps and serves from its store. */
+  out?: string | null;
+  /** What the keeper's own wrapper on every line it appends says received the event: its name or address; `mirror` unless set. */
+  by?: string;
+  /** Follow each configured source's peers (its well-known `peers`) one hop, as sources of their own; on unless false. */
+  peers?: boolean;
+  fetchImpl?: typeof fetch;
+  now?: () => string;
+  /** QX-17: pull the coin log of a tracker that is the coin's home and reproduce its balances; on unless false. */
+  coin?: boolean;
+  chain?: DepositReader | null;
+}
+
 export interface MirrorReport {
   /** Every source read this run: the configured ones, then the peers followed. */
   sources: string[];
@@ -84,24 +108,27 @@ interface CoinState {
   balances: Record<string, BalanceView>;
 }
 
-/** What every step of a run shares: where the files go, how to fetch, the clock, the report being built, and the problems taken so far with the tracker each came from. */
+/** What every step of a run shares: the store kept in, where the publication goes if anywhere, how to fetch, the clock, the report being built, and the problems taken so far with the tracker each came from. */
 interface Context {
-  out: string;
+  store: KeptStore;
+  /** The publication's folder (names, outputs, balances, keys, index, anchors), or null for a node that only keeps. */
+  out: string | null;
   fetchImpl: typeof fetch;
   now: () => string;
   report: MirrorReport;
-  /** Every problem in this run's index with the source it came from, null for one kept from the files alone. */
+  /** Every problem in this run's index with the source it came from, null for one kept from the store alone. */
   index: Map<Hash, { envelope: Envelope; tracker: string | null }>;
   /** Every problem a source was asked for this run, taken or refused, so a refusal is said once. */
   tried: Set<Hash>;
-  /** What this mirror's own wrapper says. */
+  /** What this keeper's own wrapper says. */
   by: string;
 }
 
-export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
-  for (const d of ['problems', 'blobs', 'ledger', 'names', 'outputs']) mkdirSync(join(options.out, d), { recursive: true });
-  const ctx: Context = {
-    out: options.out,
+function contextFor(options: KeepOptions): Context {
+  if (options.out) for (const d of ['names', 'outputs']) mkdirSync(join(options.out, d), { recursive: true });
+  return {
+    store: options.store,
+    out: options.out ?? null,
     fetchImpl: options.fetchImpl ?? fetch,
     now: options.now ?? (() => new Date().toISOString()),
     report: { sources: [], problems: [], kept: [], identity: { lines: 0, added: 0 }, refused: [], errors: [] },
@@ -109,8 +136,11 @@ export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
     tried: new Set(),
     by: options.by ?? 'mirror',
   };
-  // The configured sources, and each one's peers one hop behind it: a mirror pointed at one tracker keeps the swarm it names.
-  const configured = [...new Set(options.trackers.map(withSlash))];
+}
+
+/** The pull: every source, and each configured one's peers one hop behind it, so a keeper pointed at one tracker keeps the swarm it names; then what no source listed, kept as it was. */
+async function pull(ctx: Context, options: KeepOptions): Promise<void> {
+  const configured = [...new Set(options.sources.map(withSlash))];
   const sources = [...configured];
   for (let i = 0; i < sources.length; i += 1) {
     const source = sources[i]!;
@@ -128,6 +158,21 @@ export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
   }
   ctx.report.sources = sources;
   keepTheRest(ctx);
+}
+
+/** The keeper's pull over a store given, and nothing written beside it: what a node with the `keep` role runs. */
+export async function keep(options: KeepOptions): Promise<MirrorReport> {
+  const ctx = contextFor(options);
+  await pull(ctx, options);
+  return ctx.report;
+}
+
+/** The mirror: the same pull over its files, then the publication a client reads raw, and the anchors when asked. */
+export async function mirror(options: MirrorOptions): Promise<MirrorReport> {
+  const store = new MirrorFiles(options.out);
+  const keeping: KeepOptions = { ...options, store, sources: options.trackers, out: options.out };
+  const ctx = contextFor(keeping);
+  await pull(ctx, keeping);
   const at = ctx.now();
   writeKeys(ctx, at);
   writeIndex(ctx, at);
@@ -169,8 +214,7 @@ async function listedAt(ctx: Context, source: string, node: boolean): Promise<Ha
 
 /** The hashes of every problem whose envelope is held here. */
 function heldHere(ctx: Context): Hash[] {
-  const dir = join(ctx.out, 'problems');
-  return existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5) as Hash) : [];
+  return ctx.store.listEnvelopes().map((e) => e.hash);
 }
 
 /**
@@ -185,17 +229,12 @@ async function takeHeld(ctx: Context, source: string): Promise<void> {
   }
 }
 
-/** Every problem held here that no source listed or served this run stays in the index as the files have it. */
+/** Every problem held here that no source listed or served this run stays in the index as the store has it. */
 function keepTheRest(ctx: Context): void {
-  for (const hash of heldHere(ctx)) {
+  for (const { hash, envelope } of ctx.store.listEnvelopes()) {
     if (ctx.index.has(hash)) continue;
-    try {
-      const envelope = JSON.parse(readFileSync(join(ctx.out, 'problems', `${hash}.json`), 'utf8')) as Envelope;
-      ctx.index.set(hash, { envelope, tracker: null });
-      ctx.report.kept.push(hash);
-    } catch (err) {
-      ctx.report.errors.push(`${hash}: ${(err as Error).message}`);
-    }
+    ctx.index.set(hash, { envelope, tracker: null });
+    ctx.report.kept.push(hash);
   }
 }
 
@@ -206,7 +245,7 @@ function keepTheRest(ctx: Context): void {
  */
 async function takeReads(ctx: Context, source: string, lines: Receipt[], label: string): Promise<void> {
   const wanted = new Set<Hash>();
-  for (const l of lines) if (l.event.type === 'trace') for (const r of ((l.event.body as { reads?: { hash?: Hash }[] }).reads ?? [])) if (r.hash && !existsSync(join(ctx.out, 'blobs', r.hash))) wanted.add(r.hash);
+  for (const l of lines) if (l.event.type === 'trace') for (const r of ((l.event.body as { reads?: { hash?: Hash }[] }).reads ?? [])) if (r.hash && !ctx.store.getBlob(r.hash)) wanted.add(r.hash);
   for (const h of wanted) {
     const bytes = await getBytes(ctx, `${source}b/${h}`);
     if (!bytes) continue;
@@ -214,7 +253,7 @@ async function takeReads(ctx: Context, source: string, lines: Receipt[], label: 
       ctx.report.refused.push(`${label}: read ${h} from ${source} does not check`);
       continue;
     }
-    writeFileSync(join(ctx.out, 'blobs', h), bytes);
+    ctx.store.putBlob(h, bytes);
   }
 }
 
@@ -238,30 +277,25 @@ async function getLines(ctx: Context, url: string): Promise<Receipt[] | null> {
   return null;
 }
 
-const readLines = (file: string): Receipt[] => (existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt) : []);
-
-function writeLines(file: string, lines: Receipt[]): void {
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));
-}
-
 /** What the reducer takes for a problem held here: its envelope chain along prev, the blobs, every receipt along the chain and the identity log. */
 function inputFor(ctx: Context, envelope: Envelope, at: string): ReduceInput {
   const chainEnvelopes: Envelope[] = [envelope];
   const guard = new Set<Hash>([problemHash(envelope)]);
   for (let cur = envelope.problem.prev; cur && !guard.has(cur); ) {
     guard.add(cur);
-    const file = join(ctx.out, 'problems', `${cur}.json`);
-    if (!existsSync(file)) break;
-    const prev = JSON.parse(readFileSync(file, 'utf8')) as Envelope;
+    const prev = ctx.store.envelopeOf(cur);
+    if (!prev) break;
     chainEnvelopes.push(prev);
     cur = prev.problem.prev;
   }
   const blobs = new Map<Hash, Uint8Array>();
-  for (const e of chainEnvelopes) for (const h of Object.values(e.problem.data)) if (!blobs.has(h) && existsSync(join(ctx.out, 'blobs', h))) blobs.set(h, new Uint8Array(readFileSync(join(ctx.out, 'blobs', h))));
+  for (const e of chainEnvelopes) for (const h of Object.values(e.problem.data)) if (!blobs.has(h)) {
+    const b = ctx.store.getBlob(h);
+    if (b) blobs.set(h, b);
+  }
   const receipts: Receipt[] = [];
-  for (const e of chainEnvelopes) receipts.push(...readLines(join(ctx.out, 'ledger', `${problemHash(e)}.jsonl`)));
-  receipts.push(...readLines(join(ctx.out, 'ledger', 'identity.jsonl')));
+  for (const e of chainEnvelopes) receipts.push(...ctx.store.lines(problemHash(e)));
+  receipts.push(...ctx.store.lines(IDENTITY_LOG));
   return { envelopes: chainEnvelopes, blobs, receipts, now: at };
 }
 
@@ -274,7 +308,7 @@ function inputFor(ctx: Context, envelope: Envelope, at: string): ReduceInput {
  * one source's chain verbatim is a prefix of it. As a whole (the coin log, QX-17): the source's chain is taken as it is,
  * and refused where it did anything but grow, since a coin log is one sequence and a union of two is neither.
  */
-async function takeChain(ctx: Context, url: string, genesis: Hash, file: string, label: string, mode: 'union' | 'whole' = 'union'): Promise<{ lines: Receipt[]; added: number } | null> {
+async function takeChain(ctx: Context, url: string, genesis: Hash, log: Hash, label: string, mode: 'union' | 'whole' = 'union'): Promise<{ lines: Receipt[]; added: number } | null> {
   const lines = await getLines(ctx, url);
   if (!lines) return null;
   const check = verifyChain(lines, genesis);
@@ -282,14 +316,15 @@ async function takeChain(ctx: Context, url: string, genesis: Hash, file: string,
     ctx.report.refused.push(`${label}: chain from ${url} does not verify: ${check.problems[0]}`);
     return null;
   }
-  const held = readLines(file);
+  const held = ctx.store.lines(log);
+  const before = held.length;
   if (mode === 'whole') {
     const growth = onlyAppends(held, lines);
     if (!growth.ok) {
       ctx.report.refused.push(`${label}: chain from ${url} did not only grow: ${growth.problem}`);
       return null;
     }
-    if (growth.added > 0 || !existsSync(file)) writeLines(file, lines);
+    if (growth.added > 0 || before === 0) ctx.store.appendLines(log, lines.slice(before));
     return { lines, added: growth.added };
   }
   const have = new Set(held.map((l) => eventId(l.event)));
@@ -305,7 +340,7 @@ async function takeChain(ctx: Context, url: string, genesis: Hash, file: string,
     have.add(id);
     added += 1;
   }
-  if (added > 0 || !existsSync(file)) writeLines(file, held);
+  if (added > 0 || before === 0) ctx.store.appendLines(log, held.slice(before));
   return { lines: held, added };
 }
 
@@ -313,8 +348,7 @@ async function takeChain(ctx: Context, url: string, genesis: Hash, file: string,
 async function takeBlobs(ctx: Context, tracker: string, envelope: Envelope): Promise<Map<Hash, Uint8Array> | null> {
   const blobs = new Map<Hash, Uint8Array>();
   for (const h of Object.values(envelope.problem.data)) {
-    const file = join(ctx.out, 'blobs', h);
-    let bytes: Uint8Array | null = existsSync(file) ? new Uint8Array(readFileSync(file)) : null;
+    let bytes = ctx.store.getBlob(h);
     if (!bytes || hashBytes(bytes) !== h) bytes = await getBytes(ctx, `${tracker}b/${h}`);
     if (!bytes || hashBytes(bytes) !== h) return null;
     blobs.set(h, bytes);
@@ -341,14 +375,14 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
     ctx.report.refused.push(`${hash}: a blob from ${tracker} does not check`);
     return;
   }
-  const chain = await takeChain(ctx, `${tracker}p/${hash}/events`, hash, join(ctx.out, 'ledger', `${hash}.jsonl`), hash);
+  const chain = await takeChain(ctx, `${tracker}p/${hash}/events`, hash, hash, hash);
   if (!chain) return;
-  writeFileSync(join(ctx.out, 'problems', `${hash}.json`), JSON.stringify(envelope, null, 2) + '\n');
-  for (const [h, bytes] of blobs) writeFileSync(join(ctx.out, 'blobs', h), bytes);
+  if (!ctx.store.envelopeOf(hash)) ctx.store.putEnvelope(hash, envelope, ctx.now());
+  for (const [h, bytes] of blobs) if (!ctx.store.getBlob(h)) ctx.store.putBlob(h, bytes);
   await takeReads(ctx, tracker, chain.lines, hash);
   ctx.index.set(hash, { envelope, tracker });
-  // Names and the output come from the events, not the tracker's word.
-  for (const line of chain.lines) if (line.event.type === 'version' && line.event.key === envelope.problem.owner) {
+  // Names and the output come from the events, not the tracker's word; both are the publication's, written where there is one.
+  if (ctx.out) for (const line of chain.lines) if (line.event.type === 'version' && line.event.key === envelope.problem.owner) {
     const { slug, hash: target } = line.event.body as { slug: string; hash: Hash };
     const file = join(ctx.out, 'names', envelope.problem.owner, slug);
     mkdirSync(dirname(file), { recursive: true });
@@ -358,7 +392,7 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
   try {
     const state = reduce(inputFor(ctx, envelope, ctx.now()));
     complete = state.complete;
-    if (state.output) {
+    if (state.output && ctx.out) {
       mkdirSync(join(ctx.out, 'outputs', hash), { recursive: true });
       writeFileSync(join(ctx.out, 'outputs', hash, 'output.json'), JSON.stringify(state.output.document, null, 2) + '\n');
       writeFileSync(join(ctx.out, 'outputs', hash, 'hash'), `${state.output.hash}\n`);
@@ -371,7 +405,7 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
 
 /** The identity log from a tracker, taken like a chain. Every tracker serves the one log, so with several the report's `lines` is the last one's count and `added` the most any one of them added over what was held when it was read. */
 async function takeIdentity(ctx: Context, tracker: string): Promise<void> {
-  const identity = await takeChain(ctx, `${tracker}k/events`, IDENTITY_LOG, join(ctx.out, 'ledger', 'identity.jsonl'), 'identity');
+  const identity = await takeChain(ctx, `${tracker}k/events`, IDENTITY_LOG, IDENTITY_LOG, 'identity');
   if (identity) ctx.report.identity = { lines: identity.lines.length, added: Math.max(ctx.report.identity.added, identity.added) };
 }
 
@@ -386,7 +420,7 @@ async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | nu
   const wellKnown = (await getJson(ctx, `${tracker}.well-known/quilt`)) as { coin?: (CoinParams & { home?: string | null; extension?: string }) | null } | null;
   const published = wellKnown?.coin ?? null;
   if (!published || !(published.home === 'here' || published.home === undefined || published.home === null)) return;
-  const log = await takeChain(ctx, `${tracker}coin/events`, COIN_LOG, join(ctx.out, 'ledger', 'coin.jsonl'), 'coin', 'whole');
+  const log = await takeChain(ctx, `${tracker}coin/events`, COIN_LOG, COIN_LOG, 'coin', 'whole');
   if (!log) return;
   const held = log.lines[log.lines.length - 1];
   const coin: NonNullable<MirrorReport['coin']> = { lines: log.lines.length, added: log.added, head: held?.seq ?? null, reproduced: null };
@@ -403,8 +437,10 @@ async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | nu
       ctx.report.refused.push(`coin: ${wrongCredit}, at head ${state.head?.seq ?? 0} from ${tracker}`);
       coin.reproduced = false;
     } else if (differs === undefined) {
-      mkdirSync(join(ctx.out, 'coin'), { recursive: true });
-      writeFileSync(join(ctx.out, 'coin', 'balances.json'), JSON.stringify({ head: state.head, at: state.at, params: published, balances: state.balances }, null, 2) + '\n');
+      if (ctx.out) {
+        mkdirSync(join(ctx.out, 'coin'), { recursive: true });
+        writeFileSync(join(ctx.out, 'coin', 'balances.json'), JSON.stringify({ head: state.head, at: state.at, params: published, balances: state.balances }, null, 2) + '\n');
+      }
       coin.reproduced = true;
     } else {
       ctx.report.refused.push(`coin: the balances at head ${state.head?.seq ?? 0} from ${tracker} do not reproduce here (${differs})`);
@@ -458,34 +494,34 @@ function writeRecords(ctx: Context, at: string): void {
     const records = new Map(pl.pieces.filter((p) => p.record).map((p) => [p.hash, p.record!] as const));
     if (records.size === 0 || !pl.fold.complete) continue;
     const doc = recordDocument(hash, pl.fold, records, pl.receipts);
-    mkdirSync(join(ctx.out, 'outputs', hash), { recursive: true });
-    writeFileSync(join(ctx.out, 'outputs', hash, 'record.json'), JSON.stringify(doc.document, null, 2) + '\n');
-    writeFileSync(join(ctx.out, 'outputs', hash, 'record_hash'), `${doc.hash}\n`);
+    mkdirSync(join(ctx.out!, 'outputs', hash), { recursive: true });
+    writeFileSync(join(ctx.out!, 'outputs', hash, 'record.json'), JSON.stringify(doc.document, null, 2) + '\n');
+    writeFileSync(join(ctx.out!, 'outputs', hash, 'record_hash'), `${doc.hash}\n`);
   }
 }
 
 /** keys.json: each address's latest name and the delegations in force at `at`, folded from the identity log alone. */
 function writeKeys(ctx: Context, at: string): void {
-  writeFileSync(join(ctx.out, 'keys.json'), JSON.stringify(keysFromIdentity(readLines(join(ctx.out, 'ledger', 'identity.jsonl')), at), null, 2) + '\n');
+  writeFileSync(join(ctx.out!, 'keys.json'), JSON.stringify(keysFromIdentity(ctx.store.lines(IDENTITY_LOG), at), null, 2) + '\n');
 }
 
 /** index.json: every problem taken, with its title, slug, owner, the tracker it came from and the hides on it (QX-6). */
 function writeIndex(ctx: Context, at: string): void {
-  const hiddenBy = hiddenFromIdentity(readLines(join(ctx.out, 'ledger', 'identity.jsonl')));
+  const hiddenBy = hiddenFromIdentity(ctx.store.lines(IDENTITY_LOG));
   const problems = [...ctx.index].map(([hash, { envelope, tracker }]) => ({ hash, title: envelope.problem.title, slug: envelope.problem.slug, owner: envelope.problem.owner, tracker, hidden: hiddenBy.get(hash) ?? [] }));
-  writeFileSync(join(ctx.out, 'index.json'), JSON.stringify({ quilt: 1, mirrored: at, problems }, null, 2) + '\n');
+  writeFileSync(join(ctx.out!, 'index.json'), JSON.stringify({ quilt: 1, mirrored: at, problems }, null, 2) + '\n');
 }
 
 /** QX-12: the head of every chain held here (each problem's, the identity log's and the coin log's), stamped outside the ledger when asked; a head already stamped is kept. */
 async function anchorAll(ctx: Context, anchor: true | { calendars?: string[] }): Promise<void> {
   const heads: ChainHead[] = [];
-  const headOf = (file: string, problem: string) => {
-    const lines = readLines(file);
+  const headOf = (log: Hash, problem: string) => {
+    const lines = ctx.store.lines(log);
     const last = lines[lines.length - 1];
     if (last && typeof last.hash === 'string' && typeof last.seq === 'number') heads.push({ problem, seq: last.seq, hash: last.hash });
   };
-  for (const p of ctx.report.problems) headOf(join(ctx.out, 'ledger', `${p.hash}.jsonl`), p.hash);
-  headOf(join(ctx.out, 'ledger', 'identity.jsonl'), 'identity');
-  headOf(join(ctx.out, 'ledger', 'coin.jsonl'), 'coin');
-  ctx.report.anchors = await anchorHeads({ out: ctx.out, heads, ...(typeof anchor === 'object' && anchor.calendars ? { calendars: anchor.calendars } : {}), fetchImpl: ctx.fetchImpl, now: ctx.now });
+  for (const p of ctx.report.problems) headOf(p.hash, p.hash);
+  headOf(IDENTITY_LOG, 'identity');
+  headOf(COIN_LOG, 'coin');
+  ctx.report.anchors = await anchorHeads({ out: ctx.out!, heads, ...(typeof anchor === 'object' && anchor.calendars ? { calendars: anchor.calendars } : {}), fetchImpl: ctx.fetchImpl, now: ctx.now });
 }

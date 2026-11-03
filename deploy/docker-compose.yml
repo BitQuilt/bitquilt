@@ -5,12 +5,18 @@
 #   cp deploy/env.example deploy/.env   # then fill it in; the file stays on the host and never in the repository
 #   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 services:
+  # The public door with the on-ramp: one node with the roles admit and host (WORKSHOP.md section 2), over the store the
+  # hosted tracker kept before (QUILT_DB, /data/tracker.db, set by the image).
   tracker:
     build:
       context: ..
     restart: unless-stopped
+    command: ["pnpm", "--filter", "@bitquilt/node", "start"]
     env_file:
       - .env
+    environment:
+      QUILT_ROLES: admit,host
+      QUILT_HOME: /data
     volumes:
       - data:/data
     expose:
@@ -79,8 +85,10 @@ services:
     build:
       context: ..
     restart: unless-stopped
-    command: ["pnpm", "--filter", "@bitquilt/tracker", "start"]
+    command: ["pnpm", "--filter", "@bitquilt/node", "start"]
     environment:
+      QUILT_ROLES: admit
+      QUILT_HOME: /data
       QUILT_URL: ${TWO_URL:-https://tracker.bitquilt.org/two/}
       QUILT_NAME: ${TWO_NAME:-BitQuilt, second door}
       QUILT_PEERS: ${QUILT_URL:-https://tracker.bitquilt.org/}
