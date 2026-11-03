@@ -14,7 +14,7 @@ import { type Pattern, Quilt } from '../src/quilt.js';
 import { type Library, publicLibrary } from '../src/resolver.js';
 import { localRunner } from '../src/tools.js';
 import { WINDOW_HTML } from '../src/window.generated.js';
-import { WINDOW_OPS, WINDOW_PHRASES, WINDOW_URI, WINDOW_URI_NOW } from '../src/window.js';
+import { WINDOW_OPS, WINDOW_PHRASES, WINDOW_URI, WINDOW_URI_NOW, windowAnswer } from '../src/window.js';
 import { instructs, mcpPair, quiltOver, startTracker, tempHome } from './helpers.js';
 
 /**
@@ -102,7 +102,7 @@ describe('the directory window', () => {
     await close();
   });
 
-  it('reads for the card: a search with a link on every row, who this client is with the phrases its buttons send, and the trackers\' totals, as JSON text and nothing else', async () => {
+  it('reads for the card: a search with a link on every row, who this client is with the phrases its buttons send, and the swarm\'s totals counted once per problem, as JSON text and nothing else', async () => {
     const { client, close } = await mcpPair(a);
     const io = async (op: string, more: Record<string, unknown> = {}) => {
       const r = await client.callTool({ name: 'quilt_window_io', arguments: { op, ...more } });
@@ -128,7 +128,11 @@ describe('the directory window', () => {
     }
     expect(phrases.take_piece).toBe('Open {link} on Quilt and take a piece.');
     const totals = await io('totals');
-    expect(totals.trackers).toEqual([{ tracker: base, problems: 1, pieces: 3, counts: { open: 2, needs_verify: 1 } }]);
+    expect(totals).toEqual({ op: 'totals', problems: 1, pieces: 3, counts: { open: 2, needs_verify: 1 }, trackers: [{ tracker: base, problems: 1 }] });
+    // The same door under two names, as two doors folding each other look to a client that names both: each problem is counted once, by hash, and each place says what it lists.
+    const alias = base.replace('127.0.0.1', 'localhost');
+    const both = quiltOver(base, { trackers: [base, alias] })(3);
+    expect(await windowAnswer(both, { op: 'totals' })).toEqual({ op: 'totals', problems: 1, pieces: 3, counts: { open: 2, needs_verify: 1 }, trackers: [{ tracker: base, problems: 1 }, { tracker: alias, problems: 1 }] });
     // The problem's map as the tracker's layer holds it, each piece with its kind, grade and readers, and no brief.
     const opened = await io('open', { link: problem });
     expect(opened).toMatchObject({ problem, title: pattern.title, done_when: pattern.done_when, slug: pattern.slug, owner: owner.identity!.address, owner_name: null, tracker: base, complete: false, seeders: 0, seeding: false, readers: 1, vendors: ['openai'] });

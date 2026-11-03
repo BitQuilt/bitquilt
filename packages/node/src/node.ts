@@ -126,7 +126,7 @@ export async function start(options: StartOptions): Promise<Node> {
       const loop = once(async () => {
         if (roles.has('work')) {
           const k = await resolver.keep();
-          say(`kept: ${k.problems} problems, ${k.added} lines, ${k.reads} reads${k.refused.length ? `; ${k.refused.length} refused` : ''}`);
+          say(`kept: ${k.problems} problems, ${k.added} lines, ${k.reads} reads${k.sent ? `, ${k.sent} sent from the queue` : ''}${k.refused.length ? `; ${k.refused.length} refused` : ''}`);
         }
         const s = await swarm();
         if (s) say(`swarm: ${s.sources.length} sources, ${s.problems.length} problems, ${s.problems.reduce((n, p) => n + p.added, 0) + s.identity.added} lines${s.refused.length ? `; ${s.refused.length} refused` : ''}`);

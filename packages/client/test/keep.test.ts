@@ -1,15 +1,17 @@
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash, type Receipt, eventId, hashBytes, signEvent } from '@bitquilt/core';
+import { Store, createTracker } from '@bitquilt/tracker';
 import { type Pattern, Quilt } from '../src/quilt.js';
-import { quiltOver, startTracker } from './helpers.js';
+import { baseOf, quiltOver, startTracker } from './helpers.js';
 
 /**
  * The client's node as keeper (WORKSHOP.md section 2, stage one; PROTOCOL.md, The mirror): a node that opened a
  * problem holds its chain, and `keep` pulls it again from where it is held, keeps the lines that came since, fetches the
  * read a trace names so the node serves it, and keeps the identity log; a second tracker's chain for the same problem,
  * the same events in its own order, is read for the state it gives and not kept, since a node follows one place's
- * chain per problem; and a second keep adds nothing.
+ * chain per problem; a second keep adds nothing; and what waited in the queue while no tracker answered goes out at the
+ * start of a keep (APP.md, the node).
  */
 let one: Server, two: Server;
 let base: string, other: string;
@@ -88,5 +90,26 @@ describe('the node keeps what it holds', () => {
     expect(again.refused).toHaveLength(2);
     expect(again.refused.every((r) => r.includes(other) && r.includes('did not only grow'))).toBe(true);
     expect(node.resolver.cachedReceipts(problem)).toHaveLength(5);
+  });
+
+  it('sends what waited in the queue before it pulls: an event posted while no tracker answered goes out on the next keep', async () => {
+    // A door that is down when the name is posted, and up again at the same address when the node keeps.
+    const door = () => createTracker({ store: new Store(':memory:'), url: 'http://tracker.test/', ipSalt: 's' });
+    const down = await door().listen(0);
+    const address = baseOf(down);
+    await new Promise<void>((r) => down.close(() => r()));
+    const q = quiltOver(address)(6);
+    expect(await q.setName('Grace')).toMatchObject({ at: null, queued: true });
+    expect(q.resolver.queued()).toBe(1);
+    const up = await door().listen(Number(new URL(address).port));
+    try {
+      expect(await q.resolver.keep()).toMatchObject({ problems: 0, sent: 1 });
+      expect(q.resolver.queued()).toBe(0);
+      const names = (await (await fetch(`${address}k/events`)).text()).trim().split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
+      expect(names.map((l) => [l.event.type, (l.event.body as { name: string }).name])).toEqual([['name', 'Grace']]);
+      expect(await q.resolver.keep()).toMatchObject({ sent: 0 });
+    } finally {
+      await new Promise<void>((r) => up.close(() => r()));
+    }
   });
 });

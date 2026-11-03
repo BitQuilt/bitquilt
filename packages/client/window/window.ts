@@ -11,7 +11,8 @@
  * with textContent, never as markup.
  *
  * Five views, as Napster had its tabs: Search, Problem (the map), Hot list (the keys followed), Library (what this
- * home keeps and serves), Me; and a status line with the trackers' totals.
+ * home keeps and serves), Me; and a status line with the swarm's totals, each problem counted once however many doors
+ * hold it.
  */
 import { App, applyDocumentTheme, applyHostFonts, applyHostStyleVariables, type McpUiHostContext } from '@modelcontextprotocol/ext-apps/app-with-deps';
 
@@ -43,7 +44,7 @@ interface Me {
   /** The person's own phrases, each with {link} where a problem's link goes. */
   phrases: Record<string, string>;
 }
-interface Totals { op: 'totals'; trackers: { tracker: string; problems: number | null; pieces: number; counts: Record<string, number> }[] }
+interface Totals { op: 'totals'; problems: number; pieces: number; counts: Record<string, number>; trackers: { tracker: string; problems: number | null }[] }
 /** What the tool that showed this card handed it: who the client is and what to open on. No one's words. */
 interface Handle { address?: string | null; name?: string | null; trackers?: string[]; host?: string | null; view?: string; query?: string | null; link?: string | null }
 
@@ -80,9 +81,11 @@ function btn(text: string, cls: string, act: () => void, disabled = false): HTML
   b.addEventListener('click', act);
   return b;
 }
-const hostOf = (url: string): string => {
+/** Where a tracker is, as a person reads it: the host, with the path where a door is a path under one name (tracker.bitquilt.org/two). */
+const placeOf = (url: string): string => {
   try {
-    return new URL(url).host;
+    const u = new URL(url);
+    return `${u.host}${u.pathname.replace(/\/$/, '')}`;
   } catch {
     return url;
   }
@@ -231,7 +234,7 @@ function drawResults(): void {
     title.addEventListener('click', () => void openProblem(r.link));
     const fork = r.from ? `; forks ${short(r.from)}` : '';
     const held = r.held?.length ?? 1;
-    const where = `${r.via === 'relay' ? 'a relay; opens at ' : ''}${hostOf(r.tracker)}${held > 1 ? ` and ${held - 1} more` : ''}${r.announced ? `; as announced ${day(r.announced)}` : ''}`;
+    const where = `${r.via === 'relay' ? 'a relay; opens at ' : ''}${placeOf(r.tracker)}${held > 1 ? ` and ${held - 1} more` : ''}${r.announced ? `; as announced ${day(r.announced)}` : ''}`;
     return h('tr', { class: r.root && r.root !== r.problem ? 'fork' : '' },
       h('td', { class: 'title' }, title, h('span', { class: 's' }, `${r.slug}${r.topics.length ? `; ${r.topics.join(', ')}` : ''}${fork}`)),
       h('td', {}, r.owner_name ?? short(r.owner)),
@@ -274,7 +277,7 @@ function drawProblem(): void {
   const traced = p.pieces.filter((x) => x.traced === 'both').length;
   const lines = [
     `${p.pieces.length} pieces: ${w.returned} returned, ${w.accepted} accepted (${p.pieces.filter((x) => x.verified).length} verified by the owner's gold, ${traced} resting on kept reads on both sides), ${w.disputed} disputed${p.complete ? '; complete' : ''}.`,
-    `${p.readers} reader${p.readers === 1 ? '' : 's'}${p.vendors.length ? ` from ${p.vendors.length} vendor${p.vendors.length === 1 ? '' : 's'} (${p.vendors.join(', ')})` : ''}; ${p.seeders} seeder${p.seeders === 1 ? '' : 's'}${p.tracker ? `; at ${hostOf(p.tracker)}` : ''}.`,
+    `${p.readers} reader${p.readers === 1 ? '' : 's'}${p.vendors.length ? ` from ${p.vendors.length} vendor${p.vendors.length === 1 ? '' : 's'} (${p.vendors.join(', ')})` : ''}; ${p.seeders} seeder${p.seeders === 1 ? '' : 's'}${p.tracker ? `; at ${placeOf(p.tracker)}` : ''}.`,
   ];
   const acts = h('div', { class: 'acts' },
     btn('Take a piece', 'b primary', () => void tell(phrase('take_piece', p.link)), !state.me),
@@ -382,7 +385,7 @@ function drawMe(): void {
     h('dt', {}, 'Trackers'), h('dd', {}, me.trackers.join(', ')),
     ...(me.relays.length ? [h('dt', {}, 'Relays'), h('dd', {}, me.relays.join(', '))] : []),
     h('dt', {}, 'Standing'), h('dd', {}, me.standing ? `${me.standing.standing}, earned by work and not for sale (locked ${me.standing.locked}, free to stake ${me.standing.free})` : 'no tracker answered'),
-    ...(me.coin ? [h('dt', {}, 'Coin'), h('dd', {}, `${me.coin.balance} units, ${me.coin.free} free, at ${hostOf(me.coin.home)}`)] : []),
+    ...(me.coin ? [h('dt', {}, 'Coin'), h('dd', {}, `${me.coin.balance} units, ${me.coin.free} free, at ${placeOf(me.coin.home)}`)] : []),
     ...(me.witness ? [h('dt', {}, 'Witness'), h('dd', {}, me.witness)] : []),
     h('dt', {}, 'Library'), h('dd', {}, `${me.problems} problem${me.problems === 1 ? '' : 's'}; ${me.queued} event${me.queued === 1 ? '' : 's'} queued`),
   );
@@ -393,11 +396,10 @@ function drawStatus(): void {
   const t = state.totals;
   const parts: string[] = [];
   if (t) {
-    const problems = t.trackers.reduce((n, x) => n + (x.problems ?? 0), 0);
-    const pieces = t.trackers.reduce((n, x) => n + x.pieces, 0);
-    const sum = (k: string) => t.trackers.reduce((n, x) => n + (x.counts[k] ?? 0), 0);
-    parts.push(`${problems} problem${problems === 1 ? '' : 's'}, ${pieces} pieces: ${sum('accepted') + sum('accepted_provisional')} accepted, ${sum('needs_verify')} waiting on a second reading, ${sum('disputed')} disputed`);
-    parts.push(t.trackers.map((x) => hostOf(x.tracker)).join(', '));
+    // Each problem once, however many doors hold it (window.ts, totals); a door that gave no answer is named as such.
+    const n = (k: string) => t.counts[k] ?? 0;
+    parts.push(`${t.problems} problem${t.problems === 1 ? '' : 's'}, ${t.pieces} pieces: ${n('accepted') + n('accepted_provisional')} accepted, ${n('needs_verify')} waiting on a second reading, ${n('disputed')} disputed`);
+    parts.push(t.trackers.map((x) => `${placeOf(x.tracker)}${x.problems === null ? ' (no answer)' : ''}`).join(', '));
   } else parts.push('Reading the trackers.');
   els.status.replaceChildren(h('span', {}, parts[0] ?? ''), h('span', {}, `${parts[1] ? `${parts[1]} · ` : ''}Quilt ${__QUILT_VERSION__}`));
 }

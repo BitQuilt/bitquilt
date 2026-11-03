@@ -12,8 +12,8 @@
  *                                                         the rests (QX-19): [{ field, url, passage }], what each field rests on; the page is fetched and the trace posted
  *   quilt seed <problem> on|off                          keep a problem: a seed event on its log, and the problem in the standing list
  *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
- *   quilt keep                                            the keeper's loop once: every problem this node holds pulled again from where it is held, its chain kept where it
- *                                                         only grew, the reads its traces name fetched (the page runs it every half hour, the away turn every hour)
+ *   quilt keep                                            the keeper's loop once: the queue sent, then every problem this node holds pulled again from where it is held, its
+ *                                                         chain kept where it only grew, the reads its traces name fetched (the page runs it every half hour, the away turn every hour)
  *   quilt stake <problem> <min> [<family> ...]           the owner's stake rule (QX-15): what a claim on the pieces locks; 0 asks nothing
  *   quilt gold commit <problem> <answers.json>            the owner's gold after publishing (QX-16): piece names to answers, as a pattern's gold.answers; the stake follows the shares
  *   quilt gold reveal [<problem> <piece>]                 the owner's reveal of the gold committed on a piece (QX-16), from this home's library; with no piece, every
