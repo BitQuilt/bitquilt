@@ -132,7 +132,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
   // offered it. Its answer is JSON as text, nothing in structuredContent.
   const reader = registerAppTool(server, 'quilt_window_io', {
     title: 'What the window reads',
-    description: 'The window\'s own reader, for the card and not for the model: a search over the trackers and relays, a problem\'s map and grades, this home\'s library and what its node serves, the keys this person follows, who this client is, and the trackers\' totals, each answered as JSON text for the window to draw. Its one write is the list of followed keys in this home\'s library. Hidden from the model by its visibility.',
+    description: 'The window\'s own reader, for the card and not for the model: a search over the trackers and relays, a problem\'s map and grades, this home\'s library and what its node serves, the keys this person follows, who this client is, the trackers\' totals, and the phrase templates alone, each answered as JSON text for the window to draw. Its one write is the list of followed keys in this home\'s library. Hidden from the model by its visibility.',
     inputSchema: { op: z.enum(WINDOW_OPS), query: z.string().max(200).optional(), link: z.string().max(400).optional(), key: z.string().max(64).optional(), on: z.boolean().optional(), name: z.string().max(60).optional() },
     _meta: { ui: { resourceUri: WINDOW_URI_NOW, visibility: ['app'] } },
   }, async (input) => ({ content: [{ type: 'text' as const, text: (await run('quilt_window_io', input as ToolInput, server.server.getClientVersion()?.name)).text }] }));

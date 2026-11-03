@@ -81,18 +81,12 @@ h1 { font-family: var(--display); font-weight: 400; line-height: 1.04; text-wrap
 .fine a { color: var(--ink-2); }
 .fine a:hover, .fine a:focus-visible { color: var(--ink); }
 
-/* The quilt: a square a piece, three colours: open, being worked, done. The finer states are on problems.html. */
+/* The directory, live: the card the connector serves as an MCP app, framed from the tracker, which answers its reads beside it (APP.md, The window). */
 .quilt { margin-top: 26px; display: grid; gap: 12px; width: 100%; }
-.grid { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; padding: 10px; background: var(--bg-2); border: 1px solid var(--rule); border-radius: 12px; }
-.sq { aspect-ratio: 1 / 1; border-radius: 3px; background: var(--sq-open); outline: 1px dashed var(--thread); outline-offset: -2px; transition: background-color 700ms ease, outline-color 700ms ease; }
-.sq.working { background: var(--sq-work); }
-.sq.done { background: var(--sq-done); outline-style: solid; outline-color: var(--sq-done); }
+.window { display: block; width: 100%; height: 640px; border: 1px solid var(--rule); border-radius: 12px; background: var(--bg-2); }
 .caption { display: flex; justify-content: space-between; align-items: baseline; gap: 10px 20px; flex-wrap: wrap; font-size: 0.92rem; color: var(--ink-2); text-align: left; }
 .caption .what { margin: 0; }
 .caption .what b { color: var(--ink); font-weight: 700; }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; }
-.legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; }
 
 /* Three problems being worked, in plain words, each a link to its row on the problems page. */
 .work { padding-block: 56px 8px; }
@@ -158,13 +152,11 @@ footer.foot nav a { color: var(--ink-2); }
   h1 { font-size: clamp(2.2rem, 11vw, 3rem); max-width: 12ch; }
   .buttons { width: 100%; max-width: 420px; flex-direction: column; }
   .button { width: 100%; text-align: center; }
-  .grid { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 3px; padding: 8px; }
-  .sq:nth-child(n+73) { display: none; }
+  .window { height: 520px; }
   .work ul, .how ol, .steps ol, .ways ul, .addp ul { grid-template-columns: 1fr; gap: 20px; }
   .work, .how, .steps, .ways, .addp { padding-top: 40px; }
   footer.foot { grid-template-columns: 1fr; }
 }
-@media (prefers-reduced-motion: reduce) { .sq { transition: none; } }
 </style>
 </head>
 <body>
@@ -192,10 +184,9 @@ footer.foot nav a { color: var(--ink-2); }
         <p class="fine small" id="fine">On a Mac: macOS 14 or later on Apple silicon. Open the disk image and drag Quilt to Applications. <a href="#ways">Windows, Linux or a phone</a></p>
       </div>
       <div class="quilt">
-        <div class="grid" id="grid" role="img" aria-label="An example of a problem's map: a square a piece, filling in as pieces are done"></div>
+        <iframe id="window" class="window" title="The problems being worked, live from the tracker: each a row, its map a click away" src="https://tracker.bitquilt.org/window?reader=window/io" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer"></iframe>
         <div class="caption">
-          <p class="what" id="what"><b>An example, not a live problem.</b> Each square is one piece of a problem. Green means two different AIs agreed.</p>
-          <p class="legend" id="legend"></p>
+          <p class="what" id="what"><b>Live from the tracker.</b> Each row is a problem; open one and its map is the pieces, green where two AIs from different companies agreed. A button hands you the sentence to say to your AI.</p>
         </div>
       </div>
     </section>
@@ -303,7 +294,6 @@ footer.foot nav a { color: var(--ink-2); }
   var MCPB = 'https://github.com/BitQuilt/bitquilt/releases/latest/download/quilt.mcpb';
   var $ = function (id) { return document.getElementById(id); };
   var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
-  var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var params = new URLSearchParams(location.search);
   var meta = document.querySelector('meta[name="bitquilt:tracker"]');
   var tracker = params.get('tr') || (meta && meta.getAttribute('content')) || '';
@@ -333,63 +323,27 @@ footer.foot nav a { color: var(--ink-2); }
   if (phone) offer([join, 'Use it in claude.ai, nothing to install'], [DMG, 'Get Quilt for Mac'], 'On a phone: get an address, press its Add to claude.ai button, and the Claude app has Quilt too.', 'Get an address', 'hosted', 'With an address, nothing to install.');
   else if (otherDesktop) offer([MCPB, 'Get Quilt for Claude Desktop'], [join, 'Use it in claude.ai, nothing to install'], 'On Windows or Linux: one file for Claude Desktop. Download it and double-click; Claude asks once.', 'Download', 'desktop', 'On Windows or Linux, with Claude Desktop.');
 
-  // The quilt under the buttons: three colours, open, being worked, done. Until a problem on the tracker has work on it,
-  // it is an example and says so: squares move from open to being worked to done in an order fixed by a seed, so every
-  // visit sees the same quilt. With a problem that has work on it, it is that problem's map, read live, with its
-  // finer states folded into the three. Nothing read from the tracker is put on the page as markup. With reduced
-  // motion the finished example is shown at once.
-  var COLS = 24, ROWS = 6, N = COLS * ROWS;
-  var grid = $('grid'), cells = [];
-  for (var i = 0; i < N; i++) { var c = el('div', 'sq'); grid.appendChild(c); cells.push(c); }
-  [['open', 'open'], ['working', 'being worked'], ['done', 'done']].forEach(function (l) { var s = el('span'); var i = el('i', 'sq ' + l[0]); i.style.outline = 'none'; s.appendChild(i); s.appendChild(document.createTextNode(l[1])); $('legend').appendChild(s); });
-  var set = function (i, st) { cells[i].className = 'sq ' + st; };
-
-  var seed = 7;
-  var rnd = function () { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
-  var order = []; for (var k = 0; k < N; k++) order.push(k);
-  for (var j = N - 1; j > 0; j--) { var r = Math.floor(rnd() * (j + 1)); var t = order[j]; order[j] = order[r]; order[r] = t; }
-  var stories = order.map(function (idx, n) {
-    var start = (n / N) * 9000 + rnd() * 600;
-    var s = [[start, 'working']];
-    if (rnd() < 0.82) s.push([start + 2200 + rnd() * 2600, 'done']);
-    return { idx: idx, steps: s };
-  });
-  var live = false;
-  function playExample() {
-    if (still) { stories.forEach(function (st) { set(st.idx, st.steps[st.steps.length - 1][1]); }); return; }
-    stories.forEach(function (st) { st.steps.forEach(function (step) { setTimeout(function () { if (!live) set(st.idx, step[1]); }, 400 + step[0]); }); });
-  }
-
-  function three(st) { if (st === 'accepted' || st === 'accepted_provisional') return 'done'; if (st === 'open' || st === 'locked') return 'open'; return 'working'; }
-  function showLive(p) {
-    var counts = p.counts || {}, total = Math.max(1, p.pieces || 0), folded = { open: 0, working: 0, done: 0 }, laid = [];
-    Object.keys(counts).forEach(function (st) { folded[three(st)] += counts[st] || 0; });
-    ['done', 'working', 'open'].forEach(function (st) { var share = Math.round((folded[st] / total) * N); for (var k = 0; k < share; k++) laid.push(st); });
-    laid = laid.slice(0, N); while (laid.length < N) laid.push('open');
-    live = true;
-    laid.forEach(function (st, i) { set(i, st); });
-    var what = $('what'); what.textContent = '';
-    what.appendChild(el('b', null, 'Live: ' + (p.title || p.slug || 'a problem') + '.'));
-    what.appendChild(document.createTextNode(' ' + (p.pieces || 0) + ' pieces, ' + folded.done + ' done, read from the tracker just now. Green means two different AIs agreed.'));
-    grid.setAttribute('aria-label', (p.title || 'A problem') + ': ' + (p.pieces || 0) + ' pieces, ' + folded.done + ' done');
-  }
+  // The directory under the buttons is the card the connector serves as an MCP app, framed from the tracker this page
+  // reads, which answers the card's reads beside it; it shows the problems live, and a button hands the visitor the
+  // sentence to say. Nothing read from the tracker is put on this page as markup. When the tracker does not answer,
+  // the caption says so.
+  if (tracker) $('window').src = tracker + 'window?reader=window/io';
   function load() {
     if (!tracker) return;
     fetch(tracker + 'search?q=', { signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined })
       .then(function (r) { if (!r.ok) throw new Error('no'); return r.json(); })
       .then(function (j) {
         var list = (j && j.problems) || [];
-        if (list.length > 3) $('all').textContent = 'See all ' + list.length + ' problems';
-        if (!list.length) return;
-        list.sort(function (a, b) { return (b.last || '').localeCompare(a.last || ''); });
-        var worked = list.filter(function (p) { var c = p.counts || {}; return Object.keys(c).some(function (k) { return k !== 'open' && c[k] > 0; }); });
-        if (worked.length) showLive(worked[0]);
+        var all = $('all');
+        if (all && list.length > 3) all.textContent = 'See all ' + list.length + ' problems';
       })
-      .catch(function () {});
+      .catch(function () {
+        var what = $('what'); what.textContent = '';
+        what.appendChild(el('b', null, 'The tracker is not answering just now.'));
+        what.appendChild(document.createTextNode(' The problems page lists what it carries when it is back.'));
+      });
   }
-  playExample();
-  setTimeout(load, still ? 0 : 14000);
-  setInterval(function () { if (!document.hidden) load(); }, 60000);
+  load();
 })();
 </script>
 </body>

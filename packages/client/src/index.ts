@@ -7,7 +7,8 @@ export { Resolver, askJson, KEEP_EVERY_MS, type Kept, type Library, type Posted,
 export { FileChains, type Chains, type Held } from './chains.js';
 export { Quilt, modelFor, type AttentionItem, type CoinBalance, type Handed, type Pattern, type Sharpened, type Standing } from './quilt.js';
 export { AWAY_LOG, launchdLabel, ownerTurn, type OwnerTurn } from './away.js';
-export { WINDOW_OPS, WINDOW_PHRASES, WINDOW_URI, WINDOW_URI_NOW, windowAnswer } from './window.js';
+export { WINDOW_OPS, WINDOW_PHRASES, WINDOW_READ_OPS, WINDOW_URI, WINDOW_URI_NOW, windowAnswer } from './window.js';
+export { WINDOW_HTML } from './window.generated.js';
 export { createMcpServer } from './mcp.js';
 export { TOOL_NAMES, isToolName, localRunner, runTool, type ToolInput, type ToolName, type ToolResult, type ToolRunner } from './tools.js';
 export { probeNode, remoteRunner, type NodeProbe } from './node.js';

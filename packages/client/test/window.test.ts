@@ -14,7 +14,7 @@ import { type Pattern, Quilt } from '../src/quilt.js';
 import { type Library, publicLibrary } from '../src/resolver.js';
 import { localRunner } from '../src/tools.js';
 import { WINDOW_HTML } from '../src/window.generated.js';
-import { WINDOW_OPS, WINDOW_PHRASES, WINDOW_URI, WINDOW_URI_NOW, windowAnswer } from '../src/window.js';
+import { WINDOW_OPS, WINDOW_PHRASES, WINDOW_READ_OPS, WINDOW_URI, WINDOW_URI_NOW, windowAnswer } from '../src/window.js';
 import { instructs, mcpPair, quiltOver, startTracker, tempHome } from './helpers.js';
 
 /**
@@ -127,6 +127,8 @@ describe('the directory window', () => {
       expect(phrases[name]).not.toMatch(instructs);
     }
     expect(phrases.take_piece).toBe('Open {link} on Quilt and take a piece.');
+    // The phrases alone, for the card on a site: the same templates, with no person around them.
+    expect(await io('phrases')).toEqual({ op: 'phrases', phrases });
     const totals = await io('totals');
     expect(totals).toEqual({ op: 'totals', problems: 1, pieces: 3, counts: { open: 2, needs_verify: 1 }, trackers: [{ tracker: base, problems: 1 }] });
     // The same door under two names, as two doors folding each other look to a client that names both: each problem is counted once, by hash, and each place says what it lists.
@@ -158,7 +160,8 @@ describe('the directory window', () => {
     expect(((await io('follow', { key: owner.identity!.address, on: false })).keys as unknown[])).toEqual([]);
     const refused = await client.callTool({ name: 'quilt_window_io', arguments: { op: 'follow', key: 'not-an-address', on: true } });
     expect(refused.isError).toBe(true);
-    expect(WINDOW_OPS).toEqual(['search', 'open', 'library', 'hot', 'follow', 'me', 'totals']);
+    expect(WINDOW_OPS).toEqual(['search', 'open', 'library', 'hot', 'follow', 'me', 'totals', 'phrases']);
+    expect(WINDOW_READ_OPS).toEqual(['search', 'open', 'totals', 'phrases']);
     await close();
   });
 
