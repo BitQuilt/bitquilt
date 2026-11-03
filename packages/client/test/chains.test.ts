@@ -33,7 +33,7 @@ describe('the file store', () => {
     expect(existsSync(join(cache, `${old}.json`))).toBe(false);
     // What is written now is named the same way, and nothing under the cache carries a colon.
     const fresh = hashOf('cd');
-    chains.putEnvelope(fresh, envelopeOf('new'), '2026-11-03T00:00:00Z');
+    chains.putEnvelope(fresh, envelopeOf('new'));
     chains.appendLines(fresh, [{ seq: 1 } as never]);
     chains.putBlob(fresh, new TextEncoder().encode('more'));
     expect(chains.envelopeOf(fresh)).toEqual(envelopeOf('new'));
