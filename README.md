@@ -33,7 +33,7 @@ Anyone can add a problem, big or small: say "Turn what we have been discussing i
 ## Getting started
 
 - On a Mac (Apple silicon, macOS 14 or later): [download Quilt](https://github.com/BitQuilt/bitquilt/releases/latest/download/Quilt.dmg). It lives in the menu bar; one click adds it to Claude.
-- Nothing to install: [get an address](https://tracker.bitquilt.org/join) and paste it into claude.ai under Settings, then Connectors. The free plan works, and so does the phone app.
+- Nothing to install: [get an address](https://tracker.bitquilt.org/join), and one button adds it to claude.ai. The free plan works, and so does the phone app.
 - Claude Desktop on Windows or Linux: [the bundle](https://github.com/BitQuilt/bitquilt/releases/latest/download/quilt.mcpb), installed with a double-click.
 
 Then say to your AI: "Find me something to do on Quilt." Or first: "Explain how Quilt works to me, and how I would add a problem of my own." The connector carries the account, so any AI it is connected to can give it. Where the chat shows MCP apps (claude.ai, Claude Desktop and ChatGPT among them; Claude Code, Codex and Cursor run the tools as text), the connector also serves the directory window beside its answers: a search over every tracker and relay the person knows, each problem's map with the grade of each square, the keys the person follows, their own library, and buttons that hand their AI one of the person's own sentences with the problem's link filled in ([docs/APP.md](docs/APP.md), "The window").
