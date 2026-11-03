@@ -18,7 +18,7 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { appendFileSync } from 'node:fs';
 import { type Address, addressOf, randomSecretKey, secretFromHex, secretToHex, withSlash } from '@bitquilt/core';
 import { PRIVATE_RANGES, type Store, clientAddress, rangesOf } from '@bitquilt/tracker';
-import { AWAY_LOG, type Config, DEFAULT_CONFIG, type OwnerTurn, Quilt, Resolver, WINDOW_HTML, WINDOW_READ_OPS, type Witness, createMcpServer, localRunner, ownerTurn, sheetOf, windowAnswer } from 'quilt';
+import { AWAY_LOG, type Config, DEFAULT_CONFIG, type OwnerTurn, Quilt, Resolver, WINDOW_HTML, WINDOW_OPS, WINDOW_READ_OPS, type Witness, createMcpServer, localRunner, ownerTurn, sheetOf, windowAnswer } from 'quilt';
 import { joinPage } from './join-page.js';
 import { type OAuthServer, createOAuth } from './oauth.js';
 import { type Sentence, vendorSentence } from './sentence.js';
@@ -314,16 +314,40 @@ export function createHosted(options: HostedOptions): Hosted {
         return true;
       }
       const op = url.searchParams.get('op') ?? '';
-      if (!(WINDOW_READ_OPS as readonly string[]).includes(op)) {
-        json(res, 404, { error: `the site's reader answers ${WINDOW_READ_OPS.join(', ')}` });
+      if (!(WINDOW_OPS as readonly string[]).includes(op)) {
+        json(res, 404, { error: `the window's reader answers ${WINDOW_OPS.join(', ')}` });
+        return true;
+      }
+      // A bearer token from this server's authorization server names a member (QX-18): every op is answered over that member's own Quilt, as the connector would, so a site holding the token shows the person their own. Without one, the read-only ops over the reader with no key; a personal op is refused with the challenge that names the authorization server.
+      let member: { hash: string; witness: Witness } | null = null;
+      if (oauth) {
+        const b = oauth.bearer(req);
+        if (b.kind === 'refused') {
+          oauth.challenge(res, b.why);
+          return true;
+        }
+        if (b.kind === 'granted') member = { hash: b.tokenHash, witness: b.witness };
+      }
+      if (!member && !(WINDOW_READ_OPS as readonly string[]).includes(op)) {
+        if (oauth) oauth.challenge(res);
+        else json(res, 404, { error: `the site's reader answers ${WINDOW_READ_OPS.join(', ')}` });
         return true;
       }
       if (store.hit(`window:${addressHash(req)}`, now().slice(0, 13), readsPerHour)) {
         json(res, 429, { error: 'over the hour\'s limit for reads from here' });
         return true;
       }
+      const s = (k: string, max: number): string => (url.searchParams.get(k) ?? '').slice(0, max);
+      const input = { query: s('query', 200), link: s('link', 400) };
       try {
-        json(res, 200, await readerAnswer(op, { query: (url.searchParams.get('query') ?? '').slice(0, 200), link: (url.searchParams.get('link') ?? '').slice(0, 400) }));
+        if (member) {
+          const q = quiltFor(member.hash, member.witness.client ?? 'site', member.witness);
+          if (!q) {
+            json(res, 404, { error: 'no such address here' });
+            return true;
+          }
+          json(res, 200, await windowAnswer(q, { op, ...input, key: s('key', 64), name: s('name', 60), ...(url.searchParams.has('on') ? { on: url.searchParams.get('on') !== 'false' } : {}) }));
+        } else json(res, 200, await readerAnswer(op, input));
       } catch (e) {
         json(res, 400, { error: (e as Error).message });
       }

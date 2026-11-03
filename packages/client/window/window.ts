@@ -17,7 +17,10 @@
  * The same document stands on a site, where no chat holds it: the on-ramp serves it at /window, and `?reader=` names
  * the route beside it that answers the read-only ops over the tracker's own view, so bitquilt.org frames the live
  * directory. There is no person in it: the personal tabs are not shown, nothing is followed, and a button that would
- * hand the person's AI a phrase copies the phrase instead, for the person to say in a chat of their own.
+ * hand the person's AI a phrase copies the phrase instead, for the person to say in a chat of their own. A page that
+ * frames it may hand it a member's bearer token through postMessage, never in a URL; then the reader answers the
+ * personal ops over that member's own Quilt and the five tabs come back, the buttons still copying, since no AI is in
+ * the page.
  */
 import { App, applyDocumentTheme, applyHostFonts, applyHostStyleVariables, type McpUiHostContext } from '@modelcontextprotocol/ext-apps/app-with-deps';
 
@@ -80,6 +83,10 @@ let app: App | null = null;
 const params = new URLSearchParams(location.search);
 const reader = params.get('reader') ? new URL(params.get('reader') as string, location.href).href : null;
 const standalone = reader !== null;
+/** On a site, a member's bearer token from the tracker's own authorization server, handed by the page that frames the card and kept here in memory alone; null until then, and again when the page says so. */
+let token: string | null = null;
+/** Whether there is a person in the card: always in a chat; on a site, once the page has handed it a token. */
+const personal = (): boolean => !standalone || token !== null;
 
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> & { class?: string } = {}, ...kids: Array<Node | string | null | undefined>): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
@@ -123,8 +130,14 @@ async function io<T>(op: string, body: Record<string, unknown> = {}): Promise<T>
     // On a site: the same ops as plain GETs to the reader beside this document; the on-ramp answers the read-only ones and refuses the rest.
     const q = new URLSearchParams({ op });
     for (const [k, v] of Object.entries(body)) if (v !== undefined && v !== null) q.set(k, String(v));
-    const r = await fetch(`${reader}?${q}`, { headers: { accept: 'application/json' } });
+    const r = await fetch(`${reader}?${q}`, { headers: { accept: 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) } });
     const text = await r.text();
+    if (r.status === 401 && token) {
+      // The token ended or was revoked: the card goes back to the public view, and the page's login is the way in again.
+      token = null;
+      setTimeout(() => void relaunch(), 0);
+      throw new Error('Your login ended; log in again on the page.');
+    }
     if (!r.ok) {
       let why = text;
       try {
@@ -221,8 +234,10 @@ const els = {
 
 function shell(): void {
   const nav = h('nav', { class: 'tabs' });
-  // On a site there is no person: the search and the map alone.
-  for (const t of TABS.filter((t) => !standalone || t.view === 'search' || t.view === 'problem')) {
+  els.tabs.clear();
+  els.views.clear();
+  // On a site with no one logged in there is no person: the search and the map alone.
+  for (const t of TABS.filter((t) => personal() || t.view === 'search' || t.view === 'problem')) {
     const b = btn(t.label, 'tab', () => show(t.view));
     els.tabs.set(t.view, b);
     nav.append(b);
@@ -331,7 +346,7 @@ function drawProblem(): void {
     btn('Take a piece', 'b primary', () => void tell(phrase('take_piece', p.link)), !state.phrases),
     btn('Open with my AI', 'b', () => void tell(phrase('open_problem', p.link)), !state.phrases),
     btn(p.seeding ? 'Kept by this home' : 'Keep it', 'b', () => void tell(phrase('keep_problem', p.link)), !state.phrases || p.seeding),
-    ...(standalone ? [] : [btn(followed ? 'Unfollow the owner' : 'Follow the owner', 'b', () => void follow(p.owner, !followed, p.owner_name))]),
+    ...(personal() ? [btn(followed ? 'Unfollow the owner' : 'Follow the owner', 'b', () => void follow(p.owner, !followed, p.owner_name))] : []),
   );
   const shown = p.pieces.slice(0, 80);
   const table = h('table', {},
@@ -463,7 +478,7 @@ function draw(): void {
   drawMe();
   drawStatus();
   if (state.error) els.err.textContent = state.error;
-  else if (state.told && standalone) els.err.replaceChildren(state.copied ? 'Copied: ' : 'Say this: ', h('span', { class: 'mono' }, state.told), ' Say it in any chat where Quilt is connected. ', h('a', { href: new URL('join', location.href).href, target: '_blank', rel: 'noopener' }, 'No Quilt yet? Get an address.'));
+  else if (state.told && standalone) els.err.replaceChildren(state.copied ? 'Copied: ' : 'Say this: ', h('span', { class: 'mono' }, state.told), token ? ' Say it in any chat where your Quilt is connected.' : ' Say it in any chat where Quilt is connected. ', ...(token ? [] : [h('a', { href: new URL('join', location.href).href, target: '_blank', rel: 'noopener' }, 'No Quilt yet? Get an address.')]));
   else els.err.textContent = state.told ? 'Handed to your AI; its answer comes in the chat.' : '';
 }
 
@@ -471,7 +486,7 @@ function draw(): void {
 
 async function load(): Promise<void> {
   try {
-    if (standalone) {
+    if (standalone && !token) {
       // The phrases and the totals, then the directory at once, since a visitor has asked for nothing yet.
       const [phrases, totals] = await Promise.all([io<Phrases>('phrases'), io<Totals>('totals')]);
       state.phrases = phrases.phrases;
@@ -490,11 +505,25 @@ async function load(): Promise<void> {
     els.q.value = state.query;
     draw();
     if (state.wanted) await openProblem(state.wanted);
-    else if (state.query) await search();
+    else if (state.query || standalone) await search();
   } catch (e) {
     state.error = (e as Error).message;
     draw();
   }
+}
+
+/** The card again after a login or a logout on the page: the person's views dropped, the tabs made again, everything read anew. */
+async function relaunch(): Promise<void> {
+  state.me = null;
+  state.hot = null;
+  state.lib = null;
+  state.phrases = null;
+  state.told = '';
+  state.error = '';
+  if (!personal() && state.view !== 'search' && state.view !== 'problem') state.view = 'search';
+  shell();
+  draw();
+  await load();
 }
 
 async function start(): Promise<void> {
@@ -507,6 +536,18 @@ async function start(): Promise<void> {
     if (link) {
       state.wanted = link;
       state.view = 'problem';
+    }
+    if (window.parent !== window) {
+      // The page that frames the card may hand it a member's token, and take it back; the card says it is ready to take one. Nothing else is read from a message.
+      window.addEventListener('message', (e: MessageEvent) => {
+        const d = e.data as { type?: unknown; token?: unknown } | null;
+        if (!d || typeof d !== 'object' || d.type !== 'quilt:token') return;
+        const next = typeof d.token === 'string' && d.token ? d.token : null;
+        if (next === token) return;
+        token = next;
+        void relaunch();
+      });
+      window.parent.postMessage({ type: 'quilt:ready' }, '*');
     }
     await load();
     return;

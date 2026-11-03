@@ -54,6 +54,8 @@ const ELSEWHERE = '203.0.113.9';
 const CHATGPT_DOC = 'https://chatgpt.com/oauth/client.json';
 const CHATGPT_JWKS = 'https://chatgpt.com/oauth/jwks.json';
 const CLAUDE_DOC = 'https://claude.ai/oauth/test-client-metadata';
+const SITE_DOC = 'https://bitquilt.org/.well-known/oauth/client-metadata.json';
+const SITE_BACK = 'https://bitquilt.org/login.html';
 const KID = 'cimd-test';
 
 const { publicKey: chatgptPublic, privateKey: chatgptPrivate } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -68,6 +70,8 @@ const documents: Record<string, Record<string, unknown>> = {
   },
   [CHATGPT_JWKS]: { keys: [chatgptJwk] },
   [CLAUDE_DOC]: { client_id: CLAUDE_DOC, client_name: 'Claude', client_uri: 'https://claude.ai', redirect_uris: [CLAUDE], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none' },
+  // The site's own document, as site/.well-known/oauth/client-metadata.json publishes it: no secret, PKCE in the browser, its login page the callback.
+  [SITE_DOC]: { client_id: SITE_DOC, client_name: 'bitquilt.org', client_uri: 'https://bitquilt.org/', redirect_uris: [SITE_BACK], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none', scope: 'quilt' },
   // Documents of the wrong shape: one whose client_id is not its URL, one borrowing another host's keys, and one of a stranger's naming claude.ai's callback.
   'https://agent.example/client.json': { client_id: 'https://agent.example/other.json', client_name: 'Agent', redirect_uris: [AGENT], token_endpoint_auth_method: 'none' },
   'https://mirror.example/chatgpt.json': { client_id: 'https://mirror.example/chatgpt.json', client_name: 'ChatGPT', redirect_uris: [CHATGPT], token_endpoint_auth_method: 'private_key_jwt', jwks_uri: CHATGPT_JWKS },
@@ -585,5 +589,46 @@ describe('the code and PKCE', () => {
     expect(ok.status).toBe(200);
     expect(await errorOf(await exchange(a.code, a.verifier))).toBe('invalid_grant');
     expect((await fetch(`${base}mcp`, { method: 'POST', headers: { authorization: `Bearer ${tokens.access_token}` } })).status).toBe(401);
+  });
+});
+
+describe('the site\'s login', () => {
+  it('logs a member in by the site\'s document with no secret and PKCE, reads the window\'s reader with the token for the personal ops, writes a follow in the member\'s home, refuses those ops without a token, and ends with a revocation', async () => {
+    const member = await join_();
+    const { verifier, challenge } = pkce();
+    const params = { response_type: 'code', client_id: SITE_DOC, redirect_uri: SITE_BACK, code_challenge: challenge, code_challenge_method: 'S256', state: 'site-state', scope: 'quilt', resource: `${base}mcp` };
+    // The page the person lands on stands, and their answer sends the code to the site's login page.
+    expect((await fetch(`${base}oauth/authorize?${new URLSearchParams(params)}`, { headers: { accept: 'text/html' } })).status).toBe(200);
+    const answer = (await (await postJson('oauth/authorize', { ...params, allow: true, address: member.url })).json()) as { redirect: string };
+    const landed = new URL(answer.redirect);
+    expect(`${landed.origin}${landed.pathname}`).toBe(SITE_BACK);
+    expect(landed.searchParams.get('state')).toBe('site-state');
+    // The exchange as the browser makes it: a form, the verifier, no secret; the grant is the site's own, via: other.
+    const tokens = (await (await form('oauth/token', { grant_type: 'authorization_code', code: landed.searchParams.get('code')!, redirect_uri: SITE_BACK, client_id: SITE_DOC, code_verifier: verifier, resource: `${base}mcp` })).json()) as { access_token: string; refresh_token: string };
+    expect(tokens.access_token).toBeTruthy();
+    const [grant] = store.grantsOf(createHash('sha256').update(member.url.slice(-64)).digest('hex'));
+    expect(grant).toMatchObject({ clientId: SITE_DOC, via: 'other', clientName: 'bitquilt.org', redirectUri: SITE_BACK });
+    const io = (q: string, token?: string) => fetch(`${base}window/io?${q}`, token ? { headers: { authorization: `Bearer ${token}` } } : {});
+    // Without a token the personal ops meet the challenge, and the public ones answer as before.
+    const refused = await io('op=me');
+    expect(refused.status).toBe(401);
+    expect(refused.headers.get('www-authenticate')).toContain('resource_metadata');
+    expect((await io('op=totals')).status).toBe(200);
+    expect((await io('op=me', 'not-a-token')).status).toBe(401);
+    // With it, the member's own: who they are, the keys they follow, the follow written, and the library.
+    const me = (await (await io('op=me', tokens.access_token)).json()) as { address: string; witness: string | null; phrases: Record<string, string> };
+    expect(me.address).toBe(member.address);
+    expect(me.witness).toBe('other');
+    expect(me.phrases.take_piece).toBe('Open {link} on Quilt and take a piece.');
+    const owner = (await join_()).address;
+    const followed = (await (await io(`op=follow&key=${owner}&on=true&name=Ada`, tokens.access_token)).json()) as { keys: { key: string; name: string | null }[] };
+    expect(followed.keys).toEqual([expect.objectContaining({ key: owner, name: 'Ada' })]);
+    expect(((await (await io('op=hot', tokens.access_token)).json()) as { keys: unknown[] }).keys).toHaveLength(1);
+    expect(((await (await io(`op=follow&key=${owner}&on=false`, tokens.access_token)).json()) as { keys: unknown[] }).keys).toHaveLength(0);
+    expect((await io('op=library', tokens.access_token)).status).toBe(200);
+    expect(((await (await io('op=search&query=', tokens.access_token)).json()) as { rows: unknown[] }).rows.length).toBeGreaterThanOrEqual(1);
+    // Logging out revokes the grant: the token is refused after.
+    expect((await form('oauth/revoke', { token: tokens.refresh_token, client_id: SITE_DOC })).status).toBe(200);
+    expect((await io('op=me', tokens.access_token)).status).toBe(401);
   });
 });
