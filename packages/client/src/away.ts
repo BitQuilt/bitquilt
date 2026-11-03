@@ -458,9 +458,24 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
 
 // The schedule
 
-/** The command the schedule runs: this program with `away`, from the connector's entry (the executable, or the development command). */
-export function awayCommand(entry: ServerEntry): { command: string; args: string[] } {
-  return { command: entry.command, args: [...entry.args.slice(0, -1), 'away'] };
+/**
+ * The command the schedule runs: this program with `away`, from the connector's entry (the executable, or the
+ * development command). A bare name such as `pnpm` is resolved to its path in the directories given, since launchd
+ * looks a program up with a PATH of its own, not the one the plist sets, and fails the job with EX_CONFIG when it is not
+ * there; a name found nowhere is left as given.
+ */
+export function awayCommand(entry: ServerEntry, dirs: string[] = [], exists: (path: string) => boolean = isExecutable): { command: string; args: string[] } {
+  let command = entry.command;
+  if (!command.includes('/') && !command.includes('\\')) {
+    for (const dir of dirs) {
+      const path = join(dir, command);
+      if (exists(path)) {
+        command = path;
+        break;
+      }
+    }
+  }
+  return { command, args: [...entry.args.slice(0, -1), 'away'] };
 }
 
 /** The environment the schedule runs under: the connector entry's quilt variables but the model, which the run declares itself, the home, and a PATH with the places an agent CLI is looked for. */
@@ -591,7 +606,7 @@ export interface AwayStatus extends Schedule {
 export function awayStatus(o: StatusOptions): AwayStatus {
   const record = readAway(join(o.home, AWAY_FILE), (o.now ?? (() => new Date()))());
   const dirs = o.dirs ?? searchDirs(o.env);
-  const { command, args } = awayCommand(o.entry);
+  const { command, args } = awayCommand(o.entry, dirs, o.exists);
   const schedule = scheduleOf({ ...o, command, args });
   return { ...schedule, agent: findAgent(dirs, o.exists), cap: record.cap, day: record.day, today: { runs: record.runs, returned: record.returned }, last: record.last, lastAgent: record.lastAgent };
 }
@@ -696,7 +711,7 @@ export async function awaySwitch(o: StateOptions & { on?: boolean | undefined; c
   if (o.on === true) {
     const dirs = o.dirs ?? searchDirs(o.env);
     const agent = findAgent(dirs, o.exists);
-    const { command, args } = awayCommand(o.entry);
+    const { command, args } = awayCommand(o.entry, dirs, o.exists);
     const label = o.label ?? launchdLabel(o.home);
     if (!agent) note = NEEDS_AGENT;
     else if ((o.platform ?? process.platform) !== 'darwin') note = `No launchd here. The crontab line to add:\n${crontabLine(command, args, o.home)}`;
