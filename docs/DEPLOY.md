@@ -44,6 +44,8 @@ curl -s http://127.0.0.1:3977/.well-known/quilt
 
 answers with the tracker's name, its routes, and `"hosted": true`.
 
+The same image carries `bitquilt-node` (`pnpm --filter @bitquilt/node start`), one node with roles (WORKSHOP.md section 2): `QUILT_ROLES` names them, comma separated, from `admit` (the door, the names in the table above), `work` (a Quilt and its page), `keep` (the keeper's loop) and `host` (custody beside the door, `QUILT_KEY_SECRET` and the rest the on-ramp reads), over one store at `QUILT_HOME/node.db`. `admit,host` is the hosted tracker; `admit` alone is the second door; the compose file names the two binaries, which are these two starts.
+
 ## The public door
 
 Claude's custom connectors reach a server over HTTPS, so the tracker sits behind a reverse proxy that holds the certificate. With Caddy that is the whole configuration:
