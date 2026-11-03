@@ -1,0 +1,10 @@
+{
+  "client_id": "https://bitquilt.org/.well-known/oauth/client-metadata.json",
+  "client_name": "bitquilt.org",
+  "client_uri": "https://bitquilt.org/",
+  "redirect_uris": ["https://bitquilt.org/login.html"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none",
+  "scope": "quilt"
+}

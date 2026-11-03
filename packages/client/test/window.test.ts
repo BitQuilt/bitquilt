@@ -61,6 +61,11 @@ describe('the directory window', () => {
     for (const f of ['window.ts', 'window.css']) {
       const source = readFileSync(join(root, 'packages', 'client', 'window', f), 'utf8');
       for (const bad of ['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write']) expect(source).not.toContain(bad);
+      // On a site, a member's token reaches the card by message alone, never in a URL.
+      if (f === 'window.ts') {
+        expect(source).toContain("'quilt:token'");
+        expect(source).not.toMatch(/token=|[?&]token\b/);
+      }
     }
   });
 

@@ -8,6 +8,8 @@
 <meta name="description" content="SETI for the world's problems, using idle AI capacity. Give your AI a problem worth solving: Quilt hands your AI one small piece of real research at a time; when two AIs from different companies reach the same answer on their own, that piece is done. Free, open source, and it asks you before anything is submitted in your name.">
 <!-- The tracker this page reads when the address carries no ?tr=: the same line problems.html carries. -->
 <meta name="bitquilt:tracker" content="https://tracker.bitquilt.org/">
+<!-- The client this page logs a person in as, at the tracker's authorization server: its own metadata document, served from this site. -->
+<meta name="bitquilt:client" content="https://bitquilt.org/.well-known/oauth/client-metadata.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -87,6 +89,8 @@ h1 { font-family: var(--display); font-weight: 400; line-height: 1.04; text-wrap
 .caption { display: flex; justify-content: space-between; align-items: baseline; gap: 10px 20px; flex-wrap: wrap; font-size: 0.92rem; color: var(--ink-2); text-align: left; }
 .caption .what { margin: 0; }
 .caption .what b { color: var(--ink); font-weight: 700; }
+.caption .login { margin: 0; flex-basis: 100%; }
+.caption .login a { color: var(--ink); }
 
 /* Three problems being worked, in plain words, each a link to its row on the problems page. */
 .work { padding-block: 56px 8px; }
@@ -187,6 +191,7 @@ footer.foot nav a { color: var(--ink-2); }
         <iframe id="window" class="window" title="The problems being worked, live from the tracker: each a row, its map a click away" src="https://tracker.bitquilt.org/window?reader=window/io" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer"></iframe>
         <div class="caption">
           <p class="what" id="what"><b>Live from the tracker.</b> Each row is a problem; open one and its map is the pieces, green where two AIs from different companies agreed. A button hands you the sentence to say to your AI.</p>
+          <p class="login" id="login"></p>
         </div>
       </div>
     </section>
@@ -330,7 +335,66 @@ footer.foot nav a { color: var(--ink-2); }
   // reads, which answers the card's reads beside it; it shows the problems live, and a button hands the visitor the
   // sentence to say. Nothing read from the tracker is put on this page as markup. When the tracker does not answer,
   // the caption says so.
-  if (tracker) $('window').src = tracker + 'window?reader=window/io';
+  var frame = $('window');
+  if (tracker && frame.src !== tracker + 'window?reader=window/io') frame.src = tracker + 'window?reader=window/io';
+
+  // Logging in, for a person who holds an address on the tracker (site/README.md, Logging in): this site is a client of
+  // the tracker's authorization server by its own metadata document, with no secret, and PKCE is done here in the
+  // browser. The tokens live in this tab's sessionStorage and nowhere else; the card in the frame is handed the access
+  // token through postMessage, to the tracker's origin alone and never in a URL, and shows the person their own
+  // standing, library and followed keys. ?client= names another client id, for a tracker on this machine.
+  var clientMeta = document.querySelector('meta[name="bitquilt:client"]');
+  var client = params.get('client') || (clientMeta && clientMeta.getAttribute('content')) || '';
+  var trackerOrigin = '';
+  try { trackerOrigin = new URL(tracker).origin; } catch (e) {}
+  function session() { try { var s = JSON.parse(sessionStorage.getItem('quilt.login') || 'null'); return s && s.tracker === tracker ? s : null; } catch (e) { return null; } }
+  function forget() { try { sessionStorage.removeItem('quilt.login'); } catch (e) {} }
+  function tell(t) { if (frame.contentWindow && trackerOrigin) frame.contentWindow.postMessage({ type: 'quilt:token', token: t }, trackerOrigin); }
+  function b64url(bytes) { var s = ''; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  // The access token, refreshed when it is near its end; null when nobody is logged in or the refresh is refused.
+  function token() {
+    var s = session();
+    if (!s) return Promise.resolve(null);
+    if (s.until > Date.now() + 30000) return Promise.resolve(s.access);
+    if (!s.refresh) { forget(); return Promise.resolve(null); }
+    return fetch(tracker + 'oauth/token', { method: 'POST', body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: s.refresh, client_id: s.client, resource: tracker + 'mcp' }) })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.access_token) { forget(); return null; }
+        sessionStorage.setItem('quilt.login', JSON.stringify({ access: j.access_token, refresh: j.refresh_token || s.refresh, until: Date.now() + (Number(j.expires_in) || 3600) * 1000, tracker: tracker, client: s.client }));
+        return j.access_token;
+      })
+      .catch(function () { return null; });
+  }
+  function drawLogin() {
+    var p = $('login'); p.textContent = '';
+    if (session()) {
+      p.appendChild(document.createTextNode('Logged in: the directory shows your own standing, library and the keys you follow. '));
+      var out = el('a', null, 'Log out'); out.href = '#'; out.addEventListener('click', function (e) { e.preventDefault(); logout(); }); p.appendChild(out);
+    } else if (client && window.crypto && window.crypto.subtle) {
+      p.appendChild(document.createTextNode('Hold an address on the tracker? '));
+      var go = el('a', null, 'Log in'); go.href = '#'; go.addEventListener('click', function (e) { e.preventDefault(); login(); }); p.appendChild(go);
+      p.appendChild(document.createTextNode(' and the directory shows your own standing, library and the keys you follow.'));
+    }
+  }
+  function login() {
+    var bytes = new Uint8Array(32); crypto.getRandomValues(bytes); var verifier = b64url(bytes);
+    var st = new Uint8Array(16); crypto.getRandomValues(st); var state = b64url(st);
+    crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)).then(function (hash) {
+      sessionStorage.setItem('quilt.login.pending', JSON.stringify({ verifier: verifier, state: state, tracker: tracker, client: client, back: location.pathname + location.search }));
+      var a = new URLSearchParams({ response_type: 'code', client_id: client, redirect_uri: location.origin + '/login.html', code_challenge: b64url(new Uint8Array(hash)), code_challenge_method: 'S256', state: state, scope: 'quilt', resource: tracker + 'mcp' });
+      location.href = tracker + 'oauth/authorize?' + a;
+    });
+  }
+  function logout() {
+    var s = session(); forget(); drawLogin(); tell(null);
+    if (s) fetch(tracker + 'oauth/revoke', { method: 'POST', body: new URLSearchParams({ token: s.refresh || s.access, client_id: s.client }) }).catch(function () {});
+  }
+  window.addEventListener('message', function (e) {
+    if (e.origin !== trackerOrigin || !e.data || e.data.type !== 'quilt:ready') return;
+    token().then(function (t) { if (t) tell(t); else drawLogin(); });
+  });
+  drawLogin();
   function load() {
     if (!tracker) return;
     fetch(tracker + 'search?q=', { signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined })
