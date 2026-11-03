@@ -42,7 +42,8 @@ async function hot(quilt: Quilt, library: Library): Promise<Record<string, unkno
  * problem's map as the tracker's layer holds it, with each piece's kind, grade and how many have read it, and no
  * briefs; `library` is what the home keeps and serves, names and counts, with no gold answer in it; `hot` is the keys
  * this person follows and `follow` adds or drops one; `me` is who this client is, with its standing and coin and the
- * phrase templates; `totals` sums each tracker's index.
+ * phrase templates; `totals` is the swarm counted once per problem, by hash, over every tracker's index, with what each
+ * tracker lists.
  */
 export async function windowAnswer(quilt: Quilt, input: Record<string, unknown>): Promise<Record<string, unknown>> {
   const op = String(input.op ?? '');
@@ -101,14 +102,24 @@ export async function windowAnswer(quilt: Quilt, input: Record<string, unknown>)
       return { op, address: me.address, name: me.name, model: me.model, trackers: me.trackers, relays: me.relays, queued: me.queued, problems: me.problems, standing, coin, witness: me.witness?.via ?? null, phrases };
     }
     case 'totals': {
-      const trackers = await inParallel(quilt.config.trackers, 4, async (tracker) => {
-        const index = await askJson<{ problems?: { pieces?: number; counts?: Record<string, number> }[] }>(`${tracker}search?q=`);
-        const rows = index?.problems ?? null;
-        const counts: Record<string, number> = {};
-        for (const r of rows ?? []) for (const [k, n] of Object.entries(r.counts ?? {})) counts[k] = (counts[k] ?? 0) + n;
-        return { tracker, problems: rows ? rows.length : null, pieces: (rows ?? []).reduce((n, r) => n + (r.pieces ?? 0), 0), counts };
-      });
-      return { op, trackers };
+      // Doors that fold each other hold the same problems (QX-21), so the swarm is counted once per problem, by hash, over every tracker's index; where two differ on one, the row further along its chain is read. Each tracker says how many it lists, or null where it gave no answer.
+      type Row = { problem?: string; pieces?: number; counts?: Record<string, number>; head?: { seq?: number } | null };
+      const indexes = await inParallel(quilt.config.trackers, 4, async (tracker) => ({ tracker, rows: (await askJson<{ problems?: Row[] }>(`${tracker}search?q=`))?.problems ?? null }));
+      const byHash = new Map<string, Row>();
+      for (const { rows } of indexes) {
+        for (const r of rows ?? []) {
+          if (!r.problem) continue;
+          const had = byHash.get(r.problem);
+          if (!had || (r.head?.seq ?? 0) > (had.head?.seq ?? 0)) byHash.set(r.problem, r);
+        }
+      }
+      const counts: Record<string, number> = {};
+      let pieces = 0;
+      for (const r of byHash.values()) {
+        pieces += r.pieces ?? 0;
+        for (const [k, n] of Object.entries(r.counts ?? {})) counts[k] = (counts[k] ?? 0) + n;
+      }
+      return { op, problems: byHash.size, pieces, counts, trackers: indexes.map(({ tracker, rows }) => ({ tracker, problems: rows ? rows.length : null })) };
     }
     default:
       throw new Error(`op: one of ${WINDOW_OPS.join(', ')}`);

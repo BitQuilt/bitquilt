@@ -67,8 +67,8 @@ export interface Library {
 
 const EMPTY_LIBRARY = (): Library => ({ problems: {}, pieces: {}, seeding: {} });
 
-/** What the keeper's loop did (WORKSHOP.md section 2, stage one): the problems held, the lines added to their chains and the identity log, the reads fetched, and the chains refused for not only growing. */
-export interface Kept { problems: number; added: number; reads: number; refused: string[] }
+/** What the keeper's loop did (WORKSHOP.md section 2, stage one): the problems held, the lines added to their chains and the identity log, the reads fetched, the events sent from the queue, and the chains refused for not only growing. */
+export interface Kept { problems: number; added: number; reads: number; sent: number; refused: string[] }
 
 /** How often a node that serves its page keeps: every half hour, the first two minutes after start. */
 export const KEEP_EVERY_MS = 30 * 60_000;
@@ -310,11 +310,14 @@ export class Resolver {
    * The keeper's loop over this node's cache (WORKSHOP.md section 2, stage one): every problem held is pulled again
    * from the places known for it, its chain kept where it only grew, the reads its traces name fetched under their
    * hashes (QX-19), and the identity log the same; so what a person's node touched stays whole and current, and what
-   * it serves at `/held`, `/p/<hash>/events` and `/b/<hash>` is worth pulling. The page runs it every half hour and
-   * the owner's turn once an hour; `quilt keep` runs it once.
+   * it serves at `/held`, `/p/<hash>/events` and `/b/<hash>` is worth pulling. It begins by sending the queue, the
+   * events written while no tracker answered (APP.md, the node). The page runs it every half hour and the owner's turn
+   * once an hour; `quilt keep` runs it once.
    */
   async keep(): Promise<Kept> {
-    const out: Kept = { problems: 0, added: 0, reads: 0, refused: [] };
+    // APP.md, the node: an event written while no tracker answered waits in the queue and goes out when one does. This loop is when, since it runs wherever a node is up; the queue goes first, so what the home wrote is out before it pulls.
+    const { sent } = await this.flush();
+    const out: Kept = { problems: 0, added: 0, reads: 0, sent, refused: [] };
     const note = (line: string) => out.refused.push(line);
     const everywhere = new Set<string>();
     for (const held of this.heldProblems()) {
