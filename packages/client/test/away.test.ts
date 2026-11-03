@@ -185,6 +185,11 @@ describe('the schedule', () => {
     const { command, args } = awayCommand(entry);
     expect([command, args]).toEqual(['/opt/quilt', ['away']]);
     expect(awayCommand({ ...entry, args: ['--filter', 'quilt', '--dir', '/r', 'start', 'mcp'] }).args).toEqual(['--filter', 'quilt', '--dir', '/r', 'start', 'away']);
+    // A bare name is resolved to its path in the directories given, since launchd looks a program up with a PATH of its own; one found nowhere is left as given.
+    const dev = { ...entry, command: 'pnpm', args: ['-s', '--filter', 'quilt', '--dir', '/r', 'start', 'mcp'] };
+    expect(awayCommand(dev, ['/nowhere', '/Users/x/.nvm/versions/node/v24/bin'], (p) => p === '/Users/x/.nvm/versions/node/v24/bin/pnpm')).toEqual({ command: '/Users/x/.nvm/versions/node/v24/bin/pnpm', args: ['-s', '--filter', 'quilt', '--dir', '/r', 'start', 'away'] });
+    expect(awayCommand(dev, ['/nowhere'], () => false).command).toBe('pnpm');
+    expect(awayCommand(entry, ['/opt'], () => true).command).toBe('/opt/quilt');
     const env = scheduleEnv(entry, ['/Users/x/.local/bin', '/usr/bin'], '/Users/x/.config/quilt');
     expect(env).toEqual({ QUILT_HOME: '/Users/x/.config/quilt', QUILT_TRACKERS: 'http://t/', PATH: '/Users/x/.local/bin:/usr/bin' });
     const text = plistText({ label: LAUNCHD_LABEL, command, args, home: '/Users/x/.config/quilt', env });
