@@ -44,8 +44,12 @@ h3 { margin: 6px 0 2px; font-size: 16px; font-weight: 600; }
 .me dl, .lib dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0 0 10px; }
 dt { color: var(--muted); } dd { margin: 0; word-break: break-all; }
 .status { margin: 10px 0 0; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.err { color: #b4432c; margin: 8px 0 0; }
+.err { color: #b4432c; margin: 0 0 10px; }
 .err:empty { display: none; }
+.told { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; }
+.told:empty { display: none; }
+.told .lead { font-weight: 600; }
+.told .mono { user-select: all; word-break: break-all; }
 .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 /* A narrow frame, a phone or a site's column: the five columns read least fold away, and the title, who, the pieces, the returned and the accepted stay with the buttons. */
 @media (max-width: 640px) { .results th:nth-child(n+6):not(:last-child), .results td:nth-child(n+6):not(:last-child) { display: none; } }

@@ -65,8 +65,20 @@ describe('the directory window', () => {
       if (f === 'window.ts') {
         expect(source).toContain("'quilt:token'");
         expect(source).not.toMatch(/token=|[?&]token\b/);
+        // On a site the sentence a button hands over is shown under the tabs, where the card scrolls, and copied by the
+        // clipboard API or by the old command over the shown sentence, so a frame refused the clipboard still shows it.
+        expect(source).toContain('scrollIntoView');
+        expect(source).toContain("execCommand('copy')");
       }
     }
+  });
+
+  it('is framed by the site with the clipboard granted and the sandbox kept', () => {
+    const site = readFileSync(join(root, 'site', 'index.html'), 'utf8');
+    const frame = /<iframe[^>]*id="window"[^>]*>/.exec(site)?.[0] ?? '';
+    expect(frame).toContain('src="https://tracker.bitquilt.org/window?reader=window/io"');
+    expect(frame).toContain('allow="clipboard-write"');
+    expect(frame).toContain('sandbox="allow-scripts allow-same-origin allow-forms allow-popups"');
   });
 
   it('names the card on the tools that show it and on no other, hides the reader from the model, and describes in every word', async () => {
