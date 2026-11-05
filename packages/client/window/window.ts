@@ -161,17 +161,14 @@ async function io<T>(op: string, body: Record<string, unknown> = {}): Promise<T>
 async function tell(text: string): Promise<void> {
   if (!text) return;
   if (standalone) {
-    // No AI is in this page: the sentence is copied, and shown, for the person to say in any chat where Quilt is connected.
-    let copied = false;
-    try {
-      await navigator.clipboard.writeText(text);
-      copied = true;
-    } catch {
-      /* shown instead */
-    }
+    // No AI is in this page: the sentence is shown under the tabs, where the card scrolls, and copied where the page
+    // lets this frame write the clipboard, for the person to say in any chat where Quilt is connected.
     state.told = text;
-    state.copied = copied;
+    state.copied = false;
     state.error = '';
+    draw();
+    els.told.scrollIntoView({ block: 'nearest' });
+    state.copied = await copy(text);
     draw();
     return;
   }
@@ -179,6 +176,30 @@ async function tell(text: string): Promise<void> {
   await app.sendMessage({ role: 'user', content: [{ type: 'text', text }] });
   state.told = text;
   draw();
+}
+
+/** The sentence onto the clipboard: the clipboard API where the frame is allowed it (a site grants it on the frame), else the old copy command over the shown sentence, selected. */
+async function copy(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    /* the old way */
+  }
+  const shown = els.told.querySelector('.mono');
+  const selection = getSelection();
+  if (!shown || !selection) return false;
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(shown);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    const done = document.execCommand('copy');
+    selection.removeAllRanges();
+    return done;
+  } catch {
+    return false;
+  }
 }
 const phrase = (name: string, link = ''): string => (state.phrases?.[name] ?? '').replace('{link}', link);
 
@@ -230,6 +251,8 @@ const els = {
   meView: h('div', { class: 'me' }),
   status: h('p', { class: 'status' }),
   err: h('p', { class: 'err' }),
+  /** What the last button did, under the tabs: on a site the sentence to say, in a chat that the AI has it. */
+  told: h('div', { class: 'told' }),
 };
 
 function shell(): void {
@@ -269,7 +292,7 @@ function shell(): void {
     ['me', h('section', { class: 'view' }, els.meView)],
   ];
   for (const [view, el] of sections) els.views.set(view, el);
-  root.replaceChildren(nav, ...sections.map(([, el]) => el), els.err, els.status);
+  root.replaceChildren(nav, els.err, els.told, ...sections.map(([, el]) => el), els.status);
 }
 
 function show(view: View): void {
@@ -477,9 +500,31 @@ function draw(): void {
   drawLib();
   drawMe();
   drawStatus();
-  if (state.error) els.err.textContent = state.error;
-  else if (state.told && standalone) els.err.replaceChildren(state.copied ? 'Copied: ' : 'Say this: ', h('span', { class: 'mono' }, state.told), token ? ' Say it in any chat where your Quilt is connected.' : ' Say it in any chat where Quilt is connected. ', ...(token ? [] : [h('a', { href: new URL('join', location.href).href, target: '_blank', rel: 'noopener' }, 'No Quilt yet? Get an address.')]));
-  else els.err.textContent = state.told ? 'Handed to your AI; its answer comes in the chat.' : '';
+  els.err.textContent = state.error;
+  drawTold();
+}
+
+/** What the last button did: on a site, the sentence to say with a button that copies it again; in a chat, that the AI has it. */
+function drawTold(): void {
+  if (!state.told) {
+    els.told.replaceChildren();
+    return;
+  }
+  if (!standalone) {
+    els.told.textContent = 'Handed to your AI; its answer comes in the chat.';
+    return;
+  }
+  els.told.replaceChildren(
+    h('span', { class: 'lead' }, state.copied ? 'Copied. Say it to your AI:' : 'Say this to your AI:'),
+    h('code', { class: 'mono' }, state.told),
+    btn(state.copied ? 'Copied' : 'Copy', 'b small', () => void copyAgain()),
+    h('span', { class: 'quiet' }, token ? 'In any chat where your Quilt is connected.' : 'In any chat where Quilt is connected. ', ...(token ? [] : [h('a', { href: new URL('join', location.href).href, target: '_blank', rel: 'noopener' }, 'No Quilt yet? Get an address.')])),
+  );
+}
+
+async function copyAgain(): Promise<void> {
+  state.copied = await copy(state.told);
+  draw();
 }
 
 // ---- start ----------------------------------------------------------------
