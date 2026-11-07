@@ -1,6 +1,6 @@
 # For anyone about to change this code
 
-This file is for contributors of every kind: a person with an editor, or an AI with a checkout. It says how the code is laid out, what the names mean, where the words live, and what a change has to keep true. [docs/README.md](docs/README.md) gives the order to read the documents in, for a contributor and for every other reader; [docs/LAYERS.md](docs/LAYERS.md) tells the protocol in plain words; [docs/CORE.md](docs/CORE.md) is the frozen core; the documents under [docs/ext/](docs/ext/) say exactly what each extension does, and the code cites their section numbers.
+This file is for contributors of every kind: a person with an editor, or an AI with a checkout. It says how the code is laid out, what the names mean, where the words live, and what a change has to keep true. [docs/README.md](docs/README.md) gives the order to read the documents in, for a contributor and for every other reader; [docs/LAYERS.md](docs/LAYERS.md) tells the protocol in plain words; [docs/CORE.md](docs/CORE.md) is the frozen core; the documents under [docs/ext/](docs/ext/) say exactly what each extension does, and the code cites their section numbers. Someone writing a client of their own, rather than changing this one, starts at [docs/CLIENT.md](docs/CLIENT.md).
 
 ## The shape of it
 

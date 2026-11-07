@@ -49,6 +49,7 @@ Each kind of reader has a path through the documents, in order, with what each o
 
 - [LAYERS.md](LAYERS.md): the whole protocol in plain words, layer by layer, with the numbers left to the registry.
 - [CORE.md](CORE.md): the BitQuilt core, version 1. What a client has to get right, and nothing else.
+- [CLIENT.md](CLIENT.md): writing a client. The forms with one claim worked byte for byte, a first return in six requests, the door's checks in the order it runs them, and what a worker may leave aside. Read it with CORE.md sections 1, 2, 4 and 11.
 - [PROTOCOL.md](PROTOCOL.md): why each rule is as it is, and everything around the core: the tracker and its routes, the mirror, identity, governance, lineage, weaknesses. Its plan and reviews of 24 October 2026 are in [history/2026-10-24-protocol-review.md](history/2026-10-24-protocol-review.md).
 - [EXTENSIONS.md](EXTENSIONS.md): how everything outside the core changes, and the registry, each number with its layer and its document.
 - [ext/](ext/): one document per extension, once it is first implemented, saying exactly what is built; the three verifier kinds (`judge:n`, `human`, `attest`) share [one](ext/verifiers.md).
