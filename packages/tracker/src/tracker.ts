@@ -1801,9 +1801,9 @@ export function createTracker(options: TrackerOptions): Tracker {
       }
       if ((m = /^\/k\/(0x[0-9a-fA-F]{40})\/work$/.exec(path)) && method === 'GET') {
         // The directory's hot list (APP.md, "The window"): a key's latest readings, newest first, each with its state
-        // and grade as this tracker holds them, and `aside` where the layer set this key's reading aside (QX-19 section
-        // 4). Receipts are by key, so a delegate's readings sit under the delegate's address; the root is said beside
-        // it.
+        // and grade as this tracker holds them, and `aside` where the layer set this key's reading aside
+        // (QX-19 section 4). Receipts are by key, so a delegate's readings sit under the delegate's address; the root
+        // is said beside it.
         const address = m[1]!;
         if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
         const asked = Number(u.searchParams.get('limit') ?? 20);

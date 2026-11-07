@@ -552,8 +552,8 @@ export class Quilt {
       ...link.trackers,
     ]);
     const entry = this.library.problems[resolved.hash];
-    // The rest of the entry stays: the version it was replaced by, its topics, and the mark of the last announce (QX-13
-    // section 3).
+    // The rest of the entry stays: the version it was replaced by, its topics, and the mark of the last announce
+    // (QX-13 section 3).
     this.library.problems[resolved.hash] = {
       ...entry,
       title: state.envelope.problem.title,
@@ -837,9 +837,9 @@ export class Quilt {
    * reading on them. A key run this way confirms or disagrees with what was returned and does no first work, so an open
    * piece is never in the pool. Which piece among them is the core's choice (CORE.md section 7, step 3): it prefers one
    * no reading of which is this key's vendor's and falls back to the rest, and its own rule keeps a same-vendor pair
-   * from making a set and a root from reading a piece twice; so this filter says nothing about vendors (QX-19 section
-   * 4). The tracker is asked within the same pool (`askedNext`), so a reading it set aside comes back to the key that
-   * made it. Null when the environment does not ask for it, and `next` takes anything.
+   * from making a set and a root from reading a piece twice; so this filter says nothing about vendors
+   * (QX-19 section 4). The tracker is asked within the same pool (`askedNext`), so a reading it set aside comes back to
+   * the key that made it. Null when the environment does not ask for it, and `next` takes anything.
    */
   private pool(state: State): Set<string> | null {
     if (process.env.QUILT_NEXT_ONLY !== 'verify') return null;

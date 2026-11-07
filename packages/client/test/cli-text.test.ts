@@ -15,9 +15,9 @@ import { hex, quiltOver, startTracker, tempHome } from './helpers.js';
 /**
  * The command line says what the tools say (bin.ts against tools.ts): `quilt open`, `quilt read` and `quilt next` print
  * the text runTool gives for quilt_open, quilt_read and quilt_next over the same home and the same ledger. So the lines
- * the command line once left out are there: the owner's gold (QX-16), the version that replaced a problem (QX-19
- * section 4), what the accepted squares found, and the record pieces' readings (QX-20). quilt_read opens with what
- * quilt_open says, the replaced-by line included. `quilt next --json` prints the piece as handedJson makes it, as
+ * the command line once left out are there: the owner's gold (QX-16), the version that replaced a problem
+ * (QX-19 section 4), what the accepted squares found, and the record pieces' readings (QX-20). quilt_read opens with
+ * what quilt_open says, the replaced-by line included. `quilt next --json` prints the piece as handedJson makes it, as
  * before.
  */
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

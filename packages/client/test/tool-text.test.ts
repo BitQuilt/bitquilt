@@ -235,8 +235,8 @@ const whole: Pattern = {
 };
 const YEAR = { verdict: 'supports', quote: 'The report gives the year as 1918.' };
 /**
- * One agree piece whose pattern names no agree list, so its required fields are the ones that agree (CORE.md section
- * 6).
+ * One agree piece whose pattern names no agree list, so its required fields are the ones that agree
+ * (CORE.md section 6).
  */
 const unlisted: Pattern = {
   title: 'Is the name right?',

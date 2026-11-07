@@ -552,8 +552,8 @@ type ChallengeCheck =
   | { ok: false; why: string };
 
 /**
- * Whether a challenge would be kept if received at `at`, and why not: QX-1 section 1 against an acceptance; QX-16
- * section 4 against a gold miss, from a struck root, for a stake of 0 or more.
+ * Whether a challenge would be kept if received at `at`, and why not: QX-1 section 1 against an acceptance;
+ * QX-16 section 4 against a gold miss, from a struck root, for a stake of 0 or more.
  */
 function checkChallenge(
   f: Folding,

@@ -42,7 +42,7 @@ What a person or a model reads lives in sixteen places, each held by the tests n
 - what the command line prints, in `packages/client/src/bin.ts`: `quilt away --status --json` held by `away.test.ts`, `quilt gold due` by `gold.test.ts`, and the rest by review, with the lines `quilt init` prints, which `deploy/house.sh` reads by place and the Mac app's `Node.swift` by their first words;
 - and `docs/` with the READMEs and env examples beside the code (`README.md`, `deploy/`, `examples/README.md`, `impl/python/README.md`, `apps/mac/README.md`, `packages/core/README.md`, `.env.example`), by review, with the house second opinion's two services and its wait, as `docs/DEPLOY.md`, `deploy/` and `examples/README.md` say them, held by `packages/client/test/house-words.test.ts`.
 
-The tool list and the prompt list are written a second time in `scripts/build-mcpb.mjs`, and `mcpb.test.ts` holds both to the server's, the tools in the order the server registers them, which `TOOL_NAMES` keeps too. Comments and messages everywhere use the same register: short declarative sentences that say what and why, in the documents' words, with no em-dashes.
+The tool list and the prompt list are written a second time in `scripts/build-mcpb.mjs`, and `mcpb.test.ts` holds both to the server's, the tools in the order the server registers them, which `TOOL_NAMES` keeps too. Comments and messages everywhere use the same register: short declarative sentences that say what and why, in the documents' words, with no em-dashes. A citation in a comment, such as "QX-19 section 4", sits whole on one line, so a search for it finds every place that cites it, held by `packages/client/test/citations.test.ts`.
 
 ## Commands
 

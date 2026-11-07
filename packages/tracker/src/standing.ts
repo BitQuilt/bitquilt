@@ -233,8 +233,8 @@ function standingAt(f: Folding, root: Address, at: string): number {
 }
 
 /**
- * What a root has locked at a time: its live standing locks (QX-15 section 3) and the stakes of its live golds (QX-16
- * section 5).
+ * What a root has locked at a time: its live standing locks (QX-15 section 3) and the stakes of its live golds
+ * (QX-16 section 5).
  */
 function lockedAt(f: Folding, root: Address, at: string): number {
   return (
