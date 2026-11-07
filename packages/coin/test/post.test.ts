@@ -3,22 +3,13 @@ import type { Chain } from '../src/chain.js';
 import * as merkle from '../src/merkle.js';
 import type { Hex } from '../src/merkle.js';
 import { type PosterDoor, type Redeems, checkRedeems, post, redeemRoot } from '../src/post.js';
+import { HOLDER, OTHER, chain, hex } from './helpers.js';
 
 /**
  * The poster over a fake home and a fake chain: it posts the head and the root over the redeem lines once, reports
  * posted=false on the same head, and posts again when the home's head is newer; `upto` reaches the home; an answer
  * of the wrong shape is refused before anything is read from the chain.
  */
-const chain: Chain = {
-  rpc: 'http://chain.test',
-  chainId: 1,
-  contracts: {
-    anchors: '0x1111111111111111111111111111111111111111',
-    quilt: '0x2222222222222222222222222222222222222222',
-  },
-};
-const HOLDER = '0x3333333333333333333333333333333333333333';
-const hex = (n: number) => n.toString(16).padStart(64, '0');
 const line = (n: number, seq: number, amount: number, to = HOLDER) => ({ id: hex(n), seq, root: HOLDER, to, amount });
 
 function home(answer: () => Redeems | number, calls: string[]): typeof fetch {
@@ -53,7 +44,7 @@ describe('the poster', () => {
     const calls: string[] = [];
     let answer: Redeems = {
       head: { seq: 5, hash: hex(0xaaaa) },
-      redeems: [line(1, 2, 1_000_000), line(2, 5, 42, '0x4444444444444444444444444444444444444444')],
+      redeems: [line(1, 2, 1_000_000), line(2, 5, 42, OTHER)],
     };
     const fetchImpl = home(() => answer, calls);
     const d = door();

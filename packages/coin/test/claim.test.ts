@@ -4,6 +4,7 @@ import { type ClaimDoor, claim } from '../src/claim.js';
 import * as merkle from '../src/merkle.js';
 import type { Hex } from '../src/merkle.js';
 import { type Redeems, redeemRoot } from '../src/post.js';
+import { HOLDER, OTHER, chain, hex } from './helpers.js';
 
 /**
  * The holder's claim over a fake home and a fake chain: it finds the line under the last posted head, checks the
@@ -11,17 +12,6 @@ import { type Redeems, redeemRoot } from '../src/post.js';
  * verifies; a line not yet under a posted head, a head still inside its window, a line redeemed already, and a posted
  * root that is not the home's are each refused with the reason, before anything is sent.
  */
-const chain: Chain = {
-  rpc: 'http://chain.test',
-  chainId: 1,
-  contracts: {
-    anchors: '0x1111111111111111111111111111111111111111',
-    quilt: '0x2222222222222222222222222222222222222222',
-  },
-};
-const HOLDER = '0x3333333333333333333333333333333333333333';
-const OTHER = '0x4444444444444444444444444444444444444444';
-const hex = (n: number) => n.toString(16).padStart(64, '0');
 const answer: Redeems = {
   head: { seq: 5, hash: hex(0xaaaa) },
   redeems: [

@@ -1,30 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { type Event, addressOf, eventSignedByKey } from '@bitquilt/core';
-import type { Address, Chain, Deposit } from '../src/chain.js';
+import type { Address, Deposit } from '../src/chain.js';
 import { type ReaderDoor, checkCredits, read } from '../src/read.js';
+import { HOLDER, OTHER, chain, hex } from './helpers.js';
 
 /**
  * The reader over a fake chain and a fake home: it credits each finalized deposit the home has not credited yet, in
  * order, as a credit line signed with the reader's key; a run with nothing new posts nothing; a refusal from the home is
  * reported with its reason and the run goes on; an answer of the wrong shape is refused before anything is signed.
  */
-const chain: Chain = {
-  rpc: 'http://chain.test',
-  chainId: 1,
-  contracts: {
-    anchors: '0x1111111111111111111111111111111111111111',
-    quilt: '0x2222222222222222222222222222222222222222',
-  },
-};
 const key = (n: number): Uint8Array => {
   const k = new Uint8Array(32);
   k[31] = n;
   return k;
 };
 const READER = key(5);
-const HOLDER: Address = '0x3333333333333333333333333333333333333333';
-const OTHER: Address = '0x4444444444444444444444444444444444444444';
-const hex = (n: number) => n.toString(16).padStart(64, '0');
 
 function door(deposits: Deposit[]): ReaderDoor {
   return {
