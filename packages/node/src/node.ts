@@ -16,7 +16,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { join } from 'node:path';
-import { type Config, type Kept, KEEP_EVERY_MS, Quilt, Resolver, createPage, loadConfig, loadKey } from 'quilt';
+import { type Config, type KeepReport, KEEP_EVERY_MS, Quilt, Resolver, createPage, loadConfig, loadKey } from 'quilt';
 import {
   type PeerPull,
   Store,
@@ -65,7 +65,7 @@ export interface Node {
   door: Server | null;
   page: Server | null;
   /** One keep now: what the home opened, kept from the places it came from (`kept`); the swarm pulled over the store (`swarm`, a node with `keep` and no door); the peers' chains through the door (`pulls`). */
-  keep(): Promise<{ kept: Kept; swarm: MirrorReport | null; pulls: PeerPull[] }>;
+  keep(): Promise<{ kept: KeepReport; swarm: MirrorReport | null; pulls: PeerPull[] }>;
   close(): Promise<void>;
 }
 
@@ -180,7 +180,7 @@ export async function start(options: StartOptions): Promise<Node> {
     }
   }
 
-  async function keep(): Promise<{ kept: Kept; swarm: MirrorReport | null; pulls: PeerPull[] }> {
+  async function keep(): Promise<{ kept: KeepReport; swarm: MirrorReport | null; pulls: PeerPull[] }> {
     const kept = await resolver.keep();
     const pulled = await swarm();
     const pulls = tracker ? await tracker.pullPeers() : [];

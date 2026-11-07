@@ -18,7 +18,8 @@ export async function inParallel<T, R>(items: readonly T[], width: number, f: (i
   return out;
 }
 
-export interface Kept<T> {
+/** A read with its last answer cached, as `kept` makes it. */
+export interface Cached<T> {
   /** The last answer while it is younger than the age given; else the last answer at once, with a fresh read started; else, where there is none yet, the first read's answer, or null where it takes longer than `wait` ms. */
   get(wait: number): Promise<T | null>;
   /** The last answer set aside, for after a write that changes it: the next get reads again. */
@@ -26,7 +27,7 @@ export interface Kept<T> {
 }
 
 /** A read kept for `ttl` ms, one at a time. A read that fails leaves the last answer as it was. */
-export function kept<T>(read: () => Promise<T>, ttl: number, now: () => number = Date.now): Kept<T> {
+export function kept<T>(read: () => Promise<T>, ttl: number, now: () => number = Date.now): Cached<T> {
   let last: { at: number; value: T } | null = null;
   let running: Promise<T> | null = null;
   const start = (): Promise<T> => {
