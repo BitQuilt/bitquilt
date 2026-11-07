@@ -9,7 +9,6 @@ import {
   type Receipt,
   type Unsigned,
   IDENTITY_LOG,
-  addressOf,
   commitHash,
   eventId,
   hashBytes,
@@ -20,8 +19,8 @@ import {
   signObject,
   verifyChain,
 } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
 import { mirror } from '../src/mirror.js';
+import { VERDICT, addr, by, calendarBytes, key, startTracker } from './helpers.js';
 
 /**
  * The mirror over two real trackers: it writes the layout from one, with chains that verify and names from version
@@ -32,22 +31,9 @@ import { mirror } from '../src/mirror.js';
  * the keeper, reads a node by its held list, keeps a problem its source no longer lists with its chain still growing,
  * and fetches the reads a trace names.
  */
-const key = (n: number): Uint8Array => {
-  const k = new Uint8Array(32);
-  k[31] = n;
-  return k;
-};
 const owner = key(9),
   A = key(1),
   B = key(2);
-const addr = addressOf;
-const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] } },
-};
 const cites = new TextEncoder().encode(JSON.stringify([{ s: 'one' }, { s: 'two' }]));
 const citesHash = hashBytes(cites);
 
@@ -66,7 +52,7 @@ function envelope(): Envelope {
         verifier: 'agree',
         brief: 'Citation {n}: {cite.s}',
         data: { cite: 'cites.json' },
-        schema,
+        schema: VERDICT,
         agree: ['verdict'],
       },
     },
@@ -78,12 +64,6 @@ function envelope(): Envelope {
 
 let tick = Date.parse('2026-10-25T09:00:00Z');
 const now = () => new Date(tick).toISOString();
-async function startTracker(peers: string[] = []): Promise<{ server: Server; base: string }> {
-  const t = createTracker({ store: new Store(':memory:'), url: 'http://t.test/', now, ipSalt: 's', peers });
-  const server = await t.listen(0);
-  const a = server.address();
-  return { server, base: typeof a === 'object' && a ? `http://127.0.0.1:${a.port}/` : '' };
-}
 function ev(k: Uint8Array, type: string, body: Record<string, unknown>, problem?: Hash, piece?: Hash) {
   const u: Unsigned = { quilt: 1, type, key: addr(k), ts: now(), body };
   if (problem) u.problem = problem;
@@ -120,8 +100,8 @@ let pieces: Hash[];
 const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-'));
 
 beforeAll(async () => {
-  one = await startTracker();
-  two = await startTracker();
+  one = await startTracker(now);
+  two = await startTracker(now);
   for (const t of [one, two])
     expect(
       (await post(t.base, 'p', { envelope: env, blobs: { [citesHash]: Buffer.from(cites).toString('base64') } }))
@@ -212,9 +192,6 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
     ).toHaveLength(11);
   });
   it('anchors the head of every chain it holds when asked, and keeps a stamp it already has', async () => {
-    const calendarBytes = new Uint8Array([
-      0xf0, 0x10, 0x01, 0x02, 0x03, 0x00, 0x83, 0xdf, 0xe3, 0x0d, 0x2e, 0xf9, 0x0c, 0x8e,
-    ]);
     let posts = 0;
     const fetchImpl: typeof fetch = async (input, init) => {
       if (String(input) === 'https://cal.test/digest') {
@@ -264,7 +241,9 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
       prev: null,
       from: null,
       settings: { challenge_window_h: 0.001, lease_h: 2, endgame_at: 1, budget: 10, patch_max: 0 },
-      pieces: { question: { verifier: 'record:2', brief: 'Read the article your way.', schema, agree: ['verdict'] } },
+      pieces: {
+        question: { verifier: 'record:2', brief: 'Read the article your way.', schema: VERDICT, agree: ['verdict'] },
+      },
       data: {},
     };
     const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
@@ -426,7 +405,7 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
     expect(JSON.parse(readFileSync(join(keep, 'index.json'), 'utf8')).problems).toHaveLength(hashes.length);
   });
   it("follows each configured source's peers one hop, so a mirror pointed at one tracker keeps the swarm it names, and not when told not to", async () => {
-    const three = await startTracker([two.base]);
+    const three = await startTracker(now, { peers: [two.base] });
     const swarm = mkdtempSync(join(tmpdir(), 'bitquilt-swarm-'));
     const report = await mirror({ trackers: [three.base], out: swarm, now });
     expect(report.sources).toEqual([three.base, two.base]);
