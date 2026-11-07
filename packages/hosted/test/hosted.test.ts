@@ -20,7 +20,7 @@ import { answerText, sentenceVendor, vendorSentence } from '../src/sentence.js';
  * names carries neither the custody secret nor the witness, and where the connector is shared a link that names a
  * private address reaches nothing, for a member or the site's reader; the sheet a browser gets at the same
  * address, with its data beside it; the page of a square, which says what the version its address names recorded,
- * what each reading rests on as that version's own log keeps it (QX-19), and where the piece stands after the owner
+ * what each reading rests on (QX-19), pinned as the page says it today, and where the piece stands after the owner
  * replaced it. And the owners' turn (QX-19 section 4, QX-16): the on-ramp sharpens a hosted owner's brief where two
  * grounded readings read it apart, with the sentence from the vendor its environment names, and passes over a member
  * with nothing to do.
@@ -295,7 +295,7 @@ describe('the page of a square', () => {
     expect((await page(`sha256:${'0'.repeat(64)}` as Hash, claim)).status).toBe(404);
   });
 
-  it('says what each reading rests on, as the version named keeps it: the passage of a kept page, a page kept here where the bytes are gone, and none for a reading that names none or was made under an earlier version', async () => {
+  it('pins what the page says each reading rests on today: traced, untraced, a missing blob, and readings made under an earlier version', async () => {
     const owner = mk(0x31, 'anthropic/claude'), a = mk(0x32, 'anthropic/claude'), b = mk(0x33, 'openai/gpt-5');
     const family = (brief: string) => ({ count: 1, verifier: 'agree', requires: ['web'], brief, schema, agree: ['verdict'] });
     const families = { 'traced/*': family('Traced {n}: does the paper say so?'), 'bare/*': family('Bare {n}: does the paper say so?'), 'apart/*': family('Apart {n}: does the paper say so at scale?') };
@@ -328,6 +328,7 @@ describe('the page of a square', () => {
     expect(none).toContain('Neither reading names a page kept here.');
     expect(restsOn(none)).toEqual([NONE, NONE]);
     // The store loses the page's bytes: each rest still names the page and its hash, as a page kept here, with no passage.
+    // This pins today's answer, which looks wrong: the page says kept here when the bytes are gone. The restsOf and squareView change (K6, H2) will update this line.
     const bytes = store.getBlob(read)!;
     store.db.prepare('delete from blobs where hash = ?').run(read);
     try {
@@ -339,10 +340,12 @@ describe('the page of a square', () => {
     // The owner sharpens the apart family: the traced piece keeps its hash in the newer version, and the apart piece's old hash is among the newer version's ancestral pieces.
     const newer = (await owner.sharpen(p, async () => 'Scale is read from the section that reports it.')).hash as Hash;
     // Under the newer version's address, the readings made under the earlier one are shown, and the rests are read from the newer version's log alone, so none is named, while the grade still counts both.
+    // This pins today's answer, which looks wrong: the grade counts rests the readings do not show. The restsOf and squareView change (K6, H2) will update these lines.
     const kept = (await page(newer, traced)).html;
     expect(kept).toContain('Both readings rest on pages kept here.');
     expect(restsOn(kept)).toEqual([NONE, NONE]);
     const ancestral = (await page(newer, apart)).html;
+    // This pins today's answer, which looks wrong: the piece is called open beside two readings, and neither shows its rests. The restsOf and squareView change (K6, H2) will update these lines.
     expect(ancestral).toContain('<p class="state">It is open: nobody has read it yet.</p>');
     expect(restsOn(ancestral)).toEqual([NONE, NONE]);
     // Under the address of the version they were made under, the same readings quote their passages.
