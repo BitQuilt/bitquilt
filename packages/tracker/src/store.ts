@@ -200,8 +200,8 @@ export class Store {
 
   /**
    * Every line of a log, the whole of it, oldest first: a problem's by its hash, the identity log and the coin log by
-   * their constants. The tracker's fold, its hides, its coin and its counts read this, as the mirror and the client
-   * do, so a log of any length folds the same at each.
+   * their constants. Every read that means the whole log reads this, as the mirror and the client do, so a log of any
+   * length folds the same at each.
    */
   lines(log: Hash): Receipt[] {
     return this.receipts(log, 0, Number.MAX_SAFE_INTEGER);

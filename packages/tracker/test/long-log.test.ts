@@ -6,11 +6,12 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
 /**
  * QX-11's chained logs, read whole where the whole is meant. The store once cut a log at ten thousand lines when a
  * caller named no bounds, and the fold, the hides, the coin, the scrape and the counts named none. Each now reads
- * every line: the fold takes a claim past that line and the counts count it, the coin layer credits a deposit past it
- * (QX-17), the scrape finds a break past it, and a maintainer's hide past it on the identity log takes effect (QX-6),
- * as the mirror and the client already read them. The routes that page still page.
+ * every line: the fold takes a claim past that line and the counts count it, the coin credits a deposit past it and
+ * the challenge layer counts a burn past it as standing (QX-17), the scrape finds a break past it, a maintainer's hide
+ * past it on the identity log takes effect (QX-6), and the fold takes a delegation past it on the same log, as the
+ * mirror and the client already read them. The routes that page still page.
  */
-const owner = key(9), M = key(21), A = key(1), B = key(2), F = key(30), treasury = key(7), reader = key(40);
+const owner = key(9), M = key(21), A = key(1), A2 = key(3), B = key(2), F = key(30), treasury = key(7), reader = key(40);
 const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
 const by = { model: 'meta/llama', client: 'test/0', can: ['web'] };
 
@@ -88,6 +89,15 @@ describe('a log longer than the store\'s old page (QX-11)', () => {
     expect(again.status).toBe(400);
     expect(((await again.json()) as { error: string }).error).toBe('deposit 1 is credited already');
   });
+  it('counts a burn past the old page of the coin log as standing (QX-17)', async () => {
+    const standingOf = async () => ((await get(`/k/${addr(B)}/standing`)) as { standing: number }).standing;
+    const before = await standingOf();
+    // A burn rate of 100: the credit above is one point of standing once it is burned.
+    await accepted('/coin/events', ev(B, 'burn', { amount: 100 }));
+    expect(t.store.head(COIN_LOG)!.seq).toBe(OLD_PAGE + 2);
+    expect(await get(`/coin/balance/${addr(B)}`)).toMatchObject({ burned: 100 });
+    expect(await standingOf()).toBe(before + 1);
+  });
   it('finds a break in a chain past the old page', async () => {
     const R = await publish('broken');
     fill(R, OLD_PAGE);
@@ -108,5 +118,11 @@ describe('a log longer than the store\'s old page (QX-11)', () => {
     expect(listed).toContain(P);
     expect(listed).not.toContain(Q);
     expect(((await get(`/p/${Q}/state`)) as { hidden: { by: string } | null }).hidden?.by).toBe(addr(M));
+  });
+  it('folds a delegation past the old page of the identity log', async () => {
+    expect(t.store.head(IDENTITY_LOG)!.seq).toBeGreaterThan(OLD_PAGE);
+    await accepted('/k/events', ev(A, 'delegate', { to: addr(A2), scope: ['claim', 'commit', 'reveal'], expires: '2027-01-01T00:00:00Z' }));
+    const later = new Date(t.clock.tick + 1000).toISOString();
+    expect(t.tracker.reduceProblem(P)!.rootOf(addr(A2), later)).toBe(addr(A));
   });
 });
