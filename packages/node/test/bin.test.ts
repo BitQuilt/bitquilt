@@ -35,11 +35,22 @@ function firstLine(env: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: st
   });
 }
 
+/**
+ * The test's own environment without the QUILT_ names and the two that can hide a warning. The rest stays: Windows
+ * needs SystemRoot to open a socket. A developer's QUILT_URL or QUILT_PEERS would change the start line, and
+ * NODE_OPTIONS or NODE_NO_WARNINGS could keep the warning off stderr whatever the binary imports first. Names are
+ * compared in capitals, since Windows reads them without case.
+ */
+function inherited(): NodeJS.ProcessEnv {
+  const left = (name: string): boolean => name.startsWith('QUILT_') || name === 'NODE_OPTIONS' || name === 'NODE_NO_WARNINGS';
+  return Object.fromEntries(Object.entries(process.env).filter(([k]) => !left(k.toUpperCase())));
+}
+
 describe('bitquilt-node', () => {
   it('starts a door with nothing on stderr: the SQLite notice is silenced before the store loads', async () => {
     const home = tempHome('quilt-node-bin-');
     const port = await freePort();
-    const { stdout, stderr } = await firstLine({ PATH: process.env.PATH, HOME: home, QUILT_HOME: home, QUILT_ROLES: 'admit', QUILT_PORT: String(port), QUILT_HOST: '127.0.0.1' });
+    const { stdout, stderr } = await firstLine({ ...inherited(), HOME: home, QUILT_HOME: home, QUILT_ROLES: 'admit', QUILT_PORT: String(port), QUILT_HOST: '127.0.0.1' });
     expect(stdout).toContain(`bitquilt node, roles admit; door at http://localhost:${port}/`);
     expect(stderr).toBe('');
   });
