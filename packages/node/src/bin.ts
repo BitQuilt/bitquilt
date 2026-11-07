@@ -17,10 +17,12 @@ quietSqliteWarning();
 /** QUILT_WITNESS_RANGES as one JSON object of product to a list of ranges; anything else throws, naming the fault. */
 function witnessRanges(text: string): Record<string, string[]> {
   const parsed = JSON.parse(text) as unknown;
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('QUILT_WITNESS_RANGES is a JSON object of product to ranges');
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+    throw new Error('QUILT_WITNESS_RANGES is a JSON object of product to ranges');
   const out: Record<string, string[]> = {};
   for (const [product, list] of Object.entries(parsed as Record<string, unknown>)) {
-    if (!Array.isArray(list) || !list.every((r) => typeof r === 'string')) throw new Error(`QUILT_WITNESS_RANGES: ${product} is a list of ranges`);
+    if (!Array.isArray(list) || !list.every((r) => typeof r === 'string'))
+      throw new Error(`QUILT_WITNESS_RANGES: ${product} is a list of ranges`);
     out[product] = list as string[];
   }
   return out;
@@ -29,14 +31,24 @@ function witnessRanges(text: string): Record<string, string[]> {
 async function main(): Promise<void> {
   const { ROLES, start } = await import('./node.js');
   const env = process.env;
-  const roles = (env.QUILT_ROLES ?? 'admit,keep').split(',').map((s) => s.trim()).filter(Boolean);
-  for (const r of roles) if (!(ROLES as readonly string[]).includes(r)) throw new Error(`QUILT_ROLES: ${r} is not a role; the roles are ${ROLES.join(', ')}`);
+  const roles = (env.QUILT_ROLES ?? 'admit,keep')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  for (const r of roles)
+    if (!(ROLES as readonly string[]).includes(r))
+      throw new Error(`QUILT_ROLES: ${r} is not a role; the roles are ${ROLES.join(', ')}`);
   const home = env.QUILT_HOME ?? './quilt-node';
-  const list = (s: string | undefined): string[] => (s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+  const list = (s: string | undefined): string[] =>
+    (s ?? '')
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean);
   const { port, host, dbPath, options } = trackerOptionsFromEnv(env);
   const keySecret = env.QUILT_KEY_SECRET;
   if (roles.includes('host')) {
-    if (!keySecret) throw new Error('QUILT_KEY_SECRET is required for host: the keys a node holds are encrypted with it');
+    if (!keySecret)
+      throw new Error('QUILT_KEY_SECRET is required for host: the keys a node holds are encrypted with it');
     // QX-19: a host fetches a trace's pages on a stranger's word and serves what it kept to anyone, so never from a private address.
     env.QUILT_READS ||= 'public';
   }
@@ -54,20 +66,44 @@ async function main(): Promise<void> {
     ...(sources.length ? { sources } : {}),
     ...(keySecret
       ? {
-        host: {
-          keySecret, relays, ...(options.name ? { name: options.name } : {}), ...(options.trustedProxies ? { trustedProxies: options.trustedProxies } : {}),
-          ...(env.QUILT_HOSTED_HOME ? { home: env.QUILT_HOSTED_HOME } : {}),
-          ...(oauthSecret ? { oauth: { secret: oauthSecret, ...(env.QUILT_OAUTH_ISSUER ? { issuer: env.QUILT_OAUTH_ISSUER } : {}), ...(ranges ? { ranges } : {}) } } : {}),
-        },
-      }
+          host: {
+            keySecret,
+            relays,
+            ...(options.name ? { name: options.name } : {}),
+            ...(options.trustedProxies ? { trustedProxies: options.trustedProxies } : {}),
+            ...(env.QUILT_HOSTED_HOME ? { home: env.QUILT_HOSTED_HOME } : {}),
+            ...(oauthSecret
+              ? {
+                  oauth: {
+                    secret: oauthSecret,
+                    ...(env.QUILT_OAUTH_ISSUER ? { issuer: env.QUILT_OAUTH_ISSUER } : {}),
+                    ...(ranges ? { ranges } : {}),
+                  },
+                }
+              : {}),
+          },
+        }
       : {}),
     say: (line) => console.log(line),
   });
-  const where = [node.door ? `door at ${options.url}` : '', node.page ? `page at http://localhost:${node.config.port}/` : ''].filter(Boolean).join(', ');
-  console.log(`bitquilt node, roles ${[...node.roles].join(', ')}; ${where || 'no door and no page'}; store ${env.QUILT_DB ? dbPath : `${home}/node.db`}`);
+  const where = [
+    node.door ? `door at ${options.url}` : '',
+    node.page ? `page at http://localhost:${node.config.port}/` : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
+  console.log(
+    `bitquilt node, roles ${[...node.roles].join(', ')}; ${where || 'no door and no page'}; store ${env.QUILT_DB ? dbPath : `${home}/node.db`}`,
+  );
   if (node.hosted) {
-    console.log(`addresses at ${options.url}join; ${oauthSecret ? `the authorization server is on: products connect at ${options.url}mcp and the events say which (QX-18)` : 'QUILT_OAUTH_SECRET is unset: no OAuth, and an address is its own credential'}`);
-    console.log(env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY ? 'the owners\' turn runs every hour: the gold due revealed and the briefs sharpened for the keys held here' : 'the owners\' turn runs every hour: the gold due revealed; no vendor key, so no brief is sharpened');
+    console.log(
+      `addresses at ${options.url}join; ${oauthSecret ? `the authorization server is on: products connect at ${options.url}mcp and the events say which (QX-18)` : 'QUILT_OAUTH_SECRET is unset: no OAuth, and an address is its own credential'}`,
+    );
+    console.log(
+      env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY
+        ? "the owners' turn runs every hour: the gold due revealed and the briefs sharpened for the keys held here"
+        : "the owners' turn runs every hour: the gold due revealed; no vendor key, so no brief is sharpened",
+    );
   }
 }
 

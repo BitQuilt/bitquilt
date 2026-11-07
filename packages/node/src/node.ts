@@ -17,7 +17,14 @@ import { mkdirSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { join } from 'node:path';
 import { type Config, type Kept, KEEP_EVERY_MS, Quilt, Resolver, createPage, loadConfig, loadKey } from 'quilt';
-import { type PeerPull, Store, type Tracker, type TrackerOptions, createTracker, schedulePeerPulls } from '@bitquilt/tracker';
+import {
+  type PeerPull,
+  Store,
+  type Tracker,
+  type TrackerOptions,
+  createTracker,
+  schedulePeerPulls,
+} from '@bitquilt/tracker';
 import { type Hosted, type HostedOptions, createHosted } from '@bitquilt/hosted';
 import { type MirrorReport, keep as keepSwarm } from '@bitquilt/mirror';
 
@@ -67,12 +74,15 @@ const OWNERS_TURN_EVERY_MS = 3_600_000;
 
 export async function start(options: StartOptions): Promise<Node> {
   const roles = new Set(options.roles);
-  for (const r of roles) if (!ROLES.includes(r)) throw new Error(`${r} is not a role; the roles are ${ROLES.join(', ')}`);
-  if (roles.has('host') && !roles.has('admit')) throw new Error('host is a role beside admit: custody is custody at a door');
+  for (const r of roles)
+    if (!ROLES.includes(r)) throw new Error(`${r} is not a role; the roles are ${ROLES.join(', ')}`);
+  if (roles.has('host') && !roles.has('admit'))
+    throw new Error('host is a role beside admit: custody is custody at a door');
   if (roles.has('admit') && !options.door) throw new Error('admit needs a door: its port and its url');
   // The on-ramp's options where the node holds custody. Without the key secret the door would open and fail at the first join.
   const custody = roles.has('host') ? options.host : undefined;
-  if (roles.has('host') && !custody?.keySecret) throw new Error('host needs a key secret: the keys a node holds are encrypted with it');
+  if (roles.has('host') && !custody?.keySecret)
+    throw new Error('host needs a key secret: the keys a node holds are encrypted with it');
   mkdirSync(options.home, { recursive: true });
   const say = options.say ?? (() => {});
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -95,9 +105,21 @@ export async function start(options: StartOptions): Promise<Node> {
     const custodySecret = randomBytes(32).toString('hex');
     if (custody) {
       const { home: membersHome, ...hostRest } = custody;
-      hosted = createHosted({ ...hostRest, store, trackerUrl: rest.url, custodySecret, home: membersHome ?? join(options.home, 'hosted'), fetchImpl });
+      hosted = createHosted({
+        ...hostRest,
+        store,
+        trackerUrl: rest.url,
+        custodySecret,
+        home: membersHome ?? join(options.home, 'hosted'),
+        fetchImpl,
+      });
     }
-    tracker = createTracker({ ...rest, store, custodySecret, ...(hosted ? { extra: hosted.routes, extraWellKnown: hosted.describe } : {}) });
+    tracker = createTracker({
+      ...rest,
+      store,
+      custodySecret,
+      ...(hosted ? { extra: hosted.routes, extraWellKnown: hosted.describe } : {}),
+    });
     door = await tracker.listen(port, host ?? '127.0.0.1');
   }
 
@@ -107,11 +129,17 @@ export async function start(options: StartOptions): Promise<Node> {
     const identity = loadKey(options.home);
     quilt = new Quilt(config, identity, resolver);
     // The page's own keep loop is left off: the node runs the keep below, one loop for every role.
-    page = await createPage({ quilt, person: Quilt.asPerson(config, identity, resolver), resolver, keep: false }).listen(options.page?.port ?? config.port);
+    page = await createPage({
+      quilt,
+      person: Quilt.asPerson(config, identity, resolver),
+      resolver,
+      keep: false,
+    }).listen(options.page?.port ?? config.port);
   }
 
   /** The swarm pulled over the store, where this node keeps without a door; with one, the door's pull is the keep. */
-  const swarm = (): Promise<MirrorReport | null> => (roles.has('keep') && !tracker ? keepSwarm({ store, sources, by, fetchImpl, coin: false }) : Promise.resolve(null));
+  const swarm = (): Promise<MirrorReport | null> =>
+    roles.has('keep') && !tracker ? keepSwarm({ store, sources, by, fetchImpl, coin: false }) : Promise.resolve(null);
 
   const timers: NodeJS.Timeout[] = [];
   const once = (run: () => Promise<void>): (() => void) => {
@@ -119,9 +147,11 @@ export async function start(options: StartOptions): Promise<Node> {
     return () => {
       if (running) return;
       running = true;
-      void run().catch((err: Error) => say(`${err.message}`)).finally(() => {
-        running = false;
-      });
+      void run()
+        .catch((err: Error) => say(`${err.message}`))
+        .finally(() => {
+          running = false;
+        });
     };
   };
   if (options.loops !== false) {
@@ -129,10 +159,15 @@ export async function start(options: StartOptions): Promise<Node> {
       const loop = once(async () => {
         if (roles.has('work')) {
           const k = await resolver.keep();
-          say(`kept: ${k.problems} problems, ${k.added} lines, ${k.reads} reads${k.sent ? `, ${k.sent} sent from the queue` : ''}${k.refused.length ? `; ${k.refused.length} refused` : ''}`);
+          say(
+            `kept: ${k.problems} problems, ${k.added} lines, ${k.reads} reads${k.sent ? `, ${k.sent} sent from the queue` : ''}${k.refused.length ? `; ${k.refused.length} refused` : ''}`,
+          );
         }
         const s = await swarm();
-        if (s) say(`swarm: ${s.sources.length} sources, ${s.problems.length} problems, ${s.problems.reduce((n, p) => n + p.added, 0) + s.identity.added} lines${s.refused.length ? `; ${s.refused.length} refused` : ''}`);
+        if (s)
+          say(
+            `swarm: ${s.sources.length} sources, ${s.problems.length} problems, ${s.problems.reduce((n, p) => n + p.added, 0) + s.identity.added} lines${s.refused.length ? `; ${s.refused.length} refused` : ''}`,
+          );
       });
       timers.push(setTimeout(loop, 120_000).unref(), setInterval(loop, KEEP_EVERY_MS).unref());
     }
@@ -152,7 +187,8 @@ export async function start(options: StartOptions): Promise<Node> {
     return { kept, swarm: pulled, pulls };
   }
 
-  const closeServer = (s: Server | null): Promise<void> => new Promise((resolve) => (s ? s.close(() => resolve()) : resolve()));
+  const closeServer = (s: Server | null): Promise<void> =>
+    new Promise((resolve) => (s ? s.close(() => resolve()) : resolve()));
   async function close(): Promise<void> {
     for (const t of timers) clearTimeout(t);
     await closeServer(page);

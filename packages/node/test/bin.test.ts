@@ -16,7 +16,11 @@ const bin = join(root, 'packages', 'node', 'src', 'bin.ts');
 /** Runs the binary until its first line on stdout, or for a minute at most, then stops it; what it wrote to each stream. */
 function firstLine(env: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string }> {
   return new Promise((done, fail) => {
-    const child = spawn(process.execPath, ['--import', 'tsx', bin], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, ['--import', 'tsx', bin], {
+      cwd: root,
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     const limit = setTimeout(() => child.kill(), 60_000);
     let stdout = '';
     let stderr = '';
@@ -42,7 +46,8 @@ function firstLine(env: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: st
  * compared in capitals, since Windows reads them without case.
  */
 function inherited(): NodeJS.ProcessEnv {
-  const left = (name: string): boolean => name.startsWith('QUILT_') || name === 'NODE_OPTIONS' || name === 'NODE_NO_WARNINGS';
+  const left = (name: string): boolean =>
+    name.startsWith('QUILT_') || name === 'NODE_OPTIONS' || name === 'NODE_NO_WARNINGS';
   return Object.fromEntries(Object.entries(process.env).filter(([k]) => !left(k.toUpperCase())));
 }
 
@@ -50,7 +55,14 @@ describe('bitquilt-node', () => {
   it('starts a door with nothing on stderr: the SQLite notice is silenced before the store loads', async () => {
     const home = tempHome('quilt-node-bin-');
     const port = await freePort();
-    const { stdout, stderr } = await firstLine({ ...inherited(), HOME: home, QUILT_HOME: home, QUILT_ROLES: 'admit', QUILT_PORT: String(port), QUILT_HOST: '127.0.0.1' });
+    const { stdout, stderr } = await firstLine({
+      ...inherited(),
+      HOME: home,
+      QUILT_HOME: home,
+      QUILT_ROLES: 'admit',
+      QUILT_PORT: String(port),
+      QUILT_HOST: '127.0.0.1',
+    });
     expect(stdout).toContain(`bitquilt node, roles admit; door at http://localhost:${port}/`);
     expect(stderr).toBe('');
   });

@@ -27,8 +27,19 @@ beforeAll(async () => {
   pageC = pgC!;
   const homeA = tempHome('quilt-node-a-');
   createKey(homeA, { secretHex: hex(1) });
-  a = await start({ home: homeA, roles: ['admit', 'work', 'keep'], door: { port: pA!, url: urlA, limits }, page: { port: pageA, trackers: [urlA] }, loops: false });
-  b = await start({ home: tempHome('quilt-node-b-'), roles: ['admit', 'keep'], door: { port: pB!, url: urlB, peers: [urlA], limits }, loops: false });
+  a = await start({
+    home: homeA,
+    roles: ['admit', 'work', 'keep'],
+    door: { port: pA!, url: urlA, limits },
+    page: { port: pageA, trackers: [urlA] },
+    loops: false,
+  });
+  b = await start({
+    home: tempHome('quilt-node-b-'),
+    roles: ['admit', 'keep'],
+    door: { port: pB!, url: urlB, peers: [urlA], limits },
+    loops: false,
+  });
   const homeC = tempHome('quilt-node-c-');
   createKey(homeC, { secretHex: hex(3) });
   c = await start({ home: homeC, roles: ['work'], page: { port: pageC, trackers: [urlA] }, loops: false });
@@ -50,7 +61,9 @@ describe('one node with roles (WORKSHOP.md section 2, stage three)', () => {
     expect(await lines(`http://127.0.0.1:${pageA}/p/${problem}/events`)).toEqual(atDoor);
     expect(a.resolver.cachedReceipts(problem)).toHaveLength(2);
     expect(a.store.held()).toMatchObject({ problems: 1, ledgers: 1, blobs: 1 });
-    const held = await json<{ node: boolean; problems: { problem: Hash; lines: number }[] }>(`http://127.0.0.1:${pageA}/held`);
+    const held = await json<{ node: boolean; problems: { problem: Hash; lines: number }[] }>(
+      `http://127.0.0.1:${pageA}/held`,
+    );
     expect(held).toMatchObject({ node: true, problems: [{ problem, lines: 2 }] });
     // Opening its own problem reads the door's chain, which is the chain kept: nothing is added and nothing refused.
     const opened = await a.quilt!.open(problem);
@@ -65,8 +78,17 @@ describe('one node with roles (WORKSHOP.md section 2, stage three)', () => {
     expect(b.page).toBeNull();
     const envelope = await json<{ problem: { data: Record<string, Hash> } }>(`${urlA}p/${problem}`);
     const blobs: Record<string, string> = {};
-    for (const h of Object.values(envelope.problem.data)) blobs[h] = Buffer.from(await (await fetch(`${urlA}b/${h}`)).arrayBuffer()).toString('base64');
-    expect((await fetch(`${urlB}p`, { method: 'POST', body: JSON.stringify({ envelope, blobs }), headers: { 'content-type': 'application/json' } })).status).toBe(201);
+    for (const h of Object.values(envelope.problem.data))
+      blobs[h] = Buffer.from(await (await fetch(`${urlA}b/${h}`)).arrayBuffer()).toString('base64');
+    expect(
+      (
+        await fetch(`${urlB}p`, {
+          method: 'POST',
+          body: JSON.stringify({ envelope, blobs }),
+          headers: { 'content-type': 'application/json' },
+        })
+      ).status,
+    ).toBe(201);
     const reader = readerOver(urlA, 2);
     const piece = (await reader.open(problem)).state.pieces[0]!.piece.hash;
     await reader.return(problem, piece, { verdict: 'supports', quote: 'q' });
@@ -82,7 +104,13 @@ describe('one node with roles (WORKSHOP.md section 2, stage three)', () => {
     expect(b.resolver.heldProblems()).toMatchObject([{ problem, lines: mine.length }]);
   });
   it("with keep alone: the mirror's pull over its own store, from the sources given, the lines carrying the source's wrapper and this node's; a second keep adds nothing", async () => {
-    const k = await start({ home: tempHome('quilt-node-k-'), roles: ['keep'], sources: [urlA], by: 'keeper', loops: false });
+    const k = await start({
+      home: tempHome('quilt-node-k-'),
+      roles: ['keep'],
+      sources: [urlA],
+      by: 'keeper',
+      loops: false,
+    });
     try {
       expect(k.tracker).toBeNull();
       expect(k.page).toBeNull();
@@ -112,20 +140,42 @@ describe('one node with roles (WORKSHOP.md section 2, stage three)', () => {
     expect(await json(`http://127.0.0.1:${pageC}/held`)).toMatchObject({ problems: [] });
     await c.quilt!.open(problem);
     expect(c.store.held().problems).toBe(1);
-    expect(await lines(`http://127.0.0.1:${pageC}/p/${problem}/events`)).toEqual(await lines(`${urlA}p/${problem}/events`));
+    expect(await lines(`http://127.0.0.1:${pageC}/p/${problem}/events`)).toEqual(
+      await lines(`${urlA}p/${problem}/events`),
+    );
   });
   it('host is a role beside admit with its key secret, and a word that is not a role is refused at start', async () => {
-    await expect(start({ home: tempHome('quilt-node-x-'), roles: ['host'], loops: false })).rejects.toThrow('host is a role beside admit');
-    await expect(start({ home: tempHome('quilt-node-y-'), roles: ['admit'], loops: false })).rejects.toThrow('admit needs a door');
-    await expect(start({ home: tempHome('quilt-node-z-'), roles: ['mirror' as 'keep'], loops: false })).rejects.toThrow('mirror is not a role');
+    await expect(start({ home: tempHome('quilt-node-x-'), roles: ['host'], loops: false })).rejects.toThrow(
+      'host is a role beside admit',
+    );
+    await expect(start({ home: tempHome('quilt-node-y-'), roles: ['admit'], loops: false })).rejects.toThrow(
+      'admit needs a door',
+    );
+    await expect(start({ home: tempHome('quilt-node-z-'), roles: ['mirror' as 'keep'], loops: false })).rejects.toThrow(
+      'mirror is not a role',
+    );
     const port = await freePort();
     // Host without its key secret is refused before the store opens or the door listens, given no options or an empty secret.
     for (const host of [undefined, { keySecret: '' }]) {
       const home = tempHome('quilt-node-s-');
-      await expect(start({ home, roles: ['admit', 'host'], door: { port, url: `http://127.0.0.1:${port}/`, limits }, ...(host ? { host } : {}), loops: false })).rejects.toThrow('host needs a key secret: the keys a node holds are encrypted with it');
+      await expect(
+        start({
+          home,
+          roles: ['admit', 'host'],
+          door: { port, url: `http://127.0.0.1:${port}/`, limits },
+          ...(host ? { host } : {}),
+          loops: false,
+        }),
+      ).rejects.toThrow('host needs a key secret: the keys a node holds are encrypted with it');
       expect(existsSync(join(home, 'node.db'))).toBe(false);
     }
-    const h = await start({ home: tempHome('quilt-node-h-'), roles: ['admit', 'host'], door: { port, url: `http://127.0.0.1:${port}/`, limits }, host: { keySecret: 'test-secret' }, loops: false });
+    const h = await start({
+      home: tempHome('quilt-node-h-'),
+      roles: ['admit', 'host'],
+      door: { port, url: `http://127.0.0.1:${port}/`, limits },
+      host: { keySecret: 'test-secret' },
+      loops: false,
+    });
     try {
       expect(h.hosted).not.toBeNull();
       expect(await json(`http://127.0.0.1:${port}/.well-known/quilt`)).toMatchObject({ hosted: true });

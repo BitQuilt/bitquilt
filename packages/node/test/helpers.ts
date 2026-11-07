@@ -38,9 +38,20 @@ export const pattern: Pattern = {
   settings: { endgame_at: 1 },
   pieces: {
     'statement/*': {
-      count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: {claim.text} Return whether the paper says this, with a quote.',
+      count: 2,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: {claim.text} Return whether the paper says this, with a quote.',
       data: { claim: 'claims' },
-      schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] }, quote: { type: 'string', maxLength: 160 } } },
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict', 'quote'],
+        properties: {
+          verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] },
+          quote: { type: 'string', maxLength: 160 },
+        },
+      },
       agree: ['verdict'],
     },
   },
@@ -55,6 +66,12 @@ export async function json<T>(url: string): Promise<T> {
   return (await fetch(url)).json() as Promise<T>;
 }
 
-export async function lines<T = { event: { sig: string; type: string }; received: { by: string }[] }>(url: string): Promise<T[]> {
-  return (await text(url)).trim().split('\n').filter(Boolean).map((l) => JSON.parse(l) as T);
+export async function lines<T = { event: { sig: string; type: string }; received: { by: string }[] }>(
+  url: string,
+): Promise<T[]> {
+  return (await text(url))
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => JSON.parse(l) as T);
 }
