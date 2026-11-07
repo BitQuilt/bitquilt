@@ -28,7 +28,7 @@ What a person or a model reads lives in eight places: the tool descriptions in `
 ## Commands
 
 ```bash
-pnpm check                        # tsc per package, then vitest
+pnpm check                        # tsc per package and over scripts/*.ts, then vitest
 pnpm conform                      # the fixtures against the reference
 python3 impl/python/conform.py    # the same fixtures against the second implementation
 cd contracts && forge test        # the contract tests; Foundry from getfoundry.sh, and packages/coin/test/anvil.test.ts skips without it

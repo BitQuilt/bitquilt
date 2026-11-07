@@ -199,7 +199,7 @@ export function gateRefusal(said) {
 const norm = (t) => t.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, ' ').trim();
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 /** The CLI's last line on stderr when it stopped: what it said, with nothing to hand out said quietly. */
-const quiet = /nothing to verify|nothing for this key|nothing to do/;
+export const quiet = /nothing to verify|nothing for this key|nothing to do/;
 
 /**
  * The whole run for one vendor: `ask({ piece, schema, evidence, note, model, key })` answers one piece in the schema's
