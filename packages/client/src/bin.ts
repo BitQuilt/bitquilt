@@ -18,7 +18,7 @@
  *   quilt stake <problem> <min> [<family> ...]           the owner's stake rule (QX-15): what a claim on the pieces locks; 0 asks nothing
  *   quilt gold commit <problem> <answers.json>            the owner's gold after publishing (QX-16): piece names to answers, as a pattern's gold.answers; the stake follows the shares
  *   quilt gold reveal [<problem> <piece>]                 the owner's reveal of the gold committed on a piece (QX-16), from this home's library; with no piece, every
- *                                                         piece whose gold is due (accepted and not yet revealed), as each `quilt away` turn does before its agent
+ *                                                         piece whose gold is due (its window open and not yet revealed), as each `quilt away` turn does before its agent
  *   quilt gold due                                        the pieces whose gold is due, with nothing posted
  *   quilt sharpen [<problem>]                             the owner's sharpening of a brief two grounded readings read apart (QX-19), the sentence from the agent CLI on this machine; every owned problem, or one
  *   quilt freeze <problem> [off]                          the owner's freeze of a brief in this home: no sharpening from then on, so no version republishes it; off thaws it

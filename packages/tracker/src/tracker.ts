@@ -19,7 +19,7 @@ import { HIDE, type Hidden, hideBodyProblems, hiddenNow } from './hide.js';
 import { RECIPROCITY, SEEDING, offerOrder, seedBodyProblems, seedInfo, watchExclusions } from './seeding.js';
 import { EXTENSIONS, JUDGE_SEED, RANK_EVENTS, kindOf, rankBodyProblems } from './verifiers.js';
 import { type CoinLockWord, PRODUCTION_EVENTS, STAKE, STAKE_EVENTS, lockBodyProblems, stakeRuleBodyProblems } from './stake.js';
-import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems } from './gold.js';
+import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems, windowOpen } from './gold.js';
 import { type CoinLayer, type CoinLockView, type CoinParams, type CoinWord, COIN, COIN_EVENTS, COIN_LOG, coinLayer } from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
 import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
@@ -848,21 +848,23 @@ export function createTracker(options: TrackerOptions): Tracker {
 
   /**
    * A problem's state as the layer has it, with the core's beside each piece: a core client reads `core`, one with the
-   * extensions reads `state`, and the kind says how the square is earned and how strongly.
+   * extensions reads `state`, and the kind says how the square is earned and how strongly. `window_open` says whether a
+   * reveal of the owner's gold is taken on the piece at `now`, which `state` does not say under an open challenge (QX-16).
    */
   function state(hash: Hash, pl: ProblemLayer) {
     const s = pl.fold;
+    const at = now();
     const witnessed = witnessedReveals(hash);
     const traced = tracesOf(hash, pl);
     return {
-      problem: hash, now: now(), hidden: hidden().get(hash) ?? null, stake_rule: pl.stake,
+      problem: hash, now: at, hidden: hidden().get(hash) ?? null, stake_rule: pl.stake,
       pieces: s.pieces.map((v) => {
         const l = pl.byHash.get(v.piece.hash)!;
         const t = traced.get(v.piece.hash)!;
         return {
           name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l.state, core: l.core, challenge: l.challenge?.id ?? null,
           kind: l.kind.kind, extension: l.kind.extension, strength: l.kind.strength, says: l.kind.says, weakest: l.kind.weakest, attested: l.attested, panel: l.panel?.outcome ?? null,
-          availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length, stake: l.stake, gold: l.gold, verified: l.verified,
+          availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length, stake: l.stake, gold: l.gold, verified: l.verified, window_open: windowOpen(v, at),
           witnessed: witnessed.get(v.piece.hash) ?? [],
           traces: t.traces.length, traced: t.traced, seams: t.seams, aside: l.aside, record: t.record,
         };

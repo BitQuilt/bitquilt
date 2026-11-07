@@ -661,7 +661,7 @@ export class Quilt {
         const [panels, challenges] = await Promise.all([this.panels(problem, tracker), this.challenges(problem, tracker)]);
         for (const p of panels) if (p.outcome === 'open' && p.seats.some((s) => s.root === me && s.lapsed_at === null && !s.rank)) item(p.piece, p.name, 'rank');
         for (const c of challenges) if (c.outcome === 'open' && c.seats.some((s) => s.root === me && s.lapsed_at === null && !s.verdict)) item(c.piece, c.name, 'verdict');
-        // QX-16: a piece this key committed gold on, accepted and not yet revealed, as the tracker holds it (gold.ts, goldDue).
+        // QX-16: a piece this key committed gold on, its window open and not yet revealed, as the tracker holds it (gold.ts, goldDue).
         for (const d of gold.goldDue(this.library, problem, over)) item(d.piece, d.name, 'gold');
       }
       for (const v of state.pieces) {

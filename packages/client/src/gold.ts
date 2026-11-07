@@ -83,23 +83,37 @@ export async function revealGold(door: Door, problem: Hash, piece: Hash): Promis
   return { id: eventId(event), ...posted, name: kept.name, outcome };
 }
 
-/** A piece whose gold is due: committed from this home, accepted as the tracker holds it, and not yet revealed. */
+/** A piece whose gold is due: committed from this home, not yet revealed, and its window open as the tracker holds it. */
 export interface GoldDue { problem: Hash; piece: Hash; name: string }
 
 /**
- * The states in which the gold on a piece is due: an accepting set stands and its window is open, so a match verifies
- * it and a miss strikes it (QX-16 section 3). Once the window has closed the piece is `accepted`, the tracker refuses the
- * reveal, and the commitment has lapsed: the square is accepted and not verified, and nothing is due on it. Until
- * 2 November 2026 `accepted` was listed as due, and the owner's turn posted reveals the tracker refused.
+ * The states in which the gold on a piece can be due: an accepting set stands and its window is open, so a match
+ * verifies it and a miss strikes it (QX-16 section 3). Once the window has closed the piece is `accepted`, the tracker
+ * refuses the reveal, and the commitment has lapsed: the square is accepted and not verified, and nothing is due on it.
+ * Until 2 November 2026 `accepted` was listed as due, and the owner's turn posted reveals the tracker refused. A
+ * `challenged` piece stays `challenged` while the panel sits, after its window has closed too (QX-1 section 7), so from
+ * 7 November 2026 these states stand in only where a tracker does not say `window_open` (`windowOpen` below).
  */
 export const GOLD_DUE_STATES: readonly string[] = ['accepted_provisional', 'challenged'];
+
+/**
+ * Whether the tracker holds the piece's window open, which is where it takes a reveal: the tracker's `window_open`. A
+ * tracker older than 7 November 2026 does not say it, and the states stand in, a challenged piece counting only while
+ * the core does not call its acceptance final. The core says `accepted` once the window closes while the panel sits
+ * (QX-1 section 7), but `unknown` for a piece of a kind it does not know, so there a late reveal can still be offered,
+ * and the tracker refuses it with its reason.
+ */
+export function windowOpen(l: LayerPiece): boolean {
+  if (typeof l.window_open === 'boolean') return l.window_open;
+  return GOLD_DUE_STATES.includes(l.state) && l.core !== 'accepted' && l.core !== 'unreachable';
+}
 
 /** The pieces of a problem whose gold is due, from the library and the tracker's layer over the problem. */
 export function goldDue(library: Library, problem: Hash, over: Map<Hash, LayerPiece>): GoldDue[] {
   const due: GoldDue[] = [];
   for (const [piece, g] of Object.entries(library.gold?.[problem] ?? {})) {
     const l = over.get(piece as Hash);
-    if (l && !l.gold && !g.revealed && GOLD_DUE_STATES.includes(l.state)) due.push({ problem, piece: piece as Hash, name: g.name });
+    if (l && !l.gold && !g.revealed && windowOpen(l)) due.push({ problem, piece: piece as Hash, name: g.name });
   }
   return due;
 }

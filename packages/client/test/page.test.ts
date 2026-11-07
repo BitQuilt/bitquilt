@@ -5,12 +5,15 @@ import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.j
 import { createPage } from '../src/page.js';
 import { Resolver } from '../src/resolver.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
-import { baseOf, hex, quiltOver, startTracker, tempHome } from './helpers.js';
+import { baseOf, hex, json, quiltOver, startTracker, tempHome } from './helpers.js';
 
 /**
  * The page: what a person at http://localhost:3978/ does. They search, open a problem, take the rarest piece and hand
  * a return back as a person (the same key as their AI's, model `human`, capability `person`), and a piece an AI of
- * another vendor returned before them is accepted by their agreement.
+ * another vendor returned before them is accepted by their agreement. The owner's gold (QX-16) is offered for reveal on
+ * the pieces the owner's turn reveals (gold.ts, goldDue): an accepting set stands and its window is open, as the
+ * tracker's `window_open` says. Once the window has closed the tracker refuses the reveal, and the page no longer
+ * offers it, a challenge open on the piece or not (APP.md, "Standing, gold and the coin on the page").
  */
 let tracker: Server;
 let page: Server;
@@ -130,6 +133,127 @@ describe('the page', () => {
     // The next take is another piece: the accepted one is done, and a key is never handed a piece it has a reveal on.
     const again = await api(`/api/next?problem=${problem}`);
     expect(again.body.piece).not.toBe(verifying);
+  });
+});
+
+describe('the reveal of the owner\'s gold the page offers', () => {
+  // A tracker on the test's clock, so a window can close; the page's key owns a problem with gold on three of its pieces.
+  const HOUR = 3_600_000;
+  let tick = Date.now();
+  let goldTracker: Server;
+  let goldBase: string;
+  let goldPage: Server;
+  let goldSite: string;
+  let mine: Quilt, vendor: Quilt, worker: Quilt, other: Quilt;
+  let golden: Hash;
+  const statements = (slug: string, count: number): Pattern => ({
+    title: `Does the paper say so? (${slug})`,
+    done_when: 'Every statement has a verdict agreed by two vendors.',
+    slug,
+    pieces: {
+      'statement/*': {
+        count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so? Return the verdict and a quote.',
+        schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string', maxLength: 160 } } },
+        agree: ['verdict'],
+      },
+    },
+  });
+  type Row = { hash: Hash; name: string; state: string; gold: string | null; mine_gold: boolean; gold_due: boolean };
+  const rows = async (): Promise<Row[]> => {
+    const r = await fetch(`${goldSite}/api/open?link=${golden}`);
+    return ((await r.json()) as { pieces: Row[] }).pieces;
+  };
+  const due = async () => (await rows()).filter((x) => x.gold_due).map((x) => x.name);
+
+  beforeAll(async () => {
+    ({ server: goldTracker, base: goldBase } = await startTracker({ limits: { keyPerHour: 1000, ipPerHour: 10000 }, now: () => new Date((tick += 1000)).toISOString() }));
+    const mk = quiltOver(goldBase);
+    mine = mk(4, 'anthropic/claude');
+    vendor = mk(2, 'openai/gpt-5', 'ChatGPT');
+    worker = mk(5, 'anthropic/claude');
+    other = mk(6, 'anthropic/claude');
+    goldPage = await createPage({ quilt: mine, person: mine, resolver: mine.resolver }).listen(0);
+    goldSite = baseOf(goldPage).slice(0, -1);
+    // Standing first, since each blind commitment stakes two: five squares on another owner's problem bring the page's key to six.
+    const elsewhere = (await other.publish(statements('elsewhere', 5))).hash;
+    for (const v of (await mine.open(elsewhere)).state.pieces) {
+      await mine.return(elsewhere, v.piece.hash, { verdict: 'supports', quote: 'it says so' });
+      await vendor.return(elsewhere, v.piece.hash, { verdict: 'supports', quote: 'indeed' });
+    }
+    expect(await mine.standing()).toMatchObject({ standing: 6, free: 6 });
+    const answers = { 'statement/1': { verdict: 'supports', quote: '' }, 'statement/2': { verdict: 'supports', quote: '' }, 'statement/3': { verdict: 'supports', quote: '' } };
+    const published = await mine.publish({ ...statements('golden', 4), gold: { answers } });
+    expect(published.refused).toEqual([]);
+    expect(published.gold).toEqual({ pieces: 3, stake: 6 });
+    golden = published.hash;
+  });
+  afterAll(async () => {
+    await new Promise<void>((r) => goldPage.close(() => r()));
+    await new Promise<void>((r) => goldTracker.close(() => r()));
+  });
+
+  it('offers nothing before a piece is accepted, though the gold is committed here', async () => {
+    const before = await rows();
+    expect(before.map((x) => x.mine_gold)).toEqual([true, true, true, false]);
+    expect(await due()).toEqual([]);
+  });
+  it('offers the reveal while the window is open, and the reveal it offers is the one the tracker takes', async () => {
+    const [p1, p2] = (await rows()).map((x) => x.hash);
+    for (const piece of [p1!, p2!]) {
+      await worker.return(golden, piece, { verdict: 'supports', quote: 'as the paper says' });
+      await vendor.return(golden, piece, { verdict: 'supports', quote: 'the paper says so' });
+    }
+    expect((await rows()).slice(0, 2).map((x) => x.state)).toEqual(['accepted_provisional', 'accepted_provisional']);
+    expect(await due()).toEqual(['statement/1', 'statement/2']);
+    // The page and the owner's turn read one rule.
+    expect((await mine.revealDue(false)).map((d) => d.name)).toEqual(await due());
+    const revealed = await fetch(`${goldSite}/api/reveal`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ problem: golden, piece: p1 }) });
+    expect(revealed.status).toBe(200);
+    expect(((await revealed.json()) as { outcome: string }).outcome).toBe('match');
+    expect(await due()).toEqual(['statement/2']);
+  });
+  it('offers no reveal once the window has closed, where the tracker refuses it and the owner\'s turn reveals nothing', async () => {
+    tick += 49 * HOUR;
+    const second = (await rows())[1]!;
+    expect(second).toMatchObject({ name: 'statement/2', state: 'accepted', gold: null, mine_gold: true, gold_due: false });
+    expect(await due()).toEqual([]);
+    expect(await mine.revealDue(false)).toEqual([]);
+    await expect(mine.revealGold(golden, second.hash)).rejects.toThrow(/the window has closed/);
+  });
+  it('offers the reveal on a challenged piece while its window is open, and none once it closes with the panel still sitting', async () => {
+    // Four judges with accepted work on another problem, and a challenger with the point a new root begins with.
+    const mk = quiltOver(goldBase);
+    const judges = [mk(11, 'anthropic/claude'), mk(12, 'openai/gpt-5', 'ChatGPT'), mk(13, 'google/gemini', 'Gemini'), mk(14, 'meta/llama', 'x')];
+    const challenger = mk(7, 'google/gemini', 'Gemini');
+    const pool = (await other.publish(statements('pool', 2))).hash;
+    const [q1, q2] = (await other.open(pool)).state.pieces.map((v) => v.piece.hash);
+    await judges[0]!.return(pool, q1!, { verdict: 'supports', quote: 'one' });
+    await judges[1]!.return(pool, q1!, { verdict: 'supports', quote: 'two' });
+    await judges[2]!.return(pool, q2!, { verdict: 'contradicts', quote: 'three' });
+    await judges[3]!.return(pool, q2!, { verdict: 'contradicts', quote: 'four' });
+    const third = (await rows())[2]!;
+    await worker.return(golden, third.hash, { verdict: 'supports', quote: 'as the paper says' });
+    await vendor.return(golden, third.hash, { verdict: 'supports', quote: 'the paper says so' });
+    const acceptedAt = tick;
+    const tracked = async () => (await json<{ pieces: { hash: Hash; state: string; core: string; window_open: boolean }[] }>(`${goldBase}p/${golden}/state`)).pieces.find((x) => x.hash === third.hash)!;
+    // Half an hour before the window closes, a challenge: the piece is challenged, its window open, and the reveal due.
+    tick = acceptedAt + 47.5 * HOUR;
+    await challenger.challenge(golden, third.hash, 1, 'Both quote the abstract, which the paper itself takes back.');
+    expect(await tracked()).toMatchObject({ state: 'challenged', core: 'accepted_provisional', window_open: true });
+    expect(await due()).toEqual(['statement/3']);
+    expect((await mine.revealDue(false)).map((d) => d.name)).toEqual(['statement/3']);
+    // Half an hour after, the panel still sits and the piece is still challenged, but the window has closed.
+    tick = acceptedAt + 48.5 * HOUR;
+    expect(await tracked()).toMatchObject({ state: 'challenged', core: 'accepted', window_open: false });
+    expect((await rows())[2]).toMatchObject({ name: 'statement/3', state: 'challenged', gold: null, mine_gold: true, gold_due: false });
+    expect(await due()).toEqual([]);
+    expect(await mine.revealDue(false)).toEqual([]);
+    await expect(mine.revealGold(golden, third.hash)).rejects.toThrow(/the window has closed/);
+  });
+  it('draws the reveal from the mark the API sets, with no list of states of its own', async () => {
+    const html = await (await fetch(`${goldSite}/`)).text();
+    expect(html).toContain('return x.gold_due;');
+    expect(html).not.toMatch(/x\.state === '(accepted|accepted_provisional|challenged)'/);
   });
 });
 

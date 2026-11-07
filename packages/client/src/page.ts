@@ -12,6 +12,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type Hash, IDENTITY_LOG, isHash } from '@bitquilt/core';
 import { awayState, awaySwitch, readSummary, recordSummary } from './away.js';
+import { goldDue } from './gold.js';
 import { claudeDesktopConfigPath, claudeHasQuilt, claudeRunning, entryHere, installHere } from './install.js';
 import { makeLink } from './link.js';
 import { sheetOf } from './phrases.js';
@@ -102,8 +103,10 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         // The judge panels this person sits on with a seat still live: the page offers a ranking form for each.
         const me = person.identity?.address ?? null;
         const judging = me === null ? [] : (await person.panels(hash, tracker)).filter((p) => p.outcome === 'open' && p.seats.some((s) => s.root === me && s.lapsed_at === null && !s.rank));
-        // QX-16: the gold this key committed here, by piece, so the page can offer the reveal; QX-17: where the coin lives, so it can offer a pay.
+        // QX-16: the gold this key committed here, by piece, and the pieces whose reveal is due by the rule the owner's turn
+        // reveals by (gold.ts, goldDue), so the page offers the reveal where the tracker takes it; QX-17: where the coin lives, so it can offer a pay.
         const mineGold = Object.keys(quilt.library.gold?.[hash] ?? {});
+        const due = new Set(goldDue(quilt.library, hash, over).map((d) => d.piece));
         const coin = tracker ? await quilt.coinAt(tracker) : null;
         return json(res, 200, {
           problem: hash, tracker, hidden, seeders: scrape?.seeders ?? 0, last_seeded: scrape?.last_seeded ?? null, seeding: Boolean(quilt.library.seeding[hash]), title: state.envelope.problem.title, done_when: state.envelope.problem.done_when, owner: state.envelope.problem.owner, complete: state.complete,
@@ -112,7 +115,7 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
             const k = kindWords(v.piece.verifier);
             return {
               name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l?.state ?? v.state, core: v.state, requires: v.piece.requires, kind: k.kind, strength: k.strength, says: k.says, weakest: k.weakest, attested: l?.attested ?? false,
-              stake: l?.stake ?? 0, gold: l?.gold ?? null, verified: l?.verified ?? false, mine_gold: mineGold.includes(v.piece.hash),
+              stake: l?.stake ?? 0, gold: l?.gold ?? null, verified: l?.verified ?? false, mine_gold: mineGold.includes(v.piece.hash), gold_due: due.has(v.piece.hash),
             };
           }),
           kinds: kindsText(state), stake: stakeText(layer), goldLine: goldText(layer, gold),

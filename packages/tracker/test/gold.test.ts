@@ -11,7 +11,9 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  * after the window, twice, and when it matches no commitment; a match marks the square verified; a miss strikes the
  * set, docks its roots, forfeits their locks and sends the piece back; a struck root's challenge on the miss stakes
  * nothing, and one that holds restores the set and forfeits the owner's stake; a new root the miss left at zero can
- * still challenge it; a commitment left unrevealed lapses once the problem has settled.
+ * still challenge it; a commitment left unrevealed lapses once the problem has settled. The state route's `window_open`
+ * says where a reveal is taken: it follows the window, and on an attest piece whose window closes while a challenge
+ * sits, where the layer says `challenged` and the core `unknown`, it says the window has closed as the refusal does.
  */
 const ownerP = key(9), ownerQ = key(8), A = key(1), B = key(2), F = key(6), N = key(21), M = key(22);
 const judges = [key(11), key(12), key(13), key(14)];
@@ -42,7 +44,7 @@ async function stakedReturn(problem: Hash, piece: Hash, k: Uint8Array, model: st
 }
 type Standing = { standing: number; locked: number; free: number };
 const standingOf = async (k: Uint8Array) => (await get(`/k/${addr(k)}/standing`)) as Standing;
-type PieceState = { hash: Hash; name: string; state: string; core: string; gold: string | null; verified: boolean };
+type PieceState = { hash: Hash; name: string; state: string; core: string; gold: string | null; verified: boolean; window_open: boolean };
 const pieceOf = async (problem: Hash, piece: Hash) => ((await get(`/p/${problem}/state`)) as { pieces: PieceState[] }).pieces.find((x) => x.hash === piece)!;
 type Challenge = { id: Hash; against: string; outcome: string; seats: { root: Address }[] };
 const challengesOf = async (problem: Hash) => ((await get(`/p/${problem}/challenges`)) as { challenges: Challenge[] }).challenges;
@@ -130,6 +132,7 @@ describe('gold pieces', () => {
     // A reveal on the piece worked before the gold is refused, and nothing is revealed before an acceptance.
     expect(await refused(`/p/${p}/events`, reveal(ownerP, p, p4))).toBe('gold names a piece already worked: statement/4');
     expect(await refused(`/p/${p}/events`, reveal(ownerP, p, p1))).toBe('nothing accepted on this piece yet');
+    expect((await pieceOf(p, p1)).window_open).toBe(false);
     // A plain piece beside the gold, worked by the other owner, who earns the point a later gold of theirs is backed by.
     await stakedReturn(p, p5, ownerQ, 'anthropic/claude');
     await stakedReturn(p, p5, judges[0]!, 'openai/gpt');
@@ -139,7 +142,7 @@ describe('gold pieces', () => {
   it('marks a square verified on a match, and refuses a reveal that does not match, a second one, and one from anyone but the owner', async () => {
     await stakedReturn(p, p1, A, 'anthropic/claude');
     await stakedReturn(p, p1, B, 'openai/gpt');
-    expect((await pieceOf(p, p1)).state).toBe('accepted_provisional');
+    expect(await pieceOf(p, p1)).toMatchObject({ state: 'accepted_provisional', window_open: true });
     expect(await refused(`/p/${p}/events`, reveal(A, p, p1))).toBe('the owner alone reveals gold');
     expect(await refused(`/p/${p}/events`, reveal(ownerP, p, p1, newNonce()))).toBe('the reveal matches no commitment kept on this problem');
     await accepted(`/p/${p}/events`, reveal(ownerP, p, p1));
@@ -194,7 +197,7 @@ describe('gold pieces', () => {
     await stakedReturn(p, p4, judges[3]!, 'google/gemini');
     expect(await goldOf(p)).toMatchObject({ pending: 1, lapsed: 0 });
     clock.tick += 49 * HOUR;
-    expect(await pieceOf(p, p3)).toMatchObject({ state: 'accepted', gold: null, verified: false });
+    expect(await pieceOf(p, p3)).toMatchObject({ state: 'accepted', gold: null, verified: false, window_open: false });
     expect(await goldOf(p)).toEqual({ committed: 3, pending: 0, verified: 1, missed: 0, overruled: 1, lapsed: 1 });
     expect(await refused(`/p/${p}/events`, reveal(ownerP, p, p3))).toBe('the window has closed');
     expect(await standingOf(ownerP)).toMatchObject({ standing: 2, locked: 0, free: 2 });
@@ -233,4 +236,24 @@ describe('gold pieces', () => {
     expect(await standingOf(M)).toMatchObject({ standing: 2 });
     expect(await standingOf(ownerQ)).toMatchObject({ standing: 0, locked: 0, free: 0 });
   }, 120_000);
+
+  it('says on the state route where a reveal is taken, and an attest piece whose window closes under a challenge has it closed', async () => {
+    const S = signed(ownerP, 'asked', { asked: { verifier: 'attest', requires: ['web'], brief: 'Ask the author whether the paper says so, and record the answer.', schema, agree: ['verdict'] } });
+    const s = problemHash(S);
+    expect((await post('/p', { envelope: S })).status).toBe(201);
+    const s1 = ((await get(`/p/${s}/state`)) as { pieces: PieceState[] }).pieces[0]!.hash;
+    await accepted(`/p/${s}/events`, ev(ownerP, 'gold', { commitments: commitments([s1]), stake: 1 }, s));
+    // The actor's own record accepts the piece at once, and its window runs from that receipt.
+    await returnOn(s, s1, F, 'meta/llama');
+    const acceptedAt = clock.tick;
+    expect(await pieceOf(s, s1)).toMatchObject({ state: 'accepted_provisional', core: 'unknown', window_open: true });
+    // A challenge half an hour before the window closes: challenged, and the core cannot say whether the window is open.
+    clock.tick = acceptedAt + 47.5 * HOUR;
+    await accepted(`/p/${s}/events`, ev(A, 'challenge', { stake: 1, ground: 'The author was never asked.' }, s, s1));
+    expect(await pieceOf(s, s1)).toMatchObject({ state: 'challenged', core: 'unknown', window_open: true });
+    // Half an hour after, the panel still sits and the piece is still challenged; the window has closed, and the reveal is refused.
+    clock.tick = acceptedAt + 48.5 * HOUR;
+    expect(await pieceOf(s, s1)).toMatchObject({ state: 'challenged', core: 'unknown', window_open: false });
+    expect(await refused(`/p/${s}/events`, reveal(ownerP, s, s1))).toBe('the window has closed');
+  });
 });

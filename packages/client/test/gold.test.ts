@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash } from '@bitquilt/core';
 import { AWAY_LOG, NEEDS_AGENT, awayTurn, goldText } from '../src/away.js';
+import { goldDue, windowOpen } from '../src/gold.js';
+import type { LayerPiece } from '../src/listings.js';
+import type { Library } from '../src/resolver.js';
 import { runTool } from '../src/tools.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
 import { instructs, json, mcpPair, quiltOver, startTracker, tempHome } from './helpers.js';
@@ -17,6 +20,8 @@ import { instructs, json, mcpPair, quiltOver, startTracker, tempHome } from './h
  * summary counts the gold; the tools describe and never instruct. And the reveals run with nobody asked (`revealDue`):
  * the away turn reveals every piece whose gold is due before its agent, whether or not one is here, says in its line
  * what the tracker decided, posts nothing twice, and keeps a refusal rather than throwing; `quilt gold due` lists them.
+ * What is due follows the window the tracker holds open (`window_open`), under a challenge too, where the core says
+ * `unknown` for an attest piece; a tracker that does not say it is read by its states and the core's.
  */
 let server: Server;
 let base: string;
@@ -212,4 +217,35 @@ describe('the reveals run with nobody asked', () => {
     const out = execFileSync(process.execPath, ['--import', 'tsx', join(root, 'packages', 'client', 'src', 'bin.ts'), 'gold', 'due'], { cwd: root, encoding: 'utf8', env: { ...process.env, QUILT_HOME: home, QUILT_TRACKERS: base } });
     expect(JSON.parse(out)).toEqual([]);
   }, 60_000);
+});
+
+describe('the gold due, by the window the tracker holds open', () => {
+  const problem = `sha256:${'a'.repeat(64)}` as Hash;
+  const hashOf = (n: number) => `sha256:${String(n).repeat(64)}` as Hash;
+  const kept = (n: number, revealed?: string) => ({ name: `statement/${n}`, projection: { verdict: 'supports' }, nonce: 'n', ...(revealed ? { revealed } : {}) });
+  const library = { gold: { [problem]: { [hashOf(1)]: kept(1), [hashOf(2)]: kept(2), [hashOf(3)]: kept(3), [hashOf(4)]: kept(4), [hashOf(5)]: kept(5, '2026-11-07T12:00:00Z') } } } as unknown as Library;
+  const piece = (n: number, said: Partial<LayerPiece>): LayerPiece => ({ hash: hashOf(n), name: `statement/${n}`, gold: null, ...said }) as LayerPiece;
+  const dueOf = (pieces: LayerPiece[]) => goldDue(library, problem, new Map(pieces.map((l) => [l.hash, l]))).map((d) => d.name);
+
+  it('reads window_open where the tracker says it, a challenge open or not, whatever the core says', () => {
+    // An attest piece the core does not know: challenged in its window, and challenged once the window has closed.
+    expect(windowOpen(piece(1, { state: 'challenged', core: 'unknown', window_open: true }))).toBe(true);
+    expect(windowOpen(piece(2, { state: 'challenged', core: 'unknown', window_open: false }))).toBe(false);
+    expect(dueOf([
+      piece(1, { state: 'challenged', core: 'unknown', window_open: true }),
+      piece(2, { state: 'challenged', core: 'unknown', window_open: false }),
+      piece(3, { state: 'accepted_provisional', core: 'accepted_provisional', window_open: true, gold: 'match' }),
+      piece(4, { state: 'accepted', core: 'accepted', window_open: false }),
+      piece(5, { state: 'accepted_provisional', core: 'accepted_provisional', window_open: true }),
+    ])).toEqual(['statement/1']);
+  });
+
+  it('reads a tracker that does not say window_open by its states, a challenged piece only while the core does not call it final', () => {
+    expect(dueOf([
+      piece(1, { state: 'accepted_provisional', core: 'accepted_provisional' }),
+      piece(2, { state: 'challenged', core: 'accepted_provisional' }),
+      piece(3, { state: 'challenged', core: 'accepted' }),
+      piece(4, { state: 'accepted', core: 'accepted' }),
+    ])).toEqual(['statement/1', 'statement/2']);
+  });
 });
