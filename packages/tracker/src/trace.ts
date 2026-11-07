@@ -5,7 +5,8 @@
  * kept reads (section 3) and, where reveals differ, says why from the traces, pair by pair, and which readings rest on
  * nothing where another rests on the record (section 4): those the layer sets aside (challenge.ts). On a record piece
  * (QX-20) the same traces grade the standing readings and give the seams between them, with nothing set aside, and
- * the record document states each reading with its trace as the chain has it. Pure over the fold, the receipts, and a
+ * the record document states each reading with its trace as the chain has it. What each reading rests on, field by
+ * field with its passage, is read here too, for any page that shows a reading. Pure over the fold, the receipts, and a
  * way to measure and read a blob. Nothing here changes what the core calls a piece.
  */
 import { type Address, type Event, type Hash, type PieceView, type Receipt, type Reveal, type Schema, type State, agreeFields, earliestReceipt, eventId, hashCanonical, isHash, returnsAgree } from '@bitquilt/core';
@@ -37,6 +38,8 @@ export interface RecordGrade { wanted: number; standing: number; grounded: numbe
 /** A piece's traces, its grade, its seams, the ids of the reveals set aside, where there are any (section 4), and on a record piece its grade (QX-20). */
 export interface PieceTraces { traces: TraceView[]; traced: Traced | null; seams: Seam[]; aside: Hash[]; record: RecordGrade | null }
 export type Admission = { ok: true } | { ok: false; why: string };
+/** What a reading rests one field on: the read's address and the hash it was kept under, the span, and the passage as text where the read's bytes are held, or null where they are not. */
+export interface RestedOn { field: string; url: string; hash: Hash; span: [number, number]; passage: string | null }
 
 const isTime = (s: unknown): s is string => typeof s === 'string' && !Number.isNaN(Date.parse(s));
 const isWhole = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0;
@@ -206,6 +209,30 @@ function sideOf(view: PieceView, receipts: Receipt[], traces: readonly TraceView
     const rest = restFor(t, field);
     const read = rest && t ? t.reads[rest.read] ?? null : null;
     return { key: rv.key, value: (rv.return as Record<string, unknown>)[field], read, span: rest ? rest.span : null, passage: rest && read ? passage(read.hash, rest.span) : null, aside: false };
+  };
+}
+
+/** A span of a read's bytes as text, or null where the bytes are not held: one way to read a passage, for the seams and the square page alike. */
+export function passageIn(bytes: Uint8Array | null, span: [number, number]): string | null {
+  return bytes ? new TextDecoder().decode(bytes.subarray(span[0], span[1])) : null;
+}
+
+/**
+ * What each reading on a piece rests on, field by field in its trace's order, from the traces as the chain states them
+ * (`tracesStated`), so a rest whose read's bytes are not held here still names the page and the hash it was kept under,
+ * with no passage. `receipts` are the lines of every version of the chain the view was folded from: a reading made
+ * under an earlier version keeps its trace on that version's log. A reading with no trace rests on nothing.
+ * `passage` reads a span of a blob as text, or null where the blob is not here.
+ */
+export function restsOf(view: PieceView, receipts: Receipt[], passage: (hash: Hash, span: [number, number]) => string | null): (rv: Reveal) => RestedOn[] {
+  const { traceOf } = matching(view, receipts, tracesStated(view, receipts));
+  return (rv) => {
+    const t = traceOf(rv);
+    if (!t) return [];
+    return t.rests.map((x) => {
+      const read = t.reads[x.read]!;
+      return { field: x.field, url: read.url, hash: read.hash, span: x.span, passage: passage(read.hash, x.span) };
+    });
   };
 }
 

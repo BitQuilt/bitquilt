@@ -1,11 +1,12 @@
 /**
- * What the tracker's tests share: fixed keys, an envelope signed by its owner, a tracker of its own with a store in
- * memory and a clock the test moves, and the posts and reads against it. Each test file keeps its own pieces, schema
- * and the helpers that differ from these. vitest runs `*.test.ts` alone, so this file is no test of its own.
+ * What the tracker's tests share: fixed keys, an envelope signed by its owner, a receipt made by hand for the pure
+ * layers, a tracker of its own with a store in memory and a clock the test moves, and the posts and reads against it.
+ * Each test file keeps its own pieces, schema and the helpers that differ from these. vitest runs `*.test.ts` alone, so
+ * this file is no test of its own.
  */
 import { expect } from 'vitest';
 import type { Server } from 'node:http';
-import { type Envelope, type Hash, type Unsigned, addressOf, signEvent } from '@bitquilt/core';
+import { type Envelope, type Event, type Hash, type Receipt, type Unsigned, addressOf, hashCanonical, signEvent } from '@bitquilt/core';
 import { signObject } from '@bitquilt/core';
 import { Store } from '../src/store.js';
 import { type Tracker, type TrackerOptions, createTracker } from '../src/tracker.js';
@@ -25,6 +26,9 @@ export function envelope(owner: Uint8Array, slug: string, pieces: Envelope['prob
   const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
   return { ...unsigned, sig: signObject(unsigned, owner) };
 }
+
+/** A receipt as a resolver would serve it, received at `at` by one tracker in the actor's own custody, with anything else `received` says about the seat. */
+export const line = (event: Event, at: string, received: Record<string, unknown> = {}): Receipt => ({ event, received: [{ by: 'https://t.example/', at, custody: 'self', ...received }], hash: hashCanonical([event.sig, at]) });
 
 /** A response's JSON, typed as the caller says. */
 export async function json<T = unknown>(r: Response | Promise<Response>): Promise<T> {

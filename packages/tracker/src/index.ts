@@ -25,4 +25,4 @@ export { COIN, COIN_LOG, COIN_EVENTS, coinLayer, coinParamsProblems, coinBodyPro
 export { creditedRoots, type Credit, type Move } from './standing.js';
 export { HIDE, WHY_MAX, hideBodyProblems, hiddenNow, type Hidden } from './hide.js';
 export { SEEDING, RECIPROCITY, TENTH, WATCH, seedInfo, seedBodyProblems, watchExclusions, offerOrder, type SeedInfo, type Reason, type Offer } from './seeding.js';
-export { TRACE, RECORD, TRACE_EVENTS, BLOB_MAX, SPAN_MAX, READS_MAX, RESTS_MAX, traceBodyProblems, admitTrace, pieceTraces, recordGraded, recordSeams, recordDocument, tracesStated, type Read, type Rest, type TraceBody, type TraceView, type Traced, type Seam, type SeamSide, type SeamWhy, type PieceTraces, type RecordGrade } from './trace.js';
+export { TRACE, RECORD, TRACE_EVENTS, BLOB_MAX, SPAN_MAX, READS_MAX, RESTS_MAX, traceBodyProblems, admitTrace, pieceTraces, recordGraded, recordSeams, recordDocument, tracesStated, restsOf, passageIn, type Read, type Rest, type TraceBody, type TraceView, type Traced, type Seam, type SeamSide, type SeamWhy, type PieceTraces, type RecordGrade, type RestedOn } from './trace.js';

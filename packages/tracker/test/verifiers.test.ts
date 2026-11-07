@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Address, type Envelope, type Hash, type Receipt, type Unsigned, commitHash, hashCanonical, newNonce, problemHash, reduce, signEvent, signObject } from '@bitquilt/core';
 import { challengeLayer } from '../src/challenge.js';
 import { describeKind, kindOf } from '../src/verifiers.js';
-import { SETTINGS as settings, addr, boot, key } from './helpers.js';
+import { SETTINGS as settings, addr, boot, key, line } from './helpers.js';
 
 /**
  * The three verifier kinds the core does not know (docs/ext/verifiers.md), as the tracker's layer decides them: an
@@ -197,8 +197,6 @@ describe('the verifier kinds at the tracker', () => {
 });
 
 describe('the pure layer', () => {
-  /** A receipt as a resolver would serve it, with what it says about the seat. */
-  const line = (event: ReturnType<typeof signEvent>, at: string, received: Record<string, unknown> = {}): Receipt => ({ event, received: [{ by: 'https://t.example/', at, custody: 'self', ...received }], hash: hashCanonical([event.sig, at]) });
   const t = (m: number) => new Date(Date.parse('2026-10-25T08:00:00Z') + m * 60_000).toISOString();
   const H = sign({ title: 'A vote', done_when: 'Two people agree.', owner: addr(owner), slug: 'vote', prev: null, from: null, settings, data: {}, pieces: {
     vote: { verifier: 'human', requires: ['person'], brief: 'Does the paper say so?', schema: verdictSchema, agree: ['verdict'] },

@@ -3,11 +3,14 @@
  * of the piece named by the second, built here on the server, every word escaped, and no script. The two hashes name
  * the record itself, so the address keeps its meaning when the owner sharpens the brief: the page says what that
  * version recorded, then follows the versions that replaced it and says where the piece stands now, and where a
- * sharpening gave its family a new brief, quotes the newer brief as the owner's words. Each reading is the quoted
- * words of the key that signed it, with the signer and its declared vendor named; each rest names the page it rests
- * on and quotes the passage as kept. The title and the card tags say the agreed answer and the vendors that agreed,
- * or the state; a field agreed blank says so.
+ * sharpening gave its family a new brief, quotes the newer brief as the owner's words. A piece the version keeps only
+ * from an earlier version has no state there, so the page names the version that holds it and says what that one
+ * recorded. Each reading is the quoted words of the key that signed it, with the signer and its declared vendor named;
+ * each rest names the page it rests on and the hash it was kept under, and quotes the passage where the bytes are held
+ * here. The title and the card tags say the agreed answer and the vendors that agreed, or the state; a field agreed
+ * blank says so.
  */
+import type { RestedOn } from '@bitquilt/tracker';
 
 /** One reading of the piece: who signed it and as what, when, the fields, what each rests on, and whether it is one of the two that accepted the square or one the layer set aside. */
 export interface SquareReading {
@@ -19,7 +22,7 @@ export interface SquareReading {
   accepting: boolean;
   aside: boolean;
   fields: [string, unknown][];
-  rests: { field: string; url: string; hash: string; passage: string | null }[];
+  rests: RestedOn[];
 }
 
 /** Where the piece stands in the newest version: the same piece, or, after a sharpening of its family, the piece of the same name and its newer brief. */
@@ -31,6 +34,8 @@ export type SquareNow =
 export interface SquareView {
   url: string;
   problem: string;
+  /** The earlier version that holds the piece, where the version the address names keeps it only from that one; null where the address's version holds it. */
+  holder: string | null;
   title: string;
   owner: string;
   ownerName: string | null;
@@ -74,11 +79,19 @@ export function squareTitle(v: SquareView): string {
   return `${v.name}: ${stateWords(v.state)}`;
 }
 
+/** One rest: the passage as kept, or, where this tracker no longer holds the read's bytes, the page and its hash with no passage. */
+function rest(x: RestedOn): string {
+  const at = `at <a href="${esc(x.url)}" rel="nofollow noopener">${esc(x.url)}</a>, kept as <code>${esc(x.hash)}</code>`;
+  return x.passage === null
+    ? `<li>${esc(x.field)} rests on a passage of the page ${at}; the page's bytes are not held here</li>`
+    : `<li>${esc(x.field)} rests on “${esc(x.passage)}” ${at}</li>`;
+}
+
 function reading(r: SquareReading): string {
   const mark = r.accepting ? ' One of the two readings that accepted the square.' : r.aside ? ' Set aside: it rests on nothing where the other reading rests on a kept page.' : '';
   const fields = r.fields.map(([f, val]) => `<li><b>${esc(f)}</b>: ${esc(shown(val))}</li>`).join('');
   const rests = r.rests.length
-    ? `<p>What it rests on:</p><ul>${r.rests.map((x) => `<li>${esc(x.field)} rests on ${x.passage === null ? 'a page kept here' : `“${esc(x.passage)}”`} at <a href="${esc(x.url)}" rel="nofollow noopener">${esc(x.url)}</a>, kept as <code>${esc(x.hash)}</code></li>`).join('')}</ul>`
+    ? `<p>What it rests on:</p><ul>${r.rests.map(rest).join('')}</ul>`
     : '<p class="q">It names no page it rests on.</p>';
   return `<section><h3>${esc(who(r))}</h3><p class="q">Declared ${esc(r.vendor)}, model ${esc(r.model)}, at ${esc(r.at)}.${esc(mark)}</p><p>Its return, in its own words:</p><ul>${fields}</ul>${rests}</section>`;
 }
@@ -88,6 +101,12 @@ function nowText(v: SquareView): string {
   if (!n) return '';
   if (n.same) return `<p>The owner has replaced this version of the problem. In the current version, <code>${esc(n.version)}</code>, the same piece is ${esc(stateWords(n.state))}. This page keeps saying what the version above recorded.</p>`;
   return `<p>The owner has replaced this version of the problem and sharpened this piece's brief. In the current version, <code>${esc(n.version)}</code>, the piece of the same name is <code>${esc(n.piece)}</code>, ${esc(stateWords(n.state))}, and its brief, as the owner wrote it, reads: “${esc(n.brief)}” This page keeps saying what the version above recorded.</p>`;
+}
+
+/** Where the address names a later version that keeps the piece only from an earlier one: which version the page reads, and why. */
+function holderText(v: SquareView): string {
+  if (!v.holder) return '';
+  return `<p>The version this address names, <code>${esc(v.problem)}</code>, is a later version without this piece. The state and the readings below are the ones <code>${esc(v.holder)}</code> recorded.</p>\n`;
 }
 
 /** The page itself: one document, no script, nothing loaded from elsewhere. */
@@ -130,8 +149,8 @@ a{color:#2b3f7a;overflow-wrap:anywhere}
 <p class="q">A square of a problem on Quilt, as this tracker keeps it.</p>
 <h1>${esc(title)}</h1>
 <p>The problem, titled by ${esc(owner)}: “${esc(v.title)}”</p>
-<p>The piece <b>${esc(v.name)}</b>, <code>${esc(v.piece)}</code>, of the problem's version <code>${esc(v.problem)}</code>. Its brief, as the owner wrote it: “${esc(v.brief)}”</p>
-<p class="state">It is ${esc(stateWords(v.state))}.${esc(grade)}${esc(verified)}</p>
+<p>The piece <b>${esc(v.name)}</b>, <code>${esc(v.piece)}</code>, of the problem's version <code>${esc(v.holder ?? v.problem)}</code>. Its brief, as the owner wrote it: “${esc(v.brief)}”</p>
+${holderText(v)}<p class="state">It is ${esc(stateWords(v.state))}.${esc(grade)}${esc(verified)}</p>
 <p class="q">${esc(v.kind)}</p>
 ${nowText(v)}
 <h2>The readings</h2>
