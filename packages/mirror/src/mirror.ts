@@ -32,9 +32,35 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
-  type Envelope, type Hash, type Receipt, type ReduceInput, IDENTITY_LOG, blobProblems, envelopeProblems, eventId, eventProblems, eventSignedByKey, hashBytes, nextLine, onlyAppends, problemHash, reduce, signedBy, verifyChain, withSlash,
+  type Envelope,
+  type Hash,
+  type Receipt,
+  type ReduceInput,
+  IDENTITY_LOG,
+  blobProblems,
+  envelopeProblems,
+  eventId,
+  eventProblems,
+  eventSignedByKey,
+  hashBytes,
+  nextLine,
+  onlyAppends,
+  problemHash,
+  reduce,
+  signedBy,
+  verifyChain,
+  withSlash,
 } from '@bitquilt/core';
-import { type BalanceView, type CoinParams, type CreditLine, type Layer, COIN_LOG, challengeLayer, coinLayer, recordDocument } from '@bitquilt/tracker';
+import {
+  type BalanceView,
+  type CoinParams,
+  type CreditLine,
+  type Layer,
+  COIN_LOG,
+  challengeLayer,
+  coinLayer,
+  recordDocument,
+} from '@bitquilt/tracker';
 import { type AnchorReport, type ChainHead, anchorHeads } from './anchor.js';
 import { type KeptStore, MirrorFiles } from './files.js';
 import { hiddenFromIdentity, keysFromIdentity } from './identity.js';
@@ -145,7 +171,8 @@ async function pull(ctx: Context, options: KeepOptions): Promise<void> {
   for (let i = 0; i < sources.length; i += 1) {
     const source = sources[i]!;
     const known = await describeSource(ctx, source);
-    if (options.peers !== false && configured.includes(source)) for (const peer of known.peers.map(withSlash)) if (!sources.includes(peer)) sources.push(peer);
+    if (options.peers !== false && configured.includes(source))
+      for (const peer of known.peers.map(withSlash)) if (!sources.includes(peer)) sources.push(peer);
     const listed = await listedAt(ctx, source, known.node);
     if (!listed) {
       ctx.report.errors.push(`${source}: no index`);
@@ -202,7 +229,9 @@ async function getBytes(ctx: Context, url: string): Promise<Uint8Array | null> {
 /** What a source's well-known says of it: whether it is a node, and the peers it names; a source with no well-known is read as a tracker with none. */
 async function describeSource(ctx: Context, source: string): Promise<{ node: boolean; peers: string[] }> {
   const known = (await getJson(ctx, `${source}.well-known/quilt`)) as { node?: boolean; peers?: unknown } | null;
-  const peers = Array.isArray(known?.peers) ? known.peers.filter((p): p is string => typeof p === 'string' && /^https?:\/\//.test(p)) : [];
+  const peers = Array.isArray(known?.peers)
+    ? known.peers.filter((p): p is string => typeof p === 'string' && /^https?:\/\//.test(p))
+    : [];
   return { node: known?.node === true, peers };
 }
 
@@ -245,7 +274,10 @@ function keepTheRest(ctx: Context): void {
  */
 async function takeReads(ctx: Context, source: string, lines: Receipt[], label: string): Promise<void> {
   const wanted = new Set<Hash>();
-  for (const l of lines) if (l.event.type === 'trace') for (const r of ((l.event.body as { reads?: { hash?: Hash }[] }).reads ?? [])) if (r.hash && !ctx.store.getBlob(r.hash)) wanted.add(r.hash);
+  for (const l of lines)
+    if (l.event.type === 'trace')
+      for (const r of (l.event.body as { reads?: { hash?: Hash }[] }).reads ?? [])
+        if (r.hash && !ctx.store.getBlob(r.hash)) wanted.add(r.hash);
   for (const h of wanted) {
     const bytes = await getBytes(ctx, `${source}b/${h}`);
     if (!bytes) continue;
@@ -269,7 +301,12 @@ async function getLines(ctx: Context, url: string): Promise<Receipt[] | null> {
       return null;
     }
     if (!r.ok) return null;
-    lines.push(...(await r.text()).split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt));
+    lines.push(
+      ...(await r.text())
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => JSON.parse(l) as Receipt),
+    );
     const next = r.headers.get('x-quilt-next-since');
     if (!next) return lines;
     since = Number(next);
@@ -289,10 +326,12 @@ function inputFor(ctx: Context, envelope: Envelope, at: string): ReduceInput {
     cur = prev.problem.prev;
   }
   const blobs = new Map<Hash, Uint8Array>();
-  for (const e of chainEnvelopes) for (const h of Object.values(e.problem.data)) if (!blobs.has(h)) {
-    const b = ctx.store.getBlob(h);
-    if (b) blobs.set(h, b);
-  }
+  for (const e of chainEnvelopes)
+    for (const h of Object.values(e.problem.data))
+      if (!blobs.has(h)) {
+        const b = ctx.store.getBlob(h);
+        if (b) blobs.set(h, b);
+      }
   const receipts: Receipt[] = [];
   for (const e of chainEnvelopes) receipts.push(...ctx.store.lines(problemHash(e)));
   receipts.push(...ctx.store.lines(IDENTITY_LOG));
@@ -308,7 +347,14 @@ function inputFor(ctx: Context, envelope: Envelope, at: string): ReduceInput {
  * one source's chain verbatim is a prefix of it. As a whole (the coin log, QX-17): the source's chain is taken as it is,
  * and refused where it did anything but grow, since a coin log is one sequence and a union of two is neither.
  */
-async function takeChain(ctx: Context, url: string, genesis: Hash, log: Hash, label: string, mode: 'union' | 'whole' = 'union'): Promise<{ lines: Receipt[]; added: number } | null> {
+async function takeChain(
+  ctx: Context,
+  url: string,
+  genesis: Hash,
+  log: Hash,
+  label: string,
+  mode: 'union' | 'whole' = 'union',
+): Promise<{ lines: Receipt[]; added: number } | null> {
   const lines = await getLines(ctx, url);
   if (!lines) return null;
   const check = verifyChain(lines, genesis);
@@ -382,19 +428,24 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
   await takeReads(ctx, tracker, chain.lines, hash);
   ctx.index.set(hash, { envelope, tracker });
   // Names and the output come from the events, not the tracker's word; both are the publication's, written where there is one.
-  if (ctx.out) for (const line of chain.lines) if (line.event.type === 'version' && line.event.key === envelope.problem.owner) {
-    const { slug, hash: target } = line.event.body as { slug: string; hash: Hash };
-    const file = join(ctx.out, 'names', envelope.problem.owner, slug);
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, `${target}\n`);
-  }
+  if (ctx.out)
+    for (const line of chain.lines)
+      if (line.event.type === 'version' && line.event.key === envelope.problem.owner) {
+        const { slug, hash: target } = line.event.body as { slug: string; hash: Hash };
+        const file = join(ctx.out, 'names', envelope.problem.owner, slug);
+        mkdirSync(dirname(file), { recursive: true });
+        writeFileSync(file, `${target}\n`);
+      }
   let complete = false;
   try {
     const state = reduce(inputFor(ctx, envelope, ctx.now()));
     complete = state.complete;
     if (state.output && ctx.out) {
       mkdirSync(join(ctx.out, 'outputs', hash), { recursive: true });
-      writeFileSync(join(ctx.out, 'outputs', hash, 'output.json'), JSON.stringify(state.output.document, null, 2) + '\n');
+      writeFileSync(
+        join(ctx.out, 'outputs', hash, 'output.json'),
+        JSON.stringify(state.output.document, null, 2) + '\n',
+      );
       writeFileSync(join(ctx.out, 'outputs', hash, 'hash'), `${state.output.hash}\n`);
     }
   } catch (err) {
@@ -406,7 +457,8 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
 /** The identity log from a tracker, taken like a chain. Every tracker serves the one log, so with several the report's `lines` is the last one's count and `added` the most any one of them added over what was held when it was read. */
 async function takeIdentity(ctx: Context, tracker: string): Promise<void> {
   const identity = await takeChain(ctx, `${tracker}k/events`, IDENTITY_LOG, IDENTITY_LOG, 'identity');
-  if (identity) ctx.report.identity = { lines: identity.lines.length, added: Math.max(ctx.report.identity.added, identity.added) };
+  if (identity)
+    ctx.report.identity = { lines: identity.lines.length, added: Math.max(ctx.report.identity.added, identity.added) };
 }
 
 /**
@@ -417,16 +469,26 @@ async function takeIdentity(ctx: Context, tracker: string): Promise<void> {
  * is refused rather than trusted. A head that moved between the two reads is left for the next run (`reproduced: null`).
  */
 async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | null): Promise<void> {
-  const wellKnown = (await getJson(ctx, `${tracker}.well-known/quilt`)) as { coin?: (CoinParams & { home?: string | null; extension?: string }) | null } | null;
+  const wellKnown = (await getJson(ctx, `${tracker}.well-known/quilt`)) as {
+    coin?: (CoinParams & { home?: string | null; extension?: string }) | null;
+  } | null;
   const published = wellKnown?.coin ?? null;
   if (!published || !(published.home === 'here' || published.home === undefined || published.home === null)) return;
   const log = await takeChain(ctx, `${tracker}coin/events`, COIN_LOG, COIN_LOG, 'coin', 'whole');
   if (!log) return;
   const held = log.lines[log.lines.length - 1];
-  const coin: NonNullable<MirrorReport['coin']> = { lines: log.lines.length, added: log.added, head: held?.seq ?? null, reproduced: null };
+  const coin: NonNullable<MirrorReport['coin']> = {
+    lines: log.lines.length,
+    added: log.added,
+    head: held?.seq ?? null,
+    reproduced: null,
+  };
   ctx.report.coin = coin;
   const state = (await getJson(ctx, `${tracker}coin/state`)) as CoinState | null;
-  const same = state && ((state.head === null && !held) || (state.head !== null && held !== undefined && state.head.seq === held.seq && state.head.hash === held.hash));
+  const same =
+    state &&
+    ((state.head === null && !held) ||
+      (state.head !== null && held !== undefined && state.head.seq === held.seq && state.head.hash === held.hash));
   if (!state || !same) return;
   const { home: _home, extension: _extension, ...params } = published;
   try {
@@ -439,11 +501,17 @@ async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | nu
     } else if (differs === undefined) {
       if (ctx.out) {
         mkdirSync(join(ctx.out, 'coin'), { recursive: true });
-        writeFileSync(join(ctx.out, 'coin', 'balances.json'), JSON.stringify({ head: state.head, at: state.at, params: published, balances: state.balances }, null, 2) + '\n');
+        writeFileSync(
+          join(ctx.out, 'coin', 'balances.json'),
+          JSON.stringify({ head: state.head, at: state.at, params: published, balances: state.balances }, null, 2) +
+            '\n',
+        );
       }
       coin.reproduced = true;
     } else {
-      ctx.report.refused.push(`coin: the balances at head ${state.head?.seq ?? 0} from ${tracker} do not reproduce here (${differs})`);
+      ctx.report.refused.push(
+        `coin: the balances at head ${state.head?.seq ?? 0} from ${tracker} do not reproduce here (${differs})`,
+      );
       coin.reproduced = false;
     }
   } catch (err) {
@@ -452,7 +520,12 @@ async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | nu
 }
 
 /** The balances recomputed here from the receipts held and the parameters published, with the tracker's own layer code: the first root whose balance is not the tracker's, and the credits the ledger kept. */
-function reproduceBalances(ctx: Context, params: CoinParams, lines: Receipt[], state: CoinState): { differs: string | undefined; credits: CreditLine[] } {
+function reproduceBalances(
+  ctx: Context,
+  params: CoinParams,
+  lines: Receipt[],
+  state: CoinState,
+): { differs: string | undefined; credits: CreditLine[] } {
   const inputs: ReduceInput[] = [];
   for (const { envelope } of ctx.index.values()) inputs.push(inputFor(ctx, envelope, state.at));
   const layer = challengeLayer({ problems: inputs, now: state.at, coin: lines });
@@ -465,10 +538,14 @@ function reproduceBalances(ctx: Context, params: CoinParams, lines: Receipt[], s
 
 /** Every credit the ledger kept, against the deposit the chain holds at its number: why the first wrong one is refused, or null; with no chain to ask, any credit at all is refused. */
 async function checkCredits(chain: DepositReader | null, credits: CreditLine[]): Promise<string | null> {
-  if (!chain) return credits.length ? `${credits.length} credit${credits.length === 1 ? '' : 's'} on the ledger and no chain to check them against` : null;
+  if (!chain)
+    return credits.length
+      ? `${credits.length} credit${credits.length === 1 ? '' : 's'} on the ledger and no chain to check them against`
+      : null;
   for (const c of credits) {
     const d = await chain.depositAt(c.deposit);
-    if (!d.made || d.root.toLowerCase() !== c.root.toLowerCase() || BigInt(d.amount) !== BigInt(c.amount)) return `the credit for deposit ${c.deposit} (${c.amount} to ${c.root}) is not what the chain holds`;
+    if (!d.made || d.root.toLowerCase() !== c.root.toLowerCase() || BigInt(d.amount) !== BigInt(c.amount))
+      return `the credit for deposit ${c.deposit} (${c.amount} to ${c.root}) is not what the chain holds`;
   }
   return null;
 }
@@ -502,13 +579,23 @@ function writeRecords(ctx: Context, at: string): void {
 
 /** keys.json: each address's latest name and the delegations in force at `at`, folded from the identity log alone. */
 function writeKeys(ctx: Context, at: string): void {
-  writeFileSync(join(ctx.out!, 'keys.json'), JSON.stringify(keysFromIdentity(ctx.store.lines(IDENTITY_LOG), at), null, 2) + '\n');
+  writeFileSync(
+    join(ctx.out!, 'keys.json'),
+    JSON.stringify(keysFromIdentity(ctx.store.lines(IDENTITY_LOG), at), null, 2) + '\n',
+  );
 }
 
 /** index.json: every problem taken, with its title, slug, owner, the tracker it came from and the hides on it (QX-6). */
 function writeIndex(ctx: Context, at: string): void {
   const hiddenBy = hiddenFromIdentity(ctx.store.lines(IDENTITY_LOG));
-  const problems = [...ctx.index].map(([hash, { envelope, tracker }]) => ({ hash, title: envelope.problem.title, slug: envelope.problem.slug, owner: envelope.problem.owner, tracker, hidden: hiddenBy.get(hash) ?? [] }));
+  const problems = [...ctx.index].map(([hash, { envelope, tracker }]) => ({
+    hash,
+    title: envelope.problem.title,
+    slug: envelope.problem.slug,
+    owner: envelope.problem.owner,
+    tracker,
+    hidden: hiddenBy.get(hash) ?? [],
+  }));
   writeFileSync(join(ctx.out!, 'index.json'), JSON.stringify({ quilt: 1, mirrored: at, problems }, null, 2) + '\n');
 }
 
@@ -518,10 +605,17 @@ async function anchorAll(ctx: Context, anchor: true | { calendars?: string[] }):
   const headOf = (log: Hash, problem: string) => {
     const lines = ctx.store.lines(log);
     const last = lines[lines.length - 1];
-    if (last && typeof last.hash === 'string' && typeof last.seq === 'number') heads.push({ problem, seq: last.seq, hash: last.hash });
+    if (last && typeof last.hash === 'string' && typeof last.seq === 'number')
+      heads.push({ problem, seq: last.seq, hash: last.hash });
   };
   for (const p of ctx.report.problems) headOf(p.hash, p.hash);
   headOf(IDENTITY_LOG, 'identity');
   headOf(COIN_LOG, 'coin');
-  ctx.report.anchors = await anchorHeads({ out: ctx.out!, heads, ...(typeof anchor === 'object' && anchor.calendars ? { calendars: anchor.calendars } : {}), fetchImpl: ctx.fetchImpl, now: ctx.now });
+  ctx.report.anchors = await anchorHeads({
+    out: ctx.out!,
+    heads,
+    ...(typeof anchor === 'object' && anchor.calendars ? { calendars: anchor.calendars } : {}),
+    fetchImpl: ctx.fetchImpl,
+    now: ctx.now,
+  });
 }

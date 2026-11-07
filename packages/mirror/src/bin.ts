@@ -17,10 +17,17 @@ const flag = (name: string): string | undefined => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
 };
-const trackers = (flag('--trackers') ?? process.env.BITQUILT_TRACKERS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+const trackers = (flag('--trackers') ?? process.env.BITQUILT_TRACKERS ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 const out = flag('--out') ?? process.env.BITQUILT_MIRROR ?? 'mirror';
-const calendars = (flag('--calendars') ?? process.env.BITQUILT_CALENDARS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-const anchor = args.includes('--anchor') || process.env.BITQUILT_ANCHOR === '1' ? (calendars.length ? { calendars } : true) : false;
+const calendars = (flag('--calendars') ?? process.env.BITQUILT_CALENDARS ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const anchor =
+  args.includes('--anchor') || process.env.BITQUILT_ANCHOR === '1' ? (calendars.length ? { calendars } : true) : false;
 const by = flag('--by') ?? process.env.BITQUILT_MIRROR_BY;
 const peers = !(args.includes('--no-peers') || process.env.BITQUILT_PEERS === '0');
 if (!trackers.length) {
@@ -34,8 +41,10 @@ if (process.env.QUILT_CHAIN_RPC) {
 }
 mirror({ trackers, out, anchor, chain, peers, ...(by ? { by } : {}) }).then((report) => {
   console.log(`sources: ${report.sources.join(', ')}`);
-  if (report.coin?.credits) console.log(`coin: ${report.coin.credits} credit${report.coin.credits === 1 ? '' : 's'} checked against the chain`);
-  for (const p of report.problems) console.log(`${p.hash}: ${p.lines} lines, ${p.added} new${p.complete ? ', complete' : ''}`);
+  if (report.coin?.credits)
+    console.log(`coin: ${report.coin.credits} credit${report.coin.credits === 1 ? '' : 's'} checked against the chain`);
+  for (const p of report.problems)
+    console.log(`${p.hash}: ${p.lines} lines, ${p.added} new${p.complete ? ', complete' : ''}`);
   console.log(`identity: ${report.identity.lines} lines, ${report.identity.added} new`);
   for (const r of report.refused) console.log(`refused: ${r}`);
   for (const e of report.errors) console.log(`error: ${e}`);

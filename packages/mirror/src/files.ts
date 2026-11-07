@@ -29,7 +29,11 @@ export class MirrorFiles implements KeptStore {
   }
 
   private logFile(log: Hash): string {
-    return join(this.out, 'ledger', log === IDENTITY_LOG ? 'identity.jsonl' : log === COIN_LOG ? 'coin.jsonl' : `${log}.jsonl`);
+    return join(
+      this.out,
+      'ledger',
+      log === IDENTITY_LOG ? 'identity.jsonl' : log === COIN_LOG ? 'coin.jsonl' : `${log}.jsonl`,
+    );
   }
 
   envelopeOf(hash: Hash): Envelope | null {
@@ -48,7 +52,10 @@ export class MirrorFiles implements KeptStore {
     for (const name of readdirSync(dir).sort()) {
       if (!name.endsWith('.json') || !isHash(name.slice(0, -5))) continue;
       try {
-        out.push({ hash: name.slice(0, -5) as Hash, envelope: JSON.parse(readFileSync(join(dir, name), 'utf8')) as Envelope });
+        out.push({
+          hash: name.slice(0, -5) as Hash,
+          envelope: JSON.parse(readFileSync(join(dir, name), 'utf8')) as Envelope,
+        });
       } catch {
         /* a file that is not an envelope is not listed */
       }
@@ -67,7 +74,12 @@ export class MirrorFiles implements KeptStore {
 
   lines(log: Hash): Receipt[] {
     const f = this.logFile(log);
-    return existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt) : [];
+    return existsSync(f)
+      ? readFileSync(f, 'utf8')
+          .split('\n')
+          .filter(Boolean)
+          .map((l) => JSON.parse(l) as Receipt)
+      : [];
   }
 
   /** The file is made at the first append, lines or none, so a log read once is a ledger held. */

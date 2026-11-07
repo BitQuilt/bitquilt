@@ -9,12 +9,19 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from 'node:path';
 
 /** The detached-file header the reference client writes: magic, then the version as a varint. */
-export const OTS_HEADER = new Uint8Array([0x00, 0x4f, 0x70, 0x65, 0x6e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x73, 0x00, 0x00, 0x50, 0x72, 0x6f, 0x6f, 0x66, 0x00, 0xbf, 0x89, 0xe2, 0xe8, 0x84, 0xe8, 0x92, 0x94, 0x01]);
+export const OTS_HEADER = new Uint8Array([
+  0x00, 0x4f, 0x70, 0x65, 0x6e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x73, 0x00, 0x00, 0x50, 0x72,
+  0x6f, 0x6f, 0x66, 0x00, 0xbf, 0x89, 0xe2, 0xe8, 0x84, 0xe8, 0x92, 0x94, 0x01,
+]);
 /** The op tag for a sha256 file digest. */
 export const OP_SHA256 = 0x08;
 /** The tag of a pending attestation, as a calendar answers with. */
 export const PENDING_TAG = 'pending';
-export const DEFAULT_CALENDARS = ['https://a.pool.opentimestamps.org', 'https://b.pool.opentimestamps.org', 'https://a.pool.eternitywall.com'];
+export const DEFAULT_CALENDARS = [
+  'https://a.pool.opentimestamps.org',
+  'https://b.pool.opentimestamps.org',
+  'https://a.pool.eternitywall.com',
+];
 
 /** The head of one chain the mirror holds: the last receipt line's sequence and hash. */
 export interface ChainHead {
@@ -50,10 +57,18 @@ export function otsFile(digest: Uint8Array, calendarTimestamp: Uint8Array): Uint
 }
 
 /** The digest submitted to one calendar; its answer is the timestamp from that digest on. */
-export async function stampDigest(digest: Uint8Array, calendar: string, fetchImpl: typeof fetch = fetch): Promise<Uint8Array> {
+export async function stampDigest(
+  digest: Uint8Array,
+  calendar: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Uint8Array> {
   const r = await fetchImpl(`${calendar.replace(/\/$/, '')}/digest`, {
     method: 'POST',
-    headers: { accept: 'application/vnd.opentimestamps.v1', 'content-type': 'application/x-www-form-urlencoded', 'user-agent': 'bitquilt-mirror' },
+    headers: {
+      accept: 'application/vnd.opentimestamps.v1',
+      'content-type': 'application/x-www-form-urlencoded',
+      'user-agent': 'bitquilt-mirror',
+    },
     body: digest,
     signal: AbortSignal.timeout(20000),
   });
@@ -68,7 +83,13 @@ export async function stampDigest(digest: Uint8Array, calendar: string, fetchImp
  * answers, and a sidecar `.json` names what the stamp is of. A head already stamped is kept as it is: a stamp is of a
  * moment, and a second one would say nothing the first does not.
  */
-export async function anchorHeads(options: { out: string; heads: ChainHead[]; calendars?: string[]; fetchImpl?: typeof fetch; now?: () => string }): Promise<AnchorReport> {
+export async function anchorHeads(options: {
+  out: string;
+  heads: ChainHead[];
+  calendars?: string[];
+  fetchImpl?: typeof fetch;
+  now?: () => string;
+}): Promise<AnchorReport> {
   const calendars = options.calendars ?? DEFAULT_CALENDARS;
   const now = options.now ?? (() => new Date().toISOString());
   const report: AnchorReport = { stamped: [], kept: 0, failed: [] };
@@ -87,7 +108,21 @@ export async function anchorHeads(options: { out: string; heads: ChainHead[]; ca
         const answer = await stampDigest(digest, calendar, options.fetchImpl);
         mkdirSync(dir, { recursive: true });
         writeFileSync(file, otsFile(digest, answer));
-        writeFileSync(join(dir, `${head.seq}.json`), JSON.stringify({ problem: head.problem, seq: head.seq, hash: head.hash, calendar, stamped_at: now(), attestation: PENDING_TAG }, null, 2) + '\n');
+        writeFileSync(
+          join(dir, `${head.seq}.json`),
+          JSON.stringify(
+            {
+              problem: head.problem,
+              seq: head.seq,
+              hash: head.hash,
+              calendar,
+              stamped_at: now(),
+              attestation: PENDING_TAG,
+            },
+            null,
+            2,
+          ) + '\n',
+        );
         report.stamped.push({ problem: head.problem, seq: head.seq, calendar });
         done = true;
         break;
@@ -101,7 +136,10 @@ export async function anchorHeads(options: { out: string; heads: ChainHead[]; ca
 }
 
 /** The anchors a mirror holds, read back: one entry per stamped head, in sequence order. Nothing in the job calls it; it is for a script or a test that reads a mirror. */
-export function anchorsHeld(out: string, problem: string): { seq: number; hash: string; calendar: string; stamped_at: string }[] {
+export function anchorsHeld(
+  out: string,
+  problem: string,
+): { seq: number; hash: string; calendar: string; stamped_at: string }[] {
   const dir = join(out, 'anchors', problem);
   let names: string[];
   try {
@@ -110,6 +148,15 @@ export function anchorsHeld(out: string, problem: string): { seq: number; hash: 
     return [];
   }
   const list: { seq: number; hash: string; calendar: string; stamped_at: string }[] = [];
-  for (const name of names) if (name.endsWith('.json')) list.push(JSON.parse(readFileSync(join(dir, name), 'utf8')) as { seq: number; hash: string; calendar: string; stamped_at: string });
+  for (const name of names)
+    if (name.endsWith('.json'))
+      list.push(
+        JSON.parse(readFileSync(join(dir, name), 'utf8')) as {
+          seq: number;
+          hash: string;
+          calendar: string;
+          stamped_at: string;
+        },
+      );
   return list.sort((a, b) => a.seq - b.seq);
 }
