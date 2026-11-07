@@ -72,7 +72,8 @@ export function checkCredits(answer: unknown): Credits {
     }),
   );
   return {
-    head: head && typeof head.seq === 'number' && typeof head.hash === 'string' ? { seq: head.seq, hash: head.hash } : null,
+    head:
+      head && typeof head.seq === 'number' && typeof head.hash === 'string' ? { seq: head.seq, hash: head.hash } : null,
     reader: typeof answer.reader === 'string' ? answer.reader : null,
     credits,
   };
@@ -102,8 +103,16 @@ export async function read(options: ReadOptions): Promise<ReadReport> {
       report.refused.push({ deposit: n, why: 'the amount is beyond what the ledger counts' });
       continue;
     }
-    const event: Event = signEvent({ quilt: 1, type: 'credit', key: reader, ts: now(), body: { deposit: n, root: d.root, amount } }, options.key);
-    const r = await fetchImpl(`${homeUrl(options.home)}/coin/events`, { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': 'bitquilt-reader' }, body: JSON.stringify(event), signal: AbortSignal.timeout(20000) });
+    const event: Event = signEvent(
+      { quilt: 1, type: 'credit', key: reader, ts: now(), body: { deposit: n, root: d.root, amount } },
+      options.key,
+    );
+    const r = await fetchImpl(`${homeUrl(options.home)}/coin/events`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-agent': 'bitquilt-reader' },
+      body: JSON.stringify(event),
+      signal: AbortSignal.timeout(20000),
+    });
     if (r.status === 202) {
       const { id } = (await r.json()) as { id: string };
       report.posted.push({ deposit: n, root: d.root, amount, id });

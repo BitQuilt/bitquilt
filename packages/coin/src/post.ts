@@ -93,7 +93,11 @@ export function redeemRoot(redeems: readonly RedeemLine[]): Hex {
 /** One run of the poster: the home's head and root go up when the head is newer than the last posted. */
 export async function post(options: PostOptions): Promise<PostReport> {
   const door: PosterDoor = options.door ?? { lastPosted, postHead };
-  const { head, redeems } = await readRedeems(options.home, { upto: options.upto, agent: 'bitquilt-poster', fetchImpl: options.fetchImpl });
+  const { head, redeems } = await readRedeems(options.home, {
+    upto: options.upto,
+    agent: 'bitquilt-poster',
+    fetchImpl: options.fetchImpl,
+  });
   const root = redeemRoot(redeems);
   const last = await door.lastPosted(options.chain);
   const report: PostReport = { seq: head.seq, head: head.hash, root, posted: false, redeems: redeems.length };

@@ -6,7 +6,22 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Event, addressOf } from '@bitquilt/core';
-import { type Abi, type Address, type Chain, balanceOf, bond, deploy, deposit, depositAt, depositCount, headAt, isFinal, isRedeemed, lastPosted, redeem } from '../src/chain.js';
+import {
+  type Abi,
+  type Address,
+  type Chain,
+  balanceOf,
+  bond,
+  deploy,
+  deposit,
+  depositAt,
+  depositCount,
+  headAt,
+  isFinal,
+  isRedeemed,
+  lastPosted,
+  redeem,
+} from '../src/chain.js';
 import { type Hex, leaf, proof } from '../src/merkle.js';
 import { post } from '../src/post.js';
 import { read } from '../src/read.js';
@@ -46,7 +61,11 @@ const WINDOW = 60;
 const MIN_BOND = 10n ** 18n;
 
 async function rpc(url: string, method: string, params: unknown[] = []): Promise<unknown> {
-  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  });
   const answer = (await r.json()) as { result?: unknown; error?: { message: string } };
   if (answer.error) throw new Error(answer.error.message);
   return answer.result;
@@ -75,7 +94,10 @@ async function untilAnswering(url: string): Promise<void> {
 }
 
 function artifact(name: string): { abi: Abi; bytecode: Hex } {
-  const json = JSON.parse(readFileSync(join(contracts, 'out', `${name}.sol`, `${name}.json`), 'utf8')) as { abi: Abi; bytecode: { object: Hex } };
+  const json = JSON.parse(readFileSync(join(contracts, 'out', `${name}.sol`, `${name}.json`), 'utf8')) as {
+    abi: Abi;
+    bytecode: { object: Hex };
+  };
   return { abi: json.abi, bytecode: json.bytecode.object };
 }
 
@@ -93,7 +115,11 @@ describe.skipIf(!forge || !anvil)('the door out over anvil', () => {
     const base = { rpc: url, chainId: 31337, key: KEY };
     const anchorsArtifact = artifact('Anchors');
     const quiltArtifact = artifact('Quilt');
-    const anchors = await deploy(base, { abi: anchorsArtifact.abi, bytecode: anchorsArtifact.bytecode, args: [DEPLOYER, TREASURY, MIN_BOND, BigInt(WINDOW)] });
+    const anchors = await deploy(base, {
+      abi: anchorsArtifact.abi,
+      bytecode: anchorsArtifact.bytecode,
+      args: [DEPLOYER, TREASURY, MIN_BOND, BigInt(WINDOW)],
+    });
     const quilt = await deploy(base, { abi: quiltArtifact.abi, bytecode: quiltArtifact.bytecode, args: [anchors] });
     chain = { ...base, contracts: { anchors, quilt } };
   }, 60_000);
@@ -120,7 +146,14 @@ describe.skipIf(!forge || !anvil)('the door out over anvil', () => {
     expect(first.tx).toMatch(/^0x[0-9a-f]{64}$/);
     expect(await lastPosted(chain)).toBe(5);
     const at = await headAt(chain, 5);
-    expect(at).toMatchObject({ seq: 5, head: `0x${head.hash}`, root: first.root, poster: DEPLOYER, vetoed: false, posted: true });
+    expect(at).toMatchObject({
+      seq: 5,
+      head: `0x${head.hash}`,
+      root: first.root,
+      poster: DEPLOYER,
+      vetoed: false,
+      posted: true,
+    });
     expect(at.postedAt).toBeGreaterThan(0);
     expect((await headAt(chain, 4)).posted).toBe(false);
 
@@ -129,7 +162,13 @@ describe.skipIf(!forge || !anvil)('the door out over anvil', () => {
     expect(await lastPosted(chain)).toBe(5);
 
     const leaves = redeems.map((r) => leaf(`0x${r.id}`, r.to, r.amount));
-    const line = { seq: 5, id: `0x${redeems[0]!.id}` as Hex, to: DEPLOYER, amount: 1_250_000n, proof: proof(leaves, leaves[0]!) };
+    const line = {
+      seq: 5,
+      id: `0x${redeems[0]!.id}` as Hex,
+      to: DEPLOYER,
+      amount: 1_250_000n,
+      proof: proof(leaves, leaves[0]!),
+    };
     expect(line.proof).toHaveLength(1);
     expect(await isFinal(chain, 5)).toBe(false);
     await expect(redeem(chain, line)).rejects.toThrow(/not final/);
@@ -168,7 +207,8 @@ describe.skipIf(!forge || !anvil)('the door out over anvil', () => {
     const posted: Event[] = [];
     const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith('/coin/credits')) return Response.json({ head: null, reader: addressOf(readerKey), credits: [] });
+      if (url.endsWith('/coin/credits'))
+        return Response.json({ head: null, reader: addressOf(readerKey), credits: [] });
       if (url.endsWith('/coin/events') && init?.method === 'POST') {
         posted.push(JSON.parse(String(init.body)) as Event);
         return Response.json({ id: `sha256:${'d4'.repeat(32)}` }, { status: 202 });
@@ -177,10 +217,16 @@ describe.skipIf(!forge || !anvil)('the door out over anvil', () => {
     }) as typeof fetch;
     const report = await read({ home: 'http://home.test', chain, key: readerKey, fetchImpl, finalized: false });
     expect(report).toMatchObject({ deposits: 1, held: 0, refused: [] });
-    expect(report.posted.map((x) => ({ ...x, root: x.root.toLowerCase() }))).toEqual([{ deposit: 1, root: HOLDER, amount: 250_000, id: `sha256:${'d4'.repeat(32)}` }]);
+    expect(report.posted.map((x) => ({ ...x, root: x.root.toLowerCase() }))).toEqual([
+      { deposit: 1, root: HOLDER, amount: 250_000, id: `sha256:${'d4'.repeat(32)}` },
+    ]);
     expect(posted).toHaveLength(1);
-    expect({ ...(posted[0]!.body as { root: string }), root: (posted[0]!.body as { root: string }).root.toLowerCase() }).toEqual({ deposit: 1, root: HOLDER, amount: 250_000 });
+    expect({
+      ...(posted[0]!.body as { root: string }),
+      root: (posted[0]!.body as { root: string }).root.toLowerCase(),
+    }).toEqual({ deposit: 1, root: HOLDER, amount: 250_000 });
     expect(posted[0]!.key).toBe(addressOf(readerKey));
   }, 60_000);
 });
-if (!forge || !anvil) it.skip('forge and anvil were not found on PATH or under ~/.foundry/bin, so the chain test is skipped', () => {});
+if (!forge || !anvil)
+  it.skip('forge and anvil were not found on PATH or under ~/.foundry/bin, so the chain test is skipped', () => {});

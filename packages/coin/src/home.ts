@@ -18,9 +18,17 @@ export interface HomeRead {
 }
 
 /** `GET <home><path>` at the home, with `?upto=<seq>` when asked, the answer as JSON handed to `check`. */
-export async function fromHome<T>(home: string, path: string, options: HomeRead, check: (answer: unknown) => T): Promise<T> {
+export async function fromHome<T>(
+  home: string,
+  path: string,
+  options: HomeRead,
+  check: (answer: unknown) => T,
+): Promise<T> {
   const url = `${homeUrl(home)}${path}${options.upto === undefined ? '' : `?upto=${options.upto}`}`;
-  const r = await (options.fetchImpl ?? fetch)(url, { headers: { accept: 'application/json', 'user-agent': options.agent }, signal: AbortSignal.timeout(20000) });
+  const r = await (options.fetchImpl ?? fetch)(url, {
+    headers: { accept: 'application/json', 'user-agent': options.agent },
+    signal: AbortSignal.timeout(20000),
+  });
   if (!r.ok) throw new Error(`the home answered ${r.status} at ${path}`);
   return check(await r.json());
 }

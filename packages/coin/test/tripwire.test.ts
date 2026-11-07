@@ -37,7 +37,13 @@ describe('one door to the chain', () => {
       }
     }
     expect(files.length).toBeGreaterThan(10);
-    const importing = files.filter((f) => readFileSync(f, 'utf8').split('\n').some((line) => RPC_IMPORT.test(line))).map((f) => relative(join(packages, '..'), f).split(sep).join('/'));
+    const importing = files
+      .filter((f) =>
+        readFileSync(f, 'utf8')
+          .split('\n')
+          .some((line) => RPC_IMPORT.test(line)),
+      )
+      .map((f) => relative(join(packages, '..'), f).split(sep).join('/'));
     expect(importing).toEqual([DOOR.split(sep).join('/')]);
   });
 });
