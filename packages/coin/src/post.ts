@@ -8,7 +8,8 @@
 import { isRecord } from '@bitquilt/core';
 import { type Chain, lastPosted, postHead } from './chain.js';
 import { type HomeRead, fromHome } from './home.js';
-import { type Hex, leaf, root as treeRoot } from './merkle.js';
+import * as merkle from './merkle.js';
+import type { Hex } from './merkle.js';
 import { address, checkLine, hex64, wholeNumber } from './shapes.js';
 
 /** One redeem line as the home serves it at `GET /coin/redeems`: the shape `packages/tracker/src/coin.ts` serves there; keep the two the same. */
@@ -87,7 +88,7 @@ export function readRedeems(home: string, options: HomeRead): Promise<Redeems> {
 
 /** The Merkle root over the redeem lines, as `Anchors` holds it. */
 export function redeemRoot(redeems: readonly RedeemLine[]): Hex {
-  return treeRoot(redeems.map((r) => leaf(`0x${r.id}`, r.to, r.amount)));
+  return merkle.root(redeems.map((r) => merkle.leaf(`0x${r.id}`, r.to, r.amount)));
 }
 
 /** One run of the poster: the home's head and root go up when the head is newer than the last posted. */

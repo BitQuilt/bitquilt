@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Chain } from '../src/chain.js';
-import { type Hex, leaf, root } from '../src/merkle.js';
+import * as merkle from '../src/merkle.js';
+import type { Hex } from '../src/merkle.js';
 import { type PosterDoor, type Redeems, checkRedeems, post, redeemRoot } from '../src/post.js';
 
 /**
@@ -57,7 +58,7 @@ describe('the poster', () => {
     const fetchImpl = home(() => answer, calls);
     const d = door();
     const first = await post({ home: 'http://home.test/', chain, door: d, fetchImpl });
-    const expectedRoot = root(answer.redeems.map((r) => leaf(`0x${r.id}`, r.to, r.amount)));
+    const expectedRoot = merkle.root(answer.redeems.map((r) => merkle.leaf(`0x${r.id}`, r.to, r.amount)));
     expect(first).toEqual({
       seq: 5,
       head: hex(0xaaaa),

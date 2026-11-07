@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { leaf, pair, proof, root, verify } from '../src/merkle.js';
+import * as merkle from '../src/merkle.js';
 
 /**
  * The Merkle tree over redeem lines, held to the same three fixed leaves as contracts/test/Merkle.t.sol: the same
@@ -19,55 +19,57 @@ const ROOT = '0x5a13d80b100b007f43e3de1dce34d2f48eac81f14792c1b0545d9f7bc863aebb
 
 describe('the Merkle tree over redeem lines', () => {
   it('hashes the fixture leaves as the Solidity tree does', () => {
-    expect(lines.map((l) => leaf(l.id, l.to, l.amount))).toEqual([LEAF_A, LEAF_B, LEAF_C]);
-    expect(leaf(lines[0]!.id, lines[0]!.to, 1_000_000n)).toBe(LEAF_A);
-    expect(leaf(lines[0]!.id, lines[0]!.to.toUpperCase().replace('0X', '0x'), 1_000_000)).toBe(LEAF_A);
+    expect(lines.map((l) => merkle.leaf(l.id, l.to, l.amount))).toEqual([LEAF_A, LEAF_B, LEAF_C]);
+    expect(merkle.leaf(lines[0]!.id, lines[0]!.to, 1_000_000n)).toBe(LEAF_A);
+    expect(merkle.leaf(lines[0]!.id, lines[0]!.to.toUpperCase().replace('0X', '0x'), 1_000_000)).toBe(LEAF_A);
   });
   it('comes to the fixture root, in any order of the leaves', () => {
-    expect(root([LEAF_A, LEAF_B, LEAF_C])).toBe(ROOT);
-    expect(root([LEAF_C, LEAF_A, LEAF_B])).toBe(ROOT);
-    expect(pair(LEAF_A, LEAF_B)).toBe(PAIR_AB);
-    expect(pair(LEAF_B, LEAF_A)).toBe(PAIR_AB);
-    expect(root([LEAF_A.toUpperCase().replace('0X', '0x'), LEAF_B, LEAF_C])).toBe(ROOT);
+    expect(merkle.root([LEAF_A, LEAF_B, LEAF_C])).toBe(ROOT);
+    expect(merkle.root([LEAF_C, LEAF_A, LEAF_B])).toBe(ROOT);
+    expect(merkle.pair(LEAF_A, LEAF_B)).toBe(PAIR_AB);
+    expect(merkle.pair(LEAF_B, LEAF_A)).toBe(PAIR_AB);
+    expect(merkle.root([LEAF_A.toUpperCase().replace('0X', '0x'), LEAF_B, LEAF_C])).toBe(ROOT);
   });
   it('gives each leaf the proof the Solidity tree gives, and the proofs verify', () => {
     const leaves = [LEAF_C, LEAF_A, LEAF_B];
-    expect(proof(leaves, LEAF_A)).toEqual([LEAF_B, LEAF_C]);
-    expect(proof(leaves, LEAF_B)).toEqual([LEAF_A, LEAF_C]);
-    expect(proof(leaves, LEAF_C)).toEqual([PAIR_AB]);
-    for (const l of leaves) expect(verify(ROOT, l, proof(leaves, l))).toBe(true);
+    expect(merkle.proof(leaves, LEAF_A)).toEqual([LEAF_B, LEAF_C]);
+    expect(merkle.proof(leaves, LEAF_B)).toEqual([LEAF_A, LEAF_C]);
+    expect(merkle.proof(leaves, LEAF_C)).toEqual([PAIR_AB]);
+    for (const l of leaves) expect(merkle.verify(ROOT, l, merkle.proof(leaves, l))).toBe(true);
     expect(leaves).toEqual([LEAF_C, LEAF_A, LEAF_B]);
   });
   it('keeps a wrong leaf outside', () => {
     const leaves = [LEAF_A, LEAF_B, LEAF_C];
-    const pa = proof(leaves, LEAF_A);
-    expect(verify(ROOT, leaf(lines[0]!.id, lines[0]!.to, 1_000_001), pa)).toBe(false);
-    expect(verify(ROOT, leaf(lines[0]!.id, lines[1]!.to, 1_000_000), pa)).toBe(false);
-    expect(verify(ROOT, LEAF_B, pa)).toBe(false);
-    expect(verify(ROOT, LEAF_A, [])).toBe(false);
-    expect(verify(ROOT, LEAF_A, [...pa].reverse())).toBe(false);
-    expect(() => proof(leaves, `0x${'ab'.repeat(32)}`)).toThrow(/not among the leaves/);
+    const pa = merkle.proof(leaves, LEAF_A);
+    expect(merkle.verify(ROOT, merkle.leaf(lines[0]!.id, lines[0]!.to, 1_000_001), pa)).toBe(false);
+    expect(merkle.verify(ROOT, merkle.leaf(lines[0]!.id, lines[1]!.to, 1_000_000), pa)).toBe(false);
+    expect(merkle.verify(ROOT, LEAF_B, pa)).toBe(false);
+    expect(merkle.verify(ROOT, LEAF_A, [])).toBe(false);
+    expect(merkle.verify(ROOT, LEAF_A, [...pa].reverse())).toBe(false);
+    expect(() => merkle.proof(leaves, `0x${'ab'.repeat(32)}`)).toThrow(/not among the leaves/);
   });
   it('has a zero root for no leaves and the leaf itself for one', () => {
-    expect(root([])).toBe(`0x${'0'.repeat(64)}`);
-    expect(root([LEAF_B])).toBe(LEAF_B);
-    expect(proof([LEAF_B], LEAF_B)).toEqual([]);
-    expect(verify(LEAF_B, LEAF_B, [])).toBe(true);
-    expect(verify(root([]), LEAF_B, [])).toBe(false);
+    expect(merkle.root([])).toBe(`0x${'0'.repeat(64)}`);
+    expect(merkle.root([LEAF_B])).toBe(LEAF_B);
+    expect(merkle.proof([LEAF_B], LEAF_B)).toEqual([]);
+    expect(merkle.verify(LEAF_B, LEAF_B, [])).toBe(true);
+    expect(merkle.verify(merkle.root([]), LEAF_B, [])).toBe(false);
   });
   it('carries an odd node up unchanged at every level', () => {
-    const five = [1, 2, 3, 4, 5].map((n) => leaf(`0x${n.toString(16).padStart(64, '0')}`, lines[0]!.to, n));
-    const r = root(five);
-    for (const l of five) expect(verify(r, l, proof(five, l))).toBe(true);
+    const five = [1, 2, 3, 4, 5].map((n) => merkle.leaf(`0x${n.toString(16).padStart(64, '0')}`, lines[0]!.to, n));
+    const r = merkle.root(five);
+    for (const l of five) expect(merkle.verify(r, l, merkle.proof(five, l))).toBe(true);
     const sorted = [...five].sort();
     const lone = sorted[4]!;
-    expect(proof(five, lone)).toEqual([pair(pair(sorted[0]!, sorted[1]!), pair(sorted[2]!, sorted[3]!))]);
+    expect(merkle.proof(five, lone)).toEqual([
+      merkle.pair(merkle.pair(sorted[0]!, sorted[1]!), merkle.pair(sorted[2]!, sorted[3]!)),
+    ]);
   });
   it('refuses what is not a leaf, an address or a whole amount', () => {
-    expect(() => leaf('0x01', lines[0]!.to, 1)).toThrow(/64 hex/);
-    expect(() => leaf(lines[0]!.id, '0x1234', 1)).toThrow(/40 hex/);
-    expect(() => leaf(lines[0]!.id, lines[0]!.to, -1)).toThrow(/whole number/);
-    expect(() => leaf(lines[0]!.id, lines[0]!.to, 1.5)).toThrow(/whole number/);
-    expect(() => root(['abc'])).toThrow(/64 hex/);
+    expect(() => merkle.leaf('0x01', lines[0]!.to, 1)).toThrow(/64 hex/);
+    expect(() => merkle.leaf(lines[0]!.id, '0x1234', 1)).toThrow(/40 hex/);
+    expect(() => merkle.leaf(lines[0]!.id, lines[0]!.to, -1)).toThrow(/whole number/);
+    expect(() => merkle.leaf(lines[0]!.id, lines[0]!.to, 1.5)).toThrow(/whole number/);
+    expect(() => merkle.root(['abc'])).toThrow(/64 hex/);
   });
 });

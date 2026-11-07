@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Chain, PostedHead } from '../src/chain.js';
 import { type ClaimDoor, claim } from '../src/claim.js';
-import { type Hex, leaf, root, verify } from '../src/merkle.js';
+import * as merkle from '../src/merkle.js';
+import type { Hex } from '../src/merkle.js';
 import { type Redeems, redeemRoot } from '../src/post.js';
 
 /**
@@ -76,8 +77,8 @@ describe('the claim', () => {
     expect(calls).toEqual(['http://home.test/coin/redeems?upto=5']);
     const sent = d.calls[0] as { seq: number; id: Hex; to: string; amount: bigint; proof: Hex[] };
     expect(sent).toMatchObject({ seq: 5, id: `0x${hex(2)}`, to: OTHER, amount: 42n });
-    const leaves = answer.redeems.map((x) => leaf(`0x${x.id}`, x.to, x.amount));
-    expect(verify(root(leaves), leaf(`0x${hex(2)}`, OTHER, 42), sent.proof)).toBe(true);
+    const leaves = answer.redeems.map((x) => merkle.leaf(`0x${x.id}`, x.to, x.amount));
+    expect(merkle.verify(merkle.root(leaves), merkle.leaf(`0x${hex(2)}`, OTHER, 42), sent.proof)).toBe(true);
   });
   it("refuses a line not under the head, a head inside its window, a line redeemed already, and a root that is not the home's", async () => {
     await expect(

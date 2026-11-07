@@ -5,7 +5,8 @@
  * with the holder's key. The gas is the holder's, paid once; a line posted after the last head waits for the next.
  */
 import { type Address, type Chain, type PostedHead, headAt, isFinal, isRedeemed, lastPosted, redeem } from './chain.js';
-import { type Hex, leaf, proof as proofOf } from './merkle.js';
+import * as merkle from './merkle.js';
+import type { Hex } from './merkle.js';
 import { readRedeems, redeemRoot } from './post.js';
 import { HEX64_RE } from './shapes.js';
 
@@ -64,14 +65,14 @@ export async function claim(options: ClaimOptions): Promise<ClaimReport> {
   if (!(await door.isFinal(options.chain, last)))
     throw new Error(`the head at ${last} is not final yet; its veto window is still open`);
   if (await door.isRedeemed(options.chain, `0x${id}`)) throw new Error('this line is redeemed already');
-  const leaves = redeems.map((r) => leaf(`0x${r.id}`, r.to, r.amount));
-  const p = proofOf(leaves, leaf(`0x${id}`, line.to, line.amount));
+  const leaves = redeems.map((r) => merkle.leaf(`0x${r.id}`, r.to, r.amount));
+  const proof = merkle.proof(leaves, merkle.leaf(`0x${id}`, line.to, line.amount));
   const { tx } = await door.redeem(options.chain, {
     seq: last,
     id: `0x${id}`,
     to: line.to as Address,
     amount: BigInt(line.amount),
-    proof: p,
+    proof,
   });
   return { id, seq: last, to: line.to, amount: line.amount, tx };
 }
