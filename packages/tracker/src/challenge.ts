@@ -209,6 +209,7 @@ export interface ProblemLayer {
   receipts: Receipt[];
 }
 
+/** A layer's answer before the door admits an event: yes, or no with the sentence that says why. */
 export type Admission = { ok: true } | { ok: false; why: string };
 
 export interface Layer {

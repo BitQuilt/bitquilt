@@ -25,6 +25,7 @@ import {
   isHash,
   returnsAgree,
 } from '@bitquilt/core';
+import type { Admission } from './challenge.js';
 import type { RecordView } from './verifiers.js';
 
 export const TRACE = 'QX-19';
@@ -93,7 +94,6 @@ export interface PieceTraces {
   aside: Hash[];
   record: RecordGrade | null;
 }
-export type Admission = { ok: true } | { ok: false; why: string };
 /** What a reading rests one field on: the read's address and the hash it was kept under, the span, and the passage as text where the read's bytes are held, or null where they are not. */
 export interface RestedOn {
   field: string;
