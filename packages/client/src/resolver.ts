@@ -83,11 +83,17 @@ export function publicLibrary(library: Library, held: Held): { problems: Record<
   return { problems: library.problems, pieces: library.pieces, seeding: library.seeding, follows: library.follows ?? {}, connector: library.connector ?? null, gold, serving: held };
 }
 
+/**
+ * Headers a post carries to one tracker alone: the hosted on-ramp's custody secret and its witness (QX-18) go to its
+ * own door, and a post to any other tracker, one a link named included, carries neither.
+ */
+export interface PostHeaders { to: string; headers: Record<string, string> }
+
 export class Resolver {
   readonly home: string;
   private readonly fetchImpl: typeof fetch;
 
-  private readonly postHeaders: Record<string, string>;
+  private readonly postHeaders: PostHeaders | null;
   private readonly libraryFile: string;
   private held: Library | null = null;
   /** The file's size and time when it was last read or written, so another process's write is seen before this one's next. */
@@ -96,7 +102,7 @@ export class Resolver {
   /** The store this node keeps in and serves from (WORKSHOP.md section 2): the home's cache folder unless a store is given, as a node with a door gives the door's. */
   readonly chains: Chains;
 
-  constructor(readonly config: Config, home: string, fetchImpl: typeof fetch = fetch, postHeaders: Record<string, string> = {}, chains?: Chains) {
+  constructor(readonly config: Config, home: string, fetchImpl: typeof fetch = fetch, postHeaders: PostHeaders | null = null, chains?: Chains) {
     this.home = ensureHome(home);
     this.fetchImpl = fetchImpl;
     this.postHeaders = postHeaders;
@@ -440,9 +446,10 @@ export class Resolver {
 
   /** One event offered to one tracker's log, and what the tracker said of it (see `Offer`). */
   private async offer(t: string, log: Hash | null | 'coin', event: Event): Promise<Offer> {
+    const own = this.postHeaders && withSlash(this.postHeaders.to) === t ? this.postHeaders.headers : {};
     let r: Response;
     try {
-      r = await this.fetchImpl(this.logUrl(t, log), { method: 'POST', body: JSON.stringify(event), headers: { 'content-type': 'application/json', ...this.postHeaders }, signal: AbortSignal.timeout(8000) });
+      r = await this.fetchImpl(this.logUrl(t, log), { method: 'POST', body: JSON.stringify(event), headers: { 'content-type': 'application/json', ...own }, signal: AbortSignal.timeout(8000) });
     } catch (err) {
       return { status: 'down', error: (err as Error).message };
     }

@@ -9,14 +9,15 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { type Hash, type Receipt, addressOf, secretFromHex } from '@bitquilt/core';
 import { Store, createTracker } from '@bitquilt/tracker';
-import { AWAY_LOG, DEFAULT_CONFIG, Quilt, Resolver, WINDOW_URI_NOW, createKey, loadKey, type Pattern, type SentenceAsk } from 'quilt';
+import { AWAY_LOG, DEFAULT_CONFIG, Quilt, Resolver, WINDOW_URI_NOW, createKey, loadKey, makeLink, type Pattern, type SentenceAsk } from 'quilt';
 import { type Hosted, createHosted } from '../src/hosted.js';
 import { answerText, sentenceVendor, vendorSentence } from '../src/sentence.js';
 
 /**
  * The hosted on-ramp beside a tracker: an address handed out with a key the tracker holds, the join page served; the
  * connector served at that address over MCP, declaring the host and marking custody on every event it posts; the key
- * taken home by its address, and a session from one address refused at another; the sheet a browser gets at the same
+ * taken home by its address, and a session from one address refused at another; a post to another tracker a link
+ * names carries neither the custody secret nor the witness; the sheet a browser gets at the same
  * address, with its data beside it. And the owners' turn (QX-19 section 4, QX-16): the on-ramp sharpens a hosted
  * owner's brief where two grounded readings read it apart, with the sentence from the vendor its environment names,
  * and passes over a member with nothing to do.
@@ -103,6 +104,43 @@ describe('the hosted on-ramp', () => {
     expect(rows[0]!.link).toMatch(/^quilt:sha256:/);
     expect(found.structuredContent).toBeUndefined();
     await client.close();
+  });
+  it('sends the custody secret to its own door alone: a post to a tracker a link names carries none of it', async () => {
+    // Another tracker, by a link: it serves what this one serves and refuses every post as down, so each event goes on to this door.
+    const posts: Record<string, string | undefined>[] = [];
+    const other = createServer((req, res) => {
+      if (req.method === 'POST') {
+        posts.push({ custody: req.headers['x-quilt-custody'] as string | undefined, via: req.headers['x-quilt-via'] as string | undefined });
+        req.resume();
+        res.writeHead(503, { 'content-type': 'application/json' });
+        res.end('{"error":"down"}');
+        return;
+      }
+      void fetch(`${base}${req.url!.slice(1)}`).then(async (r) => {
+        res.writeHead(r.status, { 'content-type': r.headers.get('content-type') ?? 'text/plain' });
+        res.end(Buffer.from(await r.arrayBuffer()));
+      });
+    });
+    await new Promise<void>((r) => other.listen(0, '127.0.0.1', () => r()));
+    const elsewhere = `http://127.0.0.1:${(other.address() as AddressInfo).port}/`;
+    try {
+      const joined = (await (await fetch(`${base}join`, { method: 'POST' })).json()) as { address: string; url: string };
+      const client = new Client({ name: 'claude-ai', version: '1.0' });
+      await client.connect(new StreamableHTTPClientTransport(new URL(joined.url)));
+      const next = await client.callTool({ name: 'quilt_next', arguments: { problem: makeLink(problem as Hash, [elsewhere]) } });
+      const piece = (next.structuredContent as { handles: { piece: string } }).handles.piece;
+      await client.callTool({ name: 'quilt_return', arguments: { problem, piece, return: { verdict: 'contradicts' } } });
+      await client.close();
+      expect(posts.length).toBeGreaterThanOrEqual(3);
+      expect(posts.every((h) => h.custody === undefined && h.via === undefined)).toBe(true);
+      const lines = (await (await fetch(`${base}p/${problem}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as Receipt);
+      const mine = lines.filter((l) => l.event.key === joined.address);
+      expect(mine.map((l) => l.event.type)).toEqual(['claim', 'commit', 'reveal']);
+      expect(mine.every((l) => l.received[0]!.custody === 'hosted')).toBe(true);
+    } finally {
+      other.closeAllConnections();
+      await new Promise<void>((r) => other.close(() => r()));
+    }
   });
   it('serves the sheet at the address to a browser, with its data beside it, connected once an AI has been', async () => {
     const page = await fetch(url, { headers: { accept: 'text/html,application/xhtml+xml' } });
