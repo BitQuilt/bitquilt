@@ -50,6 +50,11 @@ export interface LayerPiece extends Omit<KindWords, 'kind' | 'strength'> {
   gold?: string | null;
   /** A square whose accepting set agreed with the owner's gold. */
   verified?: boolean;
+  /**
+   * QX-16: whether an accepting set stands on the piece with its window open at the tracker's now, where a reveal of the
+   * gold is taken, a challenge open on it or not. Absent from a tracker older than 7 November 2026.
+   */
+  window_open?: boolean;
   /** QX-19: how many traces the tracker keeps on the piece. */
   traces?: number;
   /** QX-19: whether both reveals of the accepting set rest on kept reads, one, or neither; null where no two reveals accept it. */

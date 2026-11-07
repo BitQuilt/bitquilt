@@ -244,6 +244,15 @@ export function checkGold(f: Folding, home: ProblemEntry, key: Address, body: Re
 export type RevealCheck = { ok: true; gold: GoldView; commitment: GoldCommitment; view: PieceView } | { ok: false; why: string };
 
 /**
+ * Whether an accepting set stands on the piece at `at` with its window open, as the layer's fold has it: where the
+ * owner's reveal is taken (section 3). A challenge open on the piece does not change it. The layer then says
+ * `challenged` whether or not the window has closed (QX-1 section 7), so the state route carries this beside the state.
+ */
+export function windowOpen(view: PieceView, at: string): boolean {
+  return view.accepting !== null && view.accepting.completedAt <= at && view.windowEnd !== null && at < view.windowEnd;
+}
+
+/**
  * Whether a gold reveal would count if received at `at`, by section 1: the owner's, naming a piece with no gold
  * revealed on it, matching a pending commitment of a gold kept before the piece was first worked, on a piece with an
  * accepting set inside its window.
@@ -264,6 +273,6 @@ export function checkGoldReveal(home: ProblemEntry, piece: Hash, key: Address, b
   const first = firstProductionAt(view);
   if (first !== null && first <= found.gold.at) return { ok: false, why: `gold names a piece already worked: ${view.piece.name}` };
   if (!view.accepting || view.accepting.completedAt > at) return { ok: false, why: 'nothing accepted on this piece yet' };
-  if (view.windowEnd === null || at >= view.windowEnd) return { ok: false, why: 'the window has closed' };
+  if (!windowOpen(view, at)) return { ok: false, why: 'the window has closed' };
   return { ok: true, gold: found.gold, commitment: found.commitment, view };
 }
