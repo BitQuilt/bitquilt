@@ -11,8 +11,9 @@
  *                                                         chat client starts); through the node already holding this
  *                                                         home's page when there is one
  *   quilt serve [--port 3978]                             the page and the node alone
- *   quilt open <link>  |  quilt search <words>  |  quilt read <link>
- *                                                         open and read print the text quilt_open and quilt_read give
+ *   quilt open <link>
+ *   quilt search <words>
+ *   quilt read <link>                                     open and read print the text quilt_open and quilt_read give
  *                                                         (tools.ts), so the command line and the connector say one
  *                                                         thing
  *   quilt next [problem] [--json]                         next prints the text quilt_next gives; --json: the piece as
@@ -24,7 +25,9 @@
  *   quilt decline <problem> <piece> <reason>
  *   quilt seed <problem> on|off                           keep a problem: a seed event on its log, and the problem in
  *                                                         the standing list
- *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
+ *   quilt publish <pattern.json>
+ *   quilt name <name>
+ *   quilt flush
  *   quilt keep                                            the keeper's loop once: the queue sent, then every problem
  *                                                         this node holds pulled again from where it is held, its chain
  *                                                         kept where it only grew, the reads its traces name fetched

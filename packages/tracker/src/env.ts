@@ -1,9 +1,16 @@
 /**
  * What a tracker binary reads from the environment, and nothing else: the port, host and database path the process
  * needs, and the options `createTracker` takes. Both binaries, the tracker's and the hosted on-ramp's, read it here.
- *   QUILT_PORT (3977)  QUILT_HOST (127.0.0.1)  QUILT_DB (./quilt-tracker.db)  QUILT_URL (http://localhost:<port>/)
- *   QUILT_NAME  QUILT_PEERS (comma-separated)  QUILT_LIMIT_KEY_HOUR (120)  QUILT_LIMIT_IP_HOUR (600)
- *   QUILT_STAMP_NAME (0)  QUILT_IP_SALT
+ *   QUILT_PORT (3977)
+ *   QUILT_HOST (127.0.0.1)
+ *   QUILT_DB (./quilt-tracker.db)
+ *   QUILT_URL (http://localhost:<port>/)
+ *   QUILT_NAME
+ *   QUILT_PEERS (comma-separated)
+ *   QUILT_LIMIT_KEY_HOUR (120)
+ *   QUILT_LIMIT_IP_HOUR (600)
+ *   QUILT_STAMP_NAME (0)
+ *   QUILT_IP_SALT
  *   QUILT_MAINTAINERS (addresses whose hide events this tracker honours, comma separated)
  *   QUILT_FOUNDING_STANDING (a founding standing declared per root, <address>=<amount> comma separated, QX-1 section 2
  *     as amended)

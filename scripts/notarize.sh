@@ -6,11 +6,13 @@
 #   xcrun notarytool store-credentials quilt --key <AuthKey.p8> --key-id <KEY_ID> --issuer <ISSUER_ID>
 # (an App Store Connect API key with the Developer role), or with --apple-id, --team-id and an app-specific password.
 #   QUILT_NOTARY_PROFILE=quilt bash scripts/notarize.sh      -> dist/Quilt.app stapled, dist/Quilt.dmg for the release
-# or, with no profile in reach, the key itself: QUILT_NOTARY_KEY=<AuthKey.p8> QUILT_NOTARY_KEY_ID=… QUILT_NOTARY_ISSUER=… bash scripts/notarize.sh
+# or, with no profile in reach, the key itself:
+#   QUILT_NOTARY_KEY=<AuthKey.p8> QUILT_NOTARY_KEY_ID=… QUILT_NOTARY_ISSUER=… bash scripts/notarize.sh
 set -euo pipefail
 
 # Stapling asks Apple's ticket service, which drops a connection now and then right after a notarization it has
-# accepted (the release of 3 November 2026 lost one that way); it is asked again, a few times, before the build is given up.
+# accepted (the release of 3 November 2026 lost one that way); it is asked again, a few times, before the build is
+# given up.
 staple() {
   for try in 1 2 3 4; do
     xcrun stapler staple "$1" && return 0
@@ -59,7 +61,8 @@ else
 fi
 spctl --assess --type execute -vv "$app"
 
-# The disk image: the stapled app and a link to Applications, signed with the same identity, notarized as a file of its own, stapled.
+# The disk image: the stapled app and a link to Applications, signed with the same identity, notarized as a file of
+# its own, stapled.
 dmg="$root/dist/Quilt.dmg"
 stage="$root/dist/dmg-stage"
 identity="$(codesign -dvv "$app" 2>&1 | sed -n 's/^Authority=\(Developer ID Application: .*\)$/\1/p' | head -1)"
