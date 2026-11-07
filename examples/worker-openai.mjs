@@ -10,7 +10,7 @@
  *     node examples/worker-openai.mjs <problem hash> [evidence.txt] [--model gpt-6-luna] [--max 16] [--second-only]
  */
 import { fileURLToPath } from 'node:url';
-import { instruction, question, runWorker } from './worker-loop.mjs';
+import { instruction, question, refusal, runWorker } from './worker-loop.mjs';
 
 const WITHOUT = 'No evidence is given here: find the source the brief names with web search and read it before answering, and quote from what you read.';
 
@@ -30,6 +30,9 @@ export async function ask({ piece, schema, evidence, note, model, key }) {
   const j = await r.json();
   if (!r.ok) throw new Error(`openai ${r.status}: ${JSON.stringify(j.error ?? j).slice(0, 300)}`);
   const msg = (j.output ?? []).find((o) => o.type === 'message');
+  // The model's refusal comes back as a content part of its own, and a filtered answer as an incomplete response.
+  const refused = msg?.content?.find((c) => c.type === 'refusal');
+  if (refused || j.incomplete_details?.reason === 'content_filter') throw refusal(`openai refused this piece${refused?.refusal ? `: ${String(refused.refusal).slice(0, 160)}` : ''}`);
   return JSON.parse(msg?.content?.find((c) => c.type === 'output_text')?.text ?? '{}');
 }
 

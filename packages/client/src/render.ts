@@ -12,6 +12,7 @@
 import { type Address, type Hash, type Pick, type PieceView, type Receipt, type State, agreeFields, canonical, returnsAgree, textIssues } from '@bitquilt/core';
 import { makeLink } from './link.js';
 import type { ChallengeListing, GoldCount, KindWords, LayerPiece, Opened, PanelListing, Seam, SeamSide, Witness } from './listings.js';
+import type { Posted } from './resolver.js';
 
 /** Each state in the words the legend uses, in the legend's order: the core's ten, then the two the layer adds, then the mark for a kind nobody here implements. */
 export const STATE_WORDS: Record<string, string> = {
@@ -451,4 +452,18 @@ export function foundText(found: Found | null | undefined): string {
     return values.length ? [`${field}: ${values.map(([v, n]) => `${n} "${v}"`).join(', ')}`] : [];
   });
   return parts.length ? `the accepted squares agreed on ${parts.join('; ')}` : '';
+}
+
+/**
+ * A piece handed over, as JSON for a program that works it (`quilt next --json`, the page's `/api/next`): the problem
+ * and the piece, its state, its kind and how strongly that kind earns a square, the brief, the schema, the fields that
+ * agree, what it requires, the lease, where the claim went and what was locked, and the seams of a piece whose two
+ * readings differ, each a line with every side's passage quoted and its signer named, as quilt_next says them.
+ */
+export function handedJson(h: { hash: Hash; pick: Pick; posted: Posted; owner: string; stake: number; lock: 'standing' | 'coin' | null; seams: readonly Seam[] }, name: (key: string) => string = (k) => k) {
+  const p = h.pick;
+  return {
+    problem: h.hash, piece: p.piece.hash, name: p.piece.name, state: p.state, verifier: p.piece.verifier, kind: kindWords(p.piece.verifier), brief: p.brief, owner: h.owner,
+    schema: p.schema ?? null, agree: p.agree, requires: p.requires, lease_h: p.lease_h, posted: h.posted, stake: h.stake, lock: h.lock, seams: seamsText(h.seams, name),
+  };
 }

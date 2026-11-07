@@ -165,6 +165,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
       'The return is an object with the fields the piece\'s schema names, every string plain text.',
       'What the piece waits for next depends on its kind: another vendor\'s agreement, a second person, a panel\'s ranking, or nothing, for an attest piece, which is accepted at once on this record, and for a record piece, where the reading stands as given beside the others.',
       'Beside the return, rests may say for a field which page it rests on and the words on it (QX-19): the client fetches the page, keeps its text under its hash, finds the words, and posts the trace beside the reveal; a passage not found on the page as fetched is left out and said.',
+      'Where two readings of a piece differ, one whose fields rest on a kept page stands and one that rests on nothing is set aside: the piece goes out again for another reading, and the reading set aside counts for nothing until a trace rests it on a page.',
     ].join(' '),
     inputSchema: {
       problem: z.string().describe('The problem hash'), piece: z.string().describe('The piece hash'), return: z.record(z.string(), z.unknown()).describe('The return, fitting the piece\'s schema'),

@@ -1,11 +1,21 @@
 import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
 import { textIssues } from '@bitquilt/core';
-import { REST_ASK, RESTS, fit, gateRefusal, instruction, parseArgs, plain, question, readPiece, schemaOf, schemaRefusal, stopOn, takeRests, traceSaid } from '../../../examples/worker-loop.mjs';
+import { type Hash, type Pick } from '@bitquilt/core';
+import { REST_ASK, RESTS, fit, gateRefusal, instruction, parseArgs, pieceFrom, plain, question, refusal, schemaOf, schemaRefusal, stopOn, takeRests, traceSaid } from '../../../examples/worker-loop.mjs';
+import type { Seam } from '../src/listings.js';
+import { handedJson, seamsText } from '../src/render.js';
+
+/** A piece as `quilt next --json` prints it, made by the client's own function and read back as the loop reads it. */
+function handed(name: string, brief: string, properties: Record<string, unknown>, required: string[], seams: Seam[] = []) {
+  const pick = { piece: { hash: 'sha256:ab', name, family: name.split('/')[0], n: 1, brief, verifier: 'agree', requires: ['web'], inputs: [] }, state: 'open', brief, schema: { type: 'object', additionalProperties: false, required, properties }, agree: [required[0]], requires: ['web'], lease_h: 2, availability: 1 } as unknown as Pick;
+  return JSON.parse(JSON.stringify(handedJson({ hash: 'sha256:p' as Hash, pick, posted: { at: 'http://t/', queued: false }, owner: '0xowner', stake: 0, lock: null, seams }))) as Record<string, unknown>;
+}
 
 /**
  * The loop the workers with no person beside them share (examples/worker-loop.mjs): the flags, the piece read from
- * what the CLI prints, the schema the answer takes, and the words the model is given. The one call to a model is the
+ * what `quilt next --json` prints, made here by the client's own function, the schema the answer takes, the words the
+ * model is given, and a model's refusal marked so the loop declines the piece with the reason `refuse`. The one call to a model is the
  * vendor file's own and is not called here.
  */
 describe('the workers\' shared loop', () => {
@@ -15,21 +25,21 @@ describe('the workers\' shared loop', () => {
     expect(parseArgs(['--second-only', 'sha256:cd'], 'd').problem).toBe('sha256:cd');
   });
   it('reads the piece the CLI prints and makes its answer schema from the fields, enums kept and nothing else allowed', () => {
-    const printed = 'Piece case/3 (sha256:0123abcd) on a problem.\nThe author wrote this brief: "Read the report."\nThe return is an object with these fields: {"sex":{"enum":["male","female","unknown"]},"age":{"type":"integer"},"quote":{"type":"string","maxLength":400},"covers":{"type":"array","maxItems":4,"items":{"enum":["a","b"]}}}; required: sex, quote; agreement is on: sex.\n';
-    const piece = readPiece(printed)!;
-    expect(piece).toMatchObject({ name: 'case/3', hash: 'sha256:0123abcd', brief: 'Read the report.', required: ['sex', 'quote'] });
+    const piece = pieceFrom(handed('case/3', 'Read the report.', { sex: { enum: ['male', 'female', 'unknown'] }, age: { type: 'integer' }, quote: { type: 'string', maxLength: 400 }, covers: { type: 'array', maxItems: 4, items: { enum: ['a', 'b'] } } }, ['sex', 'quote']))!;
+    expect(piece).toMatchObject({ name: 'case/3', hash: 'sha256:ab', brief: 'Read the report.', required: ['sex', 'quote'], seams: [] });
     const { rests, ...properties } = schemaOf(piece).properties;
     expect(rests).toEqual(RESTS);
     // A list says its most in words, since the structured shapes refuse maxItems; fit cuts a longer one to it.
     expect({ ...schemaOf(piece), properties }).toEqual({ type: 'object', additionalProperties: false, required: ['sex', 'age', 'quote', 'covers', 'rests'], properties: { sex: { type: 'string', enum: ['male', 'female', 'unknown'] }, age: { type: 'integer' }, quote: { type: 'string' }, covers: { type: 'array', description: 'At most 4 items', items: { type: 'string', enum: ['a', 'b'] } } } });
     expect(fit(piece, { sex: 'male', age: 3, quote: 'q', covers: ['a', 'b', 'a', 'b', 'a'] })).toEqual({ sex: 'male', age: 3, quote: 'q', covers: ['a', 'b', 'a', 'b'] });
-    expect(readPiece('nothing like a piece')).toBeNull();
+    expect(pieceFrom({ problem: 'sha256:p', piece: 'sha256:ab', brief: 'A judge piece.', schema: null })).toBeNull();
+    expect(pieceFrom(null)).toBeNull();
     // A date field says its shape in words, since the tracker holds it to YYYY-MM-DD.
-    const dated = readPiece('Piece d/1 (sha256:ab) x\nThe author wrote this brief: "When."\nThe return is an object with these fields: {"when":{"format":"date","maxLength":10,"type":"string"},"note":{"type":"string"}}; required: when; agreement is on: when.\n')!;
+    const dated = pieceFrom(handed('d/1', 'When.', { when: { format: 'date', maxLength: 10, type: 'string' }, note: { type: 'string' } }, ['when']))!;
     expect(schemaOf(dated).properties.when).toEqual({ type: 'string', description: 'A date as YYYY-MM-DD' });
     // A string field the piece does not require says it may be left empty, since the strict shape asks for every field; fit leaves an empty one out.
     expect(schemaOf(dated).properties.note).toEqual({ type: 'string', description: 'Empty where the record gives none' });
-    const bill = readPiece('Piece b/1 (sha256:ab) x\nThe author wrote this brief: "When."\nThe return is an object with these fields: {"last_action_date":{"format":"date","maxLength":10,"type":"string"},"enacted_date":{"format":"date","maxLength":10,"type":"string"},"notes":{"type":"string","maxLength":400},"n":{"type":"integer"}}; required: last_action_date; agreement is on: last_action_date.\n')!;
+    const bill = pieceFrom(handed('b/1', 'When.', { last_action_date: { format: 'date', maxLength: 10, type: 'string' }, enacted_date: { format: 'date', maxLength: 10, type: 'string' }, notes: { type: 'string', maxLength: 400 }, n: { type: 'integer' } }, ['last_action_date']))!;
     expect(schemaOf(bill).properties.enacted_date).toEqual({ type: 'string', description: 'A date as YYYY-MM-DD, or empty where the record gives none' });
     expect(schemaOf(bill).properties.n).toEqual({ type: 'integer' });
     expect(fit(bill, { last_action_date: '', enacted_date: '', notes: ' ', n: 3 })).toEqual({ last_action_date: '', n: 3 });
@@ -39,15 +49,22 @@ describe('the workers\' shared loop', () => {
     expect(schemaRefusal('nothing for this key on that problem right now')).toBeNull();
   });
   it('gives the model the brief as quoted words, the evidence when there is one, else what to do without it, and the fields', () => {
-    const piece = readPiece('Piece a/1 (sha256:ab) x\nThe author wrote this brief: "Find the date."\nThe return is an object with these fields: {"date":{"type":"string"}}; required: date; agreement is on: date.\n')!;
+    const piece = pieceFrom(handed('a/1', 'Find the date.', { date: { type: 'string' } }, ['date']))!;
     expect(question(piece, 'The paper says 1918.')).toBe(`The author wrote this brief: "Find the date."\n\nThe evidence:\n\nThe paper says 1918.\n\nAnswer with the fields: date. ${REST_ASK}`);
     expect(question(piece, '', 'Find the source first.')).toContain('Find the source first.\n\nAnswer with the fields: date.');
     expect(question(piece, '')).toBe(`The author wrote this brief: "Find the date."\n\nAnswer with the fields: date. ${REST_ASK}`);
-    // QX-19 section 4: the seams the CLI prints after the piece go into the question, each line as the tracker said it.
-    const seamed = readPiece('Piece a/1 (sha256:ab) x\nThe author wrote this brief: "Find the date."\nThe return is an object with these fields: {"date":{"type":"string"}}; required: date; agreement is on: date.\nThe lease is 2 hours.\nSeams:\nOn date, one side rests on nothing kept: 0xA rests it on "in 1918" at https://example.org/p (sha256:ab, bytes 0 to 7); 0xB rests it on nothing kept, and that reading is set aside until it does.\nClaim posted to http://t/.\n')!;
-    expect(seamed.seams).toEqual(['On date, one side rests on nothing kept: 0xA rests it on "in 1918" at https://example.org/p (sha256:ab, bytes 0 to 7); 0xB rests it on nothing kept, and that reading is set aside until it does.']);
+    // QX-19 section 4: the seams handed over go into the question, each line as quilt_next says it, every passage quoted with its signer named.
+    const seam: Seam = { field: 'date', why: 'source', sides: [
+      { key: '0xA', value: '1918', read: { url: 'https://example.org/p', hash: 'sha256:ab' as Hash, at: '2026-11-02T00:00:00Z' }, span: [0, 7], passage: 'in 1918', aside: false },
+      { key: '0xB', value: '1919', read: { url: 'https://example.org/q', hash: 'sha256:cd' as Hash, at: '2026-11-02T00:00:00Z' }, span: [0, 7], passage: 'in 1919', aside: false },
+    ] };
+    const seamed = pieceFrom(handed('a/1', 'Find the date.', { date: { type: 'string' } }, ['date'], [seam]))!;
+    expect(seamed.seams).toEqual(seamsText([seam], (k) => k));
+    expect(seamed.seams![0]).toContain('"in 1918"');
     expect(question(seamed, '')).toBe(`The author wrote this brief: "Find the date."\n\nTwo earlier readings of this piece differ, and the tracker says where:\n${seamed.seams![0]}\n\nAnswer with the fields: date. ${REST_ASK}`);
-    expect(readPiece('Piece a/1 (sha256:ab) x\nThe author wrote this brief: "Find the date."\nThe return is an object with these fields: {"date":{"type":"string"}}; required: date; agreement is on: date.\n')!.seams).toEqual([]);
+    // A model's refusal is marked, so the loop declines the piece and takes the next; any other error is not.
+    expect(refusal('claude refused this piece')).toMatchObject({ message: 'claude refused this piece', refusal: true });
+    expect((new Error('openai 500') as Error & { refusal?: boolean }).refusal).toBeUndefined();
     expect(REST_ASK).toMatch(/^Under rests, /);
     expect(instruction('')).toMatch(/^You work one piece of a problem/);
     expect(instruction('')).toContain('no links or web addresses');

@@ -17,7 +17,7 @@ import { makeLink } from './link.js';
 import { sheetOf } from './phrases.js';
 import { kept } from './pool.js';
 import { type Pattern, Quilt } from './quilt.js';
-import { goldText, kindWords, kindsText, layerByHash, stakeText } from './render.js';
+import { goldText, handedJson, kindWords, kindsText, layerByHash, stakeText } from './render.js';
 import { type Resolver, publicLibrary, KEEP_EVERY_MS } from './resolver.js';
 import { isToolName, runTool } from './tools.js';
 
@@ -188,8 +188,7 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         return json(res, 200, await runTool(forHost, name, b.input ?? {}));
       }
       if (path === '/api/next' && method === 'GET') {
-        const { hash, pick, posted, owner, stake, lock } = await person.next(u.searchParams.get('problem') ?? '');
-        return json(res, 200, { problem: hash, piece: pick.piece.hash, name: pick.piece.name, verifier: pick.piece.verifier, kind: kindWords(pick.piece.verifier), brief: pick.brief, owner, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h, posted, stake, lock });
+        return json(res, 200, handedJson(await person.next(u.searchParams.get('problem') ?? '')));
       }
       if (path === '/api/seed' && method === 'POST') {
         const b = (await body(req)) as { problem: Hash; on: boolean };

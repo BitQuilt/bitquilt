@@ -53,7 +53,8 @@ export interface Resolved {
  */
 export interface Library {
   /** Every problem opened or published here; `next` is the version this key published in its place (QX-19 section 4), so it is not sharpened twice; `topics` the ones this key announced with (QX-13), and `announced` the work its last announce stated and the relays an announce was offered to, so the owner's turn announces again only where the work moved or a relay has not been offered one. */
-  problems: Record<string, { title: string; slug: string; trackers: string[]; first: string; last: string; next?: Hash; topics?: string[]; announced?: { at: string; mark: string; relays?: string[] } }>;
+  /** `frozen` is when the owner froze the brief here (`quilt freeze`): the owner's turn sharpens it no more, and nothing republishes it. */
+  problems: Record<string, { title: string; slug: string; trackers: string[]; first: string; last: string; next?: Hash; topics?: string[]; announced?: { at: string; mark: string; relays?: string[] }; frozen?: string }>;
   pieces: Record<string, { problem: Hash; name: string; when: string; what: 'claimed' | 'returned'; verifier?: string }>;
   /** The standing list (QX-4): the problems this key seeds, by the time it said so. */
   seeding: Record<string, string>;
