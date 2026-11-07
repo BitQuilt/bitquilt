@@ -36,17 +36,49 @@ async function main(): Promise<void> {
   const custodySecret = randomBytes(32).toString('hex');
   const oauthSecret = process.env.QUILT_OAUTH_SECRET;
   const ranges = process.env.QUILT_WITNESS_RANGES ? witnessRanges(process.env.QUILT_WITNESS_RANGES) : undefined;
-  const oauth = oauthSecret ? { secret: oauthSecret, ...(process.env.QUILT_OAUTH_ISSUER ? { issuer: process.env.QUILT_OAUTH_ISSUER } : {}), ...(ranges ? { ranges } : {}) } : undefined;
-  const relays = (process.env.QUILT_RELAYS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  const oauth = oauthSecret
+    ? {
+        secret: oauthSecret,
+        ...(process.env.QUILT_OAUTH_ISSUER ? { issuer: process.env.QUILT_OAUTH_ISSUER } : {}),
+        ...(ranges ? { ranges } : {}),
+      }
+    : undefined;
+  const relays = (process.env.QUILT_RELAYS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   const hosted = createHosted({
-    store, trackerUrl: options.url, keySecret, home: process.env.QUILT_HOSTED_HOME ?? './quilt-hosted', custodySecret, relays,
-    ...(options.name ? { name: options.name } : {}), ...(oauth ? { oauth } : {}), ...(options.trustedProxies ? { trustedProxies: options.trustedProxies } : {}),
+    store,
+    trackerUrl: options.url,
+    keySecret,
+    home: process.env.QUILT_HOSTED_HOME ?? './quilt-hosted',
+    custodySecret,
+    relays,
+    ...(options.name ? { name: options.name } : {}),
+    ...(oauth ? { oauth } : {}),
+    ...(options.trustedProxies ? { trustedProxies: options.trustedProxies } : {}),
   });
-  const tracker = createTracker({ store, custodySecret, extra: hosted.routes, extraWellKnown: hosted.describe, ...options });
+  const tracker = createTracker({
+    store,
+    custodySecret,
+    extra: hosted.routes,
+    extraWellKnown: hosted.describe,
+    ...options,
+  });
   await tracker.listen(port, host);
-  console.log(`bitquilt tracker with the hosted on-ramp at ${options.url} (db ${dbPath}; addresses at ${options.url}join)`);
-  console.log(oauth ? `the authorization server is on: products connect at ${options.url}mcp and the events say which (QX-18)` : 'QUILT_OAUTH_SECRET is unset: no OAuth, and an address is its own credential');
-  console.log(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY ? 'the owners\' turn runs every hour: the gold due revealed and the briefs sharpened for the keys held here' : 'the owners\' turn runs every hour: the gold due revealed; no vendor key is set, so no brief is sharpened');
+  console.log(
+    `bitquilt tracker with the hosted on-ramp at ${options.url} (db ${dbPath}; addresses at ${options.url}join)`,
+  );
+  console.log(
+    oauth
+      ? `the authorization server is on: products connect at ${options.url}mcp and the events say which (QX-18)`
+      : 'QUILT_OAUTH_SECRET is unset: no OAuth, and an address is its own credential',
+  );
+  console.log(
+    process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY
+      ? "the owners' turn runs every hour: the gold due revealed and the briefs sharpened for the keys held here"
+      : "the owners' turn runs every hour: the gold due revealed; no vendor key is set, so no brief is sharpened",
+  );
   // The owners' turn, hourly, one at a time: a turn still running when the hour comes round is left to finish.
   let running = false;
   const ownersTurn = async (): Promise<void> => {
@@ -68,10 +100,12 @@ async function main(): Promise<void> {
 /** QUILT_WITNESS_RANGES as one JSON object of product to a list of ranges; anything else throws, naming the fault. */
 function witnessRanges(text: string): Record<string, string[]> {
   const parsed = JSON.parse(text) as unknown;
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('QUILT_WITNESS_RANGES is a JSON object of product to ranges');
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+    throw new Error('QUILT_WITNESS_RANGES is a JSON object of product to ranges');
   const out: Record<string, string[]> = {};
   for (const [product, list] of Object.entries(parsed as Record<string, unknown>)) {
-    if (!Array.isArray(list) || !list.every((r) => typeof r === 'string')) throw new Error(`QUILT_WITNESS_RANGES: ${product} is a list of ranges`);
+    if (!Array.isArray(list) || !list.every((r) => typeof r === 'string'))
+      throw new Error(`QUILT_WITNESS_RANGES: ${product} is a list of ranges`);
     out[product] = list as string[];
   }
   return out;

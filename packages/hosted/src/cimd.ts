@@ -56,7 +56,15 @@ export function clientIdProblem(id: string): string | null {
   if (u.hash) return 'a client id URL has no fragment';
   if (u.username || u.password) return 'a client id URL carries no credentials';
   const host = u.hostname.toLowerCase();
-  if (isIP(host.replace(/^\[|\]$/g, '')) || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') || !host.includes('.')) return 'a client metadata document lives on a public host by name';
+  if (
+    isIP(host.replace(/^\[|\]$/g, '')) ||
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal') ||
+    !host.includes('.')
+  )
+    return 'a client metadata document lives on a public host by name';
   return null;
 }
 
@@ -104,7 +112,11 @@ export class Documents {
   private async read(url: string): Promise<{ json: unknown; headers: Headers }> {
     let r: Response;
     try {
-      r = await this.options.fetchImpl(url, { redirect: 'manual', headers: { accept: 'application/json' }, signal: AbortSignal.timeout(5000) });
+      r = await this.options.fetchImpl(url, {
+        redirect: 'manual',
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(5000),
+      });
     } catch (err) {
       throw new DocumentError(`${url} could not be read: ${err instanceof Refused ? err.why : (err as Error).message}`);
     }
@@ -142,20 +154,30 @@ export class Documents {
 
   /** The document held to the rules: its client_id is the URL, its redirect URIs parse, it authenticates as none or with a key, and a key is published on its own host. */
   private check(clientId: string, json: unknown): ClientDocument {
-    if (!json || typeof json !== 'object' || Array.isArray(json)) throw new DocumentError('the client metadata document is not a JSON object');
+    if (!json || typeof json !== 'object' || Array.isArray(json))
+      throw new DocumentError('the client metadata document is not a JSON object');
     const raw = json as Record<string, unknown>;
-    if (raw.client_id !== clientId) throw new DocumentError('the client metadata document\'s client_id is not its own URL');
+    if (raw.client_id !== clientId)
+      throw new DocumentError("the client metadata document's client_id is not its own URL");
     const parsed = OAuthClientMetadataSchema.safeParse(raw);
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
-      throw new DocumentError(`the client metadata document does not parse: ${issue ? `${issue.path.join('.') || 'metadata'}: ${issue.message}` : 'malformed'}`);
+      throw new DocumentError(
+        `the client metadata document does not parse: ${issue ? `${issue.path.join('.') || 'metadata'}: ${issue.message}` : 'malformed'}`,
+      );
     }
     const m = parsed.data;
     if (m.redirect_uris.length === 0) throw new DocumentError('the client metadata document names no redirect URI');
-    const listed = Array.isArray(raw.token_endpoint_auth_methods_supported) ? (raw.token_endpoint_auth_methods_supported as unknown[]).filter((x): x is string => typeof x === 'string') : [];
+    const listed = Array.isArray(raw.token_endpoint_auth_methods_supported)
+      ? (raw.token_endpoint_auth_methods_supported as unknown[]).filter((x): x is string => typeof x === 'string')
+      : [];
     const methods = [...new Set([...(m.token_endpoint_auth_method ? [m.token_endpoint_auth_method] : []), ...listed])];
     if (methods.length === 0) methods.push('none');
-    for (const method of methods) if (method !== 'none' && method !== 'private_key_jwt') throw new DocumentError(`a client metadata document authenticates as none or with private_key_jwt, not ${method}`);
+    for (const method of methods)
+      if (method !== 'none' && method !== 'private_key_jwt')
+        throw new DocumentError(
+          `a client metadata document authenticates as none or with private_key_jwt, not ${method}`,
+        );
     let jwksUri: string | null = null;
     let jwks: { keys: JsonWebKey[] } | null = null;
     if (methods.includes('private_key_jwt')) {
@@ -166,7 +188,8 @@ export class Documents {
         } catch {
           throw new DocumentError('jwks_uri is a URL');
         }
-        if (u.protocol !== 'https:' || u.host !== new URL(clientId).host) throw new DocumentError('a client\'s keys are published on its own host over https');
+        if (u.protocol !== 'https:' || u.host !== new URL(clientId).host)
+          throw new DocumentError("a client's keys are published on its own host over https");
         jwksUri = m.jwks_uri;
       } else if (m.jwks && typeof m.jwks === 'object' && Array.isArray((m.jwks as { keys?: unknown }).keys)) {
         jwks = { keys: (m.jwks as { keys: JsonWebKey[] }).keys };
@@ -184,10 +207,17 @@ export class Documents {
     const has = (keys: JsonWebKey[]) => kid === undefined || keys.some((k) => (k as { kid?: string }).kid === kid);
     if (fresh && (has(kept.keys) || this.nowMs() - kept.fetchedAt < REFETCH_MS)) return kept.keys;
     const { json, headers } = await this.read(doc.jwksUri);
-    const keys = json && typeof json === 'object' && Array.isArray((json as { keys?: unknown }).keys) ? ((json as { keys: unknown[] }).keys.filter((k) => k && typeof k === 'object') as JsonWebKey[]) : null;
+    const keys =
+      json && typeof json === 'object' && Array.isArray((json as { keys?: unknown }).keys)
+        ? ((json as { keys: unknown[] }).keys.filter((k) => k && typeof k === 'object') as JsonWebKey[])
+        : null;
     if (!keys) throw new DocumentError('the key set is not a JWKS');
     const keep = keepFor(headers);
-    this.keySets.set(doc.jwksUri, { keys, until: this.nowMs() + Math.max(keep, CACHE_MIN_MS), fetchedAt: this.nowMs() });
+    this.keySets.set(doc.jwksUri, {
+      keys,
+      until: this.nowMs() + Math.max(keep, CACHE_MIN_MS),
+      fetchedAt: this.nowMs(),
+    });
     return keys;
   }
 
@@ -204,20 +234,30 @@ export class Documents {
     if (!header || !payload) throw new DocumentError('the client assertion does not parse');
     const alg = typeof header.alg === 'string' ? header.alg : '';
     const how = ALGORITHMS[alg];
-    if (!how) throw new DocumentError(`the client assertion is signed with ${alg || 'nothing'}; this server takes ${Object.keys(ALGORITHMS).join(', ')}`);
-    if (!doc.methods.includes('private_key_jwt')) throw new DocumentError('the client metadata document does not say the client signs its requests');
-    if (payload.iss !== doc.clientId || payload.sub !== doc.clientId) throw new DocumentError('the client assertion\'s issuer and subject are the client id');
+    if (!how)
+      throw new DocumentError(
+        `the client assertion is signed with ${alg || 'nothing'}; this server takes ${Object.keys(ALGORITHMS).join(', ')}`,
+      );
+    if (!doc.methods.includes('private_key_jwt'))
+      throw new DocumentError('the client metadata document does not say the client signs its requests');
+    if (payload.iss !== doc.clientId || payload.sub !== doc.clientId)
+      throw new DocumentError("the client assertion's issuer and subject are the client id");
     const aud = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
     const same = (a: unknown, b: string) => typeof a === 'string' && a.replace(/\/$/, '') === b.replace(/\/$/, '');
-    if (!aud.some((a) => audiences.some((b) => same(a, b)))) throw new DocumentError('the client assertion\'s audience is this server\'s token endpoint or its issuer');
+    if (!aud.some((a) => audiences.some((b) => same(a, b))))
+      throw new DocumentError("the client assertion's audience is this server's token endpoint or its issuer");
     const nowS = Math.floor(this.nowMs() / 1000);
-    if (typeof payload.exp !== 'number' || payload.exp <= nowS - SKEW_S) throw new DocumentError('the client assertion has expired');
+    if (typeof payload.exp !== 'number' || payload.exp <= nowS - SKEW_S)
+      throw new DocumentError('the client assertion has expired');
     if (payload.exp > nowS + 24 * 60 * 60) throw new DocumentError('the client assertion expires too far ahead');
-    if (typeof payload.nbf === 'number' && payload.nbf > nowS + SKEW_S) throw new DocumentError('the client assertion is not yet valid');
+    if (typeof payload.nbf === 'number' && payload.nbf > nowS + SKEW_S)
+      throw new DocumentError('the client assertion is not yet valid');
     if (typeof payload.jti !== 'string' || !payload.jti) throw new DocumentError('the client assertion carries a jti');
     const kid = typeof header.kid === 'string' ? header.kid : undefined;
     const keys = await this.keysOf(doc, kid);
-    const candidates = keys.filter((k) => (kid === undefined || (k as { kid?: string }).kid === kid) && k.kty === how.key);
+    const candidates = keys.filter(
+      (k) => (kid === undefined || (k as { kid?: string }).kid === kid) && k.kty === how.key,
+    );
     if (candidates.length === 0) throw new DocumentError('no published key signs the client assertion');
     const data = Buffer.from(`${parts[0]}.${parts[1]}`);
     const signature = Buffer.from(parts[2]!, 'base64url');
@@ -234,7 +274,13 @@ export class Documents {
         return false;
       }
     });
-    if (!signed) throw new DocumentError('the client assertion\'s signature is not by a published key');
-    if (!this.options.store.putAssertion(sha(`${doc.clientId}\n${payload.jti}`), new Date(payload.exp * 1000).toISOString())) throw new DocumentError('the client assertion was presented before');
+    if (!signed) throw new DocumentError("the client assertion's signature is not by a published key");
+    if (
+      !this.options.store.putAssertion(
+        sha(`${doc.clientId}\n${payload.jti}`),
+        new Date(payload.exp * 1000).toISOString(),
+      )
+    )
+      throw new DocumentError('the client assertion was presented before');
   }
 }

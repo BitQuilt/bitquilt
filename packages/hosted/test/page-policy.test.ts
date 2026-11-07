@@ -21,8 +21,23 @@ let base: string;
 beforeAll(async () => {
   const store = new Store(':memory:');
   const custodySecret = randomBytes(16).toString('hex');
-  const hosted = createHosted({ store, trackerUrl: () => base, keySecret: 'test-secret', home: mkdtempSync(join(tmpdir(), 'hosted-policy-')), custodySecret, name: 'Test tracker', oauth: { secret: 'oauth-test-secret' } });
-  server = await createTracker({ store, url: 'http://t.test/', ipSalt: 's', custodySecret, extra: hosted.routes, extraWellKnown: hosted.describe }).listen(0);
+  const hosted = createHosted({
+    store,
+    trackerUrl: () => base,
+    keySecret: 'test-secret',
+    home: mkdtempSync(join(tmpdir(), 'hosted-policy-')),
+    custodySecret,
+    name: 'Test tracker',
+    oauth: { secret: 'oauth-test-secret' },
+  });
+  server = await createTracker({
+    store,
+    url: 'http://t.test/',
+    ipSalt: 's',
+    custodySecret,
+    extra: hosted.routes,
+    extraWellKnown: hosted.describe,
+  }).listen(0);
   const a = server.address();
   base = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}/` : '';
 });
@@ -30,11 +45,19 @@ afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
 /** A policy's directives by name, each with its sources in order. */
 const directives = (policy: string): Record<string, string[]> =>
-  Object.fromEntries(policy.split(';').map((d) => d.trim().split(/\s+/)).filter((d) => d[0]).map(([name, ...sources]) => [name!, sources]));
+  Object.fromEntries(
+    policy
+      .split(';')
+      .map((d) => d.trim().split(/\s+/))
+      .filter((d) => d[0])
+      .map(([name, ...sources]) => [name!, sources]),
+  );
 
 /** The hash source of each inline element of one kind, read from the document as served. */
 const inline = (html: string, tag: 'script' | 'style'): string[] =>
-  [...html.matchAll(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'g'))].map((m) => `'sha256-${createHash('sha256').update(m[1]!).digest('base64')}'`);
+  [...html.matchAll(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'g'))].map(
+    (m) => `'sha256-${createHash('sha256').update(m[1]!).digest('base64')}'`,
+  );
 
 /** A page as a browser gets it: the status, the headers and the document. */
 async function page(path: string): Promise<{ status: number; headers: Headers; html: string }> {
@@ -68,11 +91,22 @@ describe('the policy of a page the on-ramp serves whole', () => {
   });
 
   it('serves the authorization page the same way, still framed by no page and sending no referrer', async () => {
-    const registered = await fetch(`${base}oauth/register`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ redirect_uris: ['http://127.0.0.1:33418/callback'], token_endpoint_auth_method: 'none' }) });
+    const registered = await fetch(`${base}oauth/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ redirect_uris: ['http://127.0.0.1:33418/callback'], token_endpoint_auth_method: 'none' }),
+    });
     expect(registered.status).toBe(201);
     const { client_id } = (await registered.json()) as { client_id: string };
     const challenge = createHash('sha256').update('a verifier').digest('base64url');
-    const query = new URLSearchParams({ response_type: 'code', client_id, redirect_uri: 'http://127.0.0.1:33418/callback', code_challenge: challenge, code_challenge_method: 'S256', state: 's' });
+    const query = new URLSearchParams({
+      response_type: 'code',
+      client_id,
+      redirect_uri: 'http://127.0.0.1:33418/callback',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      state: 's',
+    });
     const p = await page(`oauth/authorize?${query}`);
     expect(p.status).toBe(200);
     expect(p.html).toContain('Let a client use your Quilt');
@@ -95,7 +129,7 @@ describe('the policy of a page the on-ramp serves whole', () => {
 
   it('takes the hash of each inline script and style as a browser does, and allows none of a kind a page lacks', () => {
     // The example of a hash source in the CSP specification.
-    const one = directives(pagePolicy('<p>Hi.</p><script>alert(\'Hello, world.\');</script>'));
+    const one = directives(pagePolicy("<p>Hi.</p><script>alert('Hello, world.');</script>"));
     expect(one['script-src']).toEqual(["'sha256-qznLcsROx4GACP2dm0UCKCzCG+HiZ1guq6ZZDob/Tng='"]);
     expect(one['style-src']).toEqual(["'none'"]);
     const two = directives(pagePolicy('<style>p{margin:0}</style><script>a()</script><script>b()</script>'));

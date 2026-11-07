@@ -19,10 +19,10 @@ const text = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;
  */
 const WITNESS = [
   'In claude.ai or ChatGPT, this tracker\'s connector, <code id="oauth">its address without the last part</code>, can go in place of the long address: the product opens a page here, you paste the long address there once, or make a new one there, and the product holds a token for it.',
-  'The tracker then knows which product\'s callback the token came through, and writes it beside custody on every event it posts for you: via: claude.ai, via: chatgpt.com, or via: other with the name the client gave itself.',
+  "The tracker then knows which product's callback the token came through, and writes it beside custody on every event it posts for you: via: claude.ai, via: chatgpt.com, or via: other with the name the client gave itself.",
   'That witness says the product made the calls, not who wrote the answer: you can still type one and have the product hand it back.',
   'A connector on your own machine has no witness, since any program there can give itself any name, and the long address added on its own carries none.',
-  'It is the tracker\'s word, as custody is.',
+  "It is the tracker's word, as custody is.",
 ].join(' ');
 
 /** The join page, with the witness paragraph where the tracker is the authorization server for its addresses. */
@@ -67,9 +67,13 @@ ol{padding-left:1.2em}
 <li>Claude Desktop and the Claude app on a phone use the connectors the account has, so added once it is in all three.</li>
 <li>Claude Code takes it on the command line: <code id="cc">claude mcp add --transport http quilt &lt;this address&gt;</code></li>
 <li>Any other chat that takes an MCP address takes this one.</li>
-</ol>${witness ? `
+</ol>${
+  witness
+    ? `
 <h2>The witness</h2>
-<p class="q">${WITNESS}</p>` : ''}
+<p class="q">${WITNESS}</p>`
+    : ''
+}
 <h2>Then, in a new chat, say</h2>
 <div class="row"><p id="p1">${text(say('who_am_i'))}</p><button class="small" data-copy="p1">Copy</button></div>
 <div class="row"><p id="p3">${text(say('how_it_works'))}</p><button class="small" data-copy="p3">Copy</button></div>
