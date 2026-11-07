@@ -167,6 +167,7 @@ export class Quilt {
       post: (event, log, trackers) => q.resolver.post(event, log, trackers),
       postSigned: (unsigned, log, trackers, what) => q.postSigned(unsigned, log, trackers, what),
       trackersFor: (problem, first) => q.trackersFor(problem, first),
+      ask: (url) => q.ask(url),
       firstAnswer: (trackers, ask) => q.firstAnswer(trackers, ask),
       wellKnown: (tracker) => q.wellKnown(tracker),
       layerOf: (hash, tracker) => q.layerOf(hash, tracker),
@@ -248,6 +249,11 @@ export class Quilt {
   }
 
   /** Where posts about a problem go, each once: the trackers named `first` (the one that answered, a link's), then the ones the library remembers for it, then the config's. */
+  /** A tracker's JSON through this Quilt's own way to the network, or null. */
+  ask<T>(url: string): Promise<T | null> {
+    return askJson<T>(url, 8000, this.resolver.fetchImpl);
+  }
+
   private trackersFor(problem: Hash, first: string[] = []): string[] {
     return [...new Set([...first, ...(this.library.problems[problem]?.trackers ?? []), ...this.config.trackers])];
   }
@@ -283,7 +289,7 @@ export class Quilt {
   /** Any key's standing as the first tracker that answers computes it (QX-1); null where no tracker answers. */
   async standingOf(address: Address): Promise<Standing | null> {
     return this.firstAnswer(this.config.trackers, async (t) => {
-      const j = await askJson<Omit<Standing, 'tracker'>>(`${t}k/${address}/standing`);
+      const j = await this.ask<Omit<Standing, 'tracker'>>(`${t}k/${address}/standing`);
       return j && { tracker: t, standing: j.standing, locked: j.locked, free: j.free, founding: j.founding ?? 0, locks: j.locks };
     });
   }
@@ -301,7 +307,7 @@ export class Quilt {
     const t = tracker.endsWith('/') ? tracker : `${tracker}/`;
     const kept = this.wellKnownCache.get(t);
     if (kept && Date.now() - kept.at < 10 * 60_000) return kept.answer;
-    const answer = askJson<Record<string, unknown>>(`${t}.well-known/quilt`);
+    const answer = this.ask<Record<string, unknown>>(`${t}.well-known/quilt`);
     this.wellKnownCache.set(t, { at: Date.now(), answer });
     // A tracker that did not answer is asked again next time.
     answer.then((a) => { if (a === null) this.wellKnownCache.delete(t); }, () => this.wellKnownCache.delete(t));
@@ -310,7 +316,7 @@ export class Quilt {
 
   /** The tracker's state for a problem: its pieces as the layer sees them, and the owner's gold summed (QX-16). Null when the tracker does not answer. */
   async trackerState(hash: Hash, tracker: string): Promise<{ pieces: LayerPiece[]; gold: GoldCount | null; superseded: Hash | null } | null> {
-    const j = await askJson<{ pieces?: LayerPiece[]; gold?: GoldCount; superseded?: Hash | null }>(`${tracker}p/${hash}/state`);
+    const j = await this.ask<{ pieces?: LayerPiece[]; gold?: GoldCount; superseded?: Hash | null }>(`${tracker}p/${hash}/state`);
     return j && Array.isArray(j.pieces) ? { pieces: j.pieces, gold: j.gold ?? null, superseded: isHash(j.superseded) ? j.superseded : null } : null;
   }
 
@@ -324,7 +330,7 @@ export class Quilt {
 
   /** The tracker's scrape of a problem: whether it has taken it down (QX-6) and why, in its own word, and who keeps it (QX-4). Null when the tracker does not answer. */
   async scrapeOf(hash: Hash, tracker: string): Promise<Scrape | null> {
-    const j = await askJson<{ hidden?: Takedown | null; seeders?: number; last_seeded?: string | null }>(`${tracker}p/${hash}/scrape`);
+    const j = await this.ask<{ hidden?: Takedown | null; seeders?: number; last_seeded?: string | null }>(`${tracker}p/${hash}/scrape`);
     return j && { hidden: j.hidden ?? null, seeders: j.seeders ?? 0, last_seeded: j.last_seeded ?? null };
   }
 
@@ -359,7 +365,7 @@ export class Quilt {
   async search(query: string): Promise<Found[]> {
     type Row = { problem: Hash; title: string; slug: string; owner: string; owner_name?: string | null; from?: Hash | null; pieces: number; counts: Record<string, number>; kinds?: Record<string, number>; work?: AnnouncedWork | null; topics: string[] };
     const out = new Map<string, Found>();
-    const answers = await inParallel(this.config.trackers, 4, (t) => askJson<{ problems: Row[] }>(`${t}search?q=${encodeURIComponent(query)}`));
+    const answers = await inParallel(this.config.trackers, 4, (t) => this.ask<{ problems: Row[] }>(`${t}search?q=${encodeURIComponent(query)}`));
     this.config.trackers.forEach((t, i) => {
       for (const p of answers[i]?.problems ?? []) {
         const have = out.get(p.problem);
@@ -401,7 +407,7 @@ export class Quilt {
 
   /** The tracker's row for a problem, as `/p/<hash>/scrape` gives it, with its topics: what the owner's turn announces again. Null when the tracker does not answer. */
   private rowOf(hash: Hash, tracker: string): Promise<{ title: string; slug: string; done_when: string; owner: string; from: Hash | null; pieces: number; counts: Record<string, number>; work: AnnouncedWork; topics?: string[] } | null> {
-    return askJson(`${tracker}p/${hash}/scrape`);
+    return this.ask(`${tracker}p/${hash}/scrape`);
   }
 
   /**
@@ -519,7 +525,7 @@ export class Quilt {
     let answer: Answer | null = null;
     let takenDown: string | null = null;
     try {
-      const r = await fetch(`${tracker}p/${hash}/next?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}${pool ? '&only=verify' : ''}`, { signal: AbortSignal.timeout(8000) });
+      const r = await this.resolver.fetchImpl(`${tracker}p/${hash}/next?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}${pool ? '&only=verify' : ''}`, { signal: AbortSignal.timeout(8000) });
       if (r.ok) answer = (await r.json()) as Answer;
       else if (r.status === 410) takenDown = ((await r.json().catch(() => ({}))) as { error?: string }).error ?? 'taken down';
     } catch {
@@ -600,7 +606,7 @@ export class Quilt {
       }
     }
     for (const t of this.config.trackers) {
-      const offers = (await askJson<{ offers: { problem: Hash }[] }>(`${t}offer?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}`))?.offers ?? [];
+      const offers = (await this.ask<{ offers: { problem: Hash }[] }>(`${t}offer?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}`))?.offers ?? [];
       for (const o of offers) {
         try {
           return await this.next(`${t}p/${o.problem}`);
@@ -684,7 +690,7 @@ export class Quilt {
     const known = this.library.pieces[piece];
     this.library.pieces[piece] = { problem, name: known?.name ?? piece, when: reveal.ts, what: 'returned', ...(known?.verifier ? { verifier: known.verifier } : {}) };
     this.save();
-    const trace = rests.length ? await traceAfterReveal(this.door, problem, piece, eventId(reveal), ret, rests, trackers) : null;
+    const trace = rests.length ? await traceAfterReveal(this.door, problem, piece, eventId(reveal), ret, rests, trackers, this.resolver.fetchImpl) : null;
     return { commit, reveal: revealed, waits: await this.afterReturn(problem, piece, known?.verifier), trace };
   }
 
@@ -732,7 +738,7 @@ export class Quilt {
 
   /** The problem's judge panels as the first tracker that answers computes them: the one that answered for the problem, then the known ones. */
   async panels(problem: Hash, tracker: string | null = null): Promise<PanelListing[]> {
-    const found = await this.firstAnswer(this.trackersFor(problem, tracker ? [tracker] : []), async (t) => (await askJson<{ panels: PanelListing[] }>(`${t}p/${problem}/panels`))?.panels ?? null);
+    const found = await this.firstAnswer(this.trackersFor(problem, tracker ? [tracker] : []), async (t) => (await this.ask<{ panels: PanelListing[] }>(`${t}p/${problem}/panels`))?.panels ?? null);
     return found ?? [];
   }
 
@@ -755,7 +761,7 @@ export class Quilt {
 
   /** The problem's challenges as the first tracker that answers computes them: the one that answered for the problem, then the known ones. */
   async challenges(problem: Hash, tracker: string | null = null): Promise<ChallengeListing[]> {
-    const found = await this.firstAnswer(this.trackersFor(problem, tracker ? [tracker] : []), async (t) => (await askJson<{ challenges: ChallengeListing[] }>(`${t}p/${problem}/challenges`))?.challenges ?? null);
+    const found = await this.firstAnswer(this.trackersFor(problem, tracker ? [tracker] : []), async (t) => (await this.ask<{ challenges: ChallengeListing[] }>(`${t}p/${problem}/challenges`))?.challenges ?? null);
     return found ?? [];
   }
 
@@ -820,7 +826,7 @@ export class Quilt {
     for (const t of this.config.trackers) {
       try {
         // A whole envelope with its blobs: fifteen seconds, where a read gets eight (askJson).
-        const r = await fetch(`${t}p`, { method: 'POST', body, headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(15000) });
+        const r = await this.resolver.fetchImpl(`${t}p`, { method: 'POST', body, headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(15000) });
         if (r.status === 201) posted.push(t);
         else refused.push(`${t}: ${((await r.json().catch(() => ({}))) as { error?: string }).error ?? r.status}`);
       } catch (err) {

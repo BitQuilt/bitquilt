@@ -11,7 +11,7 @@ import { type OAuthClientInformationMixed, type OAuthClientMetadata, type OAuthT
 import { type Hash, type Receipt } from '@bitquilt/core';
 import { Store, createTracker } from '@bitquilt/tracker';
 import { DEFAULT_CONFIG, Quilt, Resolver, createKey, loadKey, type Pattern } from 'quilt';
-import { ASSERTION_TYPE } from '../src/cimd.js';
+import { ASSERTION_TYPE, DOCUMENT_MAX, Documents } from '../src/cimd.js';
 import { createHosted } from '../src/hosted.js';
 import { PRODUCT_CALLBACKS, onProductOrigin, productOf } from '../src/products.js';
 
@@ -35,7 +35,8 @@ import { PRODUCT_CALLBACKS, onProductOrigin, productOf } from '../src/products.j
  * names the resource. A client with a callback of its own walks to via: other and its name, quoted, and can revoke.
  * The code refused when the verifier, the redirect URI or the client is wrong, when it has expired, and when it is
  * used twice; a signed assertion refused when its key, audience or id is wrong; a document refused when its client_id
- * is not its URL, when it lives on a loopback host, or when its keys are elsewhere. The bare address works beside a
+ * is not its URL, when it lives on a loopback host, or when its keys are elsewhere, and read to 16 KB and no further
+ * where its server names no length. The bare address works beside a
  * token, and a token for one address is refused at another's.
  */
 let server: Server;
@@ -205,6 +206,14 @@ beforeAll(async () => {
   problem = (await owner.publish(pattern)).hash;
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
+
+describe('a client metadata document', () => {
+  it('is read to DOCUMENT_MAX and no further, where its server names no length and never ends', async () => {
+    const endless = new ReadableStream<Uint8Array>({ pull(c) { c.enqueue(new Uint8Array(4096).fill(32)); } });
+    const docs = new Documents({ store: new Store(':memory:'), fetchImpl: (async () => new Response(endless, { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch, now: () => '2026-11-07T00:00:00Z' });
+    await expect(docs.document('https://client.example/meta.json')).rejects.toThrow(`https://client.example/meta.json is over ${DOCUMENT_MAX} bytes`);
+  });
+});
 
 describe('the callback allow-list', () => {
   it('knows claude.ai\'s and claude.com\'s callback as claude.ai, and chatgpt.com\'s stable and per-connector callbacks as chatgpt.com', () => {
