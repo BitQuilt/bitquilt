@@ -95,9 +95,32 @@ const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
 const FAMILY = /^(.+)\/\*$/;
 
 /** The closed objects of section 2: what each may carry and nothing else. */
-const PROBLEM_FIELDS: readonly string[] = ['title', 'done_when', 'owner', 'slug', 'prev', 'from', 'settings', 'pieces', 'data'];
+const PROBLEM_FIELDS: readonly string[] = [
+  'title',
+  'done_when',
+  'owner',
+  'slug',
+  'prev',
+  'from',
+  'settings',
+  'pieces',
+  'data',
+];
 const SETTING_FIELDS: readonly string[] = ['challenge_window_h', 'lease_h', 'endgame_at', 'budget', 'patch_max'];
-const PIECE_FIELDS: readonly string[] = ['verifier', 'brief', 'schema', 'agree', 'requires', 'inputs', 'lease_h', 'count', 'data', 'candidates', 'workspace', 'check'];
+const PIECE_FIELDS: readonly string[] = [
+  'verifier',
+  'brief',
+  'schema',
+  'agree',
+  'requires',
+  'inputs',
+  'lease_h',
+  'count',
+  'data',
+  'candidates',
+  'workspace',
+  'check',
+];
 const CHECK_FIELDS: readonly string[] = ['file', 'image', 'tolerance', 'better'];
 
 export function problemHash(e: Envelope): Hash {
@@ -118,21 +141,26 @@ export function envelopeProblems(e: unknown): string[] {
   const out: string[] = [];
   if (e.quilt !== 1) out.push('envelope: quilt is 1');
   if (!isSignature(e.sig)) out.push('envelope: sig is a 65-byte signature in hex');
-  if (!isRecord(e.hints) || !Array.isArray(e.hints.trackers) || !Array.isArray(e.hints.mirrors)) out.push('envelope: hints has trackers and mirrors');
+  if (!isRecord(e.hints) || !Array.isArray(e.hints.trackers) || !Array.isArray(e.hints.mirrors))
+    out.push('envelope: hints has trackers and mirrors');
   const p = e.problem;
   if (!isRecord(p)) return [...out, 'problem: not an object'];
   for (const k of PROBLEM_FIELDS) if (!Object.hasOwn(p, k)) out.push(`problem.${k}: required`);
   for (const k of unknownKeys(p, PROBLEM_FIELDS)) out.push(`problem.${k}: not a field of a problem`);
-  if (typeof p.title !== 'string' || !p.title.trim() || p.title.length > 200) out.push('problem.title: text of at most 200 characters');
-  if (typeof p.done_when !== 'string' || !p.done_when.trim() || p.done_when.length > 1000) out.push('problem.done_when: text of at most 1000 characters');
+  if (typeof p.title !== 'string' || !p.title.trim() || p.title.length > 200)
+    out.push('problem.title: text of at most 200 characters');
+  if (typeof p.done_when !== 'string' || !p.done_when.trim() || p.done_when.length > 1000)
+    out.push('problem.done_when: text of at most 1000 characters');
   if (!isAddress(p.owner)) out.push('problem.owner: an address with its checksum');
-  if (typeof p.slug !== 'string' || !SLUG_RE.test(p.slug)) out.push('problem.slug: lower-case letters, digits and hyphens, at most 64');
+  if (typeof p.slug !== 'string' || !SLUG_RE.test(p.slug))
+    out.push('problem.slug: lower-case letters, digits and hyphens, at most 64');
   if (p.prev !== null && !isHash(p.prev)) out.push('problem.prev: a hash or null');
   if (p.from !== null && !isHash(p.from)) out.push('problem.from: a hash or null');
   const s = p.settings;
   if (!isRecord(s)) out.push('problem.settings: an object');
   else {
-    for (const k of ['challenge_window_h', 'lease_h', 'endgame_at', 'budget']) if (!positive(s[k])) out.push(`problem.settings.${k}: a number above 0`);
+    for (const k of ['challenge_window_h', 'lease_h', 'endgame_at', 'budget'])
+      if (!positive(s[k])) out.push(`problem.settings.${k}: a number above 0`);
     if (!whole(s.patch_max, 0)) out.push('problem.settings.patch_max: a whole number from 0');
     for (const k of unknownKeys(s, SETTING_FIELDS)) out.push(`problem.settings.${k}: not a setting`);
   }
@@ -149,18 +177,30 @@ export function envelopeProblems(e: unknown): string[] {
       continue;
     }
     const isFamily = FAMILY.test(name);
-    if (isFamily !== ('count' in d)) out.push(`${at}: a family is named with /* and has a count; a single piece has neither`);
+    if (isFamily !== 'count' in d)
+      out.push(`${at}: a family is named with /* and has a count; a single piece has neither`);
     if ('count' in d && !whole(d.count, 1)) out.push(`${at}.count: a whole number from 1`);
     total += isFamily && Number.isInteger(d.count) ? (d.count as number) : 1;
     if (typeof d.verifier !== 'string' || !d.verifier) out.push(`${at}.verifier: a kind`);
     if (typeof d.brief !== 'string' || !d.brief.trim()) out.push(`${at}.brief: text`);
     if (PATCH_VERIFIERS.includes(d.verifier as string)) {
       if ('schema' in d) out.push(`${at}.schema: a check or score piece has none; its return is a patch`);
-      if (!isRecord(d.workspace) || typeof d.workspace.repo !== 'string' || typeof d.workspace.base !== 'string') out.push(`${at}.workspace: repo and base`);
-      if (!isRecord(d.check) || typeof d.check.file !== 'string' || (d.check.image !== undefined && typeof d.check.image !== 'string')) out.push(`${at}.check: file, and optionally image`);
+      if (!isRecord(d.workspace) || typeof d.workspace.repo !== 'string' || typeof d.workspace.base !== 'string')
+        out.push(`${at}.workspace: repo and base`);
+      if (
+        !isRecord(d.check) ||
+        typeof d.check.file !== 'string' ||
+        (d.check.image !== undefined && typeof d.check.image !== 'string')
+      )
+        out.push(`${at}.check: file, and optionally image`);
       else {
-        if (d.check.tolerance !== undefined && !(typeof d.check.tolerance === 'number' && d.check.tolerance >= 0 && Number.isFinite(d.check.tolerance))) out.push(`${at}.check.tolerance: a number from 0`);
-        if (d.check.better !== undefined && d.check.better !== 'higher' && d.check.better !== 'lower') out.push(`${at}.check.better: higher or lower`);
+        if (
+          d.check.tolerance !== undefined &&
+          !(typeof d.check.tolerance === 'number' && d.check.tolerance >= 0 && Number.isFinite(d.check.tolerance))
+        )
+          out.push(`${at}.check.tolerance: a number from 0`);
+        if (d.check.better !== undefined && d.check.better !== 'higher' && d.check.better !== 'lower')
+          out.push(`${at}.check.better: higher or lower`);
         for (const k of unknownKeys(d.check, CHECK_FIELDS)) out.push(`${at}.check.${k}: not a field of a check`);
       }
       if ('agree' in d) out.push(`${at}.agree: a check or score piece has none`);
@@ -171,25 +211,37 @@ export function envelopeProblems(e: unknown): string[] {
         out.push(...sp.map((x) => x.replace(/^schema/, `${at}.schema`)));
         if (sp.length === 0 && d.agree !== undefined) {
           const props = (d.schema as Schema).properties;
-          if (!Array.isArray(d.agree) || !d.agree.every((f) => typeof f === 'string' && f in props)) out.push(`${at}.agree: names fields the schema has`);
+          if (!Array.isArray(d.agree) || !d.agree.every((f) => typeof f === 'string' && f in props))
+            out.push(`${at}.agree: names fields the schema has`);
         }
       }
       if ('workspace' in d || 'check' in d) out.push(`${at}: workspace and check belong to check and score pieces`);
     }
-    if (d.requires !== undefined && (!Array.isArray(d.requires) || !d.requires.every((r) => (CAPABILITIES as readonly string[]).includes(r as string)))) out.push(`${at}.requires: from ${CAPABILITIES.join(', ')}`);
+    if (
+      d.requires !== undefined &&
+      (!Array.isArray(d.requires) ||
+        !d.requires.every((r) => (CAPABILITIES as readonly string[]).includes(r as string)))
+    )
+      out.push(`${at}.requires: from ${CAPABILITIES.join(', ')}`);
     if (d.inputs !== undefined) {
-      if (!Array.isArray(d.inputs) || !d.inputs.every((i) => typeof i === 'string')) out.push(`${at}.inputs: a list of piece or family names`);
-      else for (const i of d.inputs) if (!names.includes(i)) out.push(`${at}.inputs: ${i} is not a piece of this problem`);
+      if (!Array.isArray(d.inputs) || !d.inputs.every((i) => typeof i === 'string'))
+        out.push(`${at}.inputs: a list of piece or family names`);
+      else
+        for (const i of d.inputs) if (!names.includes(i)) out.push(`${at}.inputs: ${i} is not a piece of this problem`);
     }
     if (d.lease_h !== undefined && !positive(d.lease_h)) out.push(`${at}.lease_h: a number above 0`);
     if (d.candidates !== undefined && !whole(d.candidates, 1)) out.push(`${at}.candidates: a whole number from 1`);
     if (d.data !== undefined) {
-      if (!isRecord(d.data) || !Object.values(d.data).every((v) => typeof v === 'string')) out.push(`${at}.data: slot names to blob names`);
-      else if (isRecord(p.data)) for (const blob of Object.values(d.data as Record<string, string>)) if (!(blob in p.data)) out.push(`${at}.data: ${blob} is not a blob of this problem`);
+      if (!isRecord(d.data) || !Object.values(d.data).every((v) => typeof v === 'string'))
+        out.push(`${at}.data: slot names to blob names`);
+      else if (isRecord(p.data))
+        for (const blob of Object.values(d.data as Record<string, string>))
+          if (!(blob in p.data)) out.push(`${at}.data: ${blob} is not a blob of this problem`);
     }
     for (const k of unknownKeys(d, PIECE_FIELDS)) out.push(`${at}.${k}: not a field of a piece`);
   }
-  if (isRecord(s) && positive(s.budget) && total > (s.budget as number)) out.push(`problem.pieces: ${total} pieces after expansion, over the budget of ${s.budget}`);
+  if (isRecord(s) && positive(s.budget) && total > (s.budget as number))
+    out.push(`problem.pieces: ${total} pieces after expansion, over the budget of ${s.budget}`);
   return out;
 }
 

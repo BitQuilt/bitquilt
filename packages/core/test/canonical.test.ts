@@ -7,11 +7,13 @@ import { canonical, canonicalBytes } from '../src/canonical.js';
 import { hashCanonical, hashText, isHash } from '../src/hash.js';
 
 describe('canonical JSON (RFC 8785)', () => {
-  it('reproduces the RFC\'s own example', () => {
+  it("reproduces the RFC's own example", () => {
     const input = JSON.parse(
       '{"numbers":[333333333.33333329,1E30,4.50,2e-3,0.000000000000000000000000001],"string":"\\u20ac$\\u000F\\u000aA\'\\u0042\\u0022\\u005c\\\\\\"\\/","literals":[null,true,false]}',
     );
-    expect(canonical(input)).toBe('{"literals":[null,true,false],"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27],"string":"€$\\u000f\\nA\'B\\"\\\\\\\\\\"/"}');
+    expect(canonical(input)).toBe(
+      '{"literals":[null,true,false],"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27],"string":"€$\\u000f\\nA\'B\\"\\\\\\\\\\"/"}',
+    );
   });
   it('sorts keys by UTF-16 code units, not by locale', () => {
     expect(canonical({ b: 1, a: 2, aa: 3, B: 4 })).toBe('{"B":4,"a":2,"aa":3,"b":1}');

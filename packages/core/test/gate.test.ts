@@ -52,7 +52,10 @@ describe('the plain-text gate', () => {
  */
 describe('the gate fixtures', () => {
   const file = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'gate', 'cases.json');
-  const doc = JSON.parse(readFileSync(file, 'utf8')) as { gate: string; cases: { text: string; issues: TextIssue[]; why: string }[] };
+  const doc = JSON.parse(readFileSync(file, 'utf8')) as {
+    gate: string;
+    cases: { text: string; issues: TextIssue[]; why: string }[];
+  };
   it('name gate/2 and cover every issue code and a clean text', () => {
     expect(doc.gate).toBe('gate/2');
     const seen = new Set(doc.cases.flatMap((c) => c.issues));

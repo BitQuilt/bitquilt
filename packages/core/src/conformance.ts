@@ -47,10 +47,14 @@ export function checkFixture(f: Fixture): string[] {
   const state = reduce({ envelopes: f.envelopes, blobs: blobsOf(f), receipts: f.receipts, now: f.now });
   const states: Record<string, string> = {};
   for (const v of state.pieces) states[v.piece.name] = v.state;
-  for (const [name, want] of Object.entries(f.expect.states)) if (states[name] !== want) problems.push(`${name}: ${states[name] ?? 'missing'}, expected ${want}`);
+  for (const [name, want] of Object.entries(f.expect.states))
+    if (states[name] !== want) problems.push(`${name}: ${states[name] ?? 'missing'}, expected ${want}`);
   for (const name of Object.keys(states)) if (!(name in f.expect.states)) problems.push(`${name}: not in the fixture`);
   // Dropped events are compared by count: the reasons in a fixture are the reference's wording, not part of conformance.
-  if (state.dropped.length !== f.expect.dropped.length) problems.push(`dropped: ${state.dropped.length} (${state.dropped.map((d) => d.why).join('; ')}), expected ${f.expect.dropped.length}`);
+  if (state.dropped.length !== f.expect.dropped.length)
+    problems.push(
+      `dropped: ${state.dropped.length} (${state.dropped.map((d) => d.why).join('; ')}), expected ${f.expect.dropped.length}`,
+    );
   if (state.complete !== f.expect.complete) problems.push(`complete: ${state.complete}, expected ${f.expect.complete}`);
   const out = state.output?.hash ?? null;
   if (out !== f.expect.output) problems.push(`output: ${out}, expected ${f.expect.output}`);

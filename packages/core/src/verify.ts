@@ -14,7 +14,10 @@ import type { Address } from './keys.js';
 import { reduce } from './reduce.js';
 
 /** The chain checked from the problem's hash, and how many events are not signed by their key. */
-export function verifyFile(lines: Receipt[], problem: Hash): { chain: ReturnType<typeof verifyChain>; unsigned: number } {
+export function verifyFile(
+  lines: Receipt[],
+  problem: Hash,
+): { chain: ReturnType<typeof verifyChain>; unsigned: number } {
   const chain = verifyChain(lines, problem);
   const unsigned = lines.filter((l) => !eventSignedByKey(l.event)).length;
   return { chain, unsigned };
@@ -26,12 +29,19 @@ if (process.argv[1] && /verify\.(ts|js)$/.test(process.argv[1])) {
   const file = args[0];
   const problem = args[1];
   if (!file || !isHash(problem)) {
-    console.error('usage: verify <events.jsonl> <problem hash> [envelope.json ...] [--blob <file>] [--identity <identity.jsonl>]');
+    console.error(
+      'usage: verify <events.jsonl> <problem hash> [envelope.json ...] [--blob <file>] [--identity <identity.jsonl>]',
+    );
     process.exit(2);
   }
-  const lines = readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
+  const lines = readFileSync(file, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => JSON.parse(l) as Receipt);
   const { chain, unsigned } = verifyFile(lines, problem);
-  console.log(`${lines.length} lines; chain ${chain.ok ? 'ok' : 'BROKEN'}${chain.head ? `; head ${chain.head.seq} ${chain.head.short}` : ''}; ${unsigned === 0 ? 'every signature is its key\'s' : `${unsigned} signatures are not their keys\'`}`);
+  console.log(
+    `${lines.length} lines; chain ${chain.ok ? 'ok' : 'BROKEN'}${chain.head ? `; head ${chain.head.seq} ${chain.head.short}` : ''}; ${unsigned === 0 ? "every signature is its key's" : `${unsigned} signatures are not their keys\'`}`,
+  );
   for (const p of chain.problems) console.log(`  ${p}`);
   const envelopes: Envelope[] = [];
   const blobs = new Map<Hash, Uint8Array>();
@@ -41,7 +51,11 @@ if (process.argv[1] && /verify\.(ts|js)$/.test(process.argv[1])) {
     if (a === '--blob') {
       const bytes = new Uint8Array(readFileSync(args[++i]!));
       blobs.set(hashBytes(bytes), bytes);
-    } else if (a === '--identity') identity = readFileSync(args[++i]!, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
+    } else if (a === '--identity')
+      identity = readFileSync(args[++i]!, 'utf8')
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => JSON.parse(l) as Receipt);
     else envelopes.push(JSON.parse(readFileSync(a, 'utf8')) as Envelope);
   }
   if (envelopes.length) {
@@ -55,7 +69,9 @@ if (process.argv[1] && /verify\.(ts|js)$/.test(process.argv[1])) {
       const set = v.accepting;
       const signers: { root: Address }[] = set ? (set.kind === 'agree' ? set.reveals : set.runs) : [];
       const acceptedBy = set ? ` accepted by ${signers.map((r) => r.root).join(' and ')}` : '';
-      console.log(`  ${v.piece.name.padEnd(12)} ${v.state.padEnd(20)} claims ${v.claims.length} reveals ${v.reveals.length}${acceptedBy}`);
+      console.log(
+        `  ${v.piece.name.padEnd(12)} ${v.state.padEnd(20)} claims ${v.claims.length} reveals ${v.reveals.length}${acceptedBy}`,
+      );
     }
     if (state.dropped.length) for (const d of state.dropped) console.log(`  dropped ${d.type}: ${d.why}`);
     console.log(state.complete ? `complete; output ${state.output?.hash}` : 'not complete');

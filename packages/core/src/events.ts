@@ -12,14 +12,37 @@ import { type Address, type Signature, isAddress, isSignature, recoverSigner, si
 import { isRecord, unknownKeys } from './plain.js';
 import type { Return } from './schema.js';
 
-export const CORE_EVENT_TYPES = ['claim', 'commit', 'reveal', 'decline', 'run', 'name', 'delegate', 'revoke', 'rotate', 'version', 'output'] as const;
+export const CORE_EVENT_TYPES = [
+  'claim',
+  'commit',
+  'reveal',
+  'decline',
+  'run',
+  'name',
+  'delegate',
+  'revoke',
+  'rotate',
+  'version',
+  'output',
+] as const;
 export type CoreEventType = (typeof CORE_EVENT_TYPES)[number];
 /** The events about one piece: each names a problem and a piece, and the reducer checks both are this chain's. */
 export const PIECE_EVENT_TYPES: readonly string[] = ['claim', 'commit', 'reveal', 'decline', 'run'];
 /** The events only a root signs (section 4); from a delegate, or a key rotated from, they are dropped. */
 export const ROOT_ONLY_TYPES: readonly string[] = ['delegate', 'revoke', 'rotate', 'version'];
 /** The fields of an event line (section 4); any other makes it malformed. */
-export const EVENT_FIELDS: readonly string[] = ['quilt', 'type', 'problem', 'piece', 'key', 'ts', 'body', 'sig', 'sig_to', 'nonce'];
+export const EVENT_FIELDS: readonly string[] = [
+  'quilt',
+  'type',
+  'problem',
+  'piece',
+  'key',
+  'ts',
+  'body',
+  'sig',
+  'sig_to',
+  'nonce',
+];
 export const DECLINE_REASONS = ['cannot', 'unclear', 'refuse', 'duplicate', 'no_time'] as const;
 export type DeclineReason = (typeof DECLINE_REASONS)[number];
 export const NONCE_RE = /^[0-9a-f]{32}$/;
@@ -33,22 +56,53 @@ export interface By {
   can: Capability[];
 }
 
-export interface ClaimBody { by: By; lease_h?: number }
-export interface CommitBody { h: Hash }
-export interface RevealBody { return: Return | { patch: string }; nonce: string; by: By }
-export interface DeclineBody { reason: DeclineReason }
-export interface RunBody { digest: Hash; exit: number; score?: number; image?: string; host: string; by: By }
+export interface ClaimBody {
+  by: By;
+  lease_h?: number;
+}
+export interface CommitBody {
+  h: Hash;
+}
+export interface RevealBody {
+  return: Return | { patch: string };
+  nonce: string;
+  by: By;
+}
+export interface DeclineBody {
+  reason: DeclineReason;
+}
+export interface RunBody {
+  digest: Hash;
+  exit: number;
+  score?: number;
+  image?: string;
+  host: string;
+  by: By;
+}
 export interface NameBody {
   name: string;
   agent?: boolean;
   /** An extension's field (PROTOCOL.md, ERC-8004); the core carries it unread. */
   erc8004?: { agentRegistry: string; agentId: string };
 }
-export interface DelegateBody { to: Address; scope: string[]; expires: string }
-export interface RevokeBody { of: Address }
-export interface RotateBody { to: Address }
-export interface VersionBody { slug: string; hash: Hash }
-export interface OutputBody { hash: Hash }
+export interface DelegateBody {
+  to: Address;
+  scope: string[];
+  expires: string;
+}
+export interface RevokeBody {
+  of: Address;
+}
+export interface RotateBody {
+  to: Address;
+}
+export interface VersionBody {
+  slug: string;
+  hash: Hash;
+}
+export interface OutputBody {
+  hash: Hash;
+}
 
 export interface Event {
   quilt: 1;
@@ -132,7 +186,11 @@ export function rotateSecondSigner(e: Event): Address | null {
 
 /** A time as section 4 writes `ts` and a delegate's `expires`: ISO 8601 with a zone. Stricter than plain.ts's `isTime`, which takes anything `Date.parse` reads. */
 function isTimeWithZone(s: unknown): boolean {
-  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(s) && Number.isFinite(Date.parse(s));
+  return (
+    typeof s === 'string' &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(s) &&
+    Number.isFinite(Date.parse(s))
+  );
 }
 
 function byProblems(by: unknown, at: string): string[] {
@@ -140,7 +198,8 @@ function byProblems(by: unknown, at: string): string[] {
   const out: string[] = [];
   if (typeof by.model !== 'string' || !by.model || by.model.length > 80) out.push(`${at}.model: vendor/model or human`);
   if (typeof by.client !== 'string' || !by.client || by.client.length > 80) out.push(`${at}.client: a name`);
-  if (!Array.isArray(by.can) || !by.can.every((c) => (CAPABILITIES as readonly string[]).includes(c as string))) out.push(`${at}.can: from ${CAPABILITIES.join(', ')}`);
+  if (!Array.isArray(by.can) || !by.can.every((c) => (CAPABILITIES as readonly string[]).includes(c as string)))
+    out.push(`${at}.can: from ${CAPABILITIES.join(', ')}`);
   return out;
 }
 
@@ -160,17 +219,20 @@ export function eventProblems(e: unknown): string[] {
   if (e.sig_to !== undefined && !isSignature(e.sig_to)) out.push('event.sig_to: a signature');
   if (e.problem !== undefined && !isHash(e.problem)) out.push('event.problem: a hash');
   if (e.piece !== undefined && !isHash(e.piece)) out.push('event.piece: a hash');
-  if (e.nonce !== undefined && (typeof e.nonce !== 'string' || !NONCE_RE.test(e.nonce))) out.push('event.nonce: 32 hex characters');
+  if (e.nonce !== undefined && (typeof e.nonce !== 'string' || !NONCE_RE.test(e.nonce)))
+    out.push('event.nonce: 32 hex characters');
   for (const k of unknownKeys(e, EVENT_FIELDS)) out.push(`event.${k}: not a field of an event`);
   const b = e.body;
   if (!isRecord(b)) return [...out, 'event.body: an object'];
   const type = e.type as string;
-  if (PIECE_EVENT_TYPES.includes(type) && (e.problem === undefined || e.piece === undefined)) out.push(`event: a ${type} names a problem and a piece`);
+  if (PIECE_EVENT_TYPES.includes(type) && (e.problem === undefined || e.piece === undefined))
+    out.push(`event: a ${type} names a problem and a piece`);
   if (['version', 'output'].includes(type) && e.problem === undefined) out.push(`event: a ${type} names a problem`);
   switch (type) {
     case 'claim':
       out.push(...byProblems(b.by, 'body.by'));
-      if (b.lease_h !== undefined && !(typeof b.lease_h === 'number' && b.lease_h > 0)) out.push('body.lease_h: a number above 0');
+      if (b.lease_h !== undefined && !(typeof b.lease_h === 'number' && b.lease_h > 0))
+        out.push('body.lease_h: a number above 0');
       break;
     case 'commit':
       if (!isHash(b.h)) out.push('body.h: a hash');
@@ -181,23 +243,27 @@ export function eventProblems(e: unknown): string[] {
       out.push(...byProblems(b.by, 'body.by'));
       break;
     case 'decline':
-      if (!(DECLINE_REASONS as readonly string[]).includes(b.reason as string)) out.push(`body.reason: one of ${DECLINE_REASONS.join(', ')}`);
+      if (!(DECLINE_REASONS as readonly string[]).includes(b.reason as string))
+        out.push(`body.reason: one of ${DECLINE_REASONS.join(', ')}`);
       break;
     case 'run':
       if (!isHash(b.digest)) out.push('body.digest: a hash');
       if (!Number.isInteger(b.exit)) out.push('body.exit: a whole number');
-      if (b.score !== undefined && !(typeof b.score === 'number' && Number.isFinite(b.score))) out.push('body.score: a number');
+      if (b.score !== undefined && !(typeof b.score === 'number' && Number.isFinite(b.score)))
+        out.push('body.score: a number');
       if (b.image !== undefined && typeof b.image !== 'string') out.push('body.image: a digest');
       if (typeof b.host !== 'string') out.push('body.host: the platform');
       out.push(...byProblems(b.by, 'body.by'));
       break;
     case 'name':
-      if (typeof b.name !== 'string' || !b.name.trim() || b.name.length > 60) out.push('body.name: a name of at most 60 characters');
+      if (typeof b.name !== 'string' || !b.name.trim() || b.name.length > 60)
+        out.push('body.name: a name of at most 60 characters');
       if (b.agent !== undefined && typeof b.agent !== 'boolean') out.push('body.agent: true or false');
       break;
     case 'delegate':
       if (!isAddress(b.to)) out.push('body.to: an address');
-      if (!Array.isArray(b.scope) || !b.scope.every((s) => typeof s === 'string')) out.push('body.scope: a list of event types');
+      if (!Array.isArray(b.scope) || !b.scope.every((s) => typeof s === 'string'))
+        out.push('body.scope: a list of event types');
       if (!isTimeWithZone(b.expires)) out.push('body.expires: a time');
       break;
     case 'revoke':
@@ -205,7 +271,7 @@ export function eventProblems(e: unknown): string[] {
       break;
     case 'rotate':
       if (!isAddress(b.to)) out.push('body.to: an address');
-      if (!isSignature(e.sig_to)) out.push('event.sig_to: the new root\'s signature');
+      if (!isSignature(e.sig_to)) out.push("event.sig_to: the new root's signature");
       break;
     case 'version':
       if (typeof b.slug !== 'string') out.push('body.slug: a slug');

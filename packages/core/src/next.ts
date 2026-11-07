@@ -90,7 +90,13 @@ export function next(state: State, key: Address, client: Client, now: string, op
     tie: tieBreak(v.piece, key, now),
     pos: position.get(v.piece.hash)!,
   }));
-  scored.sort((a, b) => a.availability - b.availability || b.v.dependents - a.v.dependents || (a.tie < b.tie ? -1 : a.tie > b.tie ? 1 : 0) || a.pos - b.pos);
+  scored.sort(
+    (a, b) =>
+      a.availability - b.availability ||
+      b.v.dependents - a.v.dependents ||
+      (a.tie < b.tie ? -1 : a.tie > b.tie ? 1 : 0) ||
+      a.pos - b.pos,
+  );
   const best = scored[0]!;
   return {
     piece: best.v.piece,
@@ -110,10 +116,14 @@ export function renderInputs(v: PieceView, state: State): string {
   let brief = v.piece.brief;
   for (const entry of v.piece.inputs) {
     const lines: string[] = [];
-    for (const dep of inputPieces(entry, state.pieces.map((x) => x.piece))) {
+    for (const dep of inputPieces(
+      entry,
+      state.pieces.map((x) => x.piece),
+    )) {
       const dv = state.byHash.get(dep.hash);
       if (!dv?.accepting) continue;
-      if (dv.accepting.kind === 'agree') for (const r of dv.accepting.reveals) lines.push(`${dep.name}, by ${r.root}: ${canonical(r.return)}`);
+      if (dv.accepting.kind === 'agree')
+        for (const r of dv.accepting.reveals) lines.push(`${dep.name}, by ${r.root}: ${canonical(r.return)}`);
       else lines.push(`${dep.name}, by ${dv.accepting.patch.root}: ${canonical(dv.accepting.patch.return)}`);
     }
     const slot = `{${entry}}`;

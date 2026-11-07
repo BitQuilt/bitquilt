@@ -4,7 +4,21 @@
  * signer recovered from it.
  */
 import { describe, expect, it } from 'vitest';
-import { addressOf, checksumAddress, isAddress, isPhrase, newPhrase, randomSecretKey, recoverAddress, recoverSigner, secretKeyFromPhrase, signMessage, signObject, signedBy, verifyMessage } from '../src/keys.js';
+import {
+  addressOf,
+  checksumAddress,
+  isAddress,
+  isPhrase,
+  newPhrase,
+  randomSecretKey,
+  recoverAddress,
+  recoverSigner,
+  secretKeyFromPhrase,
+  signMessage,
+  signObject,
+  signedBy,
+  verifyMessage,
+} from '../src/keys.js';
 import { key } from './helpers.js';
 
 const one = key(1);
@@ -12,7 +26,12 @@ const one = key(1);
 describe('keys and signatures', () => {
   it('derives the address a wallet would, with the EIP-55 checksum', () => {
     expect(addressOf(one)).toBe('0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf');
-    for (const a of ['0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed', '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359', '0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB', '0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb']) {
+    for (const a of [
+      '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
+      '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359',
+      '0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB',
+      '0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb',
+    ]) {
       expect(checksumAddress(a.toLowerCase())).toBe(a);
       expect(isAddress(a)).toBe(true);
       expect(isAddress(a.toLowerCase())).toBe(false);
@@ -41,12 +60,26 @@ describe('keys and signatures', () => {
   it('signs an object without its signature fields, whatever the key order', () => {
     const secret = randomSecretKey();
     const me = addressOf(secret);
-    const event: Record<string, unknown> = { quilt: 1, type: 'claim', key: me, body: { by: { model: 'human' } }, ts: '2026-10-24T00:00:00Z' };
+    const event: Record<string, unknown> = {
+      quilt: 1,
+      type: 'claim',
+      key: me,
+      body: { by: { model: 'human' } },
+      ts: '2026-10-24T00:00:00Z',
+    };
     event.sig = signObject(event, secret);
     expect(recoverSigner(event)).toBe(me);
-    expect(signedBy({ ts: event.ts, body: event.body, key: me, type: 'claim', quilt: 1, sig: event.sig }, me)).toBe(true);
+    expect(signedBy({ ts: event.ts, body: event.body, key: me, type: 'claim', quilt: 1, sig: event.sig }, me)).toBe(
+      true,
+    );
     expect(signedBy({ ...event, type: 'commit' }, me)).toBe(false);
-    const rotate: Record<string, unknown> = { quilt: 1, type: 'rotate', key: me, body: { to: addressOf(one) }, ts: event.ts };
+    const rotate: Record<string, unknown> = {
+      quilt: 1,
+      type: 'rotate',
+      key: me,
+      body: { to: addressOf(one) },
+      ts: event.ts,
+    };
     rotate.sig_to = signObject(rotate, one);
     rotate.sig = signObject(rotate, secret);
     expect(recoverSigner(rotate, 'sig')).toBe(me);

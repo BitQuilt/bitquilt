@@ -124,7 +124,9 @@ export function recoverAddress(message: Uint8Array, sig: string): Address | null
   let who: Address | null = null;
   if (rec === 0 || rec === 1) {
     try {
-      who = addressFromPublicKey(secp256k1.recoverPublicKey(concatBytes(Uint8Array.of(rec), bytes.subarray(0, 64)), hash, { prehash: false }));
+      who = addressFromPublicKey(
+        secp256k1.recoverPublicKey(concatBytes(Uint8Array.of(rec), bytes.subarray(0, 64)), hash, { prehash: false }),
+      );
     } catch {
       who = null;
     }

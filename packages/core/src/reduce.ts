@@ -4,19 +4,86 @@
  * computed here and nowhere else. It is three steps, one function each: `checkChain` reads the envelopes, `fold`
  * takes the receipts in order, `settle` decides every piece at `now`.
  */
-import { type Blobs, type Envelope, type Piece, type Settings, CORE_VERIFIERS, PATCH_VERIFIERS, blobProblems, envelopeProblems, expandPieces, inputPieces, problemHash } from './envelope.js';
-import { type By, type Event, type Receipt, CORE_EVENT_TYPES, PIECE_EVENT_TYPES, ROOT_ONLY_TYPES, commitHash, earliestReceipt, eventId, eventProblems, eventSignedByKey, rotateSecondSigner, vendorOf } from './events.js';
+import {
+  type Blobs,
+  type Envelope,
+  type Piece,
+  type Settings,
+  CORE_VERIFIERS,
+  PATCH_VERIFIERS,
+  blobProblems,
+  envelopeProblems,
+  expandPieces,
+  inputPieces,
+  problemHash,
+} from './envelope.js';
+import {
+  type By,
+  type Event,
+  type Receipt,
+  CORE_EVENT_TYPES,
+  PIECE_EVENT_TYPES,
+  ROOT_ONLY_TYPES,
+  commitHash,
+  earliestReceipt,
+  eventId,
+  eventProblems,
+  eventSignedByKey,
+  rotateSecondSigner,
+  vendorOf,
+} from './events.js';
 import { type Hash, hashCanonical } from './hash.js';
 import { type Address, signedBy } from './keys.js';
 import { byAtThenId, plusHours } from './plain.js';
 import { type Return, agreeFields, returnProblems, returnsAgree } from './schema.js';
 
-export type PieceState = 'locked' | 'unknown' | 'open' | 'in_flight' | 'sealed' | 'needs_verify' | 'disputed' | 'accepted_provisional' | 'accepted' | 'unreachable';
+export type PieceState =
+  | 'locked'
+  | 'unknown'
+  | 'open'
+  | 'in_flight'
+  | 'sealed'
+  | 'needs_verify'
+  | 'disputed'
+  | 'accepted_provisional'
+  | 'accepted'
+  | 'unreachable';
 
-export interface Claim { key: Address; root: Address; at: string; until: string; by: By }
-export interface Commit { key: Address; root: Address; at: string; h: Hash; abandonAt: string; revealed: boolean }
-export interface Reveal { key: Address; root: Address; at: string; return: Return; vendor: string; by: By; digest: Hash }
-export interface Run { key: Address; root: Address; at: string; digest: Hash; exit: number; score?: number; image?: string; host: string; by: By }
+export interface Claim {
+  key: Address;
+  root: Address;
+  at: string;
+  until: string;
+  by: By;
+}
+export interface Commit {
+  key: Address;
+  root: Address;
+  at: string;
+  h: Hash;
+  abandonAt: string;
+  revealed: boolean;
+}
+export interface Reveal {
+  key: Address;
+  root: Address;
+  at: string;
+  return: Return;
+  vendor: string;
+  by: By;
+  digest: Hash;
+}
+export interface Run {
+  key: Address;
+  root: Address;
+  at: string;
+  digest: Hash;
+  exit: number;
+  score?: number;
+  image?: string;
+  host: string;
+  by: By;
+}
 
 export type AcceptingSet =
   | { kind: 'agree'; reveals: [Reveal, Reveal]; completedAt: string }
@@ -37,7 +104,14 @@ export interface PieceView {
   frontier: { score: number; run: Run } | null;
 }
 
-export interface Delegation { root: Address; to: Address; scope: Set<string>; since: string; expires: string; revokedAt: string | null }
+export interface Delegation {
+  root: Address;
+  to: Address;
+  scope: Set<string>;
+  since: string;
+  expires: string;
+  revokedAt: string | null;
+}
 
 export interface State {
   problem: Hash;
@@ -72,7 +146,9 @@ export interface ReduceInput {
 export function orderReceipts(receipts: Receipt[]): { receipt: Receipt; at: string; id: Hash }[] {
   const items = receipts.map((receipt) => ({ receipt, at: earliestReceipt(receipt), id: eventId(receipt.event) }));
   const received = items.filter((x) => x.at !== null) as { receipt: Receipt; at: string; id: Hash }[];
-  const withoutWrapper = items.filter((x) => x.at === null).map((x) => ({ receipt: x.receipt, at: x.receipt.event.ts, id: x.id }));
+  const withoutWrapper = items
+    .filter((x) => x.at === null)
+    .map((x) => ({ receipt: x.receipt, at: x.receipt.event.ts, id: x.id }));
   received.sort(byAtThenId);
   withoutWrapper.sort(byAtThenId);
   return [...received, ...withoutWrapper];
@@ -150,17 +226,28 @@ class Roots {
     if (this.final(a) === this.final(b)) return true;
     for (const d of this.delegations) {
       if (!this.live(d, at)) continue;
-      if ((d.to === a && this.final(d.root) === this.final(b)) || (d.to === b && this.final(d.root) === this.final(a))) return true;
+      if ((d.to === a && this.final(d.root) === this.final(b)) || (d.to === b && this.final(d.root) === this.final(a)))
+        return true;
     }
     return false;
   }
 }
 
 /** The envelopes once checked: this problem's, its hash, the chain along `prev`, and the hashes in it. */
-interface Checked { envelope: Envelope; problem: Hash; chain: Envelope[]; chainHashes: Set<Hash> }
+interface Checked {
+  envelope: Envelope;
+  problem: Hash;
+  chain: Envelope[];
+  chainHashes: Set<Hash>;
+}
 
 /** What the fold leaves for `settle`: the roots as they stand at its end, the names, the versions, and what was dropped. */
-interface Folded { roots: Roots; names: State['names']; versions: State['versions']; dropped: State['dropped'] }
+interface Folded {
+  roots: Roots;
+  names: State['names'];
+  versions: State['versions'];
+  dropped: State['dropped'];
+}
 
 export function reduce(input: ReduceInput): State {
   const checked = checkChain(input.envelopes, input.blobs);
@@ -171,14 +258,29 @@ export function reduce(input: ReduceInput): State {
   const views = new Map<Hash, PieceView>();
   for (const piece of pieces) views.set(piece.hash, emptyView(piece));
   const ancestral = new Map<Hash, PieceView>();
-  for (const env of checked.chain.slice(1)) for (const piece of expandPieces(env.problem, input.blobs)) if (!views.has(piece.hash) && !ancestral.has(piece.hash)) ancestral.set(piece.hash, emptyView(piece));
+  for (const env of checked.chain.slice(1))
+    for (const piece of expandPieces(env.problem, input.blobs))
+      if (!views.has(piece.hash) && !ancestral.has(piece.hash)) ancestral.set(piece.hash, emptyView(piece));
   const folded = fold(input.receipts, views, ancestral, checked.chainHashes, checked.envelope.problem.settings);
   return settle(checked, pieces, views, ancestral, folded, input.now);
 }
 
 /** A piece with nothing on it yet. */
 function emptyView(piece: Piece): PieceView {
-  return { piece, state: 'open', claims: [], commits: [], reveals: [], runs: [], declined: new Set(), accepting: null, windowEnd: null, availability: 0, dependents: 0, frontier: null };
+  return {
+    piece,
+    state: 'open',
+    claims: [],
+    commits: [],
+    reveals: [],
+    runs: [],
+    declined: new Set(),
+    accepting: null,
+    windowEnd: null,
+    availability: 0,
+    dependents: 0,
+    frontier: null,
+  };
 }
 
 /**
@@ -192,7 +294,8 @@ function checkChain(envelopes: Envelope[], blobs: Blobs): Checked {
   const envelope = envelopes[0]!;
   const envProblems = envelopeProblems(envelope);
   if (envProblems.length) throw new Error(`envelope: ${envProblems[0]}`);
-  if (!signedBy(envelope as unknown as Record<string, unknown>, envelope.problem.owner)) throw new Error('envelope: not signed by its owner');
+  if (!signedBy(envelope as unknown as Record<string, unknown>, envelope.problem.owner))
+    throw new Error('envelope: not signed by its owner');
   const bp = blobProblems(envelope.problem, blobs);
   if (bp.length) throw new Error(bp[0]);
   const problem = problemHash(envelope);
@@ -204,7 +307,12 @@ function checkChain(envelopes: Envelope[], blobs: Blobs): Checked {
     const prev = envelopesByHash.get(cur.problem.prev);
     if (!prev) break;
     if (prev.problem.owner !== cur.problem.owner) break;
-    if (envelopeProblems(prev).length || !signedBy(prev as unknown as Record<string, unknown>, prev.problem.owner) || blobProblems(prev.problem, blobs).length) break;
+    if (
+      envelopeProblems(prev).length ||
+      !signedBy(prev as unknown as Record<string, unknown>, prev.problem.owner) ||
+      blobProblems(prev.problem, blobs).length
+    )
+      break;
     if (chainHashes.has(cur.problem.prev)) break;
     chain.push(prev);
     chainHashes.add(cur.problem.prev);
@@ -220,7 +328,13 @@ function checkChain(envelopes: Envelope[], blobs: Blobs): Checked {
  * dropped with its reason (section 6, Drop). An event of a type the core does not define is passed over: not folded,
  * not dropped, and no key's prior event (section 4).
  */
-function fold(receipts: Receipt[], views: Map<Hash, PieceView>, ancestral: Map<Hash, PieceView>, chainHashes: Set<Hash>, settings: Settings): Folded {
+function fold(
+  receipts: Receipt[],
+  views: Map<Hash, PieceView>,
+  ancestral: Map<Hash, PieceView>,
+  chainHashes: Set<Hash>,
+  settings: Settings,
+): Folded {
   const roots = new Roots();
   const names: State['names'] = new Map();
   const versions: State['versions'] = new Map();
@@ -236,7 +350,7 @@ function fold(receipts: Receipt[], views: Map<Hash, PieceView>, ancestral: Map<H
       continue;
     }
     if (!eventSignedByKey(e)) {
-      drop(e, 'signature is not the key\'s');
+      drop(e, "signature is not the key's");
       continue;
     }
     const s = roots.standing(e.key, e.type, at);
@@ -277,7 +391,14 @@ function fold(receipts: Receipt[], views: Map<Hash, PieceView>, ancestral: Map<H
       case 'commit': {
         const v = view!;
         const lease = v.piece.lease_h ?? settings.lease_h;
-        v.commits.push({ key: e.key, root, at, h: body.h as Hash, abandonAt: plusHours(at, 2 * lease), revealed: false });
+        v.commits.push({
+          key: e.key,
+          root,
+          at,
+          h: body.h as Hash,
+          abandonAt: plusHours(at, 2 * lease),
+          revealed: false,
+        });
         break;
       }
       case 'reveal': {
@@ -309,7 +430,15 @@ function fold(receipts: Receipt[], views: Map<Hash, PieceView>, ancestral: Map<H
         }
         commit.revealed = true;
         const by = body.by as By;
-        v.reveals.push({ key: e.key, root, at, return: ret, vendor: vendorOf(by.model), by, digest: hashCanonical(ret) });
+        v.reveals.push({
+          key: e.key,
+          root,
+          at,
+          return: ret,
+          vendor: vendorOf(by.model),
+          by,
+          digest: hashCanonical(ret),
+        });
         break;
       }
       case 'decline': {
@@ -333,10 +462,18 @@ function fold(receipts: Receipt[], views: Map<Hash, PieceView>, ancestral: Map<H
           break;
         }
         if (roots.related(root, patch.root, at)) {
-          drop(e, 'a run by the patch\'s author');
+          drop(e, "a run by the patch's author");
           break;
         }
-        const run: Run = { key: e.key, root, at, digest, exit: body.exit as number, host: body.host as string, by: body.by as By };
+        const run: Run = {
+          key: e.key,
+          root,
+          at,
+          digest,
+          exit: body.exit as number,
+          host: body.host as string,
+          by: body.by as By,
+        };
         if (body.score !== undefined) run.score = body.score as number;
         if (body.image !== undefined) run.image = body.image as string;
         v.runs.push(run);
@@ -353,26 +490,34 @@ function fold(receipts: Receipt[], views: Map<Hash, PieceView>, ancestral: Map<H
           break;
         }
         if (roots.isDelegateOfAnyone(to)) {
-          drop(e, 'the delegate is another root\'s');
+          drop(e, "the delegate is another root's");
           break;
         }
-        roots.delegations.push({ root: e.key, to, scope: new Set(body.scope as string[]), since: at, expires: body.expires as string, revokedAt: null });
+        roots.delegations.push({
+          root: e.key,
+          to,
+          scope: new Set(body.scope as string[]),
+          since: at,
+          expires: body.expires as string,
+          revokedAt: null,
+        });
         break;
       }
       case 'revoke': {
         const of = body.of as Address;
         let any = false;
-        for (const d of roots.delegations) if (d.root === e.key && d.to === of && d.revokedAt === null) {
-          d.revokedAt = at;
-          any = true;
-        }
+        for (const d of roots.delegations)
+          if (d.root === e.key && d.to === of && d.revokedAt === null) {
+            d.revokedAt = at;
+            any = true;
+          }
         // Section 4: "the old root is a delegate of the new until revoked". The root the old key now counts for revokes it.
         const rotatedTo = roots.rotations.get(of);
         if (rotatedTo !== undefined && roots.final(rotatedTo) === e.key && !roots.rotationRevoked.has(of)) {
           roots.rotationRevoked.add(of);
           any = true;
         }
-        if (!any) drop(e, 'revokes a key that is not this root\'s delegate');
+        if (!any) drop(e, "revokes a key that is not this root's delegate");
         break;
       }
       case 'rotate': {
@@ -386,7 +531,7 @@ function fold(receipts: Receipt[], views: Map<Hash, PieceView>, ancestral: Map<H
           break;
         }
         if (roots.isDelegateOfAnyone(to)) {
-          drop(e, 'the new root is another root\'s delegate');
+          drop(e, "the new root is another root's delegate");
           break;
         }
         roots.rotations.set(e.key, to);
@@ -411,7 +556,14 @@ function fold(receipts: Receipt[], views: Map<Hash, PieceView>, ancestral: Map<H
  * then the roots' weights, the dependents, the states (a piece's inputs before it), the availabilities, and, when
  * every piece is accepted or unreachable, the output.
  */
-function settle(checked: Checked, pieces: Piece[], views: Map<Hash, PieceView>, ancestral: Map<Hash, PieceView>, folded: Folded, now: string): State {
+function settle(
+  checked: Checked,
+  pieces: Piece[],
+  views: Map<Hash, PieceView>,
+  ancestral: Map<Hash, PieceView>,
+  folded: Folded,
+  now: string,
+): State {
   const { envelope, problem, chain } = checked;
   const { roots, names, versions, dropped } = folded;
   const settings = envelope.problem.settings;
@@ -423,7 +575,8 @@ function settle(checked: Checked, pieces: Piece[], views: Map<Hash, PieceView>, 
   const weights = computeWeights(every, roots);
   const list = pieces.map((p) => views.get(p.hash)!);
   for (const v of list) v.dependents = 0;
-  for (const v of list) for (const entry of v.piece.inputs) for (const dep of inputPieces(entry, pieces)) views.get(dep.hash)!.dependents++;
+  for (const v of list)
+    for (const entry of v.piece.inputs) for (const dep of inputPieces(entry, pieces)) views.get(dep.hash)!.dependents++;
 
   const stateMemo = new Map<Hash, PieceState>();
   /** The state of one piece at `now`, its inputs' states first; memoised, and a cycle of inputs is locked. */
@@ -433,10 +586,12 @@ function settle(checked: Checked, pieces: Piece[], views: Map<Hash, PieceView>, 
     if (trail.has(v.piece.hash)) return 'locked';
     trail.add(v.piece.hash);
     let s: PieceState;
-    const inputsDone = v.piece.inputs.every((entry) => inputPieces(entry, pieces).every((dep) => {
-      const ds = stateOf(views.get(dep.hash)!, trail);
-      return ds === 'accepted' || ds === 'unreachable';
-    }));
+    const inputsDone = v.piece.inputs.every((entry) =>
+      inputPieces(entry, pieces).every((dep) => {
+        const ds = stateOf(views.get(dep.hash)!, trail);
+        return ds === 'accepted' || ds === 'unreachable';
+      }),
+    );
     if (!inputsDone) s = 'locked';
     else if (!(CORE_VERIFIERS as readonly string[]).includes(v.piece.verifier)) s = 'unknown';
     else if (v.accepting) {
@@ -457,7 +612,20 @@ function settle(checked: Checked, pieces: Piece[], views: Map<Hash, PieceView>, 
   const output = complete ? assembleOutput(problem, list) : null;
 
   return {
-    problem, envelope, chain, pieces: list, byHash: views, ancestral, names, versions, delegations: roots.delegations, rotations: roots.rotations, weights, output, dropped, complete,
+    problem,
+    envelope,
+    chain,
+    pieces: list,
+    byHash: views,
+    ancestral,
+    names,
+    versions,
+    delegations: roots.delegations,
+    rotations: roots.rotations,
+    weights,
+    output,
+    dropped,
+    complete,
     rootOf: (key, at) => roots.rootOf(key, at),
     related: (a, b, at) => roots.related(a, b, at),
   };
@@ -477,7 +645,12 @@ function decideAccepting(v: PieceView, roots: Roots, owner: Address, windowH: nu
 }
 
 /** A pair of runs that could accept a check or score piece, with the patch they ran and, for a score piece, the pair's score by `better`. */
-interface RunPair { patch: Reveal; a: Run; b: Run; score?: number }
+interface RunPair {
+  patch: Reveal;
+  a: Run;
+  b: Run;
+  score?: number;
+}
 
 /**
  * The pairs of runs that qualify (section 6), in search order: the patches in receipt order, then the later run, then
@@ -521,7 +694,10 @@ function acceptingRuns(v: PieceView, roots: Roots, owner: Address): AcceptingSet
   for (const { patch, a, b, score } of qualifyingRuns(v, roots, owner)) {
     if (best && b.at >= best.completedAt) continue;
     // A check piece's pairs carry no score; a score piece's every one does.
-    best = score === undefined ? { kind: 'check', patch, runs: [a, b], completedAt: b.at } : { kind: 'score', patch, runs: [a, b], completedAt: b.at, score };
+    best =
+      score === undefined
+        ? { kind: 'check', patch, runs: [a, b], completedAt: b.at }
+        : { kind: 'score', patch, runs: [a, b], completedAt: b.at, score };
   }
   return best;
 }
@@ -535,7 +711,8 @@ function frontierOf(v: PieceView, roots: Roots, owner: Address): { score: number
   let frontier: { score: number; run: Run } | null = null;
   for (const { b, score } of qualifyingRuns(v, roots, owner)) {
     if (score === undefined) continue;
-    if (!frontier || (better === 'higher' ? score > frontier.score : score < frontier.score)) frontier = { score, run: b };
+    if (!frontier || (better === 'higher' ? score > frontier.score : score < frontier.score))
+      frontier = { score, run: b };
   }
   return frontier;
 }
@@ -558,7 +735,8 @@ function acceptingReveals(v: PieceView, roots: Roots, owner: Address): Accepting
     for (let i = 0; i < j; i++) {
       const a = reveals[i]!;
       if (a.vendor === b.vendor) continue;
-      if (returnsAgree(p.schema, fields, a.return, b.return)) return { kind: 'agree', reveals: [a, b], completedAt: b.at };
+      if (returnsAgree(p.schema, fields, a.return, b.return))
+        return { kind: 'agree', reveals: [a, b], completedAt: b.at };
     }
   }
   return null;
@@ -569,11 +747,12 @@ function hasDispute(v: PieceView, roots: Roots): boolean {
   const p = v.piece;
   if (p.verifier !== 'agree' || !p.schema) return false;
   const fields = agreeFields(p.schema, p.agree);
-  for (let j = 0; j < v.reveals.length; j++) for (let i = 0; i < j; i++) {
-    const a = v.reveals[i]!;
-    const b = v.reveals[j]!;
-    if (!roots.related(a.root, b.root, b.at) && !returnsAgree(p.schema, fields, a.return, b.return)) return true;
-  }
+  for (let j = 0; j < v.reveals.length; j++)
+    for (let i = 0; i < j; i++) {
+      const a = v.reveals[i]!;
+      const b = v.reveals[j]!;
+      if (!roots.related(a.root, b.root, b.at) && !returnsAgree(p.schema, fields, a.return, b.return)) return true;
+    }
   return false;
 }
 
@@ -597,10 +776,11 @@ function computeWeights(views: Map<Hash, PieceView>, roots: Roots): Map<Address,
       const r = roots.final(c.root);
       claims.set(r, (claims.get(r) ?? 0) + 1);
     }
-    if (v.accepting?.kind === 'agree') for (const r of v.accepting.reveals) {
-      const f = roots.final(r.root);
-      accepted.set(f, (accepted.get(f) ?? 0) + 1);
-    }
+    if (v.accepting?.kind === 'agree')
+      for (const r of v.accepting.reveals) {
+        const f = roots.final(r.root);
+        accepted.set(f, (accepted.get(f) ?? 0) + 1);
+      }
     if (v.accepting && v.accepting.kind !== 'agree') {
       const f = roots.final(v.accepting.patch.root);
       accepted.set(f, (accepted.get(f) ?? 0) + 1);
@@ -642,7 +822,18 @@ function assembleOutput(problem: Hash, list: PieceView[]): { document: unknown; 
       });
       return { ...base, agreed, evidence };
     }
-    return { ...base, patch: v.accepting.patch.return.patch, author: v.accepting.patch.root, runs: v.accepting.runs.map((r) => ({ signer: r.root, exit: r.exit, score: r.score, image: r.image, host: r.host })) };
+    return {
+      ...base,
+      patch: v.accepting.patch.return.patch,
+      author: v.accepting.patch.root,
+      runs: v.accepting.runs.map((r) => ({
+        signer: r.root,
+        exit: r.exit,
+        score: r.score,
+        image: r.image,
+        host: r.host,
+      })),
+    };
   });
   const document = { quilt: 1, problem, pieces };
   return { document, hash: hashCanonical(document) };
