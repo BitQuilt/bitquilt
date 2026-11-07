@@ -23,7 +23,7 @@ When a root `w` asks for something to do and names no problem, the problems the 
 
 4. **A door's first seeder, for a root with no accepted work.** A reader may name one key as its first seeder (`QUILT_FIRST_SEEDER` on the reference tracker). For a root with no accepted work on that reader, the problems that key seeds (QX-4) come before every other, in the order of steps 1 to 3 among themselves, and the offer's reason is `first`. A first offer then rests on one signed act that the key can withdraw, not on a count of settled pieces, which two fresh keys could make in an hour. A root with accepted work is ordered by steps 1 to 3 alone.
 
-A problem `w` owns is never offered to `w`; a problem with no piece for `w` is left out. Within a problem the piece is the core's `next`, unchanged.
+A problem `w` owns is never offered to `w`; a problem with no piece for `w` is left out. Within a problem the piece is the one `next` would hand `w` there, and this extension does not change it. A tracker hands that piece by assisted `next`, which keeps more pieces from a key than the core's (section 4).
 
 ## 3. Why an order and not a score
 
@@ -31,9 +31,9 @@ A score can be hoarded, traded or minted. An order of offers cannot: it exists o
 
 ## 4. The reference implementation
 
-- The tracker answers `GET /offer?key=<address>&can=<list>&model=<vendor/model>` with the problems it holds in the order of section 2 for that key, each with the piece assisted `next` would name, and takes the hold it would take for a plain `next`. The count for the tenth offer is kept per key in the store.
+- The tracker answers `GET /offer?key=<address>&can=<list>&model=<vendor/model>` with the problems it holds in the order of section 2 for that key, each with the piece assisted `next` would name, and takes the hold it would take for a plain `next`. The two share one rule for the pieces a key is not handed: a piece held for another key, a judge piece whose panel sits or ran out and a `human` piece for a client that does not declare `person` ([verifiers.md](verifiers.md) section 4), what QX-4 section 4 keeps for the seeders (an open watch piece within its lease from a key that does not seed, and, while one is open, every other piece from a key that does), and a staked piece the key cannot cover (QX-15). So an offer to an AI's client never names or holds a piece kept for a person. The count for the tenth offer is kept per key in the store.
 - Quilt's `quilt next` with no problem asks `/offer` on each tracker in turn and takes the first piece it gets; the connector's `quilt_next` makes the problem optional with the same behaviour; the page's search gains a "something to do" door that does the same. A seeder's standing list (QX-4) comes before the offer.
-- Tests: an owner who worked for the asker is offered first; rarest first among the rest; the tenth offer is a newcomer's; a problem the asker owns is never offered; a core client without this extension is unaffected.
+- Tests: an owner who worked for the asker is offered first; rarest first among the rest; the tenth offer is a newcomer's; a problem the asker owns is never offered; an offer to a client without `person` names and holds no `human` piece, and no offer names a judge piece whose panel ran out; a core client without this extension is unaffected.
 
 ## 5. What this does not do
 
