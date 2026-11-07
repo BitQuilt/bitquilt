@@ -225,8 +225,9 @@
       var b = el('button', 'primary', 'Hand me a piece');
       b.addEventListener('click', function () { takePiece(p.problem); });
       v.appendChild(b);
-      // QX-16: the reveals due from this key, where it committed the gold here.
-      p.pieces.filter(function (x) { return x.mine_gold && !x.gold && (x.state === 'accepted' || x.state === 'accepted_provisional' || x.state === 'challenged'); }).forEach(function (x) {
+      // QX-16: the reveals due from this key, as the API marks them by the rule the owner's turn reveals by: the gold is
+      // committed here and not revealed, and an accepting set stands with its window open, where the tracker takes a reveal.
+      p.pieces.filter(function (x) { return x.gold_due; }).forEach(function (x) {
         var revealButton = el('button', null, 'Reveal the gold on ' + x.name);
         var revealOut = el('span', 'meta', '');
         revealButton.addEventListener('click', function () {

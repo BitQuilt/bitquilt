@@ -10,7 +10,9 @@ import { baseOf, hex, quiltOver, startTracker, tempHome } from './helpers.js';
 /**
  * The page: what a person at http://localhost:3978/ does. They search, open a problem, take the rarest piece and hand
  * a return back as a person (the same key as their AI's, model `human`, capability `person`), and a piece an AI of
- * another vendor returned before them is accepted by their agreement.
+ * another vendor returned before them is accepted by their agreement. The owner's gold (QX-16) is offered for reveal on
+ * the pieces the owner's turn reveals (gold.ts, goldDue): an accepting set stands and its window is open. Once the
+ * window has closed the tracker refuses the reveal, and the page no longer offers it.
  */
 let tracker: Server;
 let page: Server;
@@ -130,6 +132,96 @@ describe('the page', () => {
     // The next take is another piece: the accepted one is done, and a key is never handed a piece it has a reveal on.
     const again = await api(`/api/next?problem=${problem}`);
     expect(again.body.piece).not.toBe(verifying);
+  });
+});
+
+describe('the reveal of the owner\'s gold the page offers', () => {
+  // A tracker on the test's clock, so a window can close; the page's key owns a problem with gold on two of its pieces.
+  const HOUR = 3_600_000;
+  let tick = Date.now();
+  let goldTracker: Server;
+  let goldPage: Server;
+  let goldSite: string;
+  let mine: Quilt, vendor: Quilt, worker: Quilt, other: Quilt;
+  let golden: Hash;
+  const statements = (slug: string, count: number): Pattern => ({
+    title: `Does the paper say so? (${slug})`,
+    done_when: 'Every statement has a verdict agreed by two vendors.',
+    slug,
+    pieces: {
+      'statement/*': {
+        count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so? Return the verdict and a quote.',
+        schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string', maxLength: 160 } } },
+        agree: ['verdict'],
+      },
+    },
+  });
+  type Row = { hash: Hash; name: string; state: string; gold: string | null; mine_gold: boolean; gold_due: boolean };
+  const rows = async (): Promise<Row[]> => {
+    const r = await fetch(`${goldSite}/api/open?link=${golden}`);
+    return ((await r.json()) as { pieces: Row[] }).pieces;
+  };
+  const due = async () => (await rows()).filter((x) => x.gold_due).map((x) => x.name);
+
+  beforeAll(async () => {
+    let at: string;
+    ({ server: goldTracker, base: at } = await startTracker({ limits: { keyPerHour: 1000, ipPerHour: 10000 }, now: () => new Date((tick += 1000)).toISOString() }));
+    const mk = quiltOver(at);
+    mine = mk(4, 'anthropic/claude');
+    vendor = mk(2, 'openai/gpt-5', 'ChatGPT');
+    worker = mk(5, 'anthropic/claude');
+    other = mk(6, 'anthropic/claude');
+    goldPage = await createPage({ quilt: mine, person: mine, resolver: mine.resolver }).listen(0);
+    goldSite = baseOf(goldPage).slice(0, -1);
+    // Standing first, since each blind commitment stakes two: three squares on another owner's problem bring the page's key to four.
+    const elsewhere = (await other.publish(statements('elsewhere', 3))).hash;
+    for (const v of (await mine.open(elsewhere)).state.pieces) {
+      await mine.return(elsewhere, v.piece.hash, { verdict: 'supports', quote: 'it says so' });
+      await vendor.return(elsewhere, v.piece.hash, { verdict: 'supports', quote: 'indeed' });
+    }
+    expect(await mine.standing()).toMatchObject({ standing: 4, free: 4 });
+    const published = await mine.publish({ ...statements('golden', 3), gold: { answers: { 'statement/1': { verdict: 'supports', quote: '' }, 'statement/2': { verdict: 'supports', quote: '' } } } });
+    expect(published.refused).toEqual([]);
+    expect(published.gold).toEqual({ pieces: 2, stake: 4 });
+    golden = published.hash;
+  });
+  afterAll(async () => {
+    await new Promise<void>((r) => goldPage.close(() => r()));
+    await new Promise<void>((r) => goldTracker.close(() => r()));
+  });
+
+  it('offers nothing before a piece is accepted, though the gold is committed here', async () => {
+    const before = await rows();
+    expect(before.map((x) => x.mine_gold)).toEqual([true, true, false]);
+    expect(await due()).toEqual([]);
+  });
+  it('offers the reveal while the window is open, and the reveal it offers is the one the tracker takes', async () => {
+    const [p1, p2] = (await rows()).map((x) => x.hash);
+    for (const piece of [p1!, p2!]) {
+      await worker.return(golden, piece, { verdict: 'supports', quote: 'as the paper says' });
+      await vendor.return(golden, piece, { verdict: 'supports', quote: 'the paper says so' });
+    }
+    expect((await rows()).slice(0, 2).map((x) => x.state)).toEqual(['accepted_provisional', 'accepted_provisional']);
+    expect(await due()).toEqual(['statement/1', 'statement/2']);
+    // The page and the owner's turn read one rule.
+    expect((await mine.revealDue(false)).map((d) => d.name)).toEqual(await due());
+    const revealed = await fetch(`${goldSite}/api/reveal`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ problem: golden, piece: p1 }) });
+    expect(revealed.status).toBe(200);
+    expect(((await revealed.json()) as { outcome: string }).outcome).toBe('match');
+    expect(await due()).toEqual(['statement/2']);
+  });
+  it('offers no reveal once the window has closed, where the tracker refuses it and the owner\'s turn reveals nothing', async () => {
+    tick += 49 * HOUR;
+    const second = (await rows())[1]!;
+    expect(second).toMatchObject({ name: 'statement/2', state: 'accepted', gold: null, mine_gold: true, gold_due: false });
+    expect(await due()).toEqual([]);
+    expect(await mine.revealDue(false)).toEqual([]);
+    await expect(mine.revealGold(golden, second.hash)).rejects.toThrow(/the window has closed/);
+  });
+  it('draws the reveal from the mark the API sets, with no list of states of its own', async () => {
+    const html = await (await fetch(`${goldSite}/`)).text();
+    expect(html).toContain('return x.gold_due;');
+    expect(html).not.toMatch(/x\.state === '(accepted|accepted_provisional|challenged)'/);
   });
 });
 
