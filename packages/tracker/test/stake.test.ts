@@ -8,6 +8,8 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  * stake, on an unstaked piece and twice on one piece; locked standing cannot be staked again on a challenge; a lock is
  * released when the window closes or when nothing was produced in the lease, and forfeited with the set a held
  * challenge strikes; the offers leave out what a key cannot cover; a coin lock is refused by a tracker with no coin.
+ * The door asks for the lock before anything else it reads of the work: on a staked record piece whose readings are in
+ * (QX-20), a root with no lock is told to lock first, and one with a lock is told the readings are in.
  */
 const owner = key(9), A = key(1), B = key(2), C = key(3), D = key(4), E = key(5), F = key(6);
 const judges = [key(11), key(12), key(13), key(14)];
@@ -171,5 +173,23 @@ describe('stake at the door', () => {
     const offers = ((await get(`/offer?key=${addr(F)}&can=web&model=meta/llama`)) as { offers: { problem: Hash }[] }).offers.map((o) => o.problem);
     expect(offers).toContain(q);
     expect(offers).not.toContain(p);
+  });
+
+  it('asks a root with no lock on a staked record piece to lock first, before the record, the schema or the commit is read', async () => {
+    const R = signed(owner, 'staked-record', { question: { verifier: 'record:2', requires: ['web'], brief: 'Does the paper say so? Read it your way.', schema, agree: ['verdict'] } });
+    const r = problemHash(R);
+    expect((await post('/p', { envelope: R })).status).toBe(201);
+    const question = (await stateOf(r)).pieces[0]!.hash;
+    const G = key(21), H = key(22), K = key(23);
+    await returnOn(r, question, G, 'anthropic/claude');
+    await returnOn(r, question, H, 'openai/gpt', 'contradicts');
+    expect((await stateOf(r)).pieces[0]!.state).toBe('recorded');
+    await accepted(`/p/${r}/events`, rule(owner, r, { min: 1 }));
+    // QX-15 first: the claim, and a reveal outside the schema with no commit behind it, are each told to lock.
+    expect(await refused(`/p/${r}/events`, claim(K, r, question, 'google/gemini'))).toBe('this piece asks for a stake of 1; lock first');
+    expect(await refused(`/p/${r}/events`, ev(K, 'reveal', { return: { verdict: 'neither' }, nonce: newNonce(), by: by('google/gemini') }, r, question))).toBe('this piece asks for a stake of 1; lock first');
+    // QX-20 next: with a live lock, the same claim is told the readings are in.
+    await accepted(`/p/${r}/events`, lock(K, r, question, 1));
+    expect(await refused(`/p/${r}/events`, claim(K, r, question, 'google/gemini'))).toBe('the readings for this piece are in');
   });
 });
