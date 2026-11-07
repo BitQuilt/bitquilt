@@ -70,6 +70,9 @@ function make(hostName?: string): Quilt {
 async function main(): Promise<void> {
   switch (command) {
     case 'init': {
+      // Two programs read the lines this prints by position, and test/init.test.ts holds them. deploy/house.sh keeps the
+      // first line alone, the address, so the twelve words stay out of the docker log. apps/mac's Node.swift takes the
+      // line after the one starting "Phrase" as the words, and reads a line starting "The key came home" as a key home.
       const phrase = flag('--phrase');
       const from = flag('--from');
       let secret = flag('--secret');

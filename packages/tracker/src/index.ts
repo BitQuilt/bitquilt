@@ -20,7 +20,7 @@ export {
 } from './verifiers.js';
 export { drawOrder, offerSeats, type Seated } from './sortition.js';
 export { STAKE, STAKE_EVENTS, PRODUCTION_EVENTS, LOCK_KINDS, stakeRuleBodyProblems, lockBodyProblems, stakeAsked, ruleNames, lockReleasedAt, type StakeRule, type LockView, type LockKind, type CoinLockWord } from './stake.js';
-export { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems, goldMatches, goldShare, hasAgreedFields, firstProductionAt, type GoldView, type GoldCommitment, type GoldOutcome, type GoldState } from './gold.js';
+export { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems, goldMatches, goldShare, hasAgreedFields, firstProductionAt, windowOpen, type GoldView, type GoldCommitment, type GoldOutcome, type GoldState } from './gold.js';
 export { COIN, COIN_LOG, COIN_EVENTS, coinLayer, coinParamsProblems, coinBodyProblems, epochAmount, type CoinParams, type CoinLayer, type CoinLockView, type BalanceView, type EpochView, type CoinWord, type BurnWord, type RedeemLine, type CreditLine } from './coin.js';
 export { creditedRoots, type Credit, type Move } from './standing.js';
 export { HIDE, WHY_MAX, hideBodyProblems, hiddenNow, type Hidden } from './hide.js';

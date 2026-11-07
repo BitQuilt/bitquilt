@@ -7,7 +7,7 @@ import { type Hash, addressOf, secretFromHex } from '@bitquilt/core';
 import { draftEnvelope, patternProblems } from '../src/pattern.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
 import { STATE_MARK, STATE_WORDS, kindWords, legendText, waitsText } from '../src/render.js';
-import { hex, instructs, mcpPair, quiltOver, startTracker } from './helpers.js';
+import { hex, instructs, mcpPair, quiltOver, startTracker, verifying } from './helpers.js';
 
 /**
  * The record kind from the client's side (docs/ext/QX-20.md): the words for the kind, its two states and what a reading
@@ -40,16 +40,6 @@ beforeAll(async () => {
   await Promise.all([a, b, c, d].map((q) => q.setName(`Reader ${q.identity!.address.slice(2, 6)}`)));
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
-
-/** The call made with the second opinion's switch set, and the switch unset again whatever happens. */
-async function verifying<T>(f: () => Promise<T>): Promise<T> {
-  process.env.QUILT_NEXT_ONLY = 'verify';
-  try {
-    return await f();
-  } finally {
-    delete process.env.QUILT_NEXT_ONLY;
-  }
-}
 
 describe('the record kind (QX-20)', () => {
   it('has its words: the kind, the two states and their marks, and what a reading waits for, none of them instructing', () => {

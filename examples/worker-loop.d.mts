@@ -16,6 +16,8 @@ export function plain(answer: Record<string, unknown>): Record<string, unknown>;
 export function fit(piece: Piece, answer: Record<string, unknown>): Record<string, unknown>;
 export function gateRefusal(said: string): string | null;
 export function schemaRefusal(said: string): string | null;
+/** What `quilt next` says when it has nothing to hand out, which the loop logs as quiet rather than as a stop. */
+export const quiet: RegExp;
 /** QX-19: what a field rests on, as the model is asked for it beside the answer. */
 export interface Rest { field: string; url: string; passage: string }
 export const RESTS: { type: 'array'; items: { type: 'object'; additionalProperties: false; required: string[]; properties: Record<string, { type: 'string' }> } };

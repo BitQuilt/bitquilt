@@ -10,7 +10,7 @@ import { runTool } from '../src/tools.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
 import { publicAddress, publicFetch } from '../src/public-fetch.js';
 import { READ_MAX, drawText, fetchRead, locate } from '../src/trace.js';
-import { instructs, json, mcpPair, quiltOver, startTracker } from './helpers.js';
+import { instructs, json, mcpPair, quiltOver, startTracker, verifying } from './helpers.js';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -311,14 +311,9 @@ describe('the seam decides itself (section 4)', () => {
     await a.return(pool, piece, { verdict: 'supports', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: HOLDS }]);
     await b.return(pool, piece, { verdict: 'contradicts', quote: 'q' });
     expect((await trackerState(pool)).pieces[0]).toMatchObject({ state: 'needs_verify', aside: [b.identity!.address] });
-    process.env.QUILT_NEXT_ONLY = 'verify';
-    try {
-      const handed = await b.next(pool);
-      expect(handed.pick.piece.hash).toBe(piece);
-      expect(handed.seams[0]!.sides.map((s) => s.aside)).toEqual([false, true]);
-    } finally {
-      delete process.env.QUILT_NEXT_ONLY;
-    }
+    const handed = await verifying(() => b.next(pool));
+    expect(handed.pick.piece.hash).toBe(piece);
+    expect(handed.seams[0]!.sides.map((s) => s.aside)).toEqual([false, true]);
     // Without the switch, B is handed an open piece, as the core orders them.
     expect((await b.next(pool)).pick.state).toBe('open');
   });
