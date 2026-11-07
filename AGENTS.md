@@ -40,7 +40,7 @@ What a person or a model reads lives in sixteen places, each held by the tests n
 - the site under `site/`, by review, with the card's frame in `site/index.html` held by `window.test.ts`;
 - each binary's header comment, by review;
 - what the command line prints, in `packages/client/src/bin.ts`: `quilt away --status --json` held by `away.test.ts`, `quilt gold due` by `gold.test.ts`, and the rest by review, with the lines `quilt init` prints, which `deploy/house.sh` reads by place and the Mac app's `Node.swift` by their first words;
-- and `docs/`, by review, with the house second opinion's two services and its wait, as `docs/DEPLOY.md`, `deploy/` and `examples/README.md` say them, held by `packages/client/test/house-words.test.ts`.
+- and `docs/` with the READMEs and env examples beside the code (`README.md`, `deploy/`, `examples/README.md`, `impl/python/README.md`, `apps/mac/README.md`, `packages/core/README.md`, `.env.example`), by review, with the house second opinion's two services and its wait, as `docs/DEPLOY.md`, `deploy/` and `examples/README.md` say them, held by `packages/client/test/house-words.test.ts`.
 
 The tool list and the prompt list are written a second time in `scripts/build-mcpb.mjs`, and `mcpb.test.ts` holds both to the server's, the tools in the order the server registers them, which `TOOL_NAMES` keeps too. Comments and messages everywhere use the same register: short declarative sentences that say what and why, in the documents' words, with no em-dashes.
 
