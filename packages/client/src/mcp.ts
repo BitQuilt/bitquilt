@@ -4,6 +4,7 @@
  * the same text, since some hosts show a model only structuredContent. The long texts here are written one sentence a
  * line and joined with a space, so a sentence can be read and changed on its own.
  */
+import { readFileSync } from 'node:fs';
 import { RESOURCE_MIME_TYPE, getUiCapability, registerAppResource, registerAppTool } from '@modelcontextprotocol/ext-apps/server';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
@@ -15,6 +16,13 @@ import { ARG_WORDS, PHRASES, type PhraseArg } from './phrases.js';
 import { type ToolInput, type ToolName, type ToolResult, type ToolRunner } from './tools.js';
 import { WINDOW_HTML } from './window.generated.js';
 import { WINDOW_OPS, WINDOW_URI, WINDOW_URI_NOW } from './window.js';
+
+/**
+ * The version the connector names in its handshake, which packages/client/package.json holds and a release changes
+ * there alone. The executables and the bundle carry it as QUILT_VERSION, written in by their build scripts; under tsx
+ * and vitest nothing is written in, and the file beside the source is read.
+ */
+const VERSION: string = process.env.QUILT_VERSION ?? (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
 
 /** What every tool answers with: the text a model reads, and the handles a card uses (a problem hash, a piece hash, where a post went). */
 const toolOutput = { text: z.string(), handles: z.record(z.string(), z.unknown()).optional() };
@@ -53,7 +61,7 @@ export interface McpServerOptions {
  */
 export function createMcpServer(run: ToolRunner, options: McpServerOptions = {}): McpServer {
   const away = options.away ?? process.env.QUILT_AWAY;
-  const server = new McpServer({ name: 'quilt', version: '0.2.5' }, { instructions: away ? `${instructions} ${awayInstructions(readAway(away))}` : instructions });
+  const server = new McpServer({ name: 'quilt', version: VERSION }, { instructions: away ? `${instructions} ${awayInstructions(readAway(away))}` : instructions });
   // While away, a claim or a return past the day's cap is answered with the cap and writes nothing; each return handed back is counted in the record.
   const call = (name: ToolName) => async (input: ToolInput) => {
     if (away && (name === 'quilt_next' || name === 'quilt_return')) {

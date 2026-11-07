@@ -62,7 +62,7 @@ Sources/Quilt/Setup.swift       the screens before the sheet: the node, no key, 
 Sources/Quilt/Pieces.swift      the phrase row, the sentence to say now, coin and standing, the away row, the search field
 Sources/Quilt/Theme.swift       the site's colours and faces, the quilt mark, the menu-bar icon, the two button shapes
 Sources/Quilt/PageWindow.swift  the web view and its window
-Resources/Info.plist            the bundle's identity, LSUIElement, the loopback exception, and where the fonts are
+Resources/Info.plist            the bundle's identity, its version (the client's, which packages/client/test/version.test.ts holds it to), LSUIElement, the loopback exception, and where the fonts are
 Resources/Fonts                 Young Serif, Atkinson Hyperlegible and IBM Plex Mono, with their licences
 build.sh                        the app at dist/Quilt.app
 ```

@@ -17,7 +17,9 @@ const bin = join(dist, 'bin');
 mkdirSync(bin, { recursive: true });
 const platform = `${process.platform}-${process.arch}`;
 const exe = process.platform === 'win32' ? '.exe' : '';
-const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+// The client's version, from its package.json as the other two build scripts read it; the root package.json is the
+// workspace's and says 0.0.0. The connector names it in its handshake, where mcp.ts reads it as QUILT_VERSION.
+const version = JSON.parse(readFileSync(join(root, 'packages', 'client', 'package.json'), 'utf8')).version;
 
 const targets = [
   { name: 'quilt', entry: 'packages/client/src/bin.ts', assets: { 'index.html': 'packages/client/page/index.html' } },

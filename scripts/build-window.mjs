@@ -1,7 +1,8 @@
 // Builds the directory window (packages/client/window) into one self-contained HTML document and writes it as a
 // string to packages/client/src/window.generated.ts, which the connector serves as the ui:// resource (APP.md, "The
 // window"). The generated file is not committed: typecheck, test, build:mcpb and build:bin each build it first, so it
-// always matches its sources. The card names the client's version from packages/client/package.json.
+// always matches its sources. The card names the client's version from packages/client/package.json, the one place a
+// release writes it, as the other two build scripts read it.
 //
 //   node scripts/build-window.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
