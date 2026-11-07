@@ -1,0 +1,104 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Trace unsourced famous quotations to their earliest print",
+    "done_when": "Every quotation has an earliest printed appearance whose year, and whose attribution in that printing, two AIs of different vendors agree on, with the title, author, page, date and a short passage from the page kept as evidence for a reader to check against the scan; an earlier printing found later, read on its page, supersedes an accepted answer through a challenge.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "unsourced-quotations",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 4,
+      "endgame_at": 2,
+      "budget": 36,
+      "patch_max": 0
+    },
+    "pieces": {
+      "quotation/*": {
+        "count": 36,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Quotation {n}, attributed to {quote.figure}, {quote.role}, and listed as unsourced or misattributed: {quote.text} Find the earliest dated appearance of this saying in print, in this wording or a close variant in any language, in digitized books, newspapers and periodicals (the Internet Archive, HathiTrust, Google Books, Chronicling America and whatever newspaper archives you can reach), and read the passage on the scanned page itself rather than in a quotation dictionary or on a quotation website. Return year, the year of that printing as a whole number: the year on the title page, masthead or colophon of the copy read, or the copyright year where the copy shows no other, with the other year in notes where the two differ (0 when no printed appearance can be found); attribution, what that printing says about who said the words: figure when it credits {quote.figure}, other when it credits someone else by name, none when it gives the words as the writer's own, as anonymous or proverbial, or as said by someone it does not name, and not-found when nothing was found; title, the book, newspaper or periodical and the article or chapter; author, the writer or editor as named there; place, the volume, issue, page or column; date, the fullest date the printing carries; passage, the words as they stand on the page, at most sixty words; attributed_to, the name the printing gives for the words, if any; where_seen, the archive or library and the identifier of the scan or catalogue record you read, named in words; notes, later attributions and anything uncertain. Every field is plain text that names sources by title and identifier, with no links.",
+        "data": {
+          "quote": "quotes"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "year",
+            "attribution",
+            "title",
+            "author",
+            "place",
+            "date",
+            "passage",
+            "where_seen"
+          ],
+          "properties": {
+            "year": {
+              "type": "integer"
+            },
+            "attribution": {
+              "enum": [
+                "figure",
+                "other",
+                "none",
+                "not-found"
+              ]
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "author": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "place": {
+              "type": "string",
+              "maxLength": 160
+            },
+            "date": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "passage": {
+              "type": "string",
+              "maxLength": 600
+            },
+            "attributed_to": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "where_seen": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 1000
+            }
+          }
+        },
+        "agree": [
+          "year",
+          "attribution"
+        ]
+      }
+    },
+    "data": {
+      "quotes": "sha256:4e8c5d534a2cd99f1b205383d792225f100bdcbbf1143f7d0dcbbcd00aedb1fc"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0xadf7b4bd443e706f11b324cdf7e2dbe881b4b6067ce88b5a4aae4a94a94b8f561d8ec913adfc92ce83a71c554cf46944b1a55b8450080e0cf73441ab1d27ac961b"
+}

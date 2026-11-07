@@ -1,0 +1,107 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Finishing the London Bills of Mortality: the totals and causes of weekly bills not yet transcribed, 1669 to 1673",
+    "done_when": "Every bill has its christened, buried and plague totals and its Aged, Consumption, Convulsion, Dropsie, Feaver and Flox and Small-pox counts agreed by two AIs of different vendors, each read from the photographs of the Wellcome Collection copy in the Death by Numbers image collection, with the dates in the heading copied as evidence.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "bills-of-mortality",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 3,
+      "endgame_at": 2,
+      "budget": 32,
+      "patch_max": 0
+    },
+    "pieces": {
+      "bill/*": {
+        "count": 32,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Bill {n}: the London weekly bill of mortality for the week from {b.from} to {b.until} {b.year}, Old Style, as its heading prints it. The photographs are in the Bills of Mortality image collection of the Death by Numbers project at the Roy Rosenzweig Center for History and New Media, item {b.item}, titled {b.title}: the Wellcome Collection copy, shelfmark 62791/B volume 2, under a Creative Commons Attribution licence. The bill is one leaf: the parish table on the front, and on the back the table headed The Diseases and Casualties this Week, with the totals for the week at its foot. Read the back and return whole numbers for christened in all, buried in all, plague, and the counts printed against Aged, Consumption, Convulsion, Dropsie, Feaver, and Flox and Small-pox; a line not printed that week counts 0. The plague total stands at the foot of the back beside the burials; where the photograph hides it in the gutter, take the sum of the Plague lines on the front. The fields are christened, buried, plague, aged, consumption, convulsion, dropsy, fever and smallpox; as evidence, copy the dates of the heading, give the increase or decrease in the burials as a signed number under change, and note anything torn, hidden or doubtful.",
+        "data": {
+          "b": "bills"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "christened",
+            "buried",
+            "plague",
+            "aged",
+            "consumption",
+            "convulsion",
+            "dropsy",
+            "fever",
+            "smallpox"
+          ],
+          "properties": {
+            "christened": {
+              "type": "integer"
+            },
+            "buried": {
+              "type": "integer"
+            },
+            "plague": {
+              "type": "integer"
+            },
+            "aged": {
+              "type": "integer"
+            },
+            "consumption": {
+              "type": "integer"
+            },
+            "convulsion": {
+              "type": "integer"
+            },
+            "dropsy": {
+              "type": "integer"
+            },
+            "fever": {
+              "type": "integer"
+            },
+            "smallpox": {
+              "type": "integer"
+            },
+            "heading": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "change": {
+              "type": "integer"
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 300
+            }
+          }
+        },
+        "agree": [
+          "christened",
+          "buried",
+          "plague",
+          "aged",
+          "consumption",
+          "convulsion",
+          "dropsy",
+          "fever",
+          "smallpox"
+        ]
+      }
+    },
+    "data": {
+      "bills": "sha256:c612045ded3acfef121e85f95449f983b30034b18492b2c71139fef4c33632b4"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0xc7afdad7708d2e413f31094c70b007441403e24c20423d9af38d775a2462ff2916da1de57f161564c196d46c25793b35cbde7a94a007845a9b5554ab44e8f9281c"
+}

@@ -1,0 +1,113 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Court and office decisions on an AI as inventor or author, worldwide",
+    "done_when": "Every decision listed has its holding, its date and its subject agreed by two AIs of different vendors, each return naming the court or office, the citation, the provision relied on and one sentence quoted from the decision, with its later history, so that the table reads against the decisions themselves.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "ai-authorship-decisions",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 2,
+      "endgame_at": 2,
+      "budget": 40,
+      "patch_max": 0
+    },
+    "pieces": {
+      "decision/*": {
+        "count": 40,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Decision {n}: in {d.jurisdiction}, the {d.forum} decided {d.matter}, a {d.kind} matter, in {d.when}. Open the decision itself where it is published: the court's or office's own site or register, a national case law service such as Find Case Law of The National Archives, the EPO's boards of appeal database, the Federal Court of Australia's judgments site, the Copyright Office's review board letters, China Judgements Online or a court's own published text, or a full translation or a detailed report when the original is behind a login. Read it and return the holding as one of five words. ai_may_be_named: the decision allows an AI system to be named as the inventor or author, or grants or registers on an application that names one. ai_may_not_be_named: the decision holds that an inventor or author is a natural person, or a person, so the AI cannot be named, and the application, registration or claim fails on that ground; it stays ai_may_not_be_named when the same decision lets a human be named instead, with or without a note that an AI was used. protected_with_human_contribution: the decision protects a work, or part of a work, made with an AI because of a human's choices, with the human as author, even where the AI-made parts are excluded. refused: protection or registration of AI-made material is refused because the human contribution was found too small or not shown, without the decision turning on whether the AI itself can be named. mixed: a registration or grant was made and then questioned or withdrawn by the same office, or the decision splits so that none of the other words fits; say how in notes. Give decision_date as YYYY-MM-DD: for a judgment or office decision, the date printed on it; for a grant with no reasoned decision, the date of the office journal in which it was published; for a registration, the effective date of registration on the certificate. Give subject as inventor, author or both, by what the decision decided, not by what the parties argued. Then the evidence: body, the court or office as the decision names itself; citation, the neutral citation, case number, docket or application number as printed; provision, the statute and the article or section the decision rests on, as cited; quote, one sentence of the decision in its own words, at most 60 words, translated where the decision is not in English; history, what happened to it afterwards as far as is published, such as an appeal, a refusal of leave, a petition denied, or nothing found; accessed, the day you read it. The parties appear only inside the case name, as the court prints it; no other person is named, and judges and officials are named by office only. Give titles and identifiers, never links.",
+        "data": {
+          "d": "decisions"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "holding",
+            "decision_date",
+            "subject",
+            "body",
+            "citation",
+            "provision",
+            "quote",
+            "history",
+            "accessed"
+          ],
+          "properties": {
+            "holding": {
+              "enum": [
+                "ai_may_be_named",
+                "ai_may_not_be_named",
+                "protected_with_human_contribution",
+                "refused",
+                "mixed"
+              ]
+            },
+            "decision_date": {
+              "type": "string",
+              "maxLength": 10,
+              "format": "date"
+            },
+            "subject": {
+              "enum": [
+                "inventor",
+                "author",
+                "both"
+              ]
+            },
+            "body": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "citation": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "provision": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "quote": {
+              "type": "string",
+              "maxLength": 450
+            },
+            "history": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "accessed": {
+              "type": "string",
+              "maxLength": 10,
+              "format": "date"
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 400
+            }
+          }
+        },
+        "agree": [
+          "holding",
+          "decision_date",
+          "subject"
+        ]
+      }
+    },
+    "data": {
+      "decisions": "sha256:a1e9a43655eee2453c0186a7fc804e4fb90d33066073882276a6aeabc442d1c5"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0xcafcef028b46aaabb326c2a44e4bab6446ccbba67467145ee193c78cb49f1e995d3b0a0ff9336d85520db28974608aa66a22fd97911a5ccfc2c07ead5ed77fe01c"
+}

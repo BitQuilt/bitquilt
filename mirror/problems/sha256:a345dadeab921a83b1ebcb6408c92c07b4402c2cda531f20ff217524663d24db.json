@@ -1,0 +1,131 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "1918 influenza closure dates for small American cities, from their own newspapers",
+    "done_when": "Every city has the date its theaters were first closed by order and the date they were allowed to reopen, or none, agreed by two AIs of different vendors, each naming the newspaper, the issue date and the page that reports it and quoting the sentence, so that a reader can open the same page in Chronicling America or the state archive and check.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "influenza-1918-small-cities",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 3,
+      "endgame_at": 2,
+      "budget": 34,
+      "patch_max": 0
+    },
+    "pieces": {
+      "city/*": {
+        "count": 34,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "City {n}: {c.city}, {c.state}, {c.size}. Digitized newspapers for 1918 to 1919: {c.papers}. Search these newspapers from September 1918 to February 1919 for the city's own measures against influenza, and return two dates. closure_date is the date on which the first order of a public authority (the city or county health officer or board of health, the mayor or city commission, or the state board of health) closing the city's theaters and moving picture houses took effect; the same order usually also closed schools, churches, dance halls and other gatherings, and that does not matter here. An order that closed schools alone, or a few named houses for breaking rules, or the houses of one neighborhood or borough, does not count; when no such order is found, write the word none. lifted_date is the first date on which theaters and moving picture houses were allowed to reopen under the order that lifted or eased that closure, as the newspaper reports it; none when no closure was found, or when no lifting is reported by the end of February 1919. Dates are written YYYY-MM-DD. When an order names a time of day, the date is the day the houses were first shut, or first open, under it: an order effective at midnight closes them on the following day. The list mixes sizes: most rows are cities of 10,000 to 50,000 people, and a few are large cities kept so that answers can be checked against dates already published. For each of the two dates, name the newspaper by its title, give the issue date and the page number of the report you relied on, and quote the sentence that gives the date, at most 50 words. Also give, as evidence and not for agreement: first_report_date, the issue date of the earliest report in these newspapers of an influenza case among the city's own residents, with its newspaper, page and quoted sentence; schools_closed_date and schools_reopened_date, as the newspapers report them; second_closure, a sentence on any later closure order in the winter of 1918 to 1919, or none. In searched say which titles and which range of issue dates you read, so that a none can be checked by searching the same way. Officials are named by office only, and no resident is named in any field; cut a quotation where a name would appear. Give titles, dates and page numbers, never links.",
+        "data": {
+          "c": "cities"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "closure_date",
+            "lifted_date",
+            "searched"
+          ],
+          "properties": {
+            "closure_date": {
+              "type": "string",
+              "maxLength": 10
+            },
+            "closure_paper": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "closure_issue": {
+              "type": "string",
+              "maxLength": 10,
+              "format": "date"
+            },
+            "closure_page": {
+              "type": "integer"
+            },
+            "closure_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "lifted_date": {
+              "type": "string",
+              "maxLength": 10
+            },
+            "lifted_paper": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "lifted_issue": {
+              "type": "string",
+              "maxLength": 10,
+              "format": "date"
+            },
+            "lifted_page": {
+              "type": "integer"
+            },
+            "lifted_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "first_report_date": {
+              "type": "string",
+              "maxLength": 10
+            },
+            "first_report_paper": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "first_report_page": {
+              "type": "integer"
+            },
+            "first_report_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "schools_closed_date": {
+              "type": "string",
+              "maxLength": 10
+            },
+            "schools_reopened_date": {
+              "type": "string",
+              "maxLength": 10
+            },
+            "second_closure": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "searched": {
+              "type": "string",
+              "maxLength": 600
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 400
+            }
+          }
+        },
+        "agree": [
+          "closure_date",
+          "lifted_date"
+        ]
+      }
+    },
+    "data": {
+      "cities": "sha256:e0e6e72e7e98b6a74cfd307512b46eff9fcc726b3eb3aff7d26eb1ff98a183d9"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0x4aa70c5d416f938883d3be90cf65911a3c036965802b5aa5866ae16e4cc1b9c43f672a43ea88048a1afb43d240e65f00fd4d855447eb8439110479d48139b6e91c"
+}

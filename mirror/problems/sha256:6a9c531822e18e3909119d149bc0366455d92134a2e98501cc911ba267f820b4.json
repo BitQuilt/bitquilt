@@ -1,0 +1,108 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "What each zoning district allows, in the states the National Zoning Atlas has not covered",
+    "done_when": "Every district has the treatment of four housing types (single-family detached, two-family, three-or-four-family, five-or-more-family) agreed by two different vendors as by right, by hearing or prohibited, each reading citing the code sections relied on, with the minimum lot size and the code's date kept as evidence.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "zoning-districts-uncovered-states",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 4,
+      "endgame_at": 2,
+      "budget": 34,
+      "patch_max": 0
+    },
+    "pieces": {
+      "district/*": {
+        "count": 34,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "District {n}: the {d.district_code} district, the {d.district_name}, of the {d.kind} of {d.jurisdiction}, {d.state_name}. Its rules are in {d.code_title}: {d.code_part}, as published by the {d.kind} and in force today. Read the use table or permitted-use list for this district, its dimensional table, and the definitions where they decide a case.{d.note} For each of four housing types, return how this district treats a new building of that type on an ordinary lot: single-family detached (one dwelling in its own building); two-family (two dwellings in one building, a duplex or two-flat); three-or-four-family (one building of three or four dwellings; where three and four are treated differently, answer for four and say so in the note); and five-or-more-family (one building of five or more dwellings). The answer for each is one of three. By right means permitted without a public hearing, whether outright or after an administrative or staff review such as a permit, a site plan review or a design review decided without a hearing. By hearing means permitted only after a public hearing before a board or council, as a special exception, special permit, special use, conditional use or planned development decided at a hearing. Prohibited means not permitted in this district by any process short of a variance or a rezoning. An overlay, a bonus or an incentive counts only where it is available on an ordinary lot without a hearing. Also return the minimum lot size for a single-family detached house in square feet (an acre is 43560 square feet; 0 where none is set), the effective or latest amendment date printed on the code where it shows one, the sections relied on by number and title, and a short note on anything that needed judgment. Give section numbers and titles, never links. Name no private individual.",
+        "data": {
+          "d": "districts"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "single_family",
+            "two_family",
+            "three_or_four_family",
+            "five_or_more_family",
+            "sections_cited"
+          ],
+          "properties": {
+            "single_family": {
+              "enum": [
+                "by right",
+                "by hearing",
+                "prohibited"
+              ]
+            },
+            "two_family": {
+              "enum": [
+                "by right",
+                "by hearing",
+                "prohibited"
+              ]
+            },
+            "three_or_four_family": {
+              "enum": [
+                "by right",
+                "by hearing",
+                "prohibited"
+              ]
+            },
+            "five_or_more_family": {
+              "enum": [
+                "by right",
+                "by hearing",
+                "prohibited"
+              ]
+            },
+            "min_lot_sqft": {
+              "type": "integer"
+            },
+            "code_date": {
+              "type": "string",
+              "maxLength": 10,
+              "format": "date"
+            },
+            "sections_cited": {
+              "type": "array",
+              "maxItems": 12,
+              "items": {
+                "type": "string",
+                "maxLength": 120
+              }
+            },
+            "note": {
+              "type": "string",
+              "maxLength": 700
+            }
+          }
+        },
+        "agree": [
+          "single_family",
+          "two_family",
+          "three_or_four_family",
+          "five_or_more_family"
+        ]
+      }
+    },
+    "data": {
+      "districts": "sha256:58e680c99f8c3f35ddcceb8767ef0da5f32c1bccec31fe8e0639e4f7b77a8893"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0x18faec10f3324c5d1ac78b4d448a235a1830b3b5eae7aa6058082afd7ac602991faf02f94df0a4f66a5c753cf1c70fe38dc229dd9b8afe060b9ae49e9279947d1b"
+}

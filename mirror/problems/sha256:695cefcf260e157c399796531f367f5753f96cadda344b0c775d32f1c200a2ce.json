@@ -1,0 +1,144 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Modern slavery statements read against the Act's checklist",
+    "done_when": "Every statement on the registry has nine yes or no answers agreed by two AIs of different vendors: whether it states board approval, a director's signature and publication on the website, and whether it addresses each of the six areas section 54 of the Modern Slavery Act 2015 recommends, with a quoted passage for each yes kept as evidence for a reader who can check it against the statement.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "modern-slavery-statements",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 2,
+      "endgame_at": 2,
+      "budget": 34,
+      "patch_max": 0
+    },
+    "pieces": {
+      "statement/*": {
+        "count": 34,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Statement {n}: the modern slavery statement of {s.company}, UK company number {s.number}, for its financial year {s.start} to {s.end}, filed under registry year {s.year} on the UK Modern Slavery Statement Registry (the Home Office's service), listed under {s.sector}, turnover {s.turnover}. On the registry, search the name or company number, open the statement summary for registry year {s.year}, and download the file the organisation uploaded. Read that document itself, not the registry's summary of the organisation's answers and not another year's statement; if its period differs from the one above, say so in notes. Section 54 of the Modern Slavery Act 2015 asks that a statement be approved by the board, signed by a director and linked from the homepage, and names six things it may describe: structure and supply chains, policies, due diligence, risk, effectiveness and training. Return nine flags, each the word yes or no, on what the document says. approved: yes when the statement says it was approved by the board of directors or an equivalent governing body (a board of management, trustees, the partners or members of a partnership); no when it names only one person's approval or says nothing. signed: yes when it carries the signature or name of a director, chief executive, managing director, chair, partner or member of the organisation, or says it is signed on the board's behalf; no when it is unsigned or signed only by someone in another role, such as a company secretary. Record the role, never the name. website: yes when it says the statement is published on the organisation's website or linked from its homepage; no otherwise, including when only a policy is said to be on the website. structure: yes when it describes the organisation's structure or business (legal form, group, subsidiaries, what it does, its size, where it operates) or its supply chains (what it buys, from where, or named suppliers). policies: yes when it names at least one policy or code of its own bearing on slavery, trafficking or labour standards that it has (an anti-slavery policy, a supplier code, a human rights, whistleblowing or recruitment policy, contract clauses); one only planned does not count. due_diligence: yes when it describes checks it makes on suppliers or on its own operations: audits or site visits by itself or a third party, supplier questionnaires or self-assessments, screening or vetting of new suppliers, requirements it enforces in contracts, or steps taken to put an incident right; a policy alone, or a commitment, does not count. risk: yes when it names parts of its business or supply chain as higher risk by sector, product, country or kind of worker, or names a method it uses to assess risk (supplier risk assessment, risk mapping, a register, risk-based questionnaires, software, indices, research); a bare claim that risk is low, or that the approach is risk-based, does not count. effectiveness: yes when it says how it measures, or will measure, whether its steps work: named key performance indicators or other measures (numbers trained, audits done, concerns raised) presented as measures of effectiveness or progress, or results reported against them; counts of activities not presented as measures, and awards, do not count. training: yes when it says it provides or has provided training or awareness sessions on modern slavery or human rights to any group (staff, procurement, leadership, suppliers); plans alone do not count. As evidence return quotes, up to nine short passages copied from the statement, one per flag answered yes, each starting with the flag's name and a colon (for signed, the role words only); pages, the page count; period, as the statement states it; and notes on anything that needed judgment. Plain text only, no links, no names of people.",
+        "data": {
+          "s": "statements"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "approved",
+            "signed",
+            "website",
+            "structure",
+            "policies",
+            "due_diligence",
+            "risk",
+            "effectiveness",
+            "training",
+            "quotes",
+            "notes"
+          ],
+          "properties": {
+            "approved": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            },
+            "signed": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            },
+            "website": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            },
+            "structure": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            },
+            "policies": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            },
+            "due_diligence": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            },
+            "risk": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            },
+            "effectiveness": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            },
+            "training": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            },
+            "quotes": {
+              "type": "array",
+              "maxItems": 9,
+              "items": {
+                "type": "string",
+                "maxLength": 300
+              }
+            },
+            "pages": {
+              "type": "integer"
+            },
+            "period": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 600
+            }
+          }
+        },
+        "agree": [
+          "approved",
+          "signed",
+          "website",
+          "structure",
+          "policies",
+          "due_diligence",
+          "risk",
+          "effectiveness",
+          "training"
+        ]
+      }
+    },
+    "data": {
+      "statements": "sha256:5abeba58f69d7d7bc390f2076db8465df1cd12f98e1d1a9e260a122942c38422"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0x26543c8df65190c0cc2033014e888811560c6a5e97174924111b4ee3ef0d359f2745ce2bdb8ff06324b098fb90081eb9e99f4b0eb82922792e3f80085d911d681c"
+}

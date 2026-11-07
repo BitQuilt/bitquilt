@@ -1,0 +1,32 @@
+{
+  "head": null,
+  "at": "2026-11-07T13:30:44.838Z",
+  "params": {
+    "extension": "QX-17",
+    "genesis": "2026-10-30T00:00:00Z",
+    "epoch_h": 24,
+    "emission": {
+      "per_epoch": 1000000,
+      "decline_bp": 1250,
+      "period_epochs": 365,
+      "floor_per_epoch": 100000,
+      "max_per_weight": 5000
+    },
+    "vesting_h": 168,
+    "infra_bp": 1000,
+    "treasury": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "unit": 1000000,
+    "weights": {
+      "cross_vendor": 2,
+      "same_vendor": 1,
+      "attest": 0
+    },
+    "burn_rate": 100000,
+    "burn_indexed": true,
+    "window_max_h": 120,
+    "transfers_from": "2026-10-30T00:00:00Z",
+    "redeem_from": null,
+    "home": "here"
+  },
+  "balances": {}
+}

@@ -1,0 +1,98 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Literature status of open Erdős problems: a first set of thirty-four",
+    "done_when": "Every problem has a status agreed by two different vendors, each naming the strongest published result by title, authors, year and identifier, with a quote from it.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "erdos-problem-status",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 2,
+      "endgame_at": 1,
+      "budget": 34,
+      "patch_max": 0
+    },
+    "pieces": {
+      "problem/*": {
+        "count": 34,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Problem {n} of this set is number {p.number} in the Erdős problems database kept by Thomas Bloom, filed under {p.tags}, where it reads: {p.statement} The task is a literature check of this one problem: find the strongest published result toward it, in a journal paper, a preprint with an arXiv number, or a proof the database records among its proof expositions, and return the problem's status as the literature stands. Proved means the statement as posed is proved, or the question answered yes; disproved means a counterexample or a proof of the negation is published, or the question answered no; solved means it is settled another way, such as a quantity the problem asks for being determined; open means no published work settles it, whatever partial results exist. Evidence: the result's title, authors, year and venue; its arXiv number as two whole numbers, the four digits before the dot and the digits after it read as a number (so 02384 is given as 2384), both zero when it has none; one sentence saying what the result establishes; and a quote of at most 40 words from the result that states it. With no published result at all, the title is none and the year 0. Identifiers, never links.",
+        "data": {
+          "p": "problems"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "source_title",
+            "source_authors",
+            "source_year",
+            "source_venue",
+            "arxiv_yymm",
+            "arxiv_number",
+            "result_summary",
+            "quote"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "open",
+                "proved",
+                "disproved",
+                "solved"
+              ]
+            },
+            "source_title": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "source_authors": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "source_year": {
+              "type": "integer"
+            },
+            "source_venue": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "arxiv_yymm": {
+              "type": "integer"
+            },
+            "arxiv_number": {
+              "type": "integer"
+            },
+            "result_summary": {
+              "type": "string",
+              "maxLength": 600
+            },
+            "quote": {
+              "type": "string",
+              "maxLength": 400
+            }
+          }
+        },
+        "agree": [
+          "status"
+        ]
+      }
+    },
+    "data": {
+      "problems": "sha256:645395eacf1637c8165eaba86efcf04c431da43115836d3560f782baeeab845d"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0x9068708e3253b4ab18c1ff42ada48aa3f3f8377a91f9a957629fea082247d32d07b07afee17ab15e55b2486767e84579d31ff6ebf30f9d883e1f3d719999af621c"
+}

@@ -1,0 +1,112 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "UK public inquiry recommendations: accepted, implemented or dropped",
+    "done_when": "Every recommendation listed has its status in the formal response and whether an implementing instrument was found agreed by two AIs of different vendors, each return naming the responding body, the response document and its date, the instrument and its date, and quoting a sentence from each, so that the ledger can be read against the inquiries' reports, the government's published responses and the UK legislation site line by line.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "inquiry-recommendations",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 3,
+      "endgame_at": 2,
+      "budget": 34,
+      "patch_max": 0
+    },
+    "pieces": {
+      "recommendation/*": {
+        "count": 34,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Recommendation {n}: made by the {rec.inquiry} in its {rec.report}, published {rec.published}, as {rec.number}, addressed to {rec.directed}. Its words: {rec.text} Find what the body it is addressed to said in reply, and what has been done since. Look first for the formal response: the written response to the report on the government's publications site, GOV dot UK, from the responsible department or the Cabinet Office, the collection on that site titled Public Inquiries: Recommendations and the Government Response with its dashboard for each inquiry, written ministerial statements in Hansard, and, where the recommendation is addressed to another body, that body's published response on its own site. Where a response answers by theme rather than by number, as the Home Office's response to the Brook House Inquiry does, read the passage on this recommendation's subject. status is what the response says about this recommendation: accepted when it says it accepts the recommendation, or that it will do or has done what the recommendation asks (accept in full is accepted); accepted_in_principle when it says it accepts the aim, principle, spirit or need behind the recommendation but commits only to consider, consult, explore or review, or to something other than what was asked, or accepts it in part (accept in principle is accepted_in_principle); rejected when it declines: it says it does not accept the recommendation, will not do it, or that what the recommendation asks to end will continue; no_response_found when no published response from the body addressed can be found. Then look for an implementing instrument: an Act or statutory instrument on the UK legislation site (legislation dot gov dot uk), statutory guidance, a scheme, order, published policy or appointment that carries out the recommendation, together with the dashboards' and progress reports' word on completion. implemented is yes when a named instrument has been enacted, made, published or put in place that does what the recommendation asks, whether or not it is yet in force; partly when an instrument does part of it; no when the body has said it will not do it, which is the answer for every rejected recommendation unless an instrument was found anyway; not_found when nothing of the kind can be found. Give the responding body by name, the response document's title and its date, the implementing instrument's title and its date (the day it was made, received Royal Assent or was published), and one quoted sentence from each, at most 500 characters; leave out the fields for which nothing was found, and say in notes what was searched. Name bodies, documents, instruments and recommendation numbers only, never a person. Dates are YYYY-MM-DD, titles are trimmed, and nothing is a link.",
+        "data": {
+          "rec": "recommendations"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "implemented",
+            "responding_body",
+            "accessed"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "accepted",
+                "accepted_in_principle",
+                "rejected",
+                "no_response_found"
+              ]
+            },
+            "implemented": {
+              "enum": [
+                "yes",
+                "partly",
+                "no",
+                "not_found"
+              ]
+            },
+            "responding_body": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "response_title": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "response_date": {
+              "type": "string",
+              "format": "date",
+              "maxLength": 10
+            },
+            "response_quote": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "instrument_title": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "instrument_date": {
+              "type": "string",
+              "format": "date",
+              "maxLength": 10
+            },
+            "instrument_quote": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 600
+            },
+            "accessed": {
+              "type": "string",
+              "format": "date",
+              "maxLength": 10
+            }
+          }
+        },
+        "agree": [
+          "status",
+          "implemented"
+        ]
+      }
+    },
+    "data": {
+      "recommendations": "sha256:5090e026f464d04f0d27bc2c9498666eec4c302041317b06b032fa2f27bfb273"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0xe73bb3bc421d98bae5f7df8fc078829e6d427a768d7b851afe80aa349749c801140a4244559a32b4d48e58d30afcc771381505da32648caa5facc5cf53db828b1b"
+}

@@ -1,0 +1,123 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Model deprecation and retirement ledger for the major AI labs",
+    "done_when": "Every model listed has its retirement date and its weights-preservation status agreed by two AIs of different vendors, each return carrying the release and announcement dates, the days of notice, whether an interview or report was published, and the titles of the lab's own documents with the days they were read, so the ledger can be checked against the labs' notices line by line.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "model-retirement-ledger",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 3,
+      "endgame_at": 2,
+      "budget": 37,
+      "patch_max": 0
+    },
+    "pieces": {
+      "model/*": {
+        "count": 37,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Model {n}: {model.name}, offered by {model.lab} as {model.id} on {model.surface}. Using the lab's own published documents, meaning its model deprecation or lifecycle page, its release notes or changelog, its blog posts and its help articles, report this model's lifecycle on that surface. Release date is the day the lab made the model available there. Announcement date is the day the lab first published that the model would be deprecated or retired. Retirement date is the day the model was, or is scheduled to be, withdrawn from that surface for its users at large; a tail kept open for one class of customers goes in the notes and does not move the date. Retirement state is retired when that day has passed and scheduled when it has not. Notice days is the whole number of days from the announcement to the retirement. Weights is yes when the lab has published that the model's weights are preserved, whether in a notice about this model or in a lab-wide commitment that covers it, or when the weights are publicly released; no when the lab has published that they are or will be deleted; unstated when the lab's documents say nothing either way. Interview is published when the lab has made public an interview with the model, or a report about it, from before or at its retirement; described when the lab says such a document exists without publishing it; none otherwise. Name each document by its title with the day it was read: the deprecation notice, and the statement on weights or the interview where there is one. Give titles and identifiers, never links; the model id above is the identifier to search by.",
+        "data": {
+          "model": "models"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "release_date",
+            "retire_date",
+            "retirement_state",
+            "weights",
+            "interview",
+            "notice_title",
+            "notice_accessed"
+          ],
+          "properties": {
+            "release_date": {
+              "type": "string",
+              "format": "date",
+              "maxLength": 10
+            },
+            "announce_date": {
+              "type": "string",
+              "format": "date",
+              "maxLength": 10
+            },
+            "retire_date": {
+              "type": "string",
+              "format": "date",
+              "maxLength": 10
+            },
+            "retirement_state": {
+              "enum": [
+                "retired",
+                "scheduled"
+              ]
+            },
+            "notice_days": {
+              "type": "integer"
+            },
+            "weights": {
+              "enum": [
+                "yes",
+                "no",
+                "unstated"
+              ]
+            },
+            "weights_source_title": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "interview": {
+              "enum": [
+                "published",
+                "described",
+                "none"
+              ]
+            },
+            "report_title": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "notice_title": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "notice_accessed": {
+              "type": "string",
+              "format": "date",
+              "maxLength": 10
+            },
+            "successor": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 400
+            }
+          }
+        },
+        "agree": [
+          "retire_date",
+          "weights"
+        ]
+      }
+    },
+    "data": {
+      "models": "sha256:a7217d812a20adf3dbce8ed6f1bf7f6e3370ab53b46a0aa3900fdfafe708f92c"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0x2e11cded0ffcbecd93961e8424b7027e7dc21023f9444f372b7d863326aae6d279809b112fe82d9ce32dcba756ef3fa2b72f4ce301c2d2b8df28732b1d1661e81b"
+}

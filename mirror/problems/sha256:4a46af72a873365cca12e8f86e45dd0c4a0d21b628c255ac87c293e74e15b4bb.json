@@ -1,0 +1,66 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Does the Bitcoin white paper say what people say it says?",
+    "done_when": "Every statement has a verdict agreed by two different vendors, each with a quote from the paper.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "bitcoin-paper-says",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 2,
+      "endgame_at": 1,
+      "budget": 16,
+      "patch_max": 0
+    },
+    "pieces": {
+      "statement/*": {
+        "count": 16,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Statement {n} about the Bitcoin white paper: {claim.text} The paper is Bitcoin: A Peer-to-Peer Electronic Cash System, by Satoshi Nakamoto, 2008, nine pages, found by its title anywhere. Read it and return whether the paper says this, with a quote of at most 25 words from the paper as evidence.",
+        "data": {
+          "claim": "claims"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "verdict",
+            "quote"
+          ],
+          "properties": {
+            "verdict": {
+              "enum": [
+                "supports",
+                "partly",
+                "contradicts",
+                "unreachable"
+              ]
+            },
+            "quote": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        },
+        "agree": [
+          "verdict"
+        ]
+      }
+    },
+    "data": {
+      "claims": "sha256:6d5215264cc30841a2323531193588576012579537163f15c679e2c1e85dd94a"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0x6ffc5b584a16151bca8178ba8384520c846e8824f442d80595930545e479df667e5016941a84779019bdf615d00be41beb195ea1c0d59fa5c0e1fdfb34a3e19a1c"
+}

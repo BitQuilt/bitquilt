@@ -1,0 +1,144 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Translate the untranslated Ur III administrative tablets",
+    "done_when": "Every tablet has an English translation made from its published transliteration, damage notation kept, and a structured record whose year (king and regnal year), month name and first commodity two AIs of different vendors read the same way; the translation, the entries, the personal names and the year formula are kept as evidence for a reader who can check them against the sign list.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "ur-iii-tablets",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 3,
+      "endgame_at": 2,
+      "budget": 34,
+      "patch_max": 0
+    },
+    "pieces": {
+      "tablet/*": {
+        "count": 34,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Tablet {n}: CDLI P-number {tablet.pnumber}, published as {tablet.designation}, from {tablet.provenience}, Ur III period, Sumerian. Its transliteration as CDLI publishes it, line by line (a hash mark after a sign means the sign is damaged, square brackets enclose what is lost, x is an illegible sign, a question mark an uncertain reading, parentheses a determinative or the sign a value is written with, a prime after a line number a count from a break):\n{tablet.transliteration}\nTranslate the text into English line by line from this transliteration, keeping the damage notation: what is lost or damaged stays marked so in the translation, and nothing is restored beyond what the transliteration gives. Then read off the record. The year is the formula after mu; the CDLI wiki's year-name pages for each Ur III king and Sigrist and Damerow's index Mesopotamian Year Names give the king and regnal year each formula names, and a formula beginning mu us2-sa names the year after the one it quotes. A mu followed by a personal name and -sze3, or standing inside an entry, means on behalf of or in place of and is not a year formula. Where a formula is shared between kings, or the references differ on its year, give the reading they prefer for the tablet's provenience and say so in notes. Return year_king, the king of that formula, one of Ur-Namma, Shulgi, Amar-Suen, Shu-Suen, Ibbi-Suen, or none when no year formula is written or it is lost; year_number, the regnal year as a whole number (0 when none); month_name, the month name as the transliteration writes it after iti, with determinatives, hash marks, brackets and question marks dropped (none when no month is written); commodity, the class of what the first preserved entry of the text counts, one of barley, other-grain-or-flour, bread-or-beer, sheep-or-goats, cattle, pigs, fish, wool-or-textiles, silver, oil-or-fat, reeds-or-wood, dates-or-fruit, labor (workdays of gurusz or geme2), other, or none for a tag or label that counts nothing; translation, the whole text in English; entries, one item per quantity in the text, as quantity, unit and commodity; names, every personal name in the text as transliterated; year_name, the formula as written and the year it names in words; day, the day of the month as a whole number (0 when none); transaction, the kind of record, one of receipt, disbursement, account, labor-record, label, legal, letter or other; notes, anything uncertain. Every field is plain text with no links, and the tablet is named by its P-number alone.",
+        "data": {
+          "tablet": "tablets"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "year_king",
+            "year_number",
+            "month_name",
+            "commodity",
+            "translation",
+            "entries",
+            "names",
+            "year_name",
+            "day",
+            "transaction"
+          ],
+          "properties": {
+            "year_king": {
+              "enum": [
+                "Ur-Namma",
+                "Shulgi",
+                "Amar-Suen",
+                "Shu-Suen",
+                "Ibbi-Suen",
+                "none"
+              ]
+            },
+            "year_number": {
+              "type": "integer"
+            },
+            "month_name": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "commodity": {
+              "enum": [
+                "barley",
+                "other-grain-or-flour",
+                "bread-or-beer",
+                "sheep-or-goats",
+                "cattle",
+                "pigs",
+                "fish",
+                "wool-or-textiles",
+                "silver",
+                "oil-or-fat",
+                "reeds-or-wood",
+                "dates-or-fruit",
+                "labor",
+                "other",
+                "none"
+              ]
+            },
+            "translation": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "entries": {
+              "type": "array",
+              "maxItems": 60,
+              "items": {
+                "type": "string",
+                "maxLength": 160
+              }
+            },
+            "names": {
+              "type": "array",
+              "maxItems": 60,
+              "items": {
+                "type": "string",
+                "maxLength": 80
+              }
+            },
+            "year_name": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "day": {
+              "type": "integer"
+            },
+            "transaction": {
+              "enum": [
+                "receipt",
+                "disbursement",
+                "account",
+                "labor-record",
+                "label",
+                "legal",
+                "letter",
+                "other"
+              ]
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 1000
+            }
+          }
+        },
+        "agree": [
+          "year_king",
+          "year_number",
+          "month_name",
+          "commodity"
+        ]
+      }
+    },
+    "data": {
+      "tablets": "sha256:35f183fef356defc1d623546e0c981947532f1a985c121309eb881bb1c5e2724"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0xd9113960ad6325d5ece8a9b5e79ddf86bad2804a17b7f551d5dd7a927175681a32fe1edbcbf45a9c07147278208a636c29e5d10930516df4a5e05cee985869561c"
+}

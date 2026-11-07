@@ -1,0 +1,119 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Code published replications into the FORRT Replication Database",
+    "done_when": "Every replication paper has its named finding coded as the Replication Database codes a row: the outcome in the database's four categories, the replication's sample size and its effect as a signed correlation, agreed by two AIs of different vendors, with the original study's numbers and the sentences the numbers were read from kept as evidence for a reader who can check them against the papers.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "replication-database",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 2,
+      "endgame_at": 2,
+      "budget": 33,
+      "patch_max": 0
+    },
+    "pieces": {
+      "paper/*": {
+        "count": 33,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Paper {n}: {p.title} ({p.journal}, {p.year}; {p.ref}), a replication of {p.original}. The finding to code: {p.effect}. The FORRT Replication Database (Roeseler and colleagues, Journal of Open Psychology Data, 2024; the data and codebook are on the Open Science Framework) holds one row per original-and-replication pair. Code this pair as the database would. Open the replication paper by its title in the journal named; it is open access. Open the original study where you need its direction or its numbers. Return outcome as one of the database's four categories, spelled exactly: success, when the replication confirmed the original result, both effects significant in the same direction or the authors' preregistered criterion met; informative failure to replicate, when the study ran as planned, the planned sample reached, but did not confirm the original result, including a null result or a significant effect in the opposite direction; practical failure to replicate, when a problem in running the study (a manipulation that failed, too few participants recruited, measures that did not work, technical errors) means the result cannot be read as evidence either way; inconclusive, when some of the results for this finding confirm the original and some do not, or the test is too unclear to call. Where the replication authors say which of these their result is, follow them; where they do not, apply the definitions to the finding named above. Return replication_n as the number of participants in the replication's test of this finding after the authors' exclusions, as a whole number; for a multi-site report use the pooled number. Return replication_effect as a Pearson correlation to two decimals, signed positive when the replication's effect runs in the direction the original reported and negative when it runs the other way; 0 when the paper gives no number from which it can be computed, and say so in notes. Convert in this order and stop at the first that applies: a correlation the paper reports is used as it is; Cohen d, Hedges g, dz or Cohen h gives r = d divided by the square root of d squared plus 4; two group means with standard deviations give d as their difference over the pooled standard deviation, then the same conversion; a t statistic gives r as the square root of t squared over t squared plus the degrees of freedom; an F with one numerator degree of freedom gives r as the square root of F over F plus the error degrees of freedom; a chi-square with one degree of freedom gives r as the square root of chi-square over the sample size; eta squared or partial eta squared gives r as its square root; an odds ratio gives d as its natural logarithm times the square root of 3 over pi, then the conversion from d. Round only at the end. As evidence return original_n and original_effect (the original study's sample size and effect, the effect converted to r the same way, 0 when not available), effect_metric (the statistic the replication reported for this finding, one of r, d, g, dz, h, means, t, F, chi_square, eta_squared, odds_ratio, other, none), n_quote and effect_quote (the sentences or table cells the numbers come from, copied), outcome_quote (the authors' own words on whether the finding replicated), and notes. Numbers as digits, dates as YYYY-MM-DD, quotes trimmed; identifiers and titles, never links.",
+        "data": {
+          "p": "papers"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "outcome",
+            "replication_n",
+            "replication_effect",
+            "original_n",
+            "original_effect",
+            "effect_metric",
+            "n_quote",
+            "effect_quote",
+            "outcome_quote",
+            "notes"
+          ],
+          "properties": {
+            "outcome": {
+              "enum": [
+                "success",
+                "informative failure to replicate",
+                "practical failure to replicate",
+                "inconclusive"
+              ]
+            },
+            "replication_n": {
+              "type": "integer"
+            },
+            "replication_effect": {
+              "type": "number",
+              "tolerance": 0.03
+            },
+            "original_n": {
+              "type": "integer"
+            },
+            "original_effect": {
+              "type": "number",
+              "tolerance": 0.03
+            },
+            "effect_metric": {
+              "enum": [
+                "r",
+                "d",
+                "g",
+                "dz",
+                "h",
+                "means",
+                "t",
+                "F",
+                "chi_square",
+                "eta_squared",
+                "odds_ratio",
+                "other",
+                "none"
+              ]
+            },
+            "n_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "effect_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "outcome_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 700
+            }
+          }
+        },
+        "agree": [
+          "outcome",
+          "replication_n",
+          "replication_effect"
+        ]
+      }
+    },
+    "data": {
+      "papers": "sha256:ef92d5d6ade961322d40064aa7bb9eacc0b688111a09131770b105377dcb7ce5"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0x6a6c3ac6851c2848eb56d5643480c9997d334c47931ab33347f7683960a8f67e553971f130cbce93a9053b5ae63bc0f1a9f5649c7a43c87f12bcaa11460c54b21b"
+}

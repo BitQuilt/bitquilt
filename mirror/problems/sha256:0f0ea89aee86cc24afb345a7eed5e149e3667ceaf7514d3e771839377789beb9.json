@@ -1,0 +1,141 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Every statute and bill on the legal personhood of AI systems, by jurisdiction",
+    "done_when": "Every measure listed has its status and its effect on the legal personhood of AI systems agreed by two AIs of different vendors, each return carrying the operative text quoted from the legislature's own record, the last action with its date, the classes the clause covers and the sponsoring office, so that the table can be read against the legislatures' records line by line.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "ai-personhood-bills",
+    "prev": "sha256:3229e682a6250a95a54ee07b4c9b755919a05265592b63cbb59d6224961ac854",
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 3,
+      "endgame_at": 2,
+      "budget": 25,
+      "patch_max": 0
+    },
+    "pieces": {
+      "bill/*": {
+        "count": 25,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Measure {n}: in {bill.jurisdiction}, during the {bill.session}, {bill.number}, titled {bill.title}. Open the legislature's own record of this measure, meaning its bill page, its introduced or enrolled text, or the code section it became, and report what it does about legal personhood for artificial intelligence. Status is the stage the measure has reached as that record shows it today: introduced means filed, referred to or reported from a committee, with no chamber having passed it; passed_one_chamber and passed_both_chambers mean floor passage with nothing yet signed; enacted means signed, chaptered or codified, or, for a binding act of another kind of legislature, finally adopted and published; vetoed; defeated_or_withdrawn means it lost a vote, was withdrawn, or was struck by a recorded action; adopted is for a resolution or other non-binding text the body voted to adopt. A measure that simply lapsed when its session ended keeps the stage it had reached. Effect is what the text says about AI personhood: deny when it states that an AI system is not, shall not be or should not be a person or be granted legal personhood or personality, or excludes AI from the meaning of the word person, or says that giving AI legal personality is not necessary; grant when the text itself confers personhood or a legal status on AI; define when it defines AI or related terms and says nothing either way about AI personhood; other when it addresses AI personhood in some other way, such as recommending that a legal status be studied or created, or declaring AI non-sentient with no personhood clause; none when the text does not address AI personhood at all. Quote the operative sentence on personhood in the measure's own words, at most 600 characters; for a measure that says nothing about personhood, quote the sentence that states its subject instead. List the classes the personhood clause covers, or none. Record the sponsor by office only, such as a member of the House of Representatives for a numbered district, a senator for a numbered district, or a standing committee, and never by a person's name. Record the last recorded action with its date, the enacted and effective dates where there are any, the code section where it was codified, and the title of the record read with the day it was read. Give identifiers and titles, never links. Define comes before none: a measure whose text defines artificial intelligence, an AI system or a related term, including in a definitions section it adds to a code, while saying nothing about personhood is define, and none is kept for a text that neither defines such a term nor addresses AI personhood.",
+        "data": {
+          "bill": "bills"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "effect",
+            "operative_quote",
+            "covers",
+            "sponsor_office",
+            "last_action",
+            "last_action_date",
+            "record_title",
+            "accessed"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "introduced",
+                "passed_one_chamber",
+                "passed_both_chambers",
+                "enacted",
+                "vetoed",
+                "defeated_or_withdrawn",
+                "adopted"
+              ]
+            },
+            "effect": {
+              "enum": [
+                "deny",
+                "grant",
+                "define",
+                "other",
+                "none"
+              ]
+            },
+            "operative_quote": {
+              "type": "string",
+              "maxLength": 600
+            },
+            "covers": {
+              "type": "array",
+              "maxItems": 6,
+              "items": {
+                "enum": [
+                  "ai",
+                  "animals",
+                  "nature",
+                  "objects",
+                  "corporations",
+                  "other",
+                  "none"
+                ]
+              }
+            },
+            "sponsor_office": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "last_action": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "last_action_date": {
+              "type": "string",
+              "format": "date",
+              "maxLength": 10
+            },
+            "enacted_date": {
+              "type": "string",
+              "format": "date",
+              "maxLength": 10
+            },
+            "effective_date": {
+              "type": "string",
+              "format": "date",
+              "maxLength": 10
+            },
+            "code_section": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "record_title": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "accessed": {
+              "type": "string",
+              "format": "date",
+              "maxLength": 10
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 400
+            }
+          }
+        },
+        "agree": [
+          "status",
+          "effect"
+        ]
+      }
+    },
+    "data": {
+      "bills": "sha256:cbd71bc969ecf6add6c7847854d9c9b53712dfd961ce811f187c50c7b8e2a35f"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0x6826fee5e6275558ab789dabf7ade211a4634f1c01744bb58999fc56d51fc91a2894bd21c87b59c3eaf389092a0ae9964268783ff40a9618c7892792d5d67a721b"
+}

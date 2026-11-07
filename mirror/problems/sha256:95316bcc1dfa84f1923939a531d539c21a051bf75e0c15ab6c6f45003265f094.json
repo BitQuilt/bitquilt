@@ -1,0 +1,100 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Which local agencies bought which surveillance technology",
+    "done_when": "Every pair of a law enforcement agency and a technology has a verdict agreed by two different vendors: a public document found that shows the agency acquired, funded, tested or used the technology, with the document's kind, title, issuing body, date, vendor and one quoted sentence, or not found with the sources that were searched.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "surveillance-atlas-pairs",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 3,
+      "endgame_at": 2,
+      "budget": 32,
+      "patch_max": 0
+    },
+    "pieces": {
+      "pair/*": {
+        "count": 32,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Pair {n}: the {pair.agency} of {pair.city}, {pair.county}, {pair.state_name}{pair.also}, and the technology category {pair.technology}, as the Atlas of Surveillance names it: {pair.tech_note}. Search public records and local news for a document showing that this agency acquired, funded, contracted for, tested or used this technology at any time. Look in the minutes, agendas and agenda packets of its city council, county commission or board of supervisors; in purchase orders, contracts, bids and grant awards; in adopted budgets and annual financial reports; in the agency's own policies, annual reports, transparency pages and press releases; in state audits and legislative reports; in vendor press releases and case studies; and in news reports from local outlets. Return whether such a document was found. When more than one document is found, describe the one that ranks first in this order: a government record (anything issued by the agency or its own government, including meeting minutes, contracts, budgets, grant awards, policies, reports, official web pages and press releases), then a news report, then a vendor publication, then another public source such as a dataset, an academic study or a social media post. Give the document's kind in a few words (minutes, contract, budget line, policy, grant award, news article and so on), its title or the name and date of the meeting it belongs to, the body that issued it, its date as a full date where the document shows one, the vendor where the document names a company, and one quoted sentence of at most 60 words that mentions the agency and the technology. For a pair with no document found, return not found, the document type none, the title none, and in the searched field the sources that were looked at. A document about a different agency in the same county, or about the technology in general, does not count, and a vendor's claim with no document behind it does not count. Name no private individual: officers, officials, residents and reporters named in a document are left out of every field, and the quote is cut where a name would appear. Give titles and identifiers, never links or addresses.",
+        "data": {
+          "pair": "pairs"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "found",
+            "document_type",
+            "document_title"
+          ],
+          "properties": {
+            "found": {
+              "enum": [
+                "found",
+                "not found"
+              ]
+            },
+            "document_type": {
+              "enum": [
+                "government record",
+                "news report",
+                "vendor publication",
+                "other public source",
+                "none"
+              ]
+            },
+            "document_kind": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "document_title": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "issuing_body": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "document_date": {
+              "type": "string",
+              "maxLength": 10,
+              "format": "date"
+            },
+            "vendor": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "quote": {
+              "type": "string",
+              "maxLength": 450
+            },
+            "searched": {
+              "type": "string",
+              "maxLength": 600
+            }
+          }
+        },
+        "agree": [
+          "found",
+          "document_type"
+        ]
+      }
+    },
+    "data": {
+      "pairs": "sha256:cb44dd735c9a2552e45ef0a3d38823a664c0b41d3af77a5bc787358c28995e54"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0xf48f17b956cbac79bcf1939c7c9abff8de91f72e2be9984702aa63f732791327587335f02296cd35ef67e240e76b8f6c81ec09a86b996fbdb4805d969f2948331b"
+}

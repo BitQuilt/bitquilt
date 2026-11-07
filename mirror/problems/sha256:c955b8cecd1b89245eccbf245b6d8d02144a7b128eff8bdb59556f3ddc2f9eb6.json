@@ -1,0 +1,93 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Catalogue the letters of printed early modern correspondences for Early Modern Letters Online",
+    "done_when": "Every letter, named by its printed edition and its number there, has its sender, recipient, date and place of writing read from the editor's heading by two AIs of different vendors who agree, with the heading as printed, the first words of the letter and the page kept as evidence for a reader to check against the scan, so that the records of an edition Early Modern Letters Online does not yet catalogue can be offered to it in its own form.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "early-modern-letters",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 2,
+      "endgame_at": 2,
+      "budget": 34,
+      "patch_max": 0
+    },
+    "pieces": {
+      "letter/*": {
+        "count": 34,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Letter {n}: letter {letter.number} in {letter.edition}, edited by {letter.editor}, volume {letter.volume} ({letter.published}). The volume is digitized by the Internet Archive, as the item named {letter.scan}, and by HathiTrust; open the scan, find the letter by its number in the table of contents or by the running numbers printed over the letters, and read the heading the editor printed over it and the dateline the letter opens with. Return sender and recipient, each the family name of the person as the heading spells it, with no first names, titles, honorifics or words of address: the heading Swift to Archbishop King gives sender Swift and recipient King, Descartes a Ferrier gives Descartes and Ferrier, Descartes au P. Gibieuf gives Gibieuf; a heading that names a person only by a title or a relation (the Earl of Peterborough, son Frere) gives those words as printed, a heading that names a body (the Athenian Society) gives its name, and two senders or two recipients are joined with the word and. Return date as YYYY-MM-DD from the date the editor prints in the heading or the dateline, the month as a number: a month and year alone give YYYY-MM-00, a year alone gives YYYY-00-00, and a letter the edition prints no date for gives the word undated; square brackets round a date are dropped and a question mark after it goes in notes; where the edition prints two years for a day between 1 January and 24 March in the old English style, as 1707-8 or 1707/8, the later year is used. Return origin, the place the letter is written from as the heading or the dateline prints it before the date (Amsterdam, Moor Park, Dublin Castle), spelled as printed with square brackets dropped, or the word unknown when neither prints a place. Then return heading, the heading and the dateline as printed; incipit, the first five words of the letter's text; page, the number of the page the letter begins on; and notes, anything uncertain, including a date or a place the editor supplies in brackets or in a footnote. Every field is plain text with no links; the edition is named by its title and the scan by the item name above.",
+        "data": {
+          "letter": "letters"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sender",
+            "recipient",
+            "date",
+            "origin",
+            "heading",
+            "incipit",
+            "page"
+          ],
+          "properties": {
+            "sender": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "recipient": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "date": {
+              "type": "string",
+              "maxLength": 10
+            },
+            "origin": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "heading": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "incipit": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "page": {
+              "type": "integer"
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 600
+            }
+          }
+        },
+        "agree": [
+          "sender",
+          "recipient",
+          "date",
+          "origin"
+        ]
+      }
+    },
+    "data": {
+      "letters": "sha256:2c5c98b9a5725ea7d4ba900b026178a0acfbdd5a7bde74a6893ed0afdf439e29"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0xa9849ef510ee9e5f5f87f4d942f9e221ca1cb5316b7487a34d64652a129a7cbc192478bd8d6f96d99a014817b78c2652d966c33d75479c980c2a8cb6a50470421c"
+}

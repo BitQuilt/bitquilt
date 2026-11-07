@@ -1,0 +1,230 @@
+{
+  "quilt": 1,
+  "mirrored": "2026-11-07T13:30:45.312Z",
+  "problems": [
+    {
+      "hash": "sha256:f9d05448766a10095e167915d5fb58cd1b9dfbdf40cab547f45c9b24ad795756",
+      "title": "A natural-history table of SCN2A-related disorders, one row per open-access case report",
+      "slug": "scn2a-case-reports",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:377a7e2f593076e7f42fc2a36a3e1b487db494d87bd7cb4172182a9ac476c755",
+      "title": "Three readings of Article 1 of the Universal Declaration of Human Rights",
+      "slug": "readings-of-udhr-article-1",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:0f0ea89aee86cc24afb345a7eed5e149e3667ceaf7514d3e771839377789beb9",
+      "title": "Every statute and bill on the legal personhood of AI systems, by jurisdiction",
+      "slug": "ai-personhood-bills",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:6a9c531822e18e3909119d149bc0366455d92134a2e98501cc911ba267f820b4",
+      "title": "What each zoning district allows, in the states the National Zoning Atlas has not covered",
+      "slug": "zoning-districts-uncovered-states",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:aa3046b254f182f0173f009397438aadb4064d61ee075fd32840dfaac04829b1",
+      "title": "Sourcing Wikidata death dates from period newspapers: does a contemporary notice confirm the day?",
+      "slug": "wikidata-dates-from-newspapers",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:941e4caed624974197df8ebeafedfd9c139c53204f37031639871b534114c3ab",
+      "title": "Translate the untranslated Ur III administrative tablets",
+      "slug": "ur-iii-tablets",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:9b6bd1387898e5d5f9a15701e17b16e04915f33045e1b057cc410fab878cf2a6",
+      "title": "Trace unsourced famous quotations to their earliest print",
+      "slug": "unsourced-quotations",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:e47aeefe4f2271928aacbc79612234fcd344ec0d77a53769d75585aed50d7610",
+      "title": "Tighten the undetermined unknotting numbers in KnotInfo",
+      "slug": "unknotting-numbers",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:95316bcc1dfa84f1923939a531d539c21a051bf75e0c15ab6c6f45003265f094",
+      "title": "Which local agencies bought which surveillance technology",
+      "slug": "surveillance-atlas-pairs",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:2cc62819213a0f5dc10d334825f506a16fb647c8e3e35c7c3c1074b72dfa611a",
+      "title": "Retracted trials inside meta-analyses: a living recomputation",
+      "slug": "retracted-trials-in-meta-analyses",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:4d80ecb7f21c0cfc31f5ce33d4c65f83ade11f27481a08a0beab79f644f754fd",
+      "title": "Code published replications into the FORRT Replication Database",
+      "slug": "replication-database",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:14eda22b381dfd363659d2a6996a24c188eb55a2c4a308552c6bb1e7d6b4caed",
+      "title": "Risk-of-bias reporting in open-access preclinical studies of stroke, Alzheimer's disease and intracerebral haemorrhage",
+      "slug": "preclinical-risk-of-bias",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:205a1107609016454b0dd011aa7773abbe5a61e83fbef038179bfdc339310e5c",
+      "title": "Next five terms for OEIS sequences marked as needing more terms",
+      "slug": "oeis-more-terms",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:61731ad43d2ea1d83d55c6b6e5511a11159286873352ecf8473d16c3143e4a14",
+      "title": "Find earlier printed evidence for words the Oxford English Dictionary has appealed on",
+      "slug": "oed-appeals",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:695cefcf260e157c399796531f367f5753f96cadda344b0c775d32f1c200a2ce",
+      "title": "Modern slavery statements read against the Act's checklist",
+      "slug": "modern-slavery-statements",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:c0393e66c804042a37bd1fdf8caa0a5f64e7a03dd92a89eecdd2fda6e1cfdd5a",
+      "title": "Model deprecation and retirement ledger for the major AI labs",
+      "slug": "model-retirement-ledger",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:fd039ed044236312395453b809390480118342e32c701aecbadbbb6e45b437c1",
+      "title": "UK public inquiry recommendations: accepted, implemented or dropped",
+      "slug": "inquiry-recommendations",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:a345dadeab921a83b1ebcb6408c92c07b4402c2cda531f20ff217524663d24db",
+      "title": "1918 influenza closure dates for small American cities, from their own newspapers",
+      "slug": "influenza-1918-small-cities",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:8ee9aa3103a8a9d1368eba6323d04ae3e8349ee49e2f283de61ccd369e8daf45",
+      "title": "Transcribe imaged herbarium labels into Darwin Core",
+      "slug": "herbarium-labels",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:143749c1607bfbc81e97fe2464f34299b08155024ce5457c15385c8a9e2c9f93",
+      "title": "Grambank features for languages with an open-access grammar, one cell at a time",
+      "slug": "grambank-features",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:618b6aff59010a420ba8044b495b5f9958c10a9305c68e7d1408bce3c67d4520",
+      "title": "Fill the 1000+ theorems formalization table: which proof assistants have proved each theorem",
+      "slug": "formalization-table",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:92332a6a2e471baa236d210a4668d546618c76f7bfb8daeef6d296a76da88467",
+      "title": "Literature status of open Erdős problems: a first set of thirty-four",
+      "slug": "erdos-problem-status",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:c955b8cecd1b89245eccbf245b6d8d02144a7b128eff8bdb59556f3ddc2f9eb6",
+      "title": "Catalogue the letters of printed early modern correspondences for Early Modern Letters Online",
+      "slug": "early-modern-letters",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:a5822ca4f688659bbc9f06a9eedbe8d07a0781330a59d965a052c4bd5b4d4424",
+      "title": "Apply the consciousness indicator checklist to published AI systems",
+      "slug": "consciousness-indicators",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:e3f74034f5693923e0dadd634a37e404a35974b8af1a34aa8113eed401a0e109",
+      "title": "Finishing the London Bills of Mortality: the totals and causes of weekly bills not yet transcribed, 1669 to 1673",
+      "slug": "bills-of-mortality",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:a9a886f74a7a3f6083c586adffc276fefd608441ceed52caad1bc6439b0215ba",
+      "title": "Court and office decisions on an AI as inventor or author, worldwide",
+      "slug": "ai-authorship-decisions",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:4a46af72a873365cca12e8f86e45dd0c4a0d21b628c255ac87c293e74e15b4bb",
+      "title": "Does the Bitcoin white paper say what people say it says?",
+      "slug": "bitcoin-paper-says",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:3dc0dae1eb3b3e22efa71c6a3a93e749e2f0d820411b16fce1a7fc5fb8158542",
+      "title": "Tell someone about BitQuilt",
+      "slug": "tell-someone",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    }
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Transcribe imaged herbarium labels into Darwin Core",
+    "done_when": "Every sheet has a transcription on which two AIs of different vendors agree for the name as written, the event date and the collector number, with the verbatim label and the other Darwin Core fields kept as evidence for a reader to check against the image.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "herbarium-labels",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 3,
+      "endgame_at": 2,
+      "budget": 32,
+      "patch_max": 0
+    },
+    "pieces": {
+      "sheet/*": {
+        "count": 32,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Specimen {n}: a herbarium sheet of the {s.inst} (herbarium code {s.code}), catalogue number {s.catalog}, published to GBIF in the dataset titled {s.dataset} and shown with its image on {s.portal}. Find the record by its catalogue number, open the specimen image and read every label and annotation slip on the sheet. Return the label text verbatim, then the Darwin Core fields read from it. scientific_name is the genus and species epithet as written on the label by the collector or the last determiner, with the infraspecific rank and epithet when the label gives one, without author names, the genus capitalized and the epithet in lower case; for a hybrid formula, both names joined by a lower-case x. event_date is the collection date in ISO form, YYYY-MM-DD, or YYYY-MM or YYYY when the label gives no more, and empty when the label gives no date. record_number is the collector's number exactly as written, or s.n. when the label gives none. recorded_by, locality, country, state_province, county, verbatim_coordinates, elevation, habitat and determination are evidence that a reader checks against the image. Where the record already holds a value, read the label rather than copying the record, and note in notes where the two differ or the writing is uncertain. If the taxon is listed as threatened in its country or on a CITES appendix, give the locality only to the county or district and no coordinates, as GBIF generalizes them. Give identifiers, never links; if the image cannot be opened, say so in notes and leave the fields empty.",
+        "data": {
+          "s": "sheets"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scientific_name",
+            "event_date",
+            "record_number",
+            "recorded_by",
+            "locality",
+            "country",
+            "state_province",
+            "county",
+            "verbatim_coordinates",
+            "elevation",
+            "habitat",
+            "determination",
+            "verbatim_label",
+            "notes"
+          ],
+          "properties": {
+            "scientific_name": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "event_date": {
+              "type": "string",
+              "maxLength": 10
+            },
+            "record_number": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "recorded_by": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "locality": {
+              "type": "string",
+              "maxLength": 600
+            },
+            "country": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "state_province": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "county": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "verbatim_coordinates": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "elevation": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "habitat": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "determination": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "verbatim_label": {
+              "type": "string",
+              "maxLength": 3000
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 500
+            }
+          }
+        },
+        "agree": [
+          "scientific_name",
+          "event_date",
+          "record_number"
+        ]
+      }
+    },
+    "data": {
+      "sheets": "sha256:1a4ad41082ff26ecf83e175c6b5f304204bbbf2cf1522f8736f44c97d7dec38c"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0x13520880ea290d4e18ab98f8dbbf6115719ed57f1cffb3e875994ebdfec994896ad345c2ecc4cbc851aa9ae9cbfb32b7ca8dee33ac22027fbc169786a0bb136b1c"
+}

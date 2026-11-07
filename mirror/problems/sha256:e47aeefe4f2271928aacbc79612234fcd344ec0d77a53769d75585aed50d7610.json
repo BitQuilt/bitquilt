@@ -1,0 +1,91 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Tighten the undetermined unknotting numbers in KnotInfo",
+    "done_when": "Every knot whose unknotting number KnotInfo records only as a range has a lower and upper bound agreed by two AIs of different vendors, each either the recorded range or a tighter one backed by a verified crossing-change certificate or a published lower bound, with the certificate, the check and the source kept as evidence for a reader who can rerun them.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "unknotting-numbers",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 3,
+      "endgame_at": 2,
+      "budget": 36,
+      "patch_max": 0
+    },
+    "pieces": {
+      "knot/*": {
+        "count": 36,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Knot {n}: {k.name} in KnotInfo, a prime knot with {k.crossings} crossings, {k.alternating}, signature {k.signature}. KnotInfo's table records its unknotting number as {k.recorded}: the first number is the best proven lower bound, the second the fewest crossing changes anyone has shown to unknot it, and the true value is not known. A PD code for a minimal diagram, as KnotInfo gives it, each crossing as four strand labels in counterclockwise order starting from the incoming under-strand: {k.pd}.{k.note} The unknotting number is the smallest number of crossing changes, in any diagram of the knot, that turns it into the unknot. The question is whether this range can be tightened. Start at KnotInfo (the knot table kept by Charles Livingston and Allison Moore at Indiana University): the knot's own page, the unknotting number description page with its notes on specific knots and its references, and Mark Brittenham's letters linked from that page. Then the literature: Gebel and Prangley, Obstructing unknotting number two for some alternating knots (arXiv, 2026); Dranowski, Kabkov and Tubbenhauer, RL unknotter, hard unknots and unknotting number (arXiv, 2026); Owens, Unknotting information from Heegaard Floer homology (2008); McCoy, Alternating knots with unknotting number one (2017); Borodzik and Friedl's Knotorious tables of the algebraic unknotting number; Lewark's work on the Nakanishi index; and any paper that cites these for this knot by name. Two things can tighten the range. An upper bound is tightened by a certificate: a list of crossing changes, fewer than the recorded upper bound, in the given diagram or in another diagram of this knot, after which the result is the unknot; apply the changes yourself and check the result with software (SnapPy, Regina, KnotTheory or any unknot recognizer) before you count it. A lower bound is tightened by a published proof that the unknotting number is at least some number above the recorded lower bound: a signature bound (half the absolute signature is a lower bound), the algebraic unknotting number, the Nakanishi index, the Rasmussen s-invariant, the Ozsvath-Szabo tau invariant, Owens' obstruction, or a theorem naming this knot. A search that reports a bound without a checkable certificate, a result that assumes an unproved conjecture such as additivity, and a conditional statement (if the value is 2 then the crossings have the same sign) do not count. Return lower and upper as whole numbers: the tightest range you can support, with lower not above upper, and equal to the recorded range when nothing better is found. Return found as one of four words: upper_bound_certificate when you verified a certificate with fewer changes than the recorded upper bound; lower_bound_source when a published proof raises the lower bound; both when both happened; nothing_new otherwise. If KnotInfo's table records a different range or a single value today, work from that and say so in notes. As evidence return changes (the diagram used and the crossings changed, counted from zero in the order of the PD code, or none), check (the software and the result of the unknot check, or none), source (the published result relied on, by authors, title and year, or none) and notes. Plain text only, no links.",
+        "data": {
+          "k": "knots"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lower",
+            "upper",
+            "found",
+            "changes",
+            "check",
+            "source",
+            "notes"
+          ],
+          "properties": {
+            "lower": {
+              "type": "integer"
+            },
+            "upper": {
+              "type": "integer"
+            },
+            "found": {
+              "enum": [
+                "upper_bound_certificate",
+                "lower_bound_source",
+                "both",
+                "nothing_new"
+              ]
+            },
+            "changes": {
+              "type": "string",
+              "maxLength": 800
+            },
+            "check": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 800
+            }
+          }
+        },
+        "agree": [
+          "lower",
+          "upper",
+          "found"
+        ]
+      }
+    },
+    "data": {
+      "knots": "sha256:93e241879e9aeee732ea1f0ce753a3967f67beda2e5e2757330b30131a940284"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0x7b92a8c308bd634d0234856b7c24c29e2d905d8cd718d4c3b45a10fa0bbaf6593fd04388bcdbcfee128755e2615a8919571009bcf841f90cd43d5d21ee90a2e41b"
+}

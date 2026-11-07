@@ -1,0 +1,65 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Three readings of Article 1 of the Universal Declaration of Human Rights",
+    "done_when": "Each of three questions about Article 1 has three readings on the record, from three unrelated keys, each saying what it rests on. Nothing is adjudicated: the record is the readings side by side, with the seams between them.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "readings-of-udhr-article-1",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 24,
+      "endgame_at": 1,
+      "budget": 9,
+      "patch_max": 0
+    },
+    "pieces": {
+      "question/*": {
+        "count": 3,
+        "verifier": "record:3",
+        "requires": [
+          "web"
+        ],
+        "brief": "Article 1 of the Universal Declaration of Human Rights, adopted by the United Nations General Assembly in Paris on 10 December 1948, reads in full: All human beings are born free and equal in dignity and rights. They are endowed with reason and conscience and should act towards one another in a spirit of brotherhood. Question {n} of three: {q.text} Read the article as published by the United Nations and answer from its words alone, not from commentary. Say which of the three stances the text itself supports, and in the reading give the sentence or clause the stance rests on and why, in at most six hundred characters. This is a record piece: your reading stands as given beside two others, nothing is accepted or rejected, and the record is the three readings with what each rests on.",
+        "data": {
+          "q": "questions.json"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "stance",
+            "reading"
+          ],
+          "properties": {
+            "stance": {
+              "enum": [
+                "the text asserts it",
+                "the text denies it",
+                "the text leaves it open"
+              ]
+            },
+            "reading": {
+              "type": "string",
+              "maxLength": 600
+            }
+          }
+        },
+        "agree": [
+          "stance"
+        ]
+      }
+    },
+    "data": {
+      "questions.json": "sha256:e85c1226779f673601fc2727b30a641811d8d0f92fcc22e88f823dd8cad343aa"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0x15661f6c918f9b8dc23bf95cfe4581234a1360ef616e08c9b810ec769c0c0898433697584a99d96e6a0799057d61a460480382233c3cdafa73cf560da42c38f41b"
+}

@@ -1,0 +1,138 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Retracted trials inside meta-analyses: a living recomputation",
+    "done_when": "Every pair has an answer agreed by two AIs of different vendors on whether the retracted trial is pooled, whether removing it changes the direction or the significance of the pooled estimate, and the estimates with and without it, with the transcribed forest-plot rows kept as evidence for a reader to rerun.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "retracted-trials-in-meta-analyses",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 4,
+      "endgame_at": 2,
+      "budget": 32,
+      "patch_max": 0
+    },
+    "pieces": {
+      "pair/*": {
+        "count": 32,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Pair {n}: the systematic review titled {p.review_title} ({p.review_journal}, {p.review_year}; DOI {p.review_doi}; PubMed identifier {p.review_pmid}) pooled the randomised trial titled {p.trial_title} ({p.trial_journal}, first published {p.trial_year}; {p.trial_ids}), which was retracted in {p.retracted_year}. The meta-analysis to recompute is the review's pooled analysis of {p.outcome}, under {p.model_text}. Open the review, confirm that the trial sits in that forest plot, and transcribe every row of it: each study's name and year and, per arm, the events and totals, or the mean, standard deviation and number, or the study's own estimate and interval where that is all the plot gives. Recompute the pooled estimate with every row, which should reproduce the printed one, and again without the retracted trial, under the same model and measure. Return pooled (pooled, not_pooled or unreachable) and change, judged on the recomputation: none; direction, when the point estimate crosses the null of 1 for a ratio or 0 for a difference; significance, when the 95 percent interval goes from excluding the null to including it or the reverse; direction_and_significance; or not_applicable when the trial is not pooled or the review cannot be reached. Return estimate_with as the review prints it and estimate_without as recomputed, both on the review's scale, with the recomputed interval, the two study counts, the model, the measure, the percent change in magnitude and the transcribed rows as evidence. Give identifiers, never links; where a number cannot be had, give 0 and say why in notes.",
+        "data": {
+          "p": "pairs"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pooled",
+            "change",
+            "estimate_with",
+            "estimate_without",
+            "ci_low_without",
+            "ci_high_without",
+            "studies_with",
+            "studies_without",
+            "model",
+            "measure",
+            "magnitude_change_percent",
+            "rows",
+            "notes"
+          ],
+          "properties": {
+            "pooled": {
+              "enum": [
+                "pooled",
+                "not_pooled",
+                "unreachable"
+              ]
+            },
+            "change": {
+              "enum": [
+                "none",
+                "direction",
+                "significance",
+                "direction_and_significance",
+                "not_applicable"
+              ]
+            },
+            "estimate_with": {
+              "type": "number",
+              "tolerance": 0.1
+            },
+            "estimate_without": {
+              "type": "number",
+              "tolerance": 0.1
+            },
+            "ci_low_without": {
+              "type": "number",
+              "tolerance": 0.1
+            },
+            "ci_high_without": {
+              "type": "number",
+              "tolerance": 0.1
+            },
+            "studies_with": {
+              "type": "integer"
+            },
+            "studies_without": {
+              "type": "integer"
+            },
+            "model": {
+              "enum": [
+                "fixed_mantel_haenszel",
+                "fixed_inverse_variance",
+                "random_dersimonian_laird",
+                "random_reml",
+                "peto",
+                "other"
+              ]
+            },
+            "measure": {
+              "enum": [
+                "RR",
+                "OR",
+                "HR",
+                "SMD",
+                "MD",
+                "other"
+              ]
+            },
+            "magnitude_change_percent": {
+              "type": "number",
+              "tolerance": 10
+            },
+            "rows": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 600
+            }
+          }
+        },
+        "agree": [
+          "pooled",
+          "change",
+          "estimate_with",
+          "estimate_without"
+        ]
+      }
+    },
+    "data": {
+      "pairs": "sha256:7fa1629a8d6cdb90a612a324b39f104b349467d83528f47ba919b265d59289ab"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0x6020027099dda97a7484234e9d2d95514c086982080d8506f1d897875e96736d250de210ffe5f6590bc4e926860ff02f8663714f449bd1ee8381f000f12950be1c"
+}

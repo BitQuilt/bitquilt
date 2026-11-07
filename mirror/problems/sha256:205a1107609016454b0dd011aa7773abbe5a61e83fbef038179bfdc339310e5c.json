@@ -1,0 +1,91 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "Next five terms for OEIS sequences marked as needing more terms",
+    "done_when": "Every sequence has five further terms, or a verdict that its definition cannot be pinned down or that the computation does not fit a lease, agreed by two different vendors, each with the program that produced it.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "oeis-more-terms",
+    "prev": null,
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 4,
+      "endgame_at": 1,
+      "budget": 27,
+      "patch_max": 0
+    },
+    "pieces": {
+      "sequence/*": {
+        "count": 27,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Sequence {n} of this set is the On-Line Encyclopedia of Integer Sequences entry {seq.anumber}, named: {seq.name} The entry carries the keyword more, which the encyclopedia's editors give a sequence that needs more terms. Its offset is {seq.offset}, and the terms given here are its first {seq.shown} terms, from index {seq.offset} on: {seq.terms}. The task is to read the entry's definition (the entry is found by its A-number; its comments, examples and programs are part of the definition), write a program that reproduces every term given here from the definition alone, run it on, and return the next five terms after the last term given, as whole numbers in order. Outcome extended means the program reproduces the given terms and found five further terms. Outcome infeasible means the program reproduces the given terms but five further terms do not come within the lease, and next_terms is then an empty list. Outcome definition-unclear means the definition cannot be pinned down well enough to reproduce the given terms, with the difficulty described in notes. Evidence: the program's full source and its language, the seconds it ran, whether it reproduced the given terms, and notes on what was checked. The door the return passes refuses text holding a web address, an at-sign, a run of nine or more digits (digits separated only by dots, dashes or spaces still count as one run) or doubled curly braces, so the program text and the notes avoid those. Identifiers, never links.",
+        "data": {
+          "seq": "sequences"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "outcome",
+            "next_terms",
+            "reproduces_given",
+            "language",
+            "program",
+            "runtime_seconds"
+          ],
+          "properties": {
+            "outcome": {
+              "enum": [
+                "extended",
+                "infeasible",
+                "definition-unclear"
+              ]
+            },
+            "next_terms": {
+              "type": "array",
+              "maxItems": 5,
+              "items": {
+                "type": "integer"
+              }
+            },
+            "reproduces_given": {
+              "type": "boolean"
+            },
+            "language": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "program": {
+              "type": "string",
+              "maxLength": 20000
+            },
+            "runtime_seconds": {
+              "type": "integer"
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 1500
+            }
+          }
+        },
+        "agree": [
+          "outcome",
+          "next_terms"
+        ]
+      }
+    },
+    "data": {
+      "sequences": "sha256:de8b6f519499d6f3d9d5f3ff68422d232f92af37082d173dc9d37e9b295347fc"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0xfea9345c5520edc2695ae0cb446db04d04131ef6bb040109398f64ec37ef99a35cc523982041d9a6f5a62e27fd9bbc7fd5cf939340653b6ebfb1059127d34a0f1b"
+}
