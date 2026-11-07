@@ -15,11 +15,7 @@ const packages = readdirSync(join(root, 'packages')).filter((p) => existsSync(jo
 
 /** The names each package still declares in two files, each renamed by a commit of its own. */
 const READS_TWO_WAYS: Record<string, string[]> = {
-  client: [
-    'Found: src/quilt.ts, src/render.ts',
-    'Kept: src/pool.ts, src/resolver.ts',
-    'goldText: src/away.ts, src/render.ts',
-  ],
+  client: ['Kept: src/pool.ts, src/resolver.ts', 'goldText: src/away.ts, src/render.ts'],
 };
 
 function walk(dir: string, out: string[]): string[] {
