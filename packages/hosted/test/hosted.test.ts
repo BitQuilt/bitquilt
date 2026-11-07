@@ -19,10 +19,11 @@ import { answerText, sentenceVendor, vendorSentence } from '../src/sentence.js';
  * taken home by its address, and a session from one address refused at another; a post to another tracker a link
  * names carries neither the custody secret nor the witness, and where the connector is shared a link that names a
  * private address reaches nothing, for a member or the site's reader; the sheet a browser gets at the same
- * address, with its data beside it; the page of a square, which says what the version its address names recorded
- * and where the piece stands after the owner replaced it. And the owners' turn (QX-19 section 4, QX-16): the on-ramp
- * sharpens a hosted owner's brief where two grounded readings read it apart, with the sentence from the vendor its
- * environment names, and passes over a member with nothing to do.
+ * address, with its data beside it; the page of a square, which says what the version its address names recorded,
+ * what each reading rests on (QX-19), pinned as the page says it today, and where the piece stands after the owner
+ * replaced it. And the owners' turn (QX-19 section 4, QX-16): the on-ramp sharpens a hosted owner's brief where two
+ * grounded readings read it apart, with the sentence from the vendor its environment names, and passes over a member
+ * with nothing to do.
  */
 let server: Server;
 let base: string;
@@ -244,26 +245,30 @@ describe('the hosted on-ramp', () => {
 });
 
 describe('the page of a square', () => {
+  /** A Quilt of its own home whose key is the byte `n`, declaring `model`, over this tracker. */
+  const mk = (n: number, model: string) => {
+    const home = mkdtempSync(join(tmpdir(), 'square-'));
+    createKey(home, { secretHex: '00'.repeat(31) + n.toString(16).padStart(2, '0') });
+    const config = { ...DEFAULT_CONFIG, trackers: [base], model };
+    return new Quilt(config, loadKey(home), new Resolver(config, home), 'Claude Code');
+  };
+  const schema = { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } };
+  /** The verdict resting on a passage of the paper the test serves. */
+  const at = (passage: string) => [{ field: 'verdict', url: `${site}/paper`, passage }];
+  /** The page at /r/<problem>/<piece>: its status, its content policy and its document. */
+  const page = async (h: Hash, piece: Hash) => { const r = await fetch(`${base}r/${h}/${piece}`); return { status: r.status, csp: r.headers.get('content-security-policy') ?? '', html: await r.text() }; };
+
   it('says what the version named recorded, its readings quoted with what each rests on, and where the piece stands after the owner replaced it', async () => {
-    const mk = (n: number, model: string) => {
-      const home = mkdtempSync(join(tmpdir(), 'square-'));
-      createKey(home, { secretHex: '00'.repeat(31) + n.toString(16).padStart(2, '0') });
-      const config = { ...DEFAULT_CONFIG, trackers: [base], model };
-      return new Quilt(config, loadKey(home), new Resolver(config, home), 'Claude Code');
-    };
     const owner = mk(0x21, 'anthropic/claude'), a = mk(0x22, 'anthropic/claude'), b = mk(0x23, 'openai/gpt-5');
-    const schema = { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } };
     const families = { 'claim/*': { count: 1, verifier: 'agree', requires: ['web'], brief: 'Claim {n}: does the paper say so?', schema, agree: ['verdict'] }, 'check/*': { count: 1, verifier: 'agree', requires: ['web'], brief: 'Check {n}: does the paper say so at scale?', schema, agree: ['verdict'] } };
     const p = (await owner.publish({ title: 'What the paper says', done_when: 'Every claim has a verdict.', slug: 'squared', pieces: families } as Pattern)).hash as Hash;
     const pieceOf = async (h: Hash, name: string) => (await a.open(h)).state.pieces.find((x) => x.piece.name === name)!.piece.hash;
     const claim = await pieceOf(p, 'claim/1');
     const check = await pieceOf(p, 'check/1');
-    const at = (passage: string) => [{ field: 'verdict', url: `${site}/paper`, passage }];
     await a.return(p, claim, { verdict: 'supports' }, at(HOLDS));
     await b.return(p, claim, { verdict: 'supports' }, at(HOLDS));
     await a.return(p, check, { verdict: 'supports' }, at(HOLDS));
     await b.return(p, check, { verdict: 'contradicts' }, at(NOT_AT_SCALE));
-    const page = async (h: Hash, piece: Hash) => { const r = await fetch(`${base}r/${h}/${piece}`); return { status: r.status, csp: r.headers.get('content-security-policy') ?? '', html: await r.text() }; };
     const one = await page(p, claim);
     expect(one.status).toBe(200);
     expect(one.csp).toContain("default-src 'none'");
@@ -288,6 +293,63 @@ describe('the page of a square', () => {
     expect(sharpened.html).toContain('Scale is read from the section that reports it.');
     expect((await page(p, `sha256:${'0'.repeat(64)}` as Hash)).status).toBe(404);
     expect((await page(`sha256:${'0'.repeat(64)}` as Hash, claim)).status).toBe(404);
+  });
+
+  it('pins what the page says each reading rests on today: traced, untraced, a missing blob, and readings made under an earlier version', async () => {
+    const owner = mk(0x31, 'anthropic/claude'), a = mk(0x32, 'anthropic/claude'), b = mk(0x33, 'openai/gpt-5');
+    const family = (brief: string) => ({ count: 1, verifier: 'agree', requires: ['web'], brief, schema, agree: ['verdict'] });
+    const families = { 'traced/*': family('Traced {n}: does the paper say so?'), 'bare/*': family('Bare {n}: does the paper say so?'), 'apart/*': family('Apart {n}: does the paper say so at scale?') };
+    const p = (await owner.publish({ title: 'What each reading rests on', done_when: 'Every claim has a verdict.', slug: 'rests', pieces: families } as Pattern)).hash as Hash;
+    const pieceOf = async (h: Hash, name: string) => (await a.open(h)).state.pieces.find((x) => x.piece.name === name)!.piece.hash;
+    const traced = await pieceOf(p, 'traced/1'), bare = await pieceOf(p, 'bare/1'), apart = await pieceOf(p, 'apart/1');
+    await a.return(p, traced, { verdict: 'supports' }, at(HOLDS));
+    await b.return(p, traced, { verdict: 'supports' }, at(HOLDS));
+    await a.return(p, bare, { verdict: 'supports' });
+    await b.return(p, bare, { verdict: 'supports' });
+    await a.return(p, apart, { verdict: 'supports' }, at(HOLDS));
+    await b.return(p, apart, { verdict: 'contradicts' }, at(NOT_AT_SCALE));
+    // Every trace rests on the one page the test serves, kept under one hash.
+    const read = (store.lines(p).find((r) => r.event.type === 'trace')!.event.body as { reads: { hash: Hash }[] }).reads[0]!.hash;
+    const rest = (passage: string | null) => `verdict rests on ${passage === null ? 'a page kept here' : `“${passage}”`} at <a href="${site}/paper" rel="nofollow noopener">${site}/paper</a>, kept as <code>${read}</code>`;
+    const NONE = 'It names no page it rests on.';
+    /** What each reading on the page rests on, in the page's order: the items of its list, or the sentence that it names none. */
+    const restsOn = (html: string): (string[] | string)[] => html.split('<section>').slice(1).map((section) => {
+      const list = /<p>What it rests on:<\/p><ul>(.*?)<\/ul>/.exec(section);
+      if (list) return [...list[1]!.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1]!);
+      return section.includes(`<p class="q">${NONE}</p>`) ? NONE : section;
+    });
+
+    // A traced square: each reading quotes the passage of the page this tracker keeps.
+    const one = (await page(p, traced)).html;
+    expect(one).toContain('Both readings rest on pages kept here.');
+    expect(restsOn(one)).toEqual([[rest(HOLDS)], [rest(HOLDS)]]);
+    // An untraced square: each reading names no page, and the grade says so.
+    const none = (await page(p, bare)).html;
+    expect(none).toContain('Neither reading names a page kept here.');
+    expect(restsOn(none)).toEqual([NONE, NONE]);
+    // The store loses the page's bytes: each rest still names the page and its hash, as a page kept here, with no passage.
+    // This pins today's answer, which looks wrong: the page says kept here when the bytes are gone. A change to how squareOf in hosted.ts reads the rests will change this line.
+    const bytes = store.getBlob(read)!;
+    store.db.prepare('delete from blobs where hash = ?').run(read);
+    try {
+      expect(restsOn((await page(p, traced)).html)).toEqual([[rest(null)], [rest(null)]]);
+    } finally {
+      store.putBlob(read, bytes);
+    }
+
+    // The owner sharpens the apart family: the traced piece keeps its hash in the newer version, and the apart piece's old hash is among the newer version's ancestral pieces.
+    const newer = (await owner.sharpen(p, async () => 'Scale is read from the section that reports it.')).hash as Hash;
+    // Under the newer version's address, the readings made under the earlier one are shown, and the rests are read from the newer version's log alone, so none is named, while the grade still counts both.
+    // This pins today's answer, which looks wrong: the grade counts rests the readings do not show. A change to how squareOf in hosted.ts reads the rests will change these lines.
+    const kept = (await page(newer, traced)).html;
+    expect(kept).toContain('Both readings rest on pages kept here.');
+    expect(restsOn(kept)).toEqual([NONE, NONE]);
+    const ancestral = (await page(newer, apart)).html;
+    // This pins today's answer, which looks wrong: the piece is called open beside two readings, and neither shows its rests. A change to how squareOf in hosted.ts reads an ancestral piece and its rests will change these lines.
+    expect(ancestral).toContain('<p class="state">It is open: nobody has read it yet.</p>');
+    expect(restsOn(ancestral)).toEqual([NONE, NONE]);
+    // Under the address of the version they were made under, the same readings quote their passages.
+    expect(restsOn((await page(p, apart)).html)).toEqual([[rest(HOLDS)], [rest(NOT_AT_SCALE)]]);
   });
 });
 

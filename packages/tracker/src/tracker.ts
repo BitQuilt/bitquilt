@@ -743,7 +743,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       // `stake.burn_rate` is the rate in force now, which with `burn_indexed` moves with the epochs; `coin.burn_rate` is the parameter, its floor.
       stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: coin()!.burnRateAt(now()) } : {}) }, gold: { extension: GOLD }, trace: { extension: TRACE, blob_max: BLOB_MAX }, record: { extension: RECORD },
       coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
-      // The list a client reads; the dispatcher in `handle` is kept in this order by hand.
+      // The list a client reads, in the order `handle` tests the paths; test/routes.test.ts holds the two together.
       routes: [
         '/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/p/<hash>/record', '/k/events', '/k/<address>/standing', '/k/<address>/work', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden', '/counts',
         ...(options.coin ? ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/credits', '/coin/state'] : []),

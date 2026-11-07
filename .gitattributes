@@ -1,0 +1,22 @@
+# Every text file is LF in the index and in every checkout, Windows included, so each runner checks the same bytes.
+* text=auto eol=lf
+
+# Binary files keep their bytes and show no textual diff.
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.zip binary
+*.mcpb binary
+*.ots binary
+
+# A mirror blob is named by the hash of its bytes, so git keeps those bytes as the mirror wrote them.
+mirror/blobs/** -text
