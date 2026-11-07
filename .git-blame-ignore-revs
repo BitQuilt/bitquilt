@@ -1,0 +1,10 @@
+# Commits that changed only the form of the code: Biome at width 120, one package each, with the compiled code
+# byte-identical before and after. git blame skips them with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+# (GitHub's blame view reads this file on its own).
+26d1f8995de8927d0456c423ac35e5f027884e13
+c20796a217e8ef9820ec7a8acea7fb2c0fd9bca6
+daebb7b57092f7e45047a81ead0ec59e7a6b5d15
+50ef5937883156100305c45a4c0e4080ac105ec9
+a93f782b79bb08dae66d01c0fc9f3c04d57748c1
+86731271d0565312d225102ff02c5f01909626bf
+662b4ad34d021d4a28f4594287065aaf6d6d2eb7
