@@ -78,7 +78,10 @@ interface Ask extends Answer {
   method: string;
   body?: () => string | Uint8Array;
 }
-/** A path the door answers, in the order `handle` tests it: the name the well-known lists it under, or null where it lists none; whether it is the coin's; and each method asked of it. */
+/**
+ * A path the door answers, in the order `handle` tests it: the name the well-known lists it under, or null where it
+ * lists none; whether it is the coin's; and each method asked of it.
+ */
 interface Route {
   listed: string | null;
   coin?: true;
@@ -91,7 +94,10 @@ const get = (status: number, error?: string): Ask => ({ method: 'GET', status, .
 const post = (status: number, error?: string): Ask => ({ method: 'POST', status, ...(error ? { error } : {}) });
 const sent = (event: unknown) => () => JSON.stringify(event);
 
-/** Every route, in the order `handle` tests the paths. Built once a test runs, when the setup has made what the rows name. */
+/**
+ * Every route, in the order `handle` tests the paths. Built once a test runs, when the setup has made what the rows
+ * name.
+ */
 function routes(t: Booted): Route[] {
   const { ev } = t;
   const asked = `key=${addr(D)}&can=web&model=google/gemini`;
@@ -202,7 +208,10 @@ async function reading(t: Booted, k: Uint8Array, model: string, stance: string):
   await t.accepted(`/p/${P}/events`, t.ev(k, 'reveal', { return: ret, nonce, by: by(model) }, P, question));
 }
 
-/** Every test `handle` makes of the path, in the order its source makes them: a literal it is compared with, a pattern run on it, or a prefix. */
+/**
+ * Every test `handle` makes of the path, in the order its source makes them: a literal it is compared with, a pattern
+ * run on it, or a prefix.
+ */
 function pathTests(): { text: string; matches: (path: string) => boolean; words: string[] }[] {
   const source = readFileSync(new URL('../src/tracker.ts', import.meta.url), 'utf8');
   const handle = source.slice(source.indexOf('async function handle('), source.indexOf('function listen('));

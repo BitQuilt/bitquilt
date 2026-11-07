@@ -20,7 +20,10 @@ let page: Server;
 let base: string;
 let site: string;
 let config: Config;
-/** The person's home, kept by name: the page's Quilt and the person's are built over it, and a later test opens it again. */
+/**
+ * The person's home, kept by name: the page's Quilt and the person's are built over it, and a later test opens it
+ * again.
+ */
 const homeA = tempHome('quilt-a-');
 let owner: Quilt, b: Quilt;
 let problem: Hash;
@@ -166,7 +169,8 @@ describe('the page', () => {
 });
 
 describe("the reveal of the owner's gold the page offers", () => {
-  // A tracker on the test's clock, so a window can close; the page's key owns a problem with gold on three of its pieces.
+  // A tracker on the test's clock, so a window can close; the page's key owns a problem with gold on three of its
+  // pieces.
   const HOUR = 3_600_000;
   let tick = Date.now();
   let goldTracker: Server;
@@ -214,7 +218,8 @@ describe("the reveal of the owner's gold the page offers", () => {
     other = mk(6, 'anthropic/claude');
     goldPage = await createPage({ quilt: mine, person: mine, resolver: mine.resolver }).listen(0);
     goldSite = baseOf(goldPage).slice(0, -1);
-    // Standing first, since each blind commitment stakes two: five squares on another owner's problem bring the page's key to six.
+    // Standing first, since each blind commitment stakes two: five squares on another owner's problem bring the page's
+    // key to six.
     const elsewhere = (await other.publish(statements('elsewhere', 5))).hash;
     for (const v of (await mine.open(elsewhere)).state.pieces) {
       await mine.return(elsewhere, v.piece.hash, { verdict: 'supports', quote: 'it says so' });

@@ -1,6 +1,7 @@
 /**
- * CORE.md section 11, the plain-text gate, `gate/2` since 30 October 2026: what it passes, what it refuses (links and markup, contact details,
- * text addressed to a model, shouting), what it takes out before judging, how it says so, and the fixtures it ships.
+ * CORE.md section 11, the plain-text gate, `gate/2` since 30 October 2026: what it passes, what it refuses (links and
+ * markup, contact details, text addressed to a model, shouting), what it takes out before judging, how it says so, and
+ * the fixtures it ships.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -47,8 +48,8 @@ describe('the plain-text gate', () => {
 });
 
 /**
- * CORE.md section 11: the gate is "shipped with its own fixtures of inputs and issue codes; a tracker that claims gate/2
- * reproduces them". The fixtures are `fixtures/gate/cases.json`, each a text and the codes the gate says of it.
+ * CORE.md section 11: the gate is "shipped with its own fixtures of inputs and issue codes; a tracker that claims
+ * gate/2 reproduces them". The fixtures are `fixtures/gate/cases.json`, each a text and the codes the gate says of it.
  */
 describe('the gate fixtures', () => {
   const file = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'gate', 'cases.json');

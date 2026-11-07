@@ -4,7 +4,8 @@
  * locks were forfeited or restored (QX-15), which sets were accepted and which problems completed. From those lines,
  * the coin log's own and the published parameters it computes every root's balance: a fixed amount minted each epoch to
  * the verified squares by weight, vesting with time, locked at a door, escrowed to a problem and paid per square,
- * burned for standing. Everything here is a function of receipts anyone can hold; the tracker orders and decides nothing.
+ * burned for standing. Everything here is a function of receipts anyone can hold; the tracker orders and decides
+ * nothing.
  */
 import {
   type Address,
@@ -53,22 +54,34 @@ export interface CoinParams {
   treasury: Address;
   unit: number;
   weights: { cross_vendor: number; same_vendor: number; attest: number };
-  /** The units of coin a point of standing costs at the door; with `burn_indexed`, the floor under the rate `burnRateAt` gives. */
+  /**
+   * The units of coin a point of standing costs at the door; with `burn_indexed`, the floor under the rate `burnRateAt`
+   * gives.
+   */
   burn_rate: number;
   /**
    * Where true, a point costs what a reveal in a verified cross-vendor square earned in the latest epoch ended by then
    * (its payout a unit of weight times `weights.cross_vendor`), and never less than `burn_rate` (28 October 2026).
    */
   burn_indexed?: boolean;
-  /** The longest challenge window, in hours, of a problem the home admits, so that a strike inside any window can still take back coin not yet vested; absent, no bound. */
+  /**
+   * The longest challenge window, in hours, of a problem the home admits, so that a strike inside any window can still
+   * take back coin not yet vested; absent, no bound.
+   */
   window_max_h?: number;
   transfers_from: string | null;
   redeem_from: string | null;
-  /** The root whose `credit` lines the ledger keeps: the bridge's reader, bonded in Anchors as the poster is; absent or null, no credit is kept. */
+  /**
+   * The root whose `credit` lines the ledger keeps: the bridge's reader, bonded in Anchors as the poster is; absent or
+   * null, no credit is kept.
+   */
   reader?: Address | null;
 }
 
-/** What the door writes into a receipt's wrapper when it admits a coin-kind QX-15 lock: what it read of the coin lock, and where. */
+/**
+ * What the door writes into a receipt's wrapper when it admits a coin-kind QX-15 lock: what it read of the coin lock,
+ * and where.
+ */
 export interface CoinWord {
   kind: 'coin';
   amount: number;
@@ -118,7 +131,10 @@ export interface BalanceView {
   credited: number;
 }
 
-/** A credit line the layer kept: a deposit on the chain, burned there and credited here by the reader, which the mirror checks against the chain. */
+/**
+ * A credit line the layer kept: a deposit on the chain, burned there and credited here by the reader, which the mirror
+ * checks against the chain.
+ */
 export interface CreditLine {
   /** The coin log line's hash (QX-11), 64 hex characters. */
   id: string;
@@ -142,7 +158,10 @@ export interface RedeemLine {
   at: string;
 }
 
-/** An ended epoch: `ceiling` is the curve's amount, `amount` what the epoch could mint once the cap on a unit of weight is applied, `minted` what it did. */
+/**
+ * An ended epoch: `ceiling` is the curve's amount, `amount` what the epoch could mint once the cap on a unit of weight
+ * is applied, `minted` what it did.
+ */
 export interface EpochView {
   epoch: number;
   start: string;
@@ -173,11 +192,20 @@ export interface CoinLayer {
   redeems(upto?: number): RedeemLine[];
   /** The credit lines kept, in receipt order, up to a sequence when one is given. */
   credits(upto?: number): CreditLine[];
-  /** Whether a coin-log event would be kept if received now, and why not; for a burn that would, the standing it credits. */
+  /**
+   * Whether a coin-log event would be kept if received now, and why not; for a burn that would, the standing it
+   * credits.
+   */
   admit(event: Event): Admission & { standing?: number };
-  /** The units a point of standing costs at the door at `at`: `burn_rate`, or with `burn_indexed` the greater of it and what a reveal in a verified cross-vendor square earned in the latest epoch ended by then. */
+  /**
+   * The units a point of standing costs at the door at `at`: `burn_rate`, or with `burn_indexed` the greater of it and
+   * what a reveal in a verified cross-vendor square earned in the latest epoch ended by then.
+   */
   burnRateAt(at: string): number;
-  /** What the open epoch would mint to this root if it ended now, from the squares verified in it so far, and when it ends: what the person is owed today. The share can still fall as others verify before the end. */
+  /**
+   * What the open epoch would mint to this root if it ended now, from the squares verified in it so far, and when it
+   * ends: what the person is owed today. The share can still fall as others verify before the end.
+   */
   pending(root: Address): PendingView;
   dropped: { id: Hash; type: string; why: string }[];
 }
@@ -270,7 +298,10 @@ export function coinBodyProblems(type: string, body: unknown): string[] {
   return out;
 }
 
-/** The curve's amount for an epoch, the most it can mint: per_epoch, reduced once per period by decline_bp, each reduction floored, and never below floor_per_epoch, the tail. */
+/**
+ * The curve's amount for an epoch, the most it can mint: per_epoch, reduced once per period by decline_bp, each
+ * reduction floored, and never below floor_per_epoch, the tail.
+ */
 export function epochAmount(params: CoinParams, epoch: number): number {
   let amount = params.emission.per_epoch;
   const reductions = Math.floor(epoch / params.emission.period_epochs);
@@ -479,7 +510,10 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     return pl && view ? leaseOf(pl.fold, view) : 0;
   };
 
-  /** QX-17 section 4, the burn rate at a time. `epochs` holds every epoch ended by the line being folded, since mint lines sort before posted ones at one instant. */
+  /**
+   * QX-17 section 4, the burn rate at a time. `epochs` holds every epoch ended by the line being folded, since mint
+   * lines sort before posted ones at one instant.
+   */
   const burnRateAt = (at: string): number => {
     if (!params.burn_indexed) return params.burn_rate;
     let last: EpochView | undefined;
@@ -560,7 +594,8 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
         const ceiling = epochAmount(params, n);
         const inEpoch = verified.filter((v) => v.at >= start && v.at < end);
         const weight = inEpoch.reduce((s, v) => s + (v.weight ?? 0), 0);
-        // The cap: a unit of weight earns at most max_per_weight, and the rest of the curve's amount is unminted, not carried.
+        // The cap: a unit of weight earns at most max_per_weight, and the rest of the curve's amount is unminted, not
+        // carried.
         const cap = params.emission.max_per_weight;
         const amount = cap === undefined ? ceiling : Math.min(ceiling, cap * weight);
         let minted = 0;
@@ -573,7 +608,8 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
             t.minted += treasury;
             minted += treasury;
           }
-          // One minting per root an epoch: each square's share floored, the root's shares summed, so vesting rounds once.
+          // One minting per root an epoch: each square's share floored, the root's shares summed, so vesting rounds
+          // once.
           const rest = amount - treasury;
           const shares = new Map<Address, number>();
           for (const v of inEpoch) {
@@ -737,7 +773,10 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     }
   }
 
-  /** The open epoch's minting as it stands at `now`, by the rule of the mint line, for one root; the treasury's share where the root is the treasury. */
+  /**
+   * The open epoch's minting as it stands at `now`, by the rule of the mint line, for one root; the treasury's share
+   * where the root is the treasury.
+   */
   const pending = (root: Address): PendingView => {
     const nowMs = Date.parse(now);
     const n = Math.max(0, Math.floor((nowMs - genesis) / epochMs));

@@ -121,7 +121,10 @@ async function write(
   return hash;
 }
 
-/** Puts a contract on the chain from its compiled ABI and bytecode and answers its address: for a deployment script and the anvil test. DEPLOY.md deploys with `forge create`. */
+/**
+ * Puts a contract on the chain from its compiled ABI and bytecode and answers its address: for a deployment script and
+ * the anvil test. DEPLOY.md deploys with `forge create`.
+ */
 export async function deploy(
   c: Connection,
   contract: { abi: Abi; bytecode: Hex; args?: readonly unknown[] },

@@ -1,7 +1,7 @@
 /**
- * The event line (CORE.md section 4) and the receipt wrapper (section 5). An event's id is the hash of the event without
- * its signature fields. This module knows the shape of each core type's body and how to sign and recover; whether an
- * event counts, against a problem's pieces and the other events, is the reducer's question.
+ * The event line (CORE.md section 4) and the receipt wrapper (section 5). An event's id is the hash of the event
+ * without its signature fields. This module knows the shape of each core type's body and how to sign and recover;
+ * whether an event counts, against a problem's pieces and the other events, is the reducer's question.
  */
 import { randomBytes } from '@noble/hashes/utils.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
@@ -46,10 +46,14 @@ export const EVENT_FIELDS: readonly string[] = [
 export const DECLINE_REASONS = ['cannot', 'unclear', 'refuse', 'duplicate', 'no_time'] as const;
 export type DeclineReason = (typeof DECLINE_REASONS)[number];
 export const NONCE_RE = /^[0-9a-f]{32}$/;
-/** The pseudo-problem under which a resolver keeps identity events (name, delegate, revoke, rotate): a log of their own. */
+/**
+ * The pseudo-problem under which a resolver keeps identity events (name, delegate, revoke, rotate): a log of their own.
+ */
 export const IDENTITY_LOG: Hash = hashText('quilt:identity');
 
-/** The client's declaration on a claim, a reveal and a run: the model that did the work, the client, and what it can do. */
+/**
+ * The client's declaration on a claim, a reveal and a run: the model that did the work, the client, and what it can do.
+ */
 export interface By {
   model: string;
   client: string;
@@ -117,7 +121,10 @@ export interface Event {
   nonce?: string;
 }
 
-/** An event about to be signed by its key. A rotate already carries the new root's `sig_to`, which `sig` does not cover (section 4). */
+/**
+ * An event about to be signed by its key. A rotate already carries the new root's `sig_to`, which `sig` does not cover
+ * (section 4).
+ */
 export type Unsigned = Omit<Event, 'sig' | 'sig_to'> & { sig_to?: Signature };
 
 /** What a resolver says about an event: when it took it, and what it knew about the seat that sent it. */
@@ -142,7 +149,9 @@ export function eventId(e: Unsigned | Event): Hash {
   return hashCanonical(rest);
 }
 
-/** A commit's `h`: SHA-256 over the UTF-8 bytes of the return's canonical JSON followed by the UTF-8 bytes of the nonce. */
+/**
+ * A commit's `h`: SHA-256 over the UTF-8 bytes of the return's canonical JSON followed by the UTF-8 bytes of the nonce.
+ */
 export function commitHash(ret: unknown, nonce: string): Hash {
   const a = canonicalBytes(ret);
   const b = new TextEncoder().encode(nonce);
@@ -184,7 +193,10 @@ export function rotateSecondSigner(e: Event): Address | null {
   return recoverSigner(e as unknown as Record<string, unknown>, 'sig_to');
 }
 
-/** A time as section 4 writes `ts` and a delegate's `expires`: ISO 8601 with a zone. Stricter than plain.ts's `isTime`, which takes anything `Date.parse` reads. */
+/**
+ * A time as section 4 writes `ts` and a delegate's `expires`: ISO 8601 with a zone. Stricter than plain.ts's `isTime`,
+ * which takes anything `Date.parse` reads.
+ */
 function isTimeWithZone(s: unknown): boolean {
   return (
     typeof s === 'string' &&

@@ -32,22 +32,40 @@ export type Role = 'admit' | 'work' | 'keep' | 'host';
 export const ROLES: readonly Role[] = ['admit', 'work', 'keep', 'host'];
 
 export interface StartOptions {
-  /** The node's folder: its store (`node.db` unless `store` names another), and for `work` the key, the config and the library a Quilt home holds. */
+  /**
+   * The node's folder: its store (`node.db` unless `store` names another), and for `work` the key, the config and the
+   * library a Quilt home holds.
+   */
   home: string;
   roles: Iterable<Role>;
   /** The store's path; `<home>/node.db` unless given, as a door that kept a database before gives it. */
   store?: string;
-  /** The door (`admit`): where it listens, and what the tracker takes besides its store; its `url` is written into every receipt. */
+  /**
+   * The door (`admit`): where it listens, and what the tracker takes besides its store; its `url` is written into every
+   * receipt.
+   */
   door?: { port: number; host?: string } & Omit<TrackerOptions, 'store' | 'custodySecret' | 'extra' | 'extraWellKnown'>;
-  /** The person's page (`work`): its port on localhost, the home's config when none; trackers and relays that override the home's config. */
+  /**
+   * The person's page (`work`): its port on localhost, the home's config when none; trackers and relays that override
+   * the home's config.
+   */
   page?: { port?: number; trackers?: string[]; relays?: string[] };
-  /** The hosted on-ramp (`host`, which needs its key secret): what createHosted takes besides the store, the door's address and the custody secret; the members' homes under the node's home unless given. */
+  /**
+   * The hosted on-ramp (`host`, which needs its key secret): what createHosted takes besides the store, the door's
+   * address and the custody secret; the members' homes under the node's home unless given.
+   */
   host?: Omit<HostedOptions, 'store' | 'trackerUrl' | 'custodySecret' | 'home'> & { home?: string };
   /** The sources a node with `keep` and no door pulls from: the door's peers and the config's trackers unless given. */
   sources?: string[];
-  /** What this node's own wrapper says on a line its keep appends: the door's url, else this; `node` unless either is set. */
+  /**
+   * What this node's own wrapper says on a line its keep appends: the door's url, else this; `node` unless either is
+   * set.
+   */
   by?: string;
-  /** The loops: the keep every half hour, the peers' pull every five minutes and the owners' turn every hour; false runs none, as the tests ask. */
+  /**
+   * The loops: the keep every half hour, the peers' pull every five minutes and the owners' turn every hour; false runs
+   * none, as the tests ask.
+   */
   loops?: boolean;
   say?: (line: string) => void;
   fetchImpl?: typeof fetch;
@@ -64,7 +82,10 @@ export interface Node {
   hosted: Hosted | null;
   door: Server | null;
   page: Server | null;
-  /** One keep now: what the home opened, kept from the places it came from (`kept`); the swarm pulled over the store (`swarm`, a node with `keep` and no door); the peers' chains through the door (`pulls`). */
+  /**
+   * One keep now: what the home opened, kept from the places it came from (`kept`); the swarm pulled over the store
+   * (`swarm`, a node with `keep` and no door); the peers' chains through the door (`pulls`).
+   */
   keep(): Promise<{ kept: KeepReport; swarm: MirrorReport | null; pulls: PeerPull[] }>;
   close(): Promise<void>;
 }
@@ -79,7 +100,8 @@ export async function start(options: StartOptions): Promise<Node> {
   if (roles.has('host') && !roles.has('admit'))
     throw new Error('host is a role beside admit: custody is custody at a door');
   if (roles.has('admit') && !options.door) throw new Error('admit needs a door: its port and its url');
-  // The on-ramp's options where the node holds custody. Without the key secret the door would open and fail at the first join.
+  // The on-ramp's options where the node holds custody. Without the key secret the door would open and fail at the
+  // first join.
   const custody = roles.has('host') ? options.host : undefined;
   if (roles.has('host') && !custody?.keySecret)
     throw new Error('host needs a key secret: the keys a node holds are encrypted with it');

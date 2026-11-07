@@ -6,8 +6,8 @@ import { HOLDER, OTHER, chain, hex } from './helpers.js';
 
 /**
  * The reader over a fake chain and a fake home: it credits each finalized deposit the home has not credited yet, in
- * order, as a credit line signed with the reader's key; a run with nothing new posts nothing; a refusal from the home is
- * reported with its reason and the run goes on; an answer of the wrong shape is refused before anything is signed.
+ * order, as a credit line signed with the reader's key; a run with nothing new posts nothing; a refusal from the home
+ * is reported with its reason and the run goes on; an answer of the wrong shape is refused before anything is signed.
  */
 const key = (n: number): Uint8Array => {
   const k = new Uint8Array(32);

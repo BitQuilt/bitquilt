@@ -31,7 +31,10 @@ export interface SeedInfo {
   last_seeded: string | null;
 }
 
-/** Who seeds the problem at `now`, and the latest `seed` with `on` at or before it, from the problem's receipts in order. */
+/**
+ * Who seeds the problem at `now`, and the latest `seed` with `on` at or before it, from the problem's receipts in
+ * order.
+ */
 export function seedInfo(receipts: readonly Receipt[], fold: State, now: string): SeedInfo {
   const latest = new Map<Address, boolean>();
   let last: string | null = null;

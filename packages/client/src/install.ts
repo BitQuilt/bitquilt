@@ -25,7 +25,8 @@ export function claudeDesktopConfigPath(
   home: string = homedir(),
 ): string {
   const file = 'claude_desktop_config.json';
-  // The path is joined in the named platform's own style, not the one this runs on, so the answer for a Mac is the same from a Windows runner.
+  // The path is joined in the named platform's own style, not the one this runs on, so the answer for a Mac is the same
+  // from a Windows runner.
   if (platform === 'darwin') return posix.join(home, 'Library', 'Application Support', 'Claude', file);
   if (platform === 'win32') return win32.join(env.APPDATA ?? win32.join(home, 'AppData', 'Roaming'), 'Claude', file);
   return posix.join(env.XDG_CONFIG_HOME ?? posix.join(home, '.config'), 'Claude', file);
@@ -51,7 +52,9 @@ export function quiltEntry(options: {
   for (const k of ['QUILT_TRACKERS', 'QUILT_PORT_PAGE'] as const) if (options.env[k]) env[k] = options.env[k]!;
   return options.sea
     ? { command: options.execPath, args: ['mcp'], env }
-    : // The development command is this node running tsx's own entry on the client's bin, not pnpm and not the shell shim: an agent CLI's connection probe closes a server behind the pnpm wrapper, and launchd may not run a shim under a protected folder, while node itself reads the files there.
+    : // The development command is this node running tsx's own entry on the client's bin, not pnpm and not the shell
+      // shim: an agent CLI's connection probe closes a server behind the pnpm wrapper, and launchd may not run a shim
+      // under a protected folder, while node itself reads the files there.
       {
         command: options.execPath,
         args: [
@@ -84,7 +87,8 @@ export function claudeRunning(): boolean {
   try {
     if (process.platform === 'win32')
       return execFileSync('tasklist', { encoding: 'utf8' }).toLowerCase().includes('claude.exe');
-    // ps shows the app's own process (pgrep on macOS does not); its helpers live under Frameworks and Claude Code's bundle is lower-case.
+    // ps shows the app's own process (pgrep on macOS does not); its helpers live under Frameworks and Claude Code's
+    // bundle is lower-case.
     const names = execFileSync('ps', ['-axo', 'comm='], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
       .split('\n')
       .map((l) => l.trim());
@@ -106,7 +110,10 @@ export function entryHere(home: string, env: NodeJS.ProcessEnv = process.env): S
   return quiltEntry({ sea, execPath: process.execPath, repoRoot, home, env });
 }
 
-/** The connector written for this program, into Claude Desktop's config here, unless Claude is running: what the CLI's verb and the menu bar's button both do. */
+/**
+ * The connector written for this program, into Claude Desktop's config here, unless Claude is running: what the CLI's
+ * verb and the menu bar's button both do.
+ */
 export function installHere(
   home: string,
   anyway = false,

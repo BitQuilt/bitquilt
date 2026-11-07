@@ -36,7 +36,10 @@ export const EXTENSIONS = { human: 'QX-3', judge: 'QX-2', attest: 'QX-10', recor
 export const RANK_EVENTS: ReadonlySet<string> = new Set(['rank']);
 /** Candidates a judge piece takes when its definition names no count. */
 export const DEFAULT_CANDIDATES = 2;
-/** The seed a judge panel is drawn from, named for the well-known document: the receipt line of the piece's first candidate. */
+/**
+ * The seed a judge panel is drawn from, named for the well-known document: the receipt line of the piece's first
+ * candidate.
+ */
 export const JUDGE_SEED = 'first-candidate-receipt';
 const CORE_KINDS: ReadonlySet<string> = new Set(['check', 'score', 'agree']);
 const JUDGE = /^judge:([1-9]\d{0,2})$/;
@@ -45,10 +48,17 @@ const RECORD = /^record:([2-9]|[1-9]\d{1,2})$/;
 
 export type Kind = 'check' | 'score' | 'agree' | 'human' | 'judge' | 'attest' | 'record';
 export type Via = 'human' | 'judge' | 'attest';
-/** How a kind earns a square, strongest first: reproduced by runs, agreed by two, judged by a panel, attested by the actor alone; `recorded` earns none, since a record piece (QX-20) accepts nothing, and is listed last for that. */
+/**
+ * How a kind earns a square, strongest first: reproduced by runs, agreed by two, judged by a panel, attested by the
+ * actor alone; `recorded` earns none, since a record piece (QX-20) accepts nothing, and is listed last for that.
+ */
 export type Strength = 'reproduced' | 'agreed' | 'judged' | 'attested' | 'recorded';
 export const STRENGTHS: readonly Strength[] = ['reproduced', 'agreed', 'judged', 'attested', 'recorded'];
-/** The fold's states, with the two this layer adds: `judging` while a panel sits, `recorded` once a record piece's readings are in. A recording piece is held under `needs_verify` in the fold, so the core's `next` offers it; the view says `recording` (challenge.ts). */
+/**
+ * The fold's states, with the two this layer adds: `judging` while a panel sits, `recorded` once a record piece's
+ * readings are in. A recording piece is held under `needs_verify` in the fold, so the core's `next` offers it; the view
+ * says `recording` (challenge.ts).
+ */
 export type LayerPieceState = PieceState | 'judging' | 'recorded';
 export type PanelOutcome = 'open' | 'decided' | 'void';
 
@@ -69,7 +79,10 @@ export interface KindInfo {
   wanted: number | null;
 }
 
-/** QX-20: a record piece's standing readings, in receipt order: each from a root unrelated to the owner and to every earlier standing reading's root, up to `wanted`; `recordedAt` is the receipt of the last once they are in. */
+/**
+ * QX-20: a record piece's standing readings, in receipt order: each from a root unrelated to the owner and to every
+ * earlier standing reading's root, up to `wanted`; `recordedAt` is the receipt of the last once they are in.
+ */
 export interface RecordView {
   piece: Hash;
   name: string;
@@ -126,7 +139,10 @@ export type ExtAccepting = { kind: 'agree'; via: Via; reveals: Reveal[]; complet
 
 /** What `applyVerifiers` gives: the verifier kinds decided over a core fold, and the fold they make. */
 export interface KindsDecided {
-  /** The core's fold with these kinds decided: the pieces cloned, their states this layer's; `complete` recomputed; `output` the core's. */
+  /**
+   * The core's fold with these kinds decided: the pieces cloned, their states this layer's; `complete` recomputed;
+   * `output` the core's.
+   */
   fold: State;
   panels: PanelView[];
   byPiece: Map<Hash, PanelView>;
@@ -139,11 +155,17 @@ export interface KindsDecided {
 }
 
 export interface VerifierOptions {
-  /** The roots a judge panel on `problem` may be drawn from at `at`: credits on other problems as the caller holds them, less those related to any of `unrelatedTo`. */
+  /**
+   * The roots a judge panel on `problem` may be drawn from at `at`: credits on other problems as the caller holds them,
+   * less those related to any of `unrelatedTo`.
+   */
   pool(problem: Hash, at: string, unrelatedTo: Address[], fold: State): Address[];
 }
 
-/** A piece's lease in hours: the piece's `lease_h`, else the problem's (QX-15 section 3 names the rule; the core sets both). */
+/**
+ * A piece's lease in hours: the piece's `lease_h`, else the problem's (QX-15 section 3 names the rule; the core sets
+ * both).
+ */
 export function leaseOf(fold: State, view: PieceView): number {
   return view.piece.lease_h ?? fold.envelope.problem.settings.lease_h;
 }
@@ -268,7 +290,10 @@ export function viaOf(set: AcceptingSet | null | undefined): Via | null {
   return set && 'via' in set ? (set as unknown as ExtAccepting).via : null;
 }
 
-/** Why this is not a well-formed rank body, or nothing. Whether the digests are the piece's candidates is the panel's question. */
+/**
+ * Why this is not a well-formed rank body, or nothing. Whether the digests are the piece's candidates is the panel's
+ * question.
+ */
 export function rankBodyProblems(body: unknown): string[] {
   if (!isRecord(body)) return ['body: an object'];
   const r = body.ranking;
@@ -306,7 +331,10 @@ export function rankingProblem(panel: PanelView, ranking: unknown): string | nul
   return null;
 }
 
-/** Whether a reveal came from a person's seat: the receipt says `seat: person` or `custody: hosted`, or the client declared the model `human`. */
+/**
+ * Whether a reveal came from a person's seat: the receipt says `seat: person` or `custody: hosted`, or the client
+ * declared the model `human`.
+ */
 export function fromPersonSeat(reveal: Reveal, receipt: Receipt | undefined): boolean {
   if (reveal.by.model === 'human') return true;
   return receipt?.received.some((r) => r.seat === 'person' || r.custody === 'hosted') ?? false;
@@ -322,7 +350,10 @@ interface Rank {
   at: string;
 }
 
-/** What deciding a piece of one of these kinds reads: the fold being decided, its owner and window, the receipt line of a reveal, the time, and the caller's pool. */
+/**
+ * What deciding a piece of one of these kinds reads: the fold being decided, its owner and window, the receipt line of
+ * a reveal, the time, and the caller's pool.
+ */
 interface Context {
   fold: State;
   owner: Address;
@@ -387,7 +418,8 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
     }
   }
 
-  // States: the core's for its own kinds where it had one; this layer's for its kinds and for what the core locked behind them.
+  // States: the core's for its own kinds where it had one; this layer's for its kinds and for what the core locked
+  // behind them.
   const pieces = views.map((v) => v.piece);
   const memo = new Map<Hash, LayerPieceState>();
   const stateOf = (v: PieceView, trail: Set<Hash>): LayerPieceState => {
@@ -395,7 +427,8 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
     if (hit) return hit;
     if (trail.has(v.piece.hash)) return 'locked';
     trail.add(v.piece.hash);
-    // A dependent unlocks on accepted or unreachable, as the core says, and on recorded (QX-20), which is the record piece's done.
+    // A dependent unlocks on accepted or unreachable, as the core says, and on recorded (QX-20), which is the record
+    // piece's done.
     const inputsDone = v.piece.inputs.every((entry) =>
       inputPieces(entry, pieces).every((dep) => {
         const ds = stateOf(byHash.get(dep.hash)!, trail);
@@ -408,7 +441,8 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
     else if (info.kind === null) s = 'unknown';
     else if (CORE_KINDS.has(info.kind) && v.state !== 'locked') s = v.state;
     else if (info.kind === 'record') {
-      // QX-20 section 2: recorded once the readings are in; held under needs_verify while some stand, so the core's `next` offers it to a root that has not read it; the core's words while none does.
+      // QX-20 section 2: recorded once the readings are in; held under needs_verify while some stand, so the core's
+      // `next` offers it to a root that has not read it; the core's words while none does.
       const rec = records.get(v.piece.hash)!;
       if (rec.recordedAt !== null) s = 'recorded';
       else if (rec.standing.length) s = 'needs_verify';
@@ -468,7 +502,10 @@ function decideRecord(v: PieceView, { fold, owner }: Context, n: number): Record
   };
 }
 
-/** The first valid reveal from a root unrelated to the owner accepts the piece at once (QX-10); the window runs from its receipt. */
+/**
+ * The first valid reveal from a root unrelated to the owner accepts the piece at once (QX-10); the window runs from its
+ * receipt.
+ */
 function decideAttest(v: PieceView, { fold, owner, windowH }: Context): void {
   const r = v.reveals.find((x) => !fold.related(x.root, owner, x.at));
   if (!r) return;
@@ -477,7 +514,10 @@ function decideAttest(v: PieceView, { fold, owner, windowH }: Context): void {
   v.windowEnd = plusHours(r.at, windowH);
 }
 
-/** As agree, with the vendor rule replaced by the seat (QX-3): two reveals from unrelated roots, each from a person's seat, agreeing on the agree fields. */
+/**
+ * As agree, with the vendor rule replaced by the seat (QX-3): two reveals from unrelated roots, each from a person's
+ * seat, agreeing on the agree fields.
+ */
 function decideHuman(v: PieceView, { fold, owner, windowH, lineOf }: Context): Reveal[] {
   const schema = v.piece.schema;
   if (!schema) return [];
@@ -503,8 +543,8 @@ function decideHuman(v: PieceView, { fold, owner, windowH, lineOf }: Context): R
 
 /**
  * The candidates are the first `candidates` reveals from roots unrelated to the owner and to each other, with distinct
- * digests (QX-2); once they are in, a panel of n is drawn from the pool at that receipt, seeded by the first candidate's
- * receipt line, and the ranks are folded in receipt order. Null while the candidates are not yet in.
+ * digests (QX-2); once they are in, a panel of n is drawn from the pool at that receipt, seeded by the first
+ * candidate's receipt line, and the ranks are folded in receipt order. Null while the candidates are not yet in.
  */
 function decideJudge(
   v: PieceView,
@@ -558,7 +598,10 @@ function decideJudge(
   return panel;
 }
 
-/** Offers the seats, lapses and replaces them by the lease (sortition.ts), folds the ranks in receipt order, and decides on a majority's first choice. */
+/**
+ * Offers the seats, lapses and replaces them by the lease (sortition.ts), folds the ranks in receipt order, and decides
+ * on a majority's first choice.
+ */
 function seatPanel(panel: PanelView, fold: State, leaseH: number, ranks: Rank[], now: string): void {
   const { seats, advance, ranOut, lastLapse } = offerSeats<PanelSeat>(
     panel.order,

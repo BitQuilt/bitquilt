@@ -63,13 +63,19 @@ export const SCOPE = 'quilt';
 const BODY_MAX = 16 * 1024;
 /** The most redirect URIs one client registers. */
 const REDIRECTS_MAX = 10;
-/** How a client may authenticate at the token endpoint: a registered client with its secret or none, a document client with none or its key. */
+/**
+ * How a client may authenticate at the token endpoint: a registered client with its secret or none, a document client
+ * with none or its key.
+ */
 const AUTH_METHODS = ['none', 'client_secret_post', 'client_secret_basic', 'private_key_jwt'];
 const REGISTERED_METHODS = ['none', 'client_secret_post', 'client_secret_basic'];
 const SIGNING_ALGORITHMS = ['RS256', 'PS256', 'ES256'];
 const GRANT_TYPES = ['authorization_code', 'refresh_token'];
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
-/** The authorization page's policy (page-policy.ts): its own script and style by hash, its reads from this tracker, framed by no page. */
+/**
+ * The authorization page's policy (page-policy.ts): its own script and style by hash, its reads from this tracker,
+ * framed by no page.
+ */
 const AUTHORIZE_POLICY = pagePolicy(AUTHORIZE_PAGE);
 
 export interface OAuthOptions {
@@ -93,7 +99,10 @@ export interface OAuthOptions {
   fetchImpl: typeof fetch;
   /** The address ranges each product publishes for its servers; products.ts's when none are given. */
   ranges?: Readonly<Record<string, readonly string[]>>;
-  /** The member an address belongs to, by the hash of its token, from the long address or its last part as a person pastes it. */
+  /**
+   * The member an address belongs to, by the hash of its token, from the long address or its last part as a person
+   * pastes it.
+   */
   memberOf: (presented: string) => string | null;
 }
 
@@ -111,7 +120,10 @@ export interface OAuthServer {
   resource(): string;
   routes(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean>;
   bearer(req: IncomingMessage): Bearer;
-  /** Answers 401 with the challenge that leads a client to the resource metadata, and the reason where a token was refused. */
+  /**
+   * Answers 401 with the challenge that leads a client to the resource metadata, and the reason where a token was
+   * refused.
+   */
   challenge(res: ServerResponse, why?: string): void;
   /** What the well-known document says of the witness: each product, its callbacks, and how this server binds it. */
   describe(): Record<string, unknown>;
@@ -132,7 +144,10 @@ interface Known {
   secretHash: string | null;
   document: ClientDocument | null;
 }
-/** How a token request authenticated: as a public client, with a registered secret, or with a key from the client's document. */
+/**
+ * How a token request authenticated: as a public client, with a registered secret, or with a key from the client's
+ * document.
+ */
 type Authenticated = { client: Known; method: 'none' | 'secret' | 'key' };
 /** An authorization request that passed: the client, where the code goes, the challenge, and what was asked. */
 interface AuthRequest {
@@ -184,7 +199,10 @@ async function readParams(req: IncomingMessage): Promise<Params> {
   return Object.fromEntries(new URLSearchParams(text));
 }
 
-/** Why a redirect URI cannot be registered, or null: https, http on this machine alone, or a native app's own scheme; no fragment. */
+/**
+ * Why a redirect URI cannot be registered, or null: https, http on this machine alone, or a native app's own scheme; no
+ * fragment.
+ */
 function redirectProblem(uri: string): string | null {
   let u: URL;
   try {
@@ -201,7 +219,10 @@ function redirectProblem(uri: string): string | null {
   return null;
 }
 
-/** A requested redirect URI against a registered one: the same string, or, on this machine's loopback, the same but for the port (RFC 8252 section 7.3). */
+/**
+ * A requested redirect URI against a registered one: the same string, or, on this machine's loopback, the same but for
+ * the port (RFC 8252 section 7.3).
+ */
 function redirectMatches(requested: string, registered: string): boolean {
   if (requested === registered) return true;
   try {
@@ -220,7 +241,10 @@ function redirectMatches(requested: string, registered: string): boolean {
   }
 }
 
-/** The name a client gave itself, kept when it passes the plain-text gate and is short; null otherwise. Shown only as the client's quoted words. */
+/**
+ * The name a client gave itself, kept when it passes the plain-text gate and is short; null otherwise. Shown only as
+ * the client's quoted words.
+ */
 export function keptClientName(raw: unknown): string | null {
   const n = typeof raw === 'string' ? raw.trim() : '';
   return n && n.length <= CLIENT_NAME_MAX && textIssues(n).length === 0 ? n : null;
@@ -307,7 +331,10 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     return to.href;
   }
 
-  /** A client by id: the document at a URL, else the registration here; null for neither, with the document's fault where it has one. */
+  /**
+   * A client by id: the document at a URL, else the registration here; null for neither, with the document's fault
+   * where it has one.
+   */
   async function clientOf(clientId: string | undefined): Promise<Known | null> {
     if (!clientId) return null;
     if (/^https:\/\//i.test(clientId)) {
@@ -507,7 +534,10 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     );
   }
 
-  /** What the authorization page shows of a request: the client, by its document's host where it has one and by its own name, where the code goes, and the mark the events will carry. */
+  /**
+   * What the authorization page shows of a request: the client, by its document's host where it has one and by its own
+   * name, where the code goes, and the mark the events will carry.
+   */
   async function requestInfo(res: ServerResponse, p: Params): Promise<void> {
     const c = await checkAuthorization(p);
     if (!c.ok) {
@@ -533,7 +563,9 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     );
   }
 
-  /** The person's answer on the authorization page: declined, an address that is not here, or a code sent to the client. */
+  /**
+   * The person's answer on the authorization page: declined, an address that is not here, or a code sent to the client.
+   */
   async function approve(req: IncomingMessage, res: ServerResponse): Promise<void> {
     limit(req);
     const p = await readParams(req);
@@ -591,7 +623,10 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     return null;
   }
 
-  /** The refusal when a product's code or grant is used without the binding: what would have bound it, in the product's terms. */
+  /**
+   * The refusal when a product's code or grant is used without the binding: what would have bound it, in the product's
+   * terms.
+   */
   function unbound(product: string, what: string): InvalidGrantError {
     const list = ranges.get(product);
     return new InvalidGrantError(
@@ -628,7 +663,8 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     if (asked !== undefined && !resourceOk(asked))
       throw new InvalidTargetError(`this server issues tokens for ${resource()}`);
     if (!store.getMember(row.tokenHash)) throw new InvalidGrantError('the address behind the code is gone');
-    // The witness (QX-18): a code sent to a product's callback is redeemed only as the product; anywhere else, as the client it was given to.
+    // The witness (QX-18): a code sent to a product's callback is redeemed only as the product; anywhere else, as the
+    // client it was given to.
     const product = productOf(row.redirectUri);
     const bound = product ? boundTo(product, a, req) : null;
     if (product && !bound) throw unbound(product, 'a code sent to');
@@ -685,7 +721,10 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     json(res, 200, tokens, { 'cache-control': 'no-store', pragma: 'no-cache' });
   }
 
-  /** RFC 7009: a token of this client's revokes its grant; anything else is answered the same, so nothing is learnt from the answer. */
+  /**
+   * RFC 7009: a token of this client's revokes its grant; anything else is answered the same, so nothing is learnt from
+   * the answer.
+   */
   async function revoke(req: IncomingMessage, res: ServerResponse): Promise<void> {
     limit(req);
     const p = await readParams(req);
@@ -751,7 +790,8 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     const path = url.pathname.replace(/\/+$/, '') || '/';
     const method = req.method ?? 'GET';
     const prm = wellKnown('oauth-protected-resource', resource());
-    // The connector's metadata at the root, at its own path, and at a long address's path, which names the same resource.
+    // The connector's metadata at the root, at its own path, and at a long address's path, which names the same
+    // resource.
     if (
       method === 'GET' &&
       (path === '/.well-known/oauth-protected-resource' ||
@@ -775,7 +815,8 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
         await requestInfo(res, Object.fromEntries(url.searchParams));
       else if (path === '/oauth/authorize' && method === 'POST') await approve(req, res);
       else if (path === '/oauth/authorize' && method === 'GET') {
-        // A request whose client and redirect URI stand but whose rest does not goes back to the client at once; otherwise the page, which asks the request again for what to show.
+        // A request whose client and redirect URI stand but whose rest does not goes back to the client at once;
+        // otherwise the page, which asks the request again for what to show.
         const c = await checkAuthorization(Object.fromEntries(url.searchParams));
         if (!c.ok && c.redirect) {
           res.writeHead(302, { location: c.redirect });

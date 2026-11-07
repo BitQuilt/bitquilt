@@ -182,7 +182,8 @@ describe('the core and the extension kinds', () => {
       for (const name of ['vote', 'summary', 'told', 'readings'])
         expect(state.byHash.get(pieceOf(name))!.accepting).toBeNull();
       expect(state.byHash.get(pieceOf('readings'))!.reveals).toHaveLength(3);
-      // The reveals themselves are valid and folded; only the verifier is unknown. The rank is an event of no core type, passed over.
+      // The reveals themselves are valid and folded; only the verifier is unknown. The rank is an event of no core
+      // type, passed over.
       expect(state.byHash.get(pieceOf('vote'))!.reveals).toHaveLength(2);
       expect(state.byHash.get(pieceOf('summary'))!.reveals).toHaveLength(2);
       expect(state.byHash.get(pieceOf('told'))!.reveals).toHaveLength(1);

@@ -95,7 +95,8 @@ export const pieces: LayerPiece[] = pl.fold.pieces.map((v) => {
   };
 });
 
-// The challenges of `/p/<hash>/challenges`, as the route builds them from the layer's challenges, the piece named by the layer.
+// The challenges of `/p/<hash>/challenges`, as the route builds them from the layer's challenges, the piece named by
+// the layer.
 export const challenges: ChallengeListing[] = pl.challenges.map((c) => ({
   id: c.id,
   piece: c.piece,

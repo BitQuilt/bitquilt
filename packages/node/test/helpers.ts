@@ -1,4 +1,7 @@
-/** What the node's tests share: a free port, a temporary home with a key, a reading Quilt over a door, and a small pattern. */
+/**
+ * What the node's tests share: a free port, a temporary home with a key, a reading Quilt over a door, and a small
+ * pattern.
+ */
 import { mkdtempSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';

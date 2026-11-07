@@ -31,7 +31,10 @@ const VERSION: string =
   process.env.QUILT_VERSION ??
   (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
 
-/** What every tool answers with: the text a model reads, and the handles a card uses (a problem hash, a piece hash, where a post went). */
+/**
+ * What every tool answers with: the text a model reads, and the handles a card uses (a problem hash, a piece hash,
+ * where a post went).
+ */
 const toolOutput = { text: z.string(), handles: z.record(z.string(), z.unknown()).optional() };
 
 function said({ text, handles }: ToolResult) {
@@ -39,7 +42,8 @@ function said({ text, handles }: ToolResult) {
 }
 
 // The plain account first (about.ts), so an AI asked how Quilt works has it to hand from the handshake on; then what
-// the tools are. The account already says that the person's client asks before anything is written, so that is said once.
+// the tools are. The account already says that the person's client asks before anything is written, so that is said
+// once.
 const instructions = [
   HOW_QUILT_WORKS,
   "Quilt is a client of BitQuilt: problems published as patterns of pieces, worked by many people's AIs, each return signed.",
@@ -55,9 +59,15 @@ export function awayInstructions(record: AwayRecord): string {
 }
 
 export interface McpServerOptions {
-  /** Called once the client has finished its handshake, with the host's name: the record the menu bar reads as an AI having connected (phrases.ts). */
+  /**
+   * Called once the client has finished its handshake, with the host's name: the record the menu bar reads as an AI
+   * having connected (phrases.ts).
+   */
   connected?: (host: string | null) => void;
-  /** The record of a run while away (away.ts): set, only the tools such a run may call are offered, and quilt_next and quilt_return stop at the day's cap. QUILT_AWAY when left out. */
+  /**
+   * The record of a run while away (away.ts): set, only the tools such a run may call are offered, and quilt_next and
+   * quilt_return stop at the day's cap. QUILT_AWAY when left out.
+   */
   away?: string;
 }
 
@@ -72,7 +82,8 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     { name: 'quilt', version: VERSION },
     { instructions: away ? `${instructions} ${awayInstructions(readAway(away))}` : instructions },
   );
-  // While away, a claim or a return past the day's cap is answered with the cap and writes nothing; each return handed back is counted in the record.
+  // While away, a claim or a return past the day's cap is answered with the cap and writes nothing; each return handed
+  // back is counted in the record.
   const call = (name: ToolName) => async (input: ToolInput) => {
     if (away && (name === 'quilt_next' || name === 'quilt_return')) {
       const record = readAway(away);
@@ -86,7 +97,8 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     if (away && name === 'quilt_return') recordReturn(away, String(input.problem ?? ''), String(input.piece ?? ''));
     return said(result);
   };
-  // A tool registered, and taken off again before the handshake when this is a run while away and the tool is not among the ones such a run may call.
+  // A tool registered, and taken off again before the handshake when this is a run while away and the tool is not among
+  // the ones such a run may call.
   const tool: McpServer['registerTool'] = (name, config, cb) => {
     const registered = server.registerTool(name, config, cb);
     if (away && !(AWAY_TOOLS as readonly string[]).includes(name)) registered.remove();
@@ -179,7 +191,8 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     },
     async (input: ToolInput) => {
       const r = await run('quilt_window', input, server.server.getClientVersion()?.name);
-      // The capability as the host declared it at the handshake; the SDK's own type for it is read through the extension's.
+      // The capability as the host declared it at the handshake; the SDK's own type for it is read through the
+      // extension's.
       const cap = getUiCapability(server.server.getClientCapabilities() as Parameters<typeof getUiCapability>[0]);
       const shown = Boolean(cap && (!cap.mimeTypes || cap.mimeTypes.includes(RESOURCE_MIME_TYPE)));
       return said({
@@ -318,7 +331,8 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     },
     call('quilt_read'),
   );
-  // (quilt_read names the window too, so it comes up on the problem's map beside the reading where the chat shows MCP apps.)
+  // (quilt_read names the window too, so it comes up on the problem's map beside the reading where the chat shows MCP
+  // apps.)
 
   tool(
     'quilt_rank',

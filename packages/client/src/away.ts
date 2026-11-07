@@ -79,7 +79,10 @@ export const CLAUDE_MODEL = 'anthropic/claude';
 /** The states in which a returned piece counts as accepted so far. */
 export const ACCEPTED_STATES: readonly string[] = ['accepted_provisional', 'accepted'];
 
-/** One day of the record: how many runs, how many pieces returned, and which, so the summary can ask what became of them. */
+/**
+ * One day of the record: how many runs, how many pieces returned, and which, so the summary can ask what became of
+ * them.
+ */
 export interface AwayDay {
   runs: number;
   returned: number;
@@ -114,7 +117,10 @@ function daysBetween(from: string, to: string): number {
   return Math.round((at(to) - at(from)) / 86_400_000);
 }
 
-/** What was read, as the record for the day given: another day's counts go to zero, days older than a week are dropped, the cap and the last run are kept. */
+/**
+ * What was read, as the record for the day given: another day's counts go to zero, days older than a week are dropped,
+ * the cap and the last run are kept.
+ */
 export function rolledOver(read: Partial<AwayRecord> | null, day: string): AwayRecord {
   const cap = typeof read?.cap === 'number' && Number.isInteger(read.cap) && read.cap > 0 ? read.cap : DEFAULT_CAP;
   const days: Record<string, AwayDay> = {};
@@ -253,7 +259,10 @@ export function findAgent(dirs: string[], exists: (path: string) => boolean = is
   return null;
 }
 
-/** What the run says to the agent: the phrase a person says, and that nobody is here. Fixed text, with nothing anyone else wrote in it. */
+/**
+ * What the run says to the agent: the phrase a person says, and that nobody is here. Fixed text, with nothing anyone
+ * else wrote in it.
+ */
 export function awayPrompt(): string {
   return `${say('find_something_to_do')} Nobody is at the keyboard right now, so decline any piece that needs a person (reason: cannot). One piece is enough for this run.`;
 }
@@ -265,7 +274,10 @@ export interface Invocation {
   model: string;
 }
 
-/** The connector entry an agent starts: the installer's (install.ts), with the vendor the run declares and the record the connector keeps the cap in. */
+/**
+ * The connector entry an agent starts: the installer's (install.ts), with the vendor the run declares and the record
+ * the connector keeps the cap in.
+ */
 export function awayEntry(entry: ServerEntry, model: string, awayFile: string): ServerEntry {
   return { command: entry.command, args: entry.args, env: { ...entry.env, QUILT_MODEL: model, QUILT_AWAY: awayFile } };
 }
@@ -416,7 +428,10 @@ export interface TurnOptions {
   quilt?: () => Quilt;
 }
 
-/** One turn: whether an agent ran, which, how it ended, how many pieces the record gained, what the agent said last, the gold revealed, and the line appended to the log. */
+/**
+ * One turn: whether an agent ran, which, how it ended, how many pieces the record gained, what the agent said last, the
+ * gold revealed, and the line appended to the log.
+ */
 export interface Turn {
   ran: boolean;
   agent: Agent | null;
@@ -427,13 +442,18 @@ export interface Turn {
   said: string | null;
   /** The owner's gold revealed this turn, each with what the tracker decided or why it was refused. */
   gold: Revealed[];
-  /** The owner's briefs sharpened this turn (QX-19 section 4): each problem with a seam, the sentences and the version. */
+  /**
+   * The owner's briefs sharpened this turn (QX-19 section 4): each problem with a seam, the sentences and the version.
+   */
   sharpened: Sharpened[];
   line: string;
   record: AwayRecord;
 }
 
-/** The turn's sharpening in a few words for the log: how many versions were published and how many sentences were asked and not kept; nothing when there was no seam. */
+/**
+ * The turn's sharpening in a few words for the log: how many versions were published and how many sentences were asked
+ * and not kept; nothing when there was no seam.
+ */
 export function sharpenText(list: readonly Sharpened[]): string {
   if (list.length === 0) return '';
   const published = list.filter((s) => s.hash && s.posted.length).length;
@@ -442,7 +462,10 @@ export function sharpenText(list: readonly Sharpened[]): string {
   return `sharpened: ${published} published${left ? `, ${left} sentence${left === 1 ? '' : 's'} not kept` : ''}${refused ? `, ${refused} refused` : ''}`;
 }
 
-/** The agent CLI as a function from a prompt to its one answer, with no tools: how the owner's node asks for the sentence a brief lacks (QX-19 section 4). */
+/**
+ * The agent CLI as a function from a prompt to its one answer, with no tools: how the owner's node asks for the
+ * sentence a brief lacks (QX-19 section 4).
+ */
 export function askInvocation(agent: Agent, prompt: string, lastMessage: string): Invocation {
   return agent.name === 'claude'
     ? {
@@ -490,7 +513,10 @@ export async function agentSentence(
   return run.code === 0 && said ? said.trim() : null;
 }
 
-/** The turn's reveals in a few words for the log: how many were posted, what the tracker decided, and how many it refused; nothing when there were none. */
+/**
+ * The turn's reveals in a few words for the log: how many were posted, what the tracker decided, and how many it
+ * refused; nothing when there were none.
+ */
 export function revealedText(gold: readonly Revealed[]): string {
   if (gold.length === 0) return '';
   const posted = gold.filter((g) => !g.error);
@@ -505,7 +531,11 @@ export function revealedText(gold: readonly Revealed[]): string {
   return `gold: ${posted.length} revealed${parts.length ? ` (${parts.join(', ')})` : ''}${refused ? `, ${refused} refused` : ''}`;
 }
 
-/** What the owner's part of a turn did: the gold revealed, the briefs sharpened, the problems announced again, and all three in a few words for a log line, or nothing when there was nothing to do; and what the keeper's loop did beside it, the queue it sent included, which is the node's and not the owner's, so it is not in `said`. */
+/**
+ * What the owner's part of a turn did: the gold revealed, the briefs sharpened, the problems announced again, and all
+ * three in a few words for a log line, or nothing when there was nothing to do; and what the keeper's loop did beside
+ * it, the queue it sent included, which is the node's and not the owner's, so it is not in `said`.
+ */
 export interface OwnerTurn {
   gold: Revealed[];
   sharpened: Sharpened[];
@@ -517,8 +547,8 @@ export interface OwnerTurn {
 /**
  * The owner's part of a turn, which needs no agent beside it: the gold due revealed (QX-16, gold.ts), and the briefs
  * sharpened where two readings read them apart (QX-19 section 4), the sentence from `ask`, or nothing sharpened where
- * there is no way to ask. A step that fails is written to the log and the turn goes on. A home's node runs it before its
- * agent, and the hosted on-ramp runs it for the owners whose keys it holds.
+ * there is no way to ask. A step that fails is written to the log and the turn goes on. A home's node runs it before
+ * its agent, and the hosted on-ramp runs it for the owners whose keys it holds.
  */
 export async function ownerTurn(
   quilt: Quilt,
@@ -547,7 +577,8 @@ export async function ownerTurn(
   } catch (e) {
     log(`${now().toISOString()} announce: not run (${oneLine((e as Error).message, 200)})`);
   }
-  // The keeper's loop (WORKSHOP.md section 2, stage one): what waited in the queue sent, and what this node holds kept whole and current, once an hour with the turn; its own line in the log where it did anything.
+  // The keeper's loop (WORKSHOP.md section 2, stage one): what waited in the queue sent, and what this node holds kept
+  // whole and current, once an hour with the turn; its own line in the log where it did anything.
   let kept = { added: 0, reads: 0, sent: 0 };
   try {
     const k = await quilt.resolver.keep();
@@ -669,8 +700,8 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
 /**
  * The command the schedule runs: this program with `away`, from the connector's entry (the executable, or the
  * development command). A bare name such as `pnpm` is resolved to its path in the directories given, since launchd
- * looks a program up with a PATH of its own, not the one the plist sets, and fails the job with EX_CONFIG when it is not
- * there; a name found nowhere is left as given.
+ * looks a program up with a PATH of its own, not the one the plist sets, and fails the job with EX_CONFIG when it is
+ * not there; a name found nowhere is left as given.
  */
 export function awayCommand(
   entry: ServerEntry,
@@ -690,14 +721,20 @@ export function awayCommand(
   return { command, args: [...entry.args.slice(0, -1), 'away'] };
 }
 
-/** The environment the schedule runs under: the connector entry's quilt variables but the model, which the run declares itself, the home, and a PATH with the places an agent CLI is looked for. */
+/**
+ * The environment the schedule runs under: the connector entry's quilt variables but the model, which the run declares
+ * itself, the home, and a PATH with the places an agent CLI is looked for.
+ */
 export function scheduleEnv(entry: ServerEntry, dirs: string[], home: string): Record<string, string> {
   const env = { ...entry.env };
   delete env.QUILT_MODEL;
   return { ...env, QUILT_HOME: home, PATH: dirs.join(delimiter) };
 }
 
-/** The launchd user agent: this program's `away` every hour, not at load, with the home in its environment and its output under the home. */
+/**
+ * The launchd user agent: this program's `away` every hour, not at load, with the home in its environment and its
+ * output under the home.
+ */
 export function plistText(o: {
   label: string;
   command: string;
@@ -774,7 +811,9 @@ export interface Schedule {
   crontab: string | null;
 }
 
-/** Whether the schedule is in place: on a Mac, the plist and whether launchd has it; elsewhere, the crontab line to add. */
+/**
+ * Whether the schedule is in place: on a Mac, the plist and whether launchd has it; elsewhere, the crontab line to add.
+ */
 export function scheduleOf(o: ScheduleOptions & { command: string; args: string[]; home: string }): Schedule {
   const platform = o.platform ?? process.platform;
   if (platform !== 'darwin')
@@ -866,7 +905,10 @@ export interface AwaySummary {
   days: ({ day: string } & Count)[];
 }
 
-/** A problem's pieces by hash, each with its state: the tracker's where one answered, the core's otherwise. Null where no resolver answered. Nothing is written. */
+/**
+ * A problem's pieces by hash, each with its state: the tracker's where one answered, the core's otherwise. Null where
+ * no resolver answered. Nothing is written.
+ */
 export async function pieceStates(quilt: Quilt, problem: string): Promise<Map<string, string> | null> {
   if (!isHash(problem)) return null;
   let resolved: Awaited<ReturnType<Quilt['resolver']['resolve']>>;
@@ -881,7 +923,10 @@ export async function pieceStates(quilt: Quilt, problem: string): Promise<Map<st
   return new Map(state.pieces.map((v) => [v.piece.hash, over.get(v.piece.hash)?.state ?? v.state]));
 }
 
-/** What the runs did: by day, today, and over the week, with how many of the pieces returned are accepted so far, each problem asked once. */
+/**
+ * What the runs did: by day, today, and over the week, with how many of the pieces returned are accepted so far, each
+ * problem asked once.
+ */
 export async function awaySummary(
   record: AwayRecord,
   states: (problem: string) => Promise<Map<string, string> | null>,
@@ -974,7 +1019,10 @@ export async function awayState(o: StateOptions, note: string | null = null): Pr
   return { ...status, summary, note };
 }
 
-/** The switch: the cap set where one is given, the schedule put in place or taken away where `on` says, and the state after. */
+/**
+ * The switch: the cap set where one is given, the schedule put in place or taken away where `on` says, and the state
+ * after.
+ */
 export async function awaySwitch(
   o: StateOptions & { on?: boolean | undefined; cap?: number | undefined },
 ): Promise<AwayState> {

@@ -106,7 +106,8 @@ describe('the record kind (QX-20)', () => {
     });
     expect((ret.structuredContent as { text: string }).text).toContain('The reading stands as given.');
     await close();
-    // The second: the piece is recording now, offered to a root that has not read it; the house's switch takes none of it.
+    // The second: the piece is recording now, offered to a root that has not read it; the house's switch takes none of
+    // it.
     const second = await mcpPair(b);
     const next = await second.client.callTool({ name: 'quilt_next', arguments: { problem } });
     expect((next.structuredContent as { text: string }).text).toContain('state recording');
@@ -144,7 +145,8 @@ describe('the record kind (QX-20)', () => {
   it('refuses record:1 and a gold answer on a record piece in the checker, and passes the example pattern of this kind whole', () => {
     const who = { secret: secretFromHex(hex(7)), address: addressOf(secretFromHex(hex(7))) };
     const hints = { trackers: [], mirrors: [] };
-    // A fault in a verifier is named before the pieces expand; the gold check runs over the expanded pieces, so each is tried on its own pattern.
+    // A fault in a verifier is named before the pieces expand; the gold check runs over the expanded pieces, so each is
+    // tried on its own pattern.
     const one: Pattern = { ...pattern, pieces: { question: { ...pattern.pieces.question!, verifier: 'record:1' } } };
     expect(patternProblems(one, draftEnvelope(one, who, hints))).toContain(
       'pieces.question.verifier: record:n takes n from 2',

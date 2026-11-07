@@ -1,4 +1,7 @@
-/** A hash is `sha256:` and sixty-four lower-case hex characters, over the UTF-8 bytes of canonical JSON or the bytes of a blob. */
+/**
+ * A hash is `sha256:` and sixty-four lower-case hex characters, over the UTF-8 bytes of canonical JSON or the bytes of
+ * a blob.
+ */
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { canonicalBytes } from './canonical.js';

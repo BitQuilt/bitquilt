@@ -223,7 +223,8 @@ describe('the reference tracker', () => {
     expect((await get<Found>('/search?q=nothing-like-this')).problems).toEqual([]);
     const home = await get<Found>('/');
     expect(home.problems[0]!.title).toBe('A report');
-    // The directory row (APP.md, Search): the work on the problem, the pieces by kind, the owner's name and what it forks, beside the counts.
+    // The directory row (APP.md, Search): the work on the problem, the pieces by kind, the owner's name and what it
+    // forks, beside the counts.
     type Row = {
       from: Hash | null;
       owner_name: string | null;

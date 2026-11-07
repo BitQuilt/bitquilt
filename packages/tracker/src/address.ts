@@ -8,7 +8,10 @@
 import type { IncomingMessage } from 'node:http';
 import { BlockList, isIP, isIPv4, isIPv6 } from 'node:net';
 
-/** What a tracker trusts unless told otherwise: the machine itself and the private networks a compose file or a host puts its proxy on. */
+/**
+ * What a tracker trusts unless told otherwise: the machine itself and the private networks a compose file or a host
+ * puts its proxy on.
+ */
 export const PRIVATE_RANGES: readonly string[] = [
   '127.0.0.0/8',
   '::1/128',
@@ -20,7 +23,10 @@ export const PRIVATE_RANGES: readonly string[] = [
   'fe80::/10',
 ];
 
-/** An address as the socket or a header gives it, in one form: an IPv4 address mapped into IPv6 is IPv4 again, and a zone is dropped. */
+/**
+ * An address as the socket or a header gives it, in one form: an IPv4 address mapped into IPv6 is IPv4 again, and a
+ * zone is dropped.
+ */
 export function plainAddress(raw: string): string {
   let a = raw.trim();
   if (a.startsWith('[') && a.endsWith(']')) a = a.slice(1, -1);
@@ -30,7 +36,10 @@ export function plainAddress(raw: string): string {
   return mapped ? mapped[1]! : a;
 }
 
-/** A list of ranges (`a.b.c.d/n`, `x::/n`, or a single address) as one block list; a range that does not parse throws, naming it. */
+/**
+ * A list of ranges (`a.b.c.d/n`, `x::/n`, or a single address) as one block list; a range that does not parse throws,
+ * naming it.
+ */
 export function rangesOf(cidrs: readonly string[]): BlockList {
   const list = new BlockList();
   for (const raw of cidrs) {

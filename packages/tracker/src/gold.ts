@@ -113,9 +113,9 @@ export function goldDocked(verifier: string): number {
 }
 
 /**
- * A piece's share of the owner's stake: for each root a strike would dock, its stake under the rule in force, or 1 where
- * none is asked. Where no stake is asked an agree piece's share is 2, what a miss takes from the two roots it docks
- * (amended 27 October 2026; it was 1 a piece).
+ * A piece's share of the owner's stake: for each root a strike would dock, its stake under the rule in force, or 1
+ * where none is asked. Where no stake is asked an agree piece's share is 2, what a miss takes from the two roots it
+ * docks (amended 27 October 2026; it was 1 a piece).
  */
 export function goldShare(view: PieceView, asked: number): number {
   return goldDocked(view.piece.verifier) * Math.max(1, asked);
@@ -131,7 +131,10 @@ export function goldShareMax(views: PieceView[], asked: (view: PieceView) => num
   return max;
 }
 
-/** Whether every reveal of the piece's accepting set agrees with the projection on the agreed fields, as the core compares two returns. */
+/**
+ * Whether every reveal of the piece's accepting set agrees with the projection on the agreed fields, as the core
+ * compares two returns.
+ */
 export function goldMatches(view: PieceView, projection: Return): boolean {
   const set = view.accepting;
   if (!set || set.kind !== 'agree' || !view.piece.schema) return false;
@@ -139,13 +142,18 @@ export function goldMatches(view: PieceView, projection: Return): boolean {
   return set.reveals.every((r) => returnsAgree(view.piece.schema!, fields, projection, r.return));
 }
 
-/** When the piece's first production event was received, or null with none: a commitment counts only on a piece worked after it. */
+/**
+ * When the piece's first production event was received, or null with none: a commitment counts only on a piece worked
+ * after it.
+ */
 export function firstProductionAt(view: PieceView): string | null {
   const times = [...view.claims, ...view.commits, ...view.reveals, ...view.runs].map((x) => x.at).sort();
   return times[0] ?? null;
 }
 
-/** A problem's gold summed for a reader: every commitment of every gold not dropped, by outcome as `outcomeOf` reads it. */
+/**
+ * A problem's gold summed for a reader: every commitment of every gold not dropped, by outcome as `outcomeOf` reads it.
+ */
 export function goldCount(golds: GoldView[], outcomeOf: (g: GoldView, c: GoldCommitment) => GoldOutcome): GoldCount {
   const n: GoldCount = { committed: 0, pending: 0, verified: 0, missed: 0, overruled: 0, lapsed: 0 };
   for (const g of golds)
@@ -176,7 +184,9 @@ export function problemSettledAt(home: ProblemEntry, now: string): string | null
   return latest ?? now;
 }
 
-/** A commitment as a reader sees it at `now`: blind until revealed, and lapsed once the problem has settled (section 3). */
+/**
+ * A commitment as a reader sees it at `now`: blind until revealed, and lapsed once the problem has settled (section 3).
+ */
 export function outcomeOf(home: ProblemEntry, c: GoldCommitment, now: string): GoldOutcome {
   if (c.outcome !== 'pending') return c.outcome;
   return problemSettledAt(home, now) !== null ? 'lapsed' : 'pending';
@@ -205,7 +215,10 @@ export function commitmentFinalAt(home: ProblemEntry, c: GoldCommitment, now: st
   }
 }
 
-/** When a gold's stake is released (section 5): at its forfeit, or once every commitment is final; null while one is not. */
+/**
+ * When a gold's stake is released (section 5): at its forfeit, or once every commitment is final; null while one is
+ * not.
+ */
 export function goldEnd(f: Folding, g: GoldView): string | null {
   if (g.forfeitedAt !== null) return g.forfeitedAt;
   const home = f.entries.get(g.problem);

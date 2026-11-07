@@ -25,11 +25,11 @@ import { VERDICT, addr, by, calendarBytes, key, startTracker } from './helpers.j
 /**
  * The mirror over two real trackers: it writes the layout from one, with chains that verify and names from version
  * events; only grows, and writes the output once the problem is complete; takes the events a second tracker has that
- * it lacks onto its own chain, the union of both (stage two of one peer); passes over a chain whose pages have no end, keeping what it holds;
- * anchors the head of every chain when asked, keeping a stamp it already has; writes the record document of a
- * problem with a record piece (QX-20) with the tracker's own layer code, the same hash as the tracker states; and as
- * the keeper, reads a node by its held list, keeps a problem its source no longer lists with its chain still growing,
- * and fetches the reads a trace names.
+ * it lacks onto its own chain, the union of both (stage two of one peer); passes over a chain whose pages have no end,
+ * keeping what it holds; anchors the head of every chain when asked, keeping a stamp it already has; writes the record
+ * document of a problem with a record piece (QX-20) with the tracker's own layer code, the same hash as the tracker
+ * states; and as the keeper, reads a node by its held list, keeps a problem its source no longer lists with its chain
+ * still growing, and fetches the reads a trace names.
  */
 const owner = key(9),
   A = key(1),
@@ -115,7 +115,8 @@ afterAll(async () => {
   await new Promise<void>((r) => two.server.close(() => r()));
 });
 
-// The mirror names a chain's files by its hash, sha256 and a colon, which Windows refuses in a path; the mirror runs on Linux, and these tests do too.
+// The mirror names a chain's files by its hash, sha256 and a colon, which Windows refuses in a path; the mirror runs on
+// Linux, and these tests do too.
 describe.skipIf(process.platform === 'win32')('the mirror', () => {
   it('writes the layout from a tracker, with chains that verify and names from version events', async () => {
     expect((await post(one.base, `p/${P}/events`, ev(owner, 'version', { slug: 'report', hash: P }, P))).status).toBe(
@@ -168,7 +169,8 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
     // Every line carries the tracker's wrapper and the mirror's own; every event is on the chain once.
     expect(lines.every((l) => l.received.map((w) => w.by).join(',') === 'http://t.test/,mirror')).toBe(true);
     expect(new Set(lines.map((l) => l.event.sig)).size).toBe(11);
-    // The two from the second tracker are the last two, in its order, and the mirror's hashes are its own, not the tracker's.
+    // The two from the second tracker are the last two, in its order, and the mirror's hashes are its own, not the
+    // tracker's.
     expect(lines.slice(9).map((l) => l.event.key)).toEqual([addr(B), addr(B)]);
     const theirs = (await (await fetch(`${two.base}p/${P}/events`)).text())
       .trim()
@@ -259,7 +261,8 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
     await handIn(one.base, B, hash, piece, { verdict: 'contradicts' }, 'b/y');
     const report = await mirror({ trackers: [one.base], out, now });
     expect(report.errors).toEqual([]);
-    // The core writes no output: it holds the piece as unknown. The layer's document is written beside where one would be.
+    // The core writes no output: it holds the piece as unknown. The layer's document is written beside where one would
+    // be.
     expect(existsSync(join(out, 'outputs', hash, 'output.json'))).toBe(false);
     const doc = JSON.parse(readFileSync(join(out, 'outputs', hash, 'record.json'), 'utf8')) as {
       quilt: number;
@@ -279,7 +282,8 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
     expect(state.record_output).toBe(written);
   });
   it('keeps from a node by its held list, keeps a problem its source no longer lists with its chain growing, and fetches the reads a trace names', async () => {
-    // A node at an address of its own: it says node: true, lists what tracker one holds, and serves the rest as the tracker does.
+    // A node at an address of its own: it says node: true, lists what tracker one holds, and serves the rest as the
+    // tracker does.
     const node = 'http://node.test/';
     const fetchImpl: typeof fetch = async (input, init) => {
       const url = String(input);
@@ -320,12 +324,14 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
     expect(
       JSON.parse(readFileSync(join(keep, 'index.json'), 'utf8')).problems.map((p: { tracker: string }) => p.tracker),
     ).toEqual(held.map(() => node));
-    // The owner replaces the reading problem with a version: it leaves the tracker's index, and a reading on it still lands on its chain.
+    // The owner replaces the reading problem with a version: it leaves the tracker's index, and a reading on it still
+    // lands on its chain.
     const R = JSON.parse(
       readFileSync(join(keep, 'problems', `${held.find((h) => h !== P)!}.json`), 'utf8'),
     ) as Envelope;
     const rHash = problemHash(R);
-    // The brief changes, so the piece is a new one: the old piece's readings are in, and a record takes no more (QX-20).
+    // The brief changes, so the piece is a new one: the old piece's readings are in, and a record takes no more
+    // (QX-20).
     const nextProblem: Envelope['problem'] = {
       ...R.problem,
       title: 'A reading, again',
@@ -381,7 +387,8 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
     expect(second.errors).toEqual([]);
     expect(second.refused).toEqual([]);
     expect(second.kept).toEqual([]);
-    // The replaced problem is still in the index, taken by hash from the source that still serves it; the version is beside it; the read is kept.
+    // The replaced problem is still in the index, taken by hash from the source that still serves it; the version is
+    // beside it; the read is kept.
     const hashes = second.problems.map((p) => p.hash);
     expect(hashes).toContain(rHash);
     expect(hashes).toContain(nHash);
@@ -389,7 +396,8 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
       JSON.parse(readFileSync(join(keep, 'index.json'), 'utf8')).problems.map((p: { hash: Hash }) => p.hash),
     ).toEqual(expect.arrayContaining([P, rHash, nHash]));
     expect(new Uint8Array(readFileSync(join(keep, 'blobs', pageHash)))).toEqual(page);
-    // A source that serves nothing of what is held: every problem stays in the index as the files have it, and the run says which.
+    // A source that serves nothing of what is held: every problem stays in the index as the files have it, and the run
+    // says which.
     const empty = 'http://empty.test/';
     const nothing: typeof fetch = async (input, init) => {
       const url = String(input);

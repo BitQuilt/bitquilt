@@ -102,7 +102,8 @@ export function patternProblems(pattern: Pattern, drafted: Drafted): string[] {
   for (const t of pattern.topics ?? [])
     if (typeof t !== 'string' || t.length > 40) out.push(`topics: ${JSON.stringify(t)} is not a short topic`);
   if ((pattern.topics ?? []).length > 8) out.push('topics: at most eight');
-  // Rows against counts: a family with fewer rows than pieces renders empty slots; more rows than pieces are never used.
+  // Rows against counts: a family with fewer rows than pieces renders empty slots; more rows than pieces are never
+  // used.
   for (const [name, d] of Object.entries(pattern.pieces ?? {})) {
     const count = 'count' in d ? (d.count as number) : 1;
     for (const [slot, blob] of Object.entries(d.data ?? {})) {
@@ -118,7 +119,8 @@ export function patternProblems(pattern: Pattern, drafted: Drafted): string[] {
     )
       out.push(`pieces.${name}.verifier: record:n takes n from 2`);
     const brief = d.brief ?? '';
-    // The template through the gate as written, so a link or an address in it is named beside the other faults, before any piece is rendered.
+    // The template through the gate as written, so a link or an address in it is named beside the other faults, before
+    // any piece is rendered.
     out.push(...plainTextProblems(brief, `pieces.${name}.brief`));
     for (const m of brief.matchAll(/\{([A-Za-z_][\w-]*)(?:\.[\w.-]+)?\}/g)) {
       const slot = m[1]!;

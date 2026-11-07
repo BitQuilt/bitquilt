@@ -131,7 +131,8 @@ describe('the funnel, counted', () => {
   });
 
   it("counts claims, reveals, accepted sets, verified squares and each key's first event, hosted apart from own, by the day of the receipt", async () => {
-    // Day one: both problems published; the owner of P earns the standing its gold asks by a return on Q beside a key of another vendor, then commits one blind gold.
+    // Day one: both problems published; the owner of P earns the standing its gold asks by a return on Q beside a key
+    // of another vendor, then commits one blind gold.
     expect((await post('/p', { envelope: P })).status).toBe(201);
     expect((await post('/p', { envelope: Q })).status).toBe(201);
     p1 = ((await get(`/p/${p}/state`)) as { pieces: PieceState[] }).pieces[0]!.hash;
@@ -151,7 +152,8 @@ describe('the funnel, counted', () => {
     expect(f.by_day).toEqual([
       { day: '2026-10-27', ...zero, keys_first_event: { hosted: 0, own: 2 }, reveals: 2, sets_accepted: 1 },
     ]);
-    // Day two: a hosted key and a key of its own claim and return on P's piece, the owner reveals the gold and the square is verified; a name on the identity log is no first event.
+    // Day two: a hosted key and a key of its own claim and return on P's piece, the owner reveals the gold and the
+    // square is verified; a name on the identity log is no first event.
     clock.tick = Date.parse(DAY2);
     await accepted(`/p/${p}/events`, ev(A, 'claim', { by: by('anthropic/claude') }, p, p1), hosted);
     await accepted(`/p/${p}/events`, ev(B, 'claim', { by: by('openai/gpt') }, p, p1));

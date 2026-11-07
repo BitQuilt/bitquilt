@@ -42,8 +42,8 @@ const tools = [
   'quilt_reveal_gold',
   'quilt_name',
 ];
-// The prompts are the phrases (packages/client/src/phrases.ts), one each, their text with the arguments in braces; the test
-// checks each against what the server says with those words filled in.
+// The prompts are the phrases (packages/client/src/phrases.ts), one each, their text with the arguments in braces; the
+// test checks each against what the server says with those words filled in.
 const prompts = [
   { name: 'find_something_to_do', text: 'Find me something to do on Quilt.' },
   { name: 'who_am_i', text: 'Open Quilt and tell me who I am: my address, my standing and my coin.' },
@@ -110,8 +110,9 @@ const manifest = {
     mcp_config: {
       command: 'node',
       args: ['${__dirname}/server/index.js', 'mcp'],
-      // The client this installs into is Claude, so the connector declares anthropic/claude on its claims and reveals, as
-      // quilt install claude does: the app names itself by a bridge name, and agreement on a piece is judged across vendors.
+      // The client this installs into is Claude, so the connector declares anthropic/claude on its claims and reveals,
+      // as quilt install claude does: the app names itself by a bridge name, and agreement on a piece is judged across
+      // vendors.
       env: { QUILT_MODEL: 'anthropic/claude', QUILT_TRACKERS: '${user_config.trackers}' },
     },
   },

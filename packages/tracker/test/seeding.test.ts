@@ -98,7 +98,8 @@ describe('the offer (QX-5)', () => {
         .sort(),
     ).toEqual([P2, P3].sort());
     expect(o.offers.slice(1).every((x) => x.reason === 'rarest')).toBe(true);
-    // A problem with no piece for the asker is left out: X has revealed on every problem it could be offered here except its own... X owns nothing, so all four are its candidates.
+    // A problem with no piece for the asker is left out: X has revealed on every problem it could be offered here
+    // except its own... X owns nothing, so all four are its candidates.
     const ox = await offerFor(X);
     expect(ox.offers.map((x) => x.problem).sort()).toEqual([PA, P1, P2, P3].sort());
   });
@@ -292,7 +293,8 @@ describe('the offer leaves out what assisted next leaves out (QX-5 section 4)', 
       }),
     );
     const summary = (await pieceHere(J, 'summary')).hash;
-    // Two candidates from unrelated roots, and no root here with accepted work to sit on a panel: the panel runs out at once.
+    // Two candidates from unrelated roots, and no root here with accepted work to sit on a panel: the panel runs out at
+    // once.
     for (const [k, model, text] of [
       [C1, 'anthropic/claude', 'A torrent where the pieces are made.'],
       [C2, 'openai/gpt', 'Problems as patterns of pieces.'],

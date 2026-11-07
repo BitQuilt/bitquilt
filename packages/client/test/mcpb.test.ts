@@ -84,7 +84,8 @@ describe('the MCP Bundle for Claude Desktop', () => {
 
   it("starts over stdio from the unpacked files, under a folder that declares ES modules, names the client's version, finds its page, and lists the nineteen tools the manifest names, in the order it names them", async () => {
     const home = join(out, 'home');
-    // Where the app unpacks it is not the bundle's to choose; a package.json above it saying ES modules changes nothing.
+    // Where the app unpacks it is not the bundle's to choose; a package.json above it saying ES modules changes
+    // nothing.
     writeFileSync(join(out, 'package.json'), JSON.stringify({ type: 'module' }));
     const transport = new StdioClientTransport({
       command: process.execPath,
@@ -103,7 +104,8 @@ describe('the MCP Bundle for Claude Desktop', () => {
     // The handshake names the version the build wrote in, the one the manifest carries.
     expect(client.getServerVersion()).toMatchObject({ name: 'quilt', version: manifest.version });
     const tools = await client.listTools();
-    // The install dialog shows the manifest's order, and the chat the server's: the two are the order the server registers the tools in.
+    // The install dialog shows the manifest's order, and the chat the server's: the two are the order the server
+    // registers the tools in.
     const names = tools.tools.map((t) => t.name);
     expect(names).toEqual([...LISTED_TOOLS]);
     expect(manifest.tools.map((t) => t.name)).toEqual(names);

@@ -3,7 +3,8 @@
  * checks the chain from the problem's hash, every event's signature against its key, and, with the envelope, runs the
  * reducer and prints the map. Clone and compute, with no trust in any site.
  *
- *   tsx src/verify.ts <events.jsonl> <problem hash> [envelope.json ...] [--blob <file> ...] [--identity <identity.jsonl>]
+ *   tsx src/verify.ts <events.jsonl> <problem hash> [envelope.json ...] [--blob <file> ...]
+ *     [--identity <identity.jsonl>]
  */
 import { readFileSync } from 'node:fs';
 import { verifyChain } from './chain.js';

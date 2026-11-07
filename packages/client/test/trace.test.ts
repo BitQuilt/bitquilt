@@ -316,7 +316,8 @@ describe('a return with rests', () => {
 
   it("checks a redirect's hop again, decodes what is served, reads no more than READ_MAX, and names only the kind of failure", async () => {
     const signal = (): AbortSignal => AbortSignal.timeout(5000);
-    // The check here lets 127.0.0.1 through and nothing else: the first hop is fetched, the redirect to [::1] is refused before it is dialled.
+    // The check here lets 127.0.0.1 through and nothing else: the first hop is fetched, the redirect to [::1] is
+    // refused before it is dialled.
     const only = (ip: string): boolean => ip === '127.0.0.1';
     const seen = hits;
     await expect(publicFetch(`${site}/hop`, { signal: signal() }, only)).rejects.toThrow(
@@ -324,7 +325,8 @@ describe('a return with rests', () => {
     );
     expect(hits).toBe(seen + 1);
     expect(await (await publicFetch(`${site}/gz`, { signal: signal() }, only)).text()).toBe(PAGE_TEXT);
-    // A body of bytes or text goes as given; a 303 after a POST goes on as a GET without it, as fetch does, or comes back under manual.
+    // A body of bytes or text goes as given; a 303 after a POST goes on as a GET without it, as fetch does, or comes
+    // back under manual.
     expect(
       await (
         await publicFetch(`${site}/echo`, { method: 'PUT', body: enc.encode('kept read'), signal: signal() }, only)
@@ -356,7 +358,8 @@ describe('a return with rests', () => {
     for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
     expect(JSON.stringify(tools.tools.find((t) => t.name === 'quilt_return')!.inputSchema)).toContain('"rests"');
     expect(tools.tools.find((t) => t.name === 'quilt_next')!.description).toContain('QX-19');
-    // The rule that decides between two readings is said as a fact, in the return's words and in how Quilt works (section 4).
+    // The rule that decides between two readings is said as a fact, in the return's words and in how Quilt works
+    // (section 4).
     expect(tools.tools.find((t) => t.name === 'quilt_return')!.description).toContain(
       'one that rests on nothing is set aside',
     );
@@ -371,7 +374,8 @@ describe('the seam decides itself (section 4)', () => {
   const aside: Pattern = { ...pattern, slug: 'aside', gold: { answers: { 'statement/3': { verdict: 'supports' } } } };
 
   beforeAll(async () => {
-    // A gold's stake is the owner's standing, two a piece, and each version carries it again: the owner earns six squares on another owner's problem first.
+    // A gold's stake is the owner's standing, two a piece, and each version carries it again: the owner earns six
+    // squares on another owner's problem first.
     const q = (
       await c.publish({
         ...pattern,
@@ -407,7 +411,8 @@ describe('the seam decides itself (section 4)', () => {
     expect(read.text).toContain(
       `${b.identity!.address} rests it on nothing kept, and that reading is set aside until it does.`,
     );
-    // The second piece's two readings, both resting on the same words (the next test's seam), so that the pieces needing a second reading outnumber the open and next hands B the first piece again.
+    // The second piece's two readings, both resting on the same words (the next test's seam), so that the pieces
+    // needing a second reading outnumber the open and next hands B the first piece again.
     await a.return(pa, ps[1]!, { verdict: 'supports', quote: 'q' }, [
       { field: 'verdict', url: `${site}/paper`, passage: HOLDS },
     ]);
@@ -430,7 +435,8 @@ describe('the seam decides itself (section 4)', () => {
   });
 
   it('asks the tracker within the pool, so the piece comes back to the key set aside where the open pieces outnumber it', async () => {
-    // Five pieces and one read twice: the core's order hands an open piece first, and B's own fold still counts the reading the tracker set aside.
+    // Five pieces and one read twice: the core's order hands an open piece first, and B's own fold still counts the
+    // reading the tracker set aside.
     const pool = (
       await owner.publish({
         ...pattern,
@@ -482,7 +488,8 @@ describe('the seam decides itself (section 4)', () => {
     });
     const newer = r.hash!;
     expect(newer).not.toBe(pa);
-    // The version: prev set, the sentence at the end of the family's brief, every piece open again, the gold committed again.
+    // The version: prev set, the sentence at the end of the family's brief, every piece open again, the gold committed
+    // again.
     const opened = await a.open(newer);
     expect(opened.state.envelope.problem.prev).toBe(pa);
     expect(opened.state.envelope.problem.pieces['statement/*']!.brief).toBe(
@@ -499,12 +506,14 @@ describe('the seam decides itself (section 4)', () => {
     await expect(c.next(pa)).rejects.toThrow(/replaced by its owner/);
     expect(owner.library.problems[pa]!.next).toBe(newer);
     expect(await owner.sharpen(pa, async () => 'again')).toMatchObject({ sentences: [], hash: newer });
-    // Over every problem the home knows: the replaced one is passed over, another owner's is passed over, and the first problem, whose third piece two grounded readings read apart earlier, is sharpened.
+    // Over every problem the home knows: the replaced one is passed over, another owner's is passed over, and the first
+    // problem, whose third piece two grounded readings read apart earlier, is sharpened.
     const due = await owner.sharpenDue(async () => 'The first section governs here too.');
     expect(due).toHaveLength(1);
     expect(due[0]).toMatchObject({ problem: p, sentences: [{ family: 'statement', kept: true }], posted: [base] });
     expect(owner.library.problems[p]!.next).toBe(due[0]!.hash);
-    // The away turn: a seam on the new version, the sentence from the caller in place of an agent, and the line counts the version published.
+    // The away turn: a seam on the new version, the sentence from the caller in place of an agent, and the line counts
+    // the version published.
     const next = opened.state.pieces[0]!.piece.hash;
     await a.return(newer, next, { verdict: 'supports', quote: 'q' }, [
       { field: 'verdict', url: `${site}/paper`, passage: HOLDS },
@@ -568,7 +577,8 @@ describe('the seam decides itself (section 4)', () => {
     };
     expect(await owner.sharpen(bare, ask)).toMatchObject({ sentences: [], hash: null });
     expect(asked).toHaveLength(0);
-    // A lease past the last reveal with nothing to prefer: the owner's node is asked which record governs, with no passage to show.
+    // A lease past the last reveal with nothing to prefer: the owner's node is asked which record governs, with no
+    // passage to show.
     const later = new Date(Date.now() + 3 * 3_600_000).toISOString();
     const r = await owner.sharpen(bare, ask, later);
     expect(asked).toHaveLength(1);

@@ -2,12 +2,12 @@
  * The page at /join: one button that asks the tracker for an address, and, once it is made, everything the person
  * needs next: the address with a copy button, where it goes in their AI's connectors (a link that opens claude.ai's
  * own add-connector window with the address and the name filled in, so the person presses Add there and nothing is
- * pasted; Claude Code with the command filled in), the first three sentences to say, what happens next and the sentence that adds a problem, the
- * sheet the same address shows in a browser, and how the key comes home; and, where the tracker is the authorization
- * server for its addresses (QX-18), what the witness is and is not, in one paragraph. One self-contained document, as
- * the client's page is: nothing is loaded from elsewhere, and what the script puts on the page it sets with
- * `textContent`. The sentences are the phrases the connector offers as prompts (phrases.ts), so the page and the chat
- * say one thing.
+ * pasted; Claude Code with the command filled in), the first three sentences to say, what happens next and the sentence
+ * that adds a problem, the sheet the same address shows in a browser, and how the key comes home; and, where the
+ * tracker is the authorization server for its addresses (QX-18), what the witness is and is not, in one paragraph. One
+ * self-contained document, as the client's page is: nothing is loaded from elsewhere, and what the script puts on the
+ * page it sets with `textContent`. The sentences are the phrases the connector offers as prompts (phrases.ts), so the
+ * page and the chat say one thing.
  */
 import { say } from 'quilt';
 

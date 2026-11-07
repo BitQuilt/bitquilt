@@ -47,10 +47,17 @@ export async function askJson<T>(url: string, ms = 8000, fetchImpl: typeof fetch
   }
 }
 
-/** Where a post went: the tracker that took it, or none and the event queued, with the last error heard where there was one. */
+/**
+ * Where a post went: the tracker that took it, or none and the event queued, with the last error heard where there was
+ * one.
+ */
 export type Posted = { at: string | null; queued: boolean; error?: string };
 
-/** One tracker's answer to one event: taken (202, or 409 since it has it already), refused (any other 4xx but 429, with the tracker's reason), or down (no answer, a 5xx or a 429, so the next tracker is tried and the event queued when none takes it). */
+/**
+ * One tracker's answer to one event: taken (202, or 409 since it has it already), refused (any other 4xx but 429, with
+ * the tracker's reason), or down (no answer, a 5xx or a 429, so the next tracker is tried and the event queued when
+ * none takes it).
+ */
 type Offer = { status: 'taken' } | { status: 'refused' | 'down'; error: string };
 
 export interface Resolved {
@@ -68,8 +75,16 @@ export interface Resolved {
  * on its own; `pieces` is this key's own claims and returns.
  */
 export interface Library {
-  /** Every problem opened or published here; `next` is the version this key published in its place (QX-19 section 4), so it is not sharpened twice; `topics` the ones this key announced with (QX-13), and `announced` the work its last announce stated and the relays an announce was offered to, so the owner's turn announces again only where the work moved or a relay has not been offered one. */
-  /** `frozen` is when the owner froze the brief here (`quilt freeze`): the owner's turn sharpens it no more, and nothing republishes it. */
+  /**
+   * Every problem opened or published here; `next` is the version this key published in its place (QX-19 section 4), so
+   * it is not sharpened twice; `topics` the ones this key announced with (QX-13), and `announced` the work its last
+   * announce stated and the relays an announce was offered to, so the owner's turn announces again only where the work
+   * moved or a relay has not been offered one.
+   */
+  /**
+   * `frozen` is when the owner froze the brief here (`quilt freeze`): the owner's turn sharpens it no more, and nothing
+   * republishes it.
+   */
   problems: Record<
     string,
     {
@@ -90,20 +105,32 @@ export interface Library {
   >;
   /** The standing list (QX-4): the problems this key seeds, by the time it said so. */
   seeding: Record<string, string>;
-  /** The owner's gold (QX-16), by problem then piece: the projection and nonce behind each commitment, which never leave the home, and when it was revealed. */
+  /**
+   * The owner's gold (QX-16), by problem then piece: the projection and nonce behind each commitment, which never leave
+   * the home, and when it was revealed.
+   */
   gold?: Record<
     string,
     Record<string, { name: string; projection: Record<string, unknown>; nonce: string; revealed?: string }>
   >;
-  /** The AI that connected through the connector: its host's name, the first time and the latest. Its presence is what moves the menu bar from install instructions to the phrases (phrases.ts). */
+  /**
+   * The AI that connected through the connector: its host's name, the first time and the latest. Its presence is what
+   * moves the menu bar from install instructions to the phrases (phrases.ts).
+   */
   connector?: { host: string | null; first: string; last: string };
-  /** The hot list (APP.md, "The window"): the keys this person follows, by address, with the name they knew them by. A choice at the edge; no rule reads it and no event carries it. */
+  /**
+   * The hot list (APP.md, "The window"): the keys this person follows, by address, with the name they knew them by. A
+   * choice at the edge; no rule reads it and no event carries it.
+   */
   follows?: Record<string, { name: string | null; since: string }>;
 }
 
 const EMPTY_LIBRARY = (): Library => ({ problems: {}, pieces: {}, seeding: {} });
 
-/** What the keeper's loop did (WORKSHOP.md section 2, stage one): the problems held, the lines added to their chains and the identity log, the reads fetched, the events sent from the queue, and the chains refused for not only growing. */
+/**
+ * What the keeper's loop did (WORKSHOP.md section 2, stage one): the problems held, the lines added to their chains and
+ * the identity log, the reads fetched, the events sent from the queue, and the chains refused for not only growing.
+ */
 export interface KeepReport {
   problems: number;
   added: number;
@@ -159,16 +186,25 @@ export interface PostHeaders {
 
 export class Resolver {
   readonly home: string;
-  /** How this resolver reaches the network, and every request of the Quilt over it: the guarded fetch where the connector is shared. */
+  /**
+   * How this resolver reaches the network, and every request of the Quilt over it: the guarded fetch where the
+   * connector is shared.
+   */
   readonly fetchImpl: typeof fetch;
 
   private readonly postHeaders: PostHeaders | null;
   private readonly libraryFile: string;
   private held: Library | null = null;
-  /** The file's size and time when it was last read or written, so another process's write is seen before this one's next. */
+  /**
+   * The file's size and time when it was last read or written, so another process's write is seen before this one's
+   * next.
+   */
   private stamp = '';
 
-  /** The store this node keeps in and serves from (WORKSHOP.md section 2): the home's cache folder unless a store is given, as a node with a door gives the door's. */
+  /**
+   * The store this node keeps in and serves from (WORKSHOP.md section 2): the home's cache folder unless a store is
+   * given, as a node with a door gives the door's.
+   */
   readonly chains: Chains;
 
   constructor(
@@ -209,14 +245,20 @@ export class Resolver {
     return this.held;
   }
 
-  /** Records that an AI connected through the connector, under the host's name, and saves: the first time is kept, the latest moves. */
+  /**
+   * Records that an AI connected through the connector, under the host's name, and saves: the first time is kept, the
+   * latest moves.
+   */
   sawConnector(host: string | null, now = new Date().toISOString()): void {
     const was = this.library.connector;
     this.library.connector = { host: host ?? was?.host ?? null, first: was?.first ?? now, last: now };
     this.saveLibrary();
   }
 
-  /** Whether the key's twelve words, kept at first use, are still waiting to be written down: what the sheet calls a backup due. */
+  /**
+   * Whether the key's twelve words, kept at first use, are still waiting to be written down: what the sheet calls a
+   * backup due.
+   */
   wordsDue(): boolean {
     return existsSync(join(this.home, 'words'));
   }
@@ -235,15 +277,24 @@ export class Resolver {
     this.stamp = this.fileStamp();
   }
 
-  /** What this node holds and serves by hash (`/p/<hash>`, `/p/<hash>/events`, `/b/<hash>`): a count of each and the bytes. */
+  /**
+   * What this node holds and serves by hash (`/p/<hash>`, `/p/<hash>/events`, `/b/<hash>`): a count of each and the
+   * bytes.
+   */
   serving(): Held {
     return this.chains.held();
   }
 
-  /** QX-14 section 3: the places the relays' announcements named for a hash, learned when no place this resolver knew answered for it, and kept for the rest of the session; an empty entry says the relays were asked and knew nothing. */
+  /**
+   * QX-14 section 3: the places the relays' announcements named for a hash, learned when no place this resolver knew
+   * answered for it, and kept for the rest of the session; an empty entry says the relays were asked and knew nothing.
+   */
   private readonly hinted = new Map<Hash, { trackers: string[]; mirrors: string[] }>();
 
-  /** The places to ask, in order: the link's trackers, the config's, the ones the relays named for this hash and then for any, then mirrors the same way. */
+  /**
+   * The places to ask, in order: the link's trackers, the config's, the ones the relays named for this hash and then
+   * for any, then mirrors the same way.
+   */
   places(link: Link, hash: Hash | null = link.hash ?? null): { url: string; kind: 'tracker' | 'mirror' }[] {
     const out: { url: string; kind: 'tracker' | 'mirror' }[] = [];
     const seen = new Set<string>();
@@ -334,7 +385,8 @@ export class Resolver {
     if (got) return got;
     const cached = this.chains.envelopeOf(hash);
     if (cached && problemHash(cached) === hash) return { envelope: cached, from: null };
-    // QX-14 section 3: no place known and nothing kept; the relays may say where the problem is held, and then those places are asked.
+    // QX-14 section 3: no place known and nothing kept; the relays may say where the problem is held, and then those
+    // places are asked.
     if (await this.learnFromRelays(hash)) return asked();
     return null;
   }
@@ -405,7 +457,9 @@ export class Resolver {
    * once an hour; `quilt keep` runs it once.
    */
   async keep(): Promise<KeepReport> {
-    // APP.md, the node: an event written while no tracker answered waits in the queue and goes out when one does. This loop is when, since it runs wherever a node is up; the queue goes first, so what the home wrote is out before it pulls.
+    // APP.md, the node: an event written while no tracker answered waits in the queue and goes out when one does. This
+    // loop is when, since it runs wherever a node is up; the queue goes first, so what the home wrote is out before it
+    // pulls.
     const { sent } = await this.flush();
     const out: KeepReport = { problems: 0, added: 0, reads: 0, sent, refused: [] };
     const note = (line: string) => out.refused.push(line);
@@ -427,7 +481,10 @@ export class Resolver {
     return out;
   }
 
-  /** QX-19: the reads the traces on a chain name, each fetched from the places and kept under its hash where it is not here yet; how many were fetched. */
+  /**
+   * QX-19: the reads the traces on a chain name, each fetched from the places and kept under its hash where it is not
+   * here yet; how many were fetched.
+   */
   private async fetchReads(lines: Receipt[], link: Link): Promise<number> {
     let fetched = 0;
     for (const l of lines) {
@@ -440,7 +497,9 @@ export class Resolver {
     return fetched;
   }
 
-  /** A tracker's receipts for a log, page by page as the x-quilt-next-since header leads; null where it does not answer. */
+  /**
+   * A tracker's receipts for a log, page by page as the x-quilt-next-since header leads; null where it does not answer.
+   */
   private async getLines(url: string): Promise<Receipt[] | null> {
     const out: Receipt[] = [];
     let since = 0;
@@ -557,7 +616,10 @@ export class Resolver {
     return { status: r.status >= 400 && r.status < 500 && r.status !== 429 ? 'refused' : 'down', error };
   }
 
-  /** Posts an event to the trackers in order until one takes it or one refuses it; none answering, queues it. Returns where it went. */
+  /**
+   * Posts an event to the trackers in order until one takes it or one refuses it; none answering, queues it. Returns
+   * where it went.
+   */
   async post(event: Event, problem: Hash | null | 'coin', trackers: string[]): Promise<Posted> {
     let lastError = '';
     for (const t of trackers.map(withSlash)) {

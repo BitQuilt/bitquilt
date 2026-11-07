@@ -1,8 +1,8 @@
 /**
  * The loop every worker with no person beside it shares (worker-claude.mjs, worker-openai.mjs): the flags, the quilt
- * CLI, the piece as `quilt next --json` hands it, the schema the answer takes, the quote check, one problem worked, and every
- * problem waiting on a second reading. A worker file names its vendor, its key and its model, and gives `ask`, the one
- * call to its model; `runWorker` does the rest.
+ * CLI, the piece as `quilt next --json` hands it, the schema the answer takes, the quote check, one problem worked, and
+ * every problem waiting on a second reading. A worker file names its vendor, its key and its model, and gives `ask`,
+ * the one call to its model; `runWorker` does the rest.
  *
  *   <KEY>=… QUILT_HOME=~/.config/quilt-worker QUILT_TRACKERS=http://localhost:3977/ \
  *     node examples/worker-<vendor>.mjs <problem hash> [evidence.txt] [--model m] [--max 16] [--second-only]
@@ -12,11 +12,11 @@
  * the evidence file if one is given, and the piece's own schema as the shape of its answer. When the schema has a
  * `quote` field and there is evidence, a quote that is not found verbatim in the evidence is asked for once more.
  * Beside the answer the model gives, for each field, the page it rests on and the passage on it (QX-19); the loop hands
- * those to `quilt return` as rests, and the CLI fetches each page, finds the passage and posts the trace beside the reveal.
- * The answer is then handed back through `quilt return`, signed by this worker's key, declared as `<vendor>/<model>`
- * (set `model` in the key's config, or QUILT_MODEL, to that same value so the claim says what the reveal says).
- * A piece the model refuses is declined with the reason `refuse`, which the tracker counts by its reason, and the run
- * goes on to the next piece; any other failure ends the problem's turn.
+ * those to `quilt return` as rests, and the CLI fetches each page, finds the passage and posts the trace beside the
+ * reveal. The answer is then handed back through `quilt return`, signed by this worker's key, declared as
+ * `<vendor>/<model>` (set `model` in the key's config, or QUILT_MODEL, to that same value so the claim says what the
+ * reveal says). A piece the model refuses is declined with the reason `refuse`, which the tracker counts by its reason,
+ * and the run goes on to the next piece; any other failure ends the problem's turn.
  *
  * With --second-only the CLI runs with QUILT_NEXT_ONLY=verify: it hands out only a piece that already has a reading
  * on it, so this worker confirms or disagrees with that reading and never does first work; which piece is the core's
@@ -130,7 +130,10 @@ function fieldSchema(def, required = true) {
   return type === 'string' && !required ? { type, description: 'Empty where the record gives none' } : { type };
 }
 
-/** The answer with every string cut to the length the piece's schema allows, every list to its most, and every field the piece does not require left out where the model left it empty. */
+/**
+ * The answer with every string cut to the length the piece's schema allows, every list to its most, and every field the
+ * piece does not require left out where the model left it empty.
+ */
 export function fit(piece, answer) {
   for (const [k, def] of Object.entries(piece.properties)) {
     const v = answer[k];
@@ -144,7 +147,10 @@ export function fit(piece, answer) {
   return answer;
 }
 
-/** The JSON schema the answer takes, from the piece's own fields: every field given, nothing else, each in the shape the piece names. */
+/**
+ * The JSON schema the answer takes, from the piece's own fields: every field given, nothing else, each in the shape the
+ * piece names.
+ */
 export function schemaOf(piece) {
   const schema = {
     type: 'object',
@@ -191,9 +197,13 @@ export function instruction(note) {
   );
 }
 
-/** The one message with the piece in it: the brief as the author's quoted words, the evidence when there is one, else `without`, and the fields wanted. */
+/**
+ * The one message with the piece in it: the brief as the author's quoted words, the evidence when there is one, else
+ * `without`, and the fields wanted.
+ */
 export function question(piece, evidence, without = '') {
-  // QX-19 section 4: two earlier readings that differ, each side's passage quoted with its signer named, as the tracker said them; the model reads the record itself.
+  // QX-19 section 4: two earlier readings that differ, each side's passage quoted with its signer named, as the tracker
+  // said them; the model reads the record itself.
   const seams = piece.seams?.length
     ? `Two earlier readings of this piece differ, and the tracker says where:\n${piece.seams.join('\n')}\n\n`
     : '';
@@ -231,7 +241,10 @@ export function plain(answer) {
   return out;
 }
 
-/** The rests out of an answer, so the return fits the piece's schema: each with its three strings, anything else dropped. */
+/**
+ * The rests out of an answer, so the return fits the piece's schema: each with its three strings, anything else
+ * dropped.
+ */
 export function takeRests(answer) {
   const given = Array.isArray(answer.rests) ? answer.rests : [];
   delete answer.rests;
@@ -246,8 +259,14 @@ export function takeRests(answer) {
   );
 }
 
-/** The trace in the log line: where it went, what rests on what, and what was left out and why; nothing where no rests were given. */
-/** The first words of a passage the client could not place, with the page's host, so a miss in the log says what the model handed over. */
+/**
+ * The trace in the log line: where it went, what rests on what, and what was left out and why; nothing where no rests
+ * were given.
+ */
+/**
+ * The first words of a passage the client could not place, with the page's host, so a miss in the log says what the
+ * model handed over.
+ */
 function leftOut(m, rests) {
   const rest = rests.find((r) => r.field === m.field && r.url === m.url);
   if (!rest) return '';
@@ -267,13 +286,19 @@ export function traceSaid(t, rests = []) {
   return `, trace ${t.posted.queued ? 'queued' : t.posted.error ? `refused: ${t.posted.error}` : 'posted'}: ${t.rested.join(', ')} on ${t.reads} read${t.reads === 1 ? '' : 's'}${left}`;
 }
 
-/** What the tracker's schema check refused, from the CLI's last line ("the tracker refused the reveal: return.date: a date, YYYY-MM-DD"); null when it stopped for another reason. */
+/**
+ * What the tracker's schema check refused, from the CLI's last line ("the tracker refused the reveal: return.date: a
+ * date, YYYY-MM-DD"); null when it stopped for another reason.
+ */
 export function schemaRefusal(said) {
   const m = /the tracker refused the reveal: (return\.[^\n]+)/.exec(said);
   return m ? m[1] : null;
 }
 
-/** What the gate refused, from the CLI's last line ("return: no links or markup"); null when the CLI stopped for another reason. */
+/**
+ * What the gate refused, from the CLI's last line ("return: no links or markup"); null when the CLI stopped for another
+ * reason.
+ */
 export function gateRefusal(said) {
   const m = /no (links or markup|contact details|instructions to other machines|shouting)/.exec(said);
   return m ? m[0] : null;
@@ -307,7 +332,9 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
   delete env.ANTHROPIC_API_KEY;
   const quilt = (...a) =>
     execFileSync(bin[0], [...bin.slice(1), ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env });
-  /** The JSON a CLI command printed, read from its first brace: pnpm run writes its own two lines first unless given -s. */
+  /**
+   * The JSON a CLI command printed, read from its first brace: pnpm run writes its own two lines first unless given -s.
+   */
   const jsonOut = (text) => JSON.parse(text.slice(text.indexOf('{')));
 
   /** The CLI's last line when a command failed. */
@@ -338,7 +365,8 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
         console.log('the piece handed over has no schema with fields; this worker handles agree pieces with a schema');
         break;
       }
-      // A decline the tracker has not taken yet leaves the piece on offer: handed it again, the turn on this problem ends.
+      // A decline the tracker has not taken yet leaves the piece on offer: handed it again, the turn on this problem
+      // ends.
       if (gaveBack.has(piece.hash)) {
         console.log(`${piece.name}: handed again after its decline; the decline is queued`);
         break;
@@ -360,7 +388,8 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
             key,
           });
         answer = fit(piece, plain(answer));
-        // QX-19: what each field rests on goes beside the return, not in it; the CLI fetches the pages and posts the trace.
+        // QX-19: what each field rests on goes beside the return, not in it; the CLI fetches the pages and posts the
+        // trace.
         let rests = takeRests(answer);
         let r;
         try {
@@ -370,7 +399,8 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
           const refused = gateRefusal(said);
           const misshapen = schemaRefusal(said);
           if (!refused && !misshapen) throw e;
-          // The gate refused what the scrub let through, or a field was not in the shape the schema asks: the model is told what the tracker said, once.
+          // The gate refused what the scrub let through, or a field was not in the shape the schema asks: the model is
+          // told what the tracker said, once.
           const note = refused
             ? `Your previous answer was refused by the tracker: ${refused}. Name every source by its title and its id in words, with no web address, no markup and no contact details.`
             : `Your previous answer was refused by the tracker: ${misshapen}. Answer again with every field in the shape the schema asks, a date as YYYY-MM-DD.`;
@@ -404,7 +434,10 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
     return { returned: n, declined };
   }
 
-  /** The problems the tracker lists with a piece waiting on a second reading: `needs_verify` or `disputed` in its counts. */
+  /**
+   * The problems the tracker lists with a piece waiting on a second reading: `needs_verify` or `disputed` in its
+   * counts.
+   */
   async function waiting() {
     const tracker =
       process.env.QUILT_TRACKERS?.split(',')

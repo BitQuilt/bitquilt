@@ -1,11 +1,11 @@
 #!/usr/bin/env tsx
 /**
- * check-pattern: says whether a pattern file would publish, without a tracker. It drafts the envelope as `quilt publish`
- * does, under a throwaway key as the owner, and runs the same checks publish runs (packages/client/src/pattern.ts):
- * the envelope, the blobs and the schema subset, every brief rendered and through the plain-text gate with the title
- * and the statement of done, each family's rows against its count, every gold answer naming a piece with its agreed
- * fields, a stake rule naming families or pieces the problem has. Prints the problems found, or the pieces with their
- * rendered briefs when asked.
+ * check-pattern: says whether a pattern file would publish, without a tracker. It drafts the envelope as
+ * `quilt publish` does, under a throwaway key as the owner, and runs the same checks publish runs
+ * (packages/client/src/pattern.ts): the envelope, the blobs and the schema subset, every brief rendered and through the
+ * plain-text gate with the title and the statement of done, each family's rows against its count, every gold answer
+ * naming a piece with its agreed fields, a stake rule naming families or pieces the problem has. Prints the problems
+ * found, or the pieces with their rendered briefs when asked.
  *
  *   npx tsx scripts/check-pattern.ts examples/<pattern>.json [--briefs]
  */

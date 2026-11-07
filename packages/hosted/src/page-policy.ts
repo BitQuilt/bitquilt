@@ -8,7 +8,9 @@
  */
 import { createHash } from 'node:crypto';
 
-/** The hash source of each inline element of one kind in a document: the SHA-256 of its text, as a browser hashes it. */
+/**
+ * The hash source of each inline element of one kind in a document: the SHA-256 of its text, as a browser hashes it.
+ */
 function hashesOf(html: string, tag: 'script' | 'style'): string[] {
   const texts = [...html.matchAll(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)</${tag}>`, 'gi'))].map((m) => m[1]!);
   return [...new Set(texts.map((t) => `'sha256-${createHash('sha256').update(t, 'utf8').digest('base64')}'`))];

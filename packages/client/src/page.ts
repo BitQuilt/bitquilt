@@ -46,7 +46,10 @@ function json(res: ServerResponse, status: number, body: unknown, anySite = fals
   res.end(JSON.stringify(body));
 }
 
-/** Whether a browser sent this from a page of another origin: an Origin not ours, or a Sec-Fetch-Site that is not same-origin. A program on this machine sends neither header. */
+/**
+ * Whether a browser sent this from a page of another origin: an Origin not ours, or a Sec-Fetch-Site that is not
+ * same-origin. A program on this machine sends neither header.
+ */
 function fromAnotherSite(req: IncomingMessage): boolean {
   const origin = req.headers.origin;
   const site = req.headers['sec-fetch-site'];
@@ -62,10 +65,15 @@ async function body(req: IncomingMessage): Promise<unknown> {
 
 export interface PageOptions {
   quilt: Quilt;
-  /** The person at the page hands in as a person (`Quilt.asPerson`): the same key, model `human`, capability `person`. */
+  /**
+   * The person at the page hands in as a person (`Quilt.asPerson`): the same key, model `human`, capability `person`.
+   */
   person: Quilt;
   resolver: Resolver;
-  /** The keeper's loop while the page is up (WORKSHOP.md section 2, stage one); on unless false, which a node that runs the loop itself passes. */
+  /**
+   * The keeper's loop while the page is up (WORKSHOP.md section 2, stage one); on unless false, which a node that runs
+   * the loop itself passes.
+   */
   keep?: boolean;
 }
 
@@ -109,7 +117,8 @@ export function createPage(options: PageOptions): {
       }
       if (path === '/api/me') return json(res, 200, quilt.me());
       if (path === '/api/standing') {
-        // Unlike /api/me, which answers from memory so a probe (node.ts) can read it at once, this one asks the trackers.
+        // Unlike /api/me, which answers from memory so a probe (node.ts) can read it at once, this one asks the
+        // trackers.
         const [standing, coin] = await Promise.all([quilt.standing(), quilt.coin()]);
         return json(res, 200, { standing, coin });
       }
@@ -122,7 +131,8 @@ export function createPage(options: PageOptions): {
           })),
         });
       if (path === '/api/open') {
-        // Everything the problem tab draws, in one answer: the problem and its map, the lines said in the render module's words, the panels this person judges, who keeps it, and the forms to offer.
+        // Everything the problem tab draws, in one answer: the problem and its map, the lines said in the render
+        // module's words, the panels this person judges, who keeps it, and the forms to offer.
         const opened = await quilt.open(u.searchParams.get('link') ?? '');
         const { hash, state, tracker, layer, hidden, gold, scrape } = opened;
         const over = layerByHash(layer);
@@ -134,8 +144,9 @@ export function createPage(options: PageOptions): {
             : (await person.panels(hash, tracker)).filter(
                 (p) => p.outcome === 'open' && p.seats.some((s) => s.root === me && s.lapsed_at === null && !s.rank),
               );
-        // QX-16: the gold this key committed here, by piece, and the pieces whose reveal is due by the rule the owner's turn
-        // reveals by (gold.ts, goldDue), so the page offers the reveal where the tracker takes it; QX-17: where the coin lives, so it can offer a pay.
+        // QX-16: the gold this key committed here, by piece, and the pieces whose reveal is due by the rule the owner's
+        // turn reveals by (gold.ts, goldDue), so the page offers the reveal where the tracker takes it; QX-17: where
+        // the coin lives, so it can offer a pay.
         const mineGold = Object.keys(quilt.library.gold?.[hash] ?? {});
         const due = new Set(goldDue(quilt.library, hash, over).map((d) => d.piece));
         const coin = tracker ? await quilt.coinAt(tracker) : null;
@@ -218,9 +229,11 @@ export function createPage(options: PageOptions): {
       if (path === '/api/attention')
         return json(res, 200, (await wanted.get(8_000).catch(() => null))?.[0] ?? (await person.attention()));
       if (path === '/api/phrases') {
-        // The sheet the menu bar draws (phrases.ts): the home's state, the first phrase to say, and the phrases for what this person keeps, has worked and is wanted for. The trackers are asked only once an AI has connected.
+        // The sheet the menu bar draws (phrases.ts): the home's state, the first phrase to say, and the phrases for
+        // what this person keeps, has worked and is wanted for. The trackers are asked only once an AI has connected.
         const connected = quilt.identity !== null && quilt.library.connector !== undefined;
-        // Where the first read takes longer than eight seconds, the sheet goes out without what is wanted, and the next ask has it.
+        // Where the first read takes longer than eight seconds, the sheet goes out without what is wanted, and the next
+        // ask has it.
         const read = connected ? await wanted.get(8_000).catch(() => null) : null;
         const [attention, standing] = read ? [read[0].items, read[1]] : [[], null];
         const file = claudeDesktopConfigPath();
@@ -239,18 +252,21 @@ export function createPage(options: PageOptions): {
         );
       }
       if (path === '/api/connector' && method === 'POST') {
-        // A copy of quilt working through this node says an AI has connected to it (bin.ts, mcp): the record moves the menu bar from the install instructions to the phrases.
+        // A copy of quilt working through this node says an AI has connected to it (bin.ts, mcp): the record moves the
+        // menu bar from the install instructions to the phrases.
         const b = (await body(req)) as { host?: string | null };
         resolver.sawConnector(typeof b.host === 'string' ? b.host : null);
         return json(res, 200, { connector: quilt.library.connector });
       }
       if (path === '/api/install' && method === 'POST') {
-        // The menu bar's button: the connector written into Claude Desktop's config for this very program, as `quilt install claude` does; refused while Claude runs unless told to go ahead.
+        // The menu bar's button: the connector written into Claude Desktop's config for this very program, as
+        // `quilt install claude` does; refused while Claude runs unless told to go ahead.
         const b = (await body(req)) as { anyway?: boolean };
         return json(res, 200, installHere(resolver.home, b.anyway === true));
       }
       if (path === '/api/away') {
-        // The menu bar's switch (away.ts): what runs while the person is away, how it went, and the switch itself, which schedules this very program as `quilt away --install` does.
+        // The menu bar's switch (away.ts): what runs while the person is away, how it went, and the switch itself,
+        // which schedules this very program as `quilt away --install` does.
         const o = {
           ...awayHome(),
           summary: async () => (await awaySummary.get(8_000).catch(() => null)) ?? recordSummary(awayHome()),
@@ -269,7 +285,8 @@ export function createPage(options: PageOptions): {
         }
         return json(res, 200, await awayState(o));
       }
-      // The tools, for a second copy of quilt on this home that works through this node rather than beside it (node.ts). Each run is an AI's, and is recorded as the connector's latest.
+      // The tools, for a second copy of quilt on this home that works through this node rather than beside it
+      // (node.ts). Each run is an AI's, and is recorded as the connector's latest.
       let tool: RegExpExecArray | null;
       if ((tool = /^\/api\/tool\/([a-z_]+)$/.exec(path)) && method === 'POST') {
         const name = tool[1] ?? '';
@@ -309,7 +326,8 @@ export function createPage(options: PageOptions): {
           },
           true,
         );
-      // What this node holds, listed, and the identity log as it holds it: a mirror or another node learns and pulls from here with no tracker between (PROTOCOL.md, The mirror).
+      // What this node holds, listed, and the identity log as it holds it: a mirror or another node learns and pulls
+      // from here with no tracker between (PROTOCOL.md, The mirror).
       if (path === '/held' && method === 'GET')
         return json(res, 200, { quilt: 1, node: true, problems: resolver.heldProblems() }, true);
       if (path === '/k/events' && method === 'GET') {
@@ -351,12 +369,14 @@ export function createPage(options: PageOptions): {
 
   function listen(port: number): Promise<Server> {
     const server = createServer((req, res) => void handle(req, res));
-    // A port already taken (a second copy of quilt, say) is this promise's rejection, never a crash of the process around it.
+    // A port already taken (a second copy of quilt, say) is this promise's rejection, never a crash of the process
+    // around it.
     return new Promise((resolve, reject) => {
       server.once('error', reject);
       server.listen(port, '127.0.0.1', () => {
         server.off('error', reject);
-        // The keeper's loop while the page is up (WORKSHOP.md section 2, stage one): what this node holds kept whole and current, one loop at a time; a node that runs the loop itself passes keep: false.
+        // The keeper's loop while the page is up (WORKSHOP.md section 2, stage one): what this node holds kept whole
+        // and current, one loop at a time; a node that runs the loop itself passes keep: false.
         if (options.keep !== false) {
           let keeping = false;
           const keep = async (): Promise<void> => {

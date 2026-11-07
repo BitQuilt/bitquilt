@@ -25,7 +25,10 @@ export interface ReadKept {
   bytes: Uint8Array;
   text: string;
 }
-/** What became of the rests: the trace posted or not, how many reads it names, the fields that rest on one, and the rests left out with the reason. */
+/**
+ * What became of the rests: the trace posted or not, how many reads it names, the fields that rest on one, and the
+ * rests left out with the reason.
+ */
 export interface TraceOutcome {
   posted: Posted | null;
   reads: number;
@@ -69,7 +72,10 @@ export function drawText(body: string, contentType: string): string {
   return norm(text);
 }
 
-/** Where a passage sits in a read's text, in bytes, or null when it is not there; the words as written first, then without regard to case. */
+/**
+ * Where a passage sits in a read's text, in bytes, or null when it is not there; the words as written first, then
+ * without regard to case.
+ */
 export function locate(text: string, passage: string): [number, number] | null {
   const p = norm(passage);
   if (!p) return null;
@@ -142,7 +148,8 @@ export async function putRead(tracker: string, read: ReadKept, fetchImpl: typeof
  * The trace behind a reveal, from the rests the model named: each page fetched once, each passage found in its text,
  * the reads put on the trackers, and the trace signed and posted to the problem's log naming the reveal. A rest whose
  * page could not be read, whose passage is not on it, or whose field the return lacks is left out and listed under
- * `missing`; with nothing left to rest on, nothing is posted. A refusal at the door comes back in `posted` and is not thrown.
+ * `missing`; with nothing left to rest on, nothing is posted. A refusal at the door comes back in `posted` and is not
+ * thrown.
  */
 export async function traceAfterReveal(
   door: Door,

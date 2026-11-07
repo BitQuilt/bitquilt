@@ -22,7 +22,10 @@ export interface KeptStore {
   appendLines(log: Hash, lines: Receipt[]): void;
 }
 
-/** The mirror's files: `problems/<hash>.json`, `blobs/<hash>`, `ledger/<hash>.jsonl`, `ledger/identity.jsonl`, `ledger/coin.jsonl`, as the header of mirror.ts lays them out and a client reads them raw. */
+/**
+ * The mirror's files: `problems/<hash>.json`, `blobs/<hash>`, `ledger/<hash>.jsonl`, `ledger/identity.jsonl`,
+ * `ledger/coin.jsonl`, as the header of mirror.ts lays them out and a client reads them raw.
+ */
 export class MirrorFiles implements KeptStore {
   constructor(readonly out: string) {
     for (const d of ['problems', 'blobs', 'ledger']) mkdirSync(join(out, d), { recursive: true });

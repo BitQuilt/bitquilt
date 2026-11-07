@@ -9,10 +9,11 @@
  *   QUILT_OAUTH_ISSUER   the issuer its metadata names (the tracker's address without the trailing slash)
  *   QUILT_WITNESS_RANGES the address ranges each product publishes for its servers, as one JSON object of product to
  *                        ranges; the ranges in products.ts unless set
- *   QUILT_RELAYS         the relays a member's Quilt searches and announces on (QX-14), comma separated; none unless set
+ *   QUILT_RELAYS         the relays a member's Quilt searches and announces on (QX-14), comma separated; none unless
+ *                        set
  *   ANTHROPIC_API_KEY, OPENAI_API_KEY, QUILT_SENTENCE_MODEL
- *                        the vendor the owners' turn asks for the sentence a brief lacks (QX-19 section 4, sentence.ts);
- *                        with neither key the turn reveals the gold due and sharpens nothing
+ *                        the vendor the owners' turn asks for the sentence a brief lacks (QX-19 section 4,
+ *                        sentence.ts); with neither key the turn reveals the gold due and sharpens nothing
  * and QUILT_TRUSTED_PROXIES, which the tracker reads too. Every hour it runs the owners' turn for the members whose
  * homes hold a problem or a gold, the first a minute after it starts.
  */
@@ -22,7 +23,8 @@ import { quietSqliteWarning, trackerOptionsFromEnv } from '@bitquilt/tracker/env
 quietSqliteWarning();
 
 async function main(): Promise<void> {
-  // QX-19: this connector fetches a trace's pages on a stranger's word and serves what it kept to anyone, so never from a private address.
+  // QX-19: this connector fetches a trace's pages on a stranger's word and serves what it kept to anyone, so never from
+  // a private address.
   process.env.QUILT_READS ||= 'public';
   const keySecret = process.env.QUILT_KEY_SECRET;
   if (!keySecret) {

@@ -1,10 +1,10 @@
 /**
  * The phrases (phrases.ts): what a person says to their AI, as the menu bar copies them and the connector offers them.
- * Each passes the plain-text gate with its slots filled, describes rather than instructs, and the sheet reads the home's
- * state from the key and the library's record of a connector, with the phrases that fit what the person keeps and is
- * wanted for. How Quilt works (about.ts) is held here too, with every file in the repository that reads it, which its
- * header and AGENTS.md name, and so is the count AGENTS.md gives of the places a person or a model reads, against its
- * own list.
+ * Each passes the plain-text gate with its slots filled, describes rather than instructs, and the sheet reads the
+ * home's state from the key and the library's record of a connector, with the phrases that fit what the person keeps
+ * and is wanted for. How Quilt works (about.ts) is held here too, with every file in the repository that reads it,
+ * which its header and AGENTS.md name, and so is the count AGENTS.md gives of the places a person or a model reads,
+ * against its own list.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
@@ -32,7 +32,10 @@ const other = ('sha256:' + 'ef'.repeat(32)) as `sha256:${string}`;
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const agents = (): string => readFileSync(join(root, 'AGENTS.md'), 'utf8');
 
-/** Every source file in the repository outside the tests, by its path from the root, with dependencies, build output and dot folders left out. */
+/**
+ * Every source file in the repository outside the tests, by its path from the root, with dependencies, build output and
+ * dot folders left out.
+ */
 function sources(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
     if (name.startsWith('.') || ['node_modules', 'dist', 'coverage', 'lib', 'out', 'cache', 'test'].includes(name))
@@ -177,7 +180,8 @@ describe('the sheet', () => {
     expect(sheet.groups.map((g) => g.title)).toEqual(['To start']);
     expect(sheet.groups[0]!.phrases.map((p) => p.name)).toEqual(['find_something_to_do', 'who_am_i', 'how_it_works']);
     expect(sheet.backup).toBeNull();
-    // The words kept at first use are a backup due until the page has shown them; a name is offered once there is work behind the address.
+    // The words kept at first use are a backup due until the page has shown them; a name is offered once there is work
+    // behind the address.
     expect(sheetOf({ address, name: 'me', library: lib, attention: [], wordsDue: true, claude }).backup).toBe('due');
     const named = sheetOf({ address, name: null, library: lib, attention: [], standing: 2, claude });
     expect(named.groups.map((g) => g.title)).toEqual(['To start', 'Your name']);

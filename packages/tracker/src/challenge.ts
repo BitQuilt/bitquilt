@@ -179,7 +179,10 @@ export interface PieceLayer {
   gold: GoldState;
   /** A square whose accepting set agreed with the owner's gold. */
   verified: boolean;
-  /** QX-19 section 4: the keys whose reading of this piece the layer set aside, since it rests on nothing where the other rests on the record. */
+  /**
+   * QX-19 section 4: the keys whose reading of this piece the layer set aside, since it rests on nothing where the
+   * other rests on the record.
+   */
   aside: Address[];
   /** QX-20: on a record piece, its standing readings; null on every other kind. */
   record: RecordView | null;
@@ -189,7 +192,10 @@ export interface ProblemLayer {
   problem: Hash;
   /** The core's fold, untouched. */
   core: State;
-  /** The core's fold with struck events left out and the verifier kinds decided: the same as `core` where nothing was struck and every kind is the core's. */
+  /**
+   * The core's fold with struck events left out and the verifier kinds decided: the same as `core` where nothing was
+   * struck and every kind is the core's.
+   */
   fold: State;
   pieces: PieceLayer[];
   byHash: Map<Hash, PieceLayer>;
@@ -204,9 +210,15 @@ export interface ProblemLayer {
   locks: LockView[];
   /** The owner's golds on this problem (QX-16), as kept. */
   golds: GoldView[];
-  /** The gold summed for a reader: how many commitments, and how each stands; which pieces they are on is known only at the reveal. */
+  /**
+   * The gold summed for a reader: how many commitments, and how each stands; which pieces they are on is known only at
+   * the reveal.
+   */
   goldCount: GoldCount;
-  /** Every receipt the fold was computed from: the chain's and the identity log's, so a reader of the layer (the traces, the seeds, the directory row) need not read the store again. */
+  /**
+   * Every receipt the fold was computed from: the chain's and the identity log's, so a reader of the layer (the traces,
+   * the seeds, the directory row) need not read the store again.
+   */
   receipts: Receipt[];
 }
 
@@ -224,7 +236,10 @@ export interface Layer {
   problems: Map<Hash, ProblemLayer>;
   /** Every problem's, in receipt order. */
   challenges: ChallengeView[];
-  /** Every problem's input carries the identity log, so any fold resolves a key; with no problem held, the key is its own root. */
+  /**
+   * Every problem's input carries the identity log, so any fold resolves a key; with no problem held, the key is its
+   * own root.
+   */
   rootOf(key: Address, at?: string): Address;
   /** A root's standing at a time, `now` when none is given. */
   standing(root: Address, at?: string): number;
@@ -242,7 +257,10 @@ export interface Layer {
   liveLocks(root: Address): LockView[];
   /** Whether a stake rule by this key would count if received now, and why not. */
   admitStakeRule(problem: Hash, key: Address, body: Record<string, unknown>): Admission;
-  /** Whether a lock by this key on this piece would count if received now, and why not; a coin-kind lock comes with the word the door read of the coin lock (QX-17). */
+  /**
+   * Whether a lock by this key on this piece would count if received now, and why not; a coin-kind lock comes with the
+   * word the door read of the coin lock (QX-17).
+   */
   admitLock(
     problem: Hash,
     piece: Hash,
@@ -252,7 +270,9 @@ export interface Layer {
   ): Admission;
   /** QX-15: when the fold releases a lock, or null while it would be live; forfeits are not judged here. */
   lockEndsAt(lock: LockView): string | null;
-  /** Whether a claim, commit, reveal or run by this key on this piece is backed as the piece's stake asks, and why not. */
+  /**
+   * Whether a claim, commit, reveal or run by this key on this piece is backed as the piece's stake asks, and why not.
+   */
   admitProduction(problem: Hash, piece: Hash, key: Address): Admission;
   /** The undone pieces of a problem whose stake the key's free standing cannot cover and on which it holds no lock. */
   unaffordable(problem: Hash, key: Address): Set<Hash>;
@@ -279,7 +299,9 @@ interface Verdict {
   at: string;
 }
 
-/** The states a piece still takes work in (QX-15 section 2): what `unaffordable` measures a key's free standing against. */
+/**
+ * The states a piece still takes work in (QX-15 section 2): what `unaffordable` measures a key's free standing against.
+ */
 const UNDONE: ReadonlySet<string> = new Set(['open', 'in_flight', 'sealed', 'needs_verify', 'disputed', 'recording']);
 
 /** Why this is not a well-formed challenge body, or nothing. */
@@ -292,7 +314,9 @@ export function challengeBodyProblems(body: unknown): string[] {
   return out;
 }
 
-/** Why this is not a well-formed verdict body, or nothing. The return is checked against the piece's schema by the fold. */
+/**
+ * Why this is not a well-formed verdict body, or nothing. The return is checked against the piece's schema by the fold.
+ */
 export function verdictBodyProblems(body: unknown): string[] {
   if (!isRecord(body)) return ['body: an object'];
   const out: string[] = [];
@@ -302,7 +326,10 @@ export function verdictBodyProblems(body: unknown): string[] {
   return out;
 }
 
-/** The ids of an accepting set's events in the problem's receipts: the reveals with their commits, or the patch's with the runs. */
+/**
+ * The ids of an accepting set's events in the problem's receipts: the reveals with their commits, or the patch's with
+ * the runs.
+ */
 function setEventIds(v: PieceView, receipts: Receipt[]): Hash[] {
   if (!v.accepting) return [];
   const ordered = orderReceipts(receipts);
@@ -347,12 +374,18 @@ function setEventIds(v: PieceView, receipts: Receipt[]): Hash[] {
 
 // The pools
 
-/** The pool a judge panel is drawn from (verifiers.md): roots credited on another problem at the time, unrelated to the piece's parties. */
+/**
+ * The pool a judge panel is drawn from (verifiers.md): roots credited on another problem at the time, unrelated to the
+ * piece's parties.
+ */
 function judgePool(f: Folding, problem: Hash, at: string, unrelatedTo: Address[], fold: State): Address[] {
   return [...creditedElsewhere(f, problem, at)].filter((r) => !unrelatedTo.some((u) => fold.related(r, u, at)));
 }
 
-/** The pool a challenge's panel is drawn from (QX-1 section 3): roots credited elsewhere, unrelated to the challenger, to each party, and to anyone with a reveal or a run on the piece. */
+/**
+ * The pool a challenge's panel is drawn from (QX-1 section 3): roots credited elsewhere, unrelated to the challenger,
+ * to each party, and to anyone with a reveal or a run on the piece.
+ */
 function poolFor(
   f: Folding,
   home: ProblemEntry,
@@ -436,9 +469,9 @@ function strike(
 /**
  * QX-19 section 4: in a dispute, a reading that rests on nothing where the other rests on the record is set aside: the
  * piece is folded without that reveal, so it needs a second reading again, and the key whose reading was set aside may
- * read it again, its commit unrevealed in that fold. To a fixed point, since the fold without one pair may show another.
- * Nothing is docked: a disputed piece had no square. A trace that arrives later lifts it, since the layer is a function
- * of the receipts; a reader that measures no blob, as the mirror does not, sets nothing aside.
+ * read it again, its commit unrevealed in that fold. To a fixed point, since the fold without one pair may show
+ * another. Nothing is docked: a disputed piece had no square. A trace that arrives later lifts it, since the layer is a
+ * function of the receipts; a reader that measures no blob, as the mirror does not, sets nothing aside.
  */
 function setAsideUngrounded(f: Folding, blobLength: (hash: Hash) => number | null): void {
   for (const e of f.entries.values()) {
@@ -460,7 +493,10 @@ function setAsideUngrounded(f: Folding, blobLength: (hash: Hash) => number | nul
   refreshCredits(f);
 }
 
-/** Undoes a miss's strike at `d` (QX-16 section 4): the events return to the fold, and each struck root regains from `d` the point docked, its point for the set and its lock. */
+/**
+ * Undoes a miss's strike at `d` (QX-16 section 4): the events return to the fold, and each struck root regains from `d`
+ * the point docked, its point for the set and its lock.
+ */
 function unstrike(f: Folding, home: ProblemEntry, c: GoldCommitment, d: string): void {
   const struck = new Set(c.struck);
   for (const e of f.entries.values()) {
@@ -489,7 +525,10 @@ function unstrike(f: Folding, home: ProblemEntry, c: GoldCommitment, d: string):
   }
 }
 
-/** Why a root's free standing does not cover a stake at `at`, naming the lock where one is the reason; null when it does. */
+/**
+ * Why a root's free standing does not cover a stake at `at`, naming the lock where one is the reason; null when it
+ * does.
+ */
 function stakeShort(f: Folding, root: Address, stake: number, at: string): string | null {
   const s = f.standing(root, at);
   const l = f.locked(root, at);
@@ -568,7 +607,10 @@ function checkChallenge(
   };
 }
 
-/** Why an event is not this layer's to keep: it names another problem, names a piece or not as its kind asks, or its signature is not the key's; null when it is. */
+/**
+ * Why an event is not this layer's to keep: it names another problem, names a piece or not as its kind asks, or its
+ * signature is not the key's; null when it is.
+ */
 function misnamed(ev: Event, home: ProblemEntry, { piece }: { piece: boolean }): string | null {
   if (ev.problem !== home.hash || (piece ? !ev.piece : ev.piece !== undefined))
     return piece
@@ -607,7 +649,10 @@ function keepLock(f: Folding, c: LayerEvent): void {
   });
 }
 
-/** QX-16 section 1: the owner's blind commitments, kept at their receipt against the owner's free standing then; the pieces are named at the reveals. */
+/**
+ * QX-16 section 1: the owner's blind commitments, kept at their receipt against the owner's free standing then; the
+ * pieces are named at the reveals.
+ */
 function keepGold(f: Folding, c: LayerEvent): void {
   const { event: ev, at, home } = c;
   const why = misnamed(ev, home, { piece: false });
@@ -650,9 +695,9 @@ function keepGoldReveal(f: Folding, c: LayerEvent): void {
 }
 
 /**
- * QX-1 sections 3 to 6: a challenge kept at its receipt seats its panel from the pool then and folds its verdicts; held,
- * it strikes the set, or against a gold miss undoes the miss's strike and forfeits the gold (QX-16 section 4); failed,
- * it costs the challenger the stake.
+ * QX-1 sections 3 to 6: a challenge kept at its receipt seats its panel from the pool then and folds its verdicts;
+ * held, it strikes the set, or against a gold miss undoes the miss's strike and forfeits the gold (QX-16 section 4);
+ * failed, it costs the challenger the stake.
  */
 function keepChallenge(f: Folding, c: LayerEvent, verdicts: Verdict[]): void {
   const { event: ev, at, home } = c;
@@ -698,7 +743,8 @@ function keepChallenge(f: Folding, c: LayerEvent, verdicts: Verdict[]): void {
     const d = challenge.decidedAt!;
     f.moves.push({ root: challenge.root, at: d, delta: stake });
     if (r.gold && r.commitment) {
-      // QX-16 section 4: the gold was wrong. The strike is undone, the owner's stake is forfeited whole, and the rest of the gold is dropped.
+      // QX-16 section 4: the gold was wrong. The strike is undone, the owner's stake is forfeited whole, and the rest
+      // of the gold is dropped.
       unstrike(f, home, r.commitment, d);
       r.commitment.outcome = 'overruled';
       r.gold.forfeitedAt = d;
@@ -748,9 +794,9 @@ export function challengeLayer(input: {
     });
   }
 
-  // 2. The kinds and the credits to a fixed point (verifiers.md section 1): a judge panel's pool is the credits on other
-  // problems, and a judged acceptance is itself a credit, so the credits are refreshed and the kinds decided again
-  // until nothing moves; four passes at most.
+  // 2. The kinds and the credits to a fixed point (verifiers.md section 1): a judge panel's pool is the credits on
+  // other problems, and a judged acceptance is itself a credit, so the credits are refreshed and the kinds decided
+  // again until nothing moves; four passes at most.
   let fingerprint = '';
   for (let pass = 0; ; pass++) {
     refreshCredits(f);
@@ -827,7 +873,8 @@ export function challengeLayer(input: {
       const last = own.length ? own[own.length - 1]! : null;
       const core = e.core.byHash.get(v.piece.hash)?.state ?? v.state;
       const record = e.decided.records.get(v.piece.hash) ?? null;
-      // QX-20: a record piece some readings stand on is held under needs_verify in the fold, so the core's `next` offers it; here it says recording.
+      // QX-20: a record piece some readings stand on is held under needs_verify in the fold, so the core's `next`
+      // offers it; here it says recording.
       const state: LayerState =
         last?.outcome === 'open' ? 'challenged' : record && v.state === 'needs_verify' ? 'recording' : v.state;
       const kind = e.decided.kinds.get(v.piece.hash)!;
@@ -1019,7 +1066,10 @@ function returnProblem(view: PieceView, ret: unknown): string | null {
   return rp.length ? rp[0]! : null;
 }
 
-/** Offers the seats, lapses and replaces them by the lease (sortition.ts), folds the verdicts in receipt order, and decides on a majority. */
+/**
+ * Offers the seats, lapses and replaces them by the lease (sortition.ts), folds the verdicts in receipt order, and
+ * decides on a majority.
+ */
 function seat(
   challenge: ChallengeView,
   fold: State,

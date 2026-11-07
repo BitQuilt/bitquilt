@@ -50,7 +50,8 @@ export async function commitGold(
     rule !== undefined &&
     rule.min > 0 &&
     (!rule.pieces?.length || rule.pieces.includes(x.family) || rule.pieces.includes(x.name));
-  // Each blind commitment costs the largest share among the pieces a gold can be on, since the ledger cannot tell which piece it names.
+  // Each blind commitment costs the largest share among the pieces a gold can be on, since the ledger cannot tell which
+  // piece it names.
   const share = Math.max(
     0,
     ...all.filter(golden).map((x) => (x.verifier === 'attest' ? 1 : 2) * Math.max(1, covered(x) ? rule!.min : 0)),
@@ -131,7 +132,9 @@ export async function revealGold(
   return { id: eventId(event), ...posted, name: kept.name, outcome };
 }
 
-/** A piece whose gold is due: committed from this home, not yet revealed, and its window open as the tracker holds it. */
+/**
+ * A piece whose gold is due: committed from this home, not yet revealed, and its window open as the tracker holds it.
+ */
 export interface GoldDue {
   problem: Hash;
   piece: Hash;
@@ -178,10 +181,10 @@ export interface Revealed extends GoldDue {
 
 /**
  * The owner's reveals, run with nobody asked: every problem this home holds gold on is read from its tracker, and each
- * piece whose gold is due is revealed in turn, so a square verifies and the coin mints on it without anyone remembering.
- * The away turn runs this every hour and `quilt gold reveal` with no piece runs it once. A reveal the tracker refuses is
- * recorded with its reason and left for the next run; a tracker that does not answer leaves its problem for the next
- * run too. With `post` false the due pieces are listed and nothing is posted.
+ * piece whose gold is due is revealed in turn, so a square verifies and the coin mints on it without anyone
+ * remembering. The away turn runs this every hour and `quilt gold reveal` with no piece runs it once. A reveal the
+ * tracker refuses is recorded with its reason and left for the next run; a tracker that does not answer leaves its
+ * problem for the next run too. With `post` false the due pieces are listed and nothing is posted.
  */
 export async function revealDue(door: Door, post = true): Promise<Revealed[]> {
   const out: Revealed[] = [];

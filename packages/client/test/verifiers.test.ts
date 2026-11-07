@@ -90,7 +90,8 @@ beforeAll(async () => {
   c = mk(3, 'google/gemini', 'Gemini');
   j12 = mk(12, 'openai/gpt-5', 'ChatGPT');
   j13 = mk(13, 'google/gemini', 'Gemini');
-  // Judge 11 is the person at the page: their AI's Quilt and their own share the key and the resolver, as quilt serve builds it.
+  // Judge 11 is the person at the page: their AI's Quilt and their own share the key and the resolver, as quilt serve
+  // builds it.
   const home = tempHome('quilt-11-');
   createKey(home, { secretHex: hex(11) });
   const resolver = new Resolver(config, home);
@@ -162,7 +163,8 @@ describe('an attest piece of the promotion pattern', () => {
       attested: true,
       strength: 'attested',
     });
-    // Read back: the map shows the tracker's state where the core says unknown, the kinds line says the strength, and the record is quoted with its signer.
+    // Read back: the map shows the tracker's state where the core says unknown, the kinds line says the strength, and
+    // the record is quoted with its signer.
     const opened = await c.open(tell);
     expect(opened.layer).not.toBeNull();
     const summary = c.summary(opened.hash, opened.state, opened.tracker, opened.layer);
@@ -265,7 +267,8 @@ describe('a judge piece', () => {
     });
     expect(again.isError).toBe(true);
     await close();
-    // The page: the person at it is drawn, so the problem view carries the panel with its candidates, and the form posts the ranking.
+    // The page: the person at it is drawn, so the problem view carries the panel with its candidates, and the form
+    // posts the ranking.
     const opened = await api(`/api/open?link=${judged}`);
     const judging = opened.body.judging as {
       piece: Hash;

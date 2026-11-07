@@ -12,7 +12,10 @@ import * as merkle from './merkle.js';
 import type { Hex } from './merkle.js';
 import { address, checkLine, hex64, wholeNumber } from './shapes.js';
 
-/** One redeem line as the home serves it at `GET /coin/redeems`: the shape `packages/tracker/src/coin.ts` serves there; keep the two the same. */
+/**
+ * One redeem line as the home serves it at `GET /coin/redeems`: the shape `packages/tracker/src/coin.ts` serves there;
+ * keep the two the same.
+ */
 export interface RedeemLine {
   /** The coin log line's hash, 64 lowercase hex characters. */
   id: string;

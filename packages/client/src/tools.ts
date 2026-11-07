@@ -21,12 +21,15 @@ export interface ToolResult {
 
 export type ToolInput = Record<string, unknown>;
 
-/** Runs one tool by name for the host that asked (the client's name at connection, which the model declared follows). */
+/**
+ * Runs one tool by name for the host that asked (the client's name at connection, which the model declared follows).
+ */
 export type ToolRunner = (name: ToolName, input: ToolInput, host: string | undefined) => Promise<ToolResult>;
 
 /**
  * Every tool's name, in the order the connector registers them (mcp.ts), which is the order a host lists them in. The
- * bundle's manifest (scripts/build-mcpb.mjs) and the tests' list keep the same order, and the tests hold all of them to it.
+ * bundle's manifest (scripts/build-mcpb.mjs) and the tests' list keep the same order, and the tests hold all of them to
+ * it.
  */
 export const TOOL_NAMES = [
   'quilt_me',
@@ -57,7 +60,10 @@ export function isToolName(s: string): s is ToolName {
 
 const where = (x: Posted) => (x.queued ? 'queued' : `posted to ${x.at}`);
 
-/** QX-19 section 4: a problem its owner sharpened says which version replaced it, under its summary in quilt_open and quilt_read alike. */
+/**
+ * QX-19 section 4: a problem its owner sharpened says which version replaced it, under its summary in quilt_open and
+ * quilt_read alike.
+ */
 const replacedText = (superseded: Hash | null): string =>
   superseded ? `\nIts owner replaced this version with ${superseded}; the work is there.` : '';
 
@@ -129,7 +135,8 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
     }
     case 'quilt_search': {
       const found = await quilt.search(str('query'));
-      // One problem in words (APP.md, Search): who, what, how much is done and how well it stands, where it is held; a fork under the problem it forks.
+      // One problem in words (APP.md, Search): who, what, how much is done and how well it stands, where it is held; a
+      // fork under the problem it forks.
       const line = (p: (typeof found)[number]): string => {
         const w = p.work;
         const kinds = p.kinds
@@ -163,7 +170,8 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       return { text, handles: { problems: found.map((p) => p.problem), query: str('query') } };
     }
     case 'quilt_window': {
-      // The handle the card reads: who this client is and what to open on. No one's words; the card reads the rest through quilt_window_io.
+      // The handle the card reads: who this client is and what to open on. No one's words; the card reads the rest
+      // through quilt_window_io.
       const me = quilt.me();
       const query = str('query');
       const link = str('link');

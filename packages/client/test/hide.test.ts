@@ -4,7 +4,10 @@ import { type Hash, addressOf } from '@bitquilt/core';
 import { type Pattern, Quilt } from '../src/quilt.js';
 import { quiltOver, startTracker } from './helpers.js';
 
-/** Quilt's side of QX-6: a maintainer's hide verb, and what a person sees when a problem is taken down on the tracker that answered. */
+/**
+ * Quilt's side of QX-6: a maintainer's hide verb, and what a person sees when a problem is taken down on the tracker
+ * that answered.
+ */
 const secret = (n: number): Uint8Array => {
   const k = new Uint8Array(32);
   k[31] = n;

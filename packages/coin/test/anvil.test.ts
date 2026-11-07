@@ -191,7 +191,8 @@ describe.skipIf(!forge || !anvil)('the door out over anvil', () => {
   }, 60_000);
 
   it('burns a deposit back for a ledger root, numbered, and the reader credits it on the home once', async () => {
-    // A local chain finalizes nothing, so the count is read at the latest block here; on a public chain the reader waits for finality.
+    // A local chain finalizes nothing, so the count is read at the latest block here; on a public chain the reader
+    // waits for finality.
     expect(await depositCount(chain, false)).toBe(0);
     await expect(deposit(chain, { amount: 2_000_000n, root: HOLDER })).rejects.toThrow(/more than the balance/);
     const burned = await deposit(chain, { amount: 250_000n, root: HOLDER });

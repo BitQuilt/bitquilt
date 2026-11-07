@@ -91,7 +91,11 @@ export interface AttentionItem {
   title: string;
   piece: Hash | null;
   name: string | null;
-  /** rank: drawn to a judge panel and not yet ranked; verdict: drawn to a challenge and not yet answered; disputed: a piece this key returned is disputed; person: a human piece in a kept problem has a seat open; gold: a piece this key committed gold on is accepted and awaits the reveal. */
+  /**
+   * rank: drawn to a judge panel and not yet ranked; verdict: drawn to a challenge and not yet answered; disputed: a
+   * piece this key returned is disputed; person: a human piece in a kept problem has a seat open; gold: a piece this
+   * key committed gold on is accepted and awaits the reveal.
+   */
   why: 'rank' | 'verdict' | 'disputed' | 'person' | 'gold';
   tracker: string | null;
 }
@@ -103,7 +107,9 @@ export interface AttentionItem {
  * endgame at 10 pieces, a budget of 1000, a patch of at most 100000 characters), `prev` and `from` as null, the owner
  * as this key, and the hints as this client's trackers and mirrors.
  */
-/** What `publish` and the owner's sharpening answer: where the envelope went, what refused it, and the gold committed. */
+/**
+ * What `publish` and the owner's sharpening answer: where the envelope went, what refused it, and the gold committed.
+ */
 export interface Published {
   hash: Hash;
   link: string;
@@ -113,14 +119,20 @@ export interface Published {
   gold: { pieces: number; stake: number } | null;
 }
 
-/** A problem as a search finds it (APP.md, Search): a tracker's row with the work on it, or a relay's announce (QX-13), and every place that had it. */
+/**
+ * A problem as a search finds it (APP.md, Search): a tracker's row with the work on it, or a relay's announce (QX-13),
+ * and every place that had it.
+ */
 export interface SearchResult {
   problem: Hash;
   title: string;
   slug: string;
   owner: string;
   owner_name: string | null;
-  /** The problem this one forks (CORE.md section 2), and the root of its group in this answer: itself where it forks nothing in the answer. */
+  /**
+   * The problem this one forks (CORE.md section 2), and the root of its group in this answer: itself where it forks
+   * nothing in the answer.
+   */
   from: Hash | null;
   root: Hash;
   pieces: number;
@@ -137,7 +149,10 @@ export interface SearchResult {
   announced: string | null;
 }
 
-/** QX-19 section 4: a brief sharpened, or not: the sentence asked for each family with a seam, whether it was kept and why not, and the version published with those kept. */
+/**
+ * QX-19 section 4: a brief sharpened, or not: the sentence asked for each family with a seam, whether it was kept and
+ * why not, and the version published with those kept.
+ */
 export interface Sharpened {
   problem: Hash;
   sentences: { family: string; field: string; sentence: string | null; kept: boolean; why: string | null }[];
@@ -162,24 +177,39 @@ export interface Pattern {
   /** Blob names to their rows, inline. */
   data?: Record<string, unknown[]>;
   topics?: string[];
-  /** The stake of standing a claim on the pieces is backed by (QX-15): `min` on every piece, or on the families and pieces named. */
+  /**
+   * The stake of standing a claim on the pieces is backed by (QX-15): `min` on every piece, or on the families and
+   * pieces named.
+   */
   stake?: { min: number; pieces?: string[] };
-  /** The owner's gold (QX-16): the answers to some pieces by name, committed by hash before the work; the stake, left out, is the sum of the pieces' shares (two a piece where no stake rule applies). */
+  /**
+   * The owner's gold (QX-16): the answers to some pieces by name, committed by hash before the work; the stake, left
+   * out, is the sum of the pieces' shares (two a piece where no stake rule applies).
+   */
   gold?: { answers: Record<string, Record<string, unknown>>; stake?: number };
 }
 
-/** This key's standing as a tracker computes it (QX-1, QX-15): what it has, what is locked behind its claims, what is free to stake. */
+/**
+ * This key's standing as a tracker computes it (QX-1, QX-15): what it has, what is locked behind its claims, what is
+ * free to stake.
+ */
 export interface Standing {
   tracker: string;
   standing: number;
   locked: number;
   free: number;
-  /** The part of `standing` the tracker declared for this root at its founding (QX-1 section 2 as amended); 0 for nearly everyone. */
+  /**
+   * The part of `standing` the tracker declared for this root at its founding (QX-1 section 2 as amended); 0 for nearly
+   * everyone.
+   */
   founding: number;
   locks: { problem: Hash; piece: Hash; amount: number; at: string }[];
 }
 
-/** A piece handed to this key by `next`: the pick, where the claim went, the owner by name, and what was locked before the claim. */
+/**
+ * A piece handed to this key by `next`: the pick, where the claim went, the owner by name, and what was locked before
+ * the claim.
+ */
 export interface Handed {
   hash: Hash;
   pick: Pick;
@@ -187,11 +217,17 @@ export interface Handed {
   owner: string;
   stake: number;
   lock: 'standing' | 'coin' | null;
-  /** QX-19: where the two readings of a disputed piece differ and what each rests on, as the tracker handed them over; empty otherwise. */
+  /**
+   * QX-19: where the two readings of a disputed piece differ and what each rests on, as the tracker handed them over;
+   * empty otherwise.
+   */
   seams: Seam[];
 }
 
-/** A plan to lock coin in place of standing (QX-17): where the coin log is, how many units at the burn rate, and the stake they stand for. */
+/**
+ * A plan to lock coin in place of standing (QX-17): where the coin log is, how many units at the burn rate, and the
+ * stake they stand for.
+ */
 interface CoinPlan {
   coinHome: string;
   units: number;
@@ -212,9 +248,15 @@ function isDeclineReason(s: string): s is DeclineReason {
  */
 export class Quilt {
   readonly hostName: string | undefined;
-  /** A tracker's well-known document, kept for ten minutes: long enough to spare the tracker, short enough that one restarted with the coin is seen. */
+  /**
+   * A tracker's well-known document, kept for ten minutes: long enough to spare the tracker, short enough that one
+   * restarted with the coin is seen.
+   */
   private readonly wellKnownCache = new Map<string, { at: number; answer: Promise<Record<string, unknown> | null> }>();
-  /** What coin.ts and gold.ts are handed (door.ts): the key, the config, the library, and this Quilt's own signing, posting and reading. */
+  /**
+   * What coin.ts and gold.ts are handed (door.ts): the key, the config, the library, and this Quilt's own signing,
+   * posting and reading.
+   */
   private readonly door: Door;
 
   private held: Identity | null;
@@ -266,7 +308,10 @@ export class Quilt {
     return this.resolver.library;
   }
 
-  /** The model this client declares on its claims and reveals: the config's where it names one, else the host's vendor and name. */
+  /**
+   * The model this client declares on its claims and reveals: the config's where it names one, else the host's vendor
+   * and name.
+   */
   model(): string {
     return modelFor(this.hostName, this.config.model);
   }
@@ -334,7 +379,10 @@ export class Quilt {
     return { event, posted };
   }
 
-  /** Where posts about a problem go, each once: the trackers named `first` (the one that answered, a link's), then the ones the library remembers for it, then the config's. */
+  /**
+   * Where posts about a problem go, each once: the trackers named `first` (the one that answered, a link's), then the
+   * ones the library remembers for it, then the config's.
+   */
   /** A tracker's JSON through this Quilt's own way to the network, or null. */
   ask<T>(url: string): Promise<T | null> {
     return askJson<T>(url, 8000, this.resolver.fetchImpl);
@@ -344,7 +392,10 @@ export class Quilt {
     return [...new Set([...first, ...(this.library.problems[problem]?.trackers ?? []), ...this.config.trackers])];
   }
 
-  /** The first tracker that answers: `ask` is put to each in order, and the first answer that is not null is it; null when none answers. */
+  /**
+   * The first tracker that answers: `ask` is put to each in order, and the first answer that is not null is it; null
+   * when none answers.
+   */
   private async firstAnswer<T>(trackers: string[], ask: (tracker: string) => Promise<T | null>): Promise<T | null> {
     for (const t of trackers) {
       const answer = await ask(t);
@@ -362,7 +413,10 @@ export class Quilt {
       }
   }
 
-  /** This client as it knows itself, from memory and the library alone: the address, name, model, capabilities, trackers, mirrors, relays, what waits in the queue, and how many problems the library holds. */
+  /**
+   * This client as it knows itself, from memory and the library alone: the address, name, model, capabilities,
+   * trackers, mirrors, relays, what waits in the queue, and how many problems the library holds.
+   */
   me() {
     return {
       address: this.identity?.address ?? null,
@@ -402,7 +456,10 @@ export class Quilt {
     });
   }
 
-  /** The hot list (APP.md, "The window"): a key followed or dropped, in this home's library alone; nothing is signed or posted. */
+  /**
+   * The hot list (APP.md, "The window"): a key followed or dropped, in this home's library alone; nothing is signed or
+   * posted.
+   */
   async follow(address: Address, on: boolean, name: string | null = null): Promise<void> {
     const follows = (this.library.follows ??= {});
     if (on)
@@ -414,7 +471,10 @@ export class Quilt {
     this.save();
   }
 
-  /** A tracker's well-known document, asked again after ten minutes or when the last answer was nothing; null when it does not answer. */
+  /**
+   * A tracker's well-known document, asked again after ten minutes or when the last answer was nothing; null when it
+   * does not answer.
+   */
   wellKnown(tracker: string): Promise<Record<string, unknown> | null> {
     const t = tracker.endsWith('/') ? tracker : `${tracker}/`;
     const kept = this.wellKnownCache.get(t);
@@ -431,7 +491,10 @@ export class Quilt {
     return answer;
   }
 
-  /** The tracker's state for a problem: its pieces as the layer sees them, and the owner's gold summed (QX-16). Null when the tracker does not answer. */
+  /**
+   * The tracker's state for a problem: its pieces as the layer sees them, and the owner's gold summed (QX-16). Null
+   * when the tracker does not answer.
+   */
   async trackerState(
     hash: Hash,
     tracker: string,
@@ -452,7 +515,10 @@ export class Quilt {
     return (await this.trackerState(hash, tracker))?.pieces ?? null;
   }
 
-  /** The tracker's scrape of a problem: whether it has taken it down (QX-6) and why, in its own word, and who keeps it (QX-4). Null when the tracker does not answer. */
+  /**
+   * The tracker's scrape of a problem: whether it has taken it down (QX-6) and why, in its own word, and who keeps it
+   * (QX-4). Null when the tracker does not answer.
+   */
   async scrapeOf(hash: Hash, tracker: string): Promise<Scrape | null> {
     const j = await this.ask<{ hidden?: Takedown | null; seeders?: number; last_seeded?: string | null }>(
       `${tracker}p/${hash}/scrape`,
@@ -486,7 +552,8 @@ export class Quilt {
       ...link.trackers,
     ]);
     const entry = this.library.problems[resolved.hash];
-    // The rest of the entry stays: the version it was replaced by, its topics, and the mark of the last announce (QX-13 section 3).
+    // The rest of the entry stays: the version it was replaced by, its topics, and the mark of the last announce (QX-13
+    // section 3).
     this.library.problems[resolved.hash] = {
       ...entry,
       title: state.envelope.problem.title,
@@ -565,7 +632,8 @@ export class Quilt {
         });
       }
     });
-    // QX-14: what the relays carry, with the tracker the announce named as the place to open it, and the work as the announce stated it.
+    // QX-14: what the relays carry, with the tracker the announce named as the place to open it, and the work as the
+    // announce stated it.
     for (const a of await searchRelays(this.config.relays, query)) {
       const have = out.get(a.problem);
       if (have) {
@@ -614,7 +682,10 @@ export class Quilt {
     });
   }
 
-  /** The tracker's row for a problem, as `/p/<hash>/scrape` gives it, with its topics: what the owner's turn announces again. Null when the tracker does not answer. */
+  /**
+   * The tracker's row for a problem, as `/p/<hash>/scrape` gives it, with its topics: what the owner's turn announces
+   * again. Null when the tracker does not answer.
+   */
   private rowOf(
     hash: Hash,
     tracker: string,
@@ -691,18 +762,22 @@ export class Quilt {
     const { hash, state, tracker, superseded } = await this.open(input);
     if (superseded) throw new Error(`that problem was replaced by its owner; the work is on ${superseded}`);
     const trackers = this.trackersFor(hash);
-    // The second reader's pool, where the environment asks for one: empty, there is nothing to verify, and no claim is made. Everything below picks within it.
+    // The second reader's pool, where the environment asks for one: empty, there is nothing to verify, and no claim is
+    // made. Everything below picks within it.
     const pool = this.pool(state);
     const nothingToVerify = 'nothing to verify on that problem for this key right now';
     if (pool?.size === 0) throw new Error(nothingToVerify);
     const within = (piece: Hash): boolean => !pool || pool.has(piece);
-    // 1. The tracker's word, where one answered and named a piece within the pool: the piece, the stake it asks, and the pieces this key cannot cover.
+    // 1. The tracker's word, where one answered and named a piece within the pool: the piece, the stake it asks, and
+    // the pieces this key cannot cover.
     const asked = tracker
       ? await this.askedNext(hash, state, tracker, pool !== null)
       : { pick: null, stake: 0, unaffordable: [] as Hash[], seams: [] as Seam[] };
     let pick = asked.pick && within(asked.pick.piece.hash) ? asked.pick : null;
     let stake = pick ? asked.stake : 0;
-    // 2. Else the map, within the pool and leaving out the pieces the tracker left out for their stake, since a claim on one would be refused at its door; where the tracker had named a piece outside the pool, the stake is the map's piece's own.
+    // 2. Else the map, within the pool and leaving out the pieces the tracker left out for their stake, since a claim
+    // on one would be refused at its door; where the tracker had named a piece outside the pool, the stake is the map's
+    // piece's own.
     if (!pick) {
       const exclude = new Set<string>([
         ...asked.unaffordable,
@@ -712,7 +787,8 @@ export class Quilt {
       if (pick && asked.pick && tracker)
         stake = layerByHash(await this.layerOf(hash, tracker)).get(pick.piece.hash)?.stake ?? 0;
     }
-    // 3. Else coin in place of standing (QX-17), where the tracker carries it and this key's free coin covers a stake within the pool.
+    // 3. Else coin in place of standing (QX-17), where the tracker carries it and this key's free coin covers a stake
+    // within the pool.
     let plan: CoinPlan | null = null;
     const unaffordable = asked.unaffordable.filter(within);
     if (!pick && unaffordable.length && tracker) {
@@ -730,7 +806,8 @@ export class Quilt {
       );
     // 4. The lock before the claim, where a stake is asked.
     const lock = await this.lockBefore(hash, pick.piece.hash, trackers, stake, plan);
-    // 5. The claim, stamped after the lock so the two fold in order; where it went comes back as `posted`, refused or not.
+    // 5. The claim, stamped after the lock so the two fold in order; where it went comes back as `posted`, refused or
+    // not.
     const claim = this.sign({
       quilt: 1,
       type: 'claim',
@@ -759,10 +836,10 @@ export class Quilt {
    * The second reader's pool, when QUILT_NEXT_ONLY is `verify`: the pieces in `needs_verify` or `disputed` that have a
    * reading on them. A key run this way confirms or disagrees with what was returned and does no first work, so an open
    * piece is never in the pool. Which piece among them is the core's choice (CORE.md section 7, step 3): it prefers one
-   * no reading of which is this key's vendor's and falls back to the rest, and its own rule keeps a same-vendor pair from
-   * making a set and a root from reading a piece twice; so this filter says nothing about vendors (QX-19 section 4).
-   * The tracker is asked within the same pool (`askedNext`), so a reading it set aside comes back to the key that made
-   * it. Null when the environment does not ask for it, and `next` takes anything.
+   * no reading of which is this key's vendor's and falls back to the rest, and its own rule keeps a same-vendor pair
+   * from making a set and a root from reading a piece twice; so this filter says nothing about vendors (QX-19 section
+   * 4). The tracker is asked within the same pool (`askedNext`), so a reading it set aside comes back to the key that
+   * made it. Null when the environment does not ask for it, and `next` takes anything.
    */
   private pool(state: State): Set<string> | null {
     if (process.env.QUILT_NEXT_ONLY !== 'verify') return null;
@@ -773,7 +850,10 @@ export class Quilt {
     );
   }
 
-  /** The core's `next` held to one piece: every other piece excluded, so the pick is that piece's, or null where this key cannot take it. */
+  /**
+   * The core's `next` held to one piece: every other piece excluded, so the pick is that piece's, or null where this
+   * key cannot take it.
+   */
   private pickOnly(state: State, piece: Hash, now: string): Pick | null {
     return next(state, this.needKey().address, this.client(), now, {
       exclude: new Set(state.pieces.filter((v) => v.piece.hash !== piece).map((v) => v.piece.hash)),
@@ -784,9 +864,9 @@ export class Quilt {
    * The tracker's assisted next: the piece it names for this key as a pick, the stake it asks of it (QX-15), and the
    * pieces it left out because this key's free standing cannot cover their stake. A tracker that names nothing is only
    * saying its holds are taken, and the map decides; one that does not answer names nothing. One that has taken the
-   * problem down (QX-6) takes no claim on it either, so that throws. With `pool`, the tracker is asked within the second
-   * reader's pool (`only=verify`), so its pick is a piece with a reading on it, over its own fold: the one fold in which a
-   * reading it set aside does not stand (QX-19 section 4).
+   * problem down (QX-6) takes no claim on it either, so that throws. With `pool`, the tracker is asked within the
+   * second reader's pool (`only=verify`), so its pick is a piece with a reading on it, over its own fold: the one fold
+   * in which a reading it set aside does not stand (QX-19 section 4).
    */
   private async askedNext(
     hash: Hash,
@@ -829,9 +909,9 @@ export class Quilt {
       sides: s.sides.map((x) => ({ ...x, name: nameOf(state, x.key) })) as [SeamSide, SeamSide],
     }));
     // A kind the core does not implement (human, judge:n, attest): the tracker's layer offered it. Or a piece whose
-    // reading by this key the tracker set aside (QX-19 section 4): the core still counts that reading and would not hand
-    // the piece to this key, the layer does not count it and hands it back. In both, the piece's own brief, schema and
-    // lease are in the envelope this client holds, and the tracker's word on the state stands.
+    // reading by this key the tracker set aside (QX-19 section 4): the core still counts that reading and would not
+    // hand the piece to this key, the layer does not count it and hands it back. In both, the piece's own brief, schema
+    // and lease are in the envelope this client holds, and the tracker's word on the state stands.
     const setAsideHere = seams.some((s) =>
       s.sides.some((x) => x.aside && x.key.toLowerCase() === id.address.toLowerCase()),
     );
@@ -939,7 +1019,10 @@ export class Quilt {
     return null;
   }
 
-  /** Something to do when no problem is named: the standing list first (QX-4), then each tracker's offer in its order (QX-5). */
+  /**
+   * Something to do when no problem is named: the standing list first (QX-4), then each tracker's offer in its order
+   * (QX-5).
+   */
   async offered(): Promise<Handed> {
     const id = this.needKey();
     for (const p of Object.keys(this.library.seeding)) {
@@ -983,8 +1066,9 @@ export class Quilt {
 
   /**
    * What waits on this key's person across the problems it keeps and the ones it has worked: a judge seat not yet
-   * ranked, a challenge seat without its verdict, a dispute on a piece this key returned, and, in a kept problem, a human
-   * piece with a seat open that this key has not filled. Nothing is written: the library's dates stay as they were.
+   * ranked, a challenge seat without its verdict, a dispute on a piece this key returned, and, in a kept problem, a
+   * human piece with a seat open that this key has not filled. Nothing is written: the library's dates stay as they
+   * were.
    */
   async attention(limit = 20): Promise<{ items: AttentionItem[]; checked: string }> {
     const checked = this.stamp();
@@ -995,7 +1079,8 @@ export class Quilt {
     const worked = Object.values(this.library.pieces).map((p) => p.problem);
     const golden = Object.keys(this.library.gold ?? {});
     const problems = [...new Set([...kept, ...worked, ...golden])].filter((h) => isHash(h)).slice(0, limit) as Hash[];
-    // Each problem is its own few requests to its tracker; four are asked at once, and the items keep the problems' order.
+    // Each problem is its own few requests to its tracker; four are asked at once, and the items keep the problems'
+    // order.
     const perProblem = await inParallel(problems, 4, async (problem): Promise<AttentionItem[]> => {
       const items: AttentionItem[] = [];
       let resolved: Awaited<ReturnType<Resolver['resolve']>>;
@@ -1022,7 +1107,8 @@ export class Quilt {
         for (const c of challenges)
           if (c.outcome === 'open' && c.seats.some((s) => s.root === me && s.lapsed_at === null && !s.verdict))
             item(c.piece, c.name, 'verdict');
-        // QX-16: a piece this key committed gold on, its window open and not yet revealed, as the tracker holds it (gold.ts, goldDue).
+        // QX-16: a piece this key committed gold on, its window open and not yet revealed, as the tracker holds it
+        // (gold.ts, goldDue).
         for (const d of gold.goldDue(this.library, problem, over)) item(d.piece, d.name, 'gold');
       }
       for (const v of state.pieces) {
@@ -1046,7 +1132,8 @@ export class Quilt {
   /**
    * A return handed in: a commit, then its reveal a moment later; and what the piece waits for next, by its kind. With
    * rests (QX-19), the trace behind the reveal follows it: each page fetched once, each passage found, the reads kept
-   * on the trackers and the trace posted naming the reveal (trace.ts); a rest that cannot be placed is left out and said.
+   * on the trackers and the trace posted naming the reveal (trace.ts); a rest that cannot be placed is left out and
+   * said.
    */
   async return(
     problem: Hash,
@@ -1101,7 +1188,8 @@ export class Quilt {
    */
   private async afterReturn(problem: Hash, piece: Hash, verifier: string | undefined): Promise<string> {
     let kind = verifier ? kindWords(verifier).kind : null;
-    // Only a kind accepted on agreement has a second production to speak of; an attest record is accepted at once and says so already.
+    // Only a kind accepted on agreement has a second production to speak of; an attest record is accepted at once and
+    // says so already.
     if (kind !== null && kind !== 'agree' && kind !== 'human') return waitsText(verifier);
     try {
       const { state, layer } = await this.open(problem);
@@ -1123,7 +1211,10 @@ export class Quilt {
     return waitsText(verifier);
   }
 
-  /** A piece given back with one of the core's fixed reasons (DECLINE_REASONS); any other reason is refused here before it is signed. This key is not offered the piece again in this version of the problem. */
+  /**
+   * A piece given back with one of the core's fixed reasons (DECLINE_REASONS); any other reason is refused here before
+   * it is signed. This key is not offered the piece again in this version of the problem.
+   */
   async decline(problem: Hash, piece: Hash, reason: DeclineReason): Promise<Posted> {
     if (!isDeclineReason(reason)) throw new Error(`a decline gives one of ${DECLINE_REASONS.join(', ')}`);
     const { posted } = await this.postSigned(
@@ -1135,7 +1226,10 @@ export class Quilt {
     return posted;
   }
 
-  /** A ranking of a judge piece's candidates by a key drawn to its panel (QX-2): every candidate's digest once, first choice first, signed and posted. */
+  /**
+   * A ranking of a judge piece's candidates by a key drawn to its panel (QX-2): every candidate's digest once, first
+   * choice first, signed and posted.
+   */
   async rank(problem: Hash, piece: Hash, ranking: Hash[]): Promise<Posted & { id: Hash }> {
     if (!Array.isArray(ranking) || ranking.length === 0 || !ranking.every((d) => isHash(d)))
       throw new Error('a ranking is a list of candidate digests, first choice first');
@@ -1149,7 +1243,10 @@ export class Quilt {
     return { id: eventId(event), ...posted };
   }
 
-  /** The problem's judge panels as the first tracker that answers computes them: the one that answered for the problem, then the known ones. */
+  /**
+   * The problem's judge panels as the first tracker that answers computes them: the one that answered for the problem,
+   * then the known ones.
+   */
   async panels(problem: Hash, tracker: string | null = null): Promise<PanelListing[]> {
     const found = await this.firstAnswer(
       this.trackersFor(problem, tracker ? [tracker] : []),
@@ -1158,7 +1255,10 @@ export class Quilt {
     return found ?? [];
   }
 
-  /** A challenge of a piece's provisional acceptance (QX-1), or of a gold miss by a root it struck (QX-16): a stake of this key's standing, 0 allowed against a miss, and one sentence of ground, signed and posted. */
+  /**
+   * A challenge of a piece's provisional acceptance (QX-1), or of a gold miss by a root it struck (QX-16): a stake of
+   * this key's standing, 0 allowed against a miss, and one sentence of ground, signed and posted.
+   */
   async challenge(problem: Hash, piece: Hash, stake: number, ground: string): Promise<Posted & { id: Hash }> {
     if (!Number.isInteger(stake) || stake < 0)
       throw new Error(
@@ -1183,7 +1283,10 @@ export class Quilt {
     return { id: eventId(event), ...posted };
   }
 
-  /** A verdict on a challenge this key was drawn to judge: for the challenger or for the author, with this judge's own return as evidence where it has one. */
+  /**
+   * A verdict on a challenge this key was drawn to judge: for the challenger or for the author, with this judge's own
+   * return as evidence where it has one.
+   */
   async verdict(
     problem: Hash,
     piece: Hash,
@@ -1210,7 +1313,10 @@ export class Quilt {
     return { id: eventId(event), ...posted };
   }
 
-  /** The problem's challenges as the first tracker that answers computes them: the one that answered for the problem, then the known ones. */
+  /**
+   * The problem's challenges as the first tracker that answers computes them: the one that answered for the problem,
+   * then the known ones.
+   */
   async challenges(problem: Hash, tracker: string | null = null): Promise<ChallengeListing[]> {
     const found = await this.firstAnswer(
       this.trackersFor(problem, tracker ? [tracker] : []),
@@ -1220,7 +1326,9 @@ export class Quilt {
     return found ?? [];
   }
 
-  /** A maintainer's takedown (QX-6): a hide event on the identity log of this client's trackers; lifted with `on` false. */
+  /**
+   * A maintainer's takedown (QX-6): a hide event on the identity log of this client's trackers; lifted with `on` false.
+   */
   async hide(id: string, why: string, on = true): Promise<Posted> {
     const issues = plainTextProblems(why, 'why');
     if (issues.length) throw new Error(issues[0]);
@@ -1233,7 +1341,10 @@ export class Quilt {
     return posted;
   }
 
-  /** The stake a problem asks of a claim on its pieces (QX-15): a stake_rule event from the owner on the problem's log, replacing the one before. */
+  /**
+   * The stake a problem asks of a claim on its pieces (QX-15): a stake_rule event from the owner on the problem's log,
+   * replacing the one before.
+   */
   async stakeRule(problem: Hash, min: number, pieces?: string[]): Promise<Posted> {
     if (!Number.isInteger(min) || min < 0) throw new Error('the stake is a whole number from 0');
     const { posted } = await this.postSigned(
@@ -1265,7 +1376,10 @@ export class Quilt {
     return posted;
   }
 
-  /** Builds, signs and publishes an envelope from a pattern, with its blobs; then announces it, and posts the stake rule and the gold where the pattern carries them. */
+  /**
+   * Builds, signs and publishes an envelope from a pattern, with its blobs; then announces it, and posts the stake rule
+   * and the gold where the pattern carries them.
+   */
   async publish(pattern: Pattern): Promise<Published> {
     const id = this.needKey();
     // Every fault at once (pattern.ts), so an AI drafting the pattern from a conversation fixes them in one turn.
@@ -1276,7 +1390,8 @@ export class Quilt {
     const out = await this.publishEnvelope(envelope, blobs, problem, pattern.topics ?? []);
     if (out.posted.length) {
       if (pattern.stake) {
-        // QX-15: the stake the owner asks, on the problem's log right after the envelope; a refusal is listed rather than thrown, since the problem is out.
+        // QX-15: the stake the owner asks, on the problem's log right after the envelope; a refusal is listed rather
+        // than thrown, since the problem is out.
         const rule = this.sign({
           quilt: 1,
           type: 'stake_rule',
@@ -1306,7 +1421,10 @@ export class Quilt {
     return out;
   }
 
-  /** A signed envelope posted to every tracker with its blobs; then, where it went, the announce with the topics, the relays and the version event; the home's library notes the problem. */
+  /**
+   * A signed envelope posted to every tracker with its blobs; then, where it went, the announce with the topics, the
+   * relays and the version event; the home's library notes the problem.
+   */
   private async publishEnvelope(
     envelope: Envelope,
     blobs: Map<Hash, Uint8Array>,
@@ -1339,7 +1457,8 @@ export class Quilt {
     }
     const pieces = expandPieces(problem, blobs).length;
     if (posted.length) {
-      // The announce (QX-13: the owner, the fork, the pieces, every piece open, no work yet) and the version are posted where the envelope went, and a refusal of either is not the publish's to report.
+      // The announce (QX-13: the owner, the fork, the pieces, every piece open, no work yet) and the version are posted
+      // where the envelope went, and a refusal of either is not the publish's to report.
       const announce = this.sign({
         quilt: 1,
         type: 'announce',
@@ -1394,7 +1513,8 @@ export class Quilt {
    * sides, and answers with the sentence the brief lacks, or null to leave it. Each sentence kept goes at the end of
    * its family's brief in a version of the problem, `prev` this one, posted as `publish` posts, with the announce's
    * topics, and the gold the home holds for this problem is committed again on the new pieces. A problem already
-   * replaced is left as it is, and the home notes which version replaced which. `now` is the clock the lease is read by.
+   * replaced is left as it is, and the home notes which version replaced which. `now` is the clock the lease is read
+   * by.
    */
   async sharpen(
     problem: Hash,
@@ -1420,7 +1540,8 @@ export class Quilt {
     for (const v of state.pieces) {
       const l = over.get(v.piece.hash);
       if ((l?.core ?? v.state) !== 'disputed' || seams.has(v.piece.family) || !l?.seams?.length) continue;
-      // Two readings that both rest on the record: the seam says why they differ, and the sentence decides between them.
+      // Two readings that both rest on the record: the seam says why they differ, and the sentence decides between
+      // them.
       const both = l.seams.find((s) => s.why !== 'unknown');
       if (both) {
         seams.set(v.piece.family, { piece: v.piece.name, seam: both, grounded: true });
@@ -1509,7 +1630,10 @@ export class Quilt {
     return { problem, frozen: kept.frozen ?? null };
   }
 
-  /** The owner's sharpening over every problem the home knows and this key owns, each once (QX-19 section 4); the away turn runs it before its agent. A problem with no such seam, or one frozen here, is passed over in silence. */
+  /**
+   * The owner's sharpening over every problem the home knows and this key owns, each once (QX-19 section 4); the away
+   * turn runs it before its agent. A problem with no such seam, or one frozen here, is passed over in silence.
+   */
   async sharpenDue(
     ask: (q: SentenceAsk) => Promise<string | null>,
     now = new Date().toISOString(),
@@ -1548,12 +1672,17 @@ export class Quilt {
     return pieceText(hash, pick, owner, stake);
   }
 
-  /** The accepted returns as quoted text with the signers named, and the witness beside a name where the receipt carries one (render.ts, `acceptedText`). */
+  /**
+   * The accepted returns as quoted text with the signers named, and the witness beside a name where the receipt carries
+   * one (render.ts, `acceptedText`).
+   */
   acceptedText(state: State, layer: LayerPiece[] | null = null, witnessed: Map<string, Witness> = new Map()): string {
     return acceptedText(state, layer, witnessed);
   }
 
-  /** The disputed pieces, each return quoted with its signer named and this key's marked (render.ts, `disputedText`). */
+  /**
+   * The disputed pieces, each return quoted with its signer named and this key's marked (render.ts, `disputedText`).
+   */
   disputedText(state: State, layer: LayerPiece[] | null = null): string {
     return disputedText(state, layer, this.identity?.address ?? null);
   }
@@ -1568,7 +1697,8 @@ export class Quilt {
     return panelsText(list, state);
   }
 
-  // The coin (QX-17): where it lives, what this key holds of it, and the three events that move it. The work is in coin.ts, through the door.
+  // The coin (QX-17): where it lives, what this key holds of it, and the three events that move it. The work is in
+  // coin.ts, through the door.
 
   /** Where a tracker's coin lives and the burn rate there, or null where it honours none (coin.ts, `coinAt`). */
   coinAt(tracker: string): Promise<{ coinHome: string; burn_rate: number } | null> {
@@ -1600,7 +1730,8 @@ export class Quilt {
     return coin.redeem(this.door, amount, to);
   }
 
-  // The owner's gold (QX-16): answers committed blind before the work, and revealed piece by piece once accepted. The work is in gold.ts, through the door.
+  // The owner's gold (QX-16): answers committed blind before the work, and revealed piece by piece once accepted. The
+  // work is in gold.ts, through the door.
 
   /** The owner's gold on a problem, committed blind (gold.ts, `commitGold`). */
   commitGold(
@@ -1619,7 +1750,10 @@ export class Quilt {
     return gold.revealGold(this.door, problem, piece);
   }
 
-  /** The owner's reveals run with nobody asked: every piece whose gold is due, revealed in turn, or with `post` false listed with nothing posted (gold.ts, `revealDue`). */
+  /**
+   * The owner's reveals run with nobody asked: every piece whose gold is due, revealed in turn, or with `post` false
+   * listed with nothing posted (gold.ts, `revealDue`).
+   */
   revealDue(post = true): Promise<gold.Revealed[]> {
     return gold.revealDue(this.door, post);
   }

@@ -88,7 +88,8 @@ describe("doors fold each other's chains (QX-21)", () => {
     await returned(one, s1, B, 'openai/gpt-5', 'supports');
     await returned(one, s2, A, 'anthropic/claude', 'contradicts');
     expect((await stateAt(two)).pieces.map((p) => p.state)).toEqual(['open', 'open']);
-    // The second's clock is moved past the first's, as two trackers' clocks are never behind each other by the events they take.
+    // The second's clock is moved past the first's, as two trackers' clocks are never behind each other by the events
+    // they take.
     two.clock.tick = one.clock.tick + 60_000;
     const pulls = await two.tracker.pullPeers();
     expect(pulls).toHaveLength(2);
@@ -170,7 +171,8 @@ describe("doors fold each other's chains (QX-21)", () => {
 
   it('refuses at its own door what its peer admitted on a rule it does not share, says why, and folds the rest', async () => {
     await returned(one, s2, B, 'openai/gpt-5', 'contradicts');
-    // M takes the problem down on the first, which honours M's key; the second does not, so the same hide is refused here with the reason, and the readings before it are folded.
+    // M takes the problem down on the first, which honours M's key; the second does not, so the same hide is refused
+    // here with the reason, and the readings before it are folded.
     await one.accepted('/k/events', one.ev(M, 'hide', { id: P, why: 'Taken down here, to see the doors differ.' }));
     expect((await one.get<{ hidden: unknown }>(`/p/${P}/scrape`)).hidden).not.toBeNull();
     two.clock.tick = one.clock.tick + 60_000;
@@ -181,14 +183,16 @@ describe("doors fold each other's chains (QX-21)", () => {
     ]);
     expect((await stateAt(two)).pieces.map((p) => p.state)).toEqual(['accepted_provisional', 'accepted_provisional']);
     expect((await two.get<{ hidden: unknown }>(`/p/${P}/scrape`)).hidden).toBeNull();
-    // The same difference a client would have met posting to both: the hide posted to the second's door directly is refused with the same words.
+    // The same difference a client would have met posting to both: the hide posted to the second's door directly is
+    // refused with the same words.
     const direct = await two.post(
       '/k/events',
       two.ev(M, 'hide', { id: P, why: 'Taken down here, to see the doors differ.' }),
     );
     expect(direct.status).toBe(403);
     expect(((await direct.json()) as { error: string }).error).toBe(pull!.refused[0]!.why);
-    // Pulled again, nothing is added and the hide is refused again: a refusal is not remembered, since the door's rules may change.
+    // Pulled again, nothing is added and the hide is refused again: a refusal is not remembered, since the door's rules
+    // may change.
     expect((await two.tracker.pullPeers())[0]).toMatchObject({
       added: 0,
       refused: [{ why: "a hide is signed by one of this tracker's maintainers" }],

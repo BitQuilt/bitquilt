@@ -26,7 +26,10 @@ export const WINDOW_URI_NOW = `ui://quilt/window.${WINDOW_HASH}.html`;
 /** What the card may ask the reader for. */
 export const WINDOW_OPS = ['search', 'open', 'library', 'hot', 'follow', 'me', 'totals', 'phrases'] as const;
 export type WindowOp = (typeof WINDOW_OPS)[number];
-/** What a reader with no person behind it answers, the on-ramp's `/window/io` for a site: nothing of a home, and nothing written. */
+/**
+ * What a reader with no person behind it answers, the on-ramp's `/window/io` for a site: nothing of a home, and nothing
+ * written.
+ */
 export const WINDOW_READ_OPS: readonly WindowOp[] = ['search', 'open', 'totals', 'phrases'];
 /** The phrases the card's buttons hand the person's AI, each with `{link}` where a problem's link goes (phrases.ts). */
 export const WINDOW_PHRASES = [
@@ -171,7 +174,9 @@ export async function windowAnswer(quilt: Quilt, input: Record<string, unknown>)
     case 'phrases':
       return { op, phrases: phrasesOf() };
     case 'totals': {
-      // Doors that fold each other hold the same problems (QX-21), so the swarm is counted once per problem, by hash, over every tracker's index; where two differ on one, the row further along its chain is read. Each tracker says how many it lists, or null where it gave no answer.
+      // Doors that fold each other hold the same problems (QX-21), so the swarm is counted once per problem, by hash,
+      // over every tracker's index; where two differ on one, the row further along its chain is read. Each tracker says
+      // how many it lists, or null where it gave no answer.
       type Row = { problem?: string; pieces?: number; counts?: Record<string, number>; head?: { seq?: number } | null };
       const indexes = await inParallel(quilt.config.trackers, 4, async (tracker) => ({
         tracker,

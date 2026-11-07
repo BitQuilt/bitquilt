@@ -10,10 +10,10 @@
  * these tools do not print.
  *
  * Open and read run over a tracker in this process, which gives the states and the returns, read by a worker's key, by
- * the owner's and by a Quilt whose home has no key yet. Where a branch wants what one tracker does not give (a stake, the
- * gold, a takedown, witnesses, seams of each kind, challenges and panels of each outcome, an answer from the cache, a
- * state outside the legend, a patch accepted or disputed, a key signing for another root, a square held challenged), the
- * Quilt's open, challenges and panels answer a fixed view over the real state. Search and me run over a Quilt whose
+ * the owner's and by a Quilt whose home has no key yet. Where a branch wants what one tracker does not give (a stake,
+ * the gold, a takedown, witnesses, seams of each kind, challenges and panels of each outcome, an answer from the cache,
+ * a state outside the legend, a patch accepted or disputed, a key signing for another root, a square held challenged),
+ * the Quilt's open, challenges and panels answer a fixed view over the real state. Search and me run over a Quilt whose
  * reads answer fixed values, since their branches want a coin, a founding, relays, forks and trackers that do not
  * answer, which one tracker does not give.
  */
@@ -170,7 +170,10 @@ const marked: Pattern = {
     },
   },
 };
-/** One piece of each kind the problems above lack: the core's two patch kinds, a person's kind, and one nobody implements. */
+/**
+ * One piece of each kind the problems above lack: the core's two patch kinds, a person's kind, and one nobody
+ * implements.
+ */
 const kinds: Pattern = {
   title: 'Which kinds are here?',
   done_when: 'Each kind has a piece.',
@@ -231,7 +234,10 @@ const whole: Pattern = {
   },
 };
 const YEAR = { verdict: 'supports', quote: 'The report gives the year as 1918.' };
-/** One agree piece whose pattern names no agree list, so its required fields are the ones that agree (CORE.md section 6). */
+/**
+ * One agree piece whose pattern names no agree list, so its required fields are the ones that agree (CORE.md section
+ * 6).
+ */
 const unlisted: Pattern = {
   title: 'Is the name right?',
   done_when: 'The name has a verdict.',
@@ -299,7 +305,9 @@ beforeAll(async () => {
 });
 afterAll(() => new Promise<void>((done) => server.close(() => done())));
 
-/** The text with this run's tracker and problem hashes named, since the port and so the hashes differ from run to run. */
+/**
+ * The text with this run's tracker and problem hashes named, since the port and so the hashes differ from run to run.
+ */
 function named(text: string): string {
   const pairs: [string, string][] = [
     [encodeURIComponent(base), '<tracker>'],
@@ -371,7 +379,10 @@ describe('quilt_open', () => {
   });
 });
 
-/** What quilt_read says of the first problem, which <q> replaced, with the mark after Ada's disputed return where the reader is Ada's key. */
+/**
+ * What quilt_read says of the first problem, which <q> replaced, with the mark after Ada's disputed return where the
+ * reader is Ada's key.
+ */
 const readP = (mark: string): string =>
   [
     ...HEAD_P,
@@ -490,13 +501,16 @@ const ID = (n: number) => `sha256:${String(n).repeat(64)}` as Hash;
 /**
  * The real problem `marked`, with the tracker's view of it fixed: a layer that carries a stake, the gold, a verified
  * square, each grade of a kept read, a reading set aside, a seam of each kind and each side, a record piece recorded,
- * and kinds the core does not implement held as accepted; a takedown, a gold count, the witnesses, challenges and panels
- * of every outcome. Then the same problem, and one that is whole, as the cache answers them with no tracker. The reader
- * is Ada's key, so her disputed returns are marked as this key's, and its config names a second tracker, so a link
- * names the tracker that answered alone and, from the cache, every tracker the config names.
+ * and kinds the core does not implement held as accepted; a takedown, a gold count, the witnesses, challenges and
+ * panels of every outcome. Then the same problem, and one that is whole, as the cache answers them with no tracker. The
+ * reader is Ada's key, so her disputed returns are marked as this key's, and its config names a second tracker, so a
+ * link names the tracker that answered alone and, from the cache, every tracker the config names.
  */
 type Opened = Awaited<ReturnType<Quilt['open']>>;
-/** A Quilt with Ada's key, and a second tracker that never answers here, whose reads answer a fixed view; the text is still built by runTool and render.ts. */
+/**
+ * A Quilt with Ada's key, and a second tracker that never answers here, whose reads answer a fixed view; the text is
+ * still built by runTool and render.ts.
+ */
 function over(opened: Opened, challenges: ChallengeListing[] = [], panels: PanelListing[] = []): Quilt {
   return Object.assign(quiltOver(base, { trackers: [base, 'https://u.example/'] })(1, 'anthropic/claude'), {
     open: async () => opened,
@@ -986,15 +1000,18 @@ describe("quilt_open and quilt_read over a tracker's view with every mark", () =
  * newer than this client names. A patch accepted by two runs, and a patch disputed between two returns, on the kinds
  * problem: the client posts no run, so the core's check and score sets are built here as the reducer builds them. Keys
  * that sign for another root (CORE.md section 6), which no key here is delegated to do. A seam side whose rest names a
- * read its trace does not hold, and one carrying its own name, which a tracker's layer does not send and quilt_next sets.
- * A piece the tracker holds disputed with no returns, which the Disputed section passes over. A square the core
+ * read its trace does not hold, and one carrying its own name, which a tracker's layer does not send and quilt_next
+ * sets. A piece the tracker holds disputed with no returns, which the Disputed section passes over. A square the core
  * accepted that the tracker holds challenged, which the found leaves out, and a record piece the tracker sends no seams
  * for.
  */
 describe('quilt_open and quilt_read over what no tracker here gives', () => {
   const by = (model: string): By => ({ model, client: 'Claude Code', can: ['files'] });
   const PATCH = 'diff --git a/check.sh b/check.sh';
-  /** A return of a patch, signed by the key and counted for the root, the key's own unless a root delegated to it (CORE.md section 6). */
+  /**
+   * A return of a patch, signed by the key and counted for the root, the key's own unless a root delegated to it
+   * (CORE.md section 6).
+   */
   const patched = (key: string, model: string, patch: string, root = key): Reveal => ({
     key: key as Address,
     root: root as Address,
@@ -1104,7 +1121,8 @@ describe('quilt_open and quilt_read over what no tracker here gives', () => {
       v.piece.name === 'patch' ? accepted : v.piece.name === 'scored' ? disputed : v,
     );
     const state = { ...opened.state, pieces, byHash: new Map(pieces.map((v) => [v.piece.hash, v] as const)) };
-    // One side's rest names a read its trace does not hold, so it rests on nothing kept; the other side carries its own name.
+    // One side's rest names a read its trace does not hold, so it rests on nothing kept; the other side carries its own
+    // name.
     const seams: Seam[] = [
       {
         field: 'patch',
@@ -1115,7 +1133,8 @@ describe('quilt_open and quilt_read over what no tracker here gives', () => {
         ],
       },
     ];
-    // The oracle piece nobody worked, held disputed: the map marks it, and the Disputed section has no returns to say of it.
+    // The oracle piece nobody worked, held disputed: the map marks it, and the Disputed section has no returns to say
+    // of it.
     const held = (name: string): Partial<LayerPiece> =>
       name === 'patch'
         ? { state: 'accepted_provisional', verified: true }
@@ -1477,7 +1496,8 @@ describe('quilt_search', () => {
                 counts: {},
                 kinds: { 'judge:3': 1 },
               }),
-              // A relay's row with no announcer named: Quilt.search names one on every relay row, and the row's type allows none.
+              // A relay's row with no announcer named: Quilt.search names one on every relay row, and the row's type
+              // allows none.
               row({
                 problem: E64,
                 root: E64,

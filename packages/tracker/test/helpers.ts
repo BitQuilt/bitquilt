@@ -52,7 +52,10 @@ export const SETTINGS: Envelope['problem']['settings'] = {
   patch_max: 10000,
 };
 
-/** An envelope signed by its owner with the settings above, any of them overridden by `extra.settings`; the title and done_when default to the statements the tests pose. */
+/**
+ * An envelope signed by its owner with the settings above, any of them overridden by `extra.settings`; the title and
+ * done_when default to the statements the tests pose.
+ */
 export function envelope(
   owner: Uint8Array,
   slug: string,
@@ -76,7 +79,10 @@ export function envelope(
   return { ...unsigned, sig: signObject(unsigned, owner) };
 }
 
-/** A receipt as a resolver would serve it, received at `at` by one tracker in the actor's own custody, with anything else `received` says about the seat. */
+/**
+ * A receipt as a resolver would serve it, received at `at` by one tracker in the actor's own custody, with anything
+ * else `received` says about the seat.
+ */
 export const line = (event: Event, at: string, received: Record<string, unknown> = {}): Receipt => ({
   event,
   received: [{ by: 'https://t.example/', at, custody: 'self', ...received }],
@@ -92,7 +98,10 @@ export async function json<T = unknown>(r: Response | Promise<Response>): Promis
 export interface Booted {
   tracker: Tracker;
   store: Store;
-  /** The clock in milliseconds since the epoch: `ev` moves it a second forward before each event, and a test moves it by hand. */
+  /**
+   * The clock in milliseconds since the epoch: `ev` moves it a second forward before each event, and a test moves it by
+   * hand.
+   */
   clock: { tick: number };
   server: Server | null;
   /** Where the server listens, with no trailing slash, once `listen` has run. */
@@ -104,7 +113,10 @@ export interface Booted {
   get<T = unknown>(path: string): Promise<T>;
   /** Posts an event and returns its id, failing the test with the answer's text when the status is not 202. */
   accepted(path: string, event: unknown, headers?: Record<string, string>): Promise<Hash>;
-  /** Posts an event and returns the refusal's reason, failing the test with the answer's text when the status is not 400. */
+  /**
+   * Posts an event and returns the refusal's reason, failing the test with the answer's text when the status is not
+   * 400.
+   */
   refused(path: string, event: unknown, headers?: Record<string, string>): Promise<string>;
   /** An event signed by the key, dated a second after the last. */
   ev(
@@ -116,7 +128,9 @@ export interface Booted {
   ): ReturnType<typeof signEvent>;
 }
 
-/** A tracker at `http://tracker.test/` whose clock starts at `start`, with a fixed salt and any options the file adds. */
+/**
+ * A tracker at `http://tracker.test/` whose clock starts at `start`, with a fixed salt and any options the file adds.
+ */
 export function boot(start: string, options: Partial<Omit<TrackerOptions, 'store' | 'now' | 'url'>> = {}): Booted {
   const store = new Store(':memory:');
   const clock = { tick: Date.parse(start) };

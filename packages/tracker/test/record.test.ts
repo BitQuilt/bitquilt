@@ -158,7 +158,8 @@ describe('the record kind (QX-20)', () => {
       vendors: 2,
       keys: [addr(A), addr(B), addr(C)],
     });
-    // A and B differ on the stance and rest it on different places of the same page; C differs from B and rests on nothing; A and C agree.
+    // A and B differ on the stance and rest it on different places of the same page; C differs from B and rests on
+    // nothing; A and C agree.
     expect(q.seams.map((s) => [s.why, s.sides.map((x) => x.key)])).toEqual([
       ['span', [addr(A), addr(B)]],
       ['unknown', [addr(B), addr(C)]],

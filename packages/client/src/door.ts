@@ -31,7 +31,10 @@ export interface Door {
   ): Promise<{ event: Event; posted: Posted }>;
   /** Where posts about a problem go, each once. */
   trackersFor(problem: Hash, first?: string[]): string[];
-  /** A tracker's JSON through the Quilt's own way to the network (the guarded fetch where the connector is shared), or null. */
+  /**
+   * A tracker's JSON through the Quilt's own way to the network (the guarded fetch where the connector is shared), or
+   * null.
+   */
   ask<T>(url: string): Promise<T | null>;
   /** The first tracker that answers `ask` with something, or null. */
   firstAnswer<T>(trackers: string[], ask: (tracker: string) => Promise<T | null>): Promise<T | null>;

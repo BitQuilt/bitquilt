@@ -19,7 +19,9 @@ const modules = ['examples', 'scripts'].flatMap((dir) =>
     .map((f) => join(root, dir, f.replace(/\.d\.mts$/, '.mjs'))),
 );
 
-/** The names a declaration file exports as values at run time: its functions, constants and classes, and not its types. */
+/**
+ * The names a declaration file exports as values at run time: its functions, constants and classes, and not its types.
+ */
 function declaredValues(file: string): string[] {
   const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest);
   const names = new Set<string>();

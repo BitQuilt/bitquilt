@@ -42,7 +42,8 @@ export interface Chains {
 /**
  * A hash as a file name: `sha256-<hex>`, the colon of `sha256:<hex>` a hyphen. A colon in a name on Windows writes an
  * alternate stream of a file called `sha256`, which a read by name finds and no listing shows, so a node there held
- * everything and listed nothing. Names from before 3 November 2026 carried the colon; a store renames them when it opens.
+ * everything and listed nothing. Names from before 3 November 2026 carried the colon; a store renames them when it
+ * opens.
  */
 const fileName = (hash: Hash): string => hash.replace(':', '-');
 const hashOfName = (name: string): Hash | null => {
@@ -50,7 +51,10 @@ const hashOfName = (name: string): Hash | null => {
   return isHash(hash) ? (hash as Hash) : null;
 };
 
-/** The cache under a home: `sha256-<hex>.json` an envelope, `ledger/sha256-<hex>.jsonl` a problem's chain, `identity.jsonl` the identity log, `blobs/sha256-<hex>` a blob. */
+/**
+ * The cache under a home: `sha256-<hex>.json` an envelope, `ledger/sha256-<hex>.jsonl` a problem's chain,
+ * `identity.jsonl` the identity log, `blobs/sha256-<hex>` a blob.
+ */
 export class FileChains implements Chains {
   private readonly cache: string;
 
@@ -58,7 +62,8 @@ export class FileChains implements Chains {
     this.cache = join(home, 'cache');
     for (const d of [this.cache, join(this.cache, 'blobs'), join(this.cache, 'ledger')]) {
       mkdirSync(d, { recursive: true });
-      // The old names, with the colon, renamed once; a name another process renamed first, or one that is not a file of ours, is left.
+      // The old names, with the colon, renamed once; a name another process renamed first, or one that is not a file of
+      // ours, is left.
       for (const name of readdirSync(d)) {
         if (!name.startsWith('sha256:')) continue;
         try {

@@ -7,8 +7,8 @@
  * QUILT_HOST, QUILT_URL, QUILT_NAME, QUILT_PEERS and the rest); the on-ramp reads what the hosted binary reads
  * (QUILT_KEY_SECRET, QUILT_HOSTED_HOME, QUILT_OAUTH_SECRET, QUILT_OAUTH_ISSUER, QUILT_WITNESS_RANGES, QUILT_RELAYS, and
  * the vendor keys for the owners' turn); the page reads the home's config.json, with QUILT_TRACKERS and QUILT_RELAYS
- * over it. The store is loaded once the SQLite notice is silenced: the first import is the tracker's env.ts, which loads
- * no store, and the node is imported after it.
+ * over it. The store is loaded once the SQLite notice is silenced: the first import is the tracker's env.ts, which
+ * loads no store, and the node is imported after it.
  */
 import { quietSqliteWarning, trackerOptionsFromEnv } from '@bitquilt/tracker/env';
 
@@ -49,7 +49,8 @@ async function main(): Promise<void> {
   if (roles.includes('host')) {
     if (!keySecret)
       throw new Error('QUILT_KEY_SECRET is required for host: the keys a node holds are encrypted with it');
-    // QX-19: a host fetches a trace's pages on a stranger's word and serves what it kept to anyone, so never from a private address.
+    // QX-19: a host fetches a trace's pages on a stranger's word and serves what it kept to anyone, so never from a
+    // private address.
     env.QUILT_READS ||= 'public';
   }
   const oauthSecret = env.QUILT_OAUTH_SECRET;

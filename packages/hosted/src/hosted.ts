@@ -57,7 +57,10 @@ import { SHEET_PAGE } from './sheet-page.js';
 
 export interface HostedOptions {
   store: Store;
-  /** The tracker's own address, which the connector posts to and which addresses are made from; a function when it is known only once the tracker listens. */
+  /**
+   * The tracker's own address, which the connector posts to and which addresses are made from; a function when it is
+   * known only once the tracker listens.
+   */
   trackerUrl: string | (() => string);
   /** The secret the keys are encrypted with at rest; from the environment, never from code. */
   keySecret: string;
@@ -67,7 +70,9 @@ export interface HostedOptions {
   custodySecret: string;
   /** How many addresses one network address may be handed in an hour (20). */
   joinsPerHour?: number;
-  /** How many reads of the site's window reader (`/window/io`) one network address may make in an hour; 1200 unless set. */
+  /**
+   * How many reads of the site's window reader (`/window/io`) one network address may make in an hour; 1200 unless set.
+   */
   readsPerHour?: number;
   /** What the tracker calls itself, named on the authorization page; its address when none. */
   name?: string;
@@ -79,15 +84,24 @@ export interface HostedOptions {
    * OAuth and an address is its own credential, as before.
    */
   oauth?: { secret: string; issuer?: string; perHour?: number; ranges?: Readonly<Record<string, readonly string[]>> };
-  /** The proxies whose X-Forwarded-For is believed, as the tracker takes them (address.ts); the private networks and the machine itself when none are given. */
+  /**
+   * The proxies whose X-Forwarded-For is believed, as the tracker takes them (address.ts); the private networks and the
+   * machine itself when none are given.
+   */
   trustedProxies?: readonly string[];
   now?: () => string;
   fetchImpl?: typeof fetch;
-  /** The sentence a brief lacks, for the owners' turn (QX-19 section 4): the vendor the environment names when left out; the tests' way in. */
+  /**
+   * The sentence a brief lacks, for the owners' turn (QX-19 section 4): the vendor the environment names when left out;
+   * the tests' way in.
+   */
   sentence?: Sentence | null;
   /** The environment the sentence's vendor key is read from; the process's when left out. */
   env?: NodeJS.ProcessEnv;
-  /** The relays a member's Quilt searches and announces on (QX-14), so a hosted search reaches past this tracker; none when left out. */
+  /**
+   * The relays a member's Quilt searches and announces on (QX-14), so a hosted search reaches past this tracker; none
+   * when left out.
+   */
   relays?: string[];
 }
 
@@ -98,7 +112,10 @@ export interface MemberTurn extends OwnerTurn {
 
 export interface Hosted {
   routes(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean>;
-  /** What the tracker's well-known document says of the on-ramp: the witness it binds (QX-18), where the authorization server is on. */
+  /**
+   * What the tracker's well-known document says of the on-ramp: the witness it binds (QX-18), where the authorization
+   * server is on.
+   */
   describe(): Record<string, unknown>;
   /**
    * The owners' turn (the part of `quilt away` that needs no agent): for every member whose home holds a problem or a
@@ -108,13 +125,19 @@ export interface Hosted {
   turn(): Promise<MemberTurn[]>;
 }
 
-/** Who a connector session is for: the member, by the hash of their address token, and the witness its token carries, or none for the bare address. */
+/**
+ * Who a connector session is for: the member, by the hash of their address token, and the witness its token carries, or
+ * none for the bare address.
+ */
 interface Seat {
   member: string;
   witness: Witness | null;
 }
 
-/** QX-18: the witness as the headers the tracker reads beside the custody secret; the client's own name is encoded, since it is any text that passed the gate. */
+/**
+ * QX-18: the witness as the headers the tracker reads beside the custody secret; the client's own name is encoded,
+ * since it is any text that passed the gate.
+ */
 function witnessHeaders(w: Witness | null): Record<string, string> {
   if (!w) return {};
   return {
@@ -126,7 +149,9 @@ function witnessHeaders(w: Witness | null): Record<string, string> {
 
 const SESSION_IDLE_MS = 60 * 60 * 1000;
 
-/** The sheet's policy (page-policy.ts): its own script and style by hash, its reads from this tracker, and nothing else. */
+/**
+ * The sheet's policy (page-policy.ts): its own script and style by hash, its reads from this tracker, and nothing else.
+ */
 const SHEET_POLICY = pagePolicy(SHEET_PAGE);
 
 function encrypt(keySecret: string, plain: string): string {
@@ -186,9 +211,9 @@ export function createHosted(options: HostedOptions): Hosted {
   const readsPerHour = options.readsPerHour ?? 1200;
 
   // The site's reader (APP.md, "The window"): the card at /window and its read-only ops at /window/io, answered by a
-  // Quilt with no key over this tracker and the relays, as a member's search sees the swarm. What it opens is kept under
-  // a home of its own beside the members', which store.members() never lists. Each answer is kept twenty seconds, since
-  // a site's visitors ask the same things.
+  // Quilt with no key over this tracker and the relays, as a member's search sees the swarm. What it opens is kept
+  // under a home of its own beside the members', which store.members() never lists. Each answer is kept twenty seconds,
+  // since a site's visitors ask the same things.
   let readerQuilt: Quilt | null = null;
   const readerOf = (): Quilt => {
     if (!readerQuilt) {
@@ -368,7 +393,10 @@ export function createHosted(options: HostedOptions): Hosted {
     return { token, address, url: `${trackerUrl()}mcp/${token}` };
   }
 
-  /** The Quilt that signs for a member, by the hash of their address token, posting to this tracker with the custody secret and the session's witness, and to any other with neither. */
+  /**
+   * The Quilt that signs for a member, by the hash of their address token, posting to this tracker with the custody
+   * secret and the session's witness, and to any other with neither.
+   */
   function quiltFor(hash: string, hostName: string | undefined, witness: Witness | null = null): Quilt | null {
     const member = store.getMember(hash);
     if (!member) return null;
@@ -457,7 +485,8 @@ export function createHosted(options: HostedOptions): Hosted {
         return q;
       }),
       {
-        // The AI that connects is recorded in the member's library, as a home's node records it: the sheet at the address moves from the connecting words to the phrases.
+        // The AI that connects is recorded in the member's library, as a home's node records it: the sheet at the
+        // address moves from the connecting words to the phrases.
         connected: (host) => {
           quiltFor(seat.member, host ?? undefined)?.resolver.sawConnector(host);
         },
@@ -522,14 +551,16 @@ export function createHosted(options: HostedOptions): Hosted {
     const path = url.pathname.replace(/\/+$/, '') || '/';
     const method = req.method ?? 'GET';
     if (oauth && (await oauth.routes(req, res, url))) return true;
-    // QX-18: the connector for a token from this server, with no address in its path; without a good token, the challenge that leads a client to the metadata.
+    // QX-18: the connector for a token from this server, with no address in its path; without a good token, the
+    // challenge that leads a client to the metadata.
     if (path === '/mcp' && oauth) {
       const b = oauth.bearer(req);
       if (b.kind !== 'granted') oauth.challenge(res, b.kind === 'refused' ? b.why : undefined);
       else await mcp(req, res, { member: b.member, witness: b.witness });
       return true;
     }
-    // The page of one square (square-page.ts): public and read-only, built here with no script, under the reader's hourly limit.
+    // The page of one square (square-page.ts): public and read-only, built here with no script, under the reader's
+    // hourly limit.
     const square = /^\/r\/(sha256:[0-9a-f]{64})\/(sha256:[0-9a-f]{64})$/.exec(path);
     if (square && method === 'GET') {
       const headers = {
@@ -551,7 +582,9 @@ export function createHosted(options: HostedOptions): Hosted {
       );
       return true;
     }
-    // The directory window for a site (APP.md, "The window"): the card as a page, which any site may frame, since it holds nothing of anyone's and reads what /search reads; and the read-only ops beside it, over the reader with no key.
+    // The directory window for a site (APP.md, "The window"): the card as a page, which any site may frame, since it
+    // holds nothing of anyone's and reads what /search reads; and the read-only ops beside it, over the reader with no
+    // key.
     if (path === '/window' && method === 'GET') {
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
@@ -572,7 +605,10 @@ export function createHosted(options: HostedOptions): Hosted {
         json(res, 404, { error: `the window's reader answers ${WINDOW_OPS.join(', ')}` });
         return true;
       }
-      // A bearer token from this server's authorization server names a member (QX-18): every op is answered over that member's own Quilt, as the connector would, so a site holding the token shows the person their own. Without one, the read-only ops over the reader with no key; a personal op is refused with the challenge that names the authorization server.
+      // A bearer token from this server's authorization server names a member (QX-18): every op is answered over that
+      // member's own Quilt, as the connector would, so a site holding the token shows the person their own. Without
+      // one, the read-only ops over the reader with no key; a personal op is refused with the challenge that names the
+      // authorization server.
       let member: { hash: string; witness: Witness } | null = null;
       if (oauth) {
         const b = oauth.bearer(req);
@@ -649,7 +685,8 @@ export function createHosted(options: HostedOptions): Hosted {
         json(res, 200, s);
         return true;
       }
-      // A browser at the address gets the person's sheet; the AI's connector, which asks for JSON or an event stream, gets the MCP transport.
+      // A browser at the address gets the person's sheet; the AI's connector, which asks for JSON or an event stream,
+      // gets the MCP transport.
       if (m[2] === undefined && method === 'GET' && (req.headers.accept ?? '').includes('text/html')) {
         if (!store.getMember(tokenHash(token))) {
           json(res, 404, { error: 'no such address here' });
@@ -678,7 +715,8 @@ export function createHosted(options: HostedOptions): Hosted {
         });
         return true;
       }
-      // The bare address is its own credential, as it always was, so a header this server did not issue changes nothing; a token it did is for this address, and brings its witness.
+      // The bare address is its own credential, as it always was, so a header this server did not issue changes
+      // nothing; a token it did is for this address, and brings its witness.
       const b = oauth?.bearer(req) ?? { kind: 'none' as const };
       if (b.kind === 'granted' && b.member !== tokenHash(token)) {
         json(res, 403, { error: 'that token is for another address' });

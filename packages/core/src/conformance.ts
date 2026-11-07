@@ -50,7 +50,8 @@ export function checkFixture(f: Fixture): string[] {
   for (const [name, want] of Object.entries(f.expect.states))
     if (states[name] !== want) problems.push(`${name}: ${states[name] ?? 'missing'}, expected ${want}`);
   for (const name of Object.keys(states)) if (!(name in f.expect.states)) problems.push(`${name}: not in the fixture`);
-  // Dropped events are compared by count: the reasons in a fixture are the reference's wording, not part of conformance.
+  // Dropped events are compared by count: the reasons in a fixture are the reference's wording, not part of
+  // conformance.
   if (state.dropped.length !== f.expect.dropped.length)
     problems.push(
       `dropped: ${state.dropped.length} (${state.dropped.map((d) => d.why).join('; ')}), expected ${f.expect.dropped.length}`,

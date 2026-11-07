@@ -7,7 +7,10 @@ import { type Address, type Hash, eventId, isAddress } from '@bitquilt/core';
 import type { Door } from './door.js';
 import type { Posted } from './resolver.js';
 
-/** This key's coin at a home (QX-17), as /coin/balance answers it: the balance in units, what has vested, what is locked or escrowed, and what is free. `home` is the coin's home, the tracker that keeps the coin log. */
+/**
+ * This key's coin at a home (QX-17), as /coin/balance answers it: the balance in units, what has vested, what is locked
+ * or escrowed, and what is free. `home` is the coin's home, the tracker that keeps the coin log.
+ */
 export interface CoinBalance {
   home: string;
   balance: number;
@@ -17,11 +20,17 @@ export interface CoinBalance {
   escrowed: number;
   free: number;
   free_vested: number;
-  /** What the open epoch would mint to this key if it ended now, and when it ends: what is owed today. Absent from an older tracker. */
+  /**
+   * What the open epoch would mint to this key if it ended now, and when it ends: what is owed today. Absent from an
+   * older tracker.
+   */
   pending?: { amount: number; pays_at: string; epoch: number };
 }
 
-/** Where a tracker's coin lives, as its well-known says under stake: the coin's home, the tracker that keeps the coin log, and the burn rate a point of standing costs there; null where it honours none. */
+/**
+ * Where a tracker's coin lives, as its well-known says under stake: the coin's home, the tracker that keeps the coin
+ * log, and the burn rate a point of standing costs there; null where it honours none.
+ */
 export async function coinAt(door: Door, tracker: string): Promise<{ coinHome: string; burn_rate: number } | null> {
   const t = tracker.endsWith('/') ? tracker : `${tracker}/`;
   const wk = await door.wellKnown(t);
@@ -62,7 +71,10 @@ export async function balance(door: Door): Promise<CoinBalance | null> {
   return home ? coinBalance(door, home) : null;
 }
 
-/** A pay to a problem: coin escrowed on the coin log of the problem's home, paid per square to the roots of each set accepted after it, the rest back to this key when the problem completes. */
+/**
+ * A pay to a problem: coin escrowed on the coin log of the problem's home, paid per square to the roots of each set
+ * accepted after it, the rest back to this key when the problem completes.
+ */
 export async function pay(
   door: Door,
   problem: Hash,

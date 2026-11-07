@@ -111,7 +111,10 @@ export function next(state: State, key: Address, client: Client, now: string, op
   };
 }
 
-/** The brief with slots that name the piece's inputs filled with the accepting sets' returns as quoted text with the signers' addresses. */
+/**
+ * The brief with slots that name the piece's inputs filled with the accepting sets' returns as quoted text with the
+ * signers' addresses.
+ */
 export function renderInputs(v: PieceView, state: State): string {
   let brief = v.piece.brief;
   for (const entry of v.piece.inputs) {

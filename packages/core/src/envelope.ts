@@ -32,7 +32,10 @@ export interface Workspace {
 export interface Check {
   file: string;
   image?: string;
-  /** For a score piece: how far apart two scores may be and still agree (0 when absent), and which direction is better (higher when absent). */
+  /**
+   * For a score piece: how far apart two scores may be and still agree (0 when absent), and which direction is better
+   * (higher when absent).
+   */
   tolerance?: number;
   better?: 'higher' | 'lower';
 }
@@ -256,7 +259,9 @@ export function blobProblems(p: Problem, blobs: Blobs): string[] {
   return out;
 }
 
-/** A data blob as the rows a family's slots draw on: a JSON list, one entry per piece, or an object for a single piece. */
+/**
+ * A data blob as the rows a family's slots draw on: a JSON list, one entry per piece, or an object for a single piece.
+ */
 function parseBlob(bytes: Uint8Array): unknown {
   return JSON.parse(new TextDecoder().decode(bytes));
 }

@@ -7,11 +7,17 @@
  */
 import { isRecord } from '@bitquilt/core';
 
-/** A coin log line's hash as the home serves it: 64 lowercase hex characters, the `sha256:` of the core's hashes taken off. */
+/**
+ * A coin log line's hash as the home serves it: 64 lowercase hex characters, the `sha256:` of the core's hashes taken
+ * off.
+ */
 export const HEX64_RE = /^[0-9a-f]{64}$/;
 /** An address: 0x and 40 hex characters, in any case. */
 export const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
-/** A private key or a ledger secret as the environment carries it, the 0x already taken off: 64 hex characters in any case. */
+/**
+ * A private key or a ledger secret as the environment carries it, the 0x already taken off: 64 hex characters in any
+ * case.
+ */
 export const KEY_HEX_RE = /^[0-9a-fA-F]{64}$/;
 
 /** `v` as a hash of 64 lowercase hex characters, or a refusal naming the line and the field. */
@@ -33,7 +39,10 @@ export function wholeNumber(v: unknown, at: string, what: string, min: number): 
   return v;
 }
 
-/** One line of the home's answer: an object whose named fields each pass their check, in the order given, so the first wrong field is the one refused. */
+/**
+ * One line of the home's answer: an object whose named fields each pass their check, in the order given, so the first
+ * wrong field is the one refused.
+ */
 export function checkLine<T>(x: unknown, at: string, fields: { [K in keyof T]: (v: unknown, at: string) => T[K] }): T {
   if (!isRecord(x)) throw new Error(`${at} is not an object`);
   const line = {} as T;

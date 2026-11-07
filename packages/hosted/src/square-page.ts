@@ -12,7 +12,10 @@
  */
 import type { RestedOn } from '@bitquilt/tracker';
 
-/** One reading of the piece: who signed it and as what, when, the fields, what each rests on, and whether it is one of the two that accepted the square or one the layer set aside. */
+/**
+ * One reading of the piece: who signed it and as what, when, the fields, what each rests on, and whether it is one of
+ * the two that accepted the square or one the layer set aside.
+ */
 export interface SquareReading {
   key: string;
   name: string | null;
@@ -25,7 +28,10 @@ export interface SquareReading {
   rests: RestedOn[];
 }
 
-/** Where the piece stands in the newest version: the same piece, or, after a sharpening of its family, the piece of the same name and its newer brief. */
+/**
+ * Where the piece stands in the newest version: the same piece, or, after a sharpening of its family, the piece of the
+ * same name and its newer brief.
+ */
 export type SquareNow =
   | { version: string; same: true; state: string }
   | { version: string; same: false; piece: string; state: string; brief: string };
@@ -34,7 +40,10 @@ export type SquareNow =
 export interface SquareView {
   url: string;
   problem: string;
-  /** The earlier version that holds the piece, where the version the address names keeps it only from that one; null where the address's version holds it. */
+  /**
+   * The earlier version that holds the piece, where the version the address names keeps it only from that one; null
+   * where the address's version holds it.
+   */
   holder: string | null;
   title: string;
   owner: string;
@@ -83,7 +92,10 @@ export function squareTitle(v: SquareView): string {
   return `${v.name}: ${stateWords(v.state)}`;
 }
 
-/** One rest: the passage as kept, or, where this tracker no longer holds the read's bytes, the page and its hash with no passage. */
+/**
+ * One rest: the passage as kept, or, where this tracker no longer holds the read's bytes, the page and its hash with no
+ * passage.
+ */
 function rest(x: RestedOn): string {
   const at = `at <a href="${esc(x.url)}" rel="nofollow noopener">${esc(x.url)}</a>, kept as <code>${esc(x.hash)}</code>`;
   return x.passage === null
@@ -112,7 +124,10 @@ function nowText(v: SquareView): string {
   return `<p>The owner has replaced this version of the problem and sharpened this piece's brief. In the current version, <code>${esc(n.version)}</code>, the piece of the same name is <code>${esc(n.piece)}</code>, ${esc(stateWords(n.state))}, and its brief, as the owner wrote it, reads: “${esc(n.brief)}” This page keeps saying what the version above recorded.</p>`;
 }
 
-/** Where the address names a later version that keeps the piece only from an earlier one: which version the page reads, and why. */
+/**
+ * Where the address names a later version that keeps the piece only from an earlier one: which version the page reads,
+ * and why.
+ */
 function holderText(v: SquareView): string {
   if (!v.holder) return '';
   return `<p>The version this address names, <code>${esc(v.problem)}</code>, is a later version without this piece. The state and the readings below are the ones <code>${esc(v.holder)}</code> recorded.</p>\n`;
