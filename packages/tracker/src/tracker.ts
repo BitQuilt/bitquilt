@@ -1040,11 +1040,27 @@ export function createTracker(options: TrackerOptions): Tracker {
     store.hold(problem, piece, key, new Date(Date.parse(at) + HOLD_SECONDS * 1000).toISOString());
   }
 
+  /**
+   * The pieces this tracker keeps from the key on one problem. Assisted next and the offer share this one rule, so the
+   * offer names only a piece next would hand the key (QX-5 section 4). It keeps a piece held for another key; the
+   * layer's unoffered pieces, a judge piece whose panel sits or ran out (QX-2); a human piece from a client that
+   * declares no person (QX-3); the watch pieces QX-4 keeps from the key, so a seeder is handed one first; and a staked
+   * piece the key's free standing cannot cover, on which it holds no lock (QX-15). Those last are also named apart,
+   * since next's answer lists them.
+   */
+  function excludedFor(layered: Layer, pl: ProblemLayer, input: ReduceInput, key: Address, client: Client, at: string): { exclude: Set<Hash>; unaffordable: Hash[] } {
+    const exclude = new Set<Hash>([...store.heldByOthers(pl.problem, key, at), ...pl.unoffered]);
+    if (!client.can.includes('person')) for (const p of pl.pieces) if (p.kind.kind === 'human') exclude.add(p.hash);
+    for (const h of watchExclusions(pl, input, key, seedInfo(input.receipts, pl.fold, at).seeders, at)) exclude.add(h);
+    const unaffordable = [...layered.unaffordable(pl.problem, key)];
+    for (const h of unaffordable) exclude.add(h);
+    return { exclude, unaffordable };
+  }
+
   /** Assisted next (CORE.md): the piece this tracker hands the key on one problem, held for it a minute. */
   function assisted(res: ServerResponse, hash: Hash, query: URLSearchParams): void {
     const { key, client } = clientFrom(query);
-    // The layer's fold: a struck piece is open again, a challenged one is not offered while its panel sits, a judge piece
-    // not while its candidates are judged, and a human piece only to a client that declared a person.
+    // The layer's fold: a struck piece is open again, and a challenged one is not offered while its panel sits.
     const layered = layer();
     const pl = layered.problems.get(hash);
     if (!pl) throw new Refusal(404, 'no such problem here');
@@ -1057,14 +1073,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     }
     const state = pl.fold;
     const at = now();
-    // QX-4: a watch piece goes to the seeders first, and a seeder is handed it before anything else.
-    const input = inputFor(hash)!;
-    const exclude = new Set<Hash>([...store.heldByOthers(hash, key, at), ...pl.unoffered]);
-    if (!client.can.includes('person')) for (const p of pl.pieces) if (p.kind.kind === 'human') exclude.add(p.hash);
-    for (const h of watchExclusions(pl, input, key, seedInfo(input.receipts, state, at).seeders, at)) exclude.add(h);
-    // QX-15: a staked piece the key's free standing cannot cover, and on which it holds no lock, is not offered.
-    const unaffordable = [...layered.unaffordable(hash, key)];
-    for (const h of unaffordable) exclude.add(h);
+    const { exclude, unaffordable } = excludedFor(layered, pl, inputFor(hash)!, key, client, at);
     // The second reader's pool (QX-19 section 6): asked with only=verify, the pick is from the pieces in needs_verify or
     // disputed alone, in this layer's fold. The core's order puts open pieces first wherever they outnumber those, so
     // without this a key whose reading was set aside would be handed an open piece, and its own fold would not hand it
@@ -1090,7 +1099,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     });
   }
 
-  /** QX-5: the problems here with a piece for the key, in the order they are offered; the first is held as assisted next holds. */
+  /** QX-5: the problems here with a piece for the key, in the order they are offered, each piece the one assisted next would name; the first is held as assisted next holds. */
   function offer(res: ServerResponse, query: URLSearchParams): void {
     const { key, client } = clientFrom(query);
     const at = now();
@@ -1105,12 +1114,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     }
     const count = store.nextOfferCount(key);
     const firstSeeder = options.firstSeeder;
-    const list = offerOrder(layered, inputs, key, client, at, count, (h, pl, input) => {
-      const exclude = store.heldByOthers(h, key, at);
-      for (const x of watchExclusions(pl, input, key, seedInfo(input.receipts, pl.fold, at).seeders, at)) exclude.add(x);
-      for (const x of layered.unaffordable(h, key)) exclude.add(x);
-      return exclude;
-    }, firstSeeder ? (_h, pl, input) => seedInfo(input.receipts, pl.fold, at).seeders.has(pl.fold.rootOf(firstSeeder, at)) : undefined);
+    const list = offerOrder(layered, inputs, key, client, at, count, (_h, pl, input) => excludedFor(layered, pl, input, key, client, at).exclude, firstSeeder ? (_h, pl, input) => seedInfo(input.receipts, pl.fold, at).seeders.has(pl.fold.rootOf(firstSeeder, at)) : undefined);
     const first = list[0];
     if (first) holdFor(first.problem, first.pick.piece.hash, key, at);
     json(res, 200, { offer: count, offers: list.map((o) => ({ problem: o.problem, title: o.title, slug: o.slug, owner: o.owner, reason: o.reason, piece: o.pick.piece.hash, name: o.pick.piece.name, state: o.pick.state, verifier: o.pick.piece.verifier, requires: o.pick.requires, lease_h: o.pick.lease_h })) });

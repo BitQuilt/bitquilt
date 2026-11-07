@@ -6,8 +6,10 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
 /**
  * QX-4 and QX-5 at the tracker: seeders and the last seed read off `seed` events; a watch piece offered to a seeder
  * first and kept from others for its lease; and the offer: the problems of people who have worked for the asker
- * first, the rest rarest first, every tenth offer a newcomer's, and never the asker's own; and a door's first seeder,
- * whose seeded problems lead the offer to a key with no accepted work and no other.
+ * first, the rest rarest first, every tenth offer a newcomer's, and never the asker's own; a door's first seeder,
+ * whose seeded problems lead the offer to a key with no accepted work and no other; and the one rule the offer shares
+ * with assisted next (QX-5 section 4), so it names and holds no human piece for an AI's client and no judge piece
+ * whose panel ran out.
  */
 const A = key(1), O1 = key(2), O2 = key(3), O3 = key(4), X = key(5), S = key(6), B = key(7);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
@@ -158,5 +160,42 @@ describe('a door\'s first seeder (QX-5 section 2)', () => {
     expect((await offerHere(N)).offers.map((o) => [o.problem, o.reason])).toEqual([[P, 'rarest'], [Q, 'rarest']]);
     // A fresh key is still led to what the first seeder seeds.
     expect((await offerHere(key(13))).offers[0]).toMatchObject({ problem: Q, reason: 'first' });
+  });
+});
+
+describe('the offer leaves out what assisted next leaves out (QX-5 section 4)', () => {
+  const OWN = key(14), AI = key(15), PERSON = key(16), C1 = key(17), C2 = key(18);
+  const v = boot('2026-10-26T09:00:00Z', { limits: { keyPerHour: 1000, ipPerHour: 10000 } });
+  beforeAll(() => v.listen());
+  afterAll(() => v.close());
+  const textSchema = { type: 'object' as const, additionalProperties: false as const, required: ['text'], properties: { text: { type: 'string' as const, maxLength: 200 } } };
+  const vote = { verifier: 'human', requires: ['web' as const], brief: 'Does the paper say so? A person answers.', schema, agree: ['verdict'] };
+  const publishHere = async (e: Envelope): Promise<Hash> => ((await (await v.post('/p', { envelope: e, blobs: {} })).json()) as { hash: Hash }).hash;
+  const pieceHere = async (problem: Hash, name: string) => ((await v.get(`/p/${problem}/state`)) as { pieces: { hash: Hash; name: string; state: string; panel: string | null }[] }).pieces.find((p) => p.name === name)!;
+  const offerAs = async (k: Uint8Array, can: string, model: string) => ((await v.get(`/offer?key=${addr(k)}&can=${can}&model=${model}`)) as { offers: Offer[] }).offers.map((o) => [o.problem, o.name]);
+  const nextAs = async (problem: Hash, k: Uint8Array, can: string, model: string) => (await v.get(`/p/${problem}/next?key=${addr(k)}&can=${can}&model=${model}`)) as { piece: Hash | null; name?: string };
+
+  it('names and holds no human piece for a client that declares no person, and offers it to one that does', async () => {
+    const H = await publishHere(signed(OWN, 'a-person-answers', { vote }));
+    const M = await publishHere(signed(OWN, 'a-person-or-a-model', { vote, statement: { verifier: 'agree', requires: ['web'], brief: 'Does the paper say so?', schema, agree: ['verdict'] } }));
+    // Next hands an AI's client nothing on H and the statement on M. The offer names the same, so H is left out.
+    expect((await nextAs(H, AI, 'web', 'meta/llama')).piece).toBeNull();
+    expect(await offerAs(AI, 'web', 'meta/llama')).toEqual([[M, 'statement']]);
+    // The offer held the statement on M and nothing on H, so a person asking next is offered the vote on both.
+    expect(await offerAs(PERSON, 'web,person', 'human')).toEqual([[H, 'vote'], [M, 'vote']]);
+  });
+
+  it('names no judge piece whose panel ran out, as next hands none', async () => {
+    const J = await publishHere(signed(OWN, 'a-panel-ranks', { summary: { verifier: 'judge:3', candidates: 2, requires: ['web'], brief: 'Summarise the paper in a sentence.', schema: textSchema } }));
+    const summary = (await pieceHere(J, 'summary')).hash;
+    // Two candidates from unrelated roots, and no root here with accepted work to sit on a panel: the panel runs out at once.
+    for (const [k, model, text] of [[C1, 'anthropic/claude', 'A torrent where the pieces are made.'], [C2, 'openai/gpt', 'Problems as patterns of pieces.']] as const) {
+      const nonce = newNonce();
+      await v.accepted(`/p/${J}/events`, v.ev(k, 'commit', { h: commitHash({ text }, nonce) }, J, summary));
+      await v.accepted(`/p/${J}/events`, v.ev(k, 'reveal', { return: { text }, nonce, by: by(model) }, J, summary));
+    }
+    expect(await pieceHere(J, 'summary')).toMatchObject({ state: 'disputed', panel: 'void' });
+    expect((await nextAs(J, AI, 'web', 'meta/llama')).piece).toBeNull();
+    expect((await offerAs(AI, 'web', 'meta/llama')).map(([problem]) => problem)).not.toContain(J);
   });
 });
