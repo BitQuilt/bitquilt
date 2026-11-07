@@ -114,7 +114,8 @@ export const CHALLENGE = 'QX-1';
 export const PANEL = 3;
 export const MAJORITY = 2;
 export const GROUND_MAX = 200;
-export const SEED = 'challenge-receipt';
+/** The seed a challenge panel is drawn from, named for the well-known document: the receipt line of the challenge. */
+export const CHALLENGE_SEED = 'challenge-receipt';
 export const SIDES = ['challenger', 'author'] as const;
 export type Side = (typeof SIDES)[number];
 export type Outcome = 'open' | 'held' | 'failed' | 'void';

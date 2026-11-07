@@ -32,7 +32,7 @@ export {
   PANEL,
   MAJORITY,
   GROUND_MAX,
-  SEED,
+  CHALLENGE_SEED,
   SIDES,
   CHALLENGE_EVENTS,
   type Layer,
