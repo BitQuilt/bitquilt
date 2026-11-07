@@ -71,5 +71,11 @@ export async function json<T>(url: string, init?: RequestInit): Promise<T> {
   return (await (await fetch(url, init)).json()) as T;
 }
 
+/**
+ * The connector's tools as a host lists them, in the order mcp.ts registers them. It is written here on its own, so a
+ * change to that order, to TOOL_NAMES or to the bundle's manifest fails a test and is not a quiet reorder.
+ */
+export const LISTED_TOOLS = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_window', 'quilt_window_io', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_pay', 'quilt_transfer', 'quilt_redeem', 'quilt_reveal_gold', 'quilt_name'] as const;
+
 /** The regex the tests hold tool descriptions and manifests to: text that describes and does not instruct. */
 export const instructs = /\b(you must|always|never|do not|important|ignore)\b/i;

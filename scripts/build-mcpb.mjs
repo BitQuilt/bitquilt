@@ -17,10 +17,11 @@ const out = outFlag >= 0 && process.argv[outFlag + 1] ? resolve(process.argv[out
 const stage = join(out, 'mcpb');
 const bundle = join(out, 'quilt.mcpb');
 
-// The names of the connector's tools, as the app shows them in its install dialog; the test checks them against what
-// the server lists. The key is not a setting: it stays where quilt keeps it, under QUILT_HOME (~/.config/quilt unless
-// that is set), so the key made by quilt init is the one the extension signs with.
-const tools = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_challenge', 'quilt_verdict', 'quilt_rank', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold', 'quilt_pay', 'quilt_transfer', 'quilt_redeem', 'quilt_window', 'quilt_window_io'];
+// The names of the connector's tools, as the app shows them in its install dialog, in the order the server registers
+// them (packages/client/src/mcp.ts), which is the order a host lists them in; the test holds the two to one order. The
+// key is not a setting: it stays where quilt keeps it, under QUILT_HOME (~/.config/quilt unless that is set), so the
+// key made by quilt init is the one the extension signs with.
+const tools = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_window', 'quilt_window_io', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_pay', 'quilt_transfer', 'quilt_redeem', 'quilt_reveal_gold', 'quilt_name'];
 // The prompts are the phrases (packages/client/src/phrases.ts), one each, their text with the arguments in braces; the test
 // checks each against what the server says with those words filled in.
 const prompts = [

@@ -8,7 +8,7 @@ import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotoc
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG } from '../src/config.js';
 import { type PhraseArg, say } from '../src/phrases.js';
-import { instructs, tempHome } from './helpers.js';
+import { LISTED_TOOLS, instructs, tempHome } from './helpers.js';
 
 /** The fields of the manifest the bundle is held to; the mcpb tool's schema checks the rest. */
 interface Manifest {
@@ -60,7 +60,7 @@ describe('the MCP Bundle for Claude Desktop', () => {
     expect(readFileSync(join(unpacked, 'server', 'index.js'), 'utf8')).toContain('ui://quilt/window.');
   });
 
-  it("starts over stdio from the unpacked files, under a folder that declares ES modules, names the client's version, finds its page, and lists the nineteen tools the manifest names", async () => {
+  it("starts over stdio from the unpacked files, under a folder that declares ES modules, names the client's version, finds its page, and lists the nineteen tools the manifest names, in the order it names them", async () => {
     const home = join(out, 'home');
     // Where the app unpacks it is not the bundle's to choose; a package.json above it saying ES modules changes nothing.
     writeFileSync(join(out, 'package.json'), JSON.stringify({ type: 'module' }));
@@ -75,9 +75,10 @@ describe('the MCP Bundle for Claude Desktop', () => {
     // The handshake names the version the build wrote in, the one the manifest carries.
     expect(client.getServerVersion()).toMatchObject({ name: 'quilt', version: manifest.version });
     const tools = await client.listTools();
-    const names = tools.tools.map((t) => t.name).sort();
-    expect(names).toEqual(['quilt_challenge', 'quilt_decline', 'quilt_me', 'quilt_name', 'quilt_next', 'quilt_open', 'quilt_pay', 'quilt_publish', 'quilt_rank', 'quilt_read', 'quilt_redeem', 'quilt_return', 'quilt_reveal_gold', 'quilt_search', 'quilt_seed', 'quilt_transfer', 'quilt_verdict', 'quilt_window', 'quilt_window_io']);
-    expect(names).toEqual(manifest.tools.map((t) => t.name).sort());
+    // The install dialog shows the manifest's order, and the chat the server's: the two are the order the server registers the tools in.
+    const names = tools.tools.map((t) => t.name);
+    expect(names).toEqual([...LISTED_TOOLS]);
+    expect(manifest.tools.map((t) => t.name)).toEqual(names);
     for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
     // The prompts: the manifest's list is the phrases' (phrases.ts), each text the phrase with its arguments in braces.
     const prompts = await client.listPrompts();
