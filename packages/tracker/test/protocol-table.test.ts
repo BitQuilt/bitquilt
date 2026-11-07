@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Hash, eventId, problemHash } from '@bitquilt/core';
+import { type Hash, eventId, hashBytes, problemHash } from '@bitquilt/core';
 import { addr, boot, envelope, key } from './helpers.js';
 
 /**
@@ -10,9 +10,11 @@ import { addr, boot, envelope, key } from './helpers.js';
  * takes at that path; the scrape's row names every field the scrape answers, and `/` and `/search` give each problem
  * the same without `chain_ok`. Then what the door answers, as the prose names it: a log read for any method but POST at
  * the two logs that do so, and 405 at a problem's; the fields of the piece next hands over, the rows under "### The
- * piece next hands over"; a post's answer, and 409 for it again; and the signature's text form, with a `v` of 0 or 1
- * taken and any other refused. The refusals column is not read, and the node's and the on-ramp's tables sit under their
- * own headings and are not read here. The dispatcher's order is routes.test.ts's.
+ * piece next hands over"; a post's answer, and 409 for it again; the signature's text form, with a `v` of 0 or 1 taken
+ * and any other refused; the limits as published, the address's counting every write and the key's every post; and the
+ * hold, on the piece next hands over and on the first the offer names, for 60 seconds. The refusals column is not read,
+ * and the node's and the on-ramp's tables sit under their own headings and are not read here. The dispatcher's order is
+ * routes.test.ts's.
  */
 const DOC = readFileSync(new URL('../../../docs/PROTOCOL.md', import.meta.url), 'utf8');
 const owner = key(9),
@@ -233,6 +235,73 @@ describe('PROTOCOL.md, what the door answers', () => {
     expect(await plain.refused('/k/events', signed(odd))).toBe("signature is not the key's");
     for (const form of [upper, short]) {
       expect(await plain.refused('/k/events', signed(form)), form.name).toBe('event.sig: a signature');
+    }
+  });
+
+  it("publishes the limits the prose names, and counts every write against the address's and every post the key's", async () => {
+    const said = /(\d+) posts an hour from a key, and (\d+) writes \(posts, publishes and blob puts\)/.exec(DOC);
+    expect(said, 'the prose names the limits').not.toBeNull();
+    const fresh = boot('2026-11-07T12:00:00Z');
+    await fresh.listen();
+    const { limits: published } = await fresh.get<{ limits: { keyPerHour: number; ipPerHour: number } }>(
+      '/.well-known/quilt',
+    );
+    await fresh.close();
+    expect([published.keyPerHour, published.ipPerHour]).toEqual([Number(said![1]), Number(said![2])]);
+    const tight = boot('2026-11-07T12:00:00Z', { limits: { keyPerHour: 1, ipPerHour: 4 } });
+    await tight.listen();
+    /** A blob put of a read, its bytes named by their hash. */
+    const put = (text: string) => {
+      const bytes = new TextEncoder().encode(text);
+      return fetch(`${tight.base}/b/${hashBytes(bytes)}`, { method: 'PUT', body: bytes });
+    };
+    /** A 429's sentence. */
+    const over = async (answer: Promise<Response>): Promise<string> => {
+      const r = await answer;
+      expect(r.status).toBe(429);
+      return ((await r.json()) as { error: string }).error;
+    };
+    try {
+      expect((await tight.post('/p', { envelope: env })).status).toBe(201);
+      const at = (await tight.get<{ pieces: { hash: Hash }[] }>(`/p/${P}/state`)).pieces[0]!.hash;
+      const by = { model: 'anthropic/claude', client: 'test/0', can: ['web'] };
+      await tight.accepted(`/p/${P}/events`, tight.ev(A, 'claim', { by }, P, at));
+      const name = tight.ev(A, 'name', { name: 'Ada' });
+      expect(await over(tight.post('/k/events', name)), "the key's second post").toBe("over the hour's limit");
+      expect((await put('the first read')).status, "the address's fourth write").toBe(202);
+      expect(await over(put('the second read')), "the address's fifth").toBe("over the hour's limit");
+      expect((await fetch(`${tight.base}/p/${P}`)).status, 'a read is no write').toBe(200);
+    } finally {
+      await tight.close();
+    }
+  });
+
+  it('holds the piece next hands over, and the first piece the offer names, for that key for 60 seconds', async () => {
+    expect(DOC).toContain(
+      '`next` holds the piece it hands over, and `/offer` the first piece it offers, for that key for 60 seconds',
+    );
+    const held = boot('2026-11-07T12:00:00Z', { limits });
+    await held.listen();
+    const other = { ...piece, brief: 'Does the other statement hold? Answer holds or fails.' };
+    const second = envelope(owner, 'other', { claim: other }, { title: 'Another statement' });
+    const [B, C] = [key(2), key(3)];
+    /** The piece next hands the key on a problem, or null. */
+    const handed = async (k: Uint8Array, problem: Hash): Promise<Hash | null> =>
+      (await held.get<{ piece: Hash | null }>(`/p/${problem}/next?key=${addr(k)}&can=web&model=openai/gpt`)).piece;
+    try {
+      for (const e of [env, second]) expect((await held.post('/p', { envelope: e })).status).toBe(201);
+      const { offers } = await held.get<{ offers: { problem: Hash; piece: Hash }[] }>(`/offer?${asked}&can=web`);
+      expect(offers.length).toBe(2);
+      const [first, then] = offers as [{ problem: Hash; piece: Hash }, { problem: Hash; piece: Hash }];
+      expect(await handed(B, first.problem), 'the offer holds its first piece').toBeNull();
+      expect(await handed(B, then.problem), 'and no other').toBe(then.piece);
+      expect(await handed(C, then.problem), 'next holds what it hands over').toBeNull();
+      held.clock.tick += 59_000;
+      expect(await handed(C, first.problem), 'for 59 seconds').toBeNull();
+      held.clock.tick += 1_000;
+      expect(await handed(C, first.problem), 'and not for 60').toBe(first.piece);
+    } finally {
+      await held.close();
     }
   });
 });
