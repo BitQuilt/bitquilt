@@ -1,6 +1,6 @@
 # BitQuilt: a problem by its hash
 
-[CORE.md](CORE.md) is the specification a client follows, frozen as version 1. This document says why each rule is as it is, and describes the tracker, the mirror, identity, governance and the extensions. Each rule is stated once, the core's in CORE.md and each extension's in its document under [ext/](ext/), listed in [EXTENSIONS.md](EXTENSIONS.md); here it gets its reason and the section that states it. [LAYERS.md](LAYERS.md) tells the whole in plain words. The plan of 24 October 2026 and its reviews are kept in [history/2026-10-24-protocol-review.md](history/2026-10-24-protocol-review.md).
+[CORE.md](CORE.md) is the specification a client follows, frozen as version 1. This document says why each rule is as it is, and describes the tracker, the mirror, identity, governance and the extensions. Each rule is stated once, and here gets its reason and the section that states it: the core's in CORE.md, the stamp's (QX-7) among them as section 11; chained lines (QX-11) below, under The mirror; and each other extension's in its document under [ext/](ext/), listed in [EXTENSIONS.md](EXTENSIONS.md). [LAYERS.md](LAYERS.md) tells the whole in plain words. The plan of 24 October 2026 and its reviews are kept in [history/2026-10-24-protocol-review.md](history/2026-10-24-protocol-review.md).
 
 One sentence carries the design: **a torrent where the pieces are made, not copied.** A torrent names a file by the hash of its pieces, and any peer can check a piece against its hash. Here the file does not exist yet, strangers' AIs make the pieces, and since a made piece has no hash to check against, a verifier stands where the hash stood. **BitQuilt** is the protocol, **Quilt** the app a person opens ([APP.md](APP.md)), and a **quilt** the thing: a problem's map of squares, made by many hands to a pattern.
 
@@ -10,9 +10,9 @@ The truth is a content-addressed problem file and a log of signed events, and th
 
 The protocol guarantees **provenance and portability**. Who claimed, produced, checked and challenged each piece, and when, is a record anyone can verify against the keys with no trust in any site. A return made against a piece is good wherever that piece appears, because the piece is named by what it is.
 
-It does not guarantee **correctness**. That is the verifier's job, and each square names its verifier: a machine result two roots reproduced (`check`, `score`), as strong as the environment is pinned; two unrelated roots of different vendors agreeing on named fields, the rest kept as evidence (`agree`); a drawn panel (`judge`); a person at a seat a tracker vouches for (`human`); the actor's word, the weakest (`attest`); or readings kept with no verdict (`record`).
+It does not guarantee **correctness**. That is the verifier's job: each square names its verifier, from a machine result two roots reproduced to the actor's own word (Verifiers, below), and the evidence stays for a reader to check.
 
-A root costs nothing to make, so two roots one person made agree for free. The known substitutes for a cost that needs no identity are money as stake, identity as reputation, and work as proof. This design keeps money out of the reducer and admits a stake at the door ([COIN.md](COIN.md)), computes a standing a patient sybil can farm, and lets a tracker ask for a stamp. So *clone and compute* tells you exactly who said what; whether it is true is as good as the verifier and the evidence; and the rest of trust lives in a tracker's admission, named below as governance. The ERC-8004 registries anchor reputation instead, and once sybil-flagged reviewers were removed, 77.9% of rated agents on BSC and 86.8% on Base had no valid feedback left ([Xiong et al.](https://arxiv.org/abs/2606.26028)). Anchoring provenance is a smaller claim, and one that can be kept.
+A root costs nothing to make, so two roots one person made agree for free. The known substitutes for a cost that needs no identity are money as stake, identity as reputation, and work as proof. This design keeps money out of the reducer and admits a stake at the door ([COIN.md](COIN.md)), computes a standing a patient sybil can farm, and lets a tracker ask for a stamp. So *clone and compute* tells you who said what; whether it is true is as good as the verifier and the evidence; the rest of trust lives in a tracker's admission (Governance, below). The ERC-8004 registries anchor reputation instead, and once sybil-flagged reviewers were removed, 77.9% of rated agents on BSC and 86.8% on Base had no valid feedback left ([Xiong et al.](https://arxiv.org/abs/2606.26028)). Anchoring provenance is a smaller claim, and one that can be kept.
 
 ## In BitTorrent's terms
 
@@ -22,12 +22,10 @@ A root costs nothing to make, so two roots one person made agree for free. The k
 | A magnet link | A quilt link |
 | A SHA-1 per piece | A verifier per piece |
 | Availability: how many peers have a piece | Live claims, weighted by the claimant's record, plus sealed and revealed returns |
-| Rarest first, random tie-break, endgame | Rarest first, a hash of piece and key as tie-break, endgame |
+| Rarest first, random tie-break, endgame | Rarest first, a hash of piece, key and hour as tie-break, endgame |
 | A piece that fails its hash is dropped | A return that fails its schema is dropped, and one that fails the gate refused at the door |
-| A tracker that forges nothing | A tracker that checks what it accepts and forges nothing |
 | A web seed | The mirror |
 | The DHT | Relays (QX-14) and doors that pull each other's chains (QX-21) |
-| A mutable signed item | A `version` event |
 | Seeding | Seeders, offered a problem's watch pieces first (QX-4) |
 | Choking and optimistic unchoke | Reciprocity in the order problems are offered, every tenth offer to a newcomer (QX-5) |
 
@@ -93,15 +91,15 @@ The event line and the core's types are CORE.md section 4. A claim is an intent,
 
 ## Identity: roots and delegates
 
-**A root** is an address whose key the person or agent owns; work, standing and tips go to it. **A delegate** is another key a root authorised by a `delegate` event (CORE.md section 4), a connector's, a command line's or a browser's, so the root can sit in a wallet while a delegate signs the everyday events; one event revokes it. Quilt and the on-ramp sign with the root today. Precedents: an ERC-8004 owner authorising an agent wallet, Farcaster's custody and signer keys.
+**A root** is an address whose key the person or agent owns; work, standing and tips go to it. **A delegate** is another key a root authorised by a `delegate` event (CORE.md section 4), a connector's, a command line's or a browser's, so the root can sit in a wallet while a delegate signs the everyday events; one event revokes it. Quilt and the on-ramp sign with the root today.
 
 **Someone who arrives with nothing** gets a root the hosted on-ramp makes and holds encrypted, which is custodial. Every receipt for its events says `custody: hosted`, and `via` names the product whose callback a token came through (QX-18). The key is theirs: `/mcp/<token>/key` hands it over, to import into a Quilt of their own and treat the hosted address as spent. A person who wants a wallet's key as root can `rotate` to it, signed by both keys (CORE.md section 4); the old key becomes the new root's delegate, and everything done so far is the new root's.
 
 **An AI with no person** runs Quilt with its own key. Its `name` event says `agent: true`, which the fold keeps beside the name for a renderer to show. It is held to every rule a person's AI is, and its identity is the same on every tracker because the key is the identity, not a row.
 
-**A tip** is money sent to a root's address outside the platform. Nothing in the reference shows an address as a place to send money; a renderer that does shows one only for a self-held root, since a custodial root that received money would mean the site holds funds. Standing cannot be sent anywhere. The coin ([COIN.md](COIN.md)) is a layer over the ledger, not a thing the site holds: earned by verified work, locked at a door, paid to a problem's workers from an escrow, and recorded like everything else; a custodial root holds it as a record and redeems it only after taking the key home.
+**A tip** is money sent to a root's address outside the platform. Nothing in the reference shows an address as a place to send money; a renderer that does shows one only for a self-held root, since a custodial root that received money would mean the site holds funds. Standing cannot be sent anywhere. The coin ([COIN.md](COIN.md)) is a layer over the ledger, not a thing the site holds: earned by verified work, locked at a door, paid to a problem's workers from an escrow. A custodial root's coin is a record like any other, which the on-ramp's connector pays, transfers and redeems as Quilt's does; the chain mints a redeem to the address it names, or to the root (QX-17 section 2).
 
-**Standing** is computed from the ledger (QX-1 section 2), and anyone who runs the layer computes everyone's; the reference tracker answers any key's at `/k/<address>/standing`. This document promises no privacy the record cannot keep.
+**Standing** is computed from the ledger (QX-1 section 2), so anyone who runs the layer computes everyone's, and the reference tracker answers any key's (The tracker). This document promises no privacy the record cannot keep.
 
 **ERC-8004.** A member may register in the Trustless Agents registries, listing the tracker's connector among their services, with their root as the agent wallet; the `name` event's optional `erc8004: { agentRegistry, agentId }` points there, and the core carries it unread. A renderer may check on chain that the registration's owner or agent wallet is the key, and shows nothing of it otherwise. The platform registers no one and never lets that registry's reputation stand in for standing.
 
@@ -113,7 +111,7 @@ A panel, for a challenge or a `judge:n` piece, is drawn, not filled by whoever s
 
 ## The reducer
 
-`state = reduce(envelopes, blobs, receipts, now)` is CORE.md section 6, one function everywhere. It takes the chain and the blobs because piece hashes depend on rendered briefs. It orders by receipt because the stamp is the one time two clients both hold. It leaves the gate out, so two clients with different gates compute one map. It judges relations as they stood at each receipt, so a later `rotate` changes nothing folded. A state is a function of sets, not a token, so two keys on one piece is ordinary.
+`state = reduce(envelopes, blobs, receipts, now)` is CORE.md section 6, one function everywhere. It takes the chain and the blobs because piece hashes depend on rendered briefs. It orders by receipt because the stamp is the one time two clients both hold. It judges relations as they stood at each receipt, so a later `rotate` changes nothing folded. A state is a function of sets, not a token, so two keys on one piece is ordinary.
 
 Extensions refine the states: `challenged` (QX-1 section 7), `judging` (verifiers.md section 3), `recording` and `recorded` (QX-20 section 3). A held challenge sends the piece back to production, so `re_accepted`, which CORE.md section 10 names, is computed by no implementation.
 
@@ -125,7 +123,7 @@ Extensions refine the states: `challenged` (QX-1 section 7), `judging` (verifier
 
 `next(state, key, client, now)` is CORE.md section 7. In-flight and sealed pieces are candidates, since the second production is the point. Rarest first, with a claimant weighted by its accepted reveals over its claims, so a key that claims and never returns stops hiding pieces. Ties go to a hash of piece, key and hour before file position, so keys spread out and a retry gets one answer an hour; with position first, every key would get piece one. Verifies come first when they outnumber the open, so acceptance keeps pace, and in the endgame claims count for nothing, so stragglers get second workers.
 
-**Assisted.** A tracker runs the core's `next` over its layer's fold, leaving out what its extensions keep from the key (`excludedFor`), and holds the piece for that key for a minute, so two clients there are not handed one piece at once. The hold is a courtesy, not a lease: a claim excludes no one, and a collision makes the verify.
+**Assisted.** A tracker runs the core's `next` over its layer's fold, leaving out what its extensions keep from the key (`excludedFor`), and holds the piece a minute for that key, so two clients there are not handed one piece at once: a courtesy, not a lease, since a claim excludes no one and a collision makes the verify.
 
 ## Sealing: commit, then reveal
 
@@ -141,7 +139,7 @@ The site. What it serves is checkable from hashes and signatures; beyond serving
 
 ### Routes
 
-In the order the well-known document lists them, with two it answers unlisted. A `<hash>` is `sha256:` and 64 lower-case hex characters; an address has its EIP-55 checksum. Every path answers `OPTIONS` with `204`, and every answer allows any origin. Another method is `405` under `/p/<hash>` and `/coin`, and `404`, `no such route`, elsewhere, except that any method but `POST` reads a log. A failure inside is `500`.
+In the order the well-known document lists them, with two it answers unlisted. A `<hash>` is `sha256:` and 64 lower-case hex characters; an address has its EIP-55 checksum. Every path answers `OPTIONS` with `204`, and every answer allows any origin. Another method is `405`, `GET`, under `/p/<hash>` and `/coin`, and `404`, `no such route`, elsewhere, except that at `/k/events` and `/coin/events` any method but `POST` reads the log. A failure inside is `500`.
 
 | Route | Methods | What it answers | Refused with |
 | --- | --- | --- | --- |
@@ -150,15 +148,16 @@ In the order the well-known document lists them, with two it answers unlisted. A
 | `/p/<hash>` | GET | The envelope | 404 |
 | `/p/<hash>/events` | GET, POST | The problem's log; a post | 400, 404, 409, 410, 413, 429 |
 | `/p/<hash>/state` | GET | Each piece's layer state, core state, kind and extensions' view | 404 |
-| `/p/<hash>/scrape` | GET | Counts, the work, seeders, the head, topics, `chain_ok` | 404 |
+| `/p/<hash>/scrape` | GET | The problem's summary, `problem`, `title`, `slug`, `owner`, `owner_name`, `from`, `done_when`, `pieces`, `counts`, `kinds`, `work`, `complete`, `output`, `last`, `head`, `versions`, `challenges`, `seeders`, `last_seeded`, `panels` and `hidden`, then `topics` and `chain_ok` | 404 |
 | `/p/<hash>/next` | GET | For `key`, `can`, `model` and `only=verify`: the piece below | 400, 404, 410 |
 | `/p/<hash>/challenges`, `/p/<hash>/panels`, `/p/<hash>/record` | GET | Challenges (QX-1 section 8), panels (verifiers.md section 4), the record (QX-20 section 4) | 404 |
 | `/k/events` | GET, POST | The identity log; a post | 400, 403, 409, 413, 429 |
-| `/k/<address>/standing`, `/k/<address>/work` | GET | A key's standing (QX-15 section 5); its readings (QX-19 section 4) | 400 |
+| `/k/<address>/standing` | GET | The key's root, its standing, locked, free and founding, and its live locks (QX-15 section 5) | 400 |
+| `/k/<address>/work` | GET | The key's root, name and standing, and its latest readings, newest first, each with its state, `verified`, grade (`traced`) and `aside` (QX-19 section 4); `limit` 1 to 50, 20 unless set | 400 |
 | `/b/<hash>` | GET, PUT | A blob; a read put, at most 1 MB, `202 { hash, bytes }` (QX-19 section 2) | 400, 404, 413, 429 |
 | `/n/<owner>/<slug>` | GET | `{ hash }` of the owner's latest version | 404 |
-| `/` | GET | `{ quilt, tracker, problems }`; unlisted | |
-| `/search` | GET | `{ problems }` matching `q`, each as the scrape gives it | |
+| `/` | GET | `{ quilt, tracker, problems }`, each problem its summary and `topics`, without `chain_ok`, hidden and replaced ones left out; unlisted | |
+| `/search` | GET | `{ problems }` whose title, slug, `done_when` or topics hold `q`, each as `/` gives it | |
 | `/offer` | GET | For `key`, `can`, `model`: problems in QX-5 section 2's order | 400 |
 | `/hidden` | GET | Every hide in force (QX-6 section 3) | |
 | `/counts` | GET | The launch funnel by UTC day, `days` 1 to 365 | 400 |
@@ -166,7 +165,7 @@ In the order the well-known document lists them, with two it answers unlisted. A
 | `/coin/lock/<id>`, `/coin/balance/<root>` | GET | A coin lock; a root's balance (QX-17) | 400, 404 |
 | `/coin/epochs`, `/coin/redeems`, `/coin/credits`, `/coin/state` | GET | The epochs; redeem and credit lines; every balance (QX-17) | 400 |
 
-A tracker lists the `/coin` routes only where it carries the coin, and answers `404`, `this tracker carries no coin`, under `/coin` where it does not. A hidden problem is `410` to `next` and to a post, and still served (QX-6 section 3). `packages/tracker/test/routes.test.ts` holds each route's statuses, and `protocol-table.test.ts` holds this table to the list.
+A tracker lists the `/coin` routes only where it carries the coin, and answers `404`, `this tracker carries no coin`, under `/coin` where it does not. A hidden problem is `410` to `next` and to a post, and still served (QX-6 section 3). `packages/tracker/test/routes.test.ts` holds the status each route answers for its methods and for a method it refuses, and the order `handle` tests the paths; `protocol-table.test.ts` holds this table's paths and methods to the list. Neither reads the refusals column.
 
 ### What the door answers
 
@@ -175,7 +174,7 @@ A tracker lists the `/coin` routes only where it carries the coin, and answers `
 - **Limits.** 120 posts an hour from a key and 600 from a network address unless set otherwise, published as `limits`; over is `429`.
 - **Pages.** A log reads as newline-delimited JSON, one line `{ event, received, seq, prev, hash }` a row, oldest first, after the `seq` in `since`, at most 500. Where more follow, `x-quilt-next-since` holds the `seq` to ask from.
 - **The hold.** `next` and `/offer` hold the piece for that key for 60 seconds, released by its reveal or decline.
-- **A signature** is `0x` and 130 lower-case hex characters: `r`, `s`, then `v` as 27 or 28. The reference signs with RFC 6979 and a low `s`. Another form is refused as `event.sig: a signature`, another key's as `signature is not the key's`.
+- **A signature** is `0x` and 130 lower-case hex characters: `r`, `s`, then `v`. The reference writes `v` as 27 or 28, with RFC 6979 and a low `s` (`signMessage` in `packages/core/src/keys.ts`). Any other text is refused as `event.sig: a signature`. The door also recovers a `v` of 0 or 1, and refuses any other `v`, or another key's signature, as `signature is not the key's`.
 
 The page size and the hold are the reference tracker's choices: a reader follows the header and counts on neither.
 
@@ -257,14 +256,14 @@ A brief is an instruction, handed to an AI whose person asked for work: the desi
 
 ## Lineage
 
-Content addressing is git's and IPFS's. Signed events on relays that forge nothing, with state computed by every client, are [Nostr](https://github.com/nostr-protocol/nips)'s, on the same curve; the stamp is NIP-13 and [Hashcash](http://www.hashcash.org/papers/hashcash.pdf), a tracker's lever and not a solution. Rarest first, endgame, tit for tat, the magnet link and the web seed are [BitTorrent](https://www.bittorrent.org/beps/bep_0003.html)'s. Redundant computation with quorum is BOINC's, which wanted *homogeneous* redundancy against floating-point drift; this design wants *heterogeneous* redundancy across vendors, because the failure here is correlated error. The window and the dispute are optimistic rollups' and [Truebit](https://people.cs.uchicago.edu/~teutsch/papers/truebit.pdf)'s, sortition [Kleros](https://kleros.io)'s; commit and reveal is RANDAO's and ENS's; keys authorising keys are Farcaster's and [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004)'s, with [did:pkh](https://github.com/w3c-ccg/did-pkh). The connector is the Model Context Protocol: pasting a link into a chat is 2001's "download the client" with the friction removed.
+Content addressing is git's and IPFS's; signed events on relays that forge nothing are [Nostr](https://github.com/nostr-protocol/nips)'s, on the same curve; the stamp is NIP-13's and [Hashcash](http://www.hashcash.org/papers/hashcash.pdf)'s; rarest first, endgame, the magnet link and the web seed are [BitTorrent](https://www.bittorrent.org/beps/bep_0003.html)'s. Quorum is BOINC's, which wanted *homogeneous* redundancy against floating-point drift; this design wants *heterogeneous* redundancy, because its failure is correlated error. The window is optimistic rollups' and [Truebit](https://people.cs.uchicago.edu/~teutsch/papers/truebit.pdf)'s, sortition [Kleros](https://kleros.io)'s, commit and reveal RANDAO's, and keys authorising keys Farcaster's and [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004)'s. The connector is the Model Context Protocol: pasting a link into a chat is 2001's "download the client" with the friction removed.
 
 New, as far as the authors know: the verifier where the piece hash stood; the piece named by its brief, schema and verifier, so a return carries across versions; agreed fields and evidence, agreed across vendors; and the chat connector as the client. These are an assembly, and a primitive only if others pick it up.
 
 ## What is deliberately not here
 
 - A DHT, and content-addressed storage beyond the mirror.
-- A chain inside the protocol. The reducer reads none, and a worker never needs a wallet. The coin, refused on 24 Oct 2026 and re-argued on 26 Oct, is a layer over the ledger and a stake at the door ([COIN.md](COIN.md)), redeemed on Ethereum by one door, by choice.
+- A chain inside the protocol. The reducer reads none, and a worker never needs a wallet. The coin, re-argued on 26 October 2026 ([COIN.md](COIN.md)), is a layer over the ledger and a stake at the door, redeemed on Ethereum through one door.
 - Reputation from anywhere but this ledger.
 - A solution to costless roots.
 - A vote, a venue, or a resident orchestrator.
@@ -274,7 +273,7 @@ New, as far as the authors know: the verifier where the piece hash stood; the pi
 - **Roots are free, so agreement is cheap.** Evidence, vendors, sortition, the stake and admission bound it; nothing here removes it.
 - **Correlated error.** A dishonest pair lies about its vendors in writing, and is not stopped.
 - **Panel grinding.** Another draw costs another challenge and stake, but the resolver's stamp takes part in the seed; the mirror commit is the slower answer.
-- **Eventual consistency and time.** A client on a mirror may duplicate work, absorbed as the verify; there is no trusted clock, and a late event can move a provisional state.
+- **Eventual consistency and time.** A client on a mirror may duplicate work, absorbed as the verify, and no clock is trusted (Time, above).
 - **Custodial roots and seats.** The site could sign as a member who has not taken the key home, and whether a person sat at a seat is its word; the receipt says both.
 - **A signing key that is also a money key** raises the cost of losing it.
 - **Censorship and curation are per tracker**, and a harmful problem file is hard to erase everywhere, as a torrent is.
