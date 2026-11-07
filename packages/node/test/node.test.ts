@@ -11,7 +11,8 @@ import { freePort, hex, json, lines, pattern, readerOver, tempHome } from './hel
  * publishes through its own door and serves the same lines from its page, since the door's store is the store the
  * node keeps in and serves from; a second node with admit and keep, naming the first as its peer, takes the problem
  * by its envelope and folds the first's readings through its own door (QX-21); a node with work alone has no door and
- * keeps what it opens in its own store; host is a role beside admit, and a role that is not one is refused at start.
+ * keeps what it opens in its own store; host is a role beside admit with a key secret, and a role that is not one is
+ * refused at start.
  */
 let a: Node, b: Node, c: Node;
 let urlA: string, urlB: string, pageA: number, pageC: number;
@@ -113,11 +114,17 @@ describe('one node with roles (WORKSHOP.md section 2, stage three)', () => {
     expect(c.store.held().problems).toBe(1);
     expect(await lines(`http://127.0.0.1:${pageC}/p/${problem}/events`)).toEqual(await lines(`${urlA}p/${problem}/events`));
   });
-  it('host is a role beside admit, and a word that is not a role is refused at start', async () => {
+  it('host is a role beside admit with its key secret, and a word that is not a role is refused at start', async () => {
     await expect(start({ home: tempHome('quilt-node-x-'), roles: ['host'], loops: false })).rejects.toThrow('host is a role beside admit');
     await expect(start({ home: tempHome('quilt-node-y-'), roles: ['admit'], loops: false })).rejects.toThrow('admit needs a door');
     await expect(start({ home: tempHome('quilt-node-z-'), roles: ['mirror' as 'keep'], loops: false })).rejects.toThrow('mirror is not a role');
     const port = await freePort();
+    // Host without its key secret is refused before the store opens or the door listens, given no options or an empty secret.
+    for (const host of [undefined, { keySecret: '' }]) {
+      const home = tempHome('quilt-node-s-');
+      await expect(start({ home, roles: ['admit', 'host'], door: { port, url: `http://127.0.0.1:${port}/`, limits }, ...(host ? { host } : {}), loops: false })).rejects.toThrow('host needs a key secret: the keys a node holds are encrypted with it');
+      expect(existsSync(join(home, 'node.db'))).toBe(false);
+    }
     const h = await start({ home: tempHome('quilt-node-h-'), roles: ['admit', 'host'], door: { port, url: `http://127.0.0.1:${port}/`, limits }, host: { keySecret: 'test-secret' }, loops: false });
     try {
       expect(h.hosted).not.toBeNull();
