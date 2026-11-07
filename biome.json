@@ -12,6 +12,7 @@
       "scripts/*.ts",
       "examples/*.mjs",
       "examples/*.d.mts",
+      "scripts/*.d.mts",
       "vitest.config.ts",
       "!packages/client/src/window.generated.ts",
       "!packages/core/fixtures"
