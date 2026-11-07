@@ -22,7 +22,8 @@ import {
   lastPosted,
   redeem,
 } from '../src/chain.js';
-import { type Hex, leaf, proof } from '../src/merkle.js';
+import * as merkle from '../src/merkle.js';
+import type { Hex } from '../src/merkle.js';
 import { post } from '../src/post.js';
 import { read } from '../src/read.js';
 
@@ -161,13 +162,13 @@ describe.skipIf(!forge || !anvil)('the door out over anvil', () => {
     expect(again.posted).toBe(false);
     expect(await lastPosted(chain)).toBe(5);
 
-    const leaves = redeems.map((r) => leaf(`0x${r.id}`, r.to, r.amount));
+    const leaves = redeems.map((r) => merkle.leaf(`0x${r.id}`, r.to, r.amount));
     const line = {
       seq: 5,
       id: `0x${redeems[0]!.id}` as Hex,
       to: DEPLOYER,
       amount: 1_250_000n,
-      proof: proof(leaves, leaves[0]!),
+      proof: merkle.proof(leaves, leaves[0]!),
     };
     expect(line.proof).toHaveLength(1);
     expect(await isFinal(chain, 5)).toBe(false);

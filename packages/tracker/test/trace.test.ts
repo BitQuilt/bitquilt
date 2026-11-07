@@ -307,9 +307,9 @@ describe('seams', () => {
 describe('a seam decides itself (section 4)', () => {
   let pa: Hash;
   const ps: Record<string, Hash> = {};
-  type Layered = PieceState & { core: string; aside: Address[] };
+  type StatePiece = PieceState & { core: string; aside: Address[] };
   const stateOf = async (problem: Hash, piece: Hash) =>
-    ((await get(`/p/${problem}/state`)) as { pieces: Layered[] }).pieces.find((x) => x.hash === piece)!;
+    ((await get(`/p/${problem}/state`)) as { pieces: StatePiece[] }).pieces.find((x) => x.hash === piece)!;
   async function returnedOn(problem: Hash, piece: Hash, k: Uint8Array, model: string, verdict: string): Promise<Hash> {
     const ret = { verdict, quote: `as ${addr(k).slice(0, 6)} read it, ${verdict}` };
     const nonce = newNonce();

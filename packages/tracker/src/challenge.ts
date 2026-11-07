@@ -110,11 +110,12 @@ import { drawOrder, offerSeats } from './sortition.js';
 
 export { rootFor, acceptingRoots, creditedRoots };
 export type { CoinLockWord };
-export const EXTENSION = 'QX-1';
+export const CHALLENGE = 'QX-1';
 export const PANEL = 3;
 export const MAJORITY = 2;
 export const GROUND_MAX = 200;
-export const SEED = 'challenge-receipt';
+/** The seed a challenge panel is drawn from, named for the well-known document: the receipt line of the challenge. */
+export const CHALLENGE_SEED = 'challenge-receipt';
 export const SIDES = ['challenger', 'author'] as const;
 export type Side = (typeof SIDES)[number];
 export type Outcome = 'open' | 'held' | 'failed' | 'void';
@@ -209,6 +210,7 @@ export interface ProblemLayer {
   receipts: Receipt[];
 }
 
+/** A layer's answer before the door admits an event: yes, or no with the sentence that says why. */
 export type Admission = { ok: true } | { ok: false; why: string };
 
 export interface Layer {
@@ -375,13 +377,13 @@ function poolFor(
 
 /** The verifier kinds decided over an entry's base fold, with the pool as the credits stand. */
 function refold(f: Folding, e: ProblemEntry): void {
-  e.layered = applyVerifiers(
+  e.decided = applyVerifiers(
     e.base,
     e.input.receipts.filter((x) => !e.struck.has(eventId(x.event))),
     f.now,
     { pool: (problem, at, unrelatedTo, fold) => judgePool(f, problem, at, unrelatedTo, fold) },
   );
-  e.fold = e.layered.fold;
+  e.fold = e.decided.fold;
 }
 
 /** Reduces an entry again without its struck events and decides the kinds again over what remains. */
@@ -729,14 +731,14 @@ export function challengeLayer(input: {
   for (const p of input.problems) {
     const core = reduce(p);
     if (f.entries.has(core.problem)) continue;
-    const layered = applyVerifiers(core, p.receipts, now, { pool: () => [] });
+    const decided = applyVerifiers(core, p.receipts, now, { pool: () => [] });
     f.entries.set(core.problem, {
       hash: core.problem,
       input: p,
       core,
       base: core,
-      fold: layered.fold,
-      layered,
+      fold: decided.fold,
+      decided,
       struck: new Set(),
       aside: new Set(),
       challenges: [],
@@ -755,7 +757,7 @@ export function challengeLayer(input: {
     const next = [...f.entries.values()]
       .map(
         (e) =>
-          `${e.fold.pieces.map((v) => v.state).join(',')}|${e.layered.panels.map((p) => `${p.piece}:${p.outcome}:${p.seats.map((s) => s.root).join('.')}`).join(';')}`,
+          `${e.fold.pieces.map((v) => v.state).join(',')}|${e.decided.panels.map((p) => `${p.piece}:${p.outcome}:${p.seats.map((s) => s.root).join('.')}`).join(';')}`,
       )
       .join('/');
     if (next === fingerprint || pass === 3) break;
@@ -824,11 +826,11 @@ export function challengeLayer(input: {
       const own = e.challenges.filter((c) => c.piece === v.piece.hash);
       const last = own.length ? own[own.length - 1]! : null;
       const core = e.core.byHash.get(v.piece.hash)?.state ?? v.state;
-      const record = e.layered.records.get(v.piece.hash) ?? null;
+      const record = e.decided.records.get(v.piece.hash) ?? null;
       // QX-20: a record piece some readings stand on is held under needs_verify in the fold, so the core's `next` offers it; here it says recording.
       const state: LayerState =
         last?.outcome === 'open' ? 'challenged' : record && v.state === 'needs_verify' ? 'recording' : v.state;
-      const kind = e.layered.kinds.get(v.piece.hash)!;
+      const kind = e.decided.kinds.get(v.piece.hash)!;
       const commitment = goldOn(e, v.piece.hash);
       const gold = commitment ? (outcomeOf(e, commitment, now) as GoldState) : null;
       return {
@@ -839,7 +841,7 @@ export function challengeLayer(input: {
         challenge: last,
         kind,
         attested: viaOf(v.accepting) === 'attest',
-        panel: e.layered.byPiece.get(v.piece.hash) ?? null,
+        panel: e.decided.byPiece.get(v.piece.hash) ?? null,
         stake: stakeAsked(ruleAt(e, now), v.piece),
         gold,
         verified: gold === 'match',
@@ -855,9 +857,9 @@ export function challengeLayer(input: {
       pieces,
       byHash: new Map(pieces.map((p) => [p.hash, p])),
       challenges: e.challenges,
-      panels: e.layered.panels,
-      unoffered: e.layered.unoffered,
-      dropped: [...e.dropped, ...e.layered.dropped],
+      panels: e.decided.panels,
+      unoffered: e.decided.unoffered,
+      dropped: [...e.dropped, ...e.decided.dropped],
       stake: rule ? { min: rule.min, pieces: rule.pieces } : null,
       locks: f.locks.filter((l) => l.problem === e.hash),
       golds: e.golds,
@@ -906,12 +908,12 @@ export function challengeLayer(input: {
     if (!home.fold.byHash.has(piece)) return { ok: false, why: 'names a piece this problem does not have' };
     const shape = rankBodyProblems(body);
     if (shape.length) return { ok: false, why: shape[0]! };
-    const panel = home.layered.byPiece.get(piece);
+    const panel = home.decided.byPiece.get(piece);
     if (!panel)
       return {
         ok: false,
         why:
-          home.layered.kinds.get(piece)?.kind === 'judge'
+          home.decided.kinds.get(piece)?.kind === 'judge'
             ? 'the candidates for this piece are not in yet'
             : 'no panel sits on this piece',
       };

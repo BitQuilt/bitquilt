@@ -114,7 +114,7 @@ export interface Published {
 }
 
 /** A problem as a search finds it (APP.md, Search): a tracker's row with the work on it, or a relay's announce (QX-13), and every place that had it. */
-export interface Found {
+export interface SearchResult {
   problem: Hash;
   title: string;
   slug: string;
@@ -519,7 +519,7 @@ export class Quilt {
    * that had it. A fork (CORE.md section 2, `from`) sits under the problem it forks when that is in the answer, the
    * problem first and its forks by the work on each; the groups come in the order of their latest reading.
    */
-  async search(query: string): Promise<Found[]> {
+  async search(query: string): Promise<SearchResult[]> {
     type Row = {
       problem: Hash;
       title: string;
@@ -533,7 +533,7 @@ export class Quilt {
       work?: AnnouncedWork | null;
       topics: string[];
     };
-    const out = new Map<string, Found>();
+    const out = new Map<string, SearchResult>();
     const answers = await inParallel(this.config.trackers, 4, (t) =>
       this.ask<{ problems: Row[] }>(`${t}search?q=${encodeURIComponent(query)}`),
     );
@@ -599,7 +599,7 @@ export class Quilt {
       for (let i = 0; i < 8 && root.from && out.has(root.from); i += 1) root = out.get(root.from)!;
       f.root = root.problem;
     }
-    const weight = (f: Found): number =>
+    const weight = (f: SearchResult): number =>
       f.work ? f.work.verified * 1_000_000 + f.work.accepted * 1_000 + f.work.returned : 0;
     const latest = new Map<Hash, string>();
     for (const f of out.values()) {

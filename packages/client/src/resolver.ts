@@ -104,7 +104,7 @@ export interface Library {
 const EMPTY_LIBRARY = (): Library => ({ problems: {}, pieces: {}, seeding: {} });
 
 /** What the keeper's loop did (WORKSHOP.md section 2, stage one): the problems held, the lines added to their chains and the identity log, the reads fetched, the events sent from the queue, and the chains refused for not only growing. */
-export interface Kept {
+export interface KeepReport {
   problems: number;
   added: number;
   reads: number;
@@ -404,10 +404,10 @@ export class Resolver {
    * events written while no tracker answered (APP.md, the node). The page runs it every half hour and the owner's turn
    * once an hour; `quilt keep` runs it once.
    */
-  async keep(): Promise<Kept> {
+  async keep(): Promise<KeepReport> {
     // APP.md, the node: an event written while no tracker answered waits in the queue and goes out when one does. This loop is when, since it runs wherever a node is up; the queue goes first, so what the home wrote is out before it pulls.
     const { sent } = await this.flush();
-    const out: Kept = { problems: 0, added: 0, reads: 0, sent, refused: [] };
+    const out: KeepReport = { problems: 0, added: 0, reads: 0, sent, refused: [] };
     const note = (line: string) => out.refused.push(line);
     const everywhere = new Set<string>();
     for (const held of this.heldProblems()) {

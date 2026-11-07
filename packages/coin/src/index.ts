@@ -44,7 +44,8 @@ export {
 } from './chain.js';
 
 // The tree over the redeem lines, as Anchors holds its root and Quilt checks a proof against it.
-export { leaf, pair, proof, root, verify, type Hex } from './merkle.js';
+export * as merkle from './merkle.js';
+export type { Hex } from './merkle.js';
 
 // For a deployment script and the anvil test, kept here because viem is imported in chain.ts alone.
 export { deploy, bond, balanceOf, ANCHORS_ABI, QUILT_ABI, type Abi } from './chain.js';

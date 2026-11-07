@@ -593,12 +593,12 @@ export function panelsText(list: PanelListing[], state: State): string {
 }
 
 /** What a problem's accepted squares found: for each agreed field whose schema is a list of choices, how many accepted squares agreed on each choice. */
-export type Found = Record<string, Record<string, number>>;
+export type FoundCounts = Record<string, Record<string, number>>;
 
 /** The same count the tracker's row carries, from the fold this client reduced and the layer's states where a tracker answered. */
-export function foundIn(state: State, layer: LayerPiece[] | null): Found {
+export function foundIn(state: State, layer: LayerPiece[] | null): FoundCounts {
   const byHash = new Map((layer ?? []).map((l) => [l.hash, l.state as string]));
-  const out: Found = {};
+  const out: FoundCounts = {};
   for (const v of state.pieces) {
     const s = byHash.get(v.piece.hash) ?? v.state;
     if ((s !== 'accepted' && s !== 'accepted_provisional') || v.accepting?.kind !== 'agree') continue;
@@ -618,7 +618,7 @@ export function foundIn(state: State, layer: LayerPiece[] | null): Found {
  * and each with its count, most first. A count, and nothing about chance; empty where nothing is found, and a choice
  * or a field that fails the plain-text gate is left out.
  */
-export function foundText(found: Found | null | undefined): string {
+export function foundText(found: FoundCounts | null | undefined): string {
   if (!found || typeof found !== 'object') return '';
   const parts = Object.entries(found).flatMap(([field, by]) => {
     if (textIssues(field).length || !by || typeof by !== 'object') return [];

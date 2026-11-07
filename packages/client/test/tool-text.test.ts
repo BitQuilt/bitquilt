@@ -42,7 +42,7 @@ import type {
   Takedown,
   Witness,
 } from '../src/listings.js';
-import { type Found, type Pattern, Quilt } from '../src/quilt.js';
+import { type Pattern, type SearchResult, Quilt } from '../src/quilt.js';
 import { kindWords, witnessKey } from '../src/render.js';
 import { Resolver } from '../src/resolver.js';
 import { runTool } from '../src/tools.js';
@@ -1372,7 +1372,7 @@ describe('quilt_me', () => {
   });
 });
 
-const row = (over: Partial<Found>): Found => ({
+const row = (over: Partial<SearchResult>): SearchResult => ({
   problem: A64,
   title: 'T',
   slug: 's',

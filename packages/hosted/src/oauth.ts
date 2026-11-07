@@ -97,11 +97,14 @@ export interface OAuthOptions {
   memberOf: (presented: string) => string | null;
 }
 
-/** What the bearer on a request is: none, one refused with the reason, or a grant with the member and the witness. */
+/**
+ * What the bearer on a request is: none, one refused with the reason, or a grant with the member (the hash of its
+ * address's token, which the store keys members by) and the witness.
+ */
 export type Bearer =
   | { kind: 'none' }
   | { kind: 'refused'; why: string }
-  | { kind: 'granted'; tokenHash: string; grant: GrantRow; witness: Witness };
+  | { kind: 'granted'; member: string; grant: GrantRow; witness: Witness };
 
 export interface OAuthServer {
   /** The connector's address under this server: what the resource metadata names and a token is issued for. */
@@ -808,7 +811,7 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
     const by = grant.viaBy === 'address' || grant.viaBy === 'key' ? grant.viaBy : null;
     return {
       kind: 'granted',
-      tokenHash: grant.tokenHash,
+      member: grant.tokenHash,
       grant,
       witness: { via: grant.via, client: grant.clientName, by },
     };

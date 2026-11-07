@@ -526,7 +526,7 @@ export function createHosted(options: HostedOptions): Hosted {
     if (path === '/mcp' && oauth) {
       const b = oauth.bearer(req);
       if (b.kind !== 'granted') oauth.challenge(res, b.kind === 'refused' ? b.why : undefined);
-      else await mcp(req, res, { member: b.tokenHash, witness: b.witness });
+      else await mcp(req, res, { member: b.member, witness: b.witness });
       return true;
     }
     // The page of one square (square-page.ts): public and read-only, built here with no script, under the reader's hourly limit.
@@ -580,7 +580,7 @@ export function createHosted(options: HostedOptions): Hosted {
           oauth.challenge(res, b.why);
           return true;
         }
-        if (b.kind === 'granted') member = { hash: b.tokenHash, witness: b.witness };
+        if (b.kind === 'granted') member = { hash: b.member, witness: b.witness };
       }
       if (!member && !(WINDOW_READ_OPS as readonly string[]).includes(op)) {
         if (oauth) oauth.challenge(res);
@@ -680,7 +680,7 @@ export function createHosted(options: HostedOptions): Hosted {
       }
       // The bare address is its own credential, as it always was, so a header this server did not issue changes nothing; a token it did is for this address, and brings its witness.
       const b = oauth?.bearer(req) ?? { kind: 'none' as const };
-      if (b.kind === 'granted' && b.tokenHash !== tokenHash(token)) {
+      if (b.kind === 'granted' && b.member !== tokenHash(token)) {
         json(res, 403, { error: 'that token is for another address' });
         return true;
       }

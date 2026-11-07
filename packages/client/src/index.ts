@@ -7,7 +7,7 @@ export {
   Resolver,
   askJson,
   KEEP_EVERY_MS,
-  type Kept,
+  type KeepReport,
   type Library,
   type Posted,
   type PostHeaders,

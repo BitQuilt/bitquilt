@@ -124,7 +124,8 @@ export interface PanelView {
 /** The layer's accepting set: the core's agree shape, one or two reveals, and the kind it came by. */
 export type ExtAccepting = { kind: 'agree'; via: Via; reveals: Reveal[]; completedAt: string };
 
-export interface Layered {
+/** What `applyVerifiers` gives: the verifier kinds decided over a core fold, and the fold they make. */
+export interface KindsDecided {
   /** The core's fold with these kinds decided: the pieces cloned, their states this layer's; `complete` recomputed; `output` the core's. */
   fold: State;
   panels: PanelView[];
@@ -337,7 +338,7 @@ interface Context {
  * one the core locked behind a piece of these kinds, and `complete` recomputed. `options.pool` is the caller's credits,
  * from which a judge panel is drawn.
  */
-export function applyVerifiers(core: State, receipts: Receipt[], now: string, options: VerifierOptions): Layered {
+export function applyVerifiers(core: State, receipts: Receipt[], now: string, options: VerifierOptions): KindsDecided {
   const owner = core.envelope.problem.owner as Address;
   const windowH = windowOf(core);
 
@@ -364,7 +365,7 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
   const byPiece = new Map<Hash, PanelView>();
   const kinds = new Map<Hash, KindInfo>();
   const unoffered = new Set<Hash>();
-  const dropped: Layered['dropped'] = [];
+  const dropped: KindsDecided['dropped'] = [];
   const records = new Map<Hash, RecordView>();
   /** The reveals that count on a human piece: from a person's seat, unrelated to the owner. */
   const counted = new Map<Hash, Reveal[]>();
