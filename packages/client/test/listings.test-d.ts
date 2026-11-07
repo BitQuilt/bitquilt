@@ -9,16 +9,17 @@
  * here runs: the name ends in .test-d.ts, which vitest leaves out and the client's tsconfig takes in.
  */
 import type { Address, Hash } from '@bitquilt/core';
-import type {
-  Hidden, LayerState as TrackerLayerState, PieceTraces, ProblemLayer, RecordGrade as TrackerRecordGrade,
-  Seam as TrackerSeam, SeamSide as TrackerSeamSide, SeedInfo, Side as TrackerSide,
+import {
+  type Hidden, type LayerState as TrackerLayerState, type PieceTraces, type ProblemLayer, type RecordGrade as TrackerRecordGrade,
+  type Seam as TrackerSeam, type SeamSide as TrackerSeamSide, type SeedInfo, type Side as TrackerSide, windowOpen,
 } from '@bitquilt/tracker';
 import type { ChallengeListing, GoldCount, LayerPiece, LayerState, PanelListing, RecordGrade, Scrape, Seam, SeamSide, Side, Takedown } from '../src/listings.js';
 
-// What the routes read: the problem's layer, the takedowns by problem, the problem's seeding, its traces by piece, and
-// the name a root chose as the fold has it (nameIn in tracker.ts).
+// What the routes read: the problem's layer, the tracker's now, the takedowns by problem, the problem's seeding, its
+// traces by piece, and the name a root chose as the fold has it (nameIn in tracker.ts).
 const hash = {} as Hash;
 const pl = {} as ProblemLayer;
+const at = {} as string;
 const hidden = {} as Map<string, Hidden>;
 const seed = {} as SeedInfo;
 const traced = {} as Map<Hash, PieceTraces>;
@@ -38,14 +39,15 @@ const takedown: Takedown | null = hidden.get(hash) ?? null;
 const scrape: Scrape = { hidden: hidden.get(hash) ?? null, seeders: seed.seeders.size, last_seeded: seed.last_seeded };
 
 // The pieces of `/p/<hash>/state`, as the route builds them: the name, hash and verifier from the fold's piece view,
-// the state and the kind's words from the layer's piece, the grade and the seams from the traces.
+// the state and the kind's words from the layer's piece, the window from the gold's rule at now (QX-16), the grade and
+// the seams from the traces.
 const pieces: LayerPiece[] = pl.fold.pieces.map((v) => {
   const l = pl.byHash.get(v.piece.hash)!;
   const t = traced.get(v.piece.hash)!;
   return {
     name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l.state, core: l.core, challenge: l.challenge?.id ?? null,
     kind: l.kind.kind, extension: l.kind.extension, strength: l.kind.strength, says: l.kind.says, weakest: l.kind.weakest, attested: l.attested, panel: l.panel?.outcome ?? null,
-    stake: l.stake, gold: l.gold, verified: l.verified, traces: t.traces.length, traced: t.traced, seams: t.seams, aside: l.aside, record: t.record,
+    stake: l.stake, gold: l.gold, verified: l.verified, window_open: windowOpen(v, at), traces: t.traces.length, traced: t.traced, seams: t.seams, aside: l.aside, record: t.record,
   };
 });
 
