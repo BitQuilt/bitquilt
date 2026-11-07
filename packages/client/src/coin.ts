@@ -41,7 +41,19 @@ export async function coinBalance(door: Door, home: string): Promise<CoinBalance
   const address = door.identity?.address;
   if (!address) return null;
   const j = await door.ask<Omit<CoinBalance, 'home'>>(`${home}coin/balance/${address}`);
-  return j && { home, balance: j.balance, vested: j.vested, unvested: j.unvested, locked: j.locked, escrowed: j.escrowed, free: j.free, free_vested: j.free_vested, ...(j.pending ? { pending: j.pending } : {}) };
+  return (
+    j && {
+      home,
+      balance: j.balance,
+      vested: j.vested,
+      unvested: j.unvested,
+      locked: j.locked,
+      escrowed: j.escrowed,
+      free: j.free,
+      free_vested: j.free_vested,
+      ...(j.pending ? { pending: j.pending } : {}),
+    }
+  );
 }
 
 /** This key's coin at the first of this client's trackers that carries one, or null. */
@@ -51,11 +63,31 @@ export async function balance(door: Door): Promise<CoinBalance | null> {
 }
 
 /** A pay to a problem: coin escrowed on the coin log of the problem's home, paid per square to the roots of each set accepted after it, the rest back to this key when the problem completes. */
-export async function pay(door: Door, problem: Hash, amount: number, perSquare: number): Promise<Posted & { id: Hash; home: string }> {
-  if (!Number.isInteger(amount) || amount < 1 || !Number.isInteger(perSquare) || perSquare < 1) throw new Error('a pay is a whole amount and a whole price per square, each at least 1');
-  const home = await door.firstAnswer(door.trackersFor(problem), async (t) => (await coinAt(door, t))?.coinHome ?? null);
+export async function pay(
+  door: Door,
+  problem: Hash,
+  amount: number,
+  perSquare: number,
+): Promise<Posted & { id: Hash; home: string }> {
+  if (!Number.isInteger(amount) || amount < 1 || !Number.isInteger(perSquare) || perSquare < 1)
+    throw new Error('a pay is a whole amount and a whole price per square, each at least 1');
+  const home = await door.firstAnswer(
+    door.trackersFor(problem),
+    async (t) => (await coinAt(door, t))?.coinHome ?? null,
+  );
   if (!home) throw new Error('no tracker this client knows for that problem carries the coin');
-  const { event, posted } = await door.postSigned({ quilt: 1, type: 'pay', key: door.needKey().address, ts: door.stamp(), body: { problem, amount, per_square: perSquare } }, 'coin', [home], 'pay');
+  const { event, posted } = await door.postSigned(
+    {
+      quilt: 1,
+      type: 'pay',
+      key: door.needKey().address,
+      ts: door.stamp(),
+      body: { problem, amount, per_square: perSquare },
+    },
+    'coin',
+    [home],
+    'pay',
+  );
   return { id: eventId(event), ...posted, home };
 }
 
@@ -68,7 +100,12 @@ export async function transfer(door: Door, to: Address, amount: number): Promise
   if (!Number.isInteger(amount) || amount < 1) throw new Error('a transfer is a whole number of units, at least 1');
   const home = await coinHome(door);
   if (!home) throw new Error('no tracker this client knows carries the coin');
-  const { event, posted } = await door.postSigned({ quilt: 1, type: 'transfer', key: door.needKey().address, ts: door.stamp(), body: { to, amount } }, 'coin', [home], 'transfer');
+  const { event, posted } = await door.postSigned(
+    { quilt: 1, type: 'transfer', key: door.needKey().address, ts: door.stamp(), body: { to, amount } },
+    'coin',
+    [home],
+    'transfer',
+  );
   return { id: eventId(event), ...posted, home };
 }
 
@@ -82,6 +119,17 @@ export async function redeem(door: Door, amount: number, to?: Address): Promise<
   if (!Number.isInteger(amount) || amount < 1) throw new Error('a redeem is a whole number of units, at least 1');
   const home = await coinHome(door);
   if (!home) throw new Error('no tracker this client knows carries the coin');
-  const { event, posted } = await door.postSigned({ quilt: 1, type: 'redeem', key: door.needKey().address, ts: door.stamp(), body: { amount, ...(to ? { to } : {}) } }, 'coin', [home], 'redeem');
+  const { event, posted } = await door.postSigned(
+    {
+      quilt: 1,
+      type: 'redeem',
+      key: door.needKey().address,
+      ts: door.stamp(),
+      body: { amount, ...(to ? { to } : {}) },
+    },
+    'coin',
+    [home],
+    'redeem',
+  );
   return { id: eventId(event), ...posted, home };
 }

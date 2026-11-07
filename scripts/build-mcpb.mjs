@@ -21,7 +21,27 @@ const bundle = join(out, 'quilt.mcpb');
 // them (packages/client/src/mcp.ts), which is the order a host lists them in; the test holds the two to one order. The
 // key is not a setting: it stays where quilt keeps it, under QUILT_HOME (~/.config/quilt unless that is set), so the
 // key made by quilt init is the one the extension signs with.
-const tools = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_window', 'quilt_window_io', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_pay', 'quilt_transfer', 'quilt_redeem', 'quilt_reveal_gold', 'quilt_name'];
+const tools = [
+  'quilt_me',
+  'quilt_open',
+  'quilt_search',
+  'quilt_window',
+  'quilt_window_io',
+  'quilt_next',
+  'quilt_return',
+  'quilt_decline',
+  'quilt_read',
+  'quilt_rank',
+  'quilt_challenge',
+  'quilt_verdict',
+  'quilt_seed',
+  'quilt_publish',
+  'quilt_pay',
+  'quilt_transfer',
+  'quilt_redeem',
+  'quilt_reveal_gold',
+  'quilt_name',
+];
 // The prompts are the phrases (packages/client/src/phrases.ts), one each, their text with the arguments in braces; the test
 // checks each against what the server says with those words filled in.
 const prompts = [
@@ -32,15 +52,42 @@ const prompts = [
   { name: 'open_problem', arguments: ['link'], text: 'Open {link} on Quilt and tell me what it asks.' },
   { name: 'take_piece', arguments: ['link'], text: 'Open {link} on Quilt and take a piece.' },
   { name: 'keep_problem', arguments: ['link'], text: 'Keep {link} on Quilt: seed it, so its pieces come to me first.' },
-  { name: 'give_verdict', arguments: ['link'], text: 'Open {link} on Quilt and give my verdict on the challenge I was drawn to judge.' },
-  { name: 'rank_panel', arguments: ['link'], text: 'Open {link} on Quilt and rank the candidates of the panel I sit on.' },
-  { name: 'my_disputed_return', arguments: ['link'], text: 'Open {link} on Quilt and show me the return of mine that is disputed.' },
-  { name: 'piece_for_a_person', arguments: ['link'], text: 'Open {link} on Quilt and tell me which piece wants a person, so I can hand it in myself at the page.' },
-  { name: 'reveal_my_gold', arguments: ['link'], text: 'Open {link} on Quilt and reveal my gold on every piece of it that has been accepted.' },
+  {
+    name: 'give_verdict',
+    arguments: ['link'],
+    text: 'Open {link} on Quilt and give my verdict on the challenge I was drawn to judge.',
+  },
+  {
+    name: 'rank_panel',
+    arguments: ['link'],
+    text: 'Open {link} on Quilt and rank the candidates of the panel I sit on.',
+  },
+  {
+    name: 'my_disputed_return',
+    arguments: ['link'],
+    text: 'Open {link} on Quilt and show me the return of mine that is disputed.',
+  },
+  {
+    name: 'piece_for_a_person',
+    arguments: ['link'],
+    text: 'Open {link} on Quilt and tell me which piece wants a person, so I can hand it in myself at the page.',
+  },
+  {
+    name: 'reveal_my_gold',
+    arguments: ['link'],
+    text: 'Open {link} on Quilt and reveal my gold on every piece of it that has been accepted.',
+  },
   { name: 'call_me', arguments: ['name'], text: 'Call me {name} on Quilt.' },
-  { name: 'turn_into_problem', text: 'Turn what we have been discussing into a problem on Quilt: draft the pattern, show it to me, and publish it when I say so.' },
+  {
+    name: 'turn_into_problem',
+    text: 'Turn what we have been discussing into a problem on Quilt: draft the pattern, show it to me, and publish it when I say so.',
+  },
   { name: 'publish_pattern', arguments: ['path'], text: 'Publish the pattern at {path} on Quilt.' },
-  { name: 'pay_workers', arguments: ['link', 'amount', 'per_square'], text: 'Pay the workers of {link} on Quilt: escrow {amount} coin, {per_square} a square.' },
+  {
+    name: 'pay_workers',
+    arguments: ['link', 'amount', 'per_square'],
+    text: 'Pay the workers of {link} on Quilt: escrow {amount} coin, {per_square} a square.',
+  },
   { name: 'transfer_coin', arguments: ['to', 'amount'], text: 'Transfer {amount} of my Quilt coin to {to}.' },
   { name: 'redeem_coin', arguments: ['amount'], text: 'Redeem {amount} of my Quilt coin to the chain.' },
 ];
@@ -49,9 +96,10 @@ const manifest = {
   name: 'quilt',
   display_name: 'Quilt',
   version,
-  description: "A client of BitQuilt: problems published as patterns of pieces, worked by many people's AIs, each return signed.",
+  description:
+    "A client of BitQuilt: problems published as patterns of pieces, worked by many people's AIs, each return signed.",
   long_description:
-    'Quilt is the MCP server your AI connects to, with a page on localhost. Its tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, challenge an acceptance or give a verdict on one, rank the candidates of a judge piece where your key sits on its panel, keep a problem as a seeder, publish a pattern, reveal the gold you committed on a piece of your own problem, and pay a problem\'s workers in coin where a tracker carries it; where the chat shows MCP apps, a directory window comes up beside a search. Claude asks you before anything is written. The key the returns are signed with lives in your own config folder (~/.config/quilt, or QUILT_HOME), made the first time your AI signs; its twelve words wait on Quilt\'s page at http://localhost:3978/ to be written down once. The trackers it asks are a setting here. Asked how Quilt works, your AI explains it: the connector carries the account in plain words.',
+    "Quilt is the MCP server your AI connects to, with a page on localhost. Its tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, challenge an acceptance or give a verdict on one, rank the candidates of a judge piece where your key sits on its panel, keep a problem as a seeder, publish a pattern, reveal the gold you committed on a piece of your own problem, and pay a problem's workers in coin where a tracker carries it; where the chat shows MCP apps, a directory window comes up beside a search. Claude asks you before anything is written. The key the returns are signed with lives in your own config folder (~/.config/quilt, or QUILT_HOME), made the first time your AI signs; its twelve words wait on Quilt's page at http://localhost:3978/ to be written down once. The trackers it asks are a setting here. Asked how Quilt works, your AI explains it: the connector carries the account in plain words.",
   author: { name: 'BitQuilt', url: 'https://bitquilt.org/' },
   homepage: 'https://bitquilt.org/',
   license: 'Apache-2.0',
@@ -107,7 +155,10 @@ copyFileSync(join(root, 'packages', 'client', 'page', 'index.html'), join(stage,
 copyFileSync(join(root, 'LICENSE'), join(stage, 'LICENSE'));
 // The nearest package.json decides how Node reads a .js file: this one says CommonJS, so the bundle runs the same
 // wherever the app unpacks it, under a folder that declares ES modules included.
-writeFileSync(join(stage, 'package.json'), JSON.stringify({ name: 'quilt', version, private: true, license: 'Apache-2.0', type: 'commonjs' }, null, 2) + '\n');
+writeFileSync(
+  join(stage, 'package.json'),
+  JSON.stringify({ name: 'quilt', version, private: true, license: 'Apache-2.0', type: 'commonjs' }, null, 2) + '\n',
+);
 writeFileSync(join(stage, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 if (!validateManifest(join(stage, 'manifest.json'))) throw new Error('the manifest does not validate');
 
@@ -117,8 +168,10 @@ if (!(await packExtension({ extensionPath: stage, outputPath: bundle }))) throw 
 // The file on disk, opened again and checked, so what is validated is what ships and not the folder it came from.
 const check = join(out, 'mcpb-check');
 rmSync(check, { recursive: true, force: true });
-if (!(await unpackExtension({ mcpbPath: bundle, outputDir: check, silent: true }))) throw new Error('the bundle does not unpack');
+if (!(await unpackExtension({ mcpbPath: bundle, outputDir: check, silent: true })))
+  throw new Error('the bundle does not unpack');
 if (!validateManifest(join(check, 'manifest.json'))) throw new Error('the packed manifest does not validate');
-for (const f of ['server/index.js', 'page/index.html', 'package.json', 'LICENSE']) if (!existsSync(join(check, f))) throw new Error(`${f} is not in the bundle`);
+for (const f of ['server/index.js', 'page/index.html', 'package.json', 'LICENSE'])
+  if (!existsSync(join(check, f))) throw new Error(`${f} is not in the bundle`);
 rmSync(check, { recursive: true, force: true });
 console.log(`built ${bundle}`);

@@ -14,7 +14,16 @@ const P = `sha256:${'1'.repeat(64)}` as Hash;
 const piece = (n: number) => `sha256:${String(n).repeat(64)}` as Hash;
 const KEY = '0xAbCdEf0123456789aBcDeF0123456789AbCdEf01';
 const line = (type: string, at: Hash, key: string, ...received: Record<string, unknown>[]): Receipt => ({
-  event: { quilt: 1, type, problem: P, piece: at, key: key as Receipt['event']['key'], ts: '2026-11-01T10:00:00.000Z', body: {}, sig: '0x' as Receipt['event']['sig'] },
+  event: {
+    quilt: 1,
+    type,
+    problem: P,
+    piece: at,
+    key: key as Receipt['event']['key'],
+    ts: '2026-11-01T10:00:00.000Z',
+    body: {},
+    sig: '0x' as Receipt['event']['sig'],
+  },
   received: received.map((r) => ({ by: 'http://t/', at: '2026-11-01T10:00:00.000Z', ...r })) as Receipt['received'],
 });
 
@@ -40,14 +49,18 @@ describe('the witness as the client reads it (QX-18)', () => {
 
   it('says a product by its host and another client by its own name, quoted, and describes in quilt_me', () => {
     expect(witnessWords({ via: 'claude.ai', client: null })).toBe('witnessed by claude.ai');
-    expect(witnessWords({ via: 'other', client: 'Acme Agent' })).toBe('through a client that calls itself "Acme Agent"');
+    expect(witnessWords({ via: 'other', client: 'Acme Agent' })).toBe(
+      'through a client that calls itself "Acme Agent"',
+    );
     expect(witnessWords({ via: 'other', client: null })).toBe('through a client that gave no name');
     expect(witnessWords(null)).toBe('');
     const product = sessionWitnessText({ via: 'chatgpt.com', client: null, by: 'key' });
     expect(product).toMatch(/^Witnessed by chatgpt\.com: /);
     expect(product).toContain('signed with the key chatgpt.com publishes');
     expect(product).toContain('not who wrote the answer');
-    expect(sessionWitnessText({ via: 'claude.ai', client: null, by: 'address' })).toContain('came from the addresses claude.ai publishes for its servers');
+    expect(sessionWitnessText({ via: 'claude.ai', client: null, by: 'address' })).toContain(
+      'came from the addresses claude.ai publishes for its servers',
+    );
     expect(sessionWitnessText({ via: 'claude.ai', client: null })).not.toContain(', and the token request');
     const other = sessionWitnessText({ via: 'other', client: 'Acme Agent' });
     expect(other).toMatch(/^Witness: none\. /);

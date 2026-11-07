@@ -22,7 +22,8 @@ const TOOLS = [
   { type: 'web_search_20260209', name: 'web_search', max_uses: 5 },
   { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 5 },
 ];
-const WITHOUT = 'No evidence is given here: find the source the brief names with the search tool and read it with the fetch tool before answering, and quote from what you read.';
+const WITHOUT =
+  'No evidence is given here: find the source the brief names with the search tool and read it with the fetch tool before answering, and quote from what you read.';
 
 /** The one call: the piece answered in its schema's shape by a Claude model, reading the source itself when no evidence is given. */
 export async function ask({ piece, schema, evidence, note, model, key }) {
@@ -42,10 +43,23 @@ export async function ask({ piece, schema, evidence, note, model, key }) {
     // The server paused its own tool loop: the turn so far goes back as the assistant's, and it resumes where it was.
     messages.push({ role: 'assistant', content: response.content });
   }
-  if (response.stop_reason === 'refusal') throw refusal(`claude refused this piece${response.stop_details?.category ? ` (${response.stop_details.category})` : ''}`);
+  if (response.stop_reason === 'refusal')
+    throw refusal(
+      `claude refused this piece${response.stop_details?.category ? ` (${response.stop_details.category})` : ''}`,
+    );
   if (response.stop_reason === 'pause_turn') throw new Error('claude did not finish reading within six turns');
-  const text = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+  const text = response.content
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('');
   return JSON.parse(text);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) await runWorker({ vendor: 'anthropic', keyName: 'ANTHROPIC_API_KEY', defaultModel: 'claude-opus-5-5', file: 'examples/worker-claude.mjs', ask });
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1])
+  await runWorker({
+    vendor: 'anthropic',
+    keyName: 'ANTHROPIC_API_KEY',
+    defaultModel: 'claude-opus-5-5',
+    file: 'examples/worker-claude.mjs',
+    ask,
+  });

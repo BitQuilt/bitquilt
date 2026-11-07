@@ -5,7 +5,11 @@ import { type Pattern, Quilt } from '../src/quilt.js';
 import { quiltOver, startTracker } from './helpers.js';
 
 /** Quilt's side of QX-6: a maintainer's hide verb, and what a person sees when a problem is taken down on the tracker that answered. */
-const secret = (n: number): Uint8Array => { const k = new Uint8Array(32); k[31] = n; return k; };
+const secret = (n: number): Uint8Array => {
+  const k = new Uint8Array(32);
+  k[31] = n;
+  return k;
+};
 let server: Server;
 let owner: Quilt, a: Quilt, m: Quilt;
 let problem: Hash;
@@ -18,9 +22,20 @@ const pattern: Pattern = {
   settings: { endgame_at: 1 },
   pieces: {
     'statement/*': {
-      count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: {claim.text} Return whether the paper says this, with a quote.',
+      count: 2,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: {claim.text} Return whether the paper says this, with a quote.',
       data: { claim: 'claims' },
-      schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] }, quote: { type: 'string', maxLength: 160 } } },
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict', 'quote'],
+        properties: {
+          verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] },
+          quote: { type: 'string', maxLength: 160 },
+        },
+      },
       agree: ['verdict'],
     },
   },
@@ -48,8 +63,12 @@ describe('a takedown seen from Quilt (QX-6)', () => {
     expect(await a.search('citations')).toEqual([]);
     const opened = await a.open(problem);
     expect(opened.hidden?.by).toBe(addressOf(secret(7)));
-    expect(a.summary(opened.hash, opened.state, opened.tracker, opened.layer, opened.hidden)).toContain('Taken down on');
-    expect(a.summary(opened.hash, opened.state, opened.tracker, opened.layer, opened.hidden)).toContain('"The brief names a private person."');
+    expect(a.summary(opened.hash, opened.state, opened.tracker, opened.layer, opened.hidden)).toContain(
+      'Taken down on',
+    );
+    expect(a.summary(opened.hash, opened.state, opened.tracker, opened.layer, opened.hidden)).toContain(
+      '"The brief names a private person."',
+    );
     await expect(a.next(problem)).rejects.toThrow(/taken down|nothing for this key/);
     await m.hide(problem, 'Lifted: the brief was changed.', false);
     expect((await a.search('citations')).map((p) => p.problem)).toEqual([problem]);

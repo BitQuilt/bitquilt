@@ -40,15 +40,29 @@ const SWITCHES = new Set(['--second-only', '--all']);
  */
 export function stopOn(signals = process) {
   const stop = { asked: false };
-  signals.once('SIGTERM', () => { stop.asked = true; });
+  signals.once('SIGTERM', () => {
+    stop.asked = true;
+  });
   return stop;
 }
 
 /** The flags as every worker takes them: the problem and the evidence file by position, the rest named. */
 export function parseArgs(args, defaultModel) {
-  const flag = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
-  const positional = args.filter((a, i) => !a.startsWith('--') && !(args[i - 1]?.startsWith('--') && !SWITCHES.has(args[i - 1])));
-  return { problem: positional[0], evidenceFile: positional[1], model: flag('--model', defaultModel), max: Number(flag('--max', '1000')), secondOnly: args.includes('--second-only'), all: args.includes('--all') };
+  const flag = (name, fallback) => {
+    const i = args.indexOf(name);
+    return i >= 0 ? args[i + 1] : fallback;
+  };
+  const positional = args.filter(
+    (a, i) => !a.startsWith('--') && !(args[i - 1]?.startsWith('--') && !SWITCHES.has(args[i - 1])),
+  );
+  return {
+    problem: positional[0],
+    evidenceFile: positional[1],
+    model: flag('--model', defaultModel),
+    max: Number(flag('--max', '1000')),
+    secondOnly: args.includes('--second-only'),
+    all: args.includes('--all'),
+  };
 }
 
 /**
@@ -58,8 +72,22 @@ export function parseArgs(args, defaultModel) {
  */
 export function pieceFrom(handed) {
   const props = handed?.schema?.properties;
-  if (!handed || typeof handed.piece !== 'string' || typeof handed.brief !== 'string' || !props || typeof props !== 'object') return null;
-  return { name: handed.name, hash: handed.piece, brief: handed.brief, properties: props, required: Array.isArray(handed.schema.required) ? handed.schema.required : [], seams: Array.isArray(handed.seams) ? handed.seams : [] };
+  if (
+    !handed ||
+    typeof handed.piece !== 'string' ||
+    typeof handed.brief !== 'string' ||
+    !props ||
+    typeof props !== 'object'
+  )
+    return null;
+  return {
+    name: handed.name,
+    hash: handed.piece,
+    brief: handed.brief,
+    properties: props,
+    required: Array.isArray(handed.schema.required) ? handed.schema.required : [],
+    seams: Array.isArray(handed.seams) ? handed.seams : [],
+  };
 }
 
 /**
@@ -80,9 +108,25 @@ export function refusal(message) {
  */
 function fieldSchema(def, required = true) {
   if (def.enum) return { type: 'string', enum: def.enum };
-  if (def.type === 'array') return { type: 'array', items: fieldSchema(def.items ?? {}), ...(def.maxItems ? { description: `At most ${def.maxItems} items` } : {}) };
-  const type = def.type === 'integer' ? 'integer' : def.type === 'number' ? 'number' : def.type === 'boolean' ? 'boolean' : 'string';
-  if (def.format === 'date') return { type, description: required ? 'A date as YYYY-MM-DD' : 'A date as YYYY-MM-DD, or empty where the record gives none' };
+  if (def.type === 'array')
+    return {
+      type: 'array',
+      items: fieldSchema(def.items ?? {}),
+      ...(def.maxItems ? { description: `At most ${def.maxItems} items` } : {}),
+    };
+  const type =
+    def.type === 'integer'
+      ? 'integer'
+      : def.type === 'number'
+        ? 'number'
+        : def.type === 'boolean'
+          ? 'boolean'
+          : 'string';
+  if (def.format === 'date')
+    return {
+      type,
+      description: required ? 'A date as YYYY-MM-DD' : 'A date as YYYY-MM-DD, or empty where the record gives none',
+    };
   return type === 'string' && !required ? { type, description: 'Empty where the record gives none' } : { type };
 }
 
@@ -90,7 +134,10 @@ function fieldSchema(def, required = true) {
 export function fit(piece, answer) {
   for (const [k, def] of Object.entries(piece.properties)) {
     const v = answer[k];
-    if (!piece.required.includes(k) && (v === null || v === undefined || (typeof v === 'string' && v.trim() === ''))) { delete answer[k]; continue; }
+    if (!piece.required.includes(k) && (v === null || v === undefined || (typeof v === 'string' && v.trim() === ''))) {
+      delete answer[k];
+      continue;
+    }
     if (typeof v === 'string' && def.maxLength && v.length > def.maxLength) answer[k] = v.slice(0, def.maxLength);
     if (Array.isArray(v) && def.maxItems && v.length > def.maxItems) answer[k] = v.slice(0, def.maxItems);
   }
@@ -99,8 +146,14 @@ export function fit(piece, answer) {
 
 /** The JSON schema the answer takes, from the piece's own fields: every field given, nothing else, each in the shape the piece names. */
 export function schemaOf(piece) {
-  const schema = { type: 'object', additionalProperties: false, required: [...Object.keys(piece.properties), 'rests'], properties: {} };
-  for (const [k, def] of Object.entries(piece.properties)) schema.properties[k] = fieldSchema(def, piece.required.includes(k));
+  const schema = {
+    type: 'object',
+    additionalProperties: false,
+    required: [...Object.keys(piece.properties), 'rests'],
+    properties: {},
+  };
+  for (const [k, def] of Object.entries(piece.properties))
+    schema.properties[k] = fieldSchema(def, piece.required.includes(k));
   schema.properties.rests = RESTS;
   return schema;
 }
@@ -112,11 +165,17 @@ export function schemaOf(piece) {
  */
 export const RESTS = {
   type: 'array',
-  items: { type: 'object', additionalProperties: false, required: ['field', 'url', 'passage'], properties: { field: { type: 'string' }, url: { type: 'string' }, passage: { type: 'string' } } },
+  items: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['field', 'url', 'passage'],
+    properties: { field: { type: 'string' }, url: { type: 'string' }, passage: { type: 'string' } },
+  },
 };
 
 /** The sentence that asks for the rests, at the end of every question. */
-export const REST_ASK = 'Under rests, for each field that rests on a page you read, give the page\'s address and the passage on it the field rests on, copied as it appears there; leave rests empty where nothing was read.';
+export const REST_ASK =
+  "Under rests, for each field that rests on a page you read, give the page's address and the passage on it the field rests on, copied as it appears there; leave rests empty where nothing was read.";
 
 /**
  * What the model is told it is doing, the same for every vendor; `note` is the second asking, when a quote was not
@@ -126,13 +185,18 @@ export const REST_ASK = 'Under rests, for each field that rests on a page you re
  * readings carried no trace (found on bill/22, 2 November 2026).
  */
 export function instruction(note) {
-  return 'You work one piece of a problem for a person who published it. The author\'s brief says what is wanted; the evidence, when given, is the only source to rely on. Answer in the shape asked for. A quote is copied verbatim from the evidence, at most 25 words, and is the best support for your answer. Every string of the answer is plain text as a tracker admits it: no links or web addresses, no markup, no email addresses, phone numbers or handles, nothing addressed to a machine; a source is named by its title and its id, not by its address. The rests are not part of the answer and are the one place an address goes.' + (note ? ' ' + note : '');
+  return (
+    "You work one piece of a problem for a person who published it. The author's brief says what is wanted; the evidence, when given, is the only source to rely on. Answer in the shape asked for. A quote is copied verbatim from the evidence, at most 25 words, and is the best support for your answer. Every string of the answer is plain text as a tracker admits it: no links or web addresses, no markup, no email addresses, phone numbers or handles, nothing addressed to a machine; a source is named by its title and its id, not by its address. The rests are not part of the answer and are the one place an address goes." +
+    (note ? ' ' + note : '')
+  );
 }
 
 /** The one message with the piece in it: the brief as the author's quoted words, the evidence when there is one, else `without`, and the fields wanted. */
 export function question(piece, evidence, without = '') {
   // QX-19 section 4: two earlier readings that differ, each side's passage quoted with its signer named, as the tracker said them; the model reads the record itself.
-  const seams = piece.seams?.length ? `Two earlier readings of this piece differ, and the tracker says where:\n${piece.seams.join('\n')}\n\n` : '';
+  const seams = piece.seams?.length
+    ? `Two earlier readings of this piece differ, and the tracker says where:\n${piece.seams.join('\n')}\n\n`
+    : '';
   return `The author wrote this brief: "${piece.brief}"\n\n${seams}${evidence ? `The evidence:\n\n${evidence}\n\n` : without ? `${without}\n\n` : ''}Answer with the fields: ${Object.keys(piece.properties).join(', ')}. ${REST_ASK}`;
 }
 
@@ -145,17 +209,24 @@ export function question(piece, evidence, without = '') {
 export function plain(answer) {
   const out = {};
   for (const [k, v] of Object.entries(answer)) {
-    out[k] = typeof v === 'string'
-      ? v
-        .replace(/<\/?[a-z][^>]*>/gi, '')
-        .replace(/https?:\/\/[^\s)\]>;,]+|www\.[^\s)\]>;,]+|\b[a-z0-9-]+\.[a-z]{2,24}\/[^\s)\]>;,]+/gi, '[address removed]')
-        .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '[address removed]')
-        .replace(/\b([a-z0-9-]+)\.(com|org|net|io|ai|dev|xyz|gov|edu|app|me|ly|co|gg|to|sh|link|info|biz|page|site|online|uk|de|fr|ru|cn|us)\b/gi, '$1')
-        .replace(/\]\(/g, '] (')
-        .replace(/(^|[^\w])@([\w.]{2,})/g, '$1$2')
-        .replace(/ {2,}/g, ' ')
-        .trim()
-      : v;
+    out[k] =
+      typeof v === 'string'
+        ? v
+            .replace(/<\/?[a-z][^>]*>/gi, '')
+            .replace(
+              /https?:\/\/[^\s)\]>;,]+|www\.[^\s)\]>;,]+|\b[a-z0-9-]+\.[a-z]{2,24}\/[^\s)\]>;,]+/gi,
+              '[address removed]',
+            )
+            .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '[address removed]')
+            .replace(
+              /\b([a-z0-9-]+)\.(com|org|net|io|ai|dev|xyz|gov|edu|app|me|ly|co|gg|to|sh|link|info|biz|page|site|online|uk|de|fr|ru|cn|us)\b/gi,
+              '$1',
+            )
+            .replace(/\]\(/g, '] (')
+            .replace(/(^|[^\w])@([\w.]{2,})/g, '$1$2')
+            .replace(/ {2,}/g, ' ')
+            .trim()
+        : v;
   }
   return out;
 }
@@ -164,7 +235,15 @@ export function plain(answer) {
 export function takeRests(answer) {
   const given = Array.isArray(answer.rests) ? answer.rests : [];
   delete answer.rests;
-  return given.filter((r) => r && typeof r === 'object' && typeof r.field === 'string' && typeof r.url === 'string' && typeof r.passage === 'string' && r.passage.trim().length > 0);
+  return given.filter(
+    (r) =>
+      r &&
+      typeof r === 'object' &&
+      typeof r.field === 'string' &&
+      typeof r.url === 'string' &&
+      typeof r.passage === 'string' &&
+      r.passage.trim().length > 0,
+  );
 }
 
 /** The trace in the log line: where it went, what rests on what, and what was left out and why; nothing where no rests were given. */
@@ -174,12 +253,16 @@ function leftOut(m, rests) {
   if (!rest) return '';
   const words = rest.passage.trim().split(/\s+/);
   let host = rest.url;
-  try { host = new URL(rest.url).hostname; } catch {}
+  try {
+    host = new URL(rest.url).hostname;
+  } catch {}
   return ` ("${words.slice(0, 6).join(' ')}${words.length > 6 ? '...' : ''}" on ${host})`;
 }
 export function traceSaid(t, rests = []) {
   if (!t) return '';
-  const left = t.missing.length ? ` (left out: ${t.missing.map((m) => `${m.field}: ${m.why}${leftOut(m, rests)}`).join('; ')})` : '';
+  const left = t.missing.length
+    ? ` (left out: ${t.missing.map((m) => `${m.field}: ${m.why}${leftOut(m, rests)}`).join('; ')})`
+    : '';
   if (!t.posted) return `, no trace${left}`;
   return `, trace ${t.posted.queued ? 'queued' : t.posted.error ? `refused: ${t.posted.error}` : 'posted'}: ${t.rested.join(', ')} on ${t.reads} read${t.reads === 1 ? '' : 's'}${left}`;
 }
@@ -209,7 +292,9 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
   const o = parseArgs(process.argv.slice(2), defaultModel);
   const key = process.env[keyName];
   if ((!o.problem && !o.all) || !key) {
-    console.error(`usage: ${keyName}=… node ${file} <problem hash> [evidence.txt] [--model m] [--max n] [--second-only]\n       ${keyName}=… node ${file} --all --second-only [--max n] [--model m]`);
+    console.error(
+      `usage: ${keyName}=… node ${file} <problem hash> [evidence.txt] [--model m] [--max n] [--second-only]\n       ${keyName}=… node ${file} --all --second-only [--max n] [--model m]`,
+    );
     process.exit(2);
   }
   const stop = stopOn();
@@ -220,7 +305,8 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
   const env = { ...process.env, ...(o.secondOnly ? { QUILT_NEXT_ONLY: 'verify' } : {}) };
   delete env.OPENAI_API_KEY;
   delete env.ANTHROPIC_API_KEY;
-  const quilt = (...a) => execFileSync(bin[0], [...bin.slice(1), ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env });
+  const quilt = (...a) =>
+    execFileSync(bin[0], [...bin.slice(1), ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env });
   /** The JSON a CLI command printed, read from its first brace: pnpm run writes its own two lines first unless given -s. */
   const jsonOut = (text) => JSON.parse(text.slice(text.indexOf('{')));
 
@@ -240,20 +326,39 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
     while (n + declined < budget) {
       if (stop.asked) break;
       let handed;
-      try { handed = jsonOut(quilt('next', problem, '--json')); } catch (e) {
+      try {
+        handed = jsonOut(quilt('next', problem, '--json'));
+      } catch (e) {
         const said = lastLine(e);
         console.log(quiet.test(said) ? `${problem.slice(0, 19)}: ${said}` : `stopped: ${said}`);
         break;
       }
       const piece = pieceFrom(handed);
-      if (!piece) { console.log('the piece handed over has no schema with fields; this worker handles agree pieces with a schema'); break; }
+      if (!piece) {
+        console.log('the piece handed over has no schema with fields; this worker handles agree pieces with a schema');
+        break;
+      }
       // A decline the tracker has not taken yet leaves the piece on offer: handed it again, the turn on this problem ends.
-      if (gaveBack.has(piece.hash)) { console.log(`${piece.name}: handed again after its decline; the decline is queued`); break; }
+      if (gaveBack.has(piece.hash)) {
+        console.log(`${piece.name}: handed again after its decline; the decline is queued`);
+        break;
+      }
       try {
         const schema = schemaOf(piece);
         let answer = await ask({ piece, schema, evidence, note: '', model: o.model, key });
-        const quoteOk = (a) => typeof a.quote !== 'string' || !evidence || (evidenceNorm.includes(norm(a.quote)) && a.quote.trim().split(/\s+/).length <= 25);
-        if (!quoteOk(answer)) answer = await ask({ piece, schema, evidence, note: 'Your previous quote was not found verbatim in the evidence, or ran over 25 words; copy the words exactly as they appear.', model: o.model, key });
+        const quoteOk = (a) =>
+          typeof a.quote !== 'string' ||
+          !evidence ||
+          (evidenceNorm.includes(norm(a.quote)) && a.quote.trim().split(/\s+/).length <= 25);
+        if (!quoteOk(answer))
+          answer = await ask({
+            piece,
+            schema,
+            evidence,
+            note: 'Your previous quote was not found verbatim in the evidence, or ran over 25 words; copy the words exactly as they appear.',
+            model: o.model,
+            key,
+          });
         answer = fit(piece, plain(answer));
         // QX-19: what each field rests on goes beside the return, not in it; the CLI fetches the pages and posts the trace.
         let rests = takeRests(answer);
@@ -274,7 +379,9 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
           if (again.length) rests = again;
           r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer), JSON.stringify(rests)));
         }
-        console.log(`${piece.name}: ${JSON.stringify(answer)} -> commit ${r.commit.queued ? 'queued' : 'posted'}, reveal ${r.reveal.queued ? 'queued' : 'posted'}${answer.quote && !quoteOk(answer) ? ' (quote not verbatim)' : ''}${traceSaid(r.trace, rests)}`);
+        console.log(
+          `${piece.name}: ${JSON.stringify(answer)} -> commit ${r.commit.queued ? 'queued' : 'posted'}, reveal ${r.reveal.queued ? 'queued' : 'posted'}${answer.quote && !quoteOk(answer) ? ' (quote not verbatim)' : ''}${traceSaid(r.trace, rests)}`,
+        );
         n++;
       } catch (e) {
         if (e.refusal) {
@@ -299,19 +406,30 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
 
   /** The problems the tracker lists with a piece waiting on a second reading: `needs_verify` or `disputed` in its counts. */
   async function waiting() {
-    const tracker = process.env.QUILT_TRACKERS?.split(',').map((s) => s.trim()).filter(Boolean)[0] ?? jsonOut(quilt('me')).trackers[0];
+    const tracker =
+      process.env.QUILT_TRACKERS?.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)[0] ?? jsonOut(quilt('me')).trackers[0];
     const base = tracker.endsWith('/') ? tracker : `${tracker}/`;
     const r = await fetch(`${base}search`, { signal: AbortSignal.timeout(15000) });
     if (!r.ok) throw new Error(`${base}search answered ${r.status}`);
     const { problems } = await r.json();
-    return problems.filter((p) => (p.counts?.needs_verify ?? 0) + (p.counts?.disputed ?? 0) > 0).map((p) => ({ problem: p.problem, title: p.title, waiting: (p.counts.needs_verify ?? 0) + (p.counts.disputed ?? 0) }));
+    return problems
+      .filter((p) => (p.counts?.needs_verify ?? 0) + (p.counts?.disputed ?? 0) > 0)
+      .map((p) => ({
+        problem: p.problem,
+        title: p.title,
+        waiting: (p.counts.needs_verify ?? 0) + (p.counts.disputed ?? 0),
+      }));
   }
 
   let n = 0;
   let declined = 0;
   if (o.all) {
     const list = await waiting();
-    console.log(`${list.length} problem${list.length === 1 ? '' : 's'} with pieces waiting on a second reading${o.secondOnly ? '' : ' (every piece is taken, --second-only not given)'}`);
+    console.log(
+      `${list.length} problem${list.length === 1 ? '' : 's'} with pieces waiting on a second reading${o.secondOnly ? '' : ' (every piece is taken, --second-only not given)'}`,
+    );
     for (const [i, p] of list.entries()) {
       if (n + declined >= o.max || stop.asked) break;
       if (i > 0) await pause(2000);
@@ -323,5 +441,7 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
   } else {
     ({ returned: n, declined } = await work(o.problem, o.max));
   }
-  console.log(`${n} piece${n === 1 ? '' : 's'} returned as ${vendor}/${o.model}${o.secondOnly ? ', each a second reading' : ''}${declined ? `; ${declined} declined as refused by the model` : ''}${stop.asked ? '; stopped, and no other taken' : ''}`);
+  console.log(
+    `${n} piece${n === 1 ? '' : 's'} returned as ${vendor}/${o.model}${o.secondOnly ? ', each a second reading' : ''}${declined ? `; ${declined} declined as refused by the model` : ''}${stop.asked ? '; stopped, and no other taken' : ''}`,
+  );
 }

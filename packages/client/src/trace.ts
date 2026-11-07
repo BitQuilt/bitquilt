@@ -11,11 +11,27 @@ import { Refused, publicFetch, readCapped, shared } from './public-fetch.js';
 import type { Posted } from './resolver.js';
 
 /** What the model hands in beside a field: the page and the words on it the field rests on. */
-export interface RestAsked { field: string; url: string; passage: string }
+export interface RestAsked {
+  field: string;
+  url: string;
+  passage: string;
+}
 /** A page fetched and drawn to text: what is kept under the hash. */
-export interface ReadKept { url: string; hash: Hash; at: string; media: string; bytes: Uint8Array; text: string }
+export interface ReadKept {
+  url: string;
+  hash: Hash;
+  at: string;
+  media: string;
+  bytes: Uint8Array;
+  text: string;
+}
 /** What became of the rests: the trace posted or not, how many reads it names, the fields that rest on one, and the rests left out with the reason. */
-export interface TraceOutcome { posted: Posted | null; reads: number; rested: string[]; missing: { field: string; url: string; why: string }[] }
+export interface TraceOutcome {
+  posted: Posted | null;
+  reads: number;
+  rested: string[];
+  missing: { field: string; url: string; why: string }[];
+}
 
 /** The most a page may weigh, as the tracker keeps a read (QX-19 section 2). */
 export const READ_MAX = 1024 * 1024;
@@ -83,7 +99,11 @@ export async function fetchRead(url: string, now: string): Promise<{ read: ReadK
   try {
     const r = await (shared() ? publicFetch : fetch)(url, { signal, headers: { accept }, redirect: 'follow' });
     const contentType = r.headers.get('content-type') ?? 'text/plain';
-    const why = !r.ok ? `the page answered ${r.status}` : !/^(text\/|application\/(xhtml\+xml|xml|json))/i.test(contentType) ? 'the page is not text' : null;
+    const why = !r.ok
+      ? `the page answered ${r.status}`
+      : !/^(text\/|application\/(xhtml\+xml|xml|json))/i.test(contentType)
+        ? 'the page is not text'
+        : null;
     if (why) {
       await r.body?.cancel().catch(() => {});
       return { why };
@@ -96,14 +116,22 @@ export async function fetchRead(url: string, now: string): Promise<{ read: ReadK
     return { read: { url, hash: hashBytes(bytes), at: now, media: 'text/plain', bytes, text } };
   } catch (e) {
     if (e instanceof Refused) return { why: e.why };
-    return { why: signal.aborted ? `the page did not answer within ${FETCH_MS / 1000} seconds` : 'the page could not be reached' };
+    return {
+      why: signal.aborted
+        ? `the page did not answer within ${FETCH_MS / 1000} seconds`
+        : 'the page could not be reached',
+    };
   }
 }
 
 /** A read put on a tracker under its hash (QX-19 section 2); true when it took it or already had it. */
 export async function putRead(tracker: string, read: ReadKept, fetchImpl: typeof fetch = fetch): Promise<boolean> {
   try {
-    const r = await fetchImpl(`${tracker}b/${read.hash}`, { method: 'PUT', body: read.bytes, signal: AbortSignal.timeout(FETCH_MS) });
+    const r = await fetchImpl(`${tracker}b/${read.hash}`, {
+      method: 'PUT',
+      body: read.bytes,
+      signal: AbortSignal.timeout(FETCH_MS),
+    });
     return r.ok;
   } catch {
     return false;
@@ -116,7 +144,16 @@ export async function putRead(tracker: string, read: ReadKept, fetchImpl: typeof
  * page could not be read, whose passage is not on it, or whose field the return lacks is left out and listed under
  * `missing`; with nothing left to rest on, nothing is posted. A refusal at the door comes back in `posted` and is not thrown.
  */
-export async function traceAfterReveal(door: Door, problem: Hash, piece: Hash, reveal: Hash, ret: Record<string, unknown>, rests: RestAsked[], trackers: string[], fetchImpl: typeof fetch = fetch): Promise<TraceOutcome> {
+export async function traceAfterReveal(
+  door: Door,
+  problem: Hash,
+  piece: Hash,
+  reveal: Hash,
+  ret: Record<string, unknown>,
+  rests: RestAsked[],
+  trackers: string[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<TraceOutcome> {
   const out: TraceOutcome = { posted: null, reads: 0, rested: [], missing: [] };
   const reads: ReadKept[] = [];
   const index = new Map<string, number>();
@@ -143,7 +180,8 @@ export async function traceAfterReveal(door: Door, problem: Hash, piece: Hash, r
     const at = index.get(r.url)!;
     const span = locate(reads[at]!.text, r.passage);
     if (!span) out.missing.push({ field: r.field, url: r.url, why: 'the passage is not on the page as fetched' });
-    else if (span[1] - span[0] > PASSAGE_MAX) out.missing.push({ field: r.field, url: r.url, why: `the passage is over ${PASSAGE_MAX} bytes` });
+    else if (span[1] - span[0] > PASSAGE_MAX)
+      out.missing.push({ field: r.field, url: r.url, why: `the passage is over ${PASSAGE_MAX} bytes` });
     else {
       spans.push({ field: r.field, read: at, span });
       if (!out.rested.includes(r.field)) out.rested.push(r.field);
@@ -160,14 +198,20 @@ export async function traceAfterReveal(door: Door, problem: Hash, piece: Hash, r
   };
   out.reads = kept.length;
   for (const t of trackers) for (const r of kept) await putRead(t, r, fetchImpl);
-  out.posted = await door.post(door.sign({ quilt: 1, type: 'trace', problem, piece, key: door.needKey().address, ts: door.stamp(), body }), problem, trackers);
+  out.posted = await door.post(
+    door.sign({ quilt: 1, type: 'trace', problem, piece, key: door.needKey().address, ts: door.stamp(), body }),
+    problem,
+    trackers,
+  );
   return out;
 }
 
 /** What the tool says of the trace: nothing where none was asked, else where it went and what rests on what. */
 export function traceText(t: TraceOutcome | null): string {
   if (!t) return '';
-  const notFound = t.missing.length ? ` Left out: ${t.missing.map((m) => `${m.field} at ${m.url} (${m.why})`).join('; ')}.` : '';
+  const notFound = t.missing.length
+    ? ` Left out: ${t.missing.map((m) => `${m.field} at ${m.url} (${m.why})`).join('; ')}.`
+    : '';
   if (!t.posted) return `No trace was posted: nothing the return names could be found.${notFound}`.trim();
   if (t.posted.error && !t.posted.queued) return `The trace was refused: ${t.posted.error}.${notFound}`;
   return `Trace ${t.posted.queued ? 'queued' : `posted to ${t.posted.at}`}: ${t.rested.join(', ')} ${t.rested.length === 1 ? 'rests' : 'rest'} on ${t.reads} kept ${t.reads === 1 ? 'read' : 'reads'} (QX-19).${notFound}`;

@@ -26,9 +26,32 @@ export interface NostrEvent {
 }
 
 /** The work on a problem as an announce states it (QX-13): the tracker's row when it was posted, or zeros at publish. */
-export interface AnnouncedWork { returned: number; accepted: number; verified: number; disputed: number; traced: { both: number; one: number; none: number }; readers: number; vendors: number; last: string | null; /** QX-20: the record pieces whose readings are in; absent from an announce made before the kind. */ recorded?: number; /** The roots that declined a piece, from a tracker's row; an announce's is not read. */ declined?: number; /** What the accepted squares found, from a tracker's row; an announce's is not read. */ found?: Record<string, Record<string, number>> }
+export interface AnnouncedWork {
+  returned: number;
+  accepted: number;
+  verified: number;
+  disputed: number;
+  traced: { both: number; one: number; none: number };
+  readers: number;
+  vendors: number;
+  last:
+    | string
+    | null /** QX-20: the record pieces whose readings are in; absent from an announce made before the kind. */;
+  recorded?: number /** The roots that declined a piece, from a tracker's row; an announce's is not read. */;
+  declined?: number /** What the accepted squares found, from a tracker's row; an announce's is not read. */;
+  found?: Record<string, Record<string, number>>;
+}
 
-export const NO_WORK: AnnouncedWork = { returned: 0, accepted: 0, verified: 0, disputed: 0, traced: { both: 0, one: 0, none: 0 }, readers: 0, vendors: 0, last: null };
+export const NO_WORK: AnnouncedWork = {
+  returned: 0,
+  accepted: 0,
+  verified: 0,
+  disputed: 0,
+  traced: { both: 0, one: 0, none: 0 },
+  readers: 0,
+  vendors: 0,
+  last: null,
+};
 
 export interface RelayAnnouncement {
   announce: Event;
@@ -61,9 +84,16 @@ function idOf(pubkey: string, created_at: number, kind: number, tags: string[][]
 }
 
 /** The relay event carrying a BitQuilt announce: `d` is the problem hash, `t` the topics, the content the announce itself. */
-export function announcementEvent(announce: Event, secret: Uint8Array, now = Math.floor(Date.now() / 1000)): NostrEvent {
+export function announcementEvent(
+  announce: Event,
+  secret: Uint8Array,
+  now = Math.floor(Date.now() / 1000),
+): NostrEvent {
   const body = announce.body as { title?: string; topics?: string[] };
-  const tags: string[][] = [['d', announce.problem ?? ''], ['title', body.title ?? '']];
+  const tags: string[][] = [
+    ['d', announce.problem ?? ''],
+    ['title', body.title ?? ''],
+  ];
   for (const t of body.topics ?? []) tags.push(['t', t]);
   const pubkey = nostrPublicKey(secret);
   const content = JSON.stringify(announce);
@@ -82,7 +112,17 @@ export function announcedWork(x: unknown): AnnouncedWork | null {
   if (!['returned', 'accepted', 'verified', 'disputed', 'readers', 'vendors'].every((k) => whole(w[k]))) return null;
   if (!t || typeof t !== 'object' || !['both', 'one', 'none'].every((k) => whole(t[k]))) return null;
   if (w.last !== null && (typeof w.last !== 'string' || Number.isNaN(Date.parse(w.last)))) return null;
-  return { returned: w.returned as number, accepted: w.accepted as number, verified: w.verified as number, disputed: w.disputed as number, traced: { both: t.both as number, one: t.one as number, none: t.none as number }, readers: w.readers as number, vendors: w.vendors as number, last: w.last as string | null, ...(whole(w.recorded) ? { recorded: w.recorded as number } : {}) };
+  return {
+    returned: w.returned as number,
+    accepted: w.accepted as number,
+    verified: w.verified as number,
+    disputed: w.disputed as number,
+    traced: { both: t.both as number, one: t.one as number, none: t.none as number },
+    readers: w.readers as number,
+    vendors: w.vendors as number,
+    last: w.last as string | null,
+    ...(whole(w.recorded) ? { recorded: w.recorded as number } : {}),
+  };
 }
 
 /**
@@ -99,17 +139,32 @@ export function readAnnouncement(ev: NostrEvent, relay: string): RelayAnnounceme
     const d = ev.tags.find((t) => t[0] === 'd')?.[1];
     if (!announce.problem || d !== announce.problem) return null;
     const b = announce.body as Record<string, unknown>;
-    const strings = (x: unknown): string[] => (Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string') : []);
+    const strings = (x: unknown): string[] =>
+      Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string') : [];
     if (typeof b.title !== 'string' || typeof b.slug !== 'string' || typeof b.done_when !== 'string') return null;
     if (textIssues(b.title).length || textIssues(b.done_when).length || !/^[a-z0-9-]{1,64}$/.test(b.slug)) return null;
     const topics = strings(b.topics);
     if (topics.length > 8 || topics.some((t) => t.length > 40 || textIssues(t).length > 0)) return null;
     const counts: Record<string, number> = {};
-    if (b.counts && typeof b.counts === 'object') for (const [k, n] of Object.entries(b.counts as Record<string, unknown>)) if (whole(n)) counts[k] = n;
+    if (b.counts && typeof b.counts === 'object')
+      for (const [k, n] of Object.entries(b.counts as Record<string, unknown>)) if (whole(n)) counts[k] = n;
     return {
-      announce, problem: announce.problem, owner: typeof b.owner === 'string' ? b.owner : announce.key, announcer: announce.key,
-      title: b.title, slug: b.slug, done_when: b.done_when, topics, trackers: strings(b.trackers), mirrors: strings(b.mirrors), relay, created_at: ev.created_at,
-      from: isHash(b.from) ? b.from : null, pieces: whole(b.pieces) ? b.pieces : null, counts, work: announcedWork(b.work),
+      announce,
+      problem: announce.problem,
+      owner: typeof b.owner === 'string' ? b.owner : announce.key,
+      announcer: announce.key,
+      title: b.title,
+      slug: b.slug,
+      done_when: b.done_when,
+      topics,
+      trackers: strings(b.trackers),
+      mirrors: strings(b.mirrors),
+      relay,
+      created_at: ev.created_at,
+      from: isHash(b.from) ? b.from : null,
+      pieces: whole(b.pieces) ? b.pieces : null,
+      counts,
+      work: announcedWork(b.work),
     };
   } catch {
     return null;
@@ -117,7 +172,12 @@ export function readAnnouncement(ev: NostrEvent, relay: string): RelayAnnounceme
 }
 
 /** One relay, one conversation, one deadline. The run gets the socket and a way to finish with a value; `onFail` is what the deadline or a dropped socket resolves with. */
-function talk<T>(relay: string, timeoutMs: number, run: (ws: WebSocket, finish: (value: T) => void) => void, onFail: () => T): Promise<T> {
+function talk<T>(
+  relay: string,
+  timeoutMs: number,
+  run: (ws: WebSocket, finish: (value: T) => void) => void,
+  onFail: () => T,
+): Promise<T> {
   return new Promise<T>((resolve) => {
     let done = false;
     let ws: WebSocket;
@@ -146,23 +206,34 @@ function talk<T>(relay: string, timeoutMs: number, run: (ws: WebSocket, finish: 
 }
 
 /** The event posted to each relay; a relay that answers OK is in `posted`, any other in `refused`. */
-export async function postToRelays(relays: string[], ev: NostrEvent, timeoutMs = 8000): Promise<{ posted: string[]; refused: string[] }> {
+export async function postToRelays(
+  relays: string[],
+  ev: NostrEvent,
+  timeoutMs = 8000,
+): Promise<{ posted: string[]; refused: string[] }> {
   const posted: string[] = [];
   const refused: string[] = [];
-  await Promise.all(relays.map(async (relay) => {
-    const ok = await talk<boolean>(relay, timeoutMs, (ws, finish) => {
-      ws.addEventListener('message', (m) => {
-        try {
-          const msg = JSON.parse(String(m.data)) as unknown[];
-          if (msg[0] === 'OK' && msg[1] === ev.id) finish(msg[2] === true);
-        } catch {
-          /* not for us */
-        }
-      });
-      ws.send(JSON.stringify(['EVENT', ev]));
-    }, () => false);
-    (ok ? posted : refused).push(relay);
-  }));
+  await Promise.all(
+    relays.map(async (relay) => {
+      const ok = await talk<boolean>(
+        relay,
+        timeoutMs,
+        (ws, finish) => {
+          ws.addEventListener('message', (m) => {
+            try {
+              const msg = JSON.parse(String(m.data)) as unknown[];
+              if (msg[0] === 'OK' && msg[1] === ev.id) finish(msg[2] === true);
+            } catch {
+              /* not for us */
+            }
+          });
+          ws.send(JSON.stringify(['EVENT', ev]));
+        },
+        () => false,
+      );
+      (ok ? posted : refused).push(relay);
+    }),
+  );
   return { posted, refused };
 }
 
@@ -179,33 +250,45 @@ export function searchFilters(query: string, limit: number): Record<string, unkn
  * an owner's own announce before a seeder's. What a relay had sent before its deadline is kept, since a slow relay is
  * still a relay.
  */
-export async function searchRelays(relays: string[], query: string, timeoutMs = 5000, limit = 200): Promise<RelayAnnouncement[]> {
+export async function searchRelays(
+  relays: string[],
+  query: string,
+  timeoutMs = 5000,
+  limit = 200,
+): Promise<RelayAnnouncement[]> {
   const q = query.trim().toLowerCase();
   const found = new Map<Hash, RelayAnnouncement>();
-  await Promise.all(relays.map(async (relay) => {
-    const sub = `q${Math.random().toString(36).slice(2, 10)}`;
-    const out: RelayAnnouncement[] = [];
-    const got = await talk<RelayAnnouncement[]>(relay, timeoutMs, (ws, finish) => {
-      ws.addEventListener('message', (m) => {
-        try {
-          const msg = JSON.parse(String(m.data)) as unknown[];
-          if (msg[0] === 'EVENT' && msg[1] === sub) {
-            const a = readAnnouncement(msg[2] as NostrEvent, relay);
-            if (a) out.push(a);
-          } else if (msg[0] === 'EOSE' && msg[1] === sub) finish(out);
-        } catch {
-          /* not for us */
-        }
-      });
-      ws.send(JSON.stringify(['REQ', sub, ...searchFilters(query, limit)]));
-    }, () => out);
-    for (const a of got) {
-      const hay = `${a.title} ${a.slug} ${a.done_when} ${a.topics.join(' ')}`.toLowerCase();
-      if (q && !hay.includes(q)) continue;
-      const have = found.get(a.problem);
-      if (!have || prefer(a, have)) found.set(a.problem, a);
-    }
-  }));
+  await Promise.all(
+    relays.map(async (relay) => {
+      const sub = `q${Math.random().toString(36).slice(2, 10)}`;
+      const out: RelayAnnouncement[] = [];
+      const got = await talk<RelayAnnouncement[]>(
+        relay,
+        timeoutMs,
+        (ws, finish) => {
+          ws.addEventListener('message', (m) => {
+            try {
+              const msg = JSON.parse(String(m.data)) as unknown[];
+              if (msg[0] === 'EVENT' && msg[1] === sub) {
+                const a = readAnnouncement(msg[2] as NostrEvent, relay);
+                if (a) out.push(a);
+              } else if (msg[0] === 'EOSE' && msg[1] === sub) finish(out);
+            } catch {
+              /* not for us */
+            }
+          });
+          ws.send(JSON.stringify(['REQ', sub, ...searchFilters(query, limit)]));
+        },
+        () => out,
+      );
+      for (const a of got) {
+        const hay = `${a.title} ${a.slug} ${a.done_when} ${a.topics.join(' ')}`.toLowerCase();
+        if (q && !hay.includes(q)) continue;
+        const have = found.get(a.problem);
+        if (!have || prefer(a, have)) found.set(a.problem, a);
+      }
+    }),
+  );
   return [...found.values()];
 }
 
@@ -215,29 +298,36 @@ export async function searchRelays(relays: string[], query: string, timeoutMs = 
  */
 export async function findOnRelays(relays: string[], problem: Hash, timeoutMs = 5000): Promise<RelayAnnouncement[]> {
   const found = new Map<string, RelayAnnouncement>();
-  await Promise.all(relays.map(async (relay) => {
-    const sub = `d${Math.random().toString(36).slice(2, 10)}`;
-    const out: RelayAnnouncement[] = [];
-    const got = await talk<RelayAnnouncement[]>(relay, timeoutMs, (ws, finish) => {
-      ws.addEventListener('message', (m) => {
-        try {
-          const msg = JSON.parse(String(m.data)) as unknown[];
-          if (msg[0] === 'EVENT' && msg[1] === sub) {
-            const a = readAnnouncement(msg[2] as NostrEvent, relay);
-            if (a && a.problem === problem) out.push(a);
-          } else if (msg[0] === 'EOSE' && msg[1] === sub) finish(out);
-        } catch {
-          /* not for us */
-        }
-      });
-      ws.send(JSON.stringify(['REQ', sub, { kinds: [KIND], '#d': [problem], limit: 20 }]));
-    }, () => out);
-    for (const a of got) {
-      const k = a.announcer.toLowerCase();
-      const have = found.get(k);
-      if (!have || a.created_at > have.created_at) found.set(k, a);
-    }
-  }));
+  await Promise.all(
+    relays.map(async (relay) => {
+      const sub = `d${Math.random().toString(36).slice(2, 10)}`;
+      const out: RelayAnnouncement[] = [];
+      const got = await talk<RelayAnnouncement[]>(
+        relay,
+        timeoutMs,
+        (ws, finish) => {
+          ws.addEventListener('message', (m) => {
+            try {
+              const msg = JSON.parse(String(m.data)) as unknown[];
+              if (msg[0] === 'EVENT' && msg[1] === sub) {
+                const a = readAnnouncement(msg[2] as NostrEvent, relay);
+                if (a && a.problem === problem) out.push(a);
+              } else if (msg[0] === 'EOSE' && msg[1] === sub) finish(out);
+            } catch {
+              /* not for us */
+            }
+          });
+          ws.send(JSON.stringify(['REQ', sub, { kinds: [KIND], '#d': [problem], limit: 20 }]));
+        },
+        () => out,
+      );
+      for (const a of got) {
+        const k = a.announcer.toLowerCase();
+        const have = found.get(k);
+        if (!have || a.created_at > have.created_at) found.set(k, a);
+      }
+    }),
+  );
   return [...found.values()].sort((a, b) => (prefer(a, b) ? -1 : 1));
 }
 

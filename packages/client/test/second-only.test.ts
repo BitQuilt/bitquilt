@@ -24,15 +24,33 @@ const pattern = (slug: string): Pattern => ({
   settings: { endgame_at: 1 },
   pieces: {
     'statement/*': {
-      count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?',
-      schema: { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } },
+      count: 2,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: does the paper say so?',
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict'],
+        properties: { verdict: { enum: ['supports', 'contradicts'] } },
+      },
       agree: ['verdict'],
     },
   },
 });
 
-const trackerState = async (problem: Hash, piece: Hash) => (await json<{ pieces: { hash: Hash; state: string }[] }>(`${base}p/${problem}/state`)).pieces.find((x) => x.hash === piece)!.state;
-const eventsBy = async (problem: Hash, address: string) => (await (await fetch(`${base}p/${problem}/events`)).text()).trim().split('\n').filter(Boolean).map((l) => JSON.parse(l) as { event: { type: string; key: string } }).filter((l) => l.event.key.toLowerCase() === address.toLowerCase()).map((l) => l.event.type);
+const trackerState = async (problem: Hash, piece: Hash) =>
+  (await json<{ pieces: { hash: Hash; state: string }[] }>(`${base}p/${problem}/state`)).pieces.find(
+    (x) => x.hash === piece,
+  )!.state;
+const eventsBy = async (problem: Hash, address: string) =>
+  (await (await fetch(`${base}p/${problem}/events`)).text())
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => JSON.parse(l) as { event: { type: string; key: string } })
+    .filter((l) => l.event.key.toLowerCase() === address.toLowerCase())
+    .map((l) => l.event.type);
 
 beforeAll(async () => {
   ({ server, base } = await startTracker({ limits: { keyPerHour: 1000, ipPerHour: 10000 } }));
@@ -105,13 +123,15 @@ describe('next without the variable', () => {
 });
 
 describe('read on a disputed piece', () => {
-  it('quotes every return on it with the signer and model named, marks the reader\'s own, and names the field they differ on', async () => {
+  it("quotes every return on it with the signer and model named, marks the reader's own, and names the field they differ on", async () => {
     const { state, layer } = await claude.open(q);
     const text = claude.disputedText(state, layer);
     const name = state.pieces.find((v) => v.piece.hash === q2)!.piece.name;
     expect(text).toContain(`${name} is disputed, with 2 returns.`);
     expect(text).toContain('The returns differ on verdict.');
-    expect(text).toContain(`${claude.identity!.address} (anthropic/claude), this key, returned: {"verdict":"supports"}`);
+    expect(text).toContain(
+      `${claude.identity!.address} (anthropic/claude), this key, returned: {"verdict":"supports"}`,
+    );
     expect(text).toContain(`${gemini.identity!.address} (google/gemini) returned: {"verdict":"contradicts"}`);
     // Read by another key, nothing is marked as the reader's.
     expect(gemini.disputedText(state, layer)).not.toContain(`(anthropic/claude), this key,`);

@@ -13,7 +13,11 @@ import { describe, expect, it } from 'vitest';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 /** Every .mjs under examples/ and scripts/ that has a .d.mts beside it. */
-const modules = ['examples', 'scripts'].flatMap((dir) => readdirSync(join(root, dir)).filter((f) => f.endsWith('.d.mts')).map((f) => join(root, dir, f.replace(/\.d\.mts$/, '.mjs'))));
+const modules = ['examples', 'scripts'].flatMap((dir) =>
+  readdirSync(join(root, dir))
+    .filter((f) => f.endsWith('.d.mts'))
+    .map((f) => join(root, dir, f.replace(/\.d\.mts$/, '.mjs'))),
+);
 
 /** The names a declaration file exports as values at run time: its functions, constants and classes, and not its types. */
 function declaredValues(file: string): string[] {
@@ -26,19 +30,25 @@ function declaredValues(file: string): string[] {
     }
     if (!ts.canHaveModifiers(s) || !ts.getModifiers(s)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) continue;
     if ((ts.isFunctionDeclaration(s) || ts.isClassDeclaration(s)) && s.name) names.add(s.name.text);
-    if (ts.isVariableStatement(s)) for (const d of s.declarationList.declarations) if (ts.isIdentifier(d.name)) names.add(d.name.text);
+    if (ts.isVariableStatement(s))
+      for (const d of s.declarationList.declarations) if (ts.isIdentifier(d.name)) names.add(d.name.text);
   }
   return [...names].sort();
 }
 
 describe('a module and its declaration file', () => {
-  it('are found for the house\'s loop and the window\'s build', () => {
-    expect(modules.map((m) => relative(root, m))).toEqual(expect.arrayContaining([join('examples', 'worker-loop.mjs'), join('scripts', 'build-window.mjs')]));
+  it("are found for the house's loop and the window's build", () => {
+    expect(modules.map((m) => relative(root, m))).toEqual(
+      expect.arrayContaining([join('examples', 'worker-loop.mjs'), join('scripts', 'build-window.mjs')]),
+    );
   });
 
-  it.each(modules.map((m) => [relative(root, m), m]))('%s exports the names its .d.mts declares', async (_name, file) => {
-    expect(existsSync(file)).toBe(true);
-    const exported = Object.keys((await import(pathToFileURL(file).href)) as Record<string, unknown>).sort();
-    expect(exported).toEqual(declaredValues(file.replace(/\.mjs$/, '.d.mts')));
-  });
+  it.each(modules.map((m) => [relative(root, m), m]))(
+    '%s exports the names its .d.mts declares',
+    async (_name, file) => {
+      expect(existsSync(file)).toBe(true);
+      const exported = Object.keys((await import(pathToFileURL(file).href)) as Record<string, unknown>).sort();
+      expect(exported).toEqual(declaredValues(file.replace(/\.mjs$/, '.d.mts')));
+    },
+  );
 });

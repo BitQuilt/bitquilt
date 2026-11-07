@@ -13,7 +13,7 @@ import { tempHome } from './helpers.js';
  * On Windows the old names were never files, so that part of the test has nothing to set up there.
  */
 const hashOf = (byte: string): Hash => `sha256:${byte.repeat(32)}` as Hash;
-const envelopeOf = (title: string): Envelope => ({ problem: { title } } as unknown as Envelope);
+const envelopeOf = (title: string): Envelope => ({ problem: { title } }) as unknown as Envelope;
 const before = process.platform !== 'win32';
 
 describe('the file store', () => {
@@ -45,7 +45,8 @@ describe('the file store', () => {
     expect(chains.envelopeOf(fresh)).toEqual(envelopeOf('new'));
     const held = before ? [old, fresh] : [fresh];
     expect(chains.listEnvelopes().map((e) => e.hash)).toEqual(held);
-    for (const d of [cache, join(cache, 'ledger'), join(cache, 'blobs')]) for (const name of readdirSync(d)) expect(name).not.toContain(':');
+    for (const d of [cache, join(cache, 'ledger'), join(cache, 'blobs')])
+      for (const name of readdirSync(d)) expect(name).not.toContain(':');
     expect(readdirSync(cache)).toContain(`sha256-${'cd'.repeat(32)}.json`);
     expect(chains.held()).toMatchObject({ problems: held.length, ledgers: held.length, blobs: held.length });
     // Opening the store again renames nothing and loses nothing.

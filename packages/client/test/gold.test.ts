@@ -35,8 +35,16 @@ const pattern = (slug: string, count: number): Pattern => ({
   settings: { endgame_at: 1 },
   pieces: {
     'statement/*': {
-      count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so? Return the verdict and a quote.',
-      schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string', maxLength: 160 } } },
+      count,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: does the paper say so? Return the verdict and a quote.',
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict', 'quote'],
+        properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string', maxLength: 160 } },
+      },
       agree: ['verdict'],
     },
   },
@@ -53,7 +61,10 @@ beforeAll(async () => {
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
-type StateView = { pieces: { hash: Hash; state: string; gold: string | null; verified: boolean }[]; gold: { committed: number; pending: number; verified: number; missed: number; overruled: number; lapsed: number } };
+type StateView = {
+  pieces: { hash: Hash; state: string; gold: string | null; verified: boolean }[];
+  gold: { committed: number; pending: number; verified: number; missed: number; overruled: number; lapsed: number };
+};
 const trackerState = (problem: Hash) => json<StateView>(`${base}p/${problem}/state`);
 const pieceOf = async (problem: Hash, n: number): Promise<Hash> => (await a.open(problem)).state.pieces[n]!.piece.hash;
 
@@ -67,12 +78,22 @@ describe('gold pieces, from the client', () => {
       await b.return(q, qi, { verdict: 'supports', quote: 'indeed' });
     }
     expect(await owner.standing()).toMatchObject({ standing: 4, free: 4 });
-    const r = await owner.publish({ ...pattern('golden', 3), gold: { answers: { 'statement/1': { verdict: 'supports', quote: 'the quote is not committed' }, 'statement/2': { verdict: 'contradicts', quote: 'nor this one' } } } });
+    const r = await owner.publish({
+      ...pattern('golden', 3),
+      gold: {
+        answers: {
+          'statement/1': { verdict: 'supports', quote: 'the quote is not committed' },
+          'statement/2': { verdict: 'contradicts', quote: 'nor this one' },
+        },
+      },
+    });
     p = r.hash;
     expect(r.refused).toEqual([]);
     // Two a piece where no stake rule applies: one for each root a miss would dock.
     expect(r.gold).toEqual({ pieces: 2, stake: 4 });
-    const lib = JSON.parse(readFileSync(join(owner.resolver.home, 'library.json'), 'utf8')) as { gold: Record<string, Record<string, { name: string; projection: Record<string, unknown>; nonce: string }>> };
+    const lib = JSON.parse(readFileSync(join(owner.resolver.home, 'library.json'), 'utf8')) as {
+      gold: Record<string, Record<string, { name: string; projection: Record<string, unknown>; nonce: string }>>;
+    };
     const kept = Object.values(lib.gold[p]!);
     expect(kept.map((k) => k.name).sort()).toEqual(['statement/1', 'statement/2']);
     expect(kept.find((k) => k.name === 'statement/1')!.projection).toEqual({ verdict: 'supports' });
@@ -88,7 +109,9 @@ describe('gold pieces, from the client', () => {
     expect(s.gold).toEqual({ committed: 2, pending: 2, verified: 0, missed: 0, overruled: 0, lapsed: 0 });
     expect(await owner.standing()).toMatchObject({ standing: 4, locked: 4, free: 0 });
     const opened = await a.open(p);
-    expect(a.summary(p, opened.state, opened.tracker, opened.layer, opened.hidden, opened.gold)).toContain('Gold (QX-16): the owner committed answers for 2 of the pieces before the work, without saying which; 0 verified, 0 missed, 2 awaiting the owner\'s reveal.');
+    expect(a.summary(p, opened.state, opened.tracker, opened.layer, opened.hidden, opened.gold)).toContain(
+      "Gold (QX-16): the owner committed answers for 2 of the pieces before the work, without saying which; 0 verified, 0 missed, 2 awaiting the owner's reveal.",
+    );
   });
 
   it('lists a reveal due once the piece is accepted, reveals it through the tool, and the square is verified', async () => {
@@ -106,8 +129,10 @@ describe('gold pieces, from the client', () => {
     expect((await trackerState(p)).pieces[0]).toMatchObject({ gold: 'match', verified: true });
     expect((await owner.attention()).items.filter((i) => i.why === 'gold')).toEqual([]);
     const read = await runTool(a, 'quilt_read', { problem: p });
-    expect(read.text).toContain('1 verified, 0 missed, 1 awaiting the owner\'s reveal');
-    expect(read.text).toContain('statement/1 (verified: the set agreed with the answer the owner committed to before the work)');
+    expect(read.text).toContain("1 verified, 0 missed, 1 awaiting the owner's reveal");
+    expect(read.text).toContain(
+      'statement/1 (verified: the set agreed with the answer the owner committed to before the work)',
+    );
   });
 
   it('commits gold after publishing, on a piece nobody has worked, and refuses one already worked', async () => {
@@ -122,11 +147,20 @@ describe('gold pieces, from the client', () => {
     expect(committed).toEqual({ pieces: 1, stake: 2 });
     expect((await trackerState(r)).pieces.map((x) => x.gold)).toEqual([null, null]);
     expect((await trackerState(r)).gold).toMatchObject({ committed: 1, pending: 1 });
-    const lib = JSON.parse(readFileSync(join(other.resolver.home, 'library.json'), 'utf8')) as { gold: Record<string, Record<string, { name: string }>> };
+    const lib = JSON.parse(readFileSync(join(other.resolver.home, 'library.json'), 'utf8')) as {
+      gold: Record<string, Record<string, { name: string }>>;
+    };
     expect(Object.values(lib.gold[r]!).map((k) => k.name)).toEqual(['statement/1']);
     await a.return(r, r1, { verdict: 'supports', quote: 'x' });
-    await expect(other.commitGold(r, { 'statement/2': { verdict: 'supports', quote: '' }, 'statement/1': { verdict: 'supports', quote: '' } })).rejects.toThrow(/already worked/);
-    await expect(other.commitGold(r, { 'statement/9': { verdict: 'supports', quote: '' } })).rejects.toThrow(/no piece named/);
+    await expect(
+      other.commitGold(r, {
+        'statement/2': { verdict: 'supports', quote: '' },
+        'statement/1': { verdict: 'supports', quote: '' },
+      }),
+    ).rejects.toThrow(/already worked/);
+    await expect(other.commitGold(r, { 'statement/9': { verdict: 'supports', quote: '' } })).rejects.toThrow(
+      /no piece named/,
+    );
   });
 
   it('strikes the set on a miss and says so, refuses a reveal with nothing kept, and the tools describe', async () => {
@@ -165,14 +199,26 @@ describe('the reveals run with nobody asked', () => {
       await b.return(plain, pi, { verdict: 'supports', quote: 'yes' });
     }
     expect(await owner2.standing()).toMatchObject({ standing: 5, free: 5 });
-    d = (await owner2.publish({ ...pattern('due', 3), gold: { answers: { 'statement/1': { verdict: 'supports', quote: '' }, 'statement/2': { verdict: 'contradicts', quote: '' } } } })).hash;
+    d = (
+      await owner2.publish({
+        ...pattern('due', 3),
+        gold: {
+          answers: {
+            'statement/1': { verdict: 'supports', quote: '' },
+            'statement/2': { verdict: 'contradicts', quote: '' },
+          },
+        },
+      })
+    ).hash;
     expect(await owner2.revealDue(false)).toEqual([]);
     expect(await owner2.revealDue()).toEqual([]);
     const d1 = await pieceOf(d, 0);
     await a.return(d, d1, { verdict: 'supports', quote: 'q' });
     await b.return(d, d1, { verdict: 'supports', quote: 'q' });
     // Due, and listing posts nothing: the tracker still shows no reveal.
-    expect(await owner2.revealDue(false)).toEqual([{ problem: d, piece: d1, name: 'statement/1', outcome: null, error: null }]);
+    expect(await owner2.revealDue(false)).toEqual([
+      { problem: d, piece: d1, name: 'statement/1', outcome: null, error: null },
+    ]);
     expect((await trackerState(d)).pieces[0]).toMatchObject({ gold: null, verified: false });
     const home = owner2.resolver.home;
     const turn = await awayTurn({ ...nobody, home, quilt: () => owner2 });
@@ -186,7 +232,11 @@ describe('the reveals run with nobody asked', () => {
     // A turn with nothing due leaves the line as it was and writes nothing.
     const quiet = await awayTurn({ ...nobody, home, quilt: () => owner2 });
     expect(quiet).toMatchObject({ ran: false, gold: [], line: NEEDS_AGENT });
-    expect(readFileSync(join(home, AWAY_LOG), 'utf8').split('\n').filter((l) => l.includes('gold:'))).toHaveLength(1);
+    expect(
+      readFileSync(join(home, AWAY_LOG), 'utf8')
+        .split('\n')
+        .filter((l) => l.includes('gold:')),
+    ).toHaveLength(1);
   });
 
   it('strikes the set on a miss, posts nothing twice, and keeps a refusal with its reason rather than throwing', async () => {
@@ -214,7 +264,11 @@ describe('the reveals run with nobody asked', () => {
   it('is wired as `quilt gold due` from the command line: a home with no gold lists nothing and posts nothing', () => {
     const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
     const home = tempHome('quilt-gold-cli-');
-    const out = execFileSync(process.execPath, ['--import', 'tsx', join(root, 'packages', 'client', 'src', 'bin.ts'), 'gold', 'due'], { cwd: root, encoding: 'utf8', env: { ...process.env, QUILT_HOME: home, QUILT_TRACKERS: base } });
+    const out = execFileSync(
+      process.execPath,
+      ['--import', 'tsx', join(root, 'packages', 'client', 'src', 'bin.ts'), 'gold', 'due'],
+      { cwd: root, encoding: 'utf8', env: { ...process.env, QUILT_HOME: home, QUILT_TRACKERS: base } },
+    );
     expect(JSON.parse(out)).toEqual([]);
   }, 60_000);
 });
@@ -222,30 +276,51 @@ describe('the reveals run with nobody asked', () => {
 describe('the gold due, by the window the tracker holds open', () => {
   const problem = `sha256:${'a'.repeat(64)}` as Hash;
   const hashOf = (n: number) => `sha256:${String(n).repeat(64)}` as Hash;
-  const kept = (n: number, revealed?: string) => ({ name: `statement/${n}`, projection: { verdict: 'supports' }, nonce: 'n', ...(revealed ? { revealed } : {}) });
-  const library = { gold: { [problem]: { [hashOf(1)]: kept(1), [hashOf(2)]: kept(2), [hashOf(3)]: kept(3), [hashOf(4)]: kept(4), [hashOf(5)]: kept(5, '2026-11-07T12:00:00Z') } } } as unknown as Library;
-  const piece = (n: number, said: Partial<LayerPiece>): LayerPiece => ({ hash: hashOf(n), name: `statement/${n}`, gold: null, ...said }) as LayerPiece;
-  const dueOf = (pieces: LayerPiece[]) => goldDue(library, problem, new Map(pieces.map((l) => [l.hash, l]))).map((d) => d.name);
+  const kept = (n: number, revealed?: string) => ({
+    name: `statement/${n}`,
+    projection: { verdict: 'supports' },
+    nonce: 'n',
+    ...(revealed ? { revealed } : {}),
+  });
+  const library = {
+    gold: {
+      [problem]: {
+        [hashOf(1)]: kept(1),
+        [hashOf(2)]: kept(2),
+        [hashOf(3)]: kept(3),
+        [hashOf(4)]: kept(4),
+        [hashOf(5)]: kept(5, '2026-11-07T12:00:00Z'),
+      },
+    },
+  } as unknown as Library;
+  const piece = (n: number, said: Partial<LayerPiece>): LayerPiece =>
+    ({ hash: hashOf(n), name: `statement/${n}`, gold: null, ...said }) as LayerPiece;
+  const dueOf = (pieces: LayerPiece[]) =>
+    goldDue(library, problem, new Map(pieces.map((l) => [l.hash, l]))).map((d) => d.name);
 
   it('reads window_open where the tracker says it, a challenge open or not, whatever the core says', () => {
     // An attest piece the core does not know: challenged in its window, and challenged once the window has closed.
     expect(windowOpen(piece(1, { state: 'challenged', core: 'unknown', window_open: true }))).toBe(true);
     expect(windowOpen(piece(2, { state: 'challenged', core: 'unknown', window_open: false }))).toBe(false);
-    expect(dueOf([
-      piece(1, { state: 'challenged', core: 'unknown', window_open: true }),
-      piece(2, { state: 'challenged', core: 'unknown', window_open: false }),
-      piece(3, { state: 'accepted_provisional', core: 'accepted_provisional', window_open: true, gold: 'match' }),
-      piece(4, { state: 'accepted', core: 'accepted', window_open: false }),
-      piece(5, { state: 'accepted_provisional', core: 'accepted_provisional', window_open: true }),
-    ])).toEqual(['statement/1']);
+    expect(
+      dueOf([
+        piece(1, { state: 'challenged', core: 'unknown', window_open: true }),
+        piece(2, { state: 'challenged', core: 'unknown', window_open: false }),
+        piece(3, { state: 'accepted_provisional', core: 'accepted_provisional', window_open: true, gold: 'match' }),
+        piece(4, { state: 'accepted', core: 'accepted', window_open: false }),
+        piece(5, { state: 'accepted_provisional', core: 'accepted_provisional', window_open: true }),
+      ]),
+    ).toEqual(['statement/1']);
   });
 
   it('reads a tracker that does not say window_open by its states, a challenged piece only while the core does not call it final', () => {
-    expect(dueOf([
-      piece(1, { state: 'accepted_provisional', core: 'accepted_provisional' }),
-      piece(2, { state: 'challenged', core: 'accepted_provisional' }),
-      piece(3, { state: 'challenged', core: 'accepted' }),
-      piece(4, { state: 'accepted', core: 'accepted' }),
-    ])).toEqual(['statement/1', 'statement/2']);
+    expect(
+      dueOf([
+        piece(1, { state: 'accepted_provisional', core: 'accepted_provisional' }),
+        piece(2, { state: 'challenged', core: 'accepted_provisional' }),
+        piece(3, { state: 'challenged', core: 'accepted' }),
+        piece(4, { state: 'accepted', core: 'accepted' }),
+      ]),
+    ).toEqual(['statement/1', 'statement/2']);
   });
 });

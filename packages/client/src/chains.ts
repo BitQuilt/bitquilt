@@ -5,12 +5,26 @@
  * a door and a node can be over one store, and what the door admits is what the node serves and keeps. Nothing here
  * reads the network: the resolver does, and keeps what it reads here.
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { type Envelope, type Hash, type Receipt, IDENTITY_LOG, isHash } from '@bitquilt/core';
 
 /** What a node holds and serves to anyone by hash: problems, ledgers, blobs, and the bytes of all three. */
-export interface Held { problems: number; ledgers: number; blobs: number; bytes: number }
+export interface Held {
+  problems: number;
+  ledgers: number;
+  blobs: number;
+  bytes: number;
+}
 
 export interface Chains {
   envelopeOf(hash: Hash): Envelope | null;
@@ -57,7 +71,9 @@ export class FileChains implements Chains {
   }
 
   private logFile(log: Hash): string {
-    return log === IDENTITY_LOG ? join(this.cache, 'identity.jsonl') : join(this.cache, 'ledger', `${fileName(log)}.jsonl`);
+    return log === IDENTITY_LOG
+      ? join(this.cache, 'identity.jsonl')
+      : join(this.cache, 'ledger', `${fileName(log)}.jsonl`);
   }
 
   envelopeOf(hash: Hash): Envelope | null {
@@ -101,7 +117,12 @@ export class FileChains implements Chains {
 
   lines(log: Hash): Receipt[] {
     const f = this.logFile(log);
-    return existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt) : [];
+    return existsSync(f)
+      ? readFileSync(f, 'utf8')
+          .split('\n')
+          .filter(Boolean)
+          .map((l) => JSON.parse(l) as Receipt)
+      : [];
   }
 
   /** The file is made at the first append, lines or none, so a log read once is a ledger held. */
@@ -138,6 +159,11 @@ export class FileChains implements Chains {
     const problems = count(this.cache, (name) => name.endsWith('.json') && hashOfName(name.slice(0, -5)) !== null);
     const ledgers = count(join(this.cache, 'ledger'), (name) => name.endsWith('.jsonl'));
     const blobs = count(join(this.cache, 'blobs'), () => true);
-    return { problems: problems.n, ledgers: ledgers.n, blobs: blobs.n, bytes: problems.bytes + ledgers.bytes + blobs.bytes };
+    return {
+      problems: problems.n,
+      ledgers: ledgers.n,
+      blobs: blobs.n,
+      bytes: problems.bytes + ledgers.bytes + blobs.bytes,
+    };
   }
 }

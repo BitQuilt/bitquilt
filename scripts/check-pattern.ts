@@ -27,10 +27,14 @@ const owner = { secret, address: addressOf(secret) };
 const drafted = draftEnvelope(pattern, owner, { trackers: [], mirrors: [] });
 const out = patternProblems(pattern, drafted);
 const pieces = out.length ? [] : expandPieces(drafted.problem, drafted.blobs);
-if (showBriefs) for (const p of pieces) console.log(`--- ${p.name} (${p.verifier}${p.agree ? `, agree on ${p.agree.join(', ')}` : ''})\n${p.brief}\n`);
+if (showBriefs)
+  for (const p of pieces)
+    console.log(`--- ${p.name} (${p.verifier}${p.agree ? `, agree on ${p.agree.join(', ')}` : ''})\n${p.brief}\n`);
 if (out.length) {
   for (const line of out) console.log(line);
   console.log(`\n${out.length} problem${out.length === 1 ? '' : 's'} in ${file}`);
   process.exit(1);
 }
-console.log(`${file}: ${pieces.length} pieces, hash ${problemHash(drafted.envelope)} under a throwaway owner; every brief passes the gate${pattern.gold ? `; gold on ${Object.keys(pattern.gold.answers).length}` : ''}${pattern.stake ? `; stake ${pattern.stake.min}` : ''}`);
+console.log(
+  `${file}: ${pieces.length} pieces, hash ${problemHash(drafted.envelope)} under a throwaway owner; every brief passes the gate${pattern.gold ? `; gold on ${Object.keys(pattern.gold.answers).length}` : ''}${pattern.stake ? `; stake ${pattern.stake.min}` : ''}`,
+);

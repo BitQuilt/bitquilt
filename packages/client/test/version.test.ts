@@ -13,7 +13,9 @@ import { mcpPair, quiltOver } from './helpers.js';
  * app's build number is its own and stays out of this.
  */
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const version = (JSON.parse(readFileSync(join(root, 'packages', 'client', 'package.json'), 'utf8')) as { version: string }).version;
+const version = (
+  JSON.parse(readFileSync(join(root, 'packages', 'client', 'package.json'), 'utf8')) as { version: string }
+).version;
 
 describe('the version', () => {
   it('is a release number in the client package', () => {

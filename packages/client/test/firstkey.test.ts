@@ -38,7 +38,13 @@ afterAll(async () => {
   await new Promise<void>((r) => tracker.close(() => r()));
 });
 
-const api = async (path: string, init?: RequestInit) => (await fetch(`${pageBase}${path.replace(/^\//, '')}`, { ...init, headers: { 'content-type': 'application/json', 'sec-fetch-site': 'same-origin', ...(init?.headers ?? {}) } })).json() as Promise<Record<string, unknown>>;
+const api = async (path: string, init?: RequestInit) =>
+  (
+    await fetch(`${pageBase}${path.replace(/^\//, '')}`, {
+      ...init,
+      headers: { 'content-type': 'application/json', 'sec-fetch-site': 'same-origin', ...(init?.headers ?? {}) },
+    })
+  ).json() as Promise<Record<string, unknown>>;
 
 describe('a key at first use', () => {
   it('has none until something is signed, and says so without a command to run', async () => {

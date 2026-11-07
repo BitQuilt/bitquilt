@@ -12,7 +12,11 @@ import { type ToolInput, type ToolName, type ToolResult, type ToolRunner } from 
 export type NodeProbe = { found: 'mine' } | { found: 'other'; address: string | null } | { found: 'none' };
 
 /** Whether a node answers on the port, and whether it signs with this address. A tracker or anything else there is 'other'. */
-export async function probeNode(port: number, address: Address | null, fetchImpl: typeof fetch = fetch): Promise<NodeProbe> {
+export async function probeNode(
+  port: number,
+  address: Address | null,
+  fetchImpl: typeof fetch = fetch,
+): Promise<NodeProbe> {
   try {
     const r = await fetchImpl(`http://127.0.0.1:${port}/api/me`, { signal: AbortSignal.timeout(1500) });
     if (!r.ok) return { found: 'other', address: null };
@@ -37,14 +41,24 @@ function unreachable(err: unknown): boolean {
  * The runner for a copy working through the node at `url`. The first call that finds the node gone switches to the
  * runner `alone` makes, for good: the node's page and key are then this copy's own until it exits.
  */
-export function remoteRunner(url: string, alone: () => ToolRunner, fetchImpl: typeof fetch = fetch, log: (s: string) => void = () => {}): ToolRunner {
+export function remoteRunner(
+  url: string,
+  alone: () => ToolRunner,
+  fetchImpl: typeof fetch = fetch,
+  log: (s: string) => void = () => {},
+): ToolRunner {
   const base = withSlash(url);
   let own: ToolRunner | null = null;
   return async (name: ToolName, input: ToolInput, host: string | undefined): Promise<ToolResult> => {
     if (own) return own(name, input, host);
     let r: Response;
     try {
-      r = await fetchImpl(`${base}api/tool/${name}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ input, host: host ?? null }), signal: AbortSignal.timeout(120_000) });
+      r = await fetchImpl(`${base}api/tool/${name}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ input, host: host ?? null }),
+        signal: AbortSignal.timeout(120_000),
+      });
     } catch (err) {
       if (!unreachable(err)) throw err;
       log(`the node at ${base} went away; this copy works alone from here`);

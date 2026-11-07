@@ -21,10 +21,12 @@ function serveDir(dir: string): Promise<{ server: Server; base: string }> {
     res.writeHead(200);
     res.end(readFileSync(file));
   });
-  return new Promise((resolve) => server.listen(0, '127.0.0.1', () => {
-    const a = server.address();
-    resolve({ server, base: typeof a === 'object' && a ? `http://127.0.0.1:${a.port}/` : '' });
-  }));
+  return new Promise((resolve) =>
+    server.listen(0, '127.0.0.1', () => {
+      const a = server.address();
+      resolve({ server, base: typeof a === 'object' && a ? `http://127.0.0.1:${a.port}/` : '' });
+    }),
+  );
 }
 
 let tracker: Server, files: Server, trackerBase: string, mirrorBase: string;
@@ -36,7 +38,26 @@ let link: string;
 beforeAll(async () => {
   ({ server: tracker, base: trackerBase } = await startTracker({ url: 'http://t.test/' }));
   const owner = quiltOver(trackerBase)(9);
-  const pattern: Pattern = { title: 'Mirrored', done_when: 'Done.', slug: 'mirrored', pieces: { 'cite/*': { count: 2, verifier: 'agree', brief: 'Citation {n}: {cite.s}', data: { cite: 'cites' }, schema: { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } } } }, data: { cites: [{ s: 'one' }, { s: 'two' }] } };
+  const pattern: Pattern = {
+    title: 'Mirrored',
+    done_when: 'Done.',
+    slug: 'mirrored',
+    pieces: {
+      'cite/*': {
+        count: 2,
+        verifier: 'agree',
+        brief: 'Citation {n}: {cite.s}',
+        data: { cite: 'cites' },
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['verdict'],
+          properties: { verdict: { enum: ['supports', 'contradicts'] } },
+        },
+      },
+    },
+    data: { cites: [{ s: 'one' }, { s: 'two' }] },
+  };
   const r = await owner.publish(pattern);
   hash = r.hash;
   link = r.link;

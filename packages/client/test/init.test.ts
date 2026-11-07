@@ -22,7 +22,11 @@ async function init(args: string[]): Promise<{ code: number | null; lines: strin
   const file = join(home, 'out.txt');
   const fd = openSync(file, 'w');
   try {
-    const child = spawn(process.execPath, ['--import', 'tsx', join(root, 'packages', 'client', 'src', 'bin.ts'), 'init', ...args], { cwd: root, env: { ...process.env, QUILT_HOME: home }, stdio: ['ignore', fd, fd] });
+    const child = spawn(
+      process.execPath,
+      ['--import', 'tsx', join(root, 'packages', 'client', 'src', 'bin.ts'), 'init', ...args],
+      { cwd: root, env: { ...process.env, QUILT_HOME: home }, stdio: ['ignore', fd, fd] },
+    );
     const code = await new Promise<number | null>((done, fail) => child.on('error', fail).on('exit', done));
     return { code, lines: readFileSync(file, 'utf8').split('\n') };
   } finally {

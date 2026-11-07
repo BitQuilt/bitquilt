@@ -34,13 +34,30 @@ const pattern: Pattern = {
   settings: { endgame_at: 1 },
   pieces: {
     'statement/*': {
-      count: 3, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: {claim.text} Return whether the paper says this, with a quote.',
+      count: 3,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: {claim.text} Return whether the paper says this, with a quote.',
       data: { claim: 'claims' },
-      schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] }, quote: { type: 'string', maxLength: 160 } } },
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict', 'quote'],
+        properties: {
+          verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] },
+          quote: { type: 'string', maxLength: 160 },
+        },
+      },
       agree: ['verdict'],
     },
   },
-  data: { claims: [{ text: 'The coin is a chain of signatures.' }, { text: 'Difficulty never changes.' }, { text: 'Headers are about 80 bytes.' }] },
+  data: {
+    claims: [
+      { text: 'The coin is a chain of signatures.' },
+      { text: 'Difficulty never changes.' },
+      { text: 'Headers are about 80 bytes.' },
+    ],
+  },
 };
 
 const api = async (path: string, init?: RequestInit) => {
@@ -115,11 +132,23 @@ describe('the page', () => {
     expect(view.state).toBe('needs_verify');
     expect(view.claims.some((c) => c.by.model === 'human' && c.by.can.includes('person'))).toBe(true);
   });
-  it('takes the return as a person and the piece is accepted on the two vendors\' agreement', async () => {
-    const refused = await api('/api/return', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ problem, piece: verifying, return: { verdict: 'supports', quote: 'see https://x.y/z' } }) });
+  it("takes the return as a person and the piece is accepted on the two vendors' agreement", async () => {
+    const refused = await api('/api/return', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ problem, piece: verifying, return: { verdict: 'supports', quote: 'see https://x.y/z' } }),
+    });
     expect(refused.status).toBe(400);
     expect(String(refused.body.error)).toMatch(/no links/);
-    const r = await api('/api/return', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ problem, piece: verifying, return: { verdict: 'supports', quote: 'We define an electronic coin as a chain of digital signatures.' } }) });
+    const r = await api('/api/return', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        problem,
+        piece: verifying,
+        return: { verdict: 'supports', quote: 'We define an electronic coin as a chain of digital signatures.' },
+      }),
+    });
     expect(r.status).toBe(200);
     expect((r.body.commit as { queued: boolean }).queued).toBe(false);
     expect((r.body.reveal as { queued: boolean }).queued).toBe(false);
@@ -136,7 +165,7 @@ describe('the page', () => {
   });
 });
 
-describe('the reveal of the owner\'s gold the page offers', () => {
+describe("the reveal of the owner's gold the page offers", () => {
   // A tracker on the test's clock, so a window can close; the page's key owns a problem with gold on three of its pieces.
   const HOUR = 3_600_000;
   let tick = Date.now();
@@ -152,8 +181,16 @@ describe('the reveal of the owner\'s gold the page offers', () => {
     slug,
     pieces: {
       'statement/*': {
-        count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so? Return the verdict and a quote.',
-        schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string', maxLength: 160 } } },
+        count,
+        verifier: 'agree',
+        requires: ['web'],
+        brief: 'Statement {n}: does the paper say so? Return the verdict and a quote.',
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['verdict', 'quote'],
+          properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string', maxLength: 160 } },
+        },
         agree: ['verdict'],
       },
     },
@@ -166,7 +203,10 @@ describe('the reveal of the owner\'s gold the page offers', () => {
   const due = async () => (await rows()).filter((x) => x.gold_due).map((x) => x.name);
 
   beforeAll(async () => {
-    ({ server: goldTracker, base: goldBase } = await startTracker({ limits: { keyPerHour: 1000, ipPerHour: 10000 }, now: () => new Date((tick += 1000)).toISOString() }));
+    ({ server: goldTracker, base: goldBase } = await startTracker({
+      limits: { keyPerHour: 1000, ipPerHour: 10000 },
+      now: () => new Date((tick += 1000)).toISOString(),
+    }));
     const mk = quiltOver(goldBase);
     mine = mk(4, 'anthropic/claude');
     vendor = mk(2, 'openai/gpt-5', 'ChatGPT');
@@ -181,7 +221,11 @@ describe('the reveal of the owner\'s gold the page offers', () => {
       await vendor.return(elsewhere, v.piece.hash, { verdict: 'supports', quote: 'indeed' });
     }
     expect(await mine.standing()).toMatchObject({ standing: 6, free: 6 });
-    const answers = { 'statement/1': { verdict: 'supports', quote: '' }, 'statement/2': { verdict: 'supports', quote: '' }, 'statement/3': { verdict: 'supports', quote: '' } };
+    const answers = {
+      'statement/1': { verdict: 'supports', quote: '' },
+      'statement/2': { verdict: 'supports', quote: '' },
+      'statement/3': { verdict: 'supports', quote: '' },
+    };
     const published = await mine.publish({ ...statements('golden', 4), gold: { answers } });
     expect(published.refused).toEqual([]);
     expect(published.gold).toEqual({ pieces: 3, stake: 6 });
@@ -207,15 +251,25 @@ describe('the reveal of the owner\'s gold the page offers', () => {
     expect(await due()).toEqual(['statement/1', 'statement/2']);
     // The page and the owner's turn read one rule.
     expect((await mine.revealDue(false)).map((d) => d.name)).toEqual(await due());
-    const revealed = await fetch(`${goldSite}/api/reveal`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ problem: golden, piece: p1 }) });
+    const revealed = await fetch(`${goldSite}/api/reveal`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ problem: golden, piece: p1 }),
+    });
     expect(revealed.status).toBe(200);
     expect(((await revealed.json()) as { outcome: string }).outcome).toBe('match');
     expect(await due()).toEqual(['statement/2']);
   });
-  it('offers no reveal once the window has closed, where the tracker refuses it and the owner\'s turn reveals nothing', async () => {
+  it("offers no reveal once the window has closed, where the tracker refuses it and the owner's turn reveals nothing", async () => {
     tick += 49 * HOUR;
     const second = (await rows())[1]!;
-    expect(second).toMatchObject({ name: 'statement/2', state: 'accepted', gold: null, mine_gold: true, gold_due: false });
+    expect(second).toMatchObject({
+      name: 'statement/2',
+      state: 'accepted',
+      gold: null,
+      mine_gold: true,
+      gold_due: false,
+    });
     expect(await due()).toEqual([]);
     expect(await mine.revealDue(false)).toEqual([]);
     await expect(mine.revealGold(golden, second.hash)).rejects.toThrow(/the window has closed/);
@@ -223,7 +277,12 @@ describe('the reveal of the owner\'s gold the page offers', () => {
   it('offers the reveal on a challenged piece while its window is open, and none once it closes with the panel still sitting', async () => {
     // Four judges with accepted work on another problem, and a challenger with the point a new root begins with.
     const mk = quiltOver(goldBase);
-    const judges = [mk(11, 'anthropic/claude'), mk(12, 'openai/gpt-5', 'ChatGPT'), mk(13, 'google/gemini', 'Gemini'), mk(14, 'meta/llama', 'x')];
+    const judges = [
+      mk(11, 'anthropic/claude'),
+      mk(12, 'openai/gpt-5', 'ChatGPT'),
+      mk(13, 'google/gemini', 'Gemini'),
+      mk(14, 'meta/llama', 'x'),
+    ];
     const challenger = mk(7, 'google/gemini', 'Gemini');
     const pool = (await other.publish(statements('pool', 2))).hash;
     const [q1, q2] = (await other.open(pool)).state.pieces.map((v) => v.piece.hash);
@@ -235,7 +294,12 @@ describe('the reveal of the owner\'s gold the page offers', () => {
     await worker.return(golden, third.hash, { verdict: 'supports', quote: 'as the paper says' });
     await vendor.return(golden, third.hash, { verdict: 'supports', quote: 'the paper says so' });
     const acceptedAt = tick;
-    const tracked = async () => (await json<{ pieces: { hash: Hash; state: string; core: string; window_open: boolean }[] }>(`${goldBase}p/${golden}/state`)).pieces.find((x) => x.hash === third.hash)!;
+    const tracked = async () =>
+      (
+        await json<{ pieces: { hash: Hash; state: string; core: string; window_open: boolean }[] }>(
+          `${goldBase}p/${golden}/state`,
+        )
+      ).pieces.find((x) => x.hash === third.hash)!;
     // Half an hour before the window closes, a challenge: the piece is challenged, its window open, and the reveal due.
     tick = acceptedAt + 47.5 * HOUR;
     await challenger.challenge(golden, third.hash, 1, 'Both quote the abstract, which the paper itself takes back.');
@@ -245,7 +309,13 @@ describe('the reveal of the owner\'s gold the page offers', () => {
     // Half an hour after, the panel still sits and the piece is still challenged, but the window has closed.
     tick = acceptedAt + 48.5 * HOUR;
     expect(await tracked()).toMatchObject({ state: 'challenged', core: 'accepted', window_open: false });
-    expect((await rows())[2]).toMatchObject({ name: 'statement/3', state: 'challenged', gold: null, mine_gold: true, gold_due: false });
+    expect((await rows())[2]).toMatchObject({
+      name: 'statement/3',
+      state: 'challenged',
+      gold: null,
+      mine_gold: true,
+      gold_due: false,
+    });
     expect(await due()).toEqual([]);
     expect(await mine.revealDue(false)).toEqual([]);
     await expect(mine.revealGold(golden, third.hash)).rejects.toThrow(/the window has closed/);
@@ -261,7 +331,11 @@ describe('the sheet the menu bar draws', () => {
   it('lists what it holds at /held and serves the identity log at /k/events, for a mirror or another node to pull from', async () => {
     const held = await api('/held');
     expect(held.status).toBe(200);
-    const list = (held.body as { quilt: number; node: boolean; problems: { problem: string; title: string; slug: string; owner: string; lines: number }[] });
+    const list = held.body as {
+      quilt: number;
+      node: boolean;
+      problems: { problem: string; title: string; slug: string; owner: string; lines: number }[];
+    };
     expect(list.quilt).toBe(1);
     expect(list.node).toBe(true);
     const mine = list.problems.find((p) => p.problem === problem)!;
@@ -269,7 +343,10 @@ describe('the sheet the menu bar draws', () => {
     expect(mine.lines).toBeGreaterThan(0);
     const identity = await fetch(`${site}/k/events`);
     expect(identity.headers.get('content-type')).toContain('x-ndjson');
-    const lines = (await identity.text()).split('\n').filter(Boolean).map((l) => JSON.parse(l) as { event: { type: string } });
+    const lines = (await identity.text())
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => JSON.parse(l) as { event: { type: string } });
     expect(Array.isArray(lines)).toBe(true);
     const known = (await api('/.well-known/quilt')).body as { node: boolean; routes: string[] };
     expect(known.node).toBe(true);
@@ -279,7 +356,9 @@ describe('the sheet the menu bar draws', () => {
     const before = await api('/api/phrases');
     expect(before.status).toBe(200);
     expect(before.body.state).toBe('no_connector');
-    expect((before.body.first as { say: string }).say).toBe('Open Quilt and tell me who I am: my address, my standing and my coin.');
+    expect((before.body.first as { say: string }).say).toBe(
+      'Open Quilt and tell me who I am: my address, my standing and my coin.',
+    );
     expect(before.body.groups).toEqual([]);
     expect((before.body.templates as Record<string, string>).take_piece).toBe('Open {link} on Quilt and take a piece.');
     const said = await api('/api/connector', { method: 'POST', body: JSON.stringify({ host: 'Claude Desktop' }) });
@@ -288,7 +367,9 @@ describe('the sheet the menu bar draws', () => {
     expect(after.body.state).toBe('connected');
     const groups = after.body.groups as { title: string; phrases: { say: string; problem?: { hash: string } }[] }[];
     expect(groups.map((g) => g.title)).toContain('To start');
-    expect(groups.find((g) => g.title === 'Opened lately')?.phrases.some((p) => p.problem?.hash === problem)).toBe(true);
+    expect(groups.find((g) => g.title === 'Opened lately')?.phrases.some((p) => p.problem?.hash === problem)).toBe(
+      true,
+    );
     // A tool run through the node is the connector's latest, under the host that ran it.
     const first = (after.body.connector as { last: string }).last;
     await api('/api/tool/quilt_me', { method: 'POST', body: JSON.stringify({ input: {}, host: 'ChatGPT' }) });

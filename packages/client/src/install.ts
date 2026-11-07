@@ -19,7 +19,11 @@ export interface ServerEntry {
 }
 
 /** Where Claude Desktop reads `claude_desktop_config.json` on each platform. */
-export function claudeDesktopConfigPath(platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env, home: string = homedir()): string {
+export function claudeDesktopConfigPath(
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+  home: string = homedir(),
+): string {
   const file = 'claude_desktop_config.json';
   // The path is joined in the named platform's own style, not the one this runs on, so the answer for a Mac is the same from a Windows runner.
   if (platform === 'darwin') return posix.join(home, 'Library', 'Application Support', 'Claude', file);
@@ -33,13 +37,30 @@ export function claudeDesktopConfigPath(platform: NodeJS.Platform = process.plat
  * unless `QUILT_MODEL` says otherwise: the app names itself to the connector by a bridge name, not by its vendor,
  * and agreement on a piece is judged across vendors.
  */
-export function quiltEntry(options: { sea: boolean; execPath: string; repoRoot: string; home: string; env: NodeJS.ProcessEnv }): ServerEntry {
-  const env: Record<string, string> = { QUILT_HOME: options.home, QUILT_MODEL: options.env.QUILT_MODEL ?? 'anthropic/claude' };
+export function quiltEntry(options: {
+  sea: boolean;
+  execPath: string;
+  repoRoot: string;
+  home: string;
+  env: NodeJS.ProcessEnv;
+}): ServerEntry {
+  const env: Record<string, string> = {
+    QUILT_HOME: options.home,
+    QUILT_MODEL: options.env.QUILT_MODEL ?? 'anthropic/claude',
+  };
   for (const k of ['QUILT_TRACKERS', 'QUILT_PORT_PAGE'] as const) if (options.env[k]) env[k] = options.env[k]!;
   return options.sea
     ? { command: options.execPath, args: ['mcp'], env }
-    // The development command is this node running tsx's own entry on the client's bin, not pnpm and not the shell shim: an agent CLI's connection probe closes a server behind the pnpm wrapper, and launchd may not run a shim under a protected folder, while node itself reads the files there.
-    : { command: options.execPath, args: [`${options.repoRoot}/node_modules/tsx/dist/cli.mjs`, `${options.repoRoot}/packages/client/src/bin.ts`, 'mcp'], env };
+    : // The development command is this node running tsx's own entry on the client's bin, not pnpm and not the shell shim: an agent CLI's connection probe closes a server behind the pnpm wrapper, and launchd may not run a shim under a protected folder, while node itself reads the files there.
+      {
+        command: options.execPath,
+        args: [
+          `${options.repoRoot}/node_modules/tsx/dist/cli.mjs`,
+          `${options.repoRoot}/packages/client/src/bin.ts`,
+          'mcp',
+        ],
+        env,
+      };
 }
 
 /** The config with `mcpServers.quilt` set to the entry; everything else in it kept as it was. */
@@ -61,10 +82,17 @@ export function claudeHasQuilt(file: string): boolean {
 /** Whether Claude Desktop is running here, as far as the process list says; false where that cannot be asked. */
 export function claudeRunning(): boolean {
   try {
-    if (process.platform === 'win32') return execFileSync('tasklist', { encoding: 'utf8' }).toLowerCase().includes('claude.exe');
+    if (process.platform === 'win32')
+      return execFileSync('tasklist', { encoding: 'utf8' }).toLowerCase().includes('claude.exe');
     // ps shows the app's own process (pgrep on macOS does not); its helpers live under Frameworks and Claude Code's bundle is lower-case.
-    const names = execFileSync('ps', ['-axo', 'comm='], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\n').map((l) => l.trim());
-    return names.some((n) => (process.platform === 'darwin' ? n.endsWith('/Claude.app/Contents/MacOS/Claude') : /^(.*\/)?claude(-desktop)?$/.test(n)));
+    const names = execFileSync('ps', ['-axo', 'comm='], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+      .split('\n')
+      .map((l) => l.trim());
+    return names.some((n) =>
+      process.platform === 'darwin'
+        ? n.endsWith('/Claude.app/Contents/MacOS/Claude')
+        : /^(.*\/)?claude(-desktop)?$/.test(n),
+    );
   } catch {
     return false;
   }
@@ -79,12 +107,31 @@ export function entryHere(home: string, env: NodeJS.ProcessEnv = process.env): S
 }
 
 /** The connector written for this program, into Claude Desktop's config here, unless Claude is running: what the CLI's verb and the menu bar's button both do. */
-export function installHere(home: string, anyway = false, env: NodeJS.ProcessEnv = process.env): { file: string; written: boolean; reason?: string } {
-  return installClaude({ file: claudeDesktopConfigPath(), entry: entryHere(home, env), claudeRunning: claudeRunning(), anyway });
+export function installHere(
+  home: string,
+  anyway = false,
+  env: NodeJS.ProcessEnv = process.env,
+): { file: string; written: boolean; reason?: string } {
+  return installClaude({
+    file: claudeDesktopConfigPath(),
+    entry: entryHere(home, env),
+    claudeRunning: claudeRunning(),
+    anyway,
+  });
 }
 
-export function installClaude(options: { file: string; entry: ServerEntry; claudeRunning: boolean; anyway: boolean }): { file: string; written: boolean; reason?: string } {
-  if (options.claudeRunning && !options.anyway) return { file: options.file, written: false, reason: 'Claude is running and writes this file from memory when it quits; quit Claude first, then run this again (or add --anyway).' };
+export function installClaude(options: { file: string; entry: ServerEntry; claudeRunning: boolean; anyway: boolean }): {
+  file: string;
+  written: boolean;
+  reason?: string;
+} {
+  if (options.claudeRunning && !options.anyway)
+    return {
+      file: options.file,
+      written: false,
+      reason:
+        'Claude is running and writes this file from memory when it quits; quit Claude first, then run this again (or add --anyway).',
+    };
   let config: Record<string, unknown> = {};
   if (existsSync(options.file)) {
     try {

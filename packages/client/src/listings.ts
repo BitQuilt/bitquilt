@@ -26,7 +26,14 @@ export interface KindWords {
 export type LayerState = PieceState | 'challenged' | 'judging' | 'recording' | 'recorded';
 
 /** QX-20 section 3: a record piece's grade as the tracker gives it: the readings wanted and standing, how many rest on kept reads, from how many roots and vendors, and the keys whose readings stand. */
-export interface RecordGrade { wanted: number; standing: number; grounded: number; roots: number; vendors: number; keys: string[] }
+export interface RecordGrade {
+  wanted: number;
+  standing: number;
+  grounded: number;
+  roots: number;
+  vendors: number;
+  keys: string[];
+}
 
 /**
  * A piece as the tracker that answered holds it in its layer (QX-1, QX-2, QX-3, QX-10): its state beside the core's,
@@ -68,13 +75,34 @@ export interface LayerPiece extends Omit<KindWords, 'kind' | 'strength'> {
 }
 
 /** QX-19: one side of a seam: the key, what it returned for the field, and the read, span and passage it rests on, where it rests on anything. */
-export interface SeamSide { key: string; name?: string; value: unknown; read: { url: string; hash: Hash; at: string; media?: string } | null; span: [number, number] | null; passage: string | null; /** QX-19 section 4: the layer folds the piece without this reading, since it rests on nothing where the other rests on the record. */ aside?: boolean }
+export interface SeamSide {
+  key: string;
+  name?: string;
+  value: unknown;
+  read: { url: string; hash: Hash; at: string; media?: string } | null;
+  span: [number, number] | null;
+  passage:
+    | string
+    | null /** QX-19 section 4: the layer folds the piece without this reading, since it rests on nothing where the other rests on the record. */;
+  aside?: boolean;
+}
 
 /** QX-19: a field on which the two readings of a disputed piece differ, and why, read from what each rests on: different reads, the same read at different places, the same words read two ways, or nothing kept on a side. */
-export interface Seam { field: string; why: 'source' | 'span' | 'reading' | 'unknown'; sides: [SeamSide, SeamSide] }
+export interface Seam {
+  field: string;
+  why: 'source' | 'span' | 'reading' | 'unknown';
+  sides: [SeamSide, SeamSide];
+}
 
 /** A problem's gold summed by the tracker (QX-16): how many blind commitments, and how each stands. */
-export interface GoldCount { committed: number; pending: number; verified: number; missed: number; overruled: number; lapsed: number }
+export interface GoldCount {
+  committed: number;
+  pending: number;
+  verified: number;
+  missed: number;
+  overruled: number;
+  lapsed: number;
+}
 
 /** A challenge as a tracker lists it at /p/<hash>/challenges (QX-1): the seats drawn, each verdict, the outcome. */
 export interface ChallengeListing {
@@ -85,7 +113,12 @@ export interface ChallengeListing {
   at: string;
   stake: number;
   ground: string;
-  seats: { root: string; offered_at: string; lapsed_at: string | null; verdict: { at: string; for: Side; return: Record<string, unknown> | null } | null }[];
+  seats: {
+    root: string;
+    offered_at: string;
+    lapsed_at: string | null;
+    verdict: { at: string; for: Side; return: Record<string, unknown> | null } | null;
+  }[];
   outcome: 'open' | 'held' | 'failed' | 'void';
   decided_at: string | null;
 }

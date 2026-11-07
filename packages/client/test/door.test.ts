@@ -15,7 +15,11 @@ const named = (text: string, pattern: RegExp): string[] => [...text.matchAll(pat
 
 describe('the Door', () => {
   it('goes to the files its header and AGENTS.md name, and to no other', () => {
-    const taking = readdirSync(src).filter((f) => f.endsWith('.ts') && f !== 'quilt.ts' && /from '\.\/door\.js'/.test(readFileSync(join(src, f), 'utf8'))).sort();
+    const taking = readdirSync(src)
+      .filter(
+        (f) => f.endsWith('.ts') && f !== 'quilt.ts' && /from '\.\/door\.js'/.test(readFileSync(join(src, f), 'utf8')),
+      )
+      .sort();
     expect(taking).toEqual(['coin.ts', 'gold.ts', 'trace.ts']);
     const header = readFileSync(join(src, 'door.ts'), 'utf8');
     expect(named(header.slice(0, header.indexOf(': ')), /\((\w+\.ts)\)/g)).toEqual(taking);

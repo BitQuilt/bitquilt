@@ -18,14 +18,36 @@ const pattern: Pattern = {
   settings: { endgame_at: 1 },
   pieces: {
     'statement/*': {
-      count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: {claim.text} Return whether the paper says this, with a quote.',
+      count: 2,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: {claim.text} Return whether the paper says this, with a quote.',
       data: { claim: 'claims' },
-      schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] }, quote: { type: 'string', maxLength: 160 } } },
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict', 'quote'],
+        properties: {
+          verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] },
+          quote: { type: 'string', maxLength: 160 },
+        },
+      },
       agree: ['verdict'],
     },
     'watch/*': {
-      count: 1, verifier: 'agree', requires: ['web'], brief: 'Watch {n}: is the paper still where it was?',
-      schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] }, quote: { type: 'string', maxLength: 160 } } },
+      count: 1,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Watch {n}: is the paper still where it was?',
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict', 'quote'],
+        properties: {
+          verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] },
+          quote: { type: 'string', maxLength: 160 },
+        },
+      },
       agree: ['verdict'],
     },
   },
@@ -59,7 +81,7 @@ describe('seeding and the offer from Quilt', () => {
     expect(b.library.seeding).toEqual({});
     expect((await json<{ seeders: number }>(`${base}p/${problem}/scrape`)).seeders).toBe(0);
   });
-  it('takes the tracker\'s offer when no problem is named, and never the key\'s own problem', async () => {
+  it("takes the tracker's offer when no problem is named, and never the key's own problem", async () => {
     const { hash, pick, posted } = await a.next('');
     expect(hash).toBe(problem);
     expect(pick.piece.family).toBe('statement');

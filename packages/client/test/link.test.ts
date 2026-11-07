@@ -13,8 +13,18 @@ const H = ('sha256:' + 'ab'.repeat(32)) as Hash;
 describe('links', () => {
   it('parses the three forms and a bare hash', () => {
     expect(parseLink(H)).toEqual({ hash: H, trackers: [], mirrors: [] });
-    expect(parseLink(`quilt:${H}?dn=report&tr=https://a.example&tr=https://b.example/&mr=https://m.example/`)).toEqual({ hash: H, name: 'report', trackers: ['https://a.example/', 'https://b.example/'], mirrors: ['https://m.example/'] });
-    expect(parseLink('quilt:0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf/report?tr=https://a.example/')).toEqual({ owner: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', slug: 'report', trackers: ['https://a.example/'], mirrors: [] });
+    expect(parseLink(`quilt:${H}?dn=report&tr=https://a.example&tr=https://b.example/&mr=https://m.example/`)).toEqual({
+      hash: H,
+      name: 'report',
+      trackers: ['https://a.example/', 'https://b.example/'],
+      mirrors: ['https://m.example/'],
+    });
+    expect(parseLink('quilt:0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf/report?tr=https://a.example/')).toEqual({
+      owner: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+      slug: 'report',
+      trackers: ['https://a.example/'],
+      mirrors: [],
+    });
     expect(parseLink(`https://a.example/p/${H}`)).toEqual({ hash: H, trackers: ['https://a.example/'], mirrors: [] });
     expect(() => parseLink('quilt:nonsense')).toThrow(/not a quilt link/);
     expect(() => parseLink('hello')).toThrow(/not a quilt link/);

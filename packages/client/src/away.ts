@@ -14,7 +14,17 @@
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { accessSync, appendFileSync, constants, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  accessSync,
+  appendFileSync,
+  constants,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, posix, resolve } from 'node:path';
 import { isHash } from '@bitquilt/core';
@@ -28,7 +38,15 @@ import { type SentenceAsk, layerByHash, sentenceAsk } from './render.js';
 import type { ToolName } from './tools.js';
 
 /** The tools a run while away may call: the ones that read, take a piece, hand a return back and give one back. */
-export const AWAY_TOOLS = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read'] as const satisfies readonly ToolName[];
+export const AWAY_TOOLS = [
+  'quilt_me',
+  'quilt_open',
+  'quilt_search',
+  'quilt_next',
+  'quilt_return',
+  'quilt_decline',
+  'quilt_read',
+] as const satisfies readonly ToolName[];
 
 export type AgentName = 'claude' | 'codex';
 
@@ -45,8 +63,13 @@ export const LAUNCHD_LABEL = 'org.bitquilt.quilt.away';
  * home's hash for any other, so two homes on one Mac, a person's and a maintainer's, each keep their own hourly turn.
  * Until 2 November 2026 the label was one, and installing for a second home replaced the first's.
  */
-export function launchdLabel(home: string, usual = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'quilt')): string {
-  return resolve(home) === resolve(usual) ? LAUNCHD_LABEL : `${LAUNCHD_LABEL}.${createHash('sha256').update(resolve(home)).digest('hex').slice(0, 8)}`;
+export function launchdLabel(
+  home: string,
+  usual = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'quilt'),
+): string {
+  return resolve(home) === resolve(usual)
+    ? LAUNCHD_LABEL
+    : `${LAUNCHD_LABEL}.${createHash('sha256').update(resolve(home)).digest('hex').slice(0, 8)}`;
 }
 /** How long one run may take before it is stopped. */
 export const RUN_TIMEOUT_MS = 10 * 60_000;
@@ -57,7 +80,11 @@ export const CLAUDE_MODEL = 'anthropic/claude';
 export const ACCEPTED_STATES: readonly string[] = ['accepted_provisional', 'accepted'];
 
 /** One day of the record: how many runs, how many pieces returned, and which, so the summary can ask what became of them. */
-export interface AwayDay { runs: number; returned: number; pieces: { problem: string; piece: string }[] }
+export interface AwayDay {
+  runs: number;
+  returned: number;
+  pieces: { problem: string; piece: string }[];
+}
 
 /** The record at QUILT_HOME/away.json: the cap, today's counts, the last run, and the last seven days by day. */
 export interface AwayRecord {
@@ -93,10 +120,19 @@ export function rolledOver(read: Partial<AwayRecord> | null, day: string): AwayR
   const days: Record<string, AwayDay> = {};
   for (const [d, v] of Object.entries(read?.days ?? {})) {
     const ago = daysBetween(d, day);
-    if (ago >= 0 && ago < 7) days[d] = { runs: v.runs ?? 0, returned: v.returned ?? 0, pieces: Array.isArray(v.pieces) ? v.pieces : [] };
+    if (ago >= 0 && ago < 7)
+      days[d] = { runs: v.runs ?? 0, returned: v.returned ?? 0, pieces: Array.isArray(v.pieces) ? v.pieces : [] };
   }
   const same = read?.day === day;
-  return { cap, day, returned: same ? read.returned ?? 0 : 0, runs: same ? read.runs ?? 0 : 0, last: read?.last ?? null, lastAgent: read?.lastAgent ?? null, days };
+  return {
+    cap,
+    day,
+    returned: same ? (read.returned ?? 0) : 0,
+    runs: same ? (read.runs ?? 0) : 0,
+    last: read?.last ?? null,
+    lastAgent: read?.lastAgent ?? null,
+    days,
+  };
 }
 
 /** The record from its file, rolled over to today; a missing or unreadable file is a fresh record. */
@@ -161,7 +197,10 @@ export function setCap(file: string, cap: number, now = new Date()): AwayRecord 
 
 // The agent CLI
 
-export interface Agent { name: AgentName; path: string }
+export interface Agent {
+  name: AgentName;
+  path: string;
+}
 
 function listDir(dir: string): string[] {
   try {
@@ -184,20 +223,33 @@ function isExecutable(path: string): boolean {
  * Where an agent CLI is looked for: the PATH, then the places the installers put one, since launchd and an app started
  * from the Finder carry a short PATH with none of them. The nvm versions come newest first.
  */
-export function searchDirs(env: NodeJS.ProcessEnv, home = homedir(), list: (dir: string) => string[] = listDir): string[] {
+export function searchDirs(
+  env: NodeJS.ProcessEnv,
+  home = homedir(),
+  list: (dir: string) => string[] = listDir,
+): string[] {
   const fromPath = (env.PATH ?? '').split(delimiter).filter(Boolean);
-  const usual = [join(home, '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin', join(home, '.npm-global', 'bin'), join(home, '.claude', 'local')];
+  const usual = [
+    join(home, '.local', 'bin'),
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    join(home, '.npm-global', 'bin'),
+    join(home, '.claude', 'local'),
+  ];
   const nvm = join(home, '.nvm', 'versions', 'node');
-  const nodes = list(nvm).sort((a, b) => b.localeCompare(a, undefined, { numeric: true })).map((v) => join(nvm, v, 'bin'));
+  const nodes = list(nvm)
+    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+    .map((v) => join(nvm, v, 'bin'));
   return [...new Set([...fromPath, ...usual, ...nodes])];
 }
 
 /** The first agent CLI found: claude in any of the directories, then codex. */
 export function findAgent(dirs: string[], exists: (path: string) => boolean = isExecutable): Agent | null {
-  for (const name of AGENTS) for (const dir of dirs) {
-    const path = join(dir, name);
-    if (exists(path)) return { name, path };
-  }
+  for (const name of AGENTS)
+    for (const dir of dirs) {
+      const path = join(dir, name);
+      if (exists(path)) return { name, path };
+    }
   return null;
 }
 
@@ -207,7 +259,11 @@ export function awayPrompt(): string {
 }
 
 /** An agent CLI's headless invocation, and the model the connector declares under it. */
-export interface Invocation { command: string; args: string[]; model: string }
+export interface Invocation {
+  command: string;
+  args: string[];
+  model: string;
+}
 
 /** The connector entry an agent starts: the installer's (install.ts), with the vendor the run declares and the record the connector keeps the cap in. */
 export function awayEntry(entry: ServerEntry, model: string, awayFile: string): ServerEntry {
@@ -222,7 +278,23 @@ export function awayEntry(entry: ServerEntry, model: string, awayFile: string): 
 export function claudeInvocation(claude: string, entry: ServerEntry, awayFile: string): Invocation {
   const config = JSON.stringify({ mcpServers: { quilt: awayEntry(entry, CLAUDE_MODEL, awayFile) } });
   const allowed = AWAY_TOOLS.map((t) => `mcp__quilt__${t}`).join(',');
-  return { command: claude, model: CLAUDE_MODEL, args: ['-p', awayPrompt(), '--output-format', 'json', '--max-turns', '40', '--strict-mcp-config', '--mcp-config', config, '--allowedTools', allowed] };
+  return {
+    command: claude,
+    model: CLAUDE_MODEL,
+    args: [
+      '-p',
+      awayPrompt(),
+      '--output-format',
+      'json',
+      '--max-turns',
+      '40',
+      '--strict-mcp-config',
+      '--mcp-config',
+      config,
+      '--allowedTools',
+      allowed,
+    ],
+  };
 }
 
 /** The model Codex's config names (~/.codex/config.toml, `model = "..."`), or `codex` where it names none. */
@@ -235,13 +307,32 @@ export function codexModel(toml: string | null): string {
  * Codex, headless: `exec` takes the prompt and exits; the connector is given as config overrides, each value JSON as
  * the CLI parses it; the sandbox is read-only and no approval is asked for. Flags as codex-cli 0.20 has them.
  */
-export function codexInvocation(codex: string, entry: ServerEntry, awayFile: string, model = 'codex', lastMessage?: string): Invocation {
+export function codexInvocation(
+  codex: string,
+  entry: ServerEntry,
+  awayFile: string,
+  model = 'codex',
+  lastMessage?: string,
+): Invocation {
   const declared = `openai/${model}`;
   const server = awayEntry(entry, declared, awayFile);
   const set = (key: string, value: unknown) => ['-c', `mcp_servers.quilt.${key}=${JSON.stringify(value)}`];
   return {
-    command: codex, model: declared,
-    args: ['exec', '--skip-git-repo-check', '--sandbox', 'read-only', '-c', 'approval_policy="never"', ...set('command', server.command), ...set('args', server.args), ...set('env', server.env), ...(lastMessage ? ['--output-last-message', lastMessage] : []), awayPrompt()],
+    command: codex,
+    model: declared,
+    args: [
+      'exec',
+      '--skip-git-repo-check',
+      '--sandbox',
+      'read-only',
+      '-c',
+      'approval_policy="never"',
+      ...set('command', server.command),
+      ...set('args', server.args),
+      ...set('env', server.env),
+      ...(lastMessage ? ['--output-last-message', lastMessage] : []),
+      awayPrompt(),
+    ],
   };
 }
 
@@ -259,14 +350,25 @@ export function saidByClaude(stdout: string): string | null {
 }
 
 /** The agent run with the timeout: SIGTERM at the deadline, SIGKILL ten seconds later. */
-export function runAgent(inv: Invocation, options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number }): Promise<{ code: number | null; timedOut: boolean; stdout: string; stderr: string }> {
+export function runAgent(
+  inv: Invocation,
+  options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number },
+): Promise<{ code: number | null; timedOut: boolean; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(inv.command, inv.args, { cwd: options.cwd, env: options.env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(inv.command, inv.args, {
+      cwd: options.cwd,
+      env: options.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     let stdout = '';
     let stderr = '';
     let timedOut = false;
-    child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
-    child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+    child.stdout.on('data', (d: Buffer) => {
+      stdout += d.toString();
+    });
+    child.stderr.on('data', (d: Buffer) => {
+      stderr += d.toString();
+    });
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill('SIGTERM');
@@ -343,12 +445,44 @@ export function sharpenText(list: readonly Sharpened[]): string {
 /** The agent CLI as a function from a prompt to its one answer, with no tools: how the owner's node asks for the sentence a brief lacks (QX-19 section 4). */
 export function askInvocation(agent: Agent, prompt: string, lastMessage: string): Invocation {
   return agent.name === 'claude'
-    ? { command: agent.path, model: CLAUDE_MODEL, args: ['-p', prompt, '--output-format', 'json', '--max-turns', '1', '--strict-mcp-config', '--mcp-config', JSON.stringify({ mcpServers: {} })] }
-    : { command: agent.path, model: 'codex', args: ['exec', '--skip-git-repo-check', '--sandbox', 'read-only', '-c', 'approval_policy="never"', '--output-last-message', lastMessage, prompt] };
+    ? {
+        command: agent.path,
+        model: CLAUDE_MODEL,
+        args: [
+          '-p',
+          prompt,
+          '--output-format',
+          'json',
+          '--max-turns',
+          '1',
+          '--strict-mcp-config',
+          '--mcp-config',
+          JSON.stringify({ mcpServers: {} }),
+        ],
+      }
+    : {
+        command: agent.path,
+        model: 'codex',
+        args: [
+          'exec',
+          '--skip-git-repo-check',
+          '--sandbox',
+          'read-only',
+          '-c',
+          'approval_policy="never"',
+          '--output-last-message',
+          lastMessage,
+          prompt,
+        ],
+      };
 }
 
 /** The agent's one answer to a prompt, trimmed, or null where it failed or said nothing. */
-export async function agentSentence(agent: Agent, prompt: string, options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number }): Promise<string | null> {
+export async function agentSentence(
+  agent: Agent,
+  prompt: string,
+  options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number },
+): Promise<string | null> {
   const lastMessage = join(options.cwd, 'away.sentence');
   const run = await runAgent(askInvocation(agent, prompt, lastMessage), options);
   const said = agent.name === 'claude' ? saidByClaude(run.stdout) : readIfThere(lastMessage);
@@ -362,13 +496,23 @@ export function goldText(gold: readonly Revealed[]): string {
   const posted = gold.filter((g) => !g.error);
   const count = (outcome: string) => posted.filter((g) => g.outcome === outcome).length;
   const undecided = posted.length - count('match') - count('miss');
-  const parts = [count('match') ? `${count('match')} match` : '', count('miss') ? `${count('miss')} miss` : '', undecided ? `${undecided} undecided` : ''].filter(Boolean);
+  const parts = [
+    count('match') ? `${count('match')} match` : '',
+    count('miss') ? `${count('miss')} miss` : '',
+    undecided ? `${undecided} undecided` : '',
+  ].filter(Boolean);
   const refused = gold.length - posted.length;
   return `gold: ${posted.length} revealed${parts.length ? ` (${parts.join(', ')})` : ''}${refused ? `, ${refused} refused` : ''}`;
 }
 
 /** What the owner's part of a turn did: the gold revealed, the briefs sharpened, the problems announced again, and all three in a few words for a log line, or nothing when there was nothing to do; and what the keeper's loop did beside it, the queue it sent included, which is the node's and not the owner's, so it is not in `said`. */
-export interface OwnerTurn { gold: Revealed[]; sharpened: Sharpened[]; announced: string[]; said: string; kept: { added: number; reads: number; sent: number } }
+export interface OwnerTurn {
+  gold: Revealed[];
+  sharpened: Sharpened[];
+  announced: string[];
+  said: string;
+  kept: { added: number; reads: number; sent: number };
+}
 
 /**
  * The owner's part of a turn, which needs no agent beside it: the gold due revealed (QX-16, gold.ts), and the briefs
@@ -376,7 +520,12 @@ export interface OwnerTurn { gold: Revealed[]; sharpened: Sharpened[]; announced
  * there is no way to ask. A step that fails is written to the log and the turn goes on. A home's node runs it before its
  * agent, and the hosted on-ramp runs it for the owners whose keys it holds.
  */
-export async function ownerTurn(quilt: Quilt, ask: ((q: SentenceAsk) => Promise<string | null>) | null, log: (line: string) => void, now: () => Date = () => new Date()): Promise<OwnerTurn> {
+export async function ownerTurn(
+  quilt: Quilt,
+  ask: ((q: SentenceAsk) => Promise<string | null>) | null,
+  log: (line: string) => void,
+  now: () => Date = () => new Date(),
+): Promise<OwnerTurn> {
   let gold: Revealed[] = [];
   let sharpened: Sharpened[] = [];
   try {
@@ -403,11 +552,22 @@ export async function ownerTurn(quilt: Quilt, ask: ((q: SentenceAsk) => Promise<
   try {
     const k = await quilt.resolver.keep();
     kept = { added: k.added, reads: k.reads, sent: k.sent };
-    if (k.added || k.reads || k.sent || k.refused.length) log(`${now().toISOString()} kept: ${k.added} lines, ${k.reads} reads${k.sent ? `, ${k.sent} sent from the queue` : ''}${k.refused.length ? `; ${k.refused.length} chain${k.refused.length === 1 ? '' : 's'} not kept` : ''}`);
+    if (k.added || k.reads || k.sent || k.refused.length)
+      log(
+        `${now().toISOString()} kept: ${k.added} lines, ${k.reads} reads${k.sent ? `, ${k.sent} sent from the queue` : ''}${k.refused.length ? `; ${k.refused.length} chain${k.refused.length === 1 ? '' : 's'} not kept` : ''}`,
+      );
   } catch (e) {
     log(`${now().toISOString()} keep: not run (${oneLine((e as Error).message, 200)})`);
   }
-  return { gold, sharpened, announced, said: [goldText(gold), sharpenText(sharpened), announced.length ? `announced: ${announced.length}` : ''].filter(Boolean).join('; '), kept };
+  return {
+    gold,
+    sharpened,
+    announced,
+    said: [goldText(gold), sharpenText(sharpened), announced.length ? `announced: ${announced.length}` : '']
+      .filter(Boolean)
+      .join('; '),
+    kept,
+  };
 }
 
 /**
@@ -426,24 +586,60 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
   let goldSaid = '';
   if (o.quilt) {
     // The sentence a brief lacks comes from the agent on this machine, or from the caller.
-    const ask = o.sentence ?? (agent ? (q: SentenceAsk) => agentSentence(agent, sentenceAsk(q), { cwd: o.home, env: { ...o.env, PATH: dirs.join(delimiter) }, timeoutMs: o.timeoutMs ?? RUN_TIMEOUT_MS }) : null);
-    ({ gold, sharpened, said: goldSaid } = await ownerTurn(o.quilt(), ask, (line) => appendFileSync(log, `${line}\n`), now));
+    const ask =
+      o.sentence ??
+      (agent
+        ? (q: SentenceAsk) =>
+            agentSentence(agent, sentenceAsk(q), {
+              cwd: o.home,
+              env: { ...o.env, PATH: dirs.join(delimiter) },
+              timeoutMs: o.timeoutMs ?? RUN_TIMEOUT_MS,
+            })
+        : null);
+    ({
+      gold,
+      sharpened,
+      said: goldSaid,
+    } = await ownerTurn(o.quilt(), ask, (line) => appendFileSync(log, `${line}\n`), now));
   }
   const before = readAway(file, now());
   const none = (why: string): Turn => {
     const line = goldSaid ? `${why} ${goldSaid}` : why;
     if (goldSaid) appendFileSync(log, `${now().toISOString()} ${line}\n`);
-    return { ran: false, agent: null, model: null, code: null, timedOut: false, returned: 0, said: null, gold, sharpened, line, record: before };
+    return {
+      ran: false,
+      agent: null,
+      model: null,
+      code: null,
+      timedOut: false,
+      returned: 0,
+      said: null,
+      gold,
+      sharpened,
+      line,
+      record: before,
+    };
   };
   if (capReached(before)) return none(capText(before));
   if (!agent) return none(NEEDS_AGENT);
   const lastMessage = join(o.home, 'away.last');
-  const inv = agent.name === 'claude'
-    ? claudeInvocation(agent.path, o.entry, file)
-    : codexInvocation(agent.path, o.entry, file, codexModel(readIfThere(o.codexConfig ?? join(homedir(), '.codex', 'config.toml'))), lastMessage);
+  const inv =
+    agent.name === 'claude'
+      ? claudeInvocation(agent.path, o.entry, file)
+      : codexInvocation(
+          agent.path,
+          o.entry,
+          file,
+          codexModel(readIfThere(o.codexConfig ?? join(homedir(), '.codex', 'config.toml'))),
+          lastMessage,
+        );
   const started = now();
   recordRun(file, agent.name, started);
-  const run = await runAgent(inv, { cwd: o.home, env: { ...o.env, PATH: dirs.join(delimiter) }, timeoutMs: o.timeoutMs ?? RUN_TIMEOUT_MS });
+  const run = await runAgent(inv, {
+    cwd: o.home,
+    env: { ...o.env, PATH: dirs.join(delimiter) },
+    timeoutMs: o.timeoutMs ?? RUN_TIMEOUT_MS,
+  });
   const after = readAway(file, now());
   const said = agent.name === 'claude' ? saidByClaude(run.stdout) : readIfThere(lastMessage);
   if (existsSync(lastMessage)) unlinkSync(lastMessage);
@@ -453,7 +649,19 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
   const line = `${started.toISOString()} ${agent.name} (${inv.model}) ${ended}; returned ${returned} (${after.returned} of ${after.cap} today)${goldSaid ? `; ${goldSaid}` : ''}${said ? `; said: ${oneLine(said, 300)}` : ''}`;
   const failed = run.timedOut || run.code !== 0;
   appendFileSync(log, [line, ...(failed ? [oneLine(run.stderr || run.stdout, 2000)] : [])].join('\n') + '\n');
-  return { ran: true, agent, model: inv.model, code: run.code, timedOut: run.timedOut, returned, said, gold, sharpened, line, record: after };
+  return {
+    ran: true,
+    agent,
+    model: inv.model,
+    code: run.code,
+    timedOut: run.timedOut,
+    returned,
+    said,
+    gold,
+    sharpened,
+    line,
+    record: after,
+  };
 }
 
 // The schedule
@@ -464,7 +672,11 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
  * looks a program up with a PATH of its own, not the one the plist sets, and fails the job with EX_CONFIG when it is not
  * there; a name found nowhere is left as given.
  */
-export function awayCommand(entry: ServerEntry, dirs: string[] = [], exists: (path: string) => boolean = isExecutable): { command: string; args: string[] } {
+export function awayCommand(
+  entry: ServerEntry,
+  dirs: string[] = [],
+  exists: (path: string) => boolean = isExecutable,
+): { command: string; args: string[] } {
   let command = entry.command;
   if (!command.includes('/') && !command.includes('\\')) {
     for (const dir of dirs) {
@@ -486,10 +698,18 @@ export function scheduleEnv(entry: ServerEntry, dirs: string[], home: string): R
 }
 
 /** The launchd user agent: this program's `away` every hour, not at load, with the home in its environment and its output under the home. */
-export function plistText(o: { label: string; command: string; args: string[]; home: string; env: Record<string, string> }): string {
+export function plistText(o: {
+  label: string;
+  command: string;
+  args: string[];
+  home: string;
+  env: Record<string, string>;
+}): string {
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const strings = (xs: string[]) => xs.map((x) => `    <string>${esc(x)}</string>`).join('\n');
-  const env = Object.entries(o.env).map(([k, v]) => `    <key>${esc(k)}</key>\n    <string>${esc(v)}</string>`).join('\n');
+  const env = Object.entries(o.env)
+    .map(([k, v]) => `    <key>${esc(k)}</key>\n    <string>${esc(v)}</string>`)
+    .join('\n');
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
@@ -557,7 +777,14 @@ export interface Schedule {
 /** Whether the schedule is in place: on a Mac, the plist and whether launchd has it; elsewhere, the crontab line to add. */
 export function scheduleOf(o: ScheduleOptions & { command: string; args: string[]; home: string }): Schedule {
   const platform = o.platform ?? process.platform;
-  if (platform !== 'darwin') return { kind: 'crontab', installed: false, loaded: false, file: null, crontab: crontabLine(o.command, o.args, o.home) };
+  if (platform !== 'darwin')
+    return {
+      kind: 'crontab',
+      installed: false,
+      loaded: false,
+      file: null,
+      crontab: crontabLine(o.command, o.args, o.home),
+    };
   const label = o.label ?? launchdLabel(o.home);
   const file = o.file ?? launchAgentFile(label);
   const installed = existsSync(file);
@@ -566,7 +793,10 @@ export function scheduleOf(o: ScheduleOptions & { command: string; args: string[
 }
 
 /** The plist written and loaded; one already loaded is unloaded first so launchd reads the new text. */
-export function installSchedule(o: { file: string; text: string; label?: string; uid?: number; ctl?: Launchctl }): { file: string; loaded: boolean } {
+export function installSchedule(o: { file: string; text: string; label?: string; uid?: number; ctl?: Launchctl }): {
+  file: string;
+  loaded: boolean;
+} {
   const ctl = o.ctl ?? launchctl;
   const uid = o.uid ?? uidHere();
   mkdirSync(dirname(o.file), { recursive: true });
@@ -576,7 +806,10 @@ export function installSchedule(o: { file: string; text: string; label?: string;
 }
 
 /** The agent unloaded and its plist removed. */
-export function uninstallSchedule(o: { file: string; label?: string; uid?: number; ctl?: Launchctl }): { file: string; removed: boolean } {
+export function uninstallSchedule(o: { file: string; label?: string; uid?: number; ctl?: Launchctl }): {
+  file: string;
+  removed: boolean;
+} {
   (o.ctl ?? launchctl)(['bootout', `gui/${o.uid ?? uidHere()}/${o.label ?? LAUNCHD_LABEL}`]);
   const removed = existsSync(o.file);
   if (removed) unlinkSync(o.file);
@@ -609,10 +842,22 @@ export function awayStatus(o: StatusOptions): AwayStatus {
   const dirs = o.dirs ?? searchDirs(o.env);
   const { command, args } = awayCommand(o.entry, dirs, o.exists);
   const schedule = scheduleOf({ ...o, command, args });
-  return { ...schedule, agent: findAgent(dirs, o.exists), cap: record.cap, day: record.day, today: { runs: record.runs, returned: record.returned }, last: record.last, lastAgent: record.lastAgent };
+  return {
+    ...schedule,
+    agent: findAgent(dirs, o.exists),
+    cap: record.cap,
+    day: record.day,
+    today: { runs: record.runs, returned: record.returned },
+    last: record.last,
+    lastAgent: record.lastAgent,
+  };
 }
 
-export interface Count { runs: number; returned: number; accepted: number }
+export interface Count {
+  runs: number;
+  returned: number;
+  accepted: number;
+}
 
 export interface AwaySummary {
   today: Count;
@@ -637,7 +882,10 @@ export async function pieceStates(quilt: Quilt, problem: string): Promise<Map<st
 }
 
 /** What the runs did: by day, today, and over the week, with how many of the pieces returned are accepted so far, each problem asked once. */
-export async function awaySummary(record: AwayRecord, states: (problem: string) => Promise<Map<string, string> | null>): Promise<AwaySummary> {
+export async function awaySummary(
+  record: AwayRecord,
+  states: (problem: string) => Promise<Map<string, string> | null>,
+): Promise<AwaySummary> {
   // Every problem the runs touched, asked once and four at a time, before the days are counted.
   const problems = [...new Set(Object.values(record.days).flatMap((d) => d.pieces.map((p) => p.problem)))];
   const answers = await inParallel(problems, 4, (p) => states(p).catch(() => null));
@@ -651,21 +899,40 @@ export async function awaySummary(record: AwayRecord, states: (problem: string) 
     return n;
   };
   const days: AwaySummary['days'] = [];
-  for (const [day, d] of Object.entries(record.days).sort(([a], [b]) => a.localeCompare(b))) days.push({ day, runs: d.runs, returned: d.returned, accepted: await acceptedOf(d.pieces) });
-  const sum = (xs: Count[]): Count => xs.reduce((a, x) => ({ runs: a.runs + x.runs, returned: a.returned + x.returned, accepted: a.accepted + x.accepted }), { runs: 0, returned: 0, accepted: 0 });
+  for (const [day, d] of Object.entries(record.days).sort(([a], [b]) => a.localeCompare(b)))
+    days.push({ day, runs: d.runs, returned: d.returned, accepted: await acceptedOf(d.pieces) });
+  const sum = (xs: Count[]): Count =>
+    xs.reduce(
+      (a, x) => ({ runs: a.runs + x.runs, returned: a.returned + x.returned, accepted: a.accepted + x.accepted }),
+      { runs: 0, returned: 0, accepted: 0 },
+    );
   const todayCount = days.find((d) => d.day === record.day);
-  return { today: todayCount ? { runs: todayCount.runs, returned: todayCount.returned, accepted: todayCount.accepted } : { runs: record.runs, returned: record.returned, accepted: 0 }, week: sum(days), days };
+  return {
+    today: todayCount
+      ? { runs: todayCount.runs, returned: todayCount.returned, accepted: todayCount.accepted }
+      : { runs: record.runs, returned: record.returned, accepted: 0 },
+    week: sum(days),
+    days,
+  };
 }
 
 const pieces = (n: number) => `${n} piece${n === 1 ? '' : 's'}`;
 const runs = (n: number) => `${n} run${n === 1 ? '' : 's'}`;
 
 export function summaryText(s: AwaySummary): string {
-  return [`Today: ${runs(s.today.runs)}, ${pieces(s.today.returned)} returned, ${s.today.accepted} accepted so far.`, `Last 7 days: ${runs(s.week.runs)}, ${pieces(s.week.returned)} returned, ${s.week.accepted} accepted so far.`].join('\n');
+  return [
+    `Today: ${runs(s.today.runs)}, ${pieces(s.today.returned)} returned, ${s.today.accepted} accepted so far.`,
+    `Last 7 days: ${runs(s.week.runs)}, ${pieces(s.week.returned)} returned, ${s.week.accepted} accepted so far.`,
+  ].join('\n');
 }
 
 export function statusText(s: AwayStatus): string {
-  const where = s.kind === 'launchd' ? (s.installed ? `installed (launchd, ${s.file}${s.loaded ? '' : ', not loaded now'})` : 'not installed') : `no launchd here; the crontab line to add:\n  ${s.crontab}`;
+  const where =
+    s.kind === 'launchd'
+      ? s.installed
+        ? `installed (launchd, ${s.file}${s.loaded ? '' : ', not loaded now'})`
+        : 'not installed'
+      : `no launchd here; the crontab line to add:\n  ${s.crontab}`;
   return [
     `Work while away: ${where}`,
     `Agent: ${s.agent ? `${s.agent.name} at ${s.agent.path}` : `none found (${NEEDS_AGENT.toLowerCase().replace(/\.$/, '')})`}`,
@@ -691,7 +958,9 @@ export interface StateOptions extends StatusOptions {
 
 /** The summary read afresh: the record, and the state of each piece it names as its tracker holds it. */
 export function readSummary(o: StateOptions): Promise<AwaySummary> {
-  return awaySummary(readAway(join(o.home, AWAY_FILE), (o.now ?? (() => new Date()))()), (p) => pieceStates(o.quilt, p));
+  return awaySummary(readAway(join(o.home, AWAY_FILE), (o.now ?? (() => new Date()))()), (p) =>
+    pieceStates(o.quilt, p),
+  );
 }
 
 /** The summary from the record alone, nothing asked: how many were accepted is not known, and is said as none. */
@@ -706,7 +975,9 @@ export async function awayState(o: StateOptions, note: string | null = null): Pr
 }
 
 /** The switch: the cap set where one is given, the schedule put in place or taken away where `on` says, and the state after. */
-export async function awaySwitch(o: StateOptions & { on?: boolean | undefined; cap?: number | undefined }): Promise<AwayState> {
+export async function awaySwitch(
+  o: StateOptions & { on?: boolean | undefined; cap?: number | undefined },
+): Promise<AwayState> {
   let note: string | null = null;
   if (typeof o.cap === 'number') setCap(join(o.home, AWAY_FILE), o.cap);
   if (o.on === true) {
@@ -715,15 +986,29 @@ export async function awaySwitch(o: StateOptions & { on?: boolean | undefined; c
     const { command, args } = awayCommand(o.entry, dirs, o.exists);
     const label = o.label ?? launchdLabel(o.home);
     if (!agent) note = NEEDS_AGENT;
-    else if ((o.platform ?? process.platform) !== 'darwin') note = `No launchd here. The crontab line to add:\n${crontabLine(command, args, o.home)}`;
+    else if ((o.platform ?? process.platform) !== 'darwin')
+      note = `No launchd here. The crontab line to add:\n${crontabLine(command, args, o.home)}`;
     else {
       const file = o.file ?? launchAgentFile(label);
-      const r = installSchedule({ file, label, text: plistText({ label, command, args, home: o.home, env: scheduleEnv(o.entry, dirs, o.home) }), ...(o.uid !== undefined ? { uid: o.uid } : {}), ...(o.ctl ? { ctl: o.ctl } : {}) });
-      note = r.loaded ? `Installed: ${agent.name} runs one piece an hour, up to ${readAway(join(o.home, AWAY_FILE)).cap} a day. The agent is at ${file}.` : `Written to ${file}, but launchctl did not load it; it loads at the next login.`;
+      const r = installSchedule({
+        file,
+        label,
+        text: plistText({ label, command, args, home: o.home, env: scheduleEnv(o.entry, dirs, o.home) }),
+        ...(o.uid !== undefined ? { uid: o.uid } : {}),
+        ...(o.ctl ? { ctl: o.ctl } : {}),
+      });
+      note = r.loaded
+        ? `Installed: ${agent.name} runs one piece an hour, up to ${readAway(join(o.home, AWAY_FILE)).cap} a day. The agent is at ${file}.`
+        : `Written to ${file}, but launchctl did not load it; it loads at the next login.`;
     }
   } else if (o.on === false && (o.platform ?? process.platform) === 'darwin') {
     const label = o.label ?? launchdLabel(o.home);
-    const r = uninstallSchedule({ file: o.file ?? launchAgentFile(label), label, ...(o.uid !== undefined ? { uid: o.uid } : {}), ...(o.ctl ? { ctl: o.ctl } : {}) });
+    const r = uninstallSchedule({
+      file: o.file ?? launchAgentFile(label),
+      label,
+      ...(o.uid !== undefined ? { uid: o.uid } : {}),
+      ...(o.ctl ? { ctl: o.ctl } : {}),
+    });
     note = r.removed ? 'Uninstalled: nothing runs while you are away.' : 'Nothing was installed.';
   }
   return awayState(o, note);
@@ -733,7 +1018,10 @@ export async function awaySwitch(o: StateOptions & { on?: boolean | undefined; c
  * The command line: `quilt away` runs a turn; `--cap N` sets the cap; `--install` and `--uninstall` are the switch;
  * `--status` and `--summary` say where it stands; `--json` gives any of them as JSON.
  */
-export async function awayCli(args: string[], o: Omit<StateOptions, 'quilt'> & { quilt: () => Quilt }): Promise<{ out: string; code: number }> {
+export async function awayCli(
+  args: string[],
+  o: Omit<StateOptions, 'quilt'> & { quilt: () => Quilt },
+): Promise<{ out: string; code: number }> {
   const json = args.includes('--json');
   const file = join(o.home, AWAY_FILE);
   const capAt = args.indexOf('--cap');

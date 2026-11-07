@@ -58,7 +58,9 @@ const flag = (name: string): string | undefined => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 // The command is the first argument that is neither a flag nor the value after one; none at a terminal means `me`, none under a chat client (no TTY) means `mcp`.
-const command = args.find((a) => !a.startsWith('--') && args[args.indexOf(a) - 1]?.startsWith('--') !== true) ?? (process.stdin.isTTY ? 'me' : 'mcp');
+const command =
+  args.find((a) => !a.startsWith('--') && args[args.indexOf(a) - 1]?.startsWith('--') !== true) ??
+  (process.stdin.isTTY ? 'me' : 'mcp');
 const home = ensureHome(quiltHome());
 const config: Config = loadConfig(home);
 const log = (s: string) => process.stderr.write(s + '\n');
@@ -85,7 +87,10 @@ async function main(): Promise<void> {
         if (typeof j.secret !== 'string') throw new Error('the address answered without a key');
         secret = j.secret;
       }
-      const { identity, phrase: shown } = createKey(home, { ...(phrase ? { phrase } : {}), ...(secret ? { secretHex: secret } : {}) });
+      const { identity, phrase: shown } = createKey(home, {
+        ...(phrase ? { phrase } : {}),
+        ...(secret ? { secretHex: secret } : {}),
+      });
       saveConfig(config, home);
       console.log(`Address: ${identity.address}`);
       if (shown) console.log(`Phrase (shown once; it is the key, write it down and keep it to yourself):\n  ${shown}`);
@@ -99,11 +104,15 @@ async function main(): Promise<void> {
       return;
     }
     case 'stake': {
-      console.log(JSON.stringify(await make().stakeRule(args[1] as `sha256:${string}`, Number(args[2]), args.slice(3))));
+      console.log(
+        JSON.stringify(await make().stakeRule(args[1] as `sha256:${string}`, Number(args[2]), args.slice(3))),
+      );
       return;
     }
     case 'pay': {
-      console.log(JSON.stringify(await make().pay(args[1] as `sha256:${string}`, Number(args[2]), Number(args[3])), null, 2));
+      console.log(
+        JSON.stringify(await make().pay(args[1] as `sha256:${string}`, Number(args[2]), Number(args[3])), null, 2),
+      );
       return;
     }
     case 'balance': {
@@ -115,14 +124,23 @@ async function main(): Promise<void> {
       return;
     }
     case 'redeem': {
-      console.log(JSON.stringify(await make().redeem(Number(args[1]), args[2] ? (args[2] as `0x${string}`) : undefined), null, 2));
+      console.log(
+        JSON.stringify(await make().redeem(Number(args[1]), args[2] ? (args[2] as `0x${string}`) : undefined), null, 2),
+      );
       return;
     }
     case 'gold': {
       if (args[1] === 'commit') {
-        const file = JSON.parse(readFileSync(args[3] ?? '', 'utf8')) as Record<string, Record<string, unknown>> | { answers: Record<string, Record<string, unknown>>; stake?: number };
-        const given = 'answers' in file && typeof file.answers === 'object' ? (file as { answers: Record<string, Record<string, unknown>>; stake?: number }) : { answers: file as Record<string, Record<string, unknown>> };
-        console.log(JSON.stringify(await make().commitGold(args[2] as `sha256:${string}`, given.answers, given.stake), null, 2));
+        const file = JSON.parse(readFileSync(args[3] ?? '', 'utf8')) as
+          | Record<string, Record<string, unknown>>
+          | { answers: Record<string, Record<string, unknown>>; stake?: number };
+        const given =
+          'answers' in file && typeof file.answers === 'object'
+            ? (file as { answers: Record<string, Record<string, unknown>>; stake?: number })
+            : { answers: file as Record<string, Record<string, unknown>> };
+        console.log(
+          JSON.stringify(await make().commitGold(args[2] as `sha256:${string}`, given.answers, given.stake), null, 2),
+        );
         return;
       }
       if (args[1] === 'due') {
@@ -138,7 +156,9 @@ async function main(): Promise<void> {
         console.log(JSON.stringify(await make().revealDue(), null, 2));
         return;
       }
-      console.log(JSON.stringify(await make().revealGold(args[2] as `sha256:${string}`, args[3] as `sha256:${string}`), null, 2));
+      console.log(
+        JSON.stringify(await make().revealGold(args[2] as `sha256:${string}`, args[3] as `sha256:${string}`), null, 2),
+      );
       return;
     }
     case 'mcp': {
@@ -149,7 +169,10 @@ async function main(): Promise<void> {
       const alone = (): ToolRunner => {
         const quilt = quiltFor();
         const person = Quilt.asPerson(config, identity, resolver);
-        createPage({ quilt, person, resolver }).listen(config.port).then(() => log(`quilt page at http://localhost:${config.port}/`)).catch((e) => log(`page not started: ${(e as Error).message}`));
+        createPage({ quilt, person, resolver })
+          .listen(config.port)
+          .then(() => log(`quilt page at http://localhost:${config.port}/`))
+          .catch((e) => log(`page not started: ${(e as Error).message}`));
         return localRunner(quiltFor);
       };
       const node = await probeNode(config.port, identity?.address ?? null);
@@ -158,13 +181,21 @@ async function main(): Promise<void> {
         log(`quilt works through the node at http://127.0.0.1:${config.port}/, which holds this home's page`);
         run = remoteRunner(`http://127.0.0.1:${config.port}/`, alone, fetch, log);
       } else {
-        if (node.found === 'other') log(`port ${config.port} is held by another quilt (key ${node.address ?? 'none'}) or another program; this copy works alone, without the page`);
+        if (node.found === 'other')
+          log(
+            `port ${config.port} is held by another quilt (key ${node.address ?? 'none'}) or another program; this copy works alone, without the page`,
+          );
         run = alone();
       }
       // The AI that connects is recorded for the menu bar (phrases.ts): through the node when there is one, else in this copy's library.
       const connected = (host: string | null) => {
         if (node.found !== 'mine') return resolver.sawConnector(host);
-        fetch(`http://127.0.0.1:${config.port}/api/connector`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host }), signal: AbortSignal.timeout(3000) }).catch(() => resolver.sawConnector(host));
+        fetch(`http://127.0.0.1:${config.port}/api/connector`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ host }),
+          signal: AbortSignal.timeout(3000),
+        }).catch(() => resolver.sawConnector(host));
       };
       const server = createMcpServer(run, { connected });
       await server.connect(new StdioServerTransport());
@@ -174,7 +205,11 @@ async function main(): Promise<void> {
     case 'serve': {
       const quilt = make();
       const port = Number(flag('--port') ?? config.port);
-      await createPage({ quilt, person: Quilt.asPerson(config, quilt.identity, quilt.resolver), resolver: quilt.resolver }).listen(port);
+      await createPage({
+        quilt,
+        person: Quilt.asPerson(config, quilt.identity, quilt.resolver),
+        resolver: quilt.resolver,
+      }).listen(port);
       console.log(`quilt page at http://localhost:${port}/`);
       return;
     }
@@ -219,36 +254,67 @@ async function main(): Promise<void> {
         log(NEEDS_AGENT);
         process.exit(2);
       }
-      const ask = (q: SentenceAsk) => agentSentence(agent, sentenceAsk(q), { cwd: quilt.resolver.home, env: process.env, timeoutMs: RUN_TIMEOUT_MS });
-      console.log(JSON.stringify(args[1] ? [await quilt.sharpen(args[1] as `sha256:${string}`, ask)] : await quilt.sharpenDue(ask), null, 2));
+      const ask = (q: SentenceAsk) =>
+        agentSentence(agent, sentenceAsk(q), { cwd: quilt.resolver.home, env: process.env, timeoutMs: RUN_TIMEOUT_MS });
+      console.log(
+        JSON.stringify(
+          args[1] ? [await quilt.sharpen(args[1] as `sha256:${string}`, ask)] : await quilt.sharpenDue(ask),
+          null,
+          2,
+        ),
+      );
       return;
     }
     case 'return': {
       // QX-19: a fourth argument, the rests as JSON, is what each field rests on; the page is fetched and the trace posted after the reveal.
       const rests = args[4] ? (JSON.parse(args[4]) as RestAsked[]) : [];
-      const r = await make().return(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, JSON.parse(args[3] ?? '{}') as Record<string, unknown>, Array.isArray(rests) ? rests : []);
+      const r = await make().return(
+        args[1] as `sha256:${string}`,
+        args[2] as `sha256:${string}`,
+        JSON.parse(args[3] ?? '{}') as Record<string, unknown>,
+        Array.isArray(rests) ? rests : [],
+      );
       console.log(JSON.stringify(r, null, 2));
       return;
     }
     case 'decline': {
       // One of the core's DECLINE_REASONS; `decline` refuses any other before it is signed.
-      const r = await make().decline(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, (args[3] ?? 'cannot') as DeclineReason);
+      const r = await make().decline(
+        args[1] as `sha256:${string}`,
+        args[2] as `sha256:${string}`,
+        (args[3] ?? 'cannot') as DeclineReason,
+      );
       console.log(JSON.stringify(r));
       return;
     }
     case 'challenge': {
-      const r = await make().challenge(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, Number(args[3]), args.slice(4).join(' '));
+      const r = await make().challenge(
+        args[1] as `sha256:${string}`,
+        args[2] as `sha256:${string}`,
+        Number(args[3]),
+        args.slice(4).join(' '),
+      );
       console.log(JSON.stringify(r, null, 2));
       return;
     }
     case 'verdict': {
       const ret = args[5] ? (JSON.parse(args[5]) as Record<string, unknown>) : undefined;
-      const r = await make().verdict(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, args[3] as `sha256:${string}`, args[4] as Side, ret);
+      const r = await make().verdict(
+        args[1] as `sha256:${string}`,
+        args[2] as `sha256:${string}`,
+        args[3] as `sha256:${string}`,
+        args[4] as Side,
+        ret,
+      );
       console.log(JSON.stringify(r, null, 2));
       return;
     }
     case 'rank': {
-      const r = await make().rank(args[1] as `sha256:${string}`, args[2] as `sha256:${string}`, args.slice(3) as `sha256:${string}`[]);
+      const r = await make().rank(
+        args[1] as `sha256:${string}`,
+        args[2] as `sha256:${string}`,
+        args.slice(3) as `sha256:${string}`[],
+      );
       console.log(JSON.stringify(r, null, 2));
       return;
     }
@@ -264,7 +330,18 @@ async function main(): Promise<void> {
     }
     case 'hide': {
       const lift = args.includes('--lift');
-      console.log(JSON.stringify(await make().hide(args[1] ?? '', args.slice(2).filter((a) => a !== '--lift').join(' '), !lift)));
+      console.log(
+        JSON.stringify(
+          await make().hide(
+            args[1] ?? '',
+            args
+              .slice(2)
+              .filter((a) => a !== '--lift')
+              .join(' '),
+            !lift,
+          ),
+        ),
+      );
       return;
     }
     case 'install': {
@@ -277,7 +354,9 @@ async function main(): Promise<void> {
         log(`not written: ${r.reason}`);
         process.exit(1);
       }
-      console.log(`Written to ${r.file}:\n${JSON.stringify(entryHere(home), null, 2)}\nOpen Claude; the quilt tools are there in a new chat.`);
+      console.log(
+        `Written to ${r.file}:\n${JSON.stringify(entryHere(home), null, 2)}\nOpen Claude; the quilt tools are there in a new chat.`,
+      );
       return;
     }
     case 'away': {
