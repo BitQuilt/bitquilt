@@ -3,7 +3,7 @@
  * Each passes the plain-text gate with its slots filled, describes rather than instructs, and the sheet reads the home's
  * state from the key and the library's record of a connector, with the phrases that fit what the person keeps and is
  * wanted for. How Quilt works (about.ts) is held here too, with the files that carry it, which its header and AGENTS.md
- * name.
+ * name, and so is the count AGENTS.md gives of the places a person or a model reads, against its own list.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -30,7 +30,8 @@ describe('how Quilt works, in plain words', () => {
     expect(HOW_QUILT_WORKS).toContain('asks them before anything is written');
   });
 
-  // Its header once named the hosted join page, which shows the sentence a person says to ask, and AGENTS.md took the claim from it.
+  // Its header once named the hosted join page, which shows the sentence a person says to ask, and AGENTS.md took the
+  // claim from it. The check reads AGENTS.md's whole clause, so a carrier added there fails until a file carries it.
   it('is carried by the files its header names, and AGENTS.md says the same', () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const src = join(here, '..', 'src');
@@ -39,9 +40,25 @@ describe('how Quilt works, in plain words', () => {
     const about = readFileSync(join(src, 'about.ts'), 'utf8');
     const header = about.slice(0, about.indexOf('*/'));
     expect([...header.matchAll(/\(([^)]+)\)/g)].map((m) => m[1]!).sort()).toEqual(carrying);
+    // AGENTS.md names what carries it by what a model reads, so each name maps to the file that carries it.
+    const carriers: Record<string, string> = { "the connector's instructions": 'mcp.ts', '`quilt_me`': 'tools.ts' };
     const agents = readFileSync(join(here, '..', '..', '..', 'AGENTS.md'), 'utf8');
-    const bullet = agents.split('\n').find((line) => line.startsWith('- how Quilt works, in `about.ts`'));
-    expect(bullet).toContain("which the connector's instructions and `quilt_me` carry,");
+    const bullet = agents.split('\n').find((line) => line.startsWith('- how Quilt works, in `about.ts`')) ?? '';
+    const named = /^- how Quilt works, in `about\.ts`, which (.+) carry, held by /.exec(bullet)?.[1];
+    expect(named, bullet).toBeDefined();
+    expect(named!.split(/, and |, | and /).map((n) => carriers[n] ?? n).sort()).toEqual(carrying);
+  });
+});
+
+describe('where the words live (AGENTS.md, The words)', () => {
+  // The count once said eight while the list grew; a place added to the list changes the number beside it.
+  it('gives the number of places its list names', () => {
+    const agents = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'AGENTS.md'), 'utf8');
+    const section = agents.slice(agents.indexOf('## The words'), agents.indexOf('## Commands'));
+    const said = /lives in (\w+) places/.exec(section)?.[1];
+    const numbers = ['ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+    const places = section.split('\n').filter((line) => line.startsWith('- ')).length;
+    expect(numbers.indexOf(said ?? '') + 10, `${said} places, ${places} listed`).toBe(places);
   });
 });
 

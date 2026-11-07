@@ -1,8 +1,8 @@
 # The public tracker with the hosted on-ramp, behind Caddy, on one small host (docs/DEPLOY.md says what each variable
 # is; docs/JOURNEY-AUDIT.md section 4 says the order it is brought up in). Everything the tracker keeps is the volume.
 # Beside it, the house second opinion: two workers from the same image, `house` on Anthropic unless HOUSE_VENDOR says
-# openai and `house-openai` on OpenAI, each giving a second reading to pieces that have a reading on them (docs/DEPLOY.md,
-# "The house second opinion"). Each runs nothing until its vendor's key is set.
+# openai and `house-openai` on OpenAI, each giving a second reading to pieces that have a reading on them
+# (docs/DEPLOY.md, "The house second opinion"). Each runs nothing until its vendor's key is set.
 #   cp deploy/env.example deploy/.env   # then fill it in; the file stays on the host and never in the repository
 #   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 services:
