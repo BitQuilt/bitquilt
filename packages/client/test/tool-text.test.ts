@@ -211,9 +211,10 @@ describe('quilt_open', () => {
   });
 });
 
-/** What quilt_read says of the first problem, with the mark after Ada's disputed return where the reader is Ada's key. */
+/** What quilt_read says of the first problem, which <q> replaced, with the mark after Ada's disputed return where the reader is Ada's key. */
 const readP = (mark: string): string => [
   ...HEAD_P,
+  'Its owner replaced this version with <q>; the work is there.',
   '',
   'Found: the accepted squares agreed on verdict: 1 "supports".',
   '',
@@ -243,7 +244,7 @@ const readP = (mark: string): string => [
 ].join('\n');
 
 describe('quilt_read', () => {
-  it('says what was found, accepted, recorded, disputed, challenged and ranked, each under its heading', async () => {
+  it('says the version that replaced it, as quilt_open does, then what was found, accepted, recorded, disputed, challenged and ranked, each under its heading', async () => {
     expect(named((await runTool(owner, 'quilt_read', { problem: p })).text)).toBe(readP(''));
   });
 
@@ -679,6 +680,7 @@ describe('quilt_open and quilt_read over what no tracker here gives', () => {
       'cd.r',
       '1 challenged, 1 disputed, 1 open, 1 recording',
       ...HEAD_P.slice(6),
+      'Its owner replaced this version with <q>; the work is there.',
       '',
       'Accepted so far:',
       'statement/1 (rests on no kept read), Ada returned: {"verdict":"supports"}',
