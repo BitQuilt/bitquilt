@@ -9,7 +9,16 @@ import type { IncomingMessage } from 'node:http';
 import { BlockList, isIP, isIPv4, isIPv6 } from 'node:net';
 
 /** What a tracker trusts unless told otherwise: the machine itself and the private networks a compose file or a host puts its proxy on. */
-export const PRIVATE_RANGES: readonly string[] = ['127.0.0.0/8', '::1/128', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '169.254.0.0/16', 'fc00::/7', 'fe80::/10'];
+export const PRIVATE_RANGES: readonly string[] = [
+  '127.0.0.0/8',
+  '::1/128',
+  '10.0.0.0/8',
+  '172.16.0.0/12',
+  '192.168.0.0/16',
+  '169.254.0.0/16',
+  'fc00::/7',
+  'fe80::/10',
+];
 
 /** An address as the socket or a header gives it, in one form: an IPv4 address mapped into IPv6 is IPv4 again, and a zone is dropped. */
 export function plainAddress(raw: string): string {
@@ -36,7 +45,8 @@ export function rangesOf(cidrs: readonly string[]): BlockList {
       continue;
     }
     const prefix = Number(text.slice(slash + 1));
-    if (!Number.isInteger(prefix) || prefix < 0 || prefix > (family === 'ipv4' ? 32 : 128)) throw new Error(`not an address range: ${raw}`);
+    if (!Number.isInteger(prefix) || prefix < 0 || prefix > (family === 'ipv4' ? 32 : 128))
+      throw new Error(`not an address range: ${raw}`);
     list.addSubnet(address, prefix, family);
   }
   return list;
@@ -57,7 +67,10 @@ export function inRanges(list: BlockList, raw: string): boolean {
 export function clientAddressOf(peer: string, forwardedFor: string | undefined, trusted: BlockList): string {
   const direct = plainAddress(peer);
   if (!forwardedFor || !inRanges(trusted, direct)) return direct;
-  const hops = forwardedFor.split(',').map(plainAddress).filter((h) => h.length > 0);
+  const hops = forwardedFor
+    .split(',')
+    .map(plainAddress)
+    .filter((h) => h.length > 0);
   for (let i = hops.length - 1; i >= 0; i -= 1) {
     const hop = hops[i]!;
     if (!isIP(hop)) return direct;

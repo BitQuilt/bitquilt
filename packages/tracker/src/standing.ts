@@ -4,18 +4,39 @@
  * and free. The record every phase of challengeLayer writes into is defined here too, since standing is a function of
  * all of them: what the folds credit, what a lock holds (QX-15), what a gold locks (QX-16), what a burn bought (QX-17).
  */
-import { type Address, type Hash, type PieceView, type Receipt, type ReduceInput, type State, isRecord } from '@bitquilt/core';
+import {
+  type Address,
+  type Hash,
+  type PieceView,
+  type Receipt,
+  type ReduceInput,
+  type State,
+  isRecord,
+} from '@bitquilt/core';
 import { type Layered, viaOf } from './verifiers.js';
 import { type LockView, type StakeRule, liveAt } from './stake.js';
 import { type GoldView, goldLiveAt } from './gold.js';
 import type { ChallengeView } from './challenge.js';
 
 /** A point a root earned: a reveal in an accepting set, counted from the set's completion `at`, and withdrawn at `until` by the strike that struck the set. */
-export interface Credit { root: Address; problem: Hash; at: string; until: string | null }
+export interface Credit {
+  root: Address;
+  problem: Hash;
+  at: string;
+  until: string | null;
+}
 /** A move on a root's standing, dated at the receipt that made it. */
-export interface Move { root: Address; at: string; delta: number }
+export interface Move {
+  root: Address;
+  at: string;
+  delta: number;
+}
 /** An event the layer did not keep, with why. */
-export interface Dropped { id: Hash; type: string; why: string }
+export interface Dropped {
+  id: Hash;
+  type: string;
+  why: string;
+}
 
 /** One problem as the layer holds it while it folds. */
 export interface ProblemEntry {
@@ -72,7 +93,14 @@ export interface Folding {
 /** An empty record at `now`, its readers bound to it. */
 export function newFolding(now: string, founding: Map<string, number> = new Map()): Folding {
   const f: Folding = {
-    now, founding, entries: new Map(), credits: [], struckCredits: [], moves: [], locks: [], golds: [],
+    now,
+    founding,
+    entries: new Map(),
+    credits: [],
+    struckCredits: [],
+    moves: [],
+    locks: [],
+    golds: [],
     standing: (root, at = now) => standingAt(f, root, at),
     locked: (root, at = now) => lockedAt(f, root, at),
     free: (root, at = now) => Math.max(0, f.standing(root, at) - f.locked(root, at)),
@@ -101,12 +129,15 @@ export function creditedRoots(v: PieceView): Address[] {
  */
 export function refreshCredits(f: Folding): void {
   f.credits = [];
-  for (const e of f.entries.values()) for (const v of e.fold.pieces) if (v.accepting) for (const r of creditedRoots(v)) {
-    const root = e.fold.rootOf(r, f.now);
-    const at = v.accepting.completedAt;
-    if (f.struckCredits.some((s) => s.root === root && s.problem === e.hash && s.at === at)) continue;
-    f.credits.push({ root, problem: e.hash, at, until: null });
-  }
+  for (const e of f.entries.values())
+    for (const v of e.fold.pieces)
+      if (v.accepting)
+        for (const r of creditedRoots(v)) {
+          const root = e.fold.rootOf(r, f.now);
+          const at = v.accepting.completedAt;
+          if (f.struckCredits.some((s) => s.root === root && s.problem === e.hash && s.at === at)) continue;
+          f.credits.push({ root, problem: e.hash, at, until: null });
+        }
 }
 
 /**
@@ -116,7 +147,8 @@ export function refreshCredits(f: Folding): void {
  */
 export function creditedElsewhere(f: Folding, problem: Hash, at: string): Set<Address> {
   const roots = new Set<Address>();
-  for (const c of [...f.credits, ...f.struckCredits]) if (c.problem !== problem && c.at <= at && (c.until === null || c.until > at)) roots.add(c.root);
+  for (const c of [...f.credits, ...f.struckCredits])
+    if (c.problem !== problem && c.at <= at && (c.until === null || c.until > at)) roots.add(c.root);
   return roots;
 }
 
@@ -134,7 +166,16 @@ export function creditBurns(f: Folding, coin: Receipt[]): void {
   for (const r of coin) {
     const at = r.received[0]?.at;
     const word = (r.received[0] as { stake?: unknown } | undefined)?.stake;
-    if (!at || at > f.now || r.event.type !== 'burn' || !isRecord(word) || word.kind !== 'burn' || typeof word.standing !== 'number' || word.standing <= 0) continue;
+    if (
+      !at ||
+      at > f.now ||
+      r.event.type !== 'burn' ||
+      !isRecord(word) ||
+      word.kind !== 'burn' ||
+      typeof word.standing !== 'number' ||
+      word.standing <= 0
+    )
+      continue;
     f.moves.push({ root: rootOf(f, r.event.key, at), at, delta: word.standing });
   }
 }
@@ -155,10 +196,11 @@ export function creditBurns(f: Folding, coin: Receipt[]): void {
  */
 function standingAt(f: Folding, root: Address, at: string): number {
   const moves: { at: string; delta: number }[] = [];
-  for (const c of [...f.credits, ...f.struckCredits]) if (c.root === root) {
-    moves.push({ at: c.at, delta: 1 });
-    if (c.until !== null) moves.push({ at: c.until, delta: -1 });
-  }
+  for (const c of [...f.credits, ...f.struckCredits])
+    if (c.root === root) {
+      moves.push({ at: c.at, delta: 1 });
+      if (c.until !== null) moves.push({ at: c.until, delta: -1 });
+    }
   for (const m of f.moves) if (m.root === root) moves.push({ at: m.at, delta: m.delta });
   moves.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
   let s = 1 + (f.founding.get(root.toLowerCase()) ?? 0);
@@ -168,6 +210,10 @@ function standingAt(f: Folding, root: Address, at: string): number {
 
 /** What a root has locked at a time: its live standing locks (QX-15 section 3) and the stakes of its live golds (QX-16 section 5). */
 function lockedAt(f: Folding, root: Address, at: string): number {
-  return f.locks.reduce((sum, l) => (l.root === root && l.kind === 'standing' && liveAt(f, l, at) ? sum + l.amount : sum), 0)
-    + f.golds.reduce((sum, g) => (g.root === root && goldLiveAt(f, g, at) ? sum + g.stake : sum), 0);
+  return (
+    f.locks.reduce(
+      (sum, l) => (l.root === root && l.kind === 'standing' && liveAt(f, l, at) ? sum + l.amount : sum),
+      0,
+    ) + f.golds.reduce((sum, g) => (g.root === root && goldLiveAt(f, g, at) ? sum + g.stake : sum), 0)
+  );
 }

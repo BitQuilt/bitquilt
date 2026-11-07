@@ -5,21 +5,56 @@
  * the hosted on-ramp's members, and the clients, codes and grants of its authorization server (QX-18).
  */
 import { DatabaseSync } from 'node:sqlite';
-import { type Envelope, type Event, type Hash, type Receipt, type Received, eventId, lineHash, hashHex } from '@bitquilt/core';
+import {
+  type Envelope,
+  type Event,
+  type Hash,
+  type Receipt,
+  type Received,
+  eventId,
+  lineHash,
+  hashHex,
+} from '@bitquilt/core';
 import type { MemberTimes } from './counts.js';
 
 /** A client registered with the hosted on-ramp's authorization server (QX-18): its metadata as kept, and the hash of its secret where it has one. */
-export interface OAuthClientRow { clientId: string; metadata: Record<string, unknown>; secretHash: string | null; createdAt: string }
+export interface OAuthClientRow {
+  clientId: string;
+  metadata: Record<string, unknown>;
+  secretHash: string | null;
+  createdAt: string;
+}
 
 /** An authorization code by the hash it is kept under: the client, the member who presented their address, where it was sent, the PKCE challenge, and when it was spent. */
-export interface OAuthCodeRow { clientId: string; tokenHash: string; redirectUri: string; challenge: string; resource: string | null; expiresAt: string; usedAt: string | null; grantId: string | null }
+export interface OAuthCodeRow {
+  clientId: string;
+  tokenHash: string;
+  redirectUri: string;
+  challenge: string;
+  resource: string | null;
+  expiresAt: string;
+  usedAt: string | null;
+  grantId: string | null;
+}
 
 /**
  * A grant: one member's tokens through one client, as the code that began it was sent. `via` is the product the
  * exchange was bound to, with `viaBy` saying how (its published addresses, or its published key), or `other`, with the
  * name the client gave itself; `refreshGen` counts the rotations, so only the newest refresh token is good.
  */
-export interface GrantRow { id: string; tokenHash: string; clientId: string; redirectUri: string; via: string; viaBy: string | null; clientName: string | null; resource: string | null; createdAt: string; refreshGen: number; revokedAt: string | null }
+export interface GrantRow {
+  id: string;
+  tokenHash: string;
+  clientId: string;
+  redirectUri: string;
+  via: string;
+  viaBy: string | null;
+  clientName: string | null;
+  resource: string | null;
+  createdAt: string;
+  refreshGen: number;
+  revokedAt: string | null;
+}
 
 export interface StoredEnvelope {
   hash: Hash;
@@ -61,9 +96,14 @@ export class Store {
     `);
     // SQLite has no "add column if not exists": a column the members table gained after the first databases were made is
     // added here when it is missing, so a database made before it upgrades on open. Every store, new or old, takes this path.
-    const columns = new Set((this.db.prepare('pragma table_info(members)').all() as { name: string }[]).map((c) => c.name));
-    for (const column of ['first_used_at', 'key_taken_at']) if (!columns.has(column)) this.db.exec(`alter table members add column ${column} text`);
-    const grantColumns = new Set((this.db.prepare('pragma table_info(oauth_grants)').all() as { name: string }[]).map((c) => c.name));
+    const columns = new Set(
+      (this.db.prepare('pragma table_info(members)').all() as { name: string }[]).map((c) => c.name),
+    );
+    for (const column of ['first_used_at', 'key_taken_at'])
+      if (!columns.has(column)) this.db.exec(`alter table members add column ${column} text`);
+    const grantColumns = new Set(
+      (this.db.prepare('pragma table_info(oauth_grants)').all() as { name: string }[]).map((c) => c.name),
+    );
     if (!grantColumns.has('via_by')) this.db.exec('alter table oauth_grants add column via_by text');
   }
 
@@ -74,13 +114,24 @@ export class Store {
   putEnvelope(hash: Hash, envelope: Envelope, receivedAt: string): void {
     this.db
       .prepare('insert or ignore into envelopes (hash, owner, slug, prev, json, received_at) values (?, ?, ?, ?, ?, ?)')
-      .run(hash, envelope.problem.owner, envelope.problem.slug, envelope.problem.prev, JSON.stringify(envelope), receivedAt);
+      .run(
+        hash,
+        envelope.problem.owner,
+        envelope.problem.slug,
+        envelope.problem.prev,
+        JSON.stringify(envelope),
+        receivedAt,
+      );
     this.version += 1;
   }
 
   getEnvelope(hash: Hash): StoredEnvelope | null {
-    const row = this.db.prepare('select hash, json, received_at from envelopes where hash = ?').get(hash) as { hash: string; json: string; received_at: string } | undefined;
-    return row ? { hash: row.hash as Hash, envelope: JSON.parse(row.json) as Envelope, receivedAt: row.received_at } : null;
+    const row = this.db.prepare('select hash, json, received_at from envelopes where hash = ?').get(hash) as
+      | { hash: string; json: string; received_at: string }
+      | undefined;
+    return row
+      ? { hash: row.hash as Hash, envelope: JSON.parse(row.json) as Envelope, receivedAt: row.received_at }
+      : null;
   }
 
   /** The envelope and every ancestor along prev that this store holds, nearest first. */
@@ -99,8 +150,16 @@ export class Store {
   }
 
   listEnvelopes(): StoredEnvelope[] {
-    const rows = this.db.prepare('select hash, json, received_at from envelopes order by received_at desc').all() as { hash: string; json: string; received_at: string }[];
-    return rows.map((r) => ({ hash: r.hash as Hash, envelope: JSON.parse(r.json) as Envelope, receivedAt: r.received_at }));
+    const rows = this.db.prepare('select hash, json, received_at from envelopes order by received_at desc').all() as {
+      hash: string;
+      json: string;
+      received_at: string;
+    }[];
+    return rows.map((r) => ({
+      hash: r.hash as Hash,
+      envelope: JSON.parse(r.json) as Envelope,
+      receivedAt: r.received_at,
+    }));
   }
 
   putBlob(hash: Hash, bytes: Uint8Array): void {
@@ -109,24 +168,29 @@ export class Store {
   }
 
   getBlob(hash: Hash): Uint8Array | null {
-    const row = this.db.prepare('select bytes from blobs where hash = ?').get(hash) as { bytes: Uint8Array } | undefined;
+    const row = this.db.prepare('select bytes from blobs where hash = ?').get(hash) as
+      | { bytes: Uint8Array }
+      | undefined;
     return row ? new Uint8Array(row.bytes) : null;
   }
 
   /** How many bytes a blob has, without reading it, or null where this store has none: what a trace's spans are measured against (QX-19). */
   blobLength(hash: Hash): number | null {
-    const row = this.db.prepare('select length(bytes) as n from blobs where hash = ?').get(hash) as { n: number } | undefined;
+    const row = this.db.prepare('select length(bytes) as n from blobs where hash = ?').get(hash) as
+      | { n: number }
+      | undefined;
     return row ? row.n : null;
   }
 
   /** The blobs a chain of envelopes names, those this store holds. */
   blobsFor(chain: Envelope[]): Map<Hash, Uint8Array> {
     const m = new Map<Hash, Uint8Array>();
-    for (const e of chain) for (const h of Object.values(e.problem.data)) {
-      if (m.has(h)) continue;
-      const b = this.getBlob(h);
-      if (b) m.set(h, b);
-    }
+    for (const e of chain)
+      for (const h of Object.values(e.problem.data)) {
+        if (m.has(h)) continue;
+        const b = this.getBlob(h);
+        if (b) m.set(h, b);
+      }
     return m;
   }
 
@@ -135,7 +199,9 @@ export class Store {
   }
 
   private last(problem: Hash): { seq: number; at: string; hash: string } | null {
-    const row = this.db.prepare('select seq, at, hash from receipts where problem = ? order by seq desc limit 1').get(problem) as { seq: number; at: string; hash: string } | undefined;
+    const row = this.db
+      .prepare('select seq, at, hash from receipts where problem = ? order by seq desc limit 1')
+      .get(problem) as { seq: number; at: string; hash: string } | undefined;
     return row ?? null;
   }
 
@@ -143,7 +209,16 @@ export class Store {
    * Appends an event to a problem's chain with a receipt stamped strictly after the last one, and returns the line.
    * Two events on one problem never share a time, so a commit always folds before its reveal.
    */
-  appendReceipt(problem: Hash, event: Event, id: Hash, by: string, now: string, custody: Received['custody'], seat?: Received['seat'], extra?: Record<string, unknown>): Receipt {
+  appendReceipt(
+    problem: Hash,
+    event: Event,
+    id: Hash,
+    by: string,
+    now: string,
+    custody: Received['custody'],
+    seat?: Received['seat'],
+    extra?: Record<string, unknown>,
+  ): Receipt {
     const last = this.last(problem);
     let at = now;
     if (last && at <= last.at) at = new Date(Date.parse(last.at) + 1).toISOString();
@@ -153,7 +228,9 @@ export class Store {
     const prev = last?.hash ?? hashHex(problem);
     const hash = lineHash(seq, prev, { event, received: [received] });
     this.db
-      .prepare('insert into receipts (problem, seq, id, type, key, at, json, received, prev, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .prepare(
+        'insert into receipts (problem, seq, id, type, key, at, json, received, prev, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      )
       .run(problem, seq, id, event.type, event.key, at, JSON.stringify(event), JSON.stringify([received]), prev, hash);
     this.version += 1;
     return { event, received: [received], seq, prev, hash };
@@ -170,7 +247,9 @@ export class Store {
     const prev = last?.hash ?? hashHex(problem);
     const hash = lineHash(seq, prev, { event, received });
     this.db
-      .prepare('insert into receipts (problem, seq, id, type, key, at, json, received, prev, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .prepare(
+        'insert into receipts (problem, seq, id, type, key, at, json, received, prev, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      )
       .run(problem, seq, id, event.type, event.key, at, JSON.stringify(event), JSON.stringify(received), prev, hash);
     this.version += 1;
     return { event, received, seq, prev, hash };
@@ -181,8 +260,18 @@ export class Store {
    * both bounds; a fold, a count or a check of the whole chain reads `lines`, which has no limit.
    */
   receipts(problem: Hash, since: number, limit: number): Receipt[] {
-    const rows = this.db.prepare('select seq, json, received, prev, hash from receipts where problem = ? and seq > ? order by seq limit ?').all(problem, since, limit) as { seq: number; json: string; received: string; prev: string; hash: string }[];
-    return rows.map((r) => ({ event: JSON.parse(r.json) as Event, received: JSON.parse(r.received) as Received[], seq: r.seq, prev: r.prev, hash: r.hash }));
+    const rows = this.db
+      .prepare(
+        'select seq, json, received, prev, hash from receipts where problem = ? and seq > ? order by seq limit ?',
+      )
+      .all(problem, since, limit) as { seq: number; json: string; received: string; prev: string; hash: string }[];
+    return rows.map((r) => ({
+      event: JSON.parse(r.json) as Event,
+      received: JSON.parse(r.received) as Received[],
+      seq: r.seq,
+      prev: r.prev,
+      hash: r.hash,
+    }));
   }
 
   /** The chain's last line: its seq, hash and time, or null for a chain with no line. */
@@ -209,7 +298,9 @@ export class Store {
 
   /** Lines kept as another place gave them, with their seq, prev and hash: the node's keep after a chain only grew (PROTOCOL.md, The mirror). */
   appendLines(log: Hash, lines: Receipt[]): void {
-    const insert = this.db.prepare('insert into receipts (problem, seq, id, type, key, at, json, received, prev, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    const insert = this.db.prepare(
+      'insert into receipts (problem, seq, id, type, key, at, json, received, prev, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    );
     const last = this.last(log);
     let seq = last?.seq ?? 0;
     let prev = last?.hash ?? hashHex(log);
@@ -217,7 +308,18 @@ export class Store {
       seq += 1;
       const at = l.received.map((w) => w.at).sort()[0] ?? '';
       const hash = l.hash ?? lineHash(seq, prev, { event: l.event, received: l.received });
-      insert.run(log, seq, eventId(l.event), l.event.type, l.event.key, at, JSON.stringify(l.event), JSON.stringify(l.received), l.prev ?? prev, hash);
+      insert.run(
+        log,
+        seq,
+        eventId(l.event),
+        l.event.type,
+        l.event.key,
+        at,
+        JSON.stringify(l.event),
+        JSON.stringify(l.received),
+        l.prev ?? prev,
+        hash,
+      );
       prev = hash;
       this.version += 1;
     }
@@ -230,95 +332,172 @@ export class Store {
       problems: one('select count(*) as n from envelopes'),
       ledgers: one('select count(distinct problem) as n from receipts'),
       blobs: one('select count(*) as n from blobs'),
-      bytes: one('select coalesce(sum(length(json)), 0) as n from envelopes') + one('select coalesce(sum(length(json) + length(received)), 0) as n from receipts') + one('select coalesce(sum(length(bytes)), 0) as n from blobs'),
+      bytes:
+        one('select coalesce(sum(length(json)), 0) as n from envelopes') +
+        one('select coalesce(sum(length(json) + length(received)), 0) as n from receipts') +
+        one('select coalesce(sum(length(bytes)), 0) as n from blobs'),
     };
   }
 
   putName(owner: string, slug: string, hash: Hash, at: string): void {
-    this.db.prepare('insert into names (owner, slug, hash, at) values (?, ?, ?, ?) on conflict (owner, slug) do update set hash = excluded.hash, at = excluded.at where excluded.at > names.at').run(owner, slug, hash, at);
+    this.db
+      .prepare(
+        'insert into names (owner, slug, hash, at) values (?, ?, ?, ?) on conflict (owner, slug) do update set hash = excluded.hash, at = excluded.at where excluded.at > names.at',
+      )
+      .run(owner, slug, hash, at);
   }
 
   getName(owner: string, slug: string): Hash | null {
-    const row = this.db.prepare('select hash from names where owner = ? and slug = ?').get(owner, slug) as { hash: string } | undefined;
+    const row = this.db.prepare('select hash from names where owner = ? and slug = ?').get(owner, slug) as
+      | { hash: string }
+      | undefined;
     return row ? (row.hash as Hash) : null;
   }
 
   putAnnouncement(problem: Hash, key: string, event: Event, at: string): void {
-    this.db.prepare('insert into announcements (problem, key, json, at) values (?, ?, ?, ?) on conflict (problem, key) do update set json = excluded.json, at = excluded.at').run(problem, key, JSON.stringify(event), at);
+    this.db
+      .prepare(
+        'insert into announcements (problem, key, json, at) values (?, ?, ?, ?) on conflict (problem, key) do update set json = excluded.json, at = excluded.at',
+      )
+      .run(problem, key, JSON.stringify(event), at);
   }
 
   announcements(problem?: Hash): { problem: Hash; key: string; event: Event; at: string }[] {
-    const rows = (problem
-      ? this.db.prepare('select problem, key, json, at from announcements where problem = ? order by at desc').all(problem)
-      : this.db.prepare('select problem, key, json, at from announcements order by at desc').all()) as { problem: string; key: string; json: string; at: string }[];
+    const rows = (
+      problem
+        ? this.db
+            .prepare('select problem, key, json, at from announcements where problem = ? order by at desc')
+            .all(problem)
+        : this.db.prepare('select problem, key, json, at from announcements order by at desc').all()
+    ) as { problem: string; key: string; json: string; at: string }[];
     return rows.map((r) => ({ problem: r.problem as Hash, key: r.key, event: JSON.parse(r.json) as Event, at: r.at }));
   }
 
   /** Counts a hit in an hourly bucket and says whether it is over the limit. */
   hit(bucket: string, window: string, limit: number): boolean {
-    this.db.prepare('insert into limits (bucket, window, count) values (?, ?, 1) on conflict (bucket, window) do update set count = count + 1').run(bucket, window);
-    const row = this.db.prepare('select count from limits where bucket = ? and window = ?').get(bucket, window) as { count: number };
+    this.db
+      .prepare(
+        'insert into limits (bucket, window, count) values (?, ?, 1) on conflict (bucket, window) do update set count = count + 1',
+      )
+      .run(bucket, window);
+    const row = this.db.prepare('select count from limits where bucket = ? and window = ?').get(bucket, window) as {
+      count: number;
+    };
     return row.count > limit;
   }
 
   /** A short hold on a piece for a key, so two clients on this tracker are not handed the same piece in the same minute. */
   hold(problem: Hash, piece: Hash, key: string, until: string): void {
-    this.db.prepare('insert into holds (problem, piece, key, until) values (?, ?, ?, ?) on conflict (problem, piece) do update set key = excluded.key, until = excluded.until').run(problem, piece, key, until);
+    this.db
+      .prepare(
+        'insert into holds (problem, piece, key, until) values (?, ?, ?, ?) on conflict (problem, piece) do update set key = excluded.key, until = excluded.until',
+      )
+      .run(problem, piece, key, until);
   }
 
   /** A member whose key this tracker holds, by the hash of their address token. The key is stored encrypted; the store never sees it plain. */
   putMember(tokenHash: string, address: string, keyEnc: string, at: string): void {
-    this.db.prepare('insert into members (token_hash, address, key_enc, created_at) values (?, ?, ?, ?)').run(tokenHash, address, keyEnc, at);
+    this.db
+      .prepare('insert into members (token_hash, address, key_enc, created_at) values (?, ?, ?, ?)')
+      .run(tokenHash, address, keyEnc, at);
   }
 
   getMember(tokenHash: string): { address: string; keyEnc: string; createdAt: string; name: string | null } | null {
-    const row = this.db.prepare('select address, key_enc, created_at, name from members where token_hash = ?').get(tokenHash) as { address: string; key_enc: string; created_at: string; name: string | null } | undefined;
+    const row = this.db
+      .prepare('select address, key_enc, created_at, name from members where token_hash = ?')
+      .get(tokenHash) as { address: string; key_enc: string; created_at: string; name: string | null } | undefined;
     return row ? { address: row.address, keyEnc: row.key_enc, createdAt: row.created_at, name: row.name } : null;
   }
 
   /** The first time a member's address was used, kept once: a later call changes nothing. What the funnel counts as addresses first used (counts.ts). */
   markMemberUsed(tokenHash: string, at: string): void {
-    this.db.prepare('update members set first_used_at = ? where token_hash = ? and first_used_at is null').run(at, tokenHash);
+    this.db
+      .prepare('update members set first_used_at = ? where token_hash = ? and first_used_at is null')
+      .run(at, tokenHash);
   }
 
   /** When a member took the key home, kept once: a later call changes nothing. What the funnel counts as keys taken home (counts.ts). */
   markMemberKeyTaken(tokenHash: string, at: string): void {
-    this.db.prepare('update members set key_taken_at = ? where token_hash = ? and key_taken_at is null').run(at, tokenHash);
+    this.db
+      .prepare('update members set key_taken_at = ? where token_hash = ? and key_taken_at is null')
+      .run(at, tokenHash);
   }
 
   /** Every member, by the hash of their address token, oldest first: whom the hosted on-ramp's owner turn runs for. */
   members(): string[] {
-    return (this.db.prepare('select token_hash from members order by created_at').all() as { token_hash: string }[]).map((r) => r.token_hash);
+    return (
+      this.db.prepare('select token_hash from members order by created_at').all() as { token_hash: string }[]
+    ).map((r) => r.token_hash);
   }
 
   /** When each member was made, first used and took the key home, and nothing else about them: what the funnel reads (counts.ts). */
   memberTimes(): MemberTimes[] {
-    const rows = this.db.prepare('select created_at, first_used_at, key_taken_at from members order by created_at').all() as { created_at: string; first_used_at: string | null; key_taken_at: string | null }[];
+    const rows = this.db
+      .prepare('select created_at, first_used_at, key_taken_at from members order by created_at')
+      .all() as { created_at: string; first_used_at: string | null; key_taken_at: string | null }[];
     return rows.map((r) => ({ createdAt: r.created_at, firstUsedAt: r.first_used_at, keyTakenAt: r.key_taken_at }));
   }
 
   /** QX-18: a client the authorization server registered, with the hash of its secret where it has one. */
   putOAuthClient(clientId: string, metadata: Record<string, unknown>, secretHash: string | null, at: string): void {
-    this.db.prepare('insert into oauth_clients (client_id, json, secret_hash, created_at) values (?, ?, ?, ?)').run(clientId, JSON.stringify(metadata), secretHash, at);
+    this.db
+      .prepare('insert into oauth_clients (client_id, json, secret_hash, created_at) values (?, ?, ?, ?)')
+      .run(clientId, JSON.stringify(metadata), secretHash, at);
   }
 
   getOAuthClient(clientId: string): OAuthClientRow | null {
-    const row = this.db.prepare('select client_id, json, secret_hash, created_at from oauth_clients where client_id = ?').get(clientId) as { client_id: string; json: string; secret_hash: string | null; created_at: string } | undefined;
-    return row ? { clientId: row.client_id, metadata: JSON.parse(row.json) as Record<string, unknown>, secretHash: row.secret_hash, createdAt: row.created_at } : null;
+    const row = this.db
+      .prepare('select client_id, json, secret_hash, created_at from oauth_clients where client_id = ?')
+      .get(clientId) as { client_id: string; json: string; secret_hash: string | null; created_at: string } | undefined;
+    return row
+      ? {
+          clientId: row.client_id,
+          metadata: JSON.parse(row.json) as Record<string, unknown>,
+          secretHash: row.secret_hash,
+          createdAt: row.created_at,
+        }
+      : null;
   }
 
   putOAuthCode(codeHash: string, code: Omit<OAuthCodeRow, 'usedAt' | 'grantId'>): void {
-    this.db.prepare('insert into oauth_codes (code_hash, client_id, token_hash, redirect_uri, challenge, resource, expires_at) values (?, ?, ?, ?, ?, ?, ?)')
+    this.db
+      .prepare(
+        'insert into oauth_codes (code_hash, client_id, token_hash, redirect_uri, challenge, resource, expires_at) values (?, ?, ?, ?, ?, ?, ?)',
+      )
       .run(codeHash, code.clientId, code.tokenHash, code.redirectUri, code.challenge, code.resource, code.expiresAt);
   }
 
   /** Spends a code: marks it used at `at` the first time, and returns it as it stood before, so a second use is seen. */
   spendOAuthCode(codeHash: string, at: string): OAuthCodeRow | null {
-    const row = this.db.prepare('select client_id, token_hash, redirect_uri, challenge, resource, expires_at, used_at, grant_id from oauth_codes where code_hash = ?').get(codeHash) as
-      { client_id: string; token_hash: string; redirect_uri: string; challenge: string; resource: string | null; expires_at: string; used_at: string | null; grant_id: string | null } | undefined;
+    const row = this.db
+      .prepare(
+        'select client_id, token_hash, redirect_uri, challenge, resource, expires_at, used_at, grant_id from oauth_codes where code_hash = ?',
+      )
+      .get(codeHash) as
+      | {
+          client_id: string;
+          token_hash: string;
+          redirect_uri: string;
+          challenge: string;
+          resource: string | null;
+          expires_at: string;
+          used_at: string | null;
+          grant_id: string | null;
+        }
+      | undefined;
     if (!row) return null;
-    if (row.used_at === null) this.db.prepare('update oauth_codes set used_at = ? where code_hash = ?').run(at, codeHash);
-    return { clientId: row.client_id, tokenHash: row.token_hash, redirectUri: row.redirect_uri, challenge: row.challenge, resource: row.resource, expiresAt: row.expires_at, usedAt: row.used_at, grantId: row.grant_id };
+    if (row.used_at === null)
+      this.db.prepare('update oauth_codes set used_at = ? where code_hash = ?').run(at, codeHash);
+    return {
+      clientId: row.client_id,
+      tokenHash: row.token_hash,
+      redirectUri: row.redirect_uri,
+      challenge: row.challenge,
+      resource: row.resource,
+      expiresAt: row.expires_at,
+      usedAt: row.used_at,
+      grantId: row.grant_id,
+    };
   }
 
   /** The grant a code began, kept on the code so a second use of it revokes that grant. */
@@ -327,30 +506,76 @@ export class Store {
   }
 
   putGrant(g: Omit<GrantRow, 'refreshGen' | 'revokedAt'>): void {
-    this.db.prepare('insert into oauth_grants (id, token_hash, client_id, redirect_uri, via, via_by, client_name, resource, created_at, refresh_gen) values (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)')
+    this.db
+      .prepare(
+        'insert into oauth_grants (id, token_hash, client_id, redirect_uri, via, via_by, client_name, resource, created_at, refresh_gen) values (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
+      )
       .run(g.id, g.tokenHash, g.clientId, g.redirectUri, g.via, g.viaBy, g.clientName, g.resource, g.createdAt);
   }
 
   getGrant(id: string): GrantRow | null {
-    const row = this.db.prepare('select id, token_hash, client_id, redirect_uri, via, via_by, client_name, resource, created_at, refresh_gen, revoked_at from oauth_grants where id = ?').get(id) as
-      { id: string; token_hash: string; client_id: string; redirect_uri: string; via: string; via_by: string | null; client_name: string | null; resource: string | null; created_at: string; refresh_gen: number; revoked_at: string | null } | undefined;
-    return row ? { id: row.id, tokenHash: row.token_hash, clientId: row.client_id, redirectUri: row.redirect_uri, via: row.via, viaBy: row.via_by, clientName: row.client_name, resource: row.resource, createdAt: row.created_at, refreshGen: row.refresh_gen, revokedAt: row.revoked_at } : null;
+    const row = this.db
+      .prepare(
+        'select id, token_hash, client_id, redirect_uri, via, via_by, client_name, resource, created_at, refresh_gen, revoked_at from oauth_grants where id = ?',
+      )
+      .get(id) as
+      | {
+          id: string;
+          token_hash: string;
+          client_id: string;
+          redirect_uri: string;
+          via: string;
+          via_by: string | null;
+          client_name: string | null;
+          resource: string | null;
+          created_at: string;
+          refresh_gen: number;
+          revoked_at: string | null;
+        }
+      | undefined;
+    return row
+      ? {
+          id: row.id,
+          tokenHash: row.token_hash,
+          clientId: row.client_id,
+          redirectUri: row.redirect_uri,
+          via: row.via,
+          viaBy: row.via_by,
+          clientName: row.client_name,
+          resource: row.resource,
+          createdAt: row.created_at,
+          refreshGen: row.refresh_gen,
+          revokedAt: row.revoked_at,
+        }
+      : null;
   }
 
   /** QX-18: a signed client assertion's id, kept once so the assertion is not presented again; false when it was seen already. */
   putAssertion(jtiHash: string, expiresAt: string): boolean {
-    return this.db.prepare('insert or ignore into oauth_assertions (jti_hash, expires_at) values (?, ?)').run(jtiHash, expiresAt).changes === 1;
+    return (
+      this.db
+        .prepare('insert or ignore into oauth_assertions (jti_hash, expires_at) values (?, ?)')
+        .run(jtiHash, expiresAt).changes === 1
+    );
   }
 
   /** A member's grants, oldest first: which clients hold tokens for the address, and where each code was sent. */
   grantsOf(tokenHash: string): GrantRow[] {
-    const ids = this.db.prepare('select id from oauth_grants where token_hash = ? order by created_at, id').all(tokenHash) as { id: string }[];
+    const ids = this.db
+      .prepare('select id from oauth_grants where token_hash = ? order by created_at, id')
+      .all(tokenHash) as { id: string }[];
     return ids.map((r) => this.getGrant(r.id)!);
   }
 
   /** Moves a live grant's refresh tokens on by one, from the generation presented; false where that is not the newest or the grant is revoked. */
   rotateGrant(id: string, from: number): boolean {
-    return this.db.prepare('update oauth_grants set refresh_gen = refresh_gen + 1 where id = ? and refresh_gen = ? and revoked_at is null').run(id, from).changes === 1;
+    return (
+      this.db
+        .prepare(
+          'update oauth_grants set refresh_gen = refresh_gen + 1 where id = ? and refresh_gen = ? and revoked_at is null',
+        )
+        .run(id, from).changes === 1
+    );
   }
 
   /** Revokes a grant, kept once: every token it issued stops working. */
@@ -360,13 +585,21 @@ export class Store {
 
   /** A key's latest reveals across every log, newest first, by the index on (key, at): what the directory's hot list reads (APP.md, "The window"). */
   revealsBy(key: string, limit: number): { problem: Hash; piece: Hash; at: string }[] {
-    const rows = this.db.prepare(`select problem, json_extract(json, '$.piece') as piece, at from receipts where key = ? and type = 'reveal' order by at desc limit ?`).all(key, limit) as { problem: string; piece: string; at: string }[];
+    const rows = this.db
+      .prepare(
+        `select problem, json_extract(json, '$.piece') as piece, at from receipts where key = ? and type = 'reveal' order by at desc limit ?`,
+      )
+      .all(key, limit) as { problem: string; piece: string; at: string }[];
     return rows.map((r) => ({ problem: r.problem as Hash, piece: r.piece as Hash, at: r.at }));
   }
 
   /** QX-18: a problem's reveals whose receipts carry a witness, read without parsing the rest of the chain. */
   witnessedReveals(problem: Hash): { key: string; piece: Hash; received: Received[] }[] {
-    const rows = this.db.prepare(`select key, json_extract(json, '$.piece') as piece, received from receipts where problem = ? and type = 'reveal' and received like '%"via":%' order by seq`).all(problem) as { key: string; piece: string; received: string }[];
+    const rows = this.db
+      .prepare(
+        `select key, json_extract(json, '$.piece') as piece, received from receipts where problem = ? and type = 'reveal' and received like '%"via":%' order by seq`,
+      )
+      .all(problem) as { key: string; piece: string; received: string }[];
     return rows.map((r) => ({ key: r.key, piece: r.piece as Hash, received: JSON.parse(r.received) as Received[] }));
   }
 
@@ -382,7 +615,9 @@ export class Store {
   }
 
   heldByOthers(problem: Hash, key: string, now: string): Set<Hash> {
-    const rows = this.db.prepare('select piece from holds where problem = ? and key != ? and until > ?').all(problem, key, now) as { piece: string }[];
+    const rows = this.db
+      .prepare('select piece from holds where problem = ? and key != ? and until > ?')
+      .all(problem, key, now) as { piece: string }[];
     return new Set(rows.map((r) => r.piece as Hash));
   }
 }

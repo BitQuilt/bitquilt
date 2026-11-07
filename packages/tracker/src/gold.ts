@@ -8,7 +8,19 @@
  * owner's stake stays locked (section 5), and whether a gold or a reveal would be kept (section 1). The strike a miss
  * makes, and the challenge that can undo it (section 4), are the challenge window's (challenge.ts).
  */
-import { type Address, type Hash, type PieceView, type Return, NONCE_RE, agreeFields, commitHash, isHash, isRecord, plusHours, returnsAgree } from '@bitquilt/core';
+import {
+  type Address,
+  type Hash,
+  type PieceView,
+  type Return,
+  NONCE_RE,
+  agreeFields,
+  commitHash,
+  isHash,
+  isRecord,
+  plusHours,
+  returnsAgree,
+} from '@bitquilt/core';
 import { ownerOf, rootFor, windowOf } from './verifiers.js';
 import { ruleAt, stakeAsked } from './stake.js';
 import type { Folding, ProblemEntry } from './standing.js';
@@ -46,7 +58,14 @@ export interface GoldView {
 }
 
 /** A problem's gold as a reader sums it: how many commitments, and how each stands. */
-export interface GoldCount { committed: number; pending: number; verified: number; missed: number; overruled: number; lapsed: number }
+export interface GoldCount {
+  committed: number;
+  pending: number;
+  verified: number;
+  missed: number;
+  overruled: number;
+  lapsed: number;
+}
 
 const MACHINE: ReadonlySet<string> = new Set(['check', 'score']);
 
@@ -64,7 +83,8 @@ export function goldBodyProblems(body: unknown): string[] {
   else if (!c.every((h) => isHash(h))) out.push('body.commitments: a list of commitment hashes');
   else if (new Set(c).size !== c.length) out.push('body.commitments: each once');
   if (!Number.isInteger(body.stake) || (body.stake as number) < 1) out.push('body.stake: a whole number of at least 1');
-  for (const k of Object.keys(body)) if (k !== 'commitments' && k !== 'stake') out.push(`body.${k}: not a field of a gold`);
+  for (const k of Object.keys(body))
+    if (k !== 'commitments' && k !== 'stake') out.push(`body.${k}: not a field of a gold`);
   return out;
 }
 
@@ -74,7 +94,8 @@ export function goldRevealBodyProblems(body: unknown): string[] {
   const out: string[] = [];
   if (!isRecord(body.projection)) out.push('body.projection: an object');
   if (typeof body.nonce !== 'string' || !NONCE_RE.test(body.nonce)) out.push('body.nonce: 32 hex characters');
-  for (const k of Object.keys(body)) if (k !== 'projection' && k !== 'nonce') out.push(`body.${k}: not a field of a gold reveal`);
+  for (const k of Object.keys(body))
+    if (k !== 'projection' && k !== 'nonce') out.push(`body.${k}: not a field of a gold reveal`);
   return out;
 }
 
@@ -127,16 +148,17 @@ export function firstProductionAt(view: PieceView): string | null {
 /** A problem's gold summed for a reader: every commitment of every gold not dropped, by outcome as `outcomeOf` reads it. */
 export function goldCount(golds: GoldView[], outcomeOf: (g: GoldView, c: GoldCommitment) => GoldOutcome): GoldCount {
   const n: GoldCount = { committed: 0, pending: 0, verified: 0, missed: 0, overruled: 0, lapsed: 0 };
-  for (const g of golds) for (const c of g.commitments) {
-    const o = outcomeOf(g, c);
-    if (o === 'dropped') continue;
-    n.committed++;
-    if (o === 'pending') n.pending++;
-    else if (o === 'match') n.verified++;
-    else if (o === 'miss') n.missed++;
-    else if (o === 'overruled') n.overruled++;
-    else if (o === 'lapsed') n.lapsed++;
-  }
+  for (const g of golds)
+    for (const c of g.commitments) {
+      const o = outcomeOf(g, c);
+      if (o === 'dropped') continue;
+      n.committed++;
+      if (o === 'pending') n.pending++;
+      else if (o === 'match') n.verified++;
+      else if (o === 'miss') n.missed++;
+      else if (o === 'overruled') n.overruled++;
+      else if (o === 'lapsed') n.lapsed++;
+    }
   return n;
 }
 
@@ -212,7 +234,10 @@ export function goldOn(home: ProblemEntry, piece: Hash): GoldCommitment | null {
 
 /** The unforfeited gold's miss on the piece, if the piece carries one. */
 export function missOn(home: ProblemEntry, piece: Hash): { gold: GoldView; commitment: GoldCommitment } | null {
-  for (const gold of home.golds) if (gold.forfeitedAt === null) for (const commitment of gold.commitments) if (commitment.piece === piece && commitment.outcome === 'miss') return { gold, commitment };
+  for (const gold of home.golds)
+    if (gold.forfeitedAt === null)
+      for (const commitment of gold.commitments)
+        if (commitment.piece === piece && commitment.outcome === 'miss') return { gold, commitment };
   return null;
 }
 
@@ -223,13 +248,20 @@ export type GoldCheck = { ok: true; root: Address; kept: GoldCommitment[] } | { 
  * of at least the largest share among the pieces a gold can be on, for each commitment, since the ledger cannot tell
  * which piece a blind commitment names; and the owner's free standing covering the stake.
  */
-export function checkGold(f: Folding, home: ProblemEntry, key: Address, body: Record<string, unknown>, at: string): GoldCheck {
+export function checkGold(
+  f: Folding,
+  home: ProblemEntry,
+  key: Address,
+  body: Record<string, unknown>,
+  at: string,
+): GoldCheck {
   const shape = goldBodyProblems(body);
   if (shape.length) return { ok: false, why: shape[0]! };
   const root = rootFor(home.fold, key, 'gold', at);
   if (!root || root !== ownerOf(home.fold, at)) return { ok: false, why: 'the owner alone commits gold' };
   const hs = body.commitments as Hash[];
-  for (const g of home.golds) for (const c of g.commitments) if (hs.includes(c.h)) return { ok: false, why: 'a commitment is kept already' };
+  for (const g of home.golds)
+    for (const c of g.commitments) if (hs.includes(c.h)) return { ok: false, why: 'a commitment is kept already' };
   const rule = ruleAt(home, at);
   const share = goldShareMax(home.fold.pieces, (v) => stakeAsked(rule, v.piece));
   if (share === 0) return { ok: false, why: 'gold applies to a piece whose return has agreed fields' };
@@ -238,10 +270,25 @@ export function checkGold(f: Folding, home: ProblemEntry, key: Address, body: Re
   if (stake < required) return { ok: false, why: `the gold asks a stake of at least ${required}` };
   const free = f.free(root, at);
   if (free < stake) return { ok: false, why: `free standing ${free} is below the gold stake of ${stake}` };
-  return { ok: true, root, kept: hs.map((h) => ({ h, piece: null, name: null, outcome: 'pending' as const, revealedAt: null, projection: null, struck: [], struckRoots: [] })) };
+  return {
+    ok: true,
+    root,
+    kept: hs.map((h) => ({
+      h,
+      piece: null,
+      name: null,
+      outcome: 'pending' as const,
+      revealedAt: null,
+      projection: null,
+      struck: [],
+      struckRoots: [],
+    })),
+  };
 }
 
-export type RevealCheck = { ok: true; gold: GoldView; commitment: GoldCommitment; view: PieceView } | { ok: false; why: string };
+export type RevealCheck =
+  | { ok: true; gold: GoldView; commitment: GoldCommitment; view: PieceView }
+  | { ok: false; why: string };
 
 /**
  * Whether an accepting set stands on the piece at `at` with its window open, as the layer's fold has it: where the
@@ -257,7 +304,13 @@ export function windowOpen(view: PieceView, at: string): boolean {
  * revealed on it, matching a pending commitment of a gold kept before the piece was first worked, on a piece with an
  * accepting set inside its window.
  */
-export function checkGoldReveal(home: ProblemEntry, piece: Hash, key: Address, body: Record<string, unknown>, at: string): RevealCheck {
+export function checkGoldReveal(
+  home: ProblemEntry,
+  piece: Hash,
+  key: Address,
+  body: Record<string, unknown>,
+  at: string,
+): RevealCheck {
   const view = home.fold.byHash.get(piece);
   if (!view) return { ok: false, why: 'names a piece this problem does not have' };
   const shape = goldRevealBodyProblems(body);
@@ -267,12 +320,17 @@ export function checkGoldReveal(home: ProblemEntry, piece: Hash, key: Address, b
   if (goldOn(home, piece)) return { ok: false, why: 'the gold on this piece is revealed' };
   const h = goldCommitHash(piece, body.projection as Record<string, unknown>, body.nonce as string);
   let found: { gold: GoldView; commitment: GoldCommitment } | null = null;
-  for (const gold of home.golds) if (gold.forfeitedAt === null) for (const commitment of gold.commitments) if (commitment.outcome === 'pending' && commitment.h === h) found = { gold, commitment };
+  for (const gold of home.golds)
+    if (gold.forfeitedAt === null)
+      for (const commitment of gold.commitments)
+        if (commitment.outcome === 'pending' && commitment.h === h) found = { gold, commitment };
   if (!found) return { ok: false, why: 'the reveal matches no commitment kept on this problem' };
   if (!hasAgreedFields(view)) return { ok: false, why: 'gold applies to a piece whose return has agreed fields' };
   const first = firstProductionAt(view);
-  if (first !== null && first <= found.gold.at) return { ok: false, why: `gold names a piece already worked: ${view.piece.name}` };
-  if (!view.accepting || view.accepting.completedAt > at) return { ok: false, why: 'nothing accepted on this piece yet' };
+  if (first !== null && first <= found.gold.at)
+    return { ok: false, why: `gold names a piece already worked: ${view.piece.name}` };
+  if (!view.accepting || view.accepting.completedAt > at)
+    return { ok: false, why: 'nothing accepted on this piece yet' };
   if (!windowOpen(view, at)) return { ok: false, why: 'the window has closed' };
   return { ok: true, gold: found.gold, commitment: found.commitment, view };
 }

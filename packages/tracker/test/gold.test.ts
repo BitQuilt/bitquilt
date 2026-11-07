@@ -15,14 +15,34 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  * says where a reveal is taken: it follows the window, and on an attest piece whose window closes while a challenge
  * sits, where the layer says `challenged` and the core `unknown`, it says the window has closed as the refusal does.
  */
-const ownerP = key(9), ownerQ = key(8), A = key(1), B = key(2), F = key(6), N = key(21), M = key(22);
+const ownerP = key(9),
+  ownerQ = key(8),
+  A = key(1),
+  B = key(2),
+  F = key(6),
+  N = key(21),
+  M = key(22);
 const judges = [key(11), key(12), key(13), key(14)];
 const secretOf = new Map<Address, Uint8Array>([ownerP, ownerQ, A, B, F, N, M, ...judges].map((k) => [addr(k), k]));
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
+const schema = {
+  type: 'object' as const,
+  additionalProperties: false as const,
+  required: ['verdict', 'quote'],
+  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
+};
 
 function envelope(owner: Uint8Array, slug: string, count: number): Envelope {
-  return signed(owner, slug, { 'statement/*': { count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } });
+  return signed(owner, slug, {
+    'statement/*': {
+      count,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: does the paper say so?',
+      schema,
+      agree: ['verdict'],
+    },
+  });
 }
 
 const HOUR = 3_600_000;
@@ -44,10 +64,20 @@ async function stakedReturn(problem: Hash, piece: Hash, k: Uint8Array, model: st
 }
 type Standing = { standing: number; locked: number; free: number };
 const standingOf = async (k: Uint8Array) => (await get(`/k/${addr(k)}/standing`)) as Standing;
-type PieceState = { hash: Hash; name: string; state: string; core: string; gold: string | null; verified: boolean; window_open: boolean };
-const pieceOf = async (problem: Hash, piece: Hash) => ((await get(`/p/${problem}/state`)) as { pieces: PieceState[] }).pieces.find((x) => x.hash === piece)!;
+type PieceState = {
+  hash: Hash;
+  name: string;
+  state: string;
+  core: string;
+  gold: string | null;
+  verified: boolean;
+  window_open: boolean;
+};
+const pieceOf = async (problem: Hash, piece: Hash) =>
+  ((await get(`/p/${problem}/state`)) as { pieces: PieceState[] }).pieces.find((x) => x.hash === piece)!;
 type Challenge = { id: Hash; against: string; outcome: string; seats: { root: Address }[] };
-const challengesOf = async (problem: Hash) => ((await get(`/p/${problem}/challenges`)) as { challenges: Challenge[] }).challenges;
+const challengesOf = async (problem: Hash) =>
+  ((await get(`/p/${problem}/challenges`)) as { challenges: Challenge[] }).challenges;
 
 /** The owner's gold: the projection of each answer to the agreed fields, a nonce each, and the blind commitments, in hash order. */
 const golden = new Map<Hash, { projection: Record<string, unknown>; nonce: string }>();
@@ -61,9 +91,17 @@ function commitments(pieces: Hash[], verdict = 'supports'): Hash[] {
   }
   return out.sort();
 }
-type GoldCount = { committed: number; pending: number; verified: number; missed: number; overruled: number; lapsed: number };
+type GoldCount = {
+  committed: number;
+  pending: number;
+  verified: number;
+  missed: number;
+  overruled: number;
+  lapsed: number;
+};
 const goldOf = async (problem: Hash) => ((await get(`/p/${problem}/state`)) as { gold: GoldCount }).gold;
-const reveal = (k: Uint8Array, problem: Hash, piece: Hash, nonce = golden.get(piece)!.nonce) => ev(k, 'gold_reveal', { projection: golden.get(piece)!.projection, nonce }, problem, piece);
+const reveal = (k: Uint8Array, problem: Hash, piece: Hash, nonce = golden.get(piece)!.nonce) =>
+  ev(k, 'gold_reveal', { projection: golden.get(piece)!.projection, nonce }, problem, piece);
 
 const P = envelope(ownerP, 'golden', 5);
 const Q = envelope(ownerQ, 'elsewhere', 10);
@@ -74,7 +112,7 @@ const r = problemHash(R);
 let p1: Hash, p2: Hash, p3: Hash, p4: Hash, p5: Hash;
 
 describe('gold pieces', () => {
-  it('takes gold from the owner alone, blind, with a stake that covers the commitments and that the owner\'s free standing covers, and locks the stake', async () => {
+  it("takes gold from the owner alone, blind, with a stake that covers the commitments and that the owner's free standing covers, and locks the stake", async () => {
     const w = await get<{ gold: unknown }>('/.well-known/quilt');
     expect(w.gold).toEqual({ extension: 'QX-16' });
     expect((await post('/p', { envelope: P })).status).toBe(201);
@@ -89,11 +127,21 @@ describe('gold pieces', () => {
     await accepted(`/p/${p}/events`, ev(F, 'claim', { by: by('meta/llama') }, p, p4));
     // Under a rule of 1 a commitment's share is two: one for each root a miss would dock, at the stake the rule asks.
     const first = commitments([p1, p2, p4]);
-    expect(await refused(`/p/${p}/events`, ev(A, 'gold', { commitments: first, stake: 6 }, p))).toBe('the owner alone commits gold');
-    expect(await refused(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: [first[0], 'nope'], stake: 6 }, p))).toBe('body.commitments: a list of commitment hashes');
-    expect(await refused(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: [first[0], first[0]], stake: 6 }, p))).toBe('body.commitments: each once');
-    expect(await refused(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: first, stake: 4 }, p))).toBe('the gold asks a stake of at least 6');
-    expect(await refused(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: first, stake: 6 }, p))).toBe('free standing 1 is below the gold stake of 6');
+    expect(await refused(`/p/${p}/events`, ev(A, 'gold', { commitments: first, stake: 6 }, p))).toBe(
+      'the owner alone commits gold',
+    );
+    expect(await refused(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: [first[0], 'nope'], stake: 6 }, p))).toBe(
+      'body.commitments: a list of commitment hashes',
+    );
+    expect(
+      await refused(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: [first[0], first[0]], stake: 6 }, p)),
+    ).toBe('body.commitments: each once');
+    expect(await refused(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: first, stake: 4 }, p))).toBe(
+      'the gold asks a stake of at least 6',
+    );
+    expect(await refused(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: first, stake: 6 }, p))).toBe(
+      'free standing 1 is below the gold stake of 6',
+    );
     // The owner earns standing elsewhere, as do the roots that will work and judge.
     const qs = ((await get(`/p/${q}/state`)) as { pieces: PieceState[] }).pieces.map((x) => x.hash) as Hash[];
     await returnOn(q, qs[0]!, ownerP, 'anthropic/claude');
@@ -119,18 +167,27 @@ describe('gold pieces', () => {
     expect(await standingOf(ownerP)).toMatchObject({ standing: 8, locked: 0, free: 8 });
     await accepted(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: first, stake: 6 }, p));
     expect(await standingOf(ownerP)).toMatchObject({ standing: 8, locked: 6, free: 2 });
-    expect(await refused(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: [first[1]!], stake: 2 }, p))).toBe('a commitment is kept already');
-    expect(await refused(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: commitments([p3]), stake: 1 }, p))).toBe('the gold asks a stake of at least 2');
+    expect(await refused(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: [first[1]!], stake: 2 }, p))).toBe(
+      'a commitment is kept already',
+    );
+    expect(await refused(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: commitments([p3]), stake: 1 }, p))).toBe(
+      'the gold asks a stake of at least 2',
+    );
     await accepted(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: commitments([p3]), stake: 2 }, p));
     expect(await standingOf(ownerP)).toMatchObject({ standing: 8, locked: 8, free: 0 });
     // Blind: the ledger counts four commitments and no piece shows one.
     for (const h of [p1, p2, p3, p4, p5]) expect(await pieceOf(p, h)).toMatchObject({ gold: null, verified: false });
     expect(await goldOf(p)).toEqual({ committed: 4, pending: 4, verified: 0, missed: 0, overruled: 0, lapsed: 0 });
-    const lines = (await (await fetch(`${t.base}/p/${p}/events`)).text()).trim().split('\n').filter((l) => l.includes('"type":"gold"'));
+    const lines = (await (await fetch(`${t.base}/p/${p}/events`)).text())
+      .trim()
+      .split('\n')
+      .filter((l) => l.includes('"type":"gold"'));
     expect(lines).toHaveLength(2);
     for (const l of lines) for (const h of [p1, p2, p3, p4]) expect(l).not.toContain(h);
     // A reveal on the piece worked before the gold is refused, and nothing is revealed before an acceptance.
-    expect(await refused(`/p/${p}/events`, reveal(ownerP, p, p4))).toBe('gold names a piece already worked: statement/4');
+    expect(await refused(`/p/${p}/events`, reveal(ownerP, p, p4))).toBe(
+      'gold names a piece already worked: statement/4',
+    );
     expect(await refused(`/p/${p}/events`, reveal(ownerP, p, p1))).toBe('nothing accepted on this piece yet');
     expect((await pieceOf(p, p1)).window_open).toBe(false);
     // A plain piece beside the gold, worked by the other owner, who earns the point a later gold of theirs is backed by.
@@ -144,7 +201,9 @@ describe('gold pieces', () => {
     await stakedReturn(p, p1, B, 'openai/gpt');
     expect(await pieceOf(p, p1)).toMatchObject({ state: 'accepted_provisional', window_open: true });
     expect(await refused(`/p/${p}/events`, reveal(A, p, p1))).toBe('the owner alone reveals gold');
-    expect(await refused(`/p/${p}/events`, reveal(ownerP, p, p1, newNonce()))).toBe('the reveal matches no commitment kept on this problem');
+    expect(await refused(`/p/${p}/events`, reveal(ownerP, p, p1, newNonce()))).toBe(
+      'the reveal matches no commitment kept on this problem',
+    );
     await accepted(`/p/${p}/events`, reveal(ownerP, p, p1));
     expect(await pieceOf(p, p1)).toMatchObject({ state: 'accepted_provisional', gold: 'match', verified: true });
     expect(await goldOf(p)).toMatchObject({ committed: 4, pending: 3, verified: 1 });
@@ -158,19 +217,33 @@ describe('gold pieces', () => {
     expect((await pieceOf(p, p2)).state).toBe('accepted_provisional');
     expect(await standingOf(A)).toMatchObject({ standing: 5, locked: 2, free: 3 });
     await accepted(`/p/${p}/events`, reveal(ownerP, p, p2));
-    expect(await pieceOf(p, p2)).toMatchObject({ state: 'open', core: 'accepted_provisional', gold: 'miss', verified: false });
+    expect(await pieceOf(p, p2)).toMatchObject({
+      state: 'open',
+      core: 'accepted_provisional',
+      gold: 'miss',
+      verified: false,
+    });
     // Five points: one docked, the square's withdrawn, the lock of one forfeited; the lock on the verified square still holds.
     expect(await standingOf(A)).toMatchObject({ standing: 2, locked: 1, free: 1 });
     expect(await standingOf(B)).toMatchObject({ standing: 2, locked: 1, free: 1 });
-    const offered = (await get(`/p/${p}/next?key=${addr(judges[3]!)}&can=web&model=meta/llama`)) as { piece: Hash | null };
+    const offered = (await get(`/p/${p}/next?key=${addr(judges[3]!)}&can=web&model=meta/llama`)) as {
+      piece: Hash | null;
+    };
     expect(offered.piece).not.toBeNull();
   });
 
-  it('takes a challenge on the miss from a struck root alone, staking nothing, and a held one restores the set, forfeits the owner\'s stake and drops the rest of the gold', async () => {
+  it("takes a challenge on the miss from a struck root alone, staking nothing, and a held one restores the set, forfeits the owner's stake and drops the rest of the gold", async () => {
     // Against an acceptance a stake of 0 is refused; against a miss it is allowed, and only to a root the miss struck.
-    expect(await refused(`/p/${p}/events`, ev(judges[1]!, 'challenge', { stake: 0, ground: 'For nothing.' }, p, p1))).toBe('a challenge on an acceptance stakes at least 1');
-    expect(await refused(`/p/${p}/events`, ev(F, 'challenge', { stake: 0, ground: 'The gold is wrong.' }, p, p2))).toBe('only a root of the struck set challenges a miss');
-    const id = await accepted(`/p/${p}/events`, ev(A, 'challenge', { stake: 0, ground: 'The paper says the opposite of the gold.' }, p, p2));
+    expect(
+      await refused(`/p/${p}/events`, ev(judges[1]!, 'challenge', { stake: 0, ground: 'For nothing.' }, p, p1)),
+    ).toBe('a challenge on an acceptance stakes at least 1');
+    expect(await refused(`/p/${p}/events`, ev(F, 'challenge', { stake: 0, ground: 'The gold is wrong.' }, p, p2))).toBe(
+      'only a root of the struck set challenges a miss',
+    );
+    const id = await accepted(
+      `/p/${p}/events`,
+      ev(A, 'challenge', { stake: 0, ground: 'The paper says the opposite of the gold.' }, p, p2),
+    );
     expect(await pieceOf(p, p2)).toMatchObject({ state: 'challenged', gold: 'miss' });
     const c = (await challengesOf(p)).find((x) => x.id === id)!;
     expect(c.against).toBe('gold');
@@ -178,7 +251,11 @@ describe('gold pieces', () => {
     const drawn = c.seats.map((s) => s.root);
     expect(drawn).not.toContain(addr(B));
     expect(drawn).not.toContain(addr(A));
-    for (const s of c.seats.slice(0, 2)) await accepted(`/p/${p}/events`, ev(secretOf.get(s.root)!, 'verdict', { challenge: id, for: 'challenger' }, p, p2));
+    for (const s of c.seats.slice(0, 2))
+      await accepted(
+        `/p/${p}/events`,
+        ev(secretOf.get(s.root)!, 'verdict', { challenge: id, for: 'challenger' }, p, p2),
+      );
     expect((await challengesOf(p)).find((x) => x.id === id)!.outcome).toBe('held');
     expect(await pieceOf(p, p2)).toMatchObject({ state: 'accepted_provisional', gold: 'overruled', verified: false });
     // The point docked, the square's point and the lock come back; nothing was staked, so nothing more is won: five, with two locked.
@@ -190,7 +267,7 @@ describe('gold pieces', () => {
     expect(await goldOf(p)).toEqual({ committed: 3, pending: 1, verified: 1, missed: 0, overruled: 1, lapsed: 0 });
   });
 
-  it('lets a commitment lapse once the problem has settled with no reveal, and releases the owner\'s stake', async () => {
+  it("lets a commitment lapse once the problem has settled with no reveal, and releases the owner's stake", async () => {
     await stakedReturn(p, p3, A, 'anthropic/claude');
     await stakedReturn(p, p3, B, 'openai/gpt');
     await returnOn(p, p4, F, 'meta/llama');
@@ -210,7 +287,9 @@ describe('gold pieces', () => {
     expect((await post('/p', { envelope: R })).status).toBe(201);
     const r1 = ((await get(`/p/${r}/state`)) as { pieces: PieceState[] }).pieces[0]!.hash;
     const gold = commitments([r1]);
-    expect(await refused(`/p/${r}/events`, ev(ownerQ, 'gold', { commitments: gold, stake: 1 }, r))).toBe('the gold asks a stake of at least 2');
+    expect(await refused(`/p/${r}/events`, ev(ownerQ, 'gold', { commitments: gold, stake: 1 }, r))).toBe(
+      'the gold asks a stake of at least 2',
+    );
     await accepted(`/p/${r}/events`, ev(ownerQ, 'gold', { commitments: gold, stake: 2 }, r));
     expect(await standingOf(ownerQ)).toMatchObject({ standing: 2, locked: 2, free: 0 });
     // Two new keys, a point each, do the piece and differ from the gold.
@@ -224,12 +303,21 @@ describe('gold pieces', () => {
     // The set's point withdrawn and one docked: a new root struck by a miss is at zero, and a stake of 1 is beyond it.
     expect(await standingOf(N)).toMatchObject({ standing: 0, locked: 0, free: 0 });
     expect(await standingOf(M)).toMatchObject({ standing: 0 });
-    expect(await refused(`/p/${r}/events`, ev(N, 'challenge', { stake: 1, ground: 'The gold is wrong.' }, r, r1))).toBe('standing 0 is below the stake of 1');
-    const id = await accepted(`/p/${r}/events`, ev(N, 'challenge', { stake: 0, ground: 'The paper contradicts the gold on its first page.' }, r, r1));
+    expect(await refused(`/p/${r}/events`, ev(N, 'challenge', { stake: 1, ground: 'The gold is wrong.' }, r, r1))).toBe(
+      'standing 0 is below the stake of 1',
+    );
+    const id = await accepted(
+      `/p/${r}/events`,
+      ev(N, 'challenge', { stake: 0, ground: 'The paper contradicts the gold on its first page.' }, r, r1),
+    );
     const c = (await challengesOf(r)).find((x) => x.id === id)!;
     expect(c.against).toBe('gold');
     expect(c.seats).toHaveLength(3);
-    for (const s of c.seats.slice(0, 2)) await accepted(`/p/${r}/events`, ev(secretOf.get(s.root)!, 'verdict', { challenge: id, for: 'challenger' }, r, r1));
+    for (const s of c.seats.slice(0, 2))
+      await accepted(
+        `/p/${r}/events`,
+        ev(secretOf.get(s.root)!, 'verdict', { challenge: id, for: 'challenger' }, r, r1),
+      );
     expect((await challengesOf(r)).find((x) => x.id === id)!.outcome).toBe('held');
     expect(await pieceOf(r, r1)).toMatchObject({ state: 'accepted_provisional', gold: 'overruled' });
     expect(await standingOf(N)).toMatchObject({ standing: 2, locked: 0, free: 2 });
@@ -238,7 +326,15 @@ describe('gold pieces', () => {
   }, 120_000);
 
   it('says on the state route where a reveal is taken, and an attest piece whose window closes under a challenge has it closed', async () => {
-    const S = signed(ownerP, 'asked', { asked: { verifier: 'attest', requires: ['web'], brief: 'Ask the author whether the paper says so, and record the answer.', schema, agree: ['verdict'] } });
+    const S = signed(ownerP, 'asked', {
+      asked: {
+        verifier: 'attest',
+        requires: ['web'],
+        brief: 'Ask the author whether the paper says so, and record the answer.',
+        schema,
+        agree: ['verdict'],
+      },
+    });
     const s = problemHash(S);
     expect((await post('/p', { envelope: S })).status).toBe(201);
     const s1 = ((await get(`/p/${s}/state`)) as { pieces: PieceState[] }).pieces[0]!.hash;

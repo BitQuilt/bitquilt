@@ -7,9 +7,24 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  * while nothing is written and the clock stays in the same five seconds; a write or the clock moving on builds it
  * again, and admitting an event always builds it at now. Recovering a signer is remembered by signature and message.
  */
-const owner = key(9), worker = key(1);
-const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } };
-const P = signed(owner, 'kept', { 'statement/*': { count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } });
+const owner = key(9),
+  worker = key(1);
+const schema = {
+  type: 'object' as const,
+  additionalProperties: false as const,
+  required: ['verdict'],
+  properties: { verdict: { enum: ['supports', 'contradicts'] } },
+};
+const P = signed(owner, 'kept', {
+  'statement/*': {
+    count: 2,
+    verifier: 'agree',
+    requires: ['web'],
+    brief: 'Statement {n}: does the paper say so?',
+    schema,
+    agree: ['verdict'],
+  },
+});
 const p = problemHash(P);
 const t = boot('2026-10-31T12:00:00Z');
 beforeAll(async () => {
@@ -36,7 +51,10 @@ describe('the kept layer', () => {
     const piece = before.pieces[0]!.hash;
     expect(before.pieces[0]!.state).toBe('open');
     const a = t.tracker.layer();
-    await t.accepted(`/p/${p}/events`, t.ev(worker, 'claim', { by: { model: 'anthropic/claude', client: 'test/0', can: ['web'] } }, p, piece));
+    await t.accepted(
+      `/p/${p}/events`,
+      t.ev(worker, 'claim', { by: { model: 'anthropic/claude', client: 'test/0', can: ['web'] } }, p, piece),
+    );
     expect(t.tracker.layer()).not.toBe(a);
     const after = await t.get<{ pieces: { hash: Hash; state: string }[] }>(`/p/${p}/state`);
     expect(after.pieces.find((x) => x.hash === piece)!.state).toBe('in_flight');

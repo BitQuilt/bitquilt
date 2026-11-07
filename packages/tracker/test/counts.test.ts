@@ -16,11 +16,30 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  * table and the two marks that fill it, each kept once; the totals over the window and the window cutting what is
  * before it; and no address, name or hash anywhere in the answer.
  */
-const ownerP = key(9), ownerQ = key(8), A = key(1), B = key(2), X = key(3), N = key(5);
+const ownerP = key(9),
+  ownerQ = key(8),
+  A = key(1),
+  B = key(2),
+  X = key(3),
+  N = key(5);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
+const schema = {
+  type: 'object' as const,
+  additionalProperties: false as const,
+  required: ['verdict', 'quote'],
+  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
+};
 function envelope(owner: Uint8Array, slug: string, count: number): Envelope {
-  return signed(owner, slug, { 'statement/*': { count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } });
+  return signed(owner, slug, {
+    'statement/*': {
+      count,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: does the paper say so?',
+      schema,
+      agree: ['verdict'],
+    },
+  });
 }
 
 const DAY1 = '2026-10-27T10:00:00.000Z';
@@ -33,22 +52,64 @@ const { clock, store, ev, post, get, accepted } = t;
 beforeAll(() => t.listen());
 afterAll(() => t.close());
 
-type Counts = { addresses_made: number; addresses_first_used: number; keys_taken_home: number; keys_first_event: { hosted: number; own: number }; claims: number; reveals: number; declines: Record<string, number>; sets_accepted: number; squares_verified: number };
+type Counts = {
+  addresses_made: number;
+  addresses_first_used: number;
+  keys_taken_home: number;
+  keys_first_event: { hosted: number; own: number };
+  claims: number;
+  reveals: number;
+  declines: Record<string, number>;
+  sets_accepted: number;
+  squares_verified: number;
+};
 type Day = Counts & { day: string };
-type Funnel = { now: string; window: { days: number; from: string; to: string }; by_day: Day[]; totals: Counts; error?: string };
+type Funnel = {
+  now: string;
+  window: { days: number; from: string; to: string };
+  by_day: Day[];
+  totals: Counts;
+  error?: string;
+};
 const counts = (query = '') => get<Funnel>(`/counts${query}`);
 const noDeclines = { cannot: 0, unclear: 0, refuse: 0, duplicate: 0, no_time: 0 };
-const zero: Counts = { addresses_made: 0, addresses_first_used: 0, keys_taken_home: 0, keys_first_event: { hosted: 0, own: 0 }, claims: 0, reveals: 0, declines: noDeclines, sets_accepted: 0, squares_verified: 0 };
-const FIELDS = ['addresses_first_used', 'addresses_made', 'claims', 'day', 'declines', 'keys_first_event', 'keys_taken_home', 'reveals', 'sets_accepted', 'squares_verified'];
+const zero: Counts = {
+  addresses_made: 0,
+  addresses_first_used: 0,
+  keys_taken_home: 0,
+  keys_first_event: { hosted: 0, own: 0 },
+  claims: 0,
+  reveals: 0,
+  declines: noDeclines,
+  sets_accepted: 0,
+  squares_verified: 0,
+};
+const FIELDS = [
+  'addresses_first_used',
+  'addresses_made',
+  'claims',
+  'day',
+  'declines',
+  'keys_first_event',
+  'keys_taken_home',
+  'reveals',
+  'sets_accepted',
+  'squares_verified',
+];
 
 async function returnOn(problem: Hash, piece: Hash, k: Uint8Array, model: string, headers?: Record<string, string>) {
   const ret = { verdict: 'supports', quote: `as ${addr(k).slice(0, 6)} read it` };
   const nonce = newNonce();
   await accepted(`/p/${problem}/events`, ev(k, 'commit', { h: commitHash(ret, nonce) }, problem, piece), headers);
-  await accepted(`/p/${problem}/events`, ev(k, 'reveal', { return: ret, nonce, by: by(model) }, problem, piece), headers);
+  await accepted(
+    `/p/${problem}/events`,
+    ev(k, 'reveal', { return: ret, nonce, by: by(model) }, problem, piece),
+    headers,
+  );
 }
 type PieceState = { hash: Hash; state: string; verified: boolean };
-const pieceOf = async (problem: Hash, piece: Hash) => ((await get(`/p/${problem}/state`)) as { pieces: PieceState[] }).pieces.find((x) => x.hash === piece)!;
+const pieceOf = async (problem: Hash, piece: Hash) =>
+  ((await get(`/p/${problem}/state`)) as { pieces: PieceState[] }).pieces.find((x) => x.hash === piece)!;
 
 const P = envelope(ownerP, 'golden', 2);
 const Q = envelope(ownerQ, 'elsewhere', 2);
@@ -70,11 +131,12 @@ describe('the funnel, counted', () => {
     expect(f.totals).toEqual(zero);
     expect((await counts('?days=365')).by_day).toHaveLength(365);
     expect((await counts('?days=1')).by_day.map((d) => d.day)).toEqual(['2026-10-27']);
-    for (const bad of ['0', '366', '1.5', 'x']) expect((await counts(`?days=${bad}`)).error).toBe('days: a whole number from 1 to 365');
+    for (const bad of ['0', '366', '1.5', 'x'])
+      expect((await counts(`?days=${bad}`)).error).toBe('days: a whole number from 1 to 365');
     expect((await fetch(`${t.base}/counts`, { method: 'POST' })).status).toBe(404);
   });
 
-  it('counts claims, reveals, accepted sets, verified squares and each key\'s first event, hosted apart from own, by the day of the receipt', async () => {
+  it("counts claims, reveals, accepted sets, verified squares and each key's first event, hosted apart from own, by the day of the receipt", async () => {
     // Day one: both problems published; the owner of P earns the standing its gold asks by a return on Q beside a key of another vendor, then commits one blind gold.
     expect((await post('/p', { envelope: P })).status).toBe(201);
     expect((await post('/p', { envelope: Q })).status).toBe(201);
@@ -82,9 +144,19 @@ describe('the funnel, counted', () => {
     q1 = ((await get(`/p/${q}/state`)) as { pieces: PieceState[] }).pieces[0]!.hash;
     await returnOn(q, q1, ownerP, 'anthropic/claude');
     await returnOn(q, q1, X, 'openai/gpt');
-    await accepted(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: [commitHash({ piece: p1, projection: gold.projection }, gold.nonce)], stake: 2 }, p));
+    await accepted(
+      `/p/${p}/events`,
+      ev(
+        ownerP,
+        'gold',
+        { commitments: [commitHash({ piece: p1, projection: gold.projection }, gold.nonce)], stake: 2 },
+        p,
+      ),
+    );
     let f = await counts('?days=1');
-    expect(f.by_day).toEqual([{ day: '2026-10-27', ...zero, keys_first_event: { hosted: 0, own: 2 }, reveals: 2, sets_accepted: 1 }]);
+    expect(f.by_day).toEqual([
+      { day: '2026-10-27', ...zero, keys_first_event: { hosted: 0, own: 2 }, reveals: 2, sets_accepted: 1 },
+    ]);
     // Day two: a hosted key and a key of its own claim and return on P's piece, the owner reveals the gold and the square is verified; a name on the identity log is no first event.
     clock.tick = Date.parse(DAY2);
     await accepted(`/p/${p}/events`, ev(A, 'claim', { by: by('anthropic/claude') }, p, p1), hosted);
@@ -100,7 +172,16 @@ describe('the funnel, counted', () => {
     f = await counts('?days=2');
     expect(f.by_day).toEqual([
       { day: '2026-10-27', ...zero, keys_first_event: { hosted: 0, own: 2 }, reveals: 2, sets_accepted: 1 },
-      { day: '2026-10-28', ...zero, keys_first_event: { hosted: 1, own: 1 }, claims: 2, reveals: 2, declines: { ...noDeclines, refuse: 1 }, sets_accepted: 1, squares_verified: 1 },
+      {
+        day: '2026-10-28',
+        ...zero,
+        keys_first_event: { hosted: 1, own: 1 },
+        claims: 2,
+        reveals: 2,
+        declines: { ...noDeclines, refuse: 1 },
+        sets_accepted: 1,
+        squares_verified: 1,
+      },
     ]);
   });
 
@@ -108,17 +189,26 @@ describe('the funnel, counted', () => {
     store.putMember('member-one', addr(key(31)), 'enc', DAY1);
     store.putMember('member-two', addr(key(32)), 'enc', DAY1);
     let f = await counts('?days=2');
-    expect(f.by_day.map((d) => [d.addresses_made, d.addresses_first_used, d.keys_taken_home])).toEqual([[2, 0, 0], [0, 0, 0]]);
+    expect(f.by_day.map((d) => [d.addresses_made, d.addresses_first_used, d.keys_taken_home])).toEqual([
+      [2, 0, 0],
+      [0, 0, 0],
+    ]);
     store.markMemberUsed('member-one', DAY2);
     store.markMemberKeyTaken('member-two', DAY2);
     store.markMemberUsed('nobody', DAY2);
     f = await counts('?days=2');
-    expect(f.by_day.map((d) => [d.addresses_made, d.addresses_first_used, d.keys_taken_home])).toEqual([[2, 0, 0], [0, 1, 1]]);
+    expect(f.by_day.map((d) => [d.addresses_made, d.addresses_first_used, d.keys_taken_home])).toEqual([
+      [2, 0, 0],
+      [0, 1, 1],
+    ]);
     // A second mark changes nothing: the first use stays on its day.
     store.markMemberUsed('member-one', DAY1);
     store.markMemberKeyTaken('member-two', DAY1);
     f = await counts('?days=2');
-    expect(f.by_day.map((d) => [d.addresses_made, d.addresses_first_used, d.keys_taken_home])).toEqual([[2, 0, 0], [0, 1, 1]]);
+    expect(f.by_day.map((d) => [d.addresses_made, d.addresses_first_used, d.keys_taken_home])).toEqual([
+      [2, 0, 0],
+      [0, 1, 1],
+    ]);
     expect(store.getMember('member-one')).toMatchObject({ address: addr(key(31)), createdAt: DAY1 });
   });
 
@@ -127,7 +217,17 @@ describe('the funnel, counted', () => {
     const f = await counts('?days=3');
     expect(f.window).toEqual({ days: 3, from: '2026-10-27', to: '2026-10-29' });
     expect(f.by_day[2]).toEqual({ day: '2026-10-29', ...zero });
-    expect(f.totals).toEqual({ addresses_made: 2, addresses_first_used: 1, keys_taken_home: 1, keys_first_event: { hosted: 1, own: 3 }, claims: 2, reveals: 4, declines: { ...noDeclines, refuse: 1 }, sets_accepted: 2, squares_verified: 1 });
+    expect(f.totals).toEqual({
+      addresses_made: 2,
+      addresses_first_used: 1,
+      keys_taken_home: 1,
+      keys_first_event: { hosted: 1, own: 3 },
+      claims: 2,
+      reveals: 4,
+      declines: { ...noDeclines, refuse: 1 },
+      sets_accepted: 2,
+      squares_verified: 1,
+    });
     const today = await counts('?days=1');
     expect(today.by_day).toEqual([{ day: '2026-10-29', ...zero }]);
     expect(today.totals).toEqual(zero);
@@ -144,8 +244,12 @@ describe('the funnel, counted', () => {
     const path = join(dir, 'tracker.db');
     try {
       const before = new DatabaseSync(path);
-      before.exec('create table members (token_hash text primary key, address text not null, key_enc text not null, created_at text not null, name text)');
-      before.prepare('insert into members (token_hash, address, key_enc, created_at) values (?, ?, ?, ?)').run('old', addr(key(33)), 'enc', DAY1);
+      before.exec(
+        'create table members (token_hash text primary key, address text not null, key_enc text not null, created_at text not null, name text)',
+      );
+      before
+        .prepare('insert into members (token_hash, address, key_enc, created_at) values (?, ?, ?, ?)')
+        .run('old', addr(key(33)), 'enc', DAY1);
       before.close();
       const upgraded = new Store(path);
       expect(upgraded.memberTimes()).toEqual([{ createdAt: DAY1, firstUsedAt: null, keyTakenAt: null }]);

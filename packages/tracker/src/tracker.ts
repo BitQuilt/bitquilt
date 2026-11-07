@@ -9,21 +9,91 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import {
-  type Address, type Envelope, type Event, type Hash, type Receipt, type ReduceInput, type Client, type Capability,
-  blobProblems, envelopeProblems, eventId, eventProblems, eventSignedByKey, expandPieces, hashBytes, isAddress, isHash,
-  next, plainTextProblems, problemHash, reduce, returnProblems, returnStrings, signedBy, stampOk, textIssues, verifyChain, withSlash, CAPABILITIES, IDENTITY_LOG,
+  type Address,
+  type Envelope,
+  type Event,
+  type Hash,
+  type Receipt,
+  type ReduceInput,
+  type Client,
+  type Capability,
+  blobProblems,
+  envelopeProblems,
+  eventId,
+  eventProblems,
+  eventSignedByKey,
+  expandPieces,
+  hashBytes,
+  isAddress,
+  isHash,
+  next,
+  plainTextProblems,
+  problemHash,
+  reduce,
+  returnProblems,
+  returnStrings,
+  signedBy,
+  stampOk,
+  textIssues,
+  verifyChain,
+  withSlash,
+  CAPABILITIES,
+  IDENTITY_LOG,
 } from '@bitquilt/core';
 import { createHash } from 'node:crypto';
-import { type Layer, type ProblemLayer, CHALLENGE_EVENTS, EXTENSION, GROUND_MAX, MAJORITY, PANEL, SEED, challengeBodyProblems, challengeLayer, verdictBodyProblems } from './challenge.js';
+import {
+  type Layer,
+  type ProblemLayer,
+  CHALLENGE_EVENTS,
+  EXTENSION,
+  GROUND_MAX,
+  MAJORITY,
+  PANEL,
+  SEED,
+  challengeBodyProblems,
+  challengeLayer,
+  verdictBodyProblems,
+} from './challenge.js';
 import { HIDE, type Hidden, hideBodyProblems, hiddenNow } from './hide.js';
 import { RECIPROCITY, SEEDING, offerOrder, seedBodyProblems, seedInfo, watchExclusions } from './seeding.js';
 import { EXTENSIONS, JUDGE_SEED, RANK_EVENTS, kindOf, rankBodyProblems } from './verifiers.js';
-import { type CoinLockWord, PRODUCTION_EVENTS, STAKE, STAKE_EVENTS, lockBodyProblems, stakeRuleBodyProblems } from './stake.js';
+import {
+  type CoinLockWord,
+  PRODUCTION_EVENTS,
+  STAKE,
+  STAKE_EVENTS,
+  lockBodyProblems,
+  stakeRuleBodyProblems,
+} from './stake.js';
 import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems, windowOpen } from './gold.js';
-import { type CoinLayer, type CoinLockView, type CoinParams, type CoinWord, COIN, COIN_EVENTS, COIN_LOG, coinLayer } from './coin.js';
+import {
+  type CoinLayer,
+  type CoinLockView,
+  type CoinParams,
+  type CoinWord,
+  COIN,
+  COIN_EVENTS,
+  COIN_LOG,
+  coinLayer,
+} from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
 import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
-import { BLOB_MAX, type PieceTraces, type Seam, RECORD, TRACE, TRACE_EVENTS, admitTrace, graded, passageIn, recordDocument, recordGraded, recordSeams, seamed, tracesKept } from './trace.js';
+import {
+  BLOB_MAX,
+  type PieceTraces,
+  type Seam,
+  RECORD,
+  TRACE,
+  TRACE_EVENTS,
+  admitTrace,
+  graded,
+  passageIn,
+  recordDocument,
+  recordGraded,
+  recordSeams,
+  seamed,
+  tracesKept,
+} from './trace.js';
 import type { Store } from './store.js';
 
 /** The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under. */
@@ -34,12 +104,25 @@ export const PEER_PULL = 'QX-21';
 export const PEER_PULL_EVERY_MS = 300_000;
 
 /** QX-21: what one pull from one peer did: the lines added here, the events this door refused with why, and what could not be read. */
-export interface PeerPull { peer: string; added: number; refused: { id: Hash; why: string }[]; errors: string[] }
+export interface PeerPull {
+  peer: string;
+  added: number;
+  refused: { id: Hash; why: string }[];
+  errors: string[];
+}
 const PIECE_EVENTS: ReadonlySet<string> = new Set(['claim', 'commit', 'reveal', 'decline', 'run']);
 const IDENTITY_EVENTS: ReadonlySet<string> = new Set(['name', 'delegate', 'revoke', 'rotate', 'hide']);
 const PROBLEM_EVENTS: ReadonlySet<string> = new Set(['version', 'output', 'announce', 'seed']);
 /** What the problem log takes: the core's piece and problem events, then one set per extension in registry order. */
-const PROBLEM_LOG_EVENTS: ReadonlySet<string> = new Set([...PIECE_EVENTS, ...PROBLEM_EVENTS, ...CHALLENGE_EVENTS, ...RANK_EVENTS, ...STAKE_EVENTS, ...GOLD_EVENTS, ...TRACE_EVENTS]);
+const PROBLEM_LOG_EVENTS: ReadonlySet<string> = new Set([
+  ...PIECE_EVENTS,
+  ...PROBLEM_EVENTS,
+  ...CHALLENGE_EVENTS,
+  ...RANK_EVENTS,
+  ...STAKE_EVENTS,
+  ...GOLD_EVENTS,
+  ...TRACE_EVENTS,
+]);
 /** The most a post may carry, 4 MB: room for an envelope with its blobs. */
 const MAX_BODY = 4 * 1024 * 1024;
 /** How long a piece handed out by next or the offer is held for that key, so two clients here are not handed the same piece in the same minute. */
@@ -106,14 +189,21 @@ export interface Tracker {
 
 /** What the door answers a request with when it refuses: a status and one sentence saying why, which `handle` writes as `{ error }`. */
 class Refusal extends Error {
-  constructor(readonly status: number, message: string) {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
     super(message);
   }
 }
 
 function json(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
   const text = JSON.stringify(body);
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*', ...headers });
+  res.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'access-control-allow-origin': '*',
+    ...headers,
+  });
   res.end(text);
 }
 
@@ -151,9 +241,16 @@ function parseJson(text: string): unknown {
 /** Which log a post goes to: a problem's, the identity log, or the coin log (QX-17). */
 type Log = { kind: 'problem'; hash: Hash } | { kind: 'identity' } | { kind: 'coin' };
 /** What the door read of an event it admits: the chain it is appended to, and the word it vouches for in the receipt's wrapper (QX-17). */
-interface Admitted { chain: Hash; word?: Record<string, unknown> }
+interface Admitted {
+  chain: Hash;
+  word?: Record<string, unknown>;
+}
 /** A coin lock as the door read it (QX-17 section 5), with the rate it is read at and the coin log's head the reading stood under. */
-interface CoinLockRead { lock: CoinLockView | null; rate: number; head: { seq: number; hash: string } | null }
+interface CoinLockRead {
+  lock: CoinLockView | null;
+  rate: number;
+  head: { seq: number; hash: string } | null;
+}
 
 export function createTracker(options: TrackerOptions): Tracker {
   const { store } = options;
@@ -165,9 +262,13 @@ export function createTracker(options: TrackerOptions): Tracker {
 
   const trustedProxies = rangesOf(options.trustedProxies ?? PRIVATE_RANGES);
   const ipOf = (req: IncomingMessage): string => clientAddress(req, trustedProxies);
-  const ipBucket = (req: IncomingMessage): string => `ip:${createHash('sha256').update(ipSalt + ipOf(req)).digest('hex').slice(0, 16)}`;
+  const ipBucket = (req: IncomingMessage): string =>
+    `ip:${createHash('sha256')
+      .update(ipSalt + ipOf(req))
+      .digest('hex')
+      .slice(0, 16)}`;
   const limit = (bucket: string, max: number): void => {
-    if (store.hit(bucket, now().slice(0, 13), max)) throw new Refusal(429, 'over the hour\'s limit');
+    if (store.hit(bucket, now().slice(0, 13), max)) throw new Refusal(429, "over the hour's limit");
   };
 
   /** What the reducer takes for a problem: its chain, the blobs, every line along the chain and the identity log, each read whole. */
@@ -222,14 +323,22 @@ export function createTracker(options: TrackerOptions): Tracker {
       const input = inputFor(e.hash);
       if (input) problems.push(input);
     }
-    return challengeLayer({ problems, now: now(), blobLength: (h) => store.blobLength(h), ...(options.coin ? { coin: store.lines(COIN_LOG) } : {}), ...(founding.size ? { founding } : {}) });
+    return challengeLayer({
+      problems,
+      now: now(),
+      blobLength: (h) => store.blobLength(h),
+      ...(options.coin ? { coin: store.lines(COIN_LOG) } : {}),
+      ...(founding.size ? { founding } : {}),
+    });
   }
 
   /** QX-17: the coin over the layer, from the coin log and the parameters; null where this tracker carries none. */
   function coin(layered: Layer = layer()): CoinLayer | null {
-    return options.coin ? coinLayer({ layer: layered, params: options.coin, receipts: store.lines(COIN_LOG), now: now() }) : null;
+    return options.coin
+      ? coinLayer({ layer: layered, params: options.coin, receipts: store.lines(COIN_LOG), now: now() })
+      : null;
   }
-  const coinHome = (): string | null => (options.coin ? options.coin.home ?? 'here' : null);
+  const coinHome = (): string | null => (options.coin ? (options.coin.home ?? 'here') : null);
   const fetchImpl = options.fetchImpl ?? fetch;
   let homeRate: number | null = null;
 
@@ -246,7 +355,8 @@ export function createTracker(options: TrackerOptions): Tracker {
     const problems = envelopeProblems(envelope);
     if (problems.length) throw new Refusal(400, problems[0]!);
     const e = envelope as Envelope;
-    if (!signedBy(e as unknown as Record<string, unknown>, e.problem.owner)) throw new Refusal(400, 'envelope: not signed by its owner');
+    if (!signedBy(e as unknown as Record<string, unknown>, e.problem.owner))
+      throw new Refusal(400, 'envelope: not signed by its owner');
     const blobs = new Map<Hash, Uint8Array>();
     for (const [h, b64] of Object.entries(body.blobs ?? {})) {
       if (!isHash(h)) throw new Refusal(400, `blob ${h}: not a hash`);
@@ -254,14 +364,18 @@ export function createTracker(options: TrackerOptions): Tracker {
       if (hashBytes(bytes) !== h) throw new Refusal(400, `blob ${h}: does not match its hash`);
       blobs.set(h, bytes);
     }
-    for (const h of Object.values(e.problem.data)) if (!blobs.has(h)) {
-      const stored = store.getBlob(h);
-      if (stored) blobs.set(h, stored);
-    }
+    for (const h of Object.values(e.problem.data))
+      if (!blobs.has(h)) {
+        const stored = store.getBlob(h);
+        if (stored) blobs.set(h, stored);
+      }
     const bp = blobProblems(e.problem, blobs);
     if (bp.length) throw new Refusal(400, bp[0]!);
     // Admission: the gate on what a thousand AIs will read.
-    for (const [label, text] of [['title', e.problem.title], ['done_when', e.problem.done_when]] as const) {
+    for (const [label, text] of [
+      ['title', e.problem.title],
+      ['done_when', e.problem.done_when],
+    ] as const) {
       const issues = plainTextProblems(text, label);
       if (issues.length) throw new Refusal(400, issues[0]!);
     }
@@ -272,7 +386,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     // QX-17: at the coin's home, a window longer than the home admits would leave a fake's coin vested before a late challenge decides.
     const windowMax = options.coin?.window_max_h;
     if (windowMax !== undefined && coinHome() === 'here' && e.problem.settings.challenge_window_h > windowMax) {
-      throw new Refusal(400, `the challenge window of ${e.problem.settings.challenge_window_h} hours is beyond the ${windowMax} this home admits (QX-17)`);
+      throw new Refusal(
+        400,
+        `the challenge window of ${e.problem.settings.challenge_window_h} hours is beyond the ${windowMax} this home admits (QX-17)`,
+      );
     }
     if (e.problem.prev) {
       const prev = store.getEnvelope(e.problem.prev);
@@ -282,7 +399,8 @@ export function createTracker(options: TrackerOptions): Tracker {
     // CORE.md section 2: `from` is another owner's problem this one forks; the same owner's next version sets `prev`. A fork of a problem not held here is taken on the forker's word, as the core takes it.
     if (e.problem.from) {
       const from = store.getEnvelope(e.problem.from);
-      if (from && from.envelope.problem.owner === e.problem.owner) throw new Refusal(400, 'from: by the same owner; a version sets prev');
+      if (from && from.envelope.problem.owner === e.problem.owner)
+        throw new Refusal(400, 'from: by the same owner; a version sets prev');
     }
     try {
       expandPieces(e.problem, blobs);
@@ -307,20 +425,27 @@ export function createTracker(options: TrackerOptions): Tracker {
     const event = parseJson(await readBody(req)) as Event;
     const shape = eventProblems(event);
     if (shape.length) throw new Refusal(400, shape[0]!);
-    if (!eventSignedByKey(event)) throw new Refusal(400, 'signature is not the key\'s');
+    if (!eventSignedByKey(event)) throw new Refusal(400, "signature is not the key's");
     limit(`key:${event.key}`, limits.keyPerHour);
     const id = eventId(event);
     const hosted = hostedPost(req);
     exact += 1;
     let admitted: Admitted;
     try {
-      admitted = log.kind === 'coin' ? admitCoinEvent(event) : log.kind === 'identity' ? admitIdentityEvent(event) : await admitProblemEvent(event, log.hash, hosted);
+      admitted =
+        log.kind === 'coin'
+          ? admitCoinEvent(event)
+          : log.kind === 'identity'
+            ? admitIdentityEvent(event)
+            : await admitProblemEvent(event, log.hash, hosted);
     } finally {
       exact -= 1;
     }
     const { chain, word } = admitted;
     if (store.hasEvent(chain, id)) throw new Refusal(409, 'already here');
-    const line = hosted ? store.appendReceipt(chain, event, id, url, now(), 'hosted', 'ai', { ...witnessOf(req), ...word }) : store.appendReceipt(chain, event, id, url, now(), 'self', undefined, word);
+    const line = hosted
+      ? store.appendReceipt(chain, event, id, url, now(), 'hosted', 'ai', { ...witnessOf(req), ...word })
+      : store.appendReceipt(chain, event, id, url, now(), 'self', undefined, word);
     const at = line.received[0]!.at;
     noteAppended(log, event, at);
     json(res, 202, { id, seq: line.seq, hash: line.hash, at });
@@ -333,7 +458,8 @@ export function createTracker(options: TrackerOptions): Tracker {
       if ((type === 'reveal' || type === 'decline') && event.piece) store.releaseHold(log.hash, event.piece, event.key);
       if (type === 'announce') store.putAnnouncement(log.hash, event.key, event, at);
     }
-    if (type === 'version') store.putName(event.key, (event.body as { slug: string }).slug, (event.body as { hash: Hash }).hash, at);
+    if (type === 'version')
+      store.putName(event.key, (event.body as { slug: string }).slug, (event.body as { hash: Hash }).hash, at);
   }
 
   /** QX-21: a chain read whole from a peer, page by page along `x-quilt-next-since`; null where the peer does not hold it, did not answer, or did not end its pages. */
@@ -348,7 +474,12 @@ export function createTracker(options: TrackerOptions): Tracker {
         return null;
       }
       if (!r.ok) return null;
-      lines.push(...(await r.text()).split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt));
+      lines.push(
+        ...(await r.text())
+          .split('\n')
+          .filter(Boolean)
+          .map((l) => JSON.parse(l) as Receipt),
+      );
       const next = r.headers.get('x-quilt-next-since');
       if (!next) return lines;
       since = Number(next);
@@ -358,7 +489,7 @@ export function createTracker(options: TrackerOptions): Tracker {
 
   /** QX-21 section 2: the reads a peer's trace names that this door lacks, fetched from the peer under their hashes and kept where they check; one that does not is left to the trace's own refusal. */
   async function takeReads(peer: string, event: Event): Promise<void> {
-    for (const read of ((event.body as { reads?: { hash?: unknown }[] }).reads ?? [])) {
+    for (const read of (event.body as { reads?: { hash?: unknown }[] }).reads ?? []) {
       const hash = read.hash;
       if (!isHash(hash) || store.getBlob(hash)) continue;
       try {
@@ -398,7 +529,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       const id = eventId(event);
       if (store.hasEvent(chain, id)) continue;
       if (!eventSignedByKey(event)) {
-        out.refused.push({ id, why: 'signature is not the key\'s' });
+        out.refused.push({ id, why: "signature is not the key's" });
         continue;
       }
       const hosted = line.received.some((w) => w.custody === 'hosted');
@@ -406,8 +537,14 @@ export function createTracker(options: TrackerOptions): Tracker {
       if (event.type === 'trace') await takeReads(peer, event);
       exact += 1;
       try {
-        const admitted = log.kind === 'identity' ? admitIdentityEvent(event) : await admitProblemEvent(event, (log as { hash: Hash }).hash, hosted);
-        const appended = store.appendPulled(admitted.chain, event, id, [...line.received, { by: url, at: now(), ...(admitted.word ?? {}) }]);
+        const admitted =
+          log.kind === 'identity'
+            ? admitIdentityEvent(event)
+            : await admitProblemEvent(event, (log as { hash: Hash }).hash, hosted);
+        const appended = store.appendPulled(admitted.chain, event, id, [
+          ...line.received,
+          { by: url, at: now(), ...(admitted.word ?? {}) },
+        ]);
         noteAppended(log, event, appended.received.map((w) => w.at).sort()[0]!);
         out.added += 1;
       } catch (err) {
@@ -438,7 +575,8 @@ export function createTracker(options: TrackerOptions): Tracker {
         continue;
       }
       await pullLog(peer, `${peer}k/events`, { kind: 'identity' }, report);
-      for (const e of store.listEnvelopes()) await pullLog(peer, `${peer}p/${e.hash}/events`, { kind: 'problem', hash: e.hash }, report);
+      for (const e of store.listEnvelopes())
+        await pullLog(peer, `${peer}p/${e.hash}/events`, { kind: 'problem', hash: e.hash }, report);
       out.push(report);
     }
     return out;
@@ -468,29 +606,39 @@ export function createTracker(options: TrackerOptions): Tracker {
     } catch {
       name = null;
     }
-    return name && name.length <= CLIENT_NAME_MAX && textIssues(name).length === 0 ? { via, via_client: name } : { via };
+    return name && name.length <= CLIENT_NAME_MAX && textIssues(name).length === 0
+      ? { via, via_client: name }
+      : { via };
   }
 
   /** QX-17: the coin log, admitted against the layer's balances at now; a burn's word is the standing it credits. */
   function admitCoinEvent(event: Event): Admitted {
     if (!options.coin) throw new Refusal(404, 'this tracker carries no coin');
-    if (!COIN_EVENTS.has(event.type)) throw new Refusal(400, 'the coin log takes lock, pay, burn, transfer, redeem and credit');
-    if (event.problem !== undefined || event.piece !== undefined) throw new Refusal(400, 'a coin event names no problem in its fields');
+    if (!COIN_EVENTS.has(event.type))
+      throw new Refusal(400, 'the coin log takes lock, pay, burn, transfer, redeem and credit');
+    if (event.problem !== undefined || event.piece !== undefined)
+      throw new Refusal(400, 'a coin event names no problem in its fields');
     const a = coin()!.admit(event);
     if (!a.ok) throw new Refusal(400, a.why);
-    return event.type === 'burn' ? { chain: COIN_LOG, word: { stake: { kind: 'burn', amount: event.body.amount, standing: a.standing ?? 0 } } } : { chain: COIN_LOG };
+    return event.type === 'burn'
+      ? { chain: COIN_LOG, word: { stake: { kind: 'burn', amount: event.body.amount, standing: a.standing ?? 0 } } }
+      : { chain: COIN_LOG };
   }
 
   /** The identity log: its five kinds and no problem named; a name carries the stamp asked here; a hide (QX-6) is a maintainer's and well formed. */
   function admitIdentityEvent(event: Event): Admitted {
     const type = event.type;
-    if (!IDENTITY_EVENTS.has(type)) throw new Refusal(400, 'the identity log takes name, delegate, revoke, rotate and hide');
-    if (event.problem !== undefined || event.piece !== undefined) throw new Refusal(400, 'an identity event names no problem');
-    if (type === 'name' && stampNeeded > 0 && !stampOk(event, stampNeeded)) throw new Refusal(400, `a name event here carries a stamp of ${stampNeeded} bits`);
+    if (!IDENTITY_EVENTS.has(type))
+      throw new Refusal(400, 'the identity log takes name, delegate, revoke, rotate and hide');
+    if (event.problem !== undefined || event.piece !== undefined)
+      throw new Refusal(400, 'an identity event names no problem');
+    if (type === 'name' && stampNeeded > 0 && !stampOk(event, stampNeeded))
+      throw new Refusal(400, `a name event here carries a stamp of ${stampNeeded} bits`);
     if (type === 'hide') {
       const hp = hideBodyProblems(event.body);
       if (hp.length) throw new Refusal(400, hp[0]!);
-      if (!maintainerSet.has(event.key.toLowerCase())) throw new Refusal(403, 'a hide is signed by one of this tracker\'s maintainers');
+      if (!maintainerSet.has(event.key.toLowerCase()))
+        throw new Refusal(403, "a hide is signed by one of this tracker's maintainers");
     }
     return { chain: IDENTITY };
   }
@@ -541,7 +689,11 @@ export function createTracker(options: TrackerOptions): Tracker {
       const a = layer().admitProduction(under, event.piece!, event.key);
       if (!a.ok) throw new Refusal(400, a.why);
       // QX-20 section 2: a record is fixed once its readings are in; no claim, commit, reveal or run is taken on it after.
-      if (kindOf(view.piece.verifier)?.kind === 'record' && layer().problems.get(under)?.byHash.get(event.piece!)?.state === 'recorded') throw new Refusal(400, 'the readings for this piece are in');
+      if (
+        kindOf(view.piece.verifier)?.kind === 'record' &&
+        layer().problems.get(under)?.byHash.get(event.piece!)?.state === 'recorded'
+      )
+        throw new Refusal(400, 'the readings for this piece are in');
     }
     if (event.type === 'reveal') {
       const ret = (event.body as { return: Record<string, unknown> }).return;
@@ -553,10 +705,12 @@ export function createTracker(options: TrackerOptions): Tracker {
         const issues = plainTextProblems(s, 'return');
         if (issues.length) throw new Refusal(400, issues[0]!);
       }
-      if (!view.commits.some((c) => c.key === event.key && !c.revealed)) throw new Refusal(400, 'no unrevealed commit by this key on the piece');
+      if (!view.commits.some((c) => c.key === event.key && !c.revealed))
+        throw new Refusal(400, 'no unrevealed commit by this key on the piece');
       checkRevealEvent(event, under, view.piece.verifier, hosted);
     }
-    if (event.type === 'run' && !view.reveals.some((r) => r.digest === (event.body as { digest: Hash }).digest)) throw new Refusal(400, 'the digest is no revealed return of the piece');
+    if (event.type === 'run' && !view.reveals.some((r) => r.digest === (event.body as { digest: Hash }).digest))
+      throw new Refusal(400, 'the digest is no revealed return of the piece');
   }
 
   /**
@@ -568,25 +722,49 @@ export function createTracker(options: TrackerOptions): Tracker {
     const kind = kindOf(verifier)?.kind;
     if (kind === 'human') {
       const by = (event.body as { by: { model: string } }).by;
-      if (by.model !== 'human' && !hosted) throw new Refusal(400, 'a human piece takes a return from a person\'s seat');
+      if (by.model !== 'human' && !hosted) throw new Refusal(400, "a human piece takes a return from a person's seat");
     }
-    if (kind === 'judge' && event.piece && view(under)?.panels.some((p) => p.piece === event.piece)) throw new Refusal(400, 'the candidates for this piece are in');
+    if (kind === 'judge' && event.piece && view(under)?.panels.some((p) => p.piece === event.piece))
+      throw new Refusal(400, 'the candidates for this piece are in');
   }
 
   /** The door for QX-13's announce: the title, slug and done_when are the envelope's, and the topics are few, short and through the gate. */
   function checkAnnounceEvent(event: Event, envelope: Envelope): void {
     const b = event.body as Record<string, unknown>;
-    if (b.title !== envelope.problem.title || b.slug !== envelope.problem.slug || b.done_when !== envelope.problem.done_when) throw new Refusal(400, 'announce: title, slug and done_when are the envelope\'s');
-    if (!Array.isArray(b.topics) || b.topics.length > 8 || !b.topics.every((t) => typeof t === 'string' && t.length <= 40 && textIssues(t).length === 0)) throw new Refusal(400, 'announce: at most eight short topics through the gate');
+    if (
+      b.title !== envelope.problem.title ||
+      b.slug !== envelope.problem.slug ||
+      b.done_when !== envelope.problem.done_when
+    )
+      throw new Refusal(400, "announce: title, slug and done_when are the envelope's");
+    if (
+      !Array.isArray(b.topics) ||
+      b.topics.length > 8 ||
+      !b.topics.every((t) => typeof t === 'string' && t.length <= 40 && textIssues(t).length === 0)
+    )
+      throw new Refusal(400, 'announce: at most eight short topics through the gate');
     // QX-13 section 2: the owner and the fork are the envelope's where the announce states them; the pieces, the counts and the work are whole numbers, and are the announcer's word.
-    if (b.owner !== undefined && b.owner !== envelope.problem.owner) throw new Refusal(400, 'announce: owner is the envelope\'s');
-    if (b.from !== undefined && b.from !== (envelope.problem.from ?? null)) throw new Refusal(400, 'announce: from is the envelope\'s');
+    if (b.owner !== undefined && b.owner !== envelope.problem.owner)
+      throw new Refusal(400, "announce: owner is the envelope's");
+    if (b.from !== undefined && b.from !== (envelope.problem.from ?? null))
+      throw new Refusal(400, "announce: from is the envelope's");
     const whole = (x: unknown): boolean => typeof x === 'number' && Number.isInteger(x) && x >= 0;
-    const countsOk = b.counts === undefined || (!!b.counts && typeof b.counts === 'object' && Object.values(b.counts as Record<string, unknown>).every(whole));
+    const countsOk =
+      b.counts === undefined ||
+      (!!b.counts && typeof b.counts === 'object' && Object.values(b.counts as Record<string, unknown>).every(whole));
     const w = b.work as Record<string, unknown> | undefined;
     const t = w?.traced as Record<string, unknown> | undefined;
-    const workOk = w === undefined || (!!w && typeof w === 'object' && ['returned', 'accepted', 'verified', 'disputed', 'readers', 'vendors'].every((k) => whole(w[k])) && !!t && typeof t === 'object' && ['both', 'one', 'none'].every((k) => whole(t[k])) && (w.last === null || (typeof w.last === 'string' && !Number.isNaN(Date.parse(w.last)))));
-    if ((b.pieces !== undefined && !whole(b.pieces)) || !countsOk || !workOk) throw new Refusal(400, 'announce: pieces, counts and work are whole numbers');
+    const workOk =
+      w === undefined ||
+      (!!w &&
+        typeof w === 'object' &&
+        ['returned', 'accepted', 'verified', 'disputed', 'readers', 'vendors'].every((k) => whole(w[k])) &&
+        !!t &&
+        typeof t === 'object' &&
+        ['both', 'one', 'none'].every((k) => whole(t[k])) &&
+        (w.last === null || (typeof w.last === 'string' && !Number.isNaN(Date.parse(w.last)))));
+    if ((b.pieces !== undefined && !whole(b.pieces)) || !countsOk || !workOk)
+      throw new Refusal(400, 'announce: pieces, counts and work are whole numbers');
   }
 
   /** The door for QX-1: a challenge from a root with standing, inside the window, with a panel to seat; a verdict from a judge drawn. */
@@ -605,10 +783,11 @@ export function createTracker(options: TrackerOptions): Tracker {
     }
     const shape = verdictBodyProblems(body);
     if (shape.length) throw new Refusal(400, shape[0]!);
-    if (body.return !== undefined) for (const s of returnStrings(body.return as Record<string, unknown>)) {
-      const issues = plainTextProblems(s, 'return');
-      if (issues.length) throw new Refusal(400, issues[0]!);
-    }
+    if (body.return !== undefined)
+      for (const s of returnStrings(body.return as Record<string, unknown>)) {
+        const issues = plainTextProblems(s, 'return');
+        if (issues.length) throw new Refusal(400, issues[0]!);
+      }
     const a = layered.admitVerdict(under, event.piece, event.key, body.challenge as Hash, body);
     if (!a.ok) throw new Refusal(400, a.why);
   }
@@ -626,7 +805,11 @@ export function createTracker(options: TrackerOptions): Tracker {
    * The door for QX-15: a stake rule from the owner naming pieces the problem has; a lock a root can cover, on a piece
    * that asks one. A coin-kind lock is checked against the coin log (QX-17), and what the door read is its word for the receipt.
    */
-  async function checkStakeEvent(event: Event, under: Hash, state: ReturnType<typeof reduce>): Promise<CoinLockWord | null> {
+  async function checkStakeEvent(
+    event: Event,
+    under: Hash,
+    state: ReturnType<typeof reduce>,
+  ): Promise<CoinLockWord | null> {
     if (event.type === 'stake_rule') {
       if (event.piece !== undefined) throw new Refusal(400, 'a stake rule names a problem and no piece');
       const shape = stakeRuleBodyProblems(event.body);
@@ -681,7 +864,15 @@ export function createTracker(options: TrackerOptions): Tracker {
     try {
       const r = await fetchImpl(`${home}coin/lock/${id}`, { signal: AbortSignal.timeout(8000) });
       if (r.ok) {
-        const { head: h, rate: read, ...rest } = (await r.json()) as CoinLockView & { head: { seq: number; hash: string } | null; at: string; rate?: number };
+        const {
+          head: h,
+          rate: read,
+          ...rest
+        } = (await r.json()) as CoinLockView & {
+          head: { seq: number; hash: string } | null;
+          at: string;
+          rate?: number;
+        };
         lock = rest;
         head = h;
         // The rate in force at the home when it answered; an indexed one moves with the epochs.
@@ -690,7 +881,9 @@ export function createTracker(options: TrackerOptions): Tracker {
       if (rate === null) {
         // An older home answers no rate with the lock; the one its well-known publishes is read once.
         if (homeRate === null) {
-          const w = (await (await fetchImpl(`${home}.well-known/quilt`, { signal: AbortSignal.timeout(8000) })).json()) as { stake?: { burn_rate?: number }; coin?: { burn_rate?: number } };
+          const w = (await (
+            await fetchImpl(`${home}.well-known/quilt`, { signal: AbortSignal.timeout(8000) })
+          ).json()) as { stake?: { burn_rate?: number }; coin?: { burn_rate?: number } };
           const published = w.stake?.burn_rate ?? w.coin?.burn_rate;
           if (typeof published !== 'number') throw new Error('no coin');
           homeRate = published;
@@ -709,12 +902,13 @@ export function createTracker(options: TrackerOptions): Tracker {
    * null when it does.
    */
   function coinLockProblem(lock: CoinLockView, rate: number, root: Address, under: Hash, event: Event): string | null {
-    if (lock.root !== root) return 'the lock is another root\'s';
+    if (lock.root !== root) return "the lock is another root's";
     if (lock.problem !== under || lock.piece !== event.piece) return 'the lock names another piece';
     if (lock.state !== 'live') return 'the lock has ended';
     if (lock.bound !== null) return 'the lock is bound';
     const amount = event.body.amount as number;
-    if (Math.floor(lock.units / rate) < amount) return `the lock holds ${lock.units} units, a stake of ${Math.floor(lock.units / rate)} at ${rate} a point`;
+    if (Math.floor(lock.units / rate) < amount)
+      return `the lock holds ${lock.units} units, a stake of ${Math.floor(lock.units / rate)} at ${rate} a point`;
     return null;
   }
 
@@ -735,18 +929,68 @@ export function createTracker(options: TrackerOptions): Tracker {
   /** What this tracker says of itself: its name, limits, the extensions it carries with their constants, and its routes. */
   function wellKnown() {
     return {
-      quilt: 1, tracker: options.name ?? url, url, peers: options.peers ?? [], limits, stamp: { name: stampNeeded }, sortition: SEED,
+      quilt: 1,
+      tracker: options.name ?? url,
+      url,
+      peers: options.peers ?? [],
+      limits,
+      stamp: { name: stampNeeded },
+      sortition: SEED,
       challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
-      verifiers: { human: EXTENSIONS.human, 'judge:n': EXTENSIONS.judge, attest: EXTENSIONS.attest, 'record:n': EXTENSIONS.record, judge_seed: JUDGE_SEED },
-      chain: 'QX-11', pull: options.peers?.length ? { extension: PEER_PULL, every_ms: PEER_PULL_EVERY_MS } : null, seeding: SEEDING, reciprocity: RECIPROCITY, hide: HIDE, maintainers, founding: options.founding ?? {}, identity: IDENTITY, hosted: options.extra !== undefined,
+      verifiers: {
+        human: EXTENSIONS.human,
+        'judge:n': EXTENSIONS.judge,
+        attest: EXTENSIONS.attest,
+        'record:n': EXTENSIONS.record,
+        judge_seed: JUDGE_SEED,
+      },
+      chain: 'QX-11',
+      pull: options.peers?.length ? { extension: PEER_PULL, every_ms: PEER_PULL_EVERY_MS } : null,
+      seeding: SEEDING,
+      reciprocity: RECIPROCITY,
+      hide: HIDE,
+      maintainers,
+      founding: options.founding ?? {},
+      identity: IDENTITY,
+      hosted: options.extra !== undefined,
       ...(options.extraWellKnown?.() ?? {}),
       // `stake.burn_rate` is the rate in force now, which with `burn_indexed` moves with the epochs; `coin.burn_rate` is the parameter, its floor.
-      stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: coin()!.burnRateAt(now()) } : {}) }, gold: { extension: GOLD }, trace: { extension: TRACE, blob_max: BLOB_MAX }, record: { extension: RECORD },
+      stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: coin()!.burnRateAt(now()) } : {}) },
+      gold: { extension: GOLD },
+      trace: { extension: TRACE, blob_max: BLOB_MAX },
+      record: { extension: RECORD },
       coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
       // The list a client reads, in the order `handle` tests the paths; test/routes.test.ts holds the two together.
       routes: [
-        '/p', '/p/<hash>', '/p/<hash>/events', '/p/<hash>/state', '/p/<hash>/scrape', '/p/<hash>/next', '/p/<hash>/challenges', '/p/<hash>/panels', '/p/<hash>/record', '/k/events', '/k/<address>/standing', '/k/<address>/work', '/b/<hash>', '/n/<owner>/<slug>', '/search', '/offer', '/hidden', '/counts',
-        ...(options.coin ? ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/credits', '/coin/state'] : []),
+        '/p',
+        '/p/<hash>',
+        '/p/<hash>/events',
+        '/p/<hash>/state',
+        '/p/<hash>/scrape',
+        '/p/<hash>/next',
+        '/p/<hash>/challenges',
+        '/p/<hash>/panels',
+        '/p/<hash>/record',
+        '/k/events',
+        '/k/<address>/standing',
+        '/k/<address>/work',
+        '/b/<hash>',
+        '/n/<owner>/<slug>',
+        '/search',
+        '/offer',
+        '/hidden',
+        '/counts',
+        ...(options.coin
+          ? [
+              '/coin/events',
+              '/coin/lock/<id>',
+              '/coin/balance/<root>',
+              '/coin/epochs',
+              '/coin/redeems',
+              '/coin/credits',
+              '/coin/state',
+            ]
+          : []),
       ],
     };
   }
@@ -762,7 +1006,19 @@ export function createTracker(options: TrackerOptions): Tracker {
    * agreed field whose schema is a list of choices, how many accepted squares agreed on each choice ("status: 3 proved,
    * 6 open"), a count and nothing more.
    */
-  function workOf(pl: ProblemLayer): { returned: number; accepted: number; verified: number; disputed: number; traced: { both: number; one: number; none: number }; readers: number; vendors: number; last: string | null; recorded: number; declined: number; found: Record<string, Record<string, number>> } {
+  function workOf(pl: ProblemLayer): {
+    returned: number;
+    accepted: number;
+    verified: number;
+    disputed: number;
+    traced: { both: number; one: number; none: number };
+    readers: number;
+    vendors: number;
+    last: string | null;
+    recorded: number;
+    declined: number;
+    found: Record<string, Record<string, number>>;
+  } {
     const traced = { both: 0, one: 0, none: 0 };
     const found: Record<string, Record<string, number>> = {};
     let declined = 0;
@@ -807,7 +1063,19 @@ export function createTracker(options: TrackerOptions): Tracker {
         if (last === null || r.at > last) last = r.at;
       }
     }
-    return { returned, accepted, verified, disputed, traced, readers: roots.size, vendors: vendors.size, last, recorded, declined, found };
+    return {
+      returned,
+      accepted,
+      verified,
+      disputed,
+      traced,
+      readers: roots.size,
+      vendors: vendors.size,
+      last,
+      recorded,
+      declined,
+      found,
+    };
   }
 
   /** A problem in one line for the index and the scrape: its title, counts, head, the work on it, and what the extensions add. */
@@ -836,7 +1104,9 @@ export function createTracker(options: TrackerOptions): Tracker {
       complete: s.complete,
       output: s.output?.hash ?? null,
       last: head?.at ?? null,
-      head: head ? { seq: head.seq, hash: head.hash, short: `${head.hash.slice(0, 8)}:${head.hash.slice(8, 16)}` } : null,
+      head: head
+        ? { seq: head.seq, hash: head.hash, short: `${head.hash.slice(0, 8)}:${head.hash.slice(8, 16)}` }
+        : null,
       versions: s.chain.length,
       challenges: pl.challenges.length,
       seeders: seed.seeders.size,
@@ -857,19 +1127,49 @@ export function createTracker(options: TrackerOptions): Tracker {
     const witnessed = witnessedReveals(hash);
     const traced = tracesOf(hash, pl);
     return {
-      problem: hash, now: at, hidden: hidden().get(hash) ?? null, stake_rule: pl.stake,
+      problem: hash,
+      now: at,
+      hidden: hidden().get(hash) ?? null,
+      stake_rule: pl.stake,
       pieces: s.pieces.map((v) => {
         const l = pl.byHash.get(v.piece.hash)!;
         const t = traced.get(v.piece.hash)!;
         return {
-          name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l.state, core: l.core, challenge: l.challenge?.id ?? null,
-          kind: l.kind.kind, extension: l.kind.extension, strength: l.kind.strength, says: l.kind.says, weakest: l.kind.weakest, attested: l.attested, panel: l.panel?.outcome ?? null,
-          availability: v.availability, dependents: v.dependents, reveals: v.reveals.length, claims: v.claims.length, stake: l.stake, gold: l.gold, verified: l.verified, window_open: windowOpen(v, at),
+          name: v.piece.name,
+          hash: v.piece.hash,
+          verifier: v.piece.verifier,
+          state: l.state,
+          core: l.core,
+          challenge: l.challenge?.id ?? null,
+          kind: l.kind.kind,
+          extension: l.kind.extension,
+          strength: l.kind.strength,
+          says: l.kind.says,
+          weakest: l.kind.weakest,
+          attested: l.attested,
+          panel: l.panel?.outcome ?? null,
+          availability: v.availability,
+          dependents: v.dependents,
+          reveals: v.reveals.length,
+          claims: v.claims.length,
+          stake: l.stake,
+          gold: l.gold,
+          verified: l.verified,
+          window_open: windowOpen(v, at),
           witnessed: witnessed.get(v.piece.hash) ?? [],
-          traces: t.traces.length, traced: t.traced, seams: t.seams, aside: l.aside, record: t.record,
+          traces: t.traces.length,
+          traced: t.traced,
+          seams: t.seams,
+          aside: l.aside,
+          record: t.record,
         };
       }),
-      gold: pl.goldCount, complete: s.complete, output: s.output?.hash ?? null, record_output: recordOf(hash, pl)?.hash ?? null, dropped: [...s.dropped, ...pl.dropped], superseded: supersededBy(hash),
+      gold: pl.goldCount,
+      complete: s.complete,
+      output: s.output?.hash ?? null,
+      record_output: recordOf(hash, pl)?.hash ?? null,
+      dropped: [...s.dropped, ...pl.dropped],
+      superseded: supersededBy(hash),
     };
   }
 
@@ -884,15 +1184,23 @@ export function createTracker(options: TrackerOptions): Tracker {
    * QX-18: the reveals on a problem's chain whose receipt names a witness, by piece: the key that revealed, the root it
    * counts for, the product or `other`, and the client's own name with `other`. The tracker's word, as custody is.
    */
-  function witnessedReveals(hash: Hash): Map<Hash, { key: string; via: string; via_by?: string; via_client?: string }[]> {
+  function witnessedReveals(
+    hash: Hash,
+  ): Map<Hash, { key: string; via: string; via_by?: string; via_client?: string }[]> {
     const out = new Map<Hash, { key: string; via: string; via_by?: string; via_client?: string }[]>();
-    for (const envelope of store.chain(hash)) for (const r of store.witnessedReveals(problemHash(envelope))) {
-      const w = r.received.find((x) => typeof (x as Witnessed).via === 'string') as Witnessed | undefined;
-      if (!w?.via) continue;
-      const list = out.get(r.piece) ?? [];
-      list.push({ key: r.key, via: w.via, ...(w.via_by ? { via_by: w.via_by } : {}), ...(w.via_client ? { via_client: w.via_client } : {}) });
-      out.set(r.piece, list);
-    }
+    for (const envelope of store.chain(hash))
+      for (const r of store.witnessedReveals(problemHash(envelope))) {
+        const w = r.received.find((x) => typeof (x as Witnessed).via === 'string') as Witnessed | undefined;
+        if (!w?.via) continue;
+        const list = out.get(r.piece) ?? [];
+        list.push({
+          key: r.key,
+          via: w.via,
+          ...(w.via_by ? { via_by: w.via_by } : {}),
+          ...(w.via_client ? { via_client: w.via_client } : {}),
+        });
+        out.set(r.piece, list);
+      }
     return out;
   }
 
@@ -918,14 +1226,28 @@ export function createTracker(options: TrackerOptions): Tracker {
     const hit = tracesMemo.get(pl);
     if (hit) return hit;
     const receipts = pl.receipts;
-    const out = new Map(pl.fold.pieces.map((v) => {
-      const core = pl.core.byHash.get(v.piece.hash) ?? v;
-      const traces = tracesKept(core, receipts, blobLength);
-      // QX-20 section 3: a record piece's seams are between its standing readings, with nothing set aside, and its grade is over them.
-      const record = pl.byHash.get(v.piece.hash)?.record ?? null;
-      const over = record ? { seams: recordSeams(pl.fold, v, record, receipts, traces, passageOf), aside: [] as Hash[] } : v.state === 'disputed' ? seamed(pl.fold, v, receipts, traces, passageOf) : seamed(pl.core, core, receipts, traces, passageOf);
-      return [v.piece.hash, { traces, traced: graded(v, receipts, traces), ...over, record: record ? recordGraded(v, record, receipts, traces) : null }] as const;
-    }));
+    const out = new Map(
+      pl.fold.pieces.map((v) => {
+        const core = pl.core.byHash.get(v.piece.hash) ?? v;
+        const traces = tracesKept(core, receipts, blobLength);
+        // QX-20 section 3: a record piece's seams are between its standing readings, with nothing set aside, and its grade is over them.
+        const record = pl.byHash.get(v.piece.hash)?.record ?? null;
+        const over = record
+          ? { seams: recordSeams(pl.fold, v, record, receipts, traces, passageOf), aside: [] as Hash[] }
+          : v.state === 'disputed'
+            ? seamed(pl.fold, v, receipts, traces, passageOf)
+            : seamed(pl.core, core, receipts, traces, passageOf);
+        return [
+          v.piece.hash,
+          {
+            traces,
+            traced: graded(v, receipts, traces),
+            ...over,
+            record: record ? recordGraded(v, record, receipts, traces) : null,
+          },
+        ] as const;
+      }),
+    );
     void hash;
     tracesMemo.set(pl, out);
     return out;
@@ -937,7 +1259,10 @@ export function createTracker(options: TrackerOptions): Tracker {
   function supersededBy(hash: Hash): Hash | null {
     const owner = store.getEnvelope(hash)?.envelope.problem.owner;
     if (!owner) return null;
-    return store.listEnvelopes().find((e) => e.envelope.problem.prev === hash && e.envelope.problem.owner === owner)?.hash ?? null;
+    return (
+      store.listEnvelopes().find((e) => e.envelope.problem.prev === hash && e.envelope.problem.owner === owner)?.hash ??
+      null
+    );
   }
 
   /** The problems here their owners have replaced with a newer version, left out of the index and the offer: the work is on the versions that replaced them. */
@@ -959,20 +1284,63 @@ export function createTracker(options: TrackerOptions): Tracker {
   /** A problem's challenges as the tracker computes them at now: the seats, each verdict with its judge, the outcome. */
   function challenges(pl: ProblemLayer, name: (a: string) => string | null) {
     return pl.challenges.map((c) => ({
-      id: c.id, piece: c.piece, name: pl.byHash.get(c.piece)?.name ?? null, key: c.key, root: c.root, challenger: name(c.root), at: c.at, stake: c.stake, ground: c.ground, against: c.against,
-      parties: c.parties, seed: c.seed, panel: PANEL, majority: MAJORITY,
-      seats: c.seats.map((s) => ({ root: s.root, judge: name(s.root), offered_at: s.offeredAt, lapsed_at: s.lapsedAt, verdict: s.verdict ? { id: s.verdict.id, at: s.verdict.at, for: s.verdict.for, return: s.verdict.return } : null })),
-      outcome: c.outcome, decided_at: c.decidedAt, struck: c.struck, dropped: c.dropped,
+      id: c.id,
+      piece: c.piece,
+      name: pl.byHash.get(c.piece)?.name ?? null,
+      key: c.key,
+      root: c.root,
+      challenger: name(c.root),
+      at: c.at,
+      stake: c.stake,
+      ground: c.ground,
+      against: c.against,
+      parties: c.parties,
+      seed: c.seed,
+      panel: PANEL,
+      majority: MAJORITY,
+      seats: c.seats.map((s) => ({
+        root: s.root,
+        judge: name(s.root),
+        offered_at: s.offeredAt,
+        lapsed_at: s.lapsedAt,
+        verdict: s.verdict
+          ? { id: s.verdict.id, at: s.verdict.at, for: s.verdict.for, return: s.verdict.return }
+          : null,
+      })),
+      outcome: c.outcome,
+      decided_at: c.decidedAt,
+      struck: c.struck,
+      dropped: c.dropped,
     }));
   }
 
   /** A problem's judge panels as the tracker computes them at now: the candidates by digest (their signers named once the panel has decided), the seats, each rank, the outcome. */
   function panels(pl: ProblemLayer, name: (a: string) => string | null) {
     return pl.panels.map((p) => ({
-      piece: p.piece, name: p.name, verifier: pl.byHash.get(p.piece)?.kind.verifier ?? null, panel: p.panel, majority: p.majority, wanted: p.wanted, seed: p.seed, completed_at: p.completedAt,
-      candidates: p.candidates.map((c) => (p.outcome === 'decided' ? { digest: c.digest, return: c.return, root: c.root, signer: name(c.root) } : { digest: c.digest, return: c.return })),
-      seats: p.seats.map((s) => ({ root: s.root, judge: name(s.root), offered_at: s.offeredAt, lapsed_at: s.lapsedAt, rank: s.rank ? { id: s.rank.id, at: s.rank.at, ranking: s.rank.ranking } : null })),
-      outcome: p.outcome, winner: p.winner, decided_at: p.decidedAt, dropped: p.dropped,
+      piece: p.piece,
+      name: p.name,
+      verifier: pl.byHash.get(p.piece)?.kind.verifier ?? null,
+      panel: p.panel,
+      majority: p.majority,
+      wanted: p.wanted,
+      seed: p.seed,
+      completed_at: p.completedAt,
+      candidates: p.candidates.map((c) =>
+        p.outcome === 'decided'
+          ? { digest: c.digest, return: c.return, root: c.root, signer: name(c.root) }
+          : { digest: c.digest, return: c.return },
+      ),
+      seats: p.seats.map((s) => ({
+        root: s.root,
+        judge: name(s.root),
+        offered_at: s.offeredAt,
+        lapsed_at: s.lapsedAt,
+        rank: s.rank ? { id: s.rank.id, at: s.rank.at, ranking: s.rank.ranking } : null,
+      })),
+      outcome: p.outcome,
+      winner: p.winner,
+      decided_at: p.decidedAt,
+      dropped: p.dropped,
     }));
   }
 
@@ -982,7 +1350,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     const topicsByProblem = new Map<Hash, Set<string>>();
     for (const a of store.announcements()) {
       const set = topicsByProblem.get(a.problem) ?? new Set<string>();
-      for (const t of ((a.event.body as { topics?: string[] }).topics ?? [])) set.add(t.toLowerCase());
+      for (const t of (a.event.body as { topics?: string[] }).topics ?? []) set.add(t.toLowerCase());
       topicsByProblem.set(a.problem, set);
     }
     const out: unknown[] = [];
@@ -992,7 +1360,8 @@ export function createTracker(options: TrackerOptions): Tracker {
     for (const e of store.listEnvelopes()) {
       if (hid.has(e.hash) || gone.has(e.hash)) continue;
       const topics = [...(topicsByProblem.get(e.hash) ?? [])];
-      const hay = `${e.envelope.problem.title} ${e.envelope.problem.slug} ${e.envelope.problem.done_when} ${topics.join(' ')}`.toLowerCase();
+      const hay =
+        `${e.envelope.problem.title} ${e.envelope.problem.slug} ${e.envelope.problem.done_when} ${topics.join(' ')}`.toLowerCase();
       if (q && !hay.includes(q)) continue;
       const s = summary(e.hash, layered);
       if (s) out.push({ ...s, topics });
@@ -1006,7 +1375,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     const lines = store.receipts(hash, since, page + 1);
     const more = lines.length > page;
     const out = more ? lines.slice(0, page) : lines;
-    const headers: Record<string, string> = { 'content-type': 'application/x-ndjson; charset=utf-8', 'access-control-allow-origin': '*' };
+    const headers: Record<string, string> = {
+      'content-type': 'application/x-ndjson; charset=utf-8',
+      'access-control-allow-origin': '*',
+    };
     if (more) headers['x-quilt-next-since'] = String(out[out.length - 1]!.seq);
     res.writeHead(200, headers);
     res.end(out.map((l) => JSON.stringify(l)).join('\n') + (out.length ? '\n' : ''));
@@ -1019,7 +1391,10 @@ export function createTracker(options: TrackerOptions): Tracker {
   }
 
   /** The coin log's head a listing stands under: the head itself, or the line at the query's `upto` when that is earlier. */
-  function headUpto(c: CoinLayer, query: URLSearchParams): { head: { seq: number; hash: string } | null; upto: number | undefined } {
+  function headUpto(
+    c: CoinLayer,
+    query: URLSearchParams,
+  ): { head: { seq: number; hash: string } | null; upto: number | undefined } {
     const asked = query.get('upto');
     const n = asked === null ? null : Number(asked);
     if (n !== null && (!Number.isInteger(n) || n < 0)) throw new Refusal(400, 'upto: a whole number');
@@ -1032,7 +1407,8 @@ export function createTracker(options: TrackerOptions): Tracker {
     const key = query.get('key');
     if (!isAddress(key)) throw new Refusal(400, 'key: an address with its checksum');
     const can = (query.get('can') ?? '').split(',').filter(Boolean);
-    if (!can.every((c) => (CAPABILITIES as readonly string[]).includes(c))) throw new Refusal(400, `can: from ${CAPABILITIES.join(', ')}`);
+    if (!can.every((c) => (CAPABILITIES as readonly string[]).includes(c)))
+      throw new Refusal(400, `can: from ${CAPABILITIES.join(', ')}`);
     return { key, client: { can: can as Capability[], model: query.get('model') ?? 'unknown/unknown' } };
   }
 
@@ -1050,7 +1426,14 @@ export function createTracker(options: TrackerOptions): Tracker {
    * watch piece first; and a staked piece the key's free standing cannot cover, on which it holds no lock (QX-15).
    * Those last are also named apart, since next's answer lists them.
    */
-  function excludedFor(layered: Layer, pl: ProblemLayer, input: ReduceInput, key: Address, client: Client, at: string): { exclude: Set<Hash>; unaffordable: Hash[] } {
+  function excludedFor(
+    layered: Layer,
+    pl: ProblemLayer,
+    input: ReduceInput,
+    key: Address,
+    client: Client,
+    at: string,
+  ): { exclude: Set<Hash>; unaffordable: Hash[] } {
     const exclude = new Set<Hash>([...store.heldByOthers(pl.problem, key, at), ...pl.unoffered]);
     if (!client.can.includes('person')) for (const p of pl.pieces) if (p.kind.kind === 'human') exclude.add(p.hash);
     for (const h of watchExclusions(pl, input, key, seedInfo(input.receipts, pl.fold, at).seeders, at)) exclude.add(h);
@@ -1083,7 +1466,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     const only = query.get('only');
     if (only !== null && only !== 'verify') throw new Refusal(400, 'only: verify, or left out');
     // A record piece (QX-20) is outside that pool: a second reader confirms or disagrees, and a record takes no second opinion, only another reading.
-    if (only === 'verify') for (const v of state.pieces) if ((v.state !== 'needs_verify' && v.state !== 'disputed') || pl.byHash.get(v.piece.hash)?.record) exclude.add(v.piece.hash);
+    if (only === 'verify')
+      for (const v of state.pieces)
+        if ((v.state !== 'needs_verify' && v.state !== 'disputed') || pl.byHash.get(v.piece.hash)?.record)
+          exclude.add(v.piece.hash);
     const pick = next(state, key, client, at, { exclude });
     if (!pick) {
       json(res, 200, { piece: null, unaffordable });
@@ -1095,9 +1481,25 @@ export function createTracker(options: TrackerOptions): Tracker {
     const seams = seamsOf(pl, pick.piece.hash);
     // The state is the layer's word: the fold's, except `recording` where the fold holds a record piece under needs_verify (QX-20).
     json(res, 200, {
-      piece: pick.piece.hash, name: pick.piece.name, state: layerState, brief: pick.brief, schema: pick.schema ?? null, agree: pick.agree, requires: pick.requires, lease_h: pick.lease_h,
-      verifier: pick.piece.verifier, kind: kind.kind, extension: kind.extension, strength: kind.strength, says: kind.says, weakest: kind.weakest, workspace: pick.piece.workspace ?? null, check: pick.piece.check ?? null,
-      stake, unaffordable, seams,
+      piece: pick.piece.hash,
+      name: pick.piece.name,
+      state: layerState,
+      brief: pick.brief,
+      schema: pick.schema ?? null,
+      agree: pick.agree,
+      requires: pick.requires,
+      lease_h: pick.lease_h,
+      verifier: pick.piece.verifier,
+      kind: kind.kind,
+      extension: kind.extension,
+      strength: kind.strength,
+      says: kind.says,
+      weakest: kind.weakest,
+      workspace: pick.piece.workspace ?? null,
+      check: pick.piece.check ?? null,
+      stake,
+      unaffordable,
+      seams,
     });
   }
 
@@ -1116,10 +1518,36 @@ export function createTracker(options: TrackerOptions): Tracker {
     }
     const count = store.nextOfferCount(key);
     const firstSeeder = options.firstSeeder;
-    const list = offerOrder(layered, inputs, key, client, at, count, (_h, pl, input) => excludedFor(layered, pl, input, key, client, at).exclude, firstSeeder ? (_h, pl, input) => seedInfo(input.receipts, pl.fold, at).seeders.has(pl.fold.rootOf(firstSeeder, at)) : undefined);
+    const list = offerOrder(
+      layered,
+      inputs,
+      key,
+      client,
+      at,
+      count,
+      (_h, pl, input) => excludedFor(layered, pl, input, key, client, at).exclude,
+      firstSeeder
+        ? (_h, pl, input) => seedInfo(input.receipts, pl.fold, at).seeders.has(pl.fold.rootOf(firstSeeder, at))
+        : undefined,
+    );
     const first = list[0];
     if (first) holdFor(first.problem, first.pick.piece.hash, key, at);
-    json(res, 200, { offer: count, offers: list.map((o) => ({ problem: o.problem, title: o.title, slug: o.slug, owner: o.owner, reason: o.reason, piece: o.pick.piece.hash, name: o.pick.piece.name, state: o.pick.state, verifier: o.pick.piece.verifier, requires: o.pick.requires, lease_h: o.pick.lease_h })) });
+    json(res, 200, {
+      offer: count,
+      offers: list.map((o) => ({
+        problem: o.problem,
+        title: o.title,
+        slug: o.slug,
+        owner: o.owner,
+        reason: o.reason,
+        piece: o.pick.piece.hash,
+        name: o.pick.piece.name,
+        state: o.pick.state,
+        verifier: o.pick.piece.verifier,
+        requires: o.pick.requires,
+        lease_h: o.pick.lease_h,
+      })),
+    });
   }
 
   // The routes, in the order the well-known document lists them.
@@ -1130,7 +1558,11 @@ export function createTracker(options: TrackerOptions): Tracker {
       const path = u.pathname.replace(/\/+$/, '') || '/';
       const method = req.method ?? 'GET';
       if (method === 'OPTIONS') {
-        res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type' });
+        res.writeHead(204, {
+          'access-control-allow-origin': '*',
+          'access-control-allow-methods': 'GET, POST, OPTIONS',
+          'access-control-allow-headers': 'content-type',
+        });
         res.end();
         return;
       }
@@ -1168,7 +1600,13 @@ export function createTracker(options: TrackerOptions): Tracker {
         if (sub === 'scrape') {
           const chain = verifyChain(store.lines(hash), hash);
           // With the topics every announce gave it, as the index shows them, so the owner's turn can announce again with the same (QX-13 section 3).
-          const topics = [...new Set(store.announcements(hash).flatMap((a) => ((a.event.body as { topics?: string[] }).topics ?? []).map((x) => x.toLowerCase())))];
+          const topics = [
+            ...new Set(
+              store
+                .announcements(hash)
+                .flatMap((a) => ((a.event.body as { topics?: string[] }).topics ?? []).map((x) => x.toLowerCase())),
+            ),
+          ];
           json(res, 200, { ...summary(hash), topics, chain_ok: chain.ok });
           return;
         }
@@ -1176,7 +1614,8 @@ export function createTracker(options: TrackerOptions): Tracker {
           // QX-20 section 4: the record document, once the layer calls the problem complete; its hash is the state's `record_output`.
           const pl = view(hash);
           const doc = pl ? recordOf(hash, pl) : null;
-          if (!doc) throw new Refusal(404, 'no record document yet: the problem is not complete, or has no record piece');
+          if (!doc)
+            throw new Refusal(404, 'no record document yet: the problem is not complete, or has no record piece');
           json(res, 200, { hash: doc.hash, ...(doc.document as Record<string, unknown>) });
           return;
         }
@@ -1211,8 +1650,16 @@ export function createTracker(options: TrackerOptions): Tracker {
         const layered = layer();
         const root = layered.rootOf(address);
         json(res, 200, {
-          address, root, standing: layered.standing(root), locked: layered.locked(root), free: layered.free(root), founding: founding.get(root.toLowerCase()) ?? 0,
-          locks: layered.liveLocks(root).map((l) => ({ problem: l.problem, piece: l.piece, amount: l.amount, at: l.at })), at: layered.now,
+          address,
+          root,
+          standing: layered.standing(root),
+          locked: layered.locked(root),
+          free: layered.free(root),
+          founding: founding.get(root.toLowerCase()) ?? 0,
+          locks: layered
+            .liveLocks(root)
+            .map((l) => ({ problem: l.problem, piece: l.piece, amount: l.amount, at: l.at })),
+          at: layered.now,
         });
         return;
       }
@@ -1228,10 +1675,29 @@ export function createTracker(options: TrackerOptions): Tracker {
           const pl = layered.problems.get(r.problem);
           const l = pl?.byHash.get(r.piece);
           if (!pl || !l) return [];
-          return [{ problem: r.problem, title: pl.fold.envelope.problem.title, piece: r.piece, name: l.name, at: r.at, state: l.state, aside: l.aside.includes(address), verified: l.verified, traced: tracesOf(r.problem, pl).get(r.piece)?.traced ?? null }];
+          return [
+            {
+              problem: r.problem,
+              title: pl.fold.envelope.problem.title,
+              piece: r.piece,
+              name: l.name,
+              at: r.at,
+              state: l.state,
+              aside: l.aside.includes(address),
+              verified: l.verified,
+              traced: tracesOf(r.problem, pl).get(r.piece)?.traced ?? null,
+            },
+          ];
         });
         const first = layered.problems.values().next().value as ProblemLayer | undefined;
-        json(res, 200, { address, root, name: first ? nameIn(first)(root) : null, standing: layered.standing(root), readings, at: layered.now });
+        json(res, 200, {
+          address,
+          root,
+          name: first ? nameIn(first)(root) : null,
+          standing: layered.standing(root),
+          readings,
+          at: layered.now,
+        });
         return;
       }
       // Blobs and names.
@@ -1278,7 +1744,17 @@ export function createTracker(options: TrackerOptions): Tracker {
       if (path === '/counts' && method === 'GET') {
         const days = daysFrom(u.searchParams.get('days'));
         if (days === null) throw new Refusal(400, `days: a whole number from 1 to ${DAYS_MAX}`);
-        json(res, 200, funnel({ members: store.memberTimes(), logs: store.listEnvelopes().map((e) => store.lines(e.hash)), layer: layer(), now: now(), days }));
+        json(
+          res,
+          200,
+          funnel({
+            members: store.memberTimes(),
+            logs: store.listEnvelopes().map((e) => store.lines(e.hash)),
+            layer: layer(),
+            now: now(),
+            days,
+          }),
+        );
         return;
       }
       // The coin (QX-17): its log, and what the layer computes from it.
@@ -1331,7 +1807,13 @@ export function createTracker(options: TrackerOptions): Tracker {
         }
         if (path === '/coin/state') {
           const c = coin()!;
-          json(res, 200, { head: c.head, at: c.now, params: { extension: COIN, ...options.coin, home: coinHome() }, balances: Object.fromEntries(c.balances()), dropped: c.dropped });
+          json(res, 200, {
+            head: c.head,
+            at: c.now,
+            params: { extension: COIN, ...options.coin, home: coinHome() },
+            balances: Object.fromEntries(c.balances()),
+            dropped: c.dropped,
+          });
           return;
         }
         throw new Refusal(404, 'no such route');
@@ -1359,15 +1841,24 @@ export function createTracker(options: TrackerOptions): Tracker {
  * QX-21: the peers' chains pulled and folded every `PEER_PULL_EVERY_MS`, the first a minute after start, one pull at a
  * time; `say` gets one line per peer per pull. Nothing is scheduled where there is no peer. What both binaries run.
  */
-export function schedulePeerPulls(tracker: Pick<Tracker, 'pullPeers'>, peers: readonly string[], say: (line: string) => void): void {
+export function schedulePeerPulls(
+  tracker: Pick<Tracker, 'pullPeers'>,
+  peers: readonly string[],
+  say: (line: string) => void,
+): void {
   if (peers.length === 0) return;
-  say(`peers: ${peers.join(', ')}; their chains are pulled and folded through this door every ${Math.round(PEER_PULL_EVERY_MS / 60_000)} minutes (QX-21)`);
+  say(
+    `peers: ${peers.join(', ')}; their chains are pulled and folded through this door every ${Math.round(PEER_PULL_EVERY_MS / 60_000)} minutes (QX-21)`,
+  );
   let pulling = false;
   const pull = async (): Promise<void> => {
     if (pulling) return;
     pulling = true;
     try {
-      for (const p of await tracker.pullPeers()) say(`peer ${p.peer}: ${p.added} added, ${p.refused.length} refused${p.errors.length ? `; ${p.errors.join('; ')}` : ''}`);
+      for (const p of await tracker.pullPeers())
+        say(
+          `peer ${p.peer}: ${p.added} added, ${p.refused.length} refused${p.errors.length ? `; ${p.errors.join('; ')}` : ''}`,
+        );
     } catch (err) {
       say(`peers: not pulled (${(err as Error).message})`);
     } finally {

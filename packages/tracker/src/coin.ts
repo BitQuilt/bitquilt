@@ -6,7 +6,20 @@
  * the verified squares by weight, vesting with time, locked at a door, escrowed to a problem and paid per square,
  * burned for standing. Everything here is a function of receipts anyone can hold; the tracker orders and decides nothing.
  */
-import { type Address, type Event, type Hash, type Receipt, eventId, hashText, isAddress, isHash, isRecord, isTime, plusHours, whole } from '@bitquilt/core';
+import {
+  type Address,
+  type Event,
+  type Hash,
+  type Receipt,
+  eventId,
+  hashText,
+  isAddress,
+  isHash,
+  isRecord,
+  isTime,
+  plusHours,
+  whole,
+} from '@bitquilt/core';
 import type { Admission, Layer } from './challenge.js';
 import { creditedRoots } from './standing.js';
 import { leaseOf, viaOf } from './verifiers.js';
@@ -28,7 +41,13 @@ export interface CoinParams {
    * caps what an epoch mints at that many units a unit of verified weight, so a square in a thin epoch earns a known
    * wage and the rest of the curve's amount is unminted (28 October 2026).
    */
-  emission: { per_epoch: number; decline_bp: number; period_epochs: number; floor_per_epoch?: number; max_per_weight?: number };
+  emission: {
+    per_epoch: number;
+    decline_bp: number;
+    period_epochs: number;
+    floor_per_epoch?: number;
+    max_per_weight?: number;
+  };
   vesting_h: number;
   infra_bp: number;
   treasury: Address;
@@ -50,9 +69,20 @@ export interface CoinParams {
 }
 
 /** What the door writes into a receipt's wrapper when it admits a coin-kind QX-15 lock: what it read of the coin lock, and where. */
-export interface CoinWord { kind: 'coin'; amount: number; id: Hash; units: number; home: string; head: { seq: number; hash: string } | null }
+export interface CoinWord {
+  kind: 'coin';
+  amount: number;
+  id: Hash;
+  units: number;
+  home: string;
+  head: { seq: number; hash: string } | null;
+}
 /** What the door writes into a burn's wrapper: the standing it credited. */
-export interface BurnWord { kind: 'burn'; amount: number; standing: number }
+export interface BurnWord {
+  kind: 'burn';
+  amount: number;
+  standing: number;
+}
 
 export interface CoinLockView {
   id: Hash;
@@ -113,10 +143,23 @@ export interface RedeemLine {
 }
 
 /** An ended epoch: `ceiling` is the curve's amount, `amount` what the epoch could mint once the cap on a unit of weight is applied, `minted` what it did. */
-export interface EpochView { epoch: number; start: string; end: string; ceiling: number; amount: number; treasury: number; weight: number; minted: number }
+export interface EpochView {
+  epoch: number;
+  start: string;
+  end: string;
+  ceiling: number;
+  amount: number;
+  treasury: number;
+  weight: number;
+  minted: number;
+}
 
 /** A root's share of the open epoch so far, and when the epoch ends and pays. */
-export interface PendingView { amount: number; pays_at: string; epoch: number }
+export interface PendingView {
+  amount: number;
+  pays_at: string;
+  epoch: number;
+}
 
 export interface CoinLayer {
   params: CoinParams;
@@ -144,26 +187,40 @@ export interface CoinLayer {
 export function coinParamsProblems(p: unknown): string[] {
   if (!isRecord(p)) return ['coin: an object'];
   const out: string[] = [];
-  if (p.home !== undefined && (typeof p.home !== 'string' || !/^https?:\/\//.test(p.home))) out.push('coin.home: a tracker address');
+  if (p.home !== undefined && (typeof p.home !== 'string' || !/^https?:\/\//.test(p.home)))
+    out.push('coin.home: a tracker address');
   if (!isTime(p.genesis)) out.push('coin.genesis: a time');
   if (!(typeof p.epoch_h === 'number' && p.epoch_h > 0)) out.push('coin.epoch_h: hours above 0');
   const e = p.emission;
-  if (!isRecord(e) || !whole(e.per_epoch, 0) || !whole(e.decline_bp, 0) || (e.decline_bp as number) > 10000 || !whole(e.period_epochs, 1)) out.push('coin.emission: per_epoch, decline_bp (0 to 10000) and period_epochs (at least 1), whole');
+  if (
+    !isRecord(e) ||
+    !whole(e.per_epoch, 0) ||
+    !whole(e.decline_bp, 0) ||
+    (e.decline_bp as number) > 10000 ||
+    !whole(e.period_epochs, 1)
+  )
+    out.push('coin.emission: per_epoch, decline_bp (0 to 10000) and period_epochs (at least 1), whole');
   if (isRecord(e)) {
-    if (e.floor_per_epoch !== undefined && !whole(e.floor_per_epoch, 0)) out.push('coin.emission.floor_per_epoch: units from 0, whole');
-    if (e.max_per_weight !== undefined && !whole(e.max_per_weight, 1)) out.push('coin.emission.max_per_weight: units a unit of weight, at least 1, whole');
+    if (e.floor_per_epoch !== undefined && !whole(e.floor_per_epoch, 0))
+      out.push('coin.emission.floor_per_epoch: units from 0, whole');
+    if (e.max_per_weight !== undefined && !whole(e.max_per_weight, 1))
+      out.push('coin.emission.max_per_weight: units a unit of weight, at least 1, whole');
   }
   if (!(typeof p.vesting_h === 'number' && p.vesting_h >= 0)) out.push('coin.vesting_h: hours from 0');
   if (!whole(p.infra_bp, 0) || (p.infra_bp as number) > 10000) out.push('coin.infra_bp: 0 to 10000');
   if (!isAddress(p.treasury)) out.push('coin.treasury: an address with its checksum');
   if (!whole(p.unit, 1)) out.push('coin.unit: units a coin, at least 1');
   const w = p.weights;
-  if (!isRecord(w) || !whole(w.cross_vendor, 0) || !whole(w.same_vendor, 0) || !whole(w.attest, 0)) out.push('coin.weights: cross_vendor, same_vendor and attest, whole');
+  if (!isRecord(w) || !whole(w.cross_vendor, 0) || !whole(w.same_vendor, 0) || !whole(w.attest, 0))
+    out.push('coin.weights: cross_vendor, same_vendor and attest, whole');
   if (!whole(p.burn_rate, 1)) out.push('coin.burn_rate: units a point, at least 1');
   if (p.burn_indexed !== undefined && typeof p.burn_indexed !== 'boolean') out.push('coin.burn_indexed: true or false');
-  if (p.window_max_h !== undefined && !(typeof p.window_max_h === 'number' && p.window_max_h > 0)) out.push('coin.window_max_h: hours above 0');
-  for (const k of ['transfers_from', 'redeem_from']) if (p[k] !== null && !isTime(p[k])) out.push(`coin.${k}: a time or null`);
-  if (p.reader !== undefined && p.reader !== null && !isAddress(p.reader)) out.push('coin.reader: an address with its checksum, or null');
+  if (p.window_max_h !== undefined && !(typeof p.window_max_h === 'number' && p.window_max_h > 0))
+    out.push('coin.window_max_h: hours above 0');
+  for (const k of ['transfers_from', 'redeem_from'])
+    if (p[k] !== null && !isTime(p[k])) out.push(`coin.${k}: a time or null`);
+  if (p.reader !== undefined && p.reader !== null && !isAddress(p.reader))
+    out.push('coin.reader: an address with its checksum, or null');
   return out;
 }
 
@@ -171,7 +228,9 @@ export function coinParamsProblems(p: unknown): string[] {
 export function coinBodyProblems(type: string, body: unknown): string[] {
   if (!isRecord(body)) return ['body: an object'];
   const out: string[] = [];
-  const only = (keys: string[]) => { for (const k of Object.keys(body)) if (!keys.includes(k)) out.push(`body.${k}: not a field of a ${type}`); };
+  const only = (keys: string[]) => {
+    for (const k of Object.keys(body)) if (!keys.includes(k)) out.push(`body.${k}: not a field of a ${type}`);
+  };
   switch (type) {
     case 'lock':
       if (!isHash(body.problem)) out.push('body.problem: a hash');
@@ -200,7 +259,8 @@ export function coinBodyProblems(type: string, body: unknown): string[] {
       only(['amount', 'to']);
       break;
     case 'credit':
-      if (!whole(body.deposit, 1)) out.push('body.deposit: a whole number of at least 1, the deposit\'s number on the chain');
+      if (!whole(body.deposit, 1))
+        out.push("body.deposit: a whole number of at least 1, the deposit's number on the chain");
       if (!isAddress(body.root)) out.push('body.root: an address with its checksum');
       if (!whole(body.amount, 1)) out.push('body.amount: a whole number of at least 1');
       only(['deposit', 'root', 'amount']);
@@ -220,12 +280,54 @@ export function epochAmount(params: CoinParams, epoch: number): number {
 }
 
 type LineKind = 'verified' | 'forfeit' | 'restore' | 'release' | 'bind' | 'accepted' | 'complete' | 'mint' | 'posted';
-const ORDER: Record<LineKind, number> = { verified: 0, forfeit: 1, restore: 2, release: 3, bind: 4, accepted: 5, complete: 6, mint: 7, posted: 8 };
-interface Line { kind: LineKind; at: string; id: string; problem?: Hash; piece?: Hash; root?: Address; weight?: number; roots?: Address[]; coin?: Hash; lock?: Hash; epoch?: number; receipt?: Receipt }
+const ORDER: Record<LineKind, number> = {
+  verified: 0,
+  forfeit: 1,
+  restore: 2,
+  release: 3,
+  bind: 4,
+  accepted: 5,
+  complete: 6,
+  mint: 7,
+  posted: 8,
+};
+interface Line {
+  kind: LineKind;
+  at: string;
+  id: string;
+  problem?: Hash;
+  piece?: Hash;
+  root?: Address;
+  weight?: number;
+  roots?: Address[];
+  coin?: Hash;
+  lock?: Hash;
+  epoch?: number;
+  receipt?: Receipt;
+}
 
-interface Account { minted: number; received: number; drawnVested: number; drawnUnvested: number; locked: number; escrowed: number; burned: number; forfeited: number; redeemed: number; credited: number; mints: { at: string; amount: number }[] }
-interface Escrow { payer: Address; remaining: number; per_square: number; at: string }
-interface Coin extends CoinLockView { forfeit: { fromUnvested: number; fromVested: number; penalty: number } | null }
+interface Account {
+  minted: number;
+  received: number;
+  drawnVested: number;
+  drawnUnvested: number;
+  locked: number;
+  escrowed: number;
+  burned: number;
+  forfeited: number;
+  redeemed: number;
+  credited: number;
+  mints: { at: string; amount: number }[];
+}
+interface Escrow {
+  payer: Address;
+  remaining: number;
+  per_square: number;
+  at: string;
+}
+interface Coin extends CoinLockView {
+  forfeit: { fromUnvested: number; fromVested: number; penalty: number } | null;
+}
 
 export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: Receipt[]; now: string }): CoinLayer {
   const { layer, params, now } = input;
@@ -234,7 +336,19 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
   const account = (root: Address): Account => {
     let a = accounts.get(root);
     if (!a) {
-      a = { minted: 0, received: 0, drawnVested: 0, drawnUnvested: 0, locked: 0, escrowed: 0, burned: 0, forfeited: 0, redeemed: 0, credited: 0, mints: [] };
+      a = {
+        minted: 0,
+        received: 0,
+        drawnVested: 0,
+        drawnUnvested: 0,
+        locked: 0,
+        escrowed: 0,
+        burned: 0,
+        forfeited: 0,
+        redeemed: 0,
+        credited: 0,
+        mints: [],
+      };
       accounts.set(root, a);
     }
     return a;
@@ -250,7 +364,8 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     }
     return sum;
   };
-  const vestedOf = (a: Account, at: string): number => Math.min(balanceOf(a), Math.max(0, vestedTotal(a, at) - a.drawnVested));
+  const vestedOf = (a: Account, at: string): number =>
+    Math.min(balanceOf(a), Math.max(0, vestedTotal(a, at) - a.drawnVested));
   const unvestedOf = (a: Account, at: string): number => balanceOf(a) - vestedOf(a, at);
   const freeOf = (a: Account): number => balanceOf(a) - a.locked - a.escrowed;
   const freeVestedOf = (a: Account, at: string): number => Math.min(freeOf(a), vestedOf(a, at));
@@ -274,36 +389,62 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
   // Derived lines from the problem logs, as the layers fold them.
   for (const pl of layer.problems.values()) {
     const fold = pl.fold;
-    for (const g of pl.golds) for (const c of g.commitments) {
-      if (c.outcome !== 'match' || c.revealedAt === null || c.piece === null) continue;
-      const view = fold.byHash.get(c.piece);
-      const set = view?.accepting;
-      if (!set || set.kind !== 'agree') continue;
-      const via = viaOf(set);
-      const vendors = new Set(set.reveals.map((r) => r.vendor));
-      const weight = via === 'attest' ? params.weights.attest : vendors.size > 1 ? params.weights.cross_vendor : params.weights.same_vendor;
-      for (const r of set.reveals) {
-        const line: Line = { kind: 'verified', at: c.revealedAt, id: `${c.piece}:${r.root}`, problem: pl.problem, piece: c.piece, root: fold.rootOf(r.root, now), weight };
-        verified.push(line);
-        lines.push(line);
+    for (const g of pl.golds)
+      for (const c of g.commitments) {
+        if (c.outcome !== 'match' || c.revealedAt === null || c.piece === null) continue;
+        const view = fold.byHash.get(c.piece);
+        const set = view?.accepting;
+        if (!set || set.kind !== 'agree') continue;
+        const via = viaOf(set);
+        const vendors = new Set(set.reveals.map((r) => r.vendor));
+        const weight =
+          via === 'attest'
+            ? params.weights.attest
+            : vendors.size > 1
+              ? params.weights.cross_vendor
+              : params.weights.same_vendor;
+        for (const r of set.reveals) {
+          const line: Line = {
+            kind: 'verified',
+            at: c.revealedAt,
+            id: `${c.piece}:${r.root}`,
+            problem: pl.problem,
+            piece: c.piece,
+            root: fold.rootOf(r.root, now),
+            weight,
+          };
+          verified.push(line);
+          lines.push(line);
+        }
       }
-    }
-    for (const v of fold.pieces) if (v.accepting && v.accepting.completedAt <= now) {
-      lines.push({ kind: 'accepted', at: v.accepting.completedAt, id: `${v.piece.hash}:${v.accepting.completedAt}`, problem: pl.problem, piece: v.piece.hash, roots: creditedRoots(v).map((r) => fold.rootOf(r, now)) });
-    }
+    for (const v of fold.pieces)
+      if (v.accepting && v.accepting.completedAt <= now) {
+        lines.push({
+          kind: 'accepted',
+          at: v.accepting.completedAt,
+          id: `${v.piece.hash}:${v.accepting.completedAt}`,
+          problem: pl.problem,
+          piece: v.piece.hash,
+          roots: creditedRoots(v).map((r) => fold.rootOf(r, now)),
+        });
+      }
     if (fold.complete) {
       let latest: string | null = null;
-      for (const v of fold.pieces) if (v.windowEnd !== null && (latest === null || v.windowEnd > latest)) latest = v.windowEnd;
+      for (const v of fold.pieces)
+        if (v.windowEnd !== null && (latest === null || v.windowEnd > latest)) latest = v.windowEnd;
       const at = latest ?? now;
       if (at <= now) lines.push({ kind: 'complete', at, id: `complete:${pl.problem}`, problem: pl.problem });
     }
     for (const l of pl.locks) {
       if (l.kind !== 'coin' || !l.coinId) continue;
       lines.push({ kind: 'bind', at: l.at, id: `bind:${l.id}`, coin: l.coinId, lock: l.id });
-      if (l.forfeitedAt !== null) lines.push({ kind: 'forfeit', at: l.forfeitedAt, id: `forfeit:${l.id}:${l.forfeitedAt}`, coin: l.coinId });
-      if (l.restoredAt !== null) lines.push({ kind: 'restore', at: l.restoredAt, id: `restore:${l.id}:${l.restoredAt}`, coin: l.coinId });
+      if (l.forfeitedAt !== null)
+        lines.push({ kind: 'forfeit', at: l.forfeitedAt, id: `forfeit:${l.id}:${l.forfeitedAt}`, coin: l.coinId });
+      if (l.restoredAt !== null)
+        lines.push({ kind: 'restore', at: l.restoredAt, id: `restore:${l.id}:${l.restoredAt}`, coin: l.coinId });
       const ends = layer.lockEndsAt(l);
-      if (ends !== null && ends <= now && (l.forfeitedAt === null || (l.restoredAt !== null && ends > l.restoredAt))) lines.push({ kind: 'release', at: ends, id: `release:${l.id}`, coin: l.coinId });
+      if (ends !== null && ends <= now && (l.forfeitedAt === null || (l.restoredAt !== null && ends > l.restoredAt)))
+        lines.push({ kind: 'release', at: ends, id: `release:${l.id}`, coin: l.coinId });
     }
   }
   // Every epoch that has ended.
@@ -322,7 +463,8 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     if (!at) continue;
     lines.push({ kind: 'posted', at, id: eventId(r.event), receipt: r });
   }
-  const byOrder = (a: Line, b: Line) => (a.at < b.at ? -1 : a.at > b.at ? 1 : ORDER[a.kind] - ORDER[b.kind] || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const byOrder = (a: Line, b: Line) =>
+    a.at < b.at ? -1 : a.at > b.at ? 1 : ORDER[a.kind] - ORDER[b.kind] || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   lines.sort(byOrder);
 
   /** A line added while folding (an unbound lock's release), kept in order. */
@@ -344,14 +486,19 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     let last: EpochView | undefined;
     for (const e of epochs) if (e.end <= at) last = e;
     if (!last || last.weight <= 0) return params.burn_rate;
-    return Math.max(params.burn_rate, Math.floor((last.minted - last.treasury) / last.weight) * params.weights.cross_vendor);
+    return Math.max(
+      params.burn_rate,
+      Math.floor((last.minted - last.treasury) / last.weight) * params.weights.cross_vendor,
+    );
   };
 
   type Check = { ok: true; root: Address; standing?: number } | { ok: false; why: string };
   /** Whether a posted event would be kept at `at`, by section 2 of QX-17. */
   const check = (e: Event, at: string): Check => {
-    if (!COIN_EVENTS.has(e.type)) return { ok: false, why: 'the coin log takes lock, pay, burn, transfer, redeem and credit' };
-    if (e.problem !== undefined || e.piece !== undefined) return { ok: false, why: 'a coin event names no problem in its fields' };
+    if (!COIN_EVENTS.has(e.type))
+      return { ok: false, why: 'the coin log takes lock, pay, burn, transfer, redeem and credit' };
+    if (e.problem !== undefined || e.piece !== undefined)
+      return { ok: false, why: 'a coin event names no problem in its fields' };
     const shape = coinBodyProblems(e.type, e.body);
     if (shape.length) return { ok: false, why: shape[0]! };
     const root = layer.rootOf(e.key, at);
@@ -378,15 +525,18 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
         return { ok: true, root, standing: Math.floor((b.amount as number) / burnRateAt(at)) };
       }
       case 'transfer': {
-        if (params.transfers_from === null || at < params.transfers_from) return { ok: false, why: 'transfers are off' };
+        if (params.transfers_from === null || at < params.transfers_from)
+          return { ok: false, why: 'transfers are off' };
         const f = freeVestedOf(a, at);
-        if (f < (b.amount as number)) return { ok: false, why: `free vested coin ${f} is below the transfer of ${b.amount}` };
+        if (f < (b.amount as number))
+          return { ok: false, why: `free vested coin ${f} is below the transfer of ${b.amount}` };
         return { ok: true, root };
       }
       case 'redeem': {
         if (params.redeem_from === null || at < params.redeem_from) return { ok: false, why: 'redemption is off' };
         const f = freeVestedOf(a, at);
-        if (f < (b.amount as number)) return { ok: false, why: `free vested coin ${f} is below the redeem of ${b.amount}` };
+        if (f < (b.amount as number))
+          return { ok: false, why: `free vested coin ${f} is below the redeem of ${b.amount}` };
         return { ok: true, root };
       }
       case 'credit': {
@@ -519,14 +669,31 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
         if (e.type === 'lock') {
           const units = b.amount as number;
           a.locked += units;
-          coins.set(id, { id, key: e.key, root: result.root, problem: b.problem as Hash, piece: b.piece as Hash, units, at: line.at, bound: null, state: 'live', endedAt: null, forfeit: null });
+          coins.set(id, {
+            id,
+            key: e.key,
+            root: result.root,
+            problem: b.problem as Hash,
+            piece: b.piece as Hash,
+            units,
+            at: line.at,
+            bound: null,
+            state: 'live',
+            endedAt: null,
+            forfeit: null,
+          });
           // Unbound past the piece's lease, it is released; a bind before then stands in the way.
           const idle = plusHours(line.at, leaseOfPiece(b.problem as Hash, b.piece as Hash));
           const boundBefore = lines.some((x) => x.kind === 'bind' && x.coin === id && x.at < idle);
           if (!boundBefore && idle <= now) insert({ kind: 'release', at: idle, id: `idle:${id}`, coin: id });
         } else if (e.type === 'pay') {
           const list = escrows.get(b.problem as Hash) ?? [];
-          list.push({ payer: result.root, remaining: b.amount as number, per_square: b.per_square as number, at: line.at });
+          list.push({
+            payer: result.root,
+            remaining: b.amount as number,
+            per_square: b.per_square as number,
+            at: line.at,
+          });
           escrows.set(b.problem as Hash, list);
           a.escrowed += b.amount as number;
         } else if (e.type === 'burn') {
@@ -540,7 +707,14 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
           const amount = b.amount as number;
           a.drawnVested += amount;
           a.redeemed += amount;
-          redeemLines.push({ id: r.hash ?? id.replace('sha256:', ''), seq: r.seq ?? 0, root: result.root, to: (b.to as Address | undefined) ?? result.root, amount, at: line.at });
+          redeemLines.push({
+            id: r.hash ?? id.replace('sha256:', ''),
+            seq: r.seq ?? 0,
+            root: result.root,
+            to: (b.to as Address | undefined) ?? result.root,
+            amount,
+            at: line.at,
+          });
         } else if (e.type === 'credit') {
           // Coin burned on the chain comes back to the root the deposit named, vested, as a transfer's coin is.
           const amount = b.amount as number;
@@ -548,7 +722,14 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
           to.received += amount;
           to.credited += amount;
           credited.add(b.deposit as number);
-          creditLines.push({ id: r.hash ?? id.replace('sha256:', ''), seq: r.seq ?? 0, deposit: b.deposit as number, root: b.root as Address, amount, at: line.at });
+          creditLines.push({
+            id: r.hash ?? id.replace('sha256:', ''),
+            seq: r.seq ?? 0,
+            deposit: b.deposit as number,
+            root: b.root as Address,
+            amount,
+            at: line.at,
+          });
         }
         break;
       }
@@ -582,19 +763,56 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     const balance = balanceOf(a);
     const vested = vestedOf(a, now);
     return {
-      root, balance, vested, unvested: balance - vested, locked: a.locked, escrowed: a.escrowed, free: freeOf(a), free_vested: freeVestedOf(a, now),
-      minted: a.minted, received: a.received, burned: a.burned, forfeited: a.forfeited, redeemed: a.redeemed, credited: a.credited,
+      root,
+      balance,
+      vested,
+      unvested: balance - vested,
+      locked: a.locked,
+      escrowed: a.escrowed,
+      free: freeOf(a),
+      free_vested: freeVestedOf(a, now),
+      minted: a.minted,
+      received: a.received,
+      burned: a.burned,
+      forfeited: a.forfeited,
+      redeemed: a.redeemed,
+      credited: a.credited,
     };
   };
   const last = receipts[receipts.length - 1];
-  const head = last && typeof last.seq === 'number' && typeof last.hash === 'string' ? { seq: last.seq, hash: last.hash } : null;
-  const strip = (c: Coin): CoinLockView => ({ id: c.id, key: c.key, root: c.root, problem: c.problem, piece: c.piece, units: c.units, at: c.at, bound: c.bound, state: c.state, endedAt: c.endedAt });
+  const head =
+    last && typeof last.seq === 'number' && typeof last.hash === 'string' ? { seq: last.seq, hash: last.hash } : null;
+  const strip = (c: Coin): CoinLockView => ({
+    id: c.id,
+    key: c.key,
+    root: c.root,
+    problem: c.problem,
+    piece: c.piece,
+    units: c.units,
+    at: c.at,
+    bound: c.bound,
+    state: c.state,
+    endedAt: c.endedAt,
+  });
 
   return {
-    params, now, head, dropped,
+    params,
+    now,
+    head,
+    dropped,
     balance: view,
-    balances: () => new Map([...accounts.keys()].filter((r) => balanceOf(accounts.get(r)!) !== 0 || accounts.get(r)!.minted > 0 || accounts.get(r)!.received > 0).map((r) => [r, view(r)])),
-    lock: (id) => { const c = coins.get(id); return c ? strip(c) : null; },
+    balances: () =>
+      new Map(
+        [...accounts.keys()]
+          .filter(
+            (r) => balanceOf(accounts.get(r)!) !== 0 || accounts.get(r)!.minted > 0 || accounts.get(r)!.received > 0,
+          )
+          .map((r) => [r, view(r)]),
+      ),
+    lock: (id) => {
+      const c = coins.get(id);
+      return c ? strip(c) : null;
+    },
     locks: (root) => [...coins.values()].filter((c) => c.root === root).map(strip),
     epochs: () => epochs,
     redeems: (upto) => redeemLines.filter((x) => upto === undefined || x.seq <= upto),
