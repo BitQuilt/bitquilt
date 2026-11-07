@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash, commitHash, newNonce, problemHash } from '@bitquilt/core';
 import { epochAmount } from '../src/coin.js';
-import { addr, boot, envelope as signed, key } from './helpers.js';
+import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * The emission schedule's shape (QX-17 section 4, amended 28 October 2026): the curve's tail; the cap on what a unit
@@ -16,19 +16,13 @@ const ownerP = key(9),
   judge = key(11),
   treasury = key(7);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict', 'quote'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
-};
 const pieces = (count: number) => ({
   'statement/*': {
     count,
     verifier: 'agree' as const,
     requires: ['web' as const],
     brief: 'Statement {n}: does the paper say so?',
-    schema,
+    schema: VERDICT_QUOTE,
     agree: ['verdict'],
   },
 });

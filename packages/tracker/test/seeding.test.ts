@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Address, type Envelope, type Hash, commitHash, newNonce } from '@bitquilt/core';
 import { TENTH } from '../src/seeding.js';
-import { addr, boot, envelope as signed, key } from './helpers.js';
+import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * QX-4 and QX-5 at the tracker: seeders and the last seed read off `seed` events; a watch piece offered to a seeder
@@ -19,12 +19,6 @@ const A = key(1),
   S = key(6),
   B = key(7);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict', 'quote'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
-};
 
 function envelope(owner: Uint8Array, slug: string, count: number, watch = 0): Envelope {
   const pieces: Envelope['problem']['pieces'] = {
@@ -33,7 +27,7 @@ function envelope(owner: Uint8Array, slug: string, count: number, watch = 0): En
       verifier: 'agree',
       requires: ['web'],
       brief: 'Statement {n}: does the paper say so?',
-      schema,
+      schema: VERDICT_QUOTE,
       agree: ['verdict'],
     },
   };
@@ -43,7 +37,7 @@ function envelope(owner: Uint8Array, slug: string, count: number, watch = 0): En
       verifier: 'agree',
       requires: ['web'],
       brief: 'Watch {n}: is the paper still where it was, and does it still say so?',
-      schema,
+      schema: VERDICT_QUOTE,
       agree: ['verdict'],
     };
   return signed(owner, slug, pieces);
@@ -238,7 +232,7 @@ describe('the offer leaves out what assisted next leaves out (QX-5 section 4)', 
     verifier: 'human',
     requires: ['web' as const],
     brief: 'Does the paper say so? A person answers.',
-    schema,
+    schema: VERDICT_QUOTE,
     agree: ['verdict'],
   };
   const publishHere = async (e: Envelope): Promise<Hash> =>
@@ -269,7 +263,7 @@ describe('the offer leaves out what assisted next leaves out (QX-5 section 4)', 
           verifier: 'agree',
           requires: ['web'],
           brief: 'Does the paper say so?',
-          schema,
+          schema: VERDICT_QUOTE,
           agree: ['verdict'],
         },
       }),

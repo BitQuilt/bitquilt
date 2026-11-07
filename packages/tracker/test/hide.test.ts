@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Envelope, type Hash, eventId } from '@bitquilt/core';
-import { addr, boot, envelope as signed, key } from './helpers.js';
+import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * QX-6 at the tracker: a hide is taken only from a maintainer's key and only well formed; a hidden problem leaves the
@@ -11,12 +11,6 @@ const owner = key(9),
   M = key(21),
   X = key(22),
   A = key(1);
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict', 'quote'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
-};
 
 function envelope(slug: string): Envelope {
   return signed(owner, slug, {
@@ -25,7 +19,7 @@ function envelope(slug: string): Envelope {
       verifier: 'agree',
       requires: ['web'],
       brief: 'Statement {n}: does the paper say so?',
-      schema,
+      schema: VERDICT_QUOTE,
       agree: ['verdict'],
     },
   });

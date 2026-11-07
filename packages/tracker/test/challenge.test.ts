@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Address, type Envelope, type Hash, commitHash, newNonce, problemHash } from '@bitquilt/core';
 import { PANEL } from '../src/challenge.js';
-import { addr, boot, envelope as signed, key } from './helpers.js';
+import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * The challenge window (QX-1) at the tracker's door and in its layer: a challenge needs standing, a window still open,
@@ -18,12 +18,6 @@ const owner = key(9),
 const judges = [key(11), key(12), key(13), key(14)];
 const secretOf = new Map<Address, Uint8Array>([owner, A, B, C, D, E, ...judges].map((k) => [addr(k), k]));
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict', 'quote'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
-};
 
 function envelope(slug: string, count: number): Envelope {
   return signed(owner, slug, {
@@ -32,7 +26,7 @@ function envelope(slug: string, count: number): Envelope {
       verifier: 'agree',
       requires: ['web'],
       brief: 'Statement {n}: does the paper say so?',
-      schema,
+      schema: VERDICT_QUOTE,
       agree: ['verdict'],
     },
   });

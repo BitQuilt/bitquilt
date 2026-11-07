@@ -10,7 +10,7 @@ import {
   problemHash,
   verifyChain,
 } from '@bitquilt/core';
-import { addr, boot, envelope, key } from './helpers.js';
+import { VERDICT, addr, boot, envelope, key } from './helpers.js';
 
 /**
  * Doors fold each other's chains (docs/ext/QX-21.md): two trackers hold one problem, and the second names the first as
@@ -24,19 +24,13 @@ const owner = key(9),
   B = key(2),
   M = key(7);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] } },
-};
 const pieces = {
   'statement/*': {
     count: 2,
     verifier: 'agree',
     requires: ['web' as const],
     brief: 'Statement {n}: does the paper say so?',
-    schema,
+    schema: VERDICT,
     agree: ['verdict'],
   },
 };

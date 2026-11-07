@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash, commitHash, newNonce, problemHash } from '@bitquilt/core';
 import { foundingFromEnv, trackerOptionsFromEnv } from '../src/env.js';
-import { addr, boot, envelope as signed, key } from './helpers.js';
+import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * The founding standing (QX-1 section 2, amended 29 October 2026): a tracker may declare an amount per root, published
@@ -11,19 +11,13 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  */
 const owner = key(9),
   other = key(3);
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict', 'quote'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
-};
 const P = signed(owner, 'founded', {
   'statement/*': {
     count: 3,
     verifier: 'agree',
     requires: ['web'],
     brief: 'Statement {n}: does the paper say so?',
-    schema,
+    schema: VERDICT_QUOTE,
     agree: ['verdict'],
   },
 });

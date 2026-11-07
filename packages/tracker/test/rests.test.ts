@@ -13,7 +13,7 @@ import {
   signEvent,
 } from '@bitquilt/core';
 import { passageIn, restsOf } from '../src/trace.js';
-import { addr, envelope, key, line } from './helpers.js';
+import { VERDICT, addr, envelope, key, line } from './helpers.js';
 
 /**
  * What a reading rests on (QX-19), as `restsOf` reads it from the receipts, the rule the square page shows: each field
@@ -27,18 +27,12 @@ const owner = key(9),
   A = key(1),
   B = key(2);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] } },
-};
 const family = (brief: string) => ({
   count: 1,
   verifier: 'agree',
   requires: ['web' as const],
   brief,
-  schema,
+  schema: VERDICT,
   agree: ['verdict'],
 });
 const at = (m: number) => new Date(Date.parse('2026-11-07T08:00:00Z') + m * 60_000).toISOString();

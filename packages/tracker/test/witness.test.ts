@@ -6,7 +6,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { type Hash, type Receipt, commitHash, newNonce, problemHash } from '@bitquilt/core';
 import { PRIVATE_RANGES, clientAddressOf, inRanges, plainAddress, rangesOf } from '../src/address.js';
 import { Store } from '../src/store.js';
-import { addr, boot, envelope, key } from './helpers.js';
+import { VERDICT, addr, boot, envelope, key } from './helpers.js';
 
 /**
  * QX-18 at the tracker's door: the witness the hosted on-ramp names in `x-quilt-via` is written beside
@@ -24,12 +24,6 @@ const owner = key(9),
   C = key(3),
   D = key(4);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] } },
-};
 const CUSTODY = 'custody-secret';
 const t = boot('2026-11-01T10:00:00.000Z', {
   limits: { keyPerHour: 1000, ipPerHour: 10000 },
@@ -75,7 +69,7 @@ describe('the witness at the door (QX-18)', () => {
         verifier: 'agree',
         requires: ['web'],
         brief: 'Statement {n}: does the paper say so?',
-        schema,
+        schema: VERDICT,
       },
     });
     expect((await post('/p', { envelope: e })).status).toBe(201);

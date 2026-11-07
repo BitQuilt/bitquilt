@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash, commitHash, newNonce, problemHash } from '@bitquilt/core';
-import { addr, boot, envelope, key } from './helpers.js';
+import { VERDICT, addr, boot, envelope, key } from './helpers.js';
 
 /**
  * The directory row (APP.md, Search; CORE.md section 2 on `from`; QX-19 section 3): the tracker's index carries the
@@ -15,19 +15,13 @@ const owner = key(9),
   A = key(1),
   B = key(2);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] } },
-};
 const pieces = {
   'statement/*': {
     count: 2,
     verifier: 'agree',
     requires: ['web' as const],
     brief: 'Statement {n}: does the paper say so?',
-    schema,
+    schema: VERDICT,
     agree: ['verdict'],
   },
 };
