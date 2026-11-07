@@ -28,7 +28,7 @@ export {
   verdictBodyProblems,
   acceptingRoots,
   rootFor,
-  EXTENSION,
+  CHALLENGE,
   PANEL,
   MAJORITY,
   GROUND_MAX,

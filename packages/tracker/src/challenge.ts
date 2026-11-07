@@ -110,7 +110,7 @@ import { drawOrder, offerSeats } from './sortition.js';
 
 export { rootFor, acceptingRoots, creditedRoots };
 export type { CoinLockWord };
-export const EXTENSION = 'QX-1';
+export const CHALLENGE = 'QX-1';
 export const PANEL = 3;
 export const MAJORITY = 2;
 export const GROUND_MAX = 200;

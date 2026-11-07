@@ -44,8 +44,8 @@ import { createHash } from 'node:crypto';
 import {
   type Layer,
   type ProblemLayer,
+  CHALLENGE,
   CHALLENGE_EVENTS,
-  EXTENSION,
   GROUND_MAX,
   MAJORITY,
   PANEL,
@@ -936,7 +936,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       limits,
       stamp: { name: stampNeeded },
       sortition: SEED,
-      challenge: { extension: EXTENSION, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
+      challenge: { extension: CHALLENGE, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
       verifiers: {
         human: EXTENSIONS.human,
         'judge:n': EXTENSIONS.judge,

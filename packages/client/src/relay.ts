@@ -13,7 +13,7 @@ import { type Event, type Hash, eventSignedByKey, eventProblems, isHash, textIss
 
 /** The event kind announcements use: parameterized replaceable, so a relay keeps one per key and problem. */
 export const KIND = 30177;
-export const EXTENSION = 'QX-14';
+export const RELAYS = 'QX-14';
 
 export interface NostrEvent {
   id: string;
