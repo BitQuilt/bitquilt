@@ -16,7 +16,8 @@ export const KEY_HEX_RE = /^[0-9a-fA-F]{64}$/;
 
 /** `v` as a hash of 64 lowercase hex characters, or a refusal naming the line and the field. */
 export function hex64(v: unknown, at: string, what: string): string {
-  if (typeof v !== 'string' || !HEX64_RE.test(v)) throw new Error(`${at} has no ${what} of 64 lowercase hex characters`);
+  if (typeof v !== 'string' || !HEX64_RE.test(v))
+    throw new Error(`${at} has no ${what} of 64 lowercase hex characters`);
   return v;
 }
 

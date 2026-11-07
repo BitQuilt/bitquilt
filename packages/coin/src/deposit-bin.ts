@@ -15,4 +15,8 @@ if (!amount || !/^[0-9]+$/.test(amount) || BigInt(amount) < 1n) usage('bitquilt-
 if (root !== undefined && !ADDRESS_RE.test(root)) usage('the root is an address');
 const { chain } = fromEnv({ keyVar: 'QUILT_HOLDER_KEY' });
 const to = (root as Address | undefined) ?? selfAddress(chain);
-run('deposit', async () => ({ amount: Number(amount), root: to, tx: (await deposit(chain, { amount: BigInt(amount), root: to })).tx }));
+run('deposit', async () => ({
+  amount: Number(amount),
+  root: to,
+  tx: (await deposit(chain, { amount: BigInt(amount), root: to })).tx,
+}));

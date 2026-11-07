@@ -15,7 +15,10 @@ export interface ClaimDoor {
   headAt(chain: Chain, seq: number): Promise<PostedHead>;
   isFinal(chain: Chain, seq: number): Promise<boolean>;
   isRedeemed(chain: Chain, id: Hex): Promise<boolean>;
-  redeem(chain: Chain, line: { seq: number; id: Hex; to: Address; amount: bigint; proof: readonly Hex[] }): Promise<{ tx: Hex }>;
+  redeem(
+    chain: Chain,
+    line: { seq: number; id: Hex; to: Address; amount: bigint; proof: readonly Hex[] },
+  ): Promise<{ tx: Hex }>;
 }
 
 export interface ClaimOptions {
@@ -40,21 +43,35 @@ export interface ClaimReport {
 export async function claim(options: ClaimOptions): Promise<ClaimReport> {
   const door: ClaimDoor = options.door ?? { lastPosted, headAt, isFinal, isRedeemed, redeem };
   const id = options.id.replace(/^0x/i, '').toLowerCase();
-  if (!HEX64_RE.test(id)) throw new Error('the line id is 64 hex characters, the coin log line\'s hash');
+  if (!HEX64_RE.test(id)) throw new Error("the line id is 64 hex characters, the coin log line's hash");
   const last = await door.lastPosted(options.chain);
   if (last === 0) throw new Error('nothing is posted yet; the poster carries the line first');
-  const { head, redeems } = await readRedeems(options.home, { upto: last, agent: 'bitquilt-claim', fetchImpl: options.fetchImpl });
+  const { head, redeems } = await readRedeems(options.home, {
+    upto: last,
+    agent: 'bitquilt-claim',
+    fetchImpl: options.fetchImpl,
+  });
   if (head.seq !== last) throw new Error(`the home answers for sequence ${head.seq}, not the posted ${last}`);
   const line = redeems.find((r) => r.id === id);
-  if (!line) throw new Error(`no redeem line ${id} under the posted head ${last}; a line after it waits for the next post`);
+  if (!line)
+    throw new Error(`no redeem line ${id} under the posted head ${last}; a line after it waits for the next post`);
   const posted = await door.headAt(options.chain, last);
-  if (!posted.posted || posted.head.toLowerCase() !== `0x${head.hash}`) throw new Error(`the head posted at ${last} is not the home's`);
+  if (!posted.posted || posted.head.toLowerCase() !== `0x${head.hash}`)
+    throw new Error(`the head posted at ${last} is not the home's`);
   const root = redeemRoot(redeems);
-  if (posted.root.toLowerCase() !== root.toLowerCase()) throw new Error(`the redeem root posted at ${last} is not the one the home's lines give`);
-  if (!(await door.isFinal(options.chain, last))) throw new Error(`the head at ${last} is not final yet; its veto window is still open`);
+  if (posted.root.toLowerCase() !== root.toLowerCase())
+    throw new Error(`the redeem root posted at ${last} is not the one the home's lines give`);
+  if (!(await door.isFinal(options.chain, last)))
+    throw new Error(`the head at ${last} is not final yet; its veto window is still open`);
   if (await door.isRedeemed(options.chain, `0x${id}`)) throw new Error('this line is redeemed already');
   const leaves = redeems.map((r) => leaf(`0x${r.id}`, r.to, r.amount));
   const p = proofOf(leaves, leaf(`0x${id}`, line.to, line.amount));
-  const { tx } = await door.redeem(options.chain, { seq: last, id: `0x${id}`, to: line.to as Address, amount: BigInt(line.amount), proof: p });
+  const { tx } = await door.redeem(options.chain, {
+    seq: last,
+    id: `0x${id}`,
+    to: line.to as Address,
+    amount: BigInt(line.amount),
+    proof: p,
+  });
   return { id, seq: last, to: line.to, amount: line.amount, tx };
 }
