@@ -309,7 +309,7 @@ describe('the page of a square', () => {
     await a.return(p, apart, { verdict: 'supports' }, at(HOLDS));
     await b.return(p, apart, { verdict: 'contradicts' }, at(NOT_AT_SCALE));
     // Every trace rests on the one page the test serves, kept under one hash.
-    const read = (store.receipts(p).find((r) => r.event.type === 'trace')!.event.body as { reads: { hash: Hash }[] }).reads[0]!.hash;
+    const read = (store.lines(p).find((r) => r.event.type === 'trace')!.event.body as { reads: { hash: Hash }[] }).reads[0]!.hash;
     const rest = (passage: string | null) => `verdict rests on ${passage === null ? 'a page kept here' : `“${passage}”`} at <a href="${site}/paper" rel="nofollow noopener">${site}/paper</a>, kept as <code>${read}</code>`;
     const NONE = 'It names no page it rests on.';
     /** What each reading on the page rests on, in the page's order: the items of its list, or the sentence that it names none. */
