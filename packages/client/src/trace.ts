@@ -7,7 +7,7 @@
  */
 import { type Hash, hashBytes } from '@bitquilt/core';
 import type { Door } from './door.js';
-import { Refused, publicGet, readCapped } from './public-fetch.js';
+import { Refused, publicFetch, readCapped, shared } from './public-fetch.js';
 import type { Posted } from './resolver.js';
 
 /** What the model hands in beside a field: the page and the words on it the field rests on. */
@@ -67,7 +67,7 @@ export function locate(text: string, passage: string): [number, number] | null {
 /**
  * A page fetched once and drawn to text, or the reason it could not be. Where the connector is shared
  * (`QUILT_READS=public`, which the hosted binary sets), it fetches on a stranger's word and serves what it kept to
- * anyone, so the GET is `publicGet`'s, refused at a private address on every hop. In either case the body is read to
+ * anyone, so the GET is `publicFetch`'s, refused at a private address on every hop. In either case the body is read to
  * READ_MAX and no further, and the reason names the kind of failure and nothing the network or the page said.
  */
 export async function fetchRead(url: string, now: string): Promise<{ read: ReadKept } | { why: string }> {
@@ -81,7 +81,7 @@ export async function fetchRead(url: string, now: string): Promise<{ read: ReadK
   const signal = AbortSignal.timeout(FETCH_MS);
   const accept = 'text/html, text/plain;q=0.9, */*;q=0.1';
   try {
-    const r = process.env.QUILT_READS === 'public' ? await publicGet(url, { accept, signal }) : await fetch(url, { signal, headers: { accept }, redirect: 'follow' });
+    const r = await (shared() ? publicFetch : fetch)(url, { signal, headers: { accept }, redirect: 'follow' });
     const contentType = r.headers.get('content-type') ?? 'text/plain';
     const why = !r.ok ? `the page answered ${r.status}` : !/^(text\/|application\/(xhtml\+xml|xml|json))/i.test(contentType) ? 'the page is not text' : null;
     if (why) {

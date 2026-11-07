@@ -109,7 +109,7 @@ export async function windowAnswer(quilt: Quilt, input: Record<string, unknown>)
     case 'totals': {
       // Doors that fold each other hold the same problems (QX-21), so the swarm is counted once per problem, by hash, over every tracker's index; where two differ on one, the row further along its chain is read. Each tracker says how many it lists, or null where it gave no answer.
       type Row = { problem?: string; pieces?: number; counts?: Record<string, number>; head?: { seq?: number } | null };
-      const indexes = await inParallel(quilt.config.trackers, 4, async (tracker) => ({ tracker, rows: (await askJson<{ problems?: Row[] }>(`${tracker}search?q=`))?.problems ?? null }));
+      const indexes = await inParallel(quilt.config.trackers, 4, async (tracker) => ({ tracker, rows: (await askJson<{ problems?: Row[] }>(`${tracker}search?q=`, 8000, quilt.resolver.fetchImpl))?.problems ?? null }));
       const byHash = new Map<string, Row>();
       for (const { rows } of indexes) {
         for (const r of rows ?? []) {

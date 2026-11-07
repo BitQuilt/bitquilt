@@ -17,7 +17,8 @@ import { answerText, sentenceVendor, vendorSentence } from '../src/sentence.js';
  * The hosted on-ramp beside a tracker: an address handed out with a key the tracker holds, the join page served; the
  * connector served at that address over MCP, declaring the host and marking custody on every event it posts; the key
  * taken home by its address, and a session from one address refused at another; a post to another tracker a link
- * names carries neither the custody secret nor the witness; the sheet a browser gets at the same
+ * names carries neither the custody secret nor the witness, and where the connector is shared a link that names a
+ * private address reaches nothing, for a member or the site's reader; the sheet a browser gets at the same
  * address, with its data beside it. And the owners' turn (QX-19 section 4, QX-16): the on-ramp sharpens a hosted
  * owner's brief where two grounded readings read it apart, with the sentence from the vendor its environment names,
  * and passes over a member with nothing to do.
@@ -138,6 +139,39 @@ describe('the hosted on-ramp', () => {
       expect(mine.map((l) => l.event.type)).toEqual(['claim', 'commit', 'reveal']);
       expect(mine.every((l) => l.received[0]!.custody === 'hosted')).toBe(true);
     } finally {
+      other.closeAllConnections();
+      await new Promise<void>((r) => other.close(() => r()));
+    }
+  });
+  it('reaches no private address a link names where the connector is shared, for a member or the site\'s reader, and still posts to its own door', async () => {
+    let hits = 0;
+    const other = createServer((req, res) => {
+      hits++;
+      req.resume();
+      res.writeHead(404);
+      res.end();
+    });
+    await new Promise<void>((r) => other.listen(0, '127.0.0.1', () => r()));
+    const elsewhere = `http://127.0.0.1:${(other.address() as AddressInfo).port}/`;
+    const before = process.env.QUILT_READS;
+    process.env.QUILT_READS = 'public';
+    try {
+      const joined = (await (await fetch(`${base}join`, { method: 'POST' })).json()) as { address: string; url: string };
+      const client = new Client({ name: 'claude-ai', version: '1.0' });
+      await client.connect(new StreamableHTTPClientTransport(new URL(joined.url)));
+      const next = await client.callTool({ name: 'quilt_next', arguments: { problem: makeLink(problem as Hash, [elsewhere]) } });
+      expect((next.structuredContent as { handles: { problem: string } }).handles.problem).toBe(problem);
+      await client.close();
+      const opened = await fetch(`${base}window/io?op=open&link=${encodeURIComponent(makeLink(problem as Hash, [elsewhere], 'by a link'))}`);
+      expect(opened.status).toBe(200);
+      expect(hits).toBe(0);
+      const lines = (await (await fetch(`${base}p/${problem}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as Receipt);
+      const mine = lines.filter((l) => l.event.key === joined.address);
+      expect(mine.map((l) => l.event.type)).toEqual(['claim']);
+      expect(mine[0]!.received[0]!.custody).toBe('hosted');
+    } finally {
+      if (before === undefined) delete process.env.QUILT_READS;
+      else process.env.QUILT_READS = before;
       other.closeAllConnections();
       await new Promise<void>((r) => other.close(() => r()));
     }

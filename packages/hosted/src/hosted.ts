@@ -18,7 +18,7 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { appendFileSync } from 'node:fs';
 import { type Address, addressOf, randomSecretKey, secretFromHex, secretToHex, withSlash } from '@bitquilt/core';
 import { PRIVATE_RANGES, type Store, clientAddress, rangesOf } from '@bitquilt/tracker';
-import { AWAY_LOG, type Config, DEFAULT_CONFIG, type OwnerTurn, Quilt, Resolver, WINDOW_HTML, WINDOW_OPS, WINDOW_READ_OPS, type Witness, createMcpServer, localRunner, ownerTurn, sheetOf, windowAnswer } from 'quilt';
+import { AWAY_LOG, type Config, DEFAULT_CONFIG, type OwnerTurn, Quilt, Resolver, WINDOW_HTML, WINDOW_OPS, WINDOW_READ_OPS, type Witness, createMcpServer, localRunner, ownerTurn, publicFetch, sheetOf, shared, windowAnswer } from 'quilt';
 import { joinPage } from './join-page.js';
 import { type OAuthServer, createOAuth } from './oauth.js';
 import { type Sentence, vendorSentence } from './sentence.js';
@@ -122,6 +122,24 @@ export function createHosted(options: HostedOptions): Hosted {
   const { store, keySecret, custodySecret } = options;
   const trackerUrl = (): string => withSlash(typeof options.trackerUrl === 'function' ? options.trackerUrl() : options.trackerUrl);
   const now = options.now ?? (() => new Date().toISOString());
+  // Every request a Quilt here makes, and the authorization server's, goes to this tracker as it is and, where the
+  // connector is shared (QUILT_READS=public, which the binary sets), anywhere else through the guarded fetch: a
+  // tracker, a mirror or a coin's home that a link or a document names, and a client's metadata document, reach
+  // nothing on this machine or its networks.
+  const base = options.fetchImpl ?? fetch;
+  const own = (href: string): boolean => {
+    try {
+      const u = new URL(href);
+      const door = new URL(trackerUrl());
+      return u.origin === door.origin && u.pathname.startsWith(door.pathname);
+    } catch {
+      return false;
+    }
+  };
+  const outward: typeof fetch = (input, init) => {
+    const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    return !shared() || own(href) ? base(input, init) : publicFetch(input, init);
+  };
   const joinsPerHour = options.joinsPerHour ?? 20;
   const readsPerHour = options.readsPerHour ?? 1200;
 
@@ -133,7 +151,7 @@ export function createHosted(options: HostedOptions): Hosted {
   const readerOf = (): Quilt => {
     if (!readerQuilt) {
       const config: Config = { ...DEFAULT_CONFIG, trackers: [trackerUrl()], relays: options.relays ?? [], can: ['web'] };
-      readerQuilt = new Quilt(config, null, new Resolver(config, join(options.home, 'reader')), 'site');
+      readerQuilt = new Quilt(config, null, new Resolver(config, join(options.home, 'reader'), outward), 'site');
     }
     return readerQuilt;
   };
@@ -165,7 +183,7 @@ export function createHosted(options: HostedOptions): Hosted {
       name: options.name ?? trackerUrl(),
       bucketFor: (req) => addressHash(req),
       clientAddress: (req) => clientAddress(req, trustedProxies),
-      fetchImpl: options.fetchImpl ?? fetch,
+      fetchImpl: outward,
       ...(options.oauth.ranges ? { ranges: options.oauth.ranges } : {}),
     })
     : null;
@@ -185,13 +203,13 @@ export function createHosted(options: HostedOptions): Hosted {
     const secret = secretFromHex(decrypt(keySecret, member.keyEnc));
     const config: Config = { ...DEFAULT_CONFIG, trackers: [trackerUrl()], relays: options.relays ?? [], can: ['web'], ...(member.name ? { name: member.name } : {}) };
     const home = join(options.home, hash);
-    const resolver = new Resolver(config, home, options.fetchImpl ?? fetch, { to: trackerUrl(), headers: { 'x-quilt-custody': custodySecret, ...witnessHeaders(witness) } });
+    const resolver = new Resolver(config, home, outward, { to: trackerUrl(), headers: { 'x-quilt-custody': custodySecret, ...witnessHeaders(witness) } });
     return new Quilt(config, { secret, address: addressOf(secret) }, resolver, hostName, witness);
   }
 
   // QX-19 section 4, QX-16: the owners' turn. A person who runs nothing has no node to reveal their gold or sharpen
   // their briefs, so the on-ramp, which signs for them, does it for every member whose home holds a problem or a gold.
-  const sentence: Sentence | null = options.sentence === undefined ? vendorSentence(options.env ?? process.env, options.fetchImpl ?? fetch) : options.sentence;
+  const sentence: Sentence | null = options.sentence === undefined ? vendorSentence(options.env ?? process.env, base) : options.sentence;
   async function turn(): Promise<MemberTurn[]> {
     const out: MemberTurn[] = [];
     for (const hash of store.members()) {

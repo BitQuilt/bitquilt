@@ -12,6 +12,7 @@ import { createHash, createPublicKey, verify as verifySignature, type JsonWebKey
 import { isIP } from 'node:net';
 import { OAuthClientMetadataSchema } from '@modelcontextprotocol/sdk/shared/auth.js';
 import type { Store } from '@bitquilt/tracker';
+import { Refused, readCapped } from 'quilt';
 
 /** The most a document or a key set may be. */
 export const DOCUMENT_MAX = 16 * 1024;
@@ -99,19 +100,26 @@ export class Documents {
     return Date.parse(this.options.now());
   }
 
-  /** A small JSON document from a public URL: no redirect followed, at most DOCUMENT_MAX bytes, JSON or nothing. */
+  /** A small JSON document from a public URL: no redirect followed, read to DOCUMENT_MAX bytes and no further, JSON or nothing. */
   private async read(url: string): Promise<{ json: unknown; headers: Headers }> {
     let r: Response;
     try {
       r = await this.options.fetchImpl(url, { redirect: 'manual', headers: { accept: 'application/json' }, signal: AbortSignal.timeout(5000) });
     } catch (err) {
+      throw new DocumentError(`${url} could not be read: ${err instanceof Refused ? err.why : (err as Error).message}`);
+    }
+    if (r.status !== 200) {
+      await r.body?.cancel().catch(() => {});
+      throw new DocumentError(`${url} answered ${r.status}`);
+    }
+    let bytes: Uint8Array | null;
+    try {
+      bytes = await readCapped(r, DOCUMENT_MAX);
+    } catch (err) {
       throw new DocumentError(`${url} could not be read: ${(err as Error).message}`);
     }
-    if (r.status !== 200) throw new DocumentError(`${url} answered ${r.status}`);
-    const length = Number(r.headers.get('content-length') ?? 0);
-    if (length > DOCUMENT_MAX) throw new DocumentError(`${url} is over ${DOCUMENT_MAX} bytes`);
-    const text = await r.text();
-    if (text.length > DOCUMENT_MAX) throw new DocumentError(`${url} is over ${DOCUMENT_MAX} bytes`);
+    if (!bytes) throw new DocumentError(`${url} is over ${DOCUMENT_MAX} bytes`);
+    const text = new TextDecoder().decode(bytes);
     try {
       return { json: JSON.parse(text) as unknown, headers: r.headers };
     } catch {

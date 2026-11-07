@@ -91,7 +91,8 @@ export interface PostHeaders { to: string; headers: Record<string, string> }
 
 export class Resolver {
   readonly home: string;
-  private readonly fetchImpl: typeof fetch;
+  /** How this resolver reaches the network, and every request of the Quilt over it: the guarded fetch where the connector is shared. */
+  readonly fetchImpl: typeof fetch;
 
   private readonly postHeaders: PostHeaders | null;
   private readonly libraryFile: string;

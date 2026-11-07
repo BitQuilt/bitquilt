@@ -5,7 +5,7 @@
  */
 import { type Address, type Hash, eventId, isAddress } from '@bitquilt/core';
 import type { Door } from './door.js';
-import { type Posted, askJson } from './resolver.js';
+import type { Posted } from './resolver.js';
 
 /** This key's coin at a home (QX-17), as /coin/balance answers it: the balance in units, what has vested, what is locked or escrowed, and what is free. `home` is the coin's home, the tracker that keeps the coin log. */
 export interface CoinBalance {
@@ -40,7 +40,7 @@ export async function coinHome(door: Door): Promise<string | null> {
 export async function coinBalance(door: Door, home: string): Promise<CoinBalance | null> {
   const address = door.identity?.address;
   if (!address) return null;
-  const j = await askJson<Omit<CoinBalance, 'home'>>(`${home}coin/balance/${address}`);
+  const j = await door.ask<Omit<CoinBalance, 'home'>>(`${home}coin/balance/${address}`);
   return j && { home, balance: j.balance, vested: j.vested, unvested: j.unvested, locked: j.locked, escrowed: j.escrowed, free: j.free, free_vested: j.free_vested, ...(j.pending ? { pending: j.pending } : {}) };
 }
 

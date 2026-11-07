@@ -1,11 +1,11 @@
 /**
- * A GET made on a stranger's word by a connector many people share (`QUILT_READS=public`, which the hosted binary
- * sets). Every connection is checked as it is made: a literal address before it is dialled, a name at the lookup the
- * connection itself uses, so a name cannot answer one address to the check and another to the socket. A redirect is
- * followed by hand, a few at most, and its hop is checked the same way. Nothing is pooled, so no connection made
- * without the check is reused. What is refused is the machine itself, the private and shared networks, link-local
- * addresses, the ranges set aside for documentation, tests and multicast, and the IPv6 forms that carry an IPv4
- * address inside them.
+ * A request made on a stranger's word by a connector many people share (`QUILT_READS=public`, which the hosted binary
+ * sets): a trace's page, a tracker or a mirror a link names, a client's metadata document. Every connection is checked
+ * as it is made: a literal address before it is dialled, a name at the lookup the connection itself uses, so a name
+ * cannot answer one address to the check and another to the socket. A redirect is followed by hand, a few at most,
+ * and its hop is checked the same way. Nothing is pooled, so no connection made without the check is reused. What is
+ * refused is the machine itself, the private and shared networks, link-local addresses, the ranges set aside for
+ * documentation, tests and multicast, and the IPv6 forms that carry an IPv4 address inside them.
  */
 import { type LookupAddress, lookup as dnsLookup } from 'node:dns';
 import { type IncomingMessage, request as httpRequest } from 'node:http';
@@ -14,7 +14,7 @@ import { BlockList, type LookupFunction, isIP } from 'node:net';
 import { Readable, pipeline } from 'node:stream';
 import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib';
 
-/** The most redirects one GET follows. */
+/** The most redirects one request follows. */
 export const REDIRECTS_MAX = 5;
 
 // One list for each family: a BlockList checks an IPv4 address against its IPv6 rules as the mapped form, which `::ffff:0:0/96` would refuse whole.
@@ -43,7 +43,7 @@ export function publicAddress(ip: string): boolean {
   }
 }
 
-/** A GET this connector will not make, with the reason in words a person reads. */
+/** A request this connector will not make, with the reason in words a person reads. */
 export class Refused extends Error {
   constructor(readonly why: string) {
     super(why);
@@ -63,22 +63,36 @@ function guardedLookup(isPublic: (ip: string) => boolean): LookupFunction {
   };
 }
 
-function once(url: URL, accept: string, signal: AbortSignal, isPublic: (ip: string) => boolean): Promise<IncomingMessage> {
+/** Whether the connector is shared, so what it fetches on a stranger's word goes through the guard: `QUILT_READS=public`. */
+export function shared(): boolean {
+  return process.env.QUILT_READS === 'public';
+}
+
+interface Asked { method: string; headers: Record<string, string>; body: Uint8Array | null; signal: AbortSignal | undefined }
+
+function once(url: URL, asked: Asked, isPublic: (ip: string) => boolean): Promise<IncomingMessage> {
   return new Promise((resolve, reject) => {
     const host = url.hostname.replace(/^\[|\]$/g, '');
     if (isIP(host) && !isPublic(host)) return reject(new Refused(PRIVATE));
     const request = url.protocol === 'https:' ? httpsRequest : httpRequest;
-    const req = request(url, {
-      method: 'GET', agent: false, lookup: guardedLookup(isPublic), signal,
-      headers: { accept, 'accept-encoding': 'gzip, deflate, br', 'user-agent': 'quilt' },
-    }, resolve);
+    const headers = { ...asked.headers, ...(asked.body ? { 'content-length': String(asked.body.byteLength) } : {}) };
+    const req = request(url, { method: asked.method, agent: false, lookup: guardedLookup(isPublic), headers, ...(asked.signal ? { signal: asked.signal } : {}) }, resolve);
     req.on('error', reject);
-    req.end();
+    req.end(asked.body ?? undefined);
   });
 }
 
+/** A request body as bytes: text, bytes, or nothing. */
+function bodyBytes(body: RequestInit['body']): Uint8Array | null {
+  if (body === undefined || body === null) return null;
+  if (typeof body === 'string') return new TextEncoder().encode(body);
+  if (body instanceof ArrayBuffer) return new Uint8Array(body);
+  if (ArrayBuffer.isView(body)) return new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
+  throw new TypeError('a body here is text or bytes');
+}
+
 /** The response as a fetch Response, its body decoded as served and not yet read. */
-function asResponse(res: IncomingMessage): Response {
+function asResponse(res: IncomingMessage, method: string): Response {
   const status = res.statusCode ?? 0;
   if (status < 200 || status > 599) {
     res.destroy();
@@ -86,7 +100,7 @@ function asResponse(res: IncomingMessage): Response {
   }
   const headers = new Headers();
   for (const [k, v] of Object.entries(res.headers)) if (v !== undefined) for (const one of Array.isArray(v) ? v : [v]) headers.append(k, one);
-  if ([204, 205, 304].includes(status)) {
+  if ([204, 205, 304].includes(status) || method === 'HEAD') {
     res.destroy();
     return new Response(null, { status, headers });
   }
@@ -101,21 +115,35 @@ function asResponse(res: IncomingMessage): Response {
 }
 
 /**
- * A GET of an http or https URL, refused at a private address on any hop, following at most REDIRECTS_MAX redirects.
- * Resolves to the last response with its body still to be read, so the caller holds it to a size; rejects with
- * `Refused`, or with the network's own error. `isPublic` is the check, the tests' way in.
+ * `fetch`, refused at a private address on any hop: an http or https URL, a body of text or bytes, at most
+ * REDIRECTS_MAX redirects followed (a 303, or a 301 or 302 after a POST, goes on as a GET without the body, as fetch
+ * does; another origin's hop drops authorization), or the redirect handed back under `redirect: 'manual'`. Resolves to
+ * the last response with its body still to be read, so the caller holds it to a size; rejects with `Refused`, or with
+ * the network's own error. `isPublic` is the check, the tests' way in.
  */
-export async function publicGet(target: string, o: { accept: string; signal: AbortSignal }, isPublic: (ip: string) => boolean = publicAddress): Promise<Response> {
-  let url = new URL(target);
+export async function publicFetch(input: string | URL | Request, init: RequestInit = {}, isPublic: (ip: string) => boolean = publicAddress): Promise<Response> {
+  if (typeof input !== 'string' && !(input instanceof URL)) throw new TypeError('publicFetch takes a URL');
+  let url = new URL(input);
+  const headers: Record<string, string> = { accept: '*/*', 'accept-encoding': 'gzip, deflate, br', 'user-agent': 'quilt' };
+  new Headers(init.headers).forEach((v, k) => { headers[k] = v; });
+  const asked: Asked = { method: (init.method ?? 'GET').toUpperCase(), headers, body: bodyBytes(init.body), signal: init.signal ?? undefined };
   for (let hop = 0; ; hop++) {
     if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Refused('a redirect to something other than http or https');
-    const res = await once(url, o.accept, o.signal, isPublic);
+    const res = await once(url, asked, isPublic);
     const status = res.statusCode ?? 0;
     const location = res.headers.location;
-    if (status < 300 || status > 399 || !location) return asResponse(res);
+    if (status < 300 || status > 399 || !location || init.redirect === 'manual') return asResponse(res, asked.method);
     res.destroy();
+    if (init.redirect === 'error') throw new Refused('a redirect, which this request does not follow');
     if (hop >= REDIRECTS_MAX) throw new Refused(`more than ${REDIRECTS_MAX} redirects`);
-    url = new URL(location, url);
+    const next = new URL(location, url);
+    if (status === 303 || ((status === 301 || status === 302) && asked.method === 'POST')) {
+      asked.method = asked.method === 'HEAD' ? 'HEAD' : 'GET';
+      asked.body = null;
+      delete asked.headers['content-type'];
+    }
+    if (next.origin !== url.origin) delete asked.headers.authorization;
+    url = next;
   }
 }
 
