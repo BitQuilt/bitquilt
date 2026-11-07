@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { type Envelope, type Event, type Hash, type Receipt, type Unsigned, commitHash, eventId, hashBytes, hashCanonical, newNonce, problemHash, reduce, signEvent } from '@bitquilt/core';
+import { type Envelope, type Hash, type Receipt, type Unsigned, commitHash, eventId, hashBytes, newNonce, problemHash, reduce, signEvent } from '@bitquilt/core';
 import { passageIn, restsOf } from '../src/trace.js';
-import { addr, envelope, key } from './helpers.js';
+import { addr, envelope, key, line } from './helpers.js';
 
 /**
  * What a reading rests on (QX-19), as `restsOf` reads it from the receipts, the rule the square page shows: each field
@@ -16,7 +16,6 @@ const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] 
 const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } };
 const family = (brief: string) => ({ count: 1, verifier: 'agree', requires: ['web' as const], brief, schema, agree: ['verdict'] });
 const at = (m: number) => new Date(Date.parse('2026-11-07T08:00:00Z') + m * 60_000).toISOString();
-const line = (event: Event, when: string): Receipt => ({ event, received: [{ by: 'https://t.example/', at: when, custody: 'self' }], hash: hashCanonical([event.sig, when]) });
 
 const enc = new TextEncoder();
 const PAGE = 'The paper says the effect holds in every trial. A later section says it does not hold at scale.';
@@ -78,12 +77,18 @@ describe('what a reading rests on', () => {
     expect(restsOf(claimView, log1, passage(false))(ra)).toEqual([rested(HOLDS, false)]);
   });
 
-  it('keeps the first trace on a reveal, and takes none from a key that did not reveal it', () => {
-    const twice = [...log1, traced(A, claim, a.reveal, NOT_AT_SCALE), traced(B, claim, a.reveal, NOT_AT_SCALE)];
+  it('keeps the first trace where one reveal is named twice', () => {
+    const twice = [...log1, traced(A, claim, a.reveal, NOT_AT_SCALE)];
     const view = reduce({ envelopes: [first], blobs: new Map(), receipts: twice, now: at(60) }).byHash.get(claim)!;
-    const rests = restsOf(view, twice, passage(true));
-    expect(rests(view.reveals[0]!)).toEqual([rested(HOLDS)]);
-    expect(rests(view.reveals[1]!)).toEqual([]);
+    expect(restsOf(view, twice, passage(true))(view.reveals[0]!)).toEqual([rested(HOLDS)]);
+  });
+
+  it('takes no trace from a key that did not make the reveal it names', () => {
+    // B's reading has no trace of its own, so A's trace on it would be the only one there.
+    const foreign = [...log1, traced(A, claim, b.reveal, NOT_AT_SCALE)];
+    const view = reduce({ envelopes: [first], blobs: new Map(), receipts: foreign, now: at(60) }).byHash.get(claim)!;
+    expect(view.reveals[1]!.key).toBe(addr(B));
+    expect(restsOf(view, foreign, passage(true))(view.reveals[1]!)).toEqual([]);
   });
 
   it('finds a reading made under an earlier version on that version\'s log, where the receipts are every version\'s of the chain', () => {
