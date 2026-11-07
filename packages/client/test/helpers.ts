@@ -1,7 +1,7 @@
 /**
  * What the client's tests set up again and again: a tracker on a free port, a temporary home with a key, a Quilt over
- * a tracker, the connector over an in-memory MCP pair, and a JSON fetch. Each test keeps its own pattern and its own
- * assertions; only the scaffolding is here.
+ * a tracker, the connector over an in-memory MCP pair, a call made under the second opinion's switch, and a JSON
+ * fetch. Each test keeps its own pattern and its own assertions; only the scaffolding is here.
  */
 import { mkdtempSync } from 'node:fs';
 import type { Server } from 'node:http';
@@ -64,6 +64,16 @@ export async function mcpPair(quilt: Quilt, clientName = 'claude-test', connecte
       await server.close();
     },
   };
+}
+
+/** The call made with the house second opinion's switch set (QUILT_NEXT_ONLY=verify), and the switch unset again whatever happens. */
+export async function verifying<T>(f: () => Promise<T>): Promise<T> {
+  process.env.QUILT_NEXT_ONLY = 'verify';
+  try {
+    return await f();
+  } finally {
+    delete process.env.QUILT_NEXT_ONLY;
+  }
 }
 
 /** A fetch whose answer is read as JSON of the type the caller says. */

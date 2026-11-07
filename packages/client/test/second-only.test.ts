@@ -2,7 +2,7 @@ import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash } from '@bitquilt/core';
 import { type Pattern, Quilt } from '../src/quilt.js';
-import { json, quiltOver, startTracker } from './helpers.js';
+import { json, quiltOver, startTracker, verifying } from './helpers.js';
 
 /**
  * The house second opinion from the client's side (docs/DEPLOY.md): with QUILT_NEXT_ONLY=verify, `next` takes only a
@@ -30,16 +30,6 @@ const pattern = (slug: string): Pattern => ({
     },
   },
 });
-
-/** The call made with the second opinion's switch set, and the switch unset again whatever happens. */
-async function verifying<T>(f: () => Promise<T>): Promise<T> {
-  process.env.QUILT_NEXT_ONLY = 'verify';
-  try {
-    return await f();
-  } finally {
-    delete process.env.QUILT_NEXT_ONLY;
-  }
-}
 
 const trackerState = async (problem: Hash, piece: Hash) => (await json<{ pieces: { hash: Hash; state: string }[] }>(`${base}p/${problem}/state`)).pieces.find((x) => x.hash === piece)!.state;
 const eventsBy = async (problem: Hash, address: string) => (await (await fetch(`${base}p/${problem}/events`)).text()).trim().split('\n').filter(Boolean).map((l) => JSON.parse(l) as { event: { type: string; key: string } }).filter((l) => l.event.key.toLowerCase() === address.toLowerCase()).map((l) => l.event.type);

@@ -1,3 +1,9 @@
+/**
+ * examples/worker-loop.mjs, the loop the houses' workers share: the flags, the piece read from what `quilt next --json`
+ * prints, the answer's schema, the model's words, the cleaning and the rests before a return is signed, and the stop
+ * between pieces. Then the words the loop reads from the CLI when a command stops, taken from the gate's, the schema's
+ * and Quilt.next's own messages, so a change to those words fails here and does not quietly change what a house does.
+ */
 import { EventEmitter } from 'node:events';
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -6,7 +12,7 @@ import { REST_ASK, RESTS, fit, gateRefusal, instruction, parseArgs, pieceFrom, p
 import type { Seam } from '../src/listings.js';
 import type { Quilt } from '../src/quilt.js';
 import { handedJson, seamsText } from '../src/render.js';
-import { quiltOver, startTracker } from './helpers.js';
+import { quiltOver, startTracker, verifying } from './helpers.js';
 
 /** A piece as `quilt next --json` prints it, made by the client's own function and read back as the loop reads it. */
 function handed(name: string, brief: string, properties: Record<string, unknown>, required: string[], seams: Seam[] = []) {
@@ -123,15 +129,6 @@ describe('the words the loop reads, from the sources that say them', () => {
   const schema: Schema = { type: 'object', additionalProperties: false, required: ['when'], properties: { when: { type: 'string', format: 'date', maxLength: 10 } } };
   /** The message a call threw, or the empty string where it threw nothing. */
   const thrown = (call: Promise<unknown>): Promise<string> => call.then(() => '', (e: Error) => e.message);
-  /** The call made with the second opinion's switch set, and the switch unset again whatever happens. */
-  async function verifying<T>(f: () => Promise<T>): Promise<T> {
-    process.env.QUILT_NEXT_ONLY = 'verify';
-    try {
-      return await f();
-    } finally {
-      delete process.env.QUILT_NEXT_ONLY;
-    }
-  }
 
   beforeAll(async () => {
     let base: string;
