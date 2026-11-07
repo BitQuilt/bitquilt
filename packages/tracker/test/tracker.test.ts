@@ -10,7 +10,7 @@ import {
   verifyChain,
 } from '@bitquilt/core';
 import { IDENTITY } from '../src/tracker.js';
-import { addr, boot, envelope, json, key } from './helpers.js';
+import { VERDICT_QUOTE, addr, boot, envelope, json, key } from './helpers.js';
 
 /**
  * The core at the tracker's door: the well-known document; an envelope published with its blobs and served back, or
@@ -26,12 +26,6 @@ const owner = key(9),
   D = key(4),
   E = key(5);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict', 'quote'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
-};
 const cites = new TextEncoder().encode(JSON.stringify([{ s: 'one' }, { s: 'two' }, { s: 'three' }]));
 const citesHash = hashBytes(cites);
 
@@ -46,7 +40,7 @@ function report(brief = 'Citation {n}: {cite.s}', slug = 'report'): Envelope {
         requires: ['web'],
         brief,
         data: { cite: 'cites.json' },
-        schema,
+        schema: VERDICT_QUOTE,
         agree: ['verdict'],
       },
     },

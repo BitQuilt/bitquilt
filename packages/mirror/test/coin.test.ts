@@ -8,7 +8,6 @@ import {
   type Hash,
   type Receipt,
   type Unsigned,
-  addressOf,
   commitHash,
   newNonce,
   problemHash,
@@ -16,8 +15,9 @@ import {
   signObject,
   verifyChain,
 } from '@bitquilt/core';
-import { COIN_LOG, Store, createTracker } from '@bitquilt/tracker';
+import { COIN_LOG } from '@bitquilt/tracker';
 import { mirror } from '../src/mirror.js';
+import { VERDICT, addr, by, calendarBytes, key, startTracker } from './helpers.js';
 
 /**
  * The coin at the mirror (QX-17 section 7): the coin log is pulled, verified from the coin log's hash and anchored
@@ -25,24 +25,11 @@ import { mirror } from '../src/mirror.js';
  * the receipts it holds and the parameters the tracker publishes; a tracker whose balances differ is refused; and every
  * credit line on the coin log (the way back) is checked against the deposit the chain holds, or the balances are refused.
  */
-const key = (n: number): Uint8Array => {
-  const k = new Uint8Array(32);
-  k[31] = n;
-  return k;
-};
 const owner = key(9),
   A = key(1),
   B = key(2),
   treasury = key(7),
   reader = key(5);
-const addr = addressOf;
-const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] } },
-};
 
 function envelope(by: Uint8Array = owner, slug = 'statement'): Envelope {
   const problem: Envelope['problem'] = {
@@ -59,7 +46,7 @@ function envelope(by: Uint8Array = owner, slug = 'statement'): Envelope {
         verifier: 'agree',
         requires: ['web'],
         brief: 'Statement {n}.',
-        schema,
+        schema: VERDICT,
         agree: ['verdict'],
       },
     },
@@ -87,9 +74,6 @@ const coin = {
   redeem_from: null,
   reader: addr(reader),
 };
-const calendarBytes = new Uint8Array([
-  0xf0, 0x10, 0x01, 0x02, 0x03, 0x00, 0x83, 0xdf, 0xe3, 0x0d, 0x2e, 0xf9, 0x0c, 0x8e,
-]);
 /** Real fetch, with a calendar that answers and, when asked, a doctored /coin/state. */
 function fetchWith(doctor: ((body: Record<string, unknown>) => Record<string, unknown>) | null): typeof fetch {
   return (async (input: string | URL | Request, init?: RequestInit) => {
@@ -135,10 +119,7 @@ const Q = problemHash(elsewhere);
 let p1: Hash;
 
 beforeAll(async () => {
-  const t = createTracker({ store: new Store(':memory:'), url: 'http://t.test/', now, ipSalt: 's', coin });
-  server = await t.listen(0);
-  const a = server.address();
-  base = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}/` : '';
+  ({ server, base } = await startTracker(now, { coin }));
   expect((await post('p', { envelope: env })).status).toBe(201);
   p1 = ((await (await fetch(`${base}p/${P}/state`)).json()) as { pieces: { hash: Hash }[] }).pieces[0]!.hash;
   // The owner earns the point a gold's share of two asks, on a problem of A's with no gold and so no coin in it.

@@ -1,8 +1,8 @@
 /**
- * What the tracker's tests share: fixed keys, an envelope signed by its owner, a receipt made by hand for the pure
- * layers, a tracker of its own with a store in memory and a clock the test moves, and the posts and reads against it.
- * Each test file keeps its own pieces, schema and the helpers that differ from these. vitest runs `*.test.ts` alone, so
- * this file is no test of its own.
+ * What the tracker's tests share: fixed keys, the two verdict schemas most of their pieces answer in, an envelope
+ * signed by its owner, a receipt made by hand for the pure layers, a tracker of its own with a store in memory and a
+ * clock the test moves, and the posts and reads against it. Each test file keeps its own pieces, any other schema and
+ * the helpers that differ from these. vitest runs `*.test.ts` alone, so this file is no test of its own.
  */
 import { expect } from 'vitest';
 import type { Server } from 'node:http';
@@ -27,6 +27,22 @@ export const key = (n: number): Uint8Array => {
   return k;
 };
 export const addr = addressOf;
+
+/** A verdict on a statement: supports or contradicts, and nothing else. */
+export const VERDICT = {
+  type: 'object' as const,
+  additionalProperties: false as const,
+  required: ['verdict'],
+  properties: { verdict: { enum: ['supports', 'contradicts'] } },
+};
+/** A verdict on a statement with the quote it rests on, at most 160 characters. */
+export const VERDICT_QUOTE = {
+  type: 'object' as const,
+  additionalProperties: false as const,
+  required: ['verdict', 'quote'],
+  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
+};
+
 /** The settings every test problem uses: a two-day window and a two-hour lease. */
 export const SETTINGS: Envelope['problem']['settings'] = {
   challenge_window_h: 48,

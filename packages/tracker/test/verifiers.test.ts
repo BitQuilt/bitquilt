@@ -15,7 +15,7 @@ import {
 } from '@bitquilt/core';
 import { challengeLayer } from '../src/challenge.js';
 import { describeKind, kindOf } from '../src/verifiers.js';
-import { SETTINGS as settings, addr, boot, key, line } from './helpers.js';
+import { SETTINGS as settings, VERDICT_QUOTE, addr, boot, key, line } from './helpers.js';
 
 /**
  * The three verifier kinds the core does not know (docs/ext/verifiers.md), as the tracker's layer decides them: an
@@ -34,12 +34,6 @@ const judges = [key(11), key(12), key(13), key(14)];
 const persons = [key(21), key(22)];
 const secretOf = new Map<Address, Uint8Array>([owner, A, B, C, D, E, ...judges, ...persons].map((k) => [addr(k), k]));
 const by = (model: string, can: ('web' | 'person')[] = ['web']) => ({ model, client: 'test/0', can });
-const verdictSchema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict', 'quote'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
-};
 const toldSchema = {
   type: 'object' as const,
   additionalProperties: false as const,
@@ -77,7 +71,7 @@ const Q = sign({
       verifier: 'agree',
       requires: ['web'],
       brief: 'Statement {n}: does the paper say so?',
-      schema: verdictSchema,
+      schema: VERDICT_QUOTE,
       agree: ['verdict'],
     },
   },
@@ -103,7 +97,7 @@ const P = sign({
       verifier: 'human',
       requires: ['web'],
       brief: 'Does the paper say so? A person answers.',
-      schema: verdictSchema,
+      schema: VERDICT_QUOTE,
       agree: ['verdict'],
     },
     summary: {
@@ -118,7 +112,7 @@ const P = sign({
       requires: ['web'],
       inputs: ['told'],
       brief: 'Once someone was told: did they answer?',
-      schema: verdictSchema,
+      schema: VERDICT_QUOTE,
       agree: ['verdict'],
     },
   },
@@ -354,7 +348,7 @@ describe('the verifier kinds at the tracker', () => {
           verifier: 'human',
           requires: ['web'],
           brief: 'Does the paper say so? A person answers.',
-          schema: verdictSchema,
+          schema: VERDICT_QUOTE,
           agree: ['verdict'],
         },
       },
@@ -492,7 +486,7 @@ describe('the pure layer', () => {
         verifier: 'human',
         requires: ['person'],
         brief: 'Does the paper say so?',
-        schema: verdictSchema,
+        schema: VERDICT_QUOTE,
         agree: ['verdict'],
       },
     },
@@ -558,7 +552,7 @@ describe('the pure layer', () => {
           requires: ['web'],
           inputs: ['told'],
           brief: 'Did they answer?',
-          schema: verdictSchema,
+          schema: VERDICT_QUOTE,
           agree: ['verdict'],
         },
       },

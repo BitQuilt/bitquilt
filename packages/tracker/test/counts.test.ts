@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { type Envelope, type Hash, commitHash, newNonce, problemHash } from '@bitquilt/core';
 import { Store } from '../src/store.js';
-import { addr, boot, envelope as signed, key } from './helpers.js';
+import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * The launch funnel counted by the UTC day (JOURNEY-AUDIT.md section 3, item 9) at GET /counts: every day of the
@@ -23,12 +23,6 @@ const ownerP = key(9),
   X = key(3),
   N = key(5);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict', 'quote'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
-};
 function envelope(owner: Uint8Array, slug: string, count: number): Envelope {
   return signed(owner, slug, {
     'statement/*': {
@@ -36,7 +30,7 @@ function envelope(owner: Uint8Array, slug: string, count: number): Envelope {
       verifier: 'agree',
       requires: ['web'],
       brief: 'Statement {n}: does the paper say so?',
-      schema,
+      schema: VERDICT_QUOTE,
       agree: ['verdict'],
     },
   });

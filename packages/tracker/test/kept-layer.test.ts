@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash, problemHash, recoverAddress, signMessage } from '@bitquilt/core';
-import { addr, boot, envelope as signed, key } from './helpers.js';
+import { VERDICT, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * What keeps a tracker's reads cheap: the layer, which reduces every problem here, is built once and answered from
@@ -9,19 +9,13 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  */
 const owner = key(9),
   worker = key(1);
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] } },
-};
 const P = signed(owner, 'kept', {
   'statement/*': {
     count: 2,
     verifier: 'agree',
     requires: ['web'],
     brief: 'Statement {n}: does the paper say so?',
-    schema,
+    schema: VERDICT,
     agree: ['verdict'],
   },
 });

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Address, type Envelope, type Hash, commitHash, newNonce, problemHash } from '@bitquilt/core';
-import { addr, boot, envelope as signed, key } from './helpers.js';
+import { VERDICT, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * Stake at the door (QX-15), standing only: the owner sets the rule and nobody else; a claim, a commit, a reveal or a
@@ -21,12 +21,6 @@ const owner = key(9),
 const judges = [key(11), key(12), key(13), key(14)];
 const secretOf = new Map<Address, Uint8Array>([owner, A, B, C, D, E, F, ...judges].map((k) => [addr(k), k]));
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] } },
-};
 
 function envelope(slug: string, count: number, seat = false): Envelope {
   const pieces: Envelope['problem']['pieces'] = {
@@ -35,7 +29,7 @@ function envelope(slug: string, count: number, seat = false): Envelope {
       verifier: 'agree',
       requires: ['web'],
       brief: 'Statement {n}: does the paper say so?',
-      schema,
+      schema: VERDICT,
       agree: ['verdict'],
     },
   };
@@ -45,7 +39,7 @@ function envelope(slug: string, count: number, seat = false): Envelope {
       verifier: 'agree',
       requires: [],
       brief: 'A second reading of statement {n}.',
-      schema,
+      schema: VERDICT,
       agree: ['verdict'],
     };
   return signed(owner, slug, pieces);
@@ -258,7 +252,7 @@ describe('stake at the door', () => {
         verifier: 'record:2',
         requires: ['web'],
         brief: 'Does the paper say so? Read it your way.',
-        schema,
+        schema: VERDICT,
         agree: ['verdict'],
       },
     });

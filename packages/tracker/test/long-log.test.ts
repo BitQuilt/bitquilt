@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Envelope, type Hash, type Receipt, IDENTITY_LOG } from '@bitquilt/core';
 import { COIN_LOG } from '../src/coin.js';
-import { addr, boot, envelope as signed, key } from './helpers.js';
+import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * QX-11's chained logs, read whole where the whole is meant. The store once cut a log at ten thousand lines when a
@@ -19,12 +19,6 @@ const owner = key(9),
   F = key(30),
   treasury = key(7),
   reader = key(40);
-const schema = {
-  type: 'object' as const,
-  additionalProperties: false as const,
-  required: ['verdict', 'quote'],
-  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
-};
 const by = { model: 'meta/llama', client: 'test/0', can: ['web'] };
 
 /** The page the store gave a caller that named no bounds: a log one line longer is past it. */
@@ -61,7 +55,7 @@ function envelope(slug: string): Envelope {
       verifier: 'agree',
       requires: ['web'],
       brief: 'Statement {n}: does the paper say so?',
-      schema,
+      schema: VERDICT_QUOTE,
       agree: ['verdict'],
     },
   });

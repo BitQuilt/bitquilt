@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { OP_SHA256, OTS_HEADER, anchorHeads, anchorsHeld, hexToBytes, otsFile } from '../src/anchor.js';
+import { calendarBytes } from './helpers.js';
 
 /**
  * QX-12 at the mirror: a head is stamped through the first calendar that answers, the file is a detached
@@ -10,9 +11,6 @@ import { OP_SHA256, OTS_HEADER, anchorHeads, anchorsHeld, hexToBytes, otsFile } 
  * calendar that fails is passed over.
  */
 const head = (problem: string, seq: number, n: number) => ({ problem, seq, hash: n.toString(16).padStart(64, '0') });
-const calendarBytes = new Uint8Array([
-  0xf0, 0x10, 0x01, 0x02, 0x03, 0x00, 0x83, 0xdf, 0xe3, 0x0d, 0x2e, 0xf9, 0x0c, 0x8e,
-]);
 
 function fakeFetch(answers: Record<string, 'ok' | 'down' | 'empty'>, calls: string[]): typeof fetch {
   return (async (input: string | URL | Request, init?: RequestInit) => {
