@@ -194,7 +194,7 @@ const nextFor = async (problem: Hash, k: Uint8Array, can: string, model = 'meta/
     weakest?: boolean;
   };
 
-let told: Hash, vote: Hash, summary: Hash, after: Hash;
+let told: Hash, vote: Hash, summary: Hash;
 
 describe('the verifier kinds in words', () => {
   it('names each kind, its registry number and its strength, and parses judge:n', () => {
@@ -246,7 +246,6 @@ describe('the verifier kinds at the tracker', () => {
     told = byName.told!.hash;
     vote = byName.vote!.hash;
     summary = byName.summary!.hash;
-    after = byName.after!.hash;
     expect(byName.told).toMatchObject({
       state: 'open',
       core: 'unknown',

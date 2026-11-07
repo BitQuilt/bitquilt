@@ -100,8 +100,6 @@ export interface Hosted {
   routes(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean>;
   /** What the tracker's well-known document says of the on-ramp: the witness it binds (QX-18), where the authorization server is on. */
   describe(): Record<string, unknown>;
-  join(): { token: string; address: Address; url: string };
-  sessions(): number;
   /**
    * The owners' turn (the part of `quilt away` that needs no agent): for every member whose home holds a problem or a
    * gold, the gold due revealed and the briefs sharpened, signed with the key this tracker holds for them, each turn's
@@ -380,7 +378,6 @@ export function createHosted(options: HostedOptions): Hosted {
       trackers: [trackerUrl()],
       relays: options.relays ?? [],
       can: ['web'],
-      ...(member.name ? { name: member.name } : {}),
     };
     const home = join(options.home, hash);
     const resolver = new Resolver(config, home, outward, {
@@ -510,7 +507,8 @@ export function createHosted(options: HostedOptions): Hosted {
     ]);
     const made = sheetOf({
       address: member.address as Address,
-      name: member.name,
+      // The on-ramp keeps no name for a member, so the sheet offers the phrase that chooses one.
+      name: null,
       library: q.library,
       attention,
       standing: standing?.standing ?? null,
@@ -692,5 +690,5 @@ export function createHosted(options: HostedOptions): Hosted {
     return false;
   }
 
-  return { routes, describe: () => oauth?.describe() ?? {}, join: mint, sessions: () => sessions.size, turn };
+  return { routes, describe: () => oauth?.describe() ?? {}, turn };
 }

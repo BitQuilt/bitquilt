@@ -6,7 +6,8 @@
  * routes), the row is built here with the route's own expressions over the same inputs: the problem's layer, its fold,
  * the traces and the names. A field the route takes from the layer's piece, its kind, the fold's piece view or the
  * traces is taken from the same place here, so a type that moves under the route moves under this file too. Nothing
- * here runs: the name ends in .test-d.ts, which vitest leaves out and the client's tsconfig takes in.
+ * here runs: the name ends in .test-d.ts, which vitest leaves out and the client's tsconfig takes in. Each copy is
+ * exported, so the typecheck's rule against unused names reads it as used.
  */
 import type { Address, Hash } from '@bitquilt/core';
 import {
@@ -46,22 +47,26 @@ const traced = {} as Map<Hash, PieceTraces>;
 const name = (a: string): string | null => pl.fold.names.get(a as Address)?.name ?? null;
 
 // The types the client copies whole.
-const side: Side = {} as TrackerSide;
-const trackerSide: TrackerSide = {} as Side;
-const layerState: LayerState = {} as TrackerLayerState;
-const seam: Seam = {} as TrackerSeam;
-const seamSide: SeamSide = {} as TrackerSeamSide;
-const recordGrade: RecordGrade = {} as TrackerRecordGrade;
-const goldCount: GoldCount = pl.goldCount;
-const takedown: Takedown | null = hidden.get(hash) ?? null;
+export const side: Side = {} as TrackerSide;
+export const trackerSide: TrackerSide = {} as Side;
+export const layerState: LayerState = {} as TrackerLayerState;
+export const seam: Seam = {} as TrackerSeam;
+export const seamSide: SeamSide = {} as TrackerSeamSide;
+export const recordGrade: RecordGrade = {} as TrackerRecordGrade;
+export const goldCount: GoldCount = pl.goldCount;
+export const takedown: Takedown | null = hidden.get(hash) ?? null;
 
 // The scrape of `/p/<hash>/scrape`, as summary() builds it from the takedown and the seeding.
-const scrape: Scrape = { hidden: hidden.get(hash) ?? null, seeders: seed.seeders.size, last_seeded: seed.last_seeded };
+export const scrape: Scrape = {
+  hidden: hidden.get(hash) ?? null,
+  seeders: seed.seeders.size,
+  last_seeded: seed.last_seeded,
+};
 
 // The pieces of `/p/<hash>/state`, as the route builds them: the name, hash and verifier from the fold's piece view,
 // the state and the kind's words from the layer's piece, the window from the gold's rule at now (QX-16), the grade and
 // the seams from the traces.
-const pieces: LayerPiece[] = pl.fold.pieces.map((v) => {
+export const pieces: LayerPiece[] = pl.fold.pieces.map((v) => {
   const l = pl.byHash.get(v.piece.hash)!;
   const t = traced.get(v.piece.hash)!;
   return {
@@ -91,7 +96,7 @@ const pieces: LayerPiece[] = pl.fold.pieces.map((v) => {
 });
 
 // The challenges of `/p/<hash>/challenges`, as the route builds them from the layer's challenges, the piece named by the layer.
-const challenges: ChallengeListing[] = pl.challenges.map((c) => ({
+export const challenges: ChallengeListing[] = pl.challenges.map((c) => ({
   id: c.id,
   piece: c.piece,
   name: pl.byHash.get(c.piece)?.name ?? null,
@@ -111,7 +116,7 @@ const challenges: ChallengeListing[] = pl.challenges.map((c) => ({
 
 // The panels of `/p/<hash>/panels`, as the route builds them from the layer's panels: the verifier from the layer's
 // piece's kind, and the candidates' signers named once the panel has decided.
-const panels: PanelListing[] = pl.panels.map((p) => ({
+export const panels: PanelListing[] = pl.panels.map((p) => ({
   piece: p.piece,
   name: p.name,
   verifier: pl.byHash.get(p.piece)?.kind.verifier ?? null,

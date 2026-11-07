@@ -20,7 +20,6 @@ import {
   commitHash,
   eventId,
   expandPieces,
-  hashBytes,
   isHash,
   newNonce,
   next,
@@ -29,7 +28,6 @@ import {
   renderInputs,
   signEvent,
   signObject,
-  envelopeProblems,
   textIssues,
 } from '@bitquilt/core';
 import * as coin from './coin.js';
@@ -1115,7 +1113,7 @@ export class Quilt {
         if (kind !== 'agree' && kind !== 'human') return waitsText(verifier);
       }
       const now: string | undefined = layerByHash(layer).get(piece)?.state ?? view?.state;
-      if (now === 'accepted_provisional' || now === 'accepted' || now === 're_accepted')
+      if (now === 'accepted_provisional' || now === 'accepted')
         return 'Two vendors agree: the piece is accepted, provisionally until the challenge window closes, and the standing for it is counted.';
       if (now === 'disputed')
         return 'Another vendor read it differently: the piece is disputed, and a third production from a vendor unrelated to both settles it.';
@@ -1575,11 +1573,6 @@ export class Quilt {
   /** Where a tracker's coin lives and the burn rate there, or null where it honours none (coin.ts, `coinAt`). */
   coinAt(tracker: string): Promise<{ coinHome: string; burn_rate: number } | null> {
     return coin.coinAt(this.door, tracker);
-  }
-
-  /** The coin's home among this client's trackers, or null (coin.ts, `coinHome`). */
-  coinHome(): Promise<string | null> {
-    return coin.coinHome(this.door);
   }
 
   /** This key's coin at a home, or null (coin.ts, `coinBalance`). */

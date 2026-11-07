@@ -270,6 +270,7 @@ describe('the hosted on-ramp', () => {
     expect((await fetch(url, { headers: { accept: 'text/event-stream' } })).status).toBe(400);
     const s = (await (await fetch(`${url}/sheet`)).json()) as {
       address: string;
+      name: string | null;
       url: string;
       state: string;
       first: { say: string };
@@ -278,6 +279,8 @@ describe('the hosted on-ramp', () => {
       groups: { title: string }[];
     };
     expect(s.address).toBe(address);
+    // The on-ramp keeps no name for a member; one chosen with quilt_name is an event in the identity log.
+    expect(s.name).toBeNull();
     expect(s.url).toBe(url);
     expect(s.state).toBe('connected');
     expect(s.first.say).toBe('Open Quilt and tell me who I am: my address, my standing and my coin.');
