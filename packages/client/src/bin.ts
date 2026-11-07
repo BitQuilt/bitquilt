@@ -8,8 +8,9 @@
  *                                                         through the node already holding this home's page when there is one
  *   quilt serve [--port 3978]                             the page and the node alone
  *   quilt open <link>  |  quilt search <words>  |  quilt read <link>
+ *                                                         open and read print the text quilt_open and quilt_read give (tools.ts), so the command line and the connector say one thing
  *   quilt next [problem] [--json]  |  quilt return <problem> <piece> '<json>' ['<rests json>']  |  quilt decline <problem> <piece> <reason>
- *                                                         --json: the piece as one object, its seams quoted with their signers named, for a program that works it
+ *                                                         next prints the text quilt_next gives; --json: the piece as one object, its seams quoted with their signers named, for a program that works it
  *                                                         the rests (QX-19): [{ field, url, passage }], what each field rests on; the page is fetched and the trace posted
  *   quilt seed <problem> on|off                          keep a problem: a seed event on its log, and the problem in the standing list
  *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
@@ -39,7 +40,7 @@ import { readFileSync } from 'node:fs';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { DeclineReason } from '@bitquilt/core';
 import { NEEDS_AGENT, RUN_TIMEOUT_MS, agentSentence, awayCli, findAgent, searchDirs } from './away.js';
-import { type SentenceAsk, handedJson, seamsText, sentenceAsk } from './render.js';
+import { type SentenceAsk, handedJson, sentenceAsk } from './render.js';
 import { type Config, createKey, ensureHome, loadConfig, loadKey, quiltHome, saveConfig } from './config.js';
 import { entryHere, installHere } from './install.js';
 import type { Side } from './listings.js';
@@ -49,7 +50,7 @@ import { probeNode, remoteRunner } from './node.js';
 import { createPage } from './page.js';
 import { type Pattern, Quilt } from './quilt.js';
 import { Resolver } from './resolver.js';
-import { type ToolRunner, localRunner } from './tools.js';
+import { type ToolRunner, localRunner, runTool } from './tools.js';
 
 const args = process.argv.slice(2);
 const flag = (name: string): string | undefined => {
@@ -177,17 +178,13 @@ async function main(): Promise<void> {
       console.log(`quilt page at http://localhost:${port}/`);
       return;
     }
-    case 'open':
+    // open, read and next print the tools' own text (tools.ts, runTool), so a line added to a tool reaches the command line with it.
+    case 'open': {
+      console.log((await runTool(make(), 'quilt_open', { link: args[1] ?? '' })).text);
+      return;
+    }
     case 'read': {
-      const quilt = make();
-      const { hash, state, tracker, layer, hidden } = await quilt.open(args[1] ?? '');
-      console.log(quilt.summary(hash, state, tracker, layer, hidden));
-      if (command === 'read') {
-        console.log(`\nAccepted so far:\n${quilt.acceptedText(state, layer)}`);
-        console.log(`\nDisputed:\n${quilt.disputedText(state, layer)}`);
-        console.log(`\nChallenges:\n${quilt.challengesText(await quilt.challenges(hash, tracker), state)}`);
-        console.log(`\nPanels:\n${quilt.panelsText(await quilt.panels(hash, tracker), state)}`);
-      }
+      console.log((await runTool(make(), 'quilt_read', { problem: args[1] ?? '' })).text);
       return;
     }
     case 'search': {
@@ -196,18 +193,14 @@ async function main(): Promise<void> {
       return;
     }
     case 'next': {
-      const quilt = make();
+      const problem = args.slice(1).find((a) => a !== '--json') ?? '';
       // --json: the piece as one object a program reads (render.ts, handedJson), the seams in it as quilt_next says them.
-      const handed = await quilt.next(args.slice(1).find((a) => a !== '--json') ?? '');
       if (args.includes('--json')) {
-        console.log(JSON.stringify(handedJson(handed), null, 2));
+        console.log(JSON.stringify(handedJson(await make().next(problem)), null, 2));
         return;
       }
-      const { hash, pick, posted, owner, stake, lock, seams } = handed;
-      console.log(quilt.pieceText(hash, pick, owner, stake));
-      // QX-19: the seams of a piece whose two readings differ, as quilt_next says them, so a loop reading this output sees them too.
-      if (seams.length) console.log(`Seams:\n${seamsText(seams, (k) => k).join('\n')}`);
-      console.log(posted.queued ? 'Claim queued.' : `Claim posted to ${posted.at}${lock ? `, after a lock of ${stake}${lock === 'coin' ? ' backed by coin' : ''}` : ''}.`);
+      // QX-19: quilt_next's text carries the seams of a piece whose two readings differ, so a person here sees them too.
+      console.log((await runTool(make(), 'quilt_next', { problem })).text);
       return;
     }
     case 'seed': {

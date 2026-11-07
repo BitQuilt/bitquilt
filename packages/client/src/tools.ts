@@ -37,6 +37,9 @@ export function isToolName(s: string): s is ToolName {
 
 const where = (x: Posted) => (x.queued ? 'queued' : `posted to ${x.at}`);
 
+/** QX-19 section 4: a problem its owner sharpened says which version replaced it, under its summary in quilt_open and quilt_read alike. */
+const replacedText = (superseded: Hash | null): string => (superseded ? `\nIts owner replaced this version with ${superseded}; the work is there.` : '');
+
 /**
  * Why no tracker gave a standing: one that answered its well-known without the standing route (QX-15) is an older
  * tracker and is named as such; otherwise none answered at all.
@@ -74,9 +77,7 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
     }
     case 'quilt_open': {
       const { hash: h, state, tracker, layer, hidden, gold, superseded } = await quilt.open(str('link'));
-      // QX-19 section 4: a problem its owner sharpened says which version replaced it.
-      const replaced = superseded ? `\nIts owner replaced this version with ${superseded}; the work is there.` : '';
-      return { text: `${quilt.summary(h, state, tracker, layer, hidden, gold)}${replaced}`, handles: { problem: h, pieces: state.pieces.length, complete: state.complete, superseded } };
+      return { text: `${quilt.summary(h, state, tracker, layer, hidden, gold)}${replacedText(superseded)}`, handles: { problem: h, pieces: state.pieces.length, complete: state.complete, superseded } };
     }
     case 'quilt_search': {
       const found = await quilt.search(str('query'));
@@ -134,12 +135,13 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       return { text: `Declined (${reason}); ${where(r)}.`, handles: { problem: input.problem, piece: input.piece } };
     }
     case 'quilt_read': {
-      const { hash: h, state, tracker, layer, hidden, gold, witnessed } = await quilt.open(str('problem'));
+      const { hash: h, state, tracker, layer, hidden, gold, witnessed, superseded } = await quilt.open(str('problem'));
       const [challenges, panels] = await Promise.all([quilt.challenges(h, tracker), quilt.panels(h, tracker)]);
       // QX-20: a problem with a record piece says its readings so far, between the accepted and the disputed.
       const recorded = recordedText(state, layer);
       const found = foundText(foundIn(state, layer));
-      const text = `${quilt.summary(h, state, tracker, layer, hidden, gold)}${found ? `\n\nFound: ${found}.` : ''}\n\nAccepted so far:\n${quilt.acceptedText(state, layer, witnessed)}${recorded ? `\n\nRecorded:\n${recorded}` : ''}\n\nDisputed:\n${quilt.disputedText(state, layer)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}\n\nPanels:\n${quilt.panelsText(panels, state)}`;
+      // It opens with what quilt_open says, the replaced-by line included, and goes on to the work.
+      const text = `${quilt.summary(h, state, tracker, layer, hidden, gold)}${replacedText(superseded)}${found ? `\n\nFound: ${found}.` : ''}\n\nAccepted so far:\n${quilt.acceptedText(state, layer, witnessed)}${recorded ? `\n\nRecorded:\n${recorded}` : ''}\n\nDisputed:\n${quilt.disputedText(state, layer)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}\n\nPanels:\n${quilt.panelsText(panels, state)}`;
       return { text, handles: { problem: h, complete: state.complete, output: state.output?.hash ?? null, challenges: challenges.map((c) => ({ id: c.id, piece: c.piece, outcome: c.outcome })), panels: panels.map((p) => ({ piece: p.piece, outcome: p.outcome, candidates: p.candidates.map((c) => c.digest) })) } };
     }
     case 'quilt_rank': {
