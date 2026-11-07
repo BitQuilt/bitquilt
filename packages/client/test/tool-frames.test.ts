@@ -1,8 +1,11 @@
 /**
- * The text runTool gives a model for the tools tool-text.test.ts does not pin, pinned whole: quilt_window, quilt_next,
- * quilt_seed, quilt_publish, quilt_pay, quilt_transfer, quilt_redeem and quilt_reveal_gold. The Quilt answers each
- * with fixed values, so what is held is the framing tools.ts builds around them: a change that moves a space, a
- * separator or a clause fails here. The inputs take each side of every condition tools.ts puts on that text.
+ * The text runTool gives a model for each tool tool-text.test.ts does not pin, pinned whole: quilt_window, quilt_next,
+ * quilt_return, quilt_decline, quilt_rank, quilt_challenge, quilt_verdict, quilt_seed, quilt_publish, quilt_pay,
+ * quilt_transfer, quilt_redeem, quilt_reveal_gold and quilt_name. With tool-text.test.ts, that is every tool whose text
+ * a model reads; quilt_window_io answers the card with JSON, which window.test.ts holds. The Quilt answers each with
+ * fixed values, so what is held is the framing tools.ts builds around them: a change that moves a space, a separator or
+ * a clause fails here. The inputs take each side of every condition tools.ts puts on that text, and of each condition
+ * in traceText, which quilt_return's text ends with.
  */
 import { describe, expect, it } from 'vitest';
 import type { Hash } from '@bitquilt/core';
@@ -14,7 +17,24 @@ import { runTool } from '../src/tools.js';
 import { tempHome } from './helpers.js';
 
 type Answers = Partial<
-  Pick<Quilt, 'me' | 'next' | 'pieceText' | 'seed' | 'publish' | 'pay' | 'transfer' | 'redeem' | 'revealGold'>
+  Pick<
+    Quilt,
+    | 'me'
+    | 'next'
+    | 'pieceText'
+    | 'return'
+    | 'decline'
+    | 'rank'
+    | 'challenge'
+    | 'verdict'
+    | 'seed'
+    | 'publish'
+    | 'pay'
+    | 'transfer'
+    | 'redeem'
+    | 'revealGold'
+    | 'setName'
+  >
 >;
 
 /** A Quilt whose reads and writes answer fixed values; the text around them is still built by runTool. */
@@ -125,6 +145,107 @@ describe('quilt_next', () => {
     );
     expect(await text(quilt({ posted: queued }), 'quilt_next')).toBe(
       [`The piece of ${A64} by Ada, stake 0.`, 'The claim waits in the queue; no tracker answered.'].join('\n'),
+    );
+  });
+});
+
+describe('quilt_return', () => {
+  type Returned = Awaited<ReturnType<Quilt['return']>>;
+  const waits = 'The piece waits for a second return from another vendor.';
+  const returned = (over: Partial<Returned>) =>
+    answering({ return: async () => ({ commit: posted, reveal: posted, waits, trace: null, ...over }) });
+  const input = { problem: A64, piece: B64, return: { verdict: 'supports' } };
+  const missing = [{ field: 'date', url: 'https://b.example/', why: 'the passage is not on the page' }];
+
+  it('says where the commit and the reveal went and what the piece waits for, with no trace when none was asked', async () => {
+    expect(await text(returned({}), 'quilt_return', input)).toBe(
+      `Commit posted to https://t.example/; reveal posted to https://t.example/. ${waits}`,
+    );
+    expect(await text(returned({ commit: queued, reveal: queued }), 'quilt_return', input)).toBe(
+      `Commit queued; reveal queued. ${waits}`,
+    );
+  });
+
+  it('ends with the trace: posted or queued, one read or many, refused, or not posted, and what was left out', async () => {
+    const head = `Commit posted to https://t.example/; reveal posted to https://t.example/. ${waits}`;
+    const traced = async (trace: Returned['trace']) => text(returned({ trace }), 'quilt_return', input);
+    expect(await traced({ posted, reads: 1, rested: ['verdict'], missing: [] })).toBe(
+      `${head} Trace posted to https://t.example/: verdict rests on 1 kept read (QX-19).`,
+    );
+    expect(await traced({ posted: queued, reads: 2, rested: ['verdict', 'date'], missing: [] })).toBe(
+      `${head} Trace queued: verdict, date rest on 2 kept reads (QX-19).`,
+    );
+    expect(await traced({ posted, reads: 1, rested: ['verdict'], missing })).toBe(
+      `${head} Trace posted to https://t.example/: verdict rests on 1 kept read (QX-19). Left out: date at https://b.example/ (the passage is not on the page).`,
+    );
+    expect(
+      await traced({
+        posted: { at: null, queued: false, error: 'the read is too large' },
+        reads: 1,
+        rested: [],
+        missing,
+      }),
+    ).toBe(
+      `${head} The trace was refused: the read is too large. Left out: date at https://b.example/ (the passage is not on the page).`,
+    );
+    expect(await traced({ posted: null, reads: 0, rested: [], missing })).toBe(
+      `${head} No trace was posted: nothing the return names could be found. Left out: date at https://b.example/ (the passage is not on the page).`,
+    );
+    expect(await traced({ posted: null, reads: 0, rested: [], missing: [] })).toBe(
+      `${head} No trace was posted: nothing the return names could be found.`,
+    );
+  });
+});
+
+describe('the writes that say only where they went', () => {
+  const at = { ...posted, id: B64 };
+  const waiting = { ...queued, id: B64 };
+
+  it('quilt_decline says the reason and where the decline went', async () => {
+    const input = { problem: A64, piece: B64, reason: 'unclear' };
+    expect(await text(answering({ decline: async () => posted }), 'quilt_decline', input)).toBe(
+      'Declined (unclear); posted to https://t.example/.',
+    );
+    expect(await text(answering({ decline: async () => queued }), 'quilt_decline', input)).toBe(
+      'Declined (unclear); queued.',
+    );
+  });
+
+  it('quilt_rank says where the ranking went', async () => {
+    const input = { problem: A64, piece: B64, ranking: [A64, B64] };
+    expect(await text(answering({ rank: async () => at }), 'quilt_rank', input)).toBe(
+      'Ranking posted to https://t.example/.',
+    );
+    expect(await text(answering({ rank: async () => waiting }), 'quilt_rank', input)).toBe('Ranking queued.');
+  });
+
+  it('quilt_challenge names the challenge, where it went, and where the panel is drawn and listed', async () => {
+    const tail = ". The panel is drawn from the challenge's receipt; quilt_read lists the seats.";
+    const input = { problem: A64, piece: B64, stake: 1, ground: 'The quote is not on the page.' };
+    expect(await text(answering({ challenge: async () => at }), 'quilt_challenge', input)).toBe(
+      `Challenge ${B64} posted to https://t.example/${tail}`,
+    );
+    expect(await text(answering({ challenge: async () => waiting }), 'quilt_challenge', input)).toBe(
+      `Challenge ${B64} queued${tail}`,
+    );
+  });
+
+  it('quilt_verdict names the side and where the verdict went', async () => {
+    const input = { problem: A64, piece: B64, challenge: A64 };
+    expect(await text(answering({ verdict: async () => at }), 'quilt_verdict', { ...input, for: 'challenger' })).toBe(
+      'Verdict for the challenger posted to https://t.example/.',
+    );
+    expect(await text(answering({ verdict: async () => waiting }), 'quilt_verdict', { ...input, for: 'author' })).toBe(
+      'Verdict for the author queued.',
+    );
+  });
+
+  it('quilt_name quotes the name and says where it went', async () => {
+    expect(await text(answering({ setName: async () => posted }), 'quilt_name', { name: 'Ada' })).toBe(
+      'Name set to "Ada"; posted to https://t.example/.',
+    );
+    expect(await text(answering({ setName: async () => queued }), 'quilt_name', { name: 'Ada' })).toBe(
+      'Name set to "Ada"; queued.',
     );
   });
 });
