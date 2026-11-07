@@ -170,14 +170,14 @@ export function createTracker(options: TrackerOptions): Tracker {
     if (store.hit(bucket, now().slice(0, 13), max)) throw new Refusal(429, 'over the hour\'s limit');
   };
 
-  /** What the reducer takes for a problem: its chain, the blobs, every receipt along the chain and the identity log. */
+  /** What the reducer takes for a problem: its chain, the blobs, every line along the chain and the identity log, each read whole. */
   function inputFor(hash: Hash): ReduceInput | null {
     const chain = store.chain(hash);
     if (chain.length === 0) return null;
     const hashes = chain.map(problemHash);
     const receipts: Receipt[] = [];
-    for (const h of hashes) receipts.push(...store.receipts(h));
-    receipts.push(...store.receipts(IDENTITY));
+    for (const h of hashes) receipts.push(...store.lines(h));
+    receipts.push(...store.lines(IDENTITY));
     return { envelopes: chain, blobs: store.blobsFor(chain), receipts, now: now() };
   }
 
@@ -192,7 +192,7 @@ export function createTracker(options: TrackerOptions): Tracker {
   const founding = new Map(Object.entries(options.founding ?? {}).map(([a, n]) => [a.toLowerCase(), n]));
   /** QX-6: what the maintainers have taken down here, read from the identity log each time. */
   function hidden(): Map<string, Hidden> {
-    return maintainers.length ? hiddenNow(store.receipts(IDENTITY), maintainers) : new Map();
+    return maintainers.length ? hiddenNow(store.lines(IDENTITY), maintainers) : new Map();
   }
 
   /**
@@ -222,12 +222,12 @@ export function createTracker(options: TrackerOptions): Tracker {
       const input = inputFor(e.hash);
       if (input) problems.push(input);
     }
-    return challengeLayer({ problems, now: now(), blobLength: (h) => store.blobLength(h), ...(options.coin ? { coin: store.receipts(COIN_LOG) } : {}), ...(founding.size ? { founding } : {}) });
+    return challengeLayer({ problems, now: now(), blobLength: (h) => store.blobLength(h), ...(options.coin ? { coin: store.lines(COIN_LOG) } : {}), ...(founding.size ? { founding } : {}) });
   }
 
   /** QX-17: the coin over the layer, from the coin log and the parameters; null where this tracker carries none. */
   function coin(layered: Layer = layer()): CoinLayer | null {
-    return options.coin ? coinLayer({ layer: layered, params: options.coin, receipts: store.receipts(COIN_LOG), now: now() }) : null;
+    return options.coin ? coinLayer({ layer: layered, params: options.coin, receipts: store.lines(COIN_LOG), now: now() }) : null;
   }
   const coinHome = (): string | null => (options.coin ? options.coin.home ?? 'here' : null);
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -1160,8 +1160,7 @@ export function createTracker(options: TrackerOptions): Tracker {
           return;
         }
         if (sub === 'scrape') {
-          const lines = store.receipts(hash);
-          const chain = verifyChain(lines, hash);
+          const chain = verifyChain(store.lines(hash), hash);
           // With the topics every announce gave it, as the index shows them, so the owner's turn can announce again with the same (QX-13 section 3).
           const topics = [...new Set(store.announcements(hash).flatMap((a) => ((a.event.body as { topics?: string[] }).topics ?? []).map((x) => x.toLowerCase())))];
           json(res, 200, { ...summary(hash), topics, chain_ok: chain.ok });
@@ -1273,7 +1272,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       if (path === '/counts' && method === 'GET') {
         const days = daysFrom(u.searchParams.get('days'));
         if (days === null) throw new Refusal(400, `days: a whole number from 1 to ${DAYS_MAX}`);
-        json(res, 200, funnel({ members: store.memberTimes(), logs: store.listEnvelopes().map((e) => store.receipts(e.hash)), layer: layer(), now: now(), days }));
+        json(res, 200, funnel({ members: store.memberTimes(), logs: store.listEnvelopes().map((e) => store.lines(e.hash)), layer: layer(), now: now(), days }));
         return;
       }
       // The coin (QX-17): its log, and what the layer computes from it.

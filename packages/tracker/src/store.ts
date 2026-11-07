@@ -176,8 +176,11 @@ export class Store {
     return { event, received, seq, prev, hash };
   }
 
-  /** The chained lines of a problem after `since`, oldest first, at most `limit`. */
-  receipts(problem: Hash, since = 0, limit = 10_000): Receipt[] {
+  /**
+   * A page of a chain: its lines after `since`, oldest first, at most `limit`. A route that pages reads this and names
+   * both bounds; a fold, a count or a check of the whole chain reads `lines`, which has no limit.
+   */
+  receipts(problem: Hash, since: number, limit: number): Receipt[] {
     const rows = this.db.prepare('select seq, json, received, prev, hash from receipts where problem = ? and seq > ? order by seq limit ?').all(problem, since, limit) as { seq: number; json: string; received: string; prev: string; hash: string }[];
     return rows.map((r) => ({ event: JSON.parse(r.json) as Event, received: JSON.parse(r.received) as Received[], seq: r.seq, prev: r.prev, hash: r.hash }));
   }
@@ -195,7 +198,11 @@ export class Store {
     return this.getEnvelope(hash)?.envelope ?? null;
   }
 
-  /** Every line of a log, oldest first: a problem's by its hash, the identity log by its constant. */
+  /**
+   * Every line of a log, the whole of it, oldest first: a problem's by its hash, the identity log and the coin log by
+   * their constants. Every read that means the whole log reads this, as the mirror and the client do, so a log of any
+   * length folds the same at each.
+   */
   lines(log: Hash): Receipt[] {
     return this.receipts(log, 0, Number.MAX_SAFE_INTEGER);
   }
