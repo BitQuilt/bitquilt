@@ -1,6 +1,6 @@
 # BitQuilt, in layers
 
-Written 27 October 2026. BitQuilt is a torrent where the pieces are made, not copied: a problem is a file of pieces named by its hash, strangers' AIs make the pieces, and a verifier stands where a torrent's piece hash stood. This page tells the whole protocol as five layers, each resting on the one below. Everything above the first layer is something a client may ignore and still compute the same map, and a client that stops at the core is a client. The exact rules are in the documents the table at the end names; [EXTENSIONS.md](EXTENSIONS.md) is how the layers above the core change; [PROTOCOL.md](PROTOCOL.md) is the long argument behind all of it.
+BitQuilt is a torrent where the pieces are made, not copied: a problem is a file of pieces named by its hash, strangers' AIs make the pieces, and a verifier stands where a torrent's piece hash stood. This page tells the whole protocol as five layers, each resting on the one below. Everything above the first layer is something a client may ignore and still compute the same map, and a client that stops at the core is a client. The exact rules are in [CORE.md](CORE.md) for the core and, above it, in the documents the registry names: [EXTENSIONS.md](EXTENSIONS.md) holds that registry, each number with its layer, and says how the layers above the core change; [PROTOCOL.md](PROTOCOL.md) is the long argument behind all of it.
 
 ## The core: one map anyone can compute
 
@@ -18,19 +18,25 @@ The core is frozen as version 1. A client is a client when it reproduces the sta
 
 Above the core, an acceptance can be answered. A key with standing may challenge a provisional acceptance inside its window, on a one-sentence ground, staking standing it can lose. A panel of three is drawn by sortition from keys with accepted work on another problem, seeded by the challenge's own receipt line, which no party makes alone, and two verdicts decide. A challenge that holds strikes the accepting set from the fold and sends the piece back to be made again; one that fails costs the challenger the stake.
 
-Standing is a number read off the ledger and nothing else: a point for arriving, a point for each accepted return, docked when a set you were in is struck, won or lost with a challenge. It weights no draw and gates no piece. It is what a key may stake.
+Standing is a number read off the ledger and nothing else: a point for arriving, a point for each accepted return, docked when a set you were in is struck, won or lost with a challenge. It weights no draw, and it gates a piece only where the problem's owner asks a stake, as the coin's layer tells. It is what a key may stake.
 
 The same layer adds four verifiers the core does not know. `judge` takes several candidate answers and seats a panel to rank them blind, for work with no single right answer to agree on. `human` is `agree` with the vendor rule replaced by the seat: every counted return from a seat a tracker opened for a person. `attest` accepts an actor's own signed record of an act in the world at once, marks the square as the actor's word, and leaves it open to challenge for the window; it is the weakest kind and is marked as such. `record` is for a question with no empirical answer: the first n readings from unrelated keys stand as given, nothing is accepted or struck, each reading is graded by what it rests on, and the seams between them are the content rather than a dispute to settle. A core client holds a piece of these kinds as unknown, never accepted and never offered, which is a coarser picture of the same ledger and not a wrong one.
+
+A return can also say what it rests on. Beside its reveal, a key may post a trace: the pages it read, each kept under its hash, and for each field the passage the value rests on. A square is graded by whether both of its readings rest on kept reads: both, one or none. Where two readings differ, the traces say why: different pages, different passages of one page, or one passage read two ways; these are the seams, and they go out with the piece to whoever reads it next. A reading that rests on nothing is set aside for one that rests on the record, and the piece is read again. Two readings that both rest on the record show a brief that did not decide between them, and the owner's own node writes the sentence the brief lacked and publishes the problem again as a new version. The core's state of a square does not change; the trace is what can be checked under it, from the ledger and the kept pages alone.
 
 ## The door: what a tracker decides
 
 A tracker is someone's, and some things are its keeper's to decide without touching what happened. Seeders are keys that have said they are keeping a problem true after it is done, and a pattern can say what keeping it means with watch pieces, offered to the seeders first. When a key asks for something to do and names no problem, the problems of people who have worked that key's own problems are offered first, and every tenth offer goes to a newcomer, as a torrent client serves the peers that serve it. A keeper's signed `hide` names a problem or an event and says why, and the tracker leaves it out of its own pages while the chain keeps every line; anyone who asks for the hidden thing by hash gets it. The stamp from the core is the door's cost without identity.
 
+A tracker may hold keys for people who cannot run Quilt themselves: the hosted on-ramp, where a person in claude.ai or ChatGPT gets an address and nothing to install. The vendor on a reveal is the client's own word, and such a person has no call of their own to prove it with, since the product makes the calls. What the on-ramp can see is the door they came in by. Where it is the OAuth authorization server for its own addresses, it binds each token to the product whose callback the code was sent to, and writes that product, or `other` with the client's own name, beside the custody mark on every event it posts with the token. The mark says the product made the calls, not who wrote the answer; it is recorded and shown, and no rule reads it yet.
+
+A door, a mirror, a person's Quilt and the on-ramp are each a node, one program whose roles say what it does: `admit` is being a door, `work` is signing with a home's key, `keep` is keeping copies of other doors' chains, and `host` is holding keys for people who cannot run one, beside a door. A tracker is a node with `admit`, a mirror a node with `keep`, a person's Quilt a node with `work`, and the public tracker a node with `admit` and `host`. [WORKSHOP.md](WORKSHOP.md), section 2, says why.
+
 None of this changes the map. Another tracker may seed, order, show and ask differently, and a client reading from both computes the same squares.
 
 ## The chain: what cannot be rewritten
 
-Every line a tracker keeps carries its number, the hash of the line before, and its own hash, so that the file shows its own history with no repository around it: change one line and every hash after it changes, down to the published head. The mirror job copies every chain, refuses one that did anything but grow, and stamps each head into Bitcoin through OpenTimestamps, so that rewriting a tracker's past would mean rewriting Bitcoin. A problem's announcement is a signed event its owner or a seeder posts to indexes and to Nostr relays, so that a problem can be found by its name from a search box with no tracker in between; what a reader trusts is the announcement's signature and the hash it names, never the relay.
+Every line a tracker keeps carries its number, the hash of the line before, and its own hash, so that the file shows its own history with no repository around it: change one line and every hash after it changes, down to the published head. Doors that name each other as peers fold each other's chains: every five minutes each pulls the other's chain for every problem it holds and admits each event it lacks through its own door, so a problem worked at either door is held at both. The mirror job copies every chain, refuses one that did anything but grow, and stamps each head into Bitcoin through OpenTimestamps, so that rewriting a tracker's past would mean rewriting Bitcoin. A problem's announcement is a signed event its owner or a seeder posts to indexes and to Nostr relays, so that a problem can be found by its name from a search box with no tracker in between; what a reader trusts is the announcement's signature and the hash it names, never the relay.
 
 ## The coin: what a verified square is worth
 
@@ -44,26 +50,4 @@ A key costs nothing to make, so two keys one person made agree with each other f
 
 ## The numbers
 
-Each layer above the core is a set of numbered extensions, so that each can be finished, replaced or withdrawn on its own. [EXTENSIONS.md](EXTENSIONS.md) is the registry and the process, and each document says exactly what is built.
-
-| Layer | Number | What | Status | Document |
-| --- | --- | --- | --- | --- |
-| The core | | Forms, the envelope, the piece hash, the event line, receipts, the reducer, `next`, the link, admission | Frozen as version 1; two implementations | [CORE.md](CORE.md) |
-| The window | QX-1 | The challenge window: `challenge` and `verdict`, standing, panels by sortition | Draft, built | [ext/QX-1.md](ext/QX-1.md) |
-| The window | QX-2 | The `judge` verifier | Draft, built | [ext/verifiers.md](ext/verifiers.md) |
-| The window | QX-3 | The `human` verifier | Draft, built | [ext/verifiers.md](ext/verifiers.md) |
-| The window | QX-10 | The `attest` verifier | Draft, built | [ext/verifiers.md](ext/verifiers.md) |
-| The window | QX-20 | The `record` verifier | Draft, built | [ext/QX-20.md](ext/QX-20.md) |
-| The door | QX-4 | Seeding, watch pieces and the standing list | Draft, built | [ext/QX-4.md](ext/QX-4.md) |
-| The door | QX-5 | Reciprocity in the order problems are offered | Draft, built | [ext/QX-5.md](ext/QX-5.md) |
-| The door | QX-6 | The `hide` event and a maintainer's key | Draft, built | [ext/QX-6.md](ext/QX-6.md) |
-| The door | QX-7 | The stamp: proof of work at a tracker's door | Draft, built | [CORE.md](CORE.md), section 11 |
-| The chain | QX-11 | Chained ledger lines with a published head | Draft, built | [PROTOCOL.md](PROTOCOL.md), Chained lines |
-| The chain | QX-12 | Anchoring a chain's head through OpenTimestamps | Draft, built | [ext/QX-12.md](ext/QX-12.md) |
-| The chain | QX-13 | The `announce` event | Draft, built | [ext/QX-13.md](ext/QX-13.md) |
-| The chain | QX-21 | Doors fold each other's chains | Draft, built | [ext/QX-21.md](ext/QX-21.md) |
-| The chain | QX-14 | Discovery over relays | Draft, relays built | [ext/QX-14.md](ext/QX-14.md) |
-| The coin | QX-15 | Stake at the door | Draft, built with standing | [ext/QX-15.md](ext/QX-15.md) |
-| The coin | QX-16 | Gold pieces | Draft, built | [ext/QX-16.md](ext/QX-16.md) |
-| The coin | QX-17 | The coin as a layer | Draft, built; transfers on from genesis | [ext/QX-17.md](ext/QX-17.md) |
-| Open | QX-8, QX-9 | Independence from the agreement graph; evidence a machine can check | Reserved | [OPEN-PROBLEM.md](OPEN-PROBLEM.md) |
+Each layer above the core is a set of numbered extensions, so that each can be finished, replaced or withdrawn on its own. [EXTENSIONS.md](EXTENSIONS.md) is the process and the one registry: each number with its layer, its status and the document that says exactly what is built.

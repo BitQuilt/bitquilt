@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 /**
- * One door to the chain: `packages/coin/src/chain.ts` is the only file in the repository that imports the RPC
- * library, as the rally's gateway is the only file that imports a model SDK. Every `.ts` file under `packages/*\/src`
+ * One door to the chain (AGENTS.md, rule 10): `packages/coin/src/chain.ts` is the only file in the repository that
+ * imports the RPC library, so what can reach the chain is one file to review. Every `.ts` file under `packages/*\/src`
  * and `packages/*\/test` is read, and any other that imports or requires it fails this test.
  */
 const here = dirname(fileURLToPath(import.meta.url));

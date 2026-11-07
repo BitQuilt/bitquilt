@@ -1,8 +1,8 @@
 /**
- * The door a Quilt hands its coin (coin.ts) and its gold (gold.ts): the key, the config and the library; the way to
- * sign and to post, which stays the Quilt's own; the trackers to ask and how to ask them; and what the Quilt has read.
- * A Quilt builds one from its private methods when it is made (quilt.ts), so signing and posting reach those two files
- * and no caller of the Quilt.
+ * The door a Quilt hands its coin (coin.ts), its gold (gold.ts) and its trace (trace.ts): the key, the config and the
+ * library; the way to sign and to post, which stays the Quilt's own; the trackers to ask and how to ask them; and what
+ * the Quilt has read. A Quilt builds one from its private methods when it is made (quilt.ts), so signing and posting
+ * reach those three files and no caller of the Quilt.
  */
 import type { Event, Hash, State, Unsigned } from '@bitquilt/core';
 import type { Config, Identity } from './config.js';

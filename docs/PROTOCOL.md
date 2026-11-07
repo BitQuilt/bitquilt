@@ -57,7 +57,7 @@ A client also keeps a local cache of what it has fetched, so it can keep working
 
 ## Canonical forms
 
-- **Canonical JSON** is RFC 8785 (JSON Canonicalization Scheme): sorted keys, no whitespace, shortest number form, NFC strings.
+- **Canonical JSON** is RFC 8785 (JSON Canonicalization Scheme): sorted keys, no whitespace, shortest number form. RFC 8785 normalises no string, so a string is hashed and signed with its code points as written; NFC belongs to the canonicalisation of an `agree` field (CORE.md section 6), not to the bytes a hash or a signature covers.
 - **A hash** is `sha256:` followed by the lower-case hex of SHA-256 over canonical JSON, or over raw bytes for a blob.
 - **A key** is secp256k1. **An identity** is the Ethereum address of the key: `0x` and the last twenty bytes of keccak-256 over the uncompressed public key, written with the EIP-55 checksum. Its standards form, where one is wanted, is `did:pkh:eip155:1:0x…`.
 - **A signature** is a recoverable ECDSA signature in the EIP-191 personal-message form over the canonical JSON of the object without its `sig` field. The signer's address is recovered from the signature and compared with the `key` field, so an event carries no public key. Any Ethereum wallet, software or hardware, can produce this signature with no new key.
@@ -268,7 +268,7 @@ piece = next(state, key, client, now)
 5. **Endgame**: when the pieces not yet accepted number `endgame_at` or fewer, live claims count for nothing in availability, so stragglers get second workers. The duplicate is the verify.
 6. **The piece** is returned with its brief rendered, its schema, its `agree` fields marked, and its lease; the client emits a `claim`.
 
-**Assisted.** A client that can reach a tracker may ask it for `next`; the tracker runs the same function against its view and takes the lease in one conditional update, so two clients on one tracker never collide. A client that can reach only a mirror runs `next` itself and may collide with another. Since a second production is the verify, a collision costs nothing extra.
+**Assisted.** A client that can reach a tracker may ask it for `next`; the tracker runs the same function against its view, leaving out the pieces it holds for other keys, and holds the piece it hands out for that key: for a minute at the reference tracker, released sooner when the key reveals on it or declines it. So two clients on one tracker are not handed the same piece in the same minute. The hold is the tracker's courtesy and not a lease: the lease is the claim's, a claim is an intent and excludes no one, and after the minute another key can be handed the same piece. A client that can reach only a mirror runs `next` itself and may collide with another. Since a second production is the verify, a collision costs nothing extra.
 
 ## Sealing: commit, then reveal
 
@@ -296,7 +296,7 @@ The site. What it serves is checkable from hashes and signatures; what it may do
 | `GET /p/<hash>/events?since=<cursor>` | Receipts as the tracker's chained lines, oldest first, paged |
 | `GET /k/events?since=<cursor>`, `POST /k/events` | The identity log: `name`, `delegate`, `revoke` and `rotate`, which name no problem, chained from the hash of `quilt:identity` |
 | `POST /p/<hash>/events` | One signed event. `202`, or `4xx` with the reason: signature, rule, gate, rate, stamp |
-| `GET /p/<hash>/next?key=<address>` | Assisted assignment: runs `next` for the client's declaration, takes the lease in one conditional update, returns the rendered piece |
+| `GET /p/<hash>/next?key=<address>` | Assisted assignment: runs `next` for the client's declaration, holds the piece for that key for a minute at the reference tracker (its reveal or decline releases the hold sooner), and returns the rendered piece; the lease is the claim's |
 | `GET /p/<hash>/state` | The tracker's reduced view, a convenience; a client may recompute |
 | `GET /p/<hash>/scrape` | Counts by state, seeders, the last event's time, and the head of the tracker's chain |
 | `GET /b/<hash>` | A blob |

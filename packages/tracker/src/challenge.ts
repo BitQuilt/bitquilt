@@ -15,16 +15,19 @@
  * stake rules and locks of QX-15 (stake.ts holds what each rule says), the owner's gold of QX-16 (gold.ts), and
  * QX-17's burn credit and the door's word on a coin lock. challengeLayer reads them in one pass over every problem's
  * receipts, in receipt order, since a lock on one problem and a credit on another are both functions of the whole
- * store. The phases, each marked below where it runs:
+ * store. Before them it sets aside, in a dispute, a reading that rests on nothing where the other rests on the record
+ * (QX-19 section 4; trace.ts says what a reading rests on), so the piece is folded without it. The phases, each marked
+ * below where it runs:
  *
  *   1. Every problem reduced by the core, and the verifier kinds decided over it (verifiers.md section 1).
  *   2. The kinds and the credits brought to a fixed point (verifiers.md section 1).
- *   3. The stake rules kept in receipt order (QX-15 section 1; stake.ts).
- *   4. The burns on the coin log credited as standing (QX-17 section 4; standing.ts).
- *   5. The events the layer keeps, read once each in receipt order across every problem: locks (QX-15 section 1),
+ *   3. The readings that rest on nothing set aside in a dispute (QX-19 section 4; trace.ts).
+ *   4. The stake rules kept in receipt order (QX-15 section 1; stake.ts).
+ *   5. The burns on the coin log credited as standing (QX-17 section 4; standing.ts).
+ *   6. The events the layer keeps, read once each in receipt order across every problem: locks (QX-15 section 1),
  *      golds (QX-16 section 1), gold reveals (QX-16 section 3) and challenges with their verdicts (QX-1 sections 3 to
  *      6; against a gold miss, QX-16 section 4).
- *   6. The views a reader is handed, and the admissions the door asks before it takes an event.
+ *   7. The views a reader is handed, and the admissions the door asks before it takes an event.
  *
  * The record the phases write into, and standing, locked and free over it, are in standing.ts; the draw and the seats
  * both panels share are in sortition.ts.

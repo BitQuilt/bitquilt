@@ -4,6 +4,7 @@ A tracker, a problem, and your AI as a worker, all on one machine.
 
 ```bash
 pnpm install
+pnpm build:window                                                      # the card the client imports, which is not committed
 QUILT_DB=/tmp/quilt-tracker.db pnpm --filter @bitquilt/tracker start   # a tracker at http://localhost:3977/
 ```
 

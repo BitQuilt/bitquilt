@@ -47,6 +47,12 @@ pick = bitquilt.next(state, key, {"can": ["web"], "model": "vendor/model"}, now)
 | `conform.py` | section 9: the fixtures as the conformance test |
 | `FINDINGS.md` | every place the document was insufficient, ambiguous or contradicted by a fixture, and what was assumed |
 
+Sections 8 (the link) and 11 (the plain-text gate and the stamp) are not
+implemented here: the reducer and `next` need neither, so each has the
+reference alone, and the gate's fixture,
+`packages/core/fixtures/gate/cases.json`, runs in
+`packages/core/test/gate.test.ts`.
+
 ## Score
 
 39 of 39 fixtures pass: the 24 of version 1 and the 15 clarifications of
