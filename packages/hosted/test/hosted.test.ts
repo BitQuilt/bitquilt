@@ -18,12 +18,12 @@ import { answerText, sentenceVendor, vendorSentence } from '../src/sentence.js';
  * connector served at that address over MCP, declaring the host and marking custody on every event it posts; the key
  * taken home by its address, and a session from one address refused at another; a post to another tracker a link
  * names carries neither the custody secret nor the witness, and where the connector is shared a link that names a
- * private address reaches nothing, for a member or the site's reader; the sheet a browser gets at the same
- * address, with its data beside it; the page of a square, which says what the version its address names recorded, or
- * the earlier version that holds a piece the later one keeps only from it, what each reading rests on (QX-19), read
- * from the same chain as the readings, and where the piece stands after the owner replaced it. And the owners' turn (QX-19 section 4, QX-16): the on-ramp sharpens a hosted owner's brief where two
- * grounded readings read it apart, with the sentence from the vendor its environment names, and passes over a member
- * with nothing to do.
+ * private address reaches nothing, for a member or the site's reader; the sheet a browser gets at the same address,
+ * with its data beside it; the page of a square, which says what the version its address names recorded, or the
+ * earlier version that holds a piece the later one keeps only from it, what each reading rests on (QX-19), read from
+ * the same chain as the readings, and where the piece stands after the owner replaced it. And the owners' turn
+ * (QX-19 section 4, QX-16): the on-ramp sharpens a hosted owner's brief where two grounded readings read it apart,
+ * with the sentence from the vendor its environment names, and passes over a member with nothing to do.
  */
 let server: Server;
 let base: string;
