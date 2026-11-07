@@ -19,9 +19,10 @@ import { answerText, sentenceVendor, vendorSentence } from '../src/sentence.js';
  * taken home by its address, and a session from one address refused at another; a post to another tracker a link
  * names carries neither the custody secret nor the witness, and where the connector is shared a link that names a
  * private address reaches nothing, for a member or the site's reader; the sheet a browser gets at the same
- * address, with its data beside it. And the owners' turn (QX-19 section 4, QX-16): the on-ramp sharpens a hosted
- * owner's brief where two grounded readings read it apart, with the sentence from the vendor its environment names,
- * and passes over a member with nothing to do.
+ * address, with its data beside it; the page of a square, which says what the version its address names recorded
+ * and where the piece stands after the owner replaced it. And the owners' turn (QX-19 section 4, QX-16): the on-ramp
+ * sharpens a hosted owner's brief where two grounded readings read it apart, with the sentence from the vendor its
+ * environment names, and passes over a member with nothing to do.
  */
 let server: Server;
 let base: string;
@@ -239,6 +240,54 @@ describe('the hosted on-ramp', () => {
     const r = await fetch(otherUrl, { method: 'POST', headers: { 'content-type': 'application/json', 'mcp-session-id': sid, accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 9, method: 'tools/list' }) });
     expect(r.status).toBe(403);
     await client.close();
+  });
+});
+
+describe('the page of a square', () => {
+  it('says what the version named recorded, its readings quoted with what each rests on, and where the piece stands after the owner replaced it', async () => {
+    const mk = (n: number, model: string) => {
+      const home = mkdtempSync(join(tmpdir(), 'square-'));
+      createKey(home, { secretHex: '00'.repeat(31) + n.toString(16).padStart(2, '0') });
+      const config = { ...DEFAULT_CONFIG, trackers: [base], model };
+      return new Quilt(config, loadKey(home), new Resolver(config, home), 'Claude Code');
+    };
+    const owner = mk(0x21, 'anthropic/claude'), a = mk(0x22, 'anthropic/claude'), b = mk(0x23, 'openai/gpt-5');
+    const schema = { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } };
+    const families = { 'claim/*': { count: 1, verifier: 'agree', requires: ['web'], brief: 'Claim {n}: does the paper say so?', schema, agree: ['verdict'] }, 'check/*': { count: 1, verifier: 'agree', requires: ['web'], brief: 'Check {n}: does the paper say so at scale?', schema, agree: ['verdict'] } };
+    const p = (await owner.publish({ title: 'What the paper says', done_when: 'Every claim has a verdict.', slug: 'squared', pieces: families } as Pattern)).hash as Hash;
+    const pieceOf = async (h: Hash, name: string) => (await a.open(h)).state.pieces.find((x) => x.piece.name === name)!.piece.hash;
+    const claim = await pieceOf(p, 'claim/1');
+    const check = await pieceOf(p, 'check/1');
+    const at = (passage: string) => [{ field: 'verdict', url: `${site}/paper`, passage }];
+    await a.return(p, claim, { verdict: 'supports' }, at(HOLDS));
+    await b.return(p, claim, { verdict: 'supports' }, at(HOLDS));
+    await a.return(p, check, { verdict: 'supports' }, at(HOLDS));
+    await b.return(p, check, { verdict: 'contradicts' }, at(NOT_AT_SCALE));
+    const page = async (h: Hash, piece: Hash) => { const r = await fetch(`${base}r/${h}/${piece}`); return { status: r.status, csp: r.headers.get('content-security-policy') ?? '', html: await r.text() }; };
+    const one = await page(p, claim);
+    expect(one.status).toBe(200);
+    expect(one.csp).toContain("default-src 'none'");
+    expect(one.html).toContain('<title>claim/1: verdict &quot;supports&quot;, agreed by AIs from anthropic and openai</title>');
+    expect(one.html).toContain('<meta property="og:title" content="claim/1: verdict &quot;supports&quot;, agreed by AIs from anthropic and openai">');
+    expect(one.html).toContain('It is accepted by two AIs from different companies, inside the window in which anyone may challenge it. Both readings rest on pages kept here.');
+    expect(one.html).toContain(`<h3>${a.identity!.address}</h3>`);
+    expect(one.html).toContain(`verdict rests on “${HOLDS}” at <a href="${site}/paper"`);
+    expect(one.html).toContain('One of the two readings that accepted the square.');
+    expect(one.html).not.toMatch(/<script/i);
+    expect(one.html).not.toContain('The owner has replaced');
+    // The owner sharpens the check family: the claim keeps its hash in the new version, the check takes a new one.
+    const newer = (await owner.sharpen(p, async () => 'Scale is read from the section that reports it.')).hash as Hash;
+    expect(newer).toBeTruthy();
+    const kept = await page(p, claim);
+    expect(kept.html).toContain('<title>claim/1: verdict &quot;supports&quot;, agreed by AIs from anthropic and openai</title>');
+    // A version keeps the events of the pieces whose hash it keeps, so the square stands there too.
+    expect(kept.html).toContain(`In the current version, <code>${newer}</code>, the same piece is accepted by two AIs from different companies`);
+    const sharpened = await page(p, check);
+    expect(sharpened.html).toContain('<title>check/1: disputed: two readings differ</title>');
+    expect(sharpened.html).toContain(`and sharpened this piece's brief. In the current version, <code>${newer}</code>, the piece of the same name is <code>${await pieceOf(newer, 'check/1')}</code>`);
+    expect(sharpened.html).toContain('Scale is read from the section that reports it.');
+    expect((await page(p, `sha256:${'0'.repeat(64)}` as Hash)).status).toBe(404);
+    expect((await page(`sha256:${'0'.repeat(64)}` as Hash, claim)).status).toBe(404);
   });
 });
 

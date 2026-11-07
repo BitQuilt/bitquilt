@@ -16,10 +16,11 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { appendFileSync } from 'node:fs';
-import { type Address, addressOf, randomSecretKey, secretFromHex, secretToHex, withSlash } from '@bitquilt/core';
+import { type Address, type Hash, addressOf, eventId, randomSecretKey, secretFromHex, secretToHex, withSlash } from '@bitquilt/core';
 import { PRIVATE_RANGES, type Store, clientAddress, rangesOf } from '@bitquilt/tracker';
-import { AWAY_LOG, type Config, DEFAULT_CONFIG, type OwnerTurn, Quilt, Resolver, WINDOW_HTML, WINDOW_OPS, WINDOW_READ_OPS, type Witness, createMcpServer, localRunner, ownerTurn, publicFetch, sheetOf, shared, windowAnswer } from 'quilt';
+import { AWAY_LOG, type Config, DEFAULT_CONFIG, type OwnerTurn, Quilt, Resolver, WINDOW_HTML, WINDOW_OPS, WINDOW_READ_OPS, type Witness, createMcpServer, kindWords, localRunner, makeLink, ownerTurn, publicFetch, sheetOf, shared, windowAnswer } from 'quilt';
 import { joinPage } from './join-page.js';
+import { type SquareNow, type SquareReading, type SquareView, squarePage } from './square-page.js';
 import { type OAuthServer, createOAuth } from './oauth.js';
 import { type Sentence, vendorSentence } from './sentence.js';
 import { SHEET_PAGE } from './sheet-page.js';
@@ -156,6 +157,80 @@ export function createHosted(options: HostedOptions): Hosted {
     return readerQuilt;
   };
   const readerKept = new Map<string, { at: number; answer: Promise<Record<string, unknown>> }>();
+
+  /**
+   * One square for its page (square-page.ts): the version the address names, opened over the reader with no key; its
+   * readings from that version's fold, the two that accepted the square and any the layer set aside marked; what each
+   * rests on, from the traces in the store and the passages of the reads kept there; and where the piece stands in the
+   * newest version, following the replacements eight at most. Null where this tracker holds no such problem or piece,
+   * or a maintainer hid the problem.
+   */
+  async function squareOf(problem: Hash, piece: Hash): Promise<SquareView | null> {
+    const reader = readerOf();
+    let opened: Awaited<ReturnType<Quilt['open']>>;
+    try {
+      opened = await reader.open(problem);
+    } catch {
+      return null;
+    }
+    if (opened.hidden || opened.hash !== problem) return null;
+    const { state, layer } = opened;
+    const v = state.byHash.get(piece) ?? state.ancestral.get(piece);
+    if (!v) return null;
+    const l = layer?.find((x) => x.hash === piece) ?? null;
+    const st: string = l?.state ?? v.state;
+    const accepting = (st === 'accepted' || st === 'accepted_provisional' || st === 'challenged') && v.accepting?.kind === 'agree' ? v.accepting : null;
+    const aside = new Set((l?.aside ?? []).map((k) => k.toLowerCase()));
+    const receipts = store.receipts(problem);
+    const revealOf = new Map<string, Hash>();
+    for (const r of receipts) if (r.event.type === 'reveal' && r.event.piece === piece) revealOf.set(r.event.key.toLowerCase(), eventId(r.event));
+    const restsOf = (key: string): SquareReading['rests'] => {
+      const id = revealOf.get(key.toLowerCase());
+      if (!id) return [];
+      return receipts.flatMap((r) => {
+        const b = r.event.body as { reveal?: unknown; reads?: { url: string; hash: Hash }[]; rests?: { field: string; read: number; span: [number, number] }[] } | undefined;
+        if (r.event.type !== 'trace' || r.event.piece !== piece || b?.reveal !== id || !Array.isArray(b.reads) || !Array.isArray(b.rests)) return [];
+        return b.rests.flatMap((x) => {
+          const read = b.reads![x.read];
+          if (!read) return [];
+          const bytes = store.getBlob(read.hash);
+          return [{ field: x.field, url: read.url, hash: read.hash, passage: bytes ? new TextDecoder().decode(bytes.slice(x.span[0], x.span[1])) : null }];
+        });
+      });
+    };
+    const accepted = new Set(accepting ? accepting.reveals.map((r) => r.key.toLowerCase()) : []);
+    const readings: SquareReading[] = v.reveals.map((r) => ({
+      key: r.key, name: state.names.get(r.root)?.name ?? null, vendor: r.vendor, model: r.by.model, at: r.at,
+      accepting: accepted.has(r.key.toLowerCase()), aside: aside.has(r.key.toLowerCase()),
+      fields: Object.entries(r.return as Record<string, unknown>), rests: restsOf(r.key),
+    }));
+    let later: SquareNow | null = null;
+    let newest: { hash: Hash; opened: Awaited<ReturnType<Quilt['open']>> } | null = null;
+    for (let next = opened.superseded, hops = 0; next && hops < 8; hops++) {
+      try {
+        newest = { hash: next, opened: await reader.open(next) };
+      } catch {
+        break;
+      }
+      next = newest.opened.superseded;
+    }
+    if (newest) {
+      const stateIn = (h: Hash, core: string): string => newest!.opened.layer?.find((x) => x.hash === h)?.state ?? core;
+      const same = newest.opened.state.byHash.get(piece);
+      const named = same ? null : newest.opened.state.pieces.find((x) => x.piece.name === v.piece.name);
+      if (same) later = { version: newest.hash, same: true, state: stateIn(piece, same.state) };
+      else if (named) later = { version: newest.hash, same: false, piece: named.piece.hash, state: stateIn(named.piece.hash, named.state), brief: named.piece.brief };
+    }
+    const env = state.envelope.problem;
+    return {
+      url: `${trackerUrl()}r/${problem}/${piece}`, problem, title: env.title, owner: env.owner, ownerName: state.names.get(env.owner as Address)?.name ?? null,
+      piece, name: v.piece.name, brief: v.piece.brief, state: st, kind: kindWords(v.piece.verifier).says,
+      agreed: accepting ? (v.piece.agree ?? []).map((field) => ({ field, value: (accepting.reveals[0].return as Record<string, unknown>)[field] })) : null,
+      vendors: accepting ? [...new Set(accepting.reveals.map((r) => r.vendor))] : [],
+      traced: l?.traced ?? null, verified: l?.verified ?? false, readings, now: later,
+      link: makeLink(problem, [trackerUrl()], env.slug), directory: `${trackerUrl()}window?reader=window/io`,
+    };
+  }
   function readerAnswer(op: string, input: Record<string, string>): Promise<Record<string, unknown>> {
     const key = JSON.stringify([op, input]);
     const t = Date.now();
@@ -318,6 +393,20 @@ export function createHosted(options: HostedOptions): Hosted {
       const b = oauth.bearer(req);
       if (b.kind !== 'granted') oauth.challenge(res, b.kind === 'refused' ? b.why : undefined);
       else await mcp(req, res, { member: b.tokenHash, witness: b.witness });
+      return true;
+    }
+    // The page of one square (square-page.ts): public and read-only, built here with no script, under the reader's hourly limit.
+    const square = /^\/r\/(sha256:[0-9a-f]{64})\/(sha256:[0-9a-f]{64})$/.exec(path);
+    if (square && method === 'GET') {
+      const headers = { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'", 'cache-control': 'public, max-age=60' };
+      if (store.hit(`window:${addressHash(req)}`, now().slice(0, 13), readsPerHour)) {
+        res.writeHead(429, headers);
+        res.end('<!doctype html><title>Over the limit</title><p>Over the hour\'s limit for reads from here.</p>');
+        return true;
+      }
+      const view = await squareOf(square[1] as Hash, square[2] as Hash);
+      res.writeHead(view ? 200 : 404, headers);
+      res.end(view ? squarePage(view) : '<!doctype html><title>No such square</title><p>This tracker holds no such square.</p>');
       return true;
     }
     // The directory window for a site (APP.md, "The window"): the card as a page, which any site may frame, since it holds nothing of anyone's and reads what /search reads; and the read-only ops beside it, over the reader with no key.
