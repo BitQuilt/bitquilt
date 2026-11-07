@@ -23,7 +23,7 @@ import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems, windowOpen
 import { type CoinLayer, type CoinLockView, type CoinParams, type CoinWord, COIN, COIN_EVENTS, COIN_LOG, coinLayer } from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
 import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
-import { BLOB_MAX, type PieceTraces, type Seam, RECORD, TRACE, TRACE_EVENTS, admitTrace, graded, recordDocument, recordGraded, recordSeams, seamed, tracesKept } from './trace.js';
+import { BLOB_MAX, type PieceTraces, type Seam, RECORD, TRACE, TRACE_EVENTS, admitTrace, graded, passageIn, recordDocument, recordGraded, recordSeams, seamed, tracesKept } from './trace.js';
 import type { Store } from './store.js';
 
 /** The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under. */
@@ -901,8 +901,7 @@ export function createTracker(options: TrackerOptions): Tracker {
 
   /** QX-19: a span of a blob here as text, or null where the blob is not here. */
   function passageOf(h: Hash, span: [number, number]): string | null {
-    const b = store.getBlob(h);
-    return b ? new TextDecoder().decode(b.subarray(span[0], span[1])) : null;
+    return passageIn(store.getBlob(h), span);
   }
 
   /**
