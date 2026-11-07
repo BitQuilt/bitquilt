@@ -60,7 +60,7 @@ describe('the MCP Bundle for Claude Desktop', () => {
     expect(readFileSync(join(unpacked, 'server', 'index.js'), 'utf8')).toContain('ui://quilt/window.');
   });
 
-  it('starts over stdio from the unpacked files, under a folder that declares ES modules, finds its page, and lists the nineteen tools the manifest names', async () => {
+  it("starts over stdio from the unpacked files, under a folder that declares ES modules, names the client's version, finds its page, and lists the nineteen tools the manifest names", async () => {
     const home = join(out, 'home');
     // Where the app unpacks it is not the bundle's to choose; a package.json above it saying ES modules changes nothing.
     writeFileSync(join(out, 'package.json'), JSON.stringify({ type: 'module' }));
@@ -72,6 +72,8 @@ describe('the MCP Bundle for Claude Desktop', () => {
     });
     const client = new Client({ name: 'claude-desktop-test', version: '0.0.0' });
     await client.connect(transport);
+    // The handshake names the version the build wrote in, the one the manifest carries.
+    expect(client.getServerVersion()).toMatchObject({ name: 'quilt', version: manifest.version });
     const tools = await client.listTools();
     const names = tools.tools.map((t) => t.name).sort();
     expect(names).toEqual(['quilt_challenge', 'quilt_decline', 'quilt_me', 'quilt_name', 'quilt_next', 'quilt_open', 'quilt_pay', 'quilt_publish', 'quilt_rank', 'quilt_read', 'quilt_redeem', 'quilt_return', 'quilt_reveal_gold', 'quilt_search', 'quilt_seed', 'quilt_transfer', 'quilt_verdict', 'quilt_window', 'quilt_window_io']);
