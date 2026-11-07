@@ -12,7 +12,8 @@ import { baseOf, hex, quiltOver, startTracker, tempHome } from './helpers.js';
  * a return back as a person (the same key as their AI's, model `human`, capability `person`), and a piece an AI of
  * another vendor returned before them is accepted by their agreement. The owner's gold (QX-16) is offered for reveal on
  * the pieces the owner's turn reveals (gold.ts, goldDue): an accepting set stands and its window is open. Once the
- * window has closed the tracker refuses the reveal, and the page no longer offers it.
+ * window has closed the tracker refuses the reveal, and the page no longer offers it (APP.md, "Standing, gold and the
+ * coin on the page").
  */
 let tracker: Server;
 let page: Server;
