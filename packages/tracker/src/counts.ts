@@ -2,13 +2,14 @@
  * The launch funnel, counted by the UTC day (docs/JOURNEY-AUDIT.md section 3, item 9), with no HTTP in it. Numbers
  * with nobody in them: the addresses the hosted on-ramp handed out, first used and taken home, from the times the
  * members table keeps; the keys whose first event on a problem log here fell on the day, through the hosted connector
- * or on a key of their own by the receipt's custody mark; the claims and reveals received; the sets accepted, from the
+ * or on a key of their own by the receipt's custody mark; the claims and reveals received, and the declines by their
+ * reason, a model's refusal among them, so what nobody would read is counted beside what was done; the sets accepted, from the
  * layer's fold with struck events left out; the squares the owner's gold verified (QX-16), by the reveal's receipt. No
  * address, name, token or hash goes into the answer, so the route that serves it is public: the counts say how the
  * launch is going and nothing about anyone. Each is a function of the store at now and is computed on request, as the
  * layer is.
  */
-import type { Receipt } from '@bitquilt/core';
+import { DECLINE_REASONS, type DeclineReason, type Receipt } from '@bitquilt/core';
 import type { Layer } from './challenge.js';
 
 /** The window a `days` query asks for when it says nothing, and the most it may ask. */
@@ -41,6 +42,8 @@ export interface FunnelCounts {
   keys_first_event: { hosted: number; own: number };
   claims: number;
   reveals: number;
+  /** Declines received, by the core's reason: `refuse` is a model's refusal, `cannot` a worker that could not. */
+  declines: Record<DeclineReason, number>;
   /** Accepting sets by the day they completed, in the layer's fold. */
   sets_accepted: number;
   /** Squares the owner's gold verified, by the day of the reveal's receipt. */
@@ -65,7 +68,8 @@ export function daysFrom(raw: string | null): number | null {
 /** The UTC day a time in milliseconds falls on, as YYYY-MM-DD. */
 const dayOf = (t: number): string => new Date(t).toISOString().slice(0, 10);
 
-const zero = (): FunnelCounts => ({ addresses_made: 0, addresses_first_used: 0, keys_taken_home: 0, keys_first_event: { hosted: 0, own: 0 }, claims: 0, reveals: 0, sets_accepted: 0, squares_verified: 0 });
+const noDeclines = (): Record<DeclineReason, number> => Object.fromEntries(DECLINE_REASONS.map((r) => [r, 0])) as Record<DeclineReason, number>;
+const zero = (): FunnelCounts => ({ addresses_made: 0, addresses_first_used: 0, keys_taken_home: 0, keys_first_event: { hosted: 0, own: 0 }, claims: 0, reveals: 0, declines: noDeclines(), sets_accepted: 0, squares_verified: 0 });
 
 /** The funnel over the window of `days` UTC days ending on now's, every day present, and the totals over it. */
 export function funnel(input: FunnelInput): Funnel {
@@ -96,6 +100,10 @@ export function funnel(input: FunnelInput): Funnel {
     if (!w) continue;
     if (r.event.type === 'claim') on(w.at, (c) => { c.claims += 1; });
     if (r.event.type === 'reveal') on(w.at, (c) => { c.reveals += 1; });
+    if (r.event.type === 'decline') {
+      const reason = (r.event.body as { reason?: unknown } | undefined)?.reason;
+      if ((DECLINE_REASONS as readonly unknown[]).includes(reason)) on(w.at, (c) => { c.declines[reason as DeclineReason] += 1; });
+    }
     const seen = first.get(r.event.key);
     if (!seen || w.at < seen.at) first.set(r.event.key, { at: w.at, hosted: w.custody === 'hosted' });
   }
@@ -127,6 +135,7 @@ export function funnel(input: FunnelInput): Funnel {
     totals.keys_first_event.own += r.keys_first_event.own;
     totals.claims += r.claims;
     totals.reveals += r.reveals;
+    for (const k of DECLINE_REASONS) totals.declines[k] += r.declines[k];
     totals.sets_accepted += r.sets_accepted;
     totals.squares_verified += r.squares_verified;
   }

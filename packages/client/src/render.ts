@@ -416,3 +416,39 @@ export function panelsText(list: PanelListing[], state: State): string {
     return lines.join('\n');
   }).join('\n\n');
 }
+
+/** What a problem's accepted squares found: for each agreed field whose schema is a list of choices, how many accepted squares agreed on each choice. */
+export type Found = Record<string, Record<string, number>>;
+
+/** The same count the tracker's row carries, from the fold this client reduced and the layer's states where a tracker answered. */
+export function foundIn(state: State, layer: LayerPiece[] | null): Found {
+  const byHash = new Map((layer ?? []).map((l) => [l.hash, l.state as string]));
+  const out: Found = {};
+  for (const v of state.pieces) {
+    const s = byHash.get(v.piece.hash) ?? v.state;
+    if ((s !== 'accepted' && s !== 'accepted_provisional') || v.accepting?.kind !== 'agree') continue;
+    for (const field of v.piece.agree ?? []) {
+      const choices = (v.piece.schema?.properties?.[field] as { enum?: unknown[] } | undefined)?.enum;
+      const value = (v.accepting.reveals[0].return as Record<string, unknown>)[field];
+      if (!Array.isArray(choices) || typeof value !== 'string' || !choices.includes(value)) continue;
+      const by = (out[field] ??= {});
+      by[value] = (by[value] ?? 0) + 1;
+    }
+  }
+  return out;
+}
+
+/**
+ * What the accepted squares found, in words: each field and its choices, the choices quoted as the owner's own words
+ * and each with its count, most first. A count, and nothing about chance; empty where nothing is found, and a choice
+ * or a field that fails the plain-text gate is left out.
+ */
+export function foundText(found: Found | null | undefined): string {
+  if (!found || typeof found !== 'object') return '';
+  const parts = Object.entries(found).flatMap(([field, by]) => {
+    if (textIssues(field).length || !by || typeof by !== 'object') return [];
+    const values = Object.entries(by).filter(([v, n]) => Number.isInteger(n) && n > 0 && textIssues(v).length === 0).sort((a, b) => b[1] - a[1]);
+    return values.length ? [`${field}: ${values.map(([v, n]) => `${n} "${v}"`).join(', ')}`] : [];
+  });
+  return parts.length ? `the accepted squares agreed on ${parts.join('; ')}` : '';
+}

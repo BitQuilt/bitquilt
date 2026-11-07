@@ -59,6 +59,8 @@ export interface TrackerOptions {
   url: string;
   /** The name the well-known document gives this tracker; its address when none. */
   name?: string;
+  /** QX-5 section 2: the one key whose seeded problems a key with no accepted work here is offered first (`QUILT_FIRST_SEEDER`); none when left out. */
+  firstSeeder?: Address;
   /** Other trackers' addresses, published at the well-known document for a client to try next. */
   peers?: string[];
   /** Posts an hour from one key and from one network address (120 and 600 when none are given). */
@@ -755,10 +757,15 @@ export function createTracker(options: TrackerOptions): Tracker {
    * layer's fold, `accepted` and `disputed` the layer's states, `verified` the squares the owner's gold matched (QX-16),
    * `traced` the accepted squares by their grade (QX-19 section 3; a square accepted by runs or attest is in none of the
    * three), `readers` the distinct roots that revealed or ran, `vendors` the distinct vendors among them, and `last` the
-   * receipt time of the latest reveal or run.
+   * receipt time of the latest reveal or run. `declined` counts the roots that declined a piece, a model's refusal
+   * among them, so a piece nobody would read is seen beside the work. `found` is what the accepted squares say: for each
+   * agreed field whose schema is a list of choices, how many accepted squares agreed on each choice ("status: 3 proved,
+   * 6 open"), a count and nothing more.
    */
-  function workOf(pl: ProblemLayer): { returned: number; accepted: number; verified: number; disputed: number; traced: { both: number; one: number; none: number }; readers: number; vendors: number; last: string | null; recorded: number } {
+  function workOf(pl: ProblemLayer): { returned: number; accepted: number; verified: number; disputed: number; traced: { both: number; one: number; none: number }; readers: number; vendors: number; last: string | null; recorded: number; declined: number; found: Record<string, Record<string, number>> } {
     const traced = { both: 0, one: 0, none: 0 };
+    const found: Record<string, Record<string, number>> = {};
+    let declined = 0;
     let returned = 0;
     let accepted = 0;
     let verified = 0;
@@ -772,10 +779,20 @@ export function createTracker(options: TrackerOptions): Tracker {
       const l = pl.byHash.get(v.piece.hash);
       if (!l) continue;
       if (v.reveals.length || v.runs.length) returned += 1;
+      declined += v.declined.size;
       if (l.state === 'accepted' || l.state === 'accepted_provisional') {
         accepted += 1;
         const g = grades.get(v.piece.hash)?.traced;
         if (g) traced[g] += 1;
+        if (v.accepting?.kind === 'agree') {
+          for (const field of v.piece.agree ?? []) {
+            const choices = (v.piece.schema?.properties?.[field] as { enum?: unknown[] } | undefined)?.enum;
+            const value = (v.accepting.reveals[0].return as Record<string, unknown>)[field];
+            if (!Array.isArray(choices) || typeof value !== 'string' || !choices.includes(value)) continue;
+            const byValue = (found[field] ??= {});
+            byValue[value] = (byValue[value] ?? 0) + 1;
+          }
+        }
       }
       if (l.state === 'disputed' || l.state === 'challenged') disputed += 1;
       if (l.state === 'recorded') recorded += 1;
@@ -790,7 +807,7 @@ export function createTracker(options: TrackerOptions): Tracker {
         if (last === null || r.at > last) last = r.at;
       }
     }
-    return { returned, accepted, verified, disputed, traced, readers: roots.size, vendors: vendors.size, last, recorded };
+    return { returned, accepted, verified, disputed, traced, readers: roots.size, vendors: vendors.size, last, recorded, declined, found };
   }
 
   /** A problem in one line for the index and the scrape: its title, counts, head, the work on it, and what the extensions add. */
@@ -1087,12 +1104,13 @@ export function createTracker(options: TrackerOptions): Tracker {
       if (input) inputs.set(h, input);
     }
     const count = store.nextOfferCount(key);
+    const firstSeeder = options.firstSeeder;
     const list = offerOrder(layered, inputs, key, client, at, count, (h, pl, input) => {
       const exclude = store.heldByOthers(h, key, at);
       for (const x of watchExclusions(pl, input, key, seedInfo(input.receipts, pl.fold, at).seeders, at)) exclude.add(x);
       for (const x of layered.unaffordable(h, key)) exclude.add(x);
       return exclude;
-    });
+    }, firstSeeder ? (_h, pl, input) => seedInfo(input.receipts, pl.fold, at).seeders.has(pl.fold.rootOf(firstSeeder, at)) : undefined);
     const first = list[0];
     if (first) holdFor(first.problem, first.pick.piece.hash, key, at);
     json(res, 200, { offer: count, offers: list.map((o) => ({ problem: o.problem, title: o.title, slug: o.slug, owner: o.owner, reason: o.reason, piece: o.pick.piece.hash, name: o.pick.piece.name, state: o.pick.state, verifier: o.pick.piece.verifier, requires: o.pick.requires, lease_h: o.pick.lease_h })) });
@@ -1194,7 +1212,7 @@ export function createTracker(options: TrackerOptions): Tracker {
         return;
       }
       if ((m = /^\/k\/(0x[0-9a-fA-F]{40})\/work$/.exec(path)) && method === 'GET') {
-        // The directory's hot list (APP.md, "The window"): a key's latest readings, newest first, each with its state and grade as this tracker holds them. Receipts are by key, so a delegate's readings sit under the delegate's address; the root is said beside it.
+        // The directory's hot list (APP.md, "The window"): a key's latest readings, newest first, each with its state and grade as this tracker holds them, and `aside` where the layer set this key's reading aside (QX-19 section 4). Receipts are by key, so a delegate's readings sit under the delegate's address; the root is said beside it.
         const address = m[1]!;
         if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
         const asked = Number(u.searchParams.get('limit') ?? 20);
@@ -1205,7 +1223,7 @@ export function createTracker(options: TrackerOptions): Tracker {
           const pl = layered.problems.get(r.problem);
           const l = pl?.byHash.get(r.piece);
           if (!pl || !l) return [];
-          return [{ problem: r.problem, title: pl.fold.envelope.problem.title, piece: r.piece, name: l.name, at: r.at, state: l.state, verified: l.verified, traced: tracesOf(r.problem, pl).get(r.piece)?.traced ?? null }];
+          return [{ problem: r.problem, title: pl.fold.envelope.problem.title, piece: r.piece, name: l.name, at: r.at, state: l.state, aside: l.aside.includes(address), verified: l.verified, traced: tracesOf(r.problem, pl).get(r.piece)?.traced ?? null }];
         });
         const first = layered.problems.values().next().value as ProblemLayer | undefined;
         json(res, 200, { address, root, name: first ? nameIn(first)(root) : null, standing: layered.standing(root), readings, at: layered.now });

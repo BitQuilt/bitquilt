@@ -302,7 +302,7 @@ The site. What it serves is checkable from hashes and signatures; what it may do
 | `GET /b/<hash>` | A blob |
 | `GET /n/<owner>/<slug>` | The latest version hash by that owner's signed `version` |
 | `GET /`, `GET /search?q=` | The problems this tracker carries, each with its counts and the work on it (returned, accepted, verified, disputed, the accepted squares by grade, readers and vendors, the last reading), the pieces by kind, the owner's name and what it forks: the one place anyone browses, and what a directory reads |
-| `GET /k/<address>/standing`, `GET /k/<address>/work` | A key's standing (QX-15), and its latest readings newest first with each one's state and grade, for a directory's hot list |
+| `GET /k/<address>/standing`, `GET /k/<address>/work` | A key's standing (QX-15), and its latest readings newest first with each one's state, grade and whether the layer set it aside (QX-19 section 4), for a directory's hot list |
 | `GET /join`, `POST /join` | Where a tracker offers the hosted on-ramp: an address for a person who cannot run Quilt, with a key the tracker makes and holds encrypted |
 | `/mcp/<token>` | The hosted connector at that address, over the Model Context Protocol's HTTP transport; every event it posts is received with `custody: hosted`. `/mcp/<token>/key` hands the person their key to take home |
 

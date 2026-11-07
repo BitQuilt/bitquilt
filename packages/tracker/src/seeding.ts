@@ -85,7 +85,7 @@ export function watchExclusions(pl: ProblemLayer, input: ReduceInput, key: Addre
   return out;
 }
 
-export type Reason = 'reciprocal' | 'rarest' | 'newcomer';
+export type Reason = 'reciprocal' | 'rarest' | 'newcomer' | 'first';
 
 export interface Offer {
   problem: Hash;
@@ -104,9 +104,12 @@ function stands(state: string): boolean {
 /**
  * The problems this reader holds that have a piece for the key, in the order QX-5 section 2 gives: the problems of
  * owners who have worked for the key first (latest first), then the rest rarest first, and, on every tenth offer,
- * the newcomer's problem that stands highest among the rest. `count` is the number of this offer to the key.
+ * the newcomer's problem that stands highest among the rest. `count` is the number of this offer to the key. Where the
+ * door names a first seeder, `first` says whether that key seeds a problem: for a key with no accepted work here, the
+ * problems it seeds come before every other, in the order above among themselves, so a newcomer's first offer is a
+ * signed act of one key and not a count anyone can make.
  */
-export function offerOrder(layer: Layer, inputs: Map<Hash, ReduceInput>, key: Address, client: Client, now: string, count: number, exclude: (hash: Hash, pl: ProblemLayer, input: ReduceInput) => Set<Hash>): Offer[] {
+export function offerOrder(layer: Layer, inputs: Map<Hash, ReduceInput>, key: Address, client: Client, now: string, count: number, exclude: (hash: Hash, pl: ProblemLayer, input: ReduceInput) => Set<Hash>, first?: (hash: Hash, pl: ProblemLayer, input: ReduceInput) => boolean): Offer[] {
   // Roots with accepted work anywhere here, and when each worked for whom.
   const accepted = new Set<Address>();
   const workedFor = new Map<Address, Map<Address, string>>(); // owner root -> worker root -> latest completion
@@ -125,13 +128,15 @@ export function offerOrder(layer: Layer, inputs: Map<Hash, ReduceInput>, key: Ad
       }
     }
   }
-  type Row = Offer & { doneShare: number; last: string; reciprocalAt: string | null; newcomer: boolean };
+  type Row = Offer & { doneShare: number; last: string; reciprocalAt: string | null; newcomer: boolean; seeded: boolean };
   const rows: Row[] = [];
+  let keyRoot: Address | null = null;
   for (const [hash, pl] of layer.problems) {
     const input = inputs.get(hash);
     if (!input) continue;
     const fold = pl.fold;
     const w = fold.rootOf(key, now);
+    keyRoot ??= w;
     const ownerRoot = fold.rootOf(fold.envelope.problem.owner as Address, now);
     if (ownerRoot === w) continue;
     const pick = next(fold, key, client, now, { exclude: exclude(hash, pl, input) });
@@ -140,17 +145,21 @@ export function offerOrder(layer: Layer, inputs: Map<Hash, ReduceInput>, key: Ad
     const reciprocalAt = workedFor.get(w)?.get(ownerRoot) ?? null;
     const own = input.receipts.filter((r) => r.event.problem !== undefined);
     const last = own.length ? own[own.length - 1]!.received[0]?.at ?? '' : '';
-    rows.push({ problem: hash, title: fold.envelope.problem.title, slug: fold.envelope.problem.slug, owner: fold.envelope.problem.owner as Address, reason: reciprocalAt ? 'reciprocal' : 'rarest', pick, doneShare: pl.pieces.length ? done / pl.pieces.length : 0, last, reciprocalAt, newcomer: !accepted.has(ownerRoot) });
+    rows.push({ problem: hash, title: fold.envelope.problem.title, slug: fold.envelope.problem.slug, owner: fold.envelope.problem.owner as Address, reason: reciprocalAt ? 'reciprocal' : 'rarest', pick, doneShare: pl.pieces.length ? done / pl.pieces.length : 0, last, reciprocalAt, newcomer: !accepted.has(ownerRoot), seeded: first ? first(hash, pl, input) : false });
   }
   const reciprocal = rows.filter((r) => r.reciprocalAt).sort((a, b) => (a.reciprocalAt! < b.reciprocalAt! ? 1 : a.reciprocalAt! > b.reciprocalAt! ? -1 : 0));
   const rest = rows.filter((r) => !r.reciprocalAt).sort((a, b) => a.doneShare - b.doneShare || (a.last < b.last ? -1 : a.last > b.last ? 1 : 0));
-  const ordered: Row[] = [...reciprocal, ...rest];
+  let ordered: Row[] = [...reciprocal, ...rest];
   if (count % TENTH === 0) {
     const i = ordered.findIndex((r) => !r.reciprocalAt && r.newcomer);
     if (i > 0) {
       const [n] = ordered.splice(i, 1);
       ordered.unshift({ ...n!, reason: 'newcomer' });
     } else if (i === 0) ordered[0] = { ...ordered[0]!, reason: 'newcomer' };
+  }
+  // The door's first seeder: a key with no accepted work here is offered what that key seeds before anything else.
+  if (keyRoot && !accepted.has(keyRoot) && ordered.some((r) => r.seeded)) {
+    ordered = [...ordered.filter((r) => r.seeded).map((r) => ({ ...r, reason: 'first' as const })), ...ordered.filter((r) => !r.seeded)];
   }
   return ordered.map(({ problem, title, slug, owner, reason, pick }) => ({ problem, title, slug, owner, reason, pick }));
 }

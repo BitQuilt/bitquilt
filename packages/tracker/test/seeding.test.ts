@@ -6,7 +6,8 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
 /**
  * QX-4 and QX-5 at the tracker: seeders and the last seed read off `seed` events; a watch piece offered to a seeder
  * first and kept from others for its lease; and the offer: the problems of people who have worked for the asker
- * first, the rest rarest first, every tenth offer a newcomer's, and never the asker's own.
+ * first, the rest rarest first, every tenth offer a newcomer's, and never the asker's own; and a door's first seeder,
+ * whose seeded problems lead the offer to a key with no accepted work and no other.
  */
 const A = key(1), O1 = key(2), O2 = key(3), O3 = key(4), X = key(5), S = key(6), B = key(7);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
@@ -128,5 +129,34 @@ describe('seeding (QX-4)', () => {
     expect(wk.seeding).toBe('QX-4');
     expect(wk.reciprocity).toBe('QX-5');
     expect(wk.routes).toContain('/offer');
+  });
+});
+
+describe('a door\'s first seeder (QX-5 section 2)', () => {
+  const FIRST = key(8), N = key(9), W = key(10), O4 = key(11), O5 = key(12);
+  const u = boot('2026-10-26T09:00:00Z', { limits: { keyPerHour: 1000, ipPerHour: 10000 }, firstSeeder: addr(FIRST) });
+  beforeAll(() => u.listen());
+  afterAll(() => u.close());
+  const publishHere = async (e: Envelope): Promise<Hash> => ((await (await u.post('/p', { envelope: e, blobs: {} })).json()) as { hash: Hash }).hash;
+  const offerHere = async (k: Uint8Array) => (await u.get(`/offer?key=${addr(k)}&can=web&model=meta/llama`)) as { offer: number; offers: Offer[] };
+
+  it('offers a key with no accepted work what the first seeder seeds before the rest, and a key with accepted work the usual order', async () => {
+    const P = await publishHere(envelope(O4, 'first-p', 3));
+    const Q = await publishHere(envelope(O5, 'first-q', 3));
+    // Rarest first with nothing done: the problem with the oldest last event, P, leads.
+    expect((await offerHere(N)).offers.map((o) => [o.problem, o.reason])).toEqual([[P, 'rarest'], [Q, 'rarest']]);
+    await u.accepted(`/p/${Q}/events`, u.ev(FIRST, 'seed', { on: true }, Q));
+    expect((await offerHere(N)).offers.map((o) => [o.problem, o.reason])).toEqual([[Q, 'first'], [P, 'rarest']]);
+    // N earns an accepted square on Q: the rule no longer applies to it, and Q, now the less rare, comes second.
+    const q1 = ((await u.get(`/p/${Q}/state`)) as { pieces: { hash: Hash; name: string }[] }).pieces.find((p) => p.name === 'statement/1')!.hash;
+    for (const [k, model] of [[N, 'anthropic/claude'], [W, 'openai/gpt']] as const) {
+      const ret = { verdict: 'supports', quote: `as ${addr(k).slice(0, 6)} read it` };
+      const nonce = newNonce();
+      await u.accepted(`/p/${Q}/events`, u.ev(k, 'commit', { h: commitHash(ret, nonce) }, Q, q1));
+      await u.accepted(`/p/${Q}/events`, u.ev(k, 'reveal', { return: ret, nonce, by: by(model) }, Q, q1));
+    }
+    expect((await offerHere(N)).offers.map((o) => [o.problem, o.reason])).toEqual([[P, 'rarest'], [Q, 'rarest']]);
+    // A fresh key is still led to what the first seeder seeds.
+    expect((await offerHere(key(13))).offers[0]).toMatchObject({ problem: Q, reason: 'first' });
   });
 });

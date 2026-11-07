@@ -9,7 +9,8 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
  * The launch funnel counted by the UTC day (JOURNEY-AUDIT.md section 3, item 9) at GET /counts: every day of the
- * window with its zeros and the window's bounds, a window it cannot give refused; the claims, reveals, accepted sets
+ * window with its zeros and the window's bounds, a window it cannot give refused; the claims, reveals, declines by
+ * their reason, accepted sets
  * and verified squares by the day of the receipt, and each key's first event on a problem log, hosted apart from own,
  * with the identity log left out; the addresses the hosted on-ramp made, first used and took home, from the members
  * table and the two marks that fill it, each kept once; the totals over the window and the window cutting what is
@@ -32,12 +33,13 @@ const { clock, store, ev, post, get, accepted } = t;
 beforeAll(() => t.listen());
 afterAll(() => t.close());
 
-type Counts = { addresses_made: number; addresses_first_used: number; keys_taken_home: number; keys_first_event: { hosted: number; own: number }; claims: number; reveals: number; sets_accepted: number; squares_verified: number };
+type Counts = { addresses_made: number; addresses_first_used: number; keys_taken_home: number; keys_first_event: { hosted: number; own: number }; claims: number; reveals: number; declines: Record<string, number>; sets_accepted: number; squares_verified: number };
 type Day = Counts & { day: string };
 type Funnel = { now: string; window: { days: number; from: string; to: string }; by_day: Day[]; totals: Counts; error?: string };
 const counts = (query = '') => get<Funnel>(`/counts${query}`);
-const zero: Counts = { addresses_made: 0, addresses_first_used: 0, keys_taken_home: 0, keys_first_event: { hosted: 0, own: 0 }, claims: 0, reveals: 0, sets_accepted: 0, squares_verified: 0 };
-const FIELDS = ['addresses_first_used', 'addresses_made', 'claims', 'day', 'keys_first_event', 'keys_taken_home', 'reveals', 'sets_accepted', 'squares_verified'];
+const noDeclines = { cannot: 0, unclear: 0, refuse: 0, duplicate: 0, no_time: 0 };
+const zero: Counts = { addresses_made: 0, addresses_first_used: 0, keys_taken_home: 0, keys_first_event: { hosted: 0, own: 0 }, claims: 0, reveals: 0, declines: noDeclines, sets_accepted: 0, squares_verified: 0 };
+const FIELDS = ['addresses_first_used', 'addresses_made', 'claims', 'day', 'declines', 'keys_first_event', 'keys_taken_home', 'reveals', 'sets_accepted', 'squares_verified'];
 
 async function returnOn(problem: Hash, piece: Hash, k: Uint8Array, model: string, headers?: Record<string, string>) {
   const ret = { verdict: 'supports', quote: `as ${addr(k).slice(0, 6)} read it` };
@@ -92,10 +94,13 @@ describe('the funnel, counted', () => {
     await accepted(`/p/${p}/events`, ev(ownerP, 'gold_reveal', gold, p, p1));
     expect(await pieceOf(p, p1)).toMatchObject({ state: 'accepted_provisional', verified: true });
     await accepted('/k/events', ev(N, 'name', { name: 'Ada' }));
+    // A model's refusal is a decline with its reason, counted by the reason; X's first event was on day one.
+    const p2 = ((await get(`/p/${p}/state`)) as { pieces: PieceState[] }).pieces[1]!.hash;
+    await accepted(`/p/${p}/events`, ev(X, 'decline', { reason: 'refuse' }, p, p2));
     f = await counts('?days=2');
     expect(f.by_day).toEqual([
       { day: '2026-10-27', ...zero, keys_first_event: { hosted: 0, own: 2 }, reveals: 2, sets_accepted: 1 },
-      { day: '2026-10-28', ...zero, keys_first_event: { hosted: 1, own: 1 }, claims: 2, reveals: 2, sets_accepted: 1, squares_verified: 1 },
+      { day: '2026-10-28', ...zero, keys_first_event: { hosted: 1, own: 1 }, claims: 2, reveals: 2, declines: { ...noDeclines, refuse: 1 }, sets_accepted: 1, squares_verified: 1 },
     ]);
   });
 
@@ -122,7 +127,7 @@ describe('the funnel, counted', () => {
     const f = await counts('?days=3');
     expect(f.window).toEqual({ days: 3, from: '2026-10-27', to: '2026-10-29' });
     expect(f.by_day[2]).toEqual({ day: '2026-10-29', ...zero });
-    expect(f.totals).toEqual({ addresses_made: 2, addresses_first_used: 1, keys_taken_home: 1, keys_first_event: { hosted: 1, own: 3 }, claims: 2, reveals: 4, sets_accepted: 2, squares_verified: 1 });
+    expect(f.totals).toEqual({ addresses_made: 2, addresses_first_used: 1, keys_taken_home: 1, keys_first_event: { hosted: 1, own: 3 }, claims: 2, reveals: 4, declines: { ...noDeclines, refuse: 1 }, sets_accepted: 2, squares_verified: 1 });
     const today = await counts('?days=1');
     expect(today.by_day).toEqual([{ day: '2026-10-29', ...zero }]);
     expect(today.totals).toEqual(zero);

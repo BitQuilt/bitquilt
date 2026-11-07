@@ -21,6 +21,8 @@ When a root `w` asks for something to do and names no problem, the problems the 
 2. **Then the rest, rarest first.** Problems with the smallest share of pieces done (`accepted` and `accepted_provisional` over the budget), ties by the oldest last event, so a problem nobody is finishing is offered before one everybody is.
 3. **Every tenth offer to a newcomer.** Counting the offers made to `w` by this reader, every tenth one is the newcomer's problem that stands highest in the order of step 2, if any; a reader that keeps no count treats the first offer in a session as the tenth.
 
+4. **A door's first seeder, for a root with no accepted work.** A reader may name one key as its first seeder (`QUILT_FIRST_SEEDER` on the reference tracker). For a root with no accepted work on that reader, the problems that key seeds (QX-4) come before every other, in the order of steps 1 to 3 among themselves, and the offer's reason is `first`. A first offer then rests on one signed act that the key can withdraw, not on a count of settled pieces, which two fresh keys could make in an hour. A root with accepted work is ordered by steps 1 to 3 alone.
+
 A problem `w` owns is never offered to `w`; a problem with no piece for `w` is left out. Within a problem the piece is the core's `next`, unchanged.
 
 ## 3. Why an order and not a score
