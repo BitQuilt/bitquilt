@@ -34,34 +34,58 @@ const pattern: Pattern = {
   settings: { endgame_at: 1 },
   pieces: {
     'statement/*': {
-      count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so? Return the verdict and a quote.',
-      schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string', maxLength: 160 } } },
+      count: 2,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: does the paper say so? Return the verdict and a quote.',
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict', 'quote'],
+        properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string', maxLength: 160 } },
+      },
       agree: ['verdict'],
     },
     question: {
-      verifier: 'record:2', requires: ['web'], brief: 'Does the paper ground its claim in its data? Read it your way.',
-      schema: { type: 'object', additionalProperties: false, required: ['stance', 'reading'], properties: { stance: { enum: ['grounds', 'does not ground'] }, reading: { type: 'string', maxLength: 200 } } },
+      verifier: 'record:2',
+      requires: ['web'],
+      brief: 'Does the paper ground its claim in its data? Read it your way.',
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['stance', 'reading'],
+        properties: { stance: { enum: ['grounds', 'does not ground'] }, reading: { type: 'string', maxLength: 200 } },
+      },
       agree: ['stance'],
     },
   },
 };
 
 /** A Quilt over the reader's home as the command line makes one (bin.ts, `make`): the same config and key, and no host named. */
-const asCli = (fetchImpl: typeof fetch = fetch): Quilt => new Quilt(config, loadKey(home), new Resolver(config, home, fetchImpl));
+const asCli = (fetchImpl: typeof fetch = fetch): Quilt =>
+  new Quilt(config, loadKey(home), new Resolver(config, home, fetchImpl));
 
 /** A fetch that takes every post as a tracker would and keeps it from the tracker, so the command line's claim after it meets the same ledger. */
-const keepsPosts: typeof fetch = async (input, init) => (init?.method === 'POST' ? new Response('{}', { status: 202 }) : fetch(input, init));
+const keepsPosts: typeof fetch = async (input, init) =>
+  init?.method === 'POST' ? new Response('{}', { status: 202 }) : fetch(input, init);
 
 /** One run of the command line over the reader's home and the test's tracker: what it printed. */
 async function cli(...args: string[]): Promise<string> {
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('QUILT_')));
-  const { stdout } = await run(process.execPath, ['--import', 'tsx', join(root, 'packages', 'client', 'src', 'bin.ts'), ...args], { cwd: root, encoding: 'utf8', env: { ...env, QUILT_HOME: home, QUILT_TRACKERS: base } });
+  const { stdout } = await run(
+    process.execPath,
+    ['--import', 'tsx', join(root, 'packages', 'client', 'src', 'bin.ts'), ...args],
+    { cwd: root, encoding: 'utf8', env: { ...env, QUILT_HOME: home, QUILT_TRACKERS: base } },
+  );
   return stdout;
 }
 
 beforeAll(async () => {
   // The owner's gold asks a stake of standing, which a founding standing covers here.
-  ({ server, base } = await startTracker({ limits: { keyPerHour: 1000, ipPerHour: 10000 }, founding: { [addressOf(secretFromHex(hex(9)))]: 10 } }));
+  ({ server, base } = await startTracker({
+    limits: { keyPerHour: 1000, ipPerHour: 10000 },
+    founding: { [addressOf(secretFromHex(hex(9)))]: 10 },
+  }));
   config = { ...DEFAULT_CONFIG, trackers: [base] };
   home = tempHome('quilt-cli-');
   createKey(home, { secretHex: hex(3) });
@@ -69,7 +93,10 @@ beforeAll(async () => {
   const owner = mk(9);
   const a = mk(1, 'anthropic/claude');
   const b = mk(2, 'openai/gpt-5', 'ChatGPT');
-  const r = await owner.publish({ ...pattern, gold: { answers: { 'statement/2': { verdict: 'supports', quote: 'not committed' } } } });
+  const r = await owner.publish({
+    ...pattern,
+    gold: { answers: { 'statement/2': { verdict: 'supports', quote: 'not committed' } } },
+  });
   expect(r.refused).toEqual([]);
   expect(r.gold?.pieces).toBe(1);
   older = r.hash;
@@ -82,14 +109,16 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
 describe('the command line says what the tools say', () => {
-  it('prints quilt_open\'s text for `quilt open`, the gold and the replaced-by line with it', async () => {
+  it("prints quilt_open's text for `quilt open`, the gold and the replaced-by line with it", async () => {
     const text = (await runTool(asCli(), 'quilt_open', { link: older })).text;
-    expect(text).toContain('Gold (QX-16): the owner committed answers for 1 of the pieces before the work, without saying which');
+    expect(text).toContain(
+      'Gold (QX-16): the owner committed answers for 1 of the pieces before the work, without saying which',
+    );
     expect(text).toContain(`Its owner replaced this version with ${newer}; the work is there.`);
     expect(await cli('open', older)).toBe(`${text}\n`);
   });
 
-  it('prints quilt_read\'s text for `quilt read`, which opens with what quilt_open says and adds what was found and recorded', async () => {
+  it("prints quilt_read's text for `quilt read`, which opens with what quilt_open says and adds what was found and recorded", async () => {
     const opened = (await runTool(asCli(), 'quilt_open', { link: older })).text;
     const text = (await runTool(asCli(), 'quilt_read', { problem: older })).text;
     expect(text.startsWith(`${opened}\n\n`)).toBe(true);
@@ -106,7 +135,7 @@ describe('the command line says what the tools say', () => {
     expect(out).toMatchObject({ problem: newer, posted: { at: base, queued: false } });
   });
 
-  it('prints quilt_next\'s text for `quilt next`, the claim said as the tool says it', async () => {
+  it("prints quilt_next's text for `quilt next`, the claim said as the tool says it", async () => {
     const text = (await runTool(asCli(keepsPosts), 'quilt_next', { problem: newer })).text;
     expect(text).toContain(`of problem ${newer}`);
     expect(text.endsWith(`\nThe claim was posted to ${base}.`)).toBe(true);

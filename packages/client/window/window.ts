@@ -22,41 +22,146 @@
  * personal ops over that member's own Quilt and the five tabs come back, the buttons still copying, since no AI is in
  * the page.
  */
-import { App, applyDocumentTheme, applyHostFonts, applyHostStyleVariables, type McpUiHostContext } from '@modelcontextprotocol/ext-apps/app-with-deps';
+import {
+  App,
+  applyDocumentTheme,
+  applyHostFonts,
+  applyHostStyleVariables,
+  type McpUiHostContext,
+} from '@modelcontextprotocol/ext-apps/app-with-deps';
 
 /** packages/client/package.json's version, put in by scripts/build-window.mjs at build time. */
 declare const __QUILT_VERSION__: string;
 
 type View = 'search' | 'problem' | 'hot' | 'library' | 'me';
-interface Work { returned: number; accepted: number; verified: number; disputed: number; traced: { both: number; one: number; none: number }; readers: number; vendors: number; last: string | null }
-interface Row { problem: string; title: string; slug: string; owner: string; owner_name?: string | null; from?: string | null; root?: string; pieces: number; counts: Record<string, number>; work?: Work | null; topics: string[]; tracker: string; via: 'tracker' | 'relay'; held?: string[]; announced?: string | null; link: string }
-interface Searched { op: 'search'; query: string; rows: Row[] }
-interface PieceRow { hash: string; name: string; verifier: string; kind: string | null; strength: string | null; weakest: boolean; attested: boolean; state: string; core: string; stake: number; gold: string | null; verified: boolean; traced: 'both' | 'one' | 'none' | null; traces: number; reveals: number; claims: number; seams: number }
-interface Opened {
-  op: 'open'; problem: string; link: string; title: string; done_when: string; slug: string; owner: string; owner_name: string | null; tracker: string | null; complete: boolean; superseded: string | null;
-  hidden: { by: string; why: string; at: string } | null; seeders: number; seeding: boolean; gold: { committed: number; pending: number; verified: number; missed: number } | null; readers: number; vendors: string[]; pieces: PieceRow[];
+interface Work {
+  returned: number;
+  accepted: number;
+  verified: number;
+  disputed: number;
+  traced: { both: number; one: number; none: number };
+  readers: number;
+  vendors: number;
+  last: string | null;
 }
-interface Hot { op: 'hot'; keys: { key: string; name: string | null; since: string; standing: number | null }[] }
+interface Row {
+  problem: string;
+  title: string;
+  slug: string;
+  owner: string;
+  owner_name?: string | null;
+  from?: string | null;
+  root?: string;
+  pieces: number;
+  counts: Record<string, number>;
+  work?: Work | null;
+  topics: string[];
+  tracker: string;
+  via: 'tracker' | 'relay';
+  held?: string[];
+  announced?: string | null;
+  link: string;
+}
+interface Searched {
+  op: 'search';
+  query: string;
+  rows: Row[];
+}
+interface PieceRow {
+  hash: string;
+  name: string;
+  verifier: string;
+  kind: string | null;
+  strength: string | null;
+  weakest: boolean;
+  attested: boolean;
+  state: string;
+  core: string;
+  stake: number;
+  gold: string | null;
+  verified: boolean;
+  traced: 'both' | 'one' | 'none' | null;
+  traces: number;
+  reveals: number;
+  claims: number;
+  seams: number;
+}
+interface Opened {
+  op: 'open';
+  problem: string;
+  link: string;
+  title: string;
+  done_when: string;
+  slug: string;
+  owner: string;
+  owner_name: string | null;
+  tracker: string | null;
+  complete: boolean;
+  superseded: string | null;
+  hidden: { by: string; why: string; at: string } | null;
+  seeders: number;
+  seeding: boolean;
+  gold: { committed: number; pending: number; verified: number; missed: number } | null;
+  readers: number;
+  vendors: string[];
+  pieces: PieceRow[];
+}
+interface Hot {
+  op: 'hot';
+  keys: { key: string; name: string | null; since: string; standing: number | null }[];
+}
 interface Lib {
   op: 'library';
-  problems: Record<string, { title: string; slug: string; trackers: string[]; first: string; last: string; next?: string; link: string }>;
-  pieces: Record<string, { problem: string; name: string; when: string; what: 'claimed' | 'returned'; verifier?: string }>;
+  problems: Record<
+    string,
+    { title: string; slug: string; trackers: string[]; first: string; last: string; next?: string; link: string }
+  >;
+  pieces: Record<
+    string,
+    { problem: string; name: string; when: string; what: 'claimed' | 'returned'; verifier?: string }
+  >;
   seeding: Record<string, string>;
   gold: Record<string, { committed: number; revealed: number }>;
   serving: { problems: number; ledgers: number; blobs: number; bytes: number };
   queued: number;
 }
 interface Me {
-  op: 'me'; address: string | null; name: string | null; model: string; trackers: string[]; relays: string[]; queued: number; problems: number;
-  standing: { tracker: string; standing: number; locked: number; free: number } | null; coin: { balance: number; free: number; home: string } | null; witness: string | null;
+  op: 'me';
+  address: string | null;
+  name: string | null;
+  model: string;
+  trackers: string[];
+  relays: string[];
+  queued: number;
+  problems: number;
+  standing: { tracker: string; standing: number; locked: number; free: number } | null;
+  coin: { balance: number; free: number; home: string } | null;
+  witness: string | null;
   /** The person's own phrases, each with {link} where a problem's link goes. */
   phrases: Record<string, string>;
 }
-interface Totals { op: 'totals'; problems: number; pieces: number; counts: Record<string, number>; trackers: { tracker: string; problems: number | null }[] }
+interface Totals {
+  op: 'totals';
+  problems: number;
+  pieces: number;
+  counts: Record<string, number>;
+  trackers: { tracker: string; problems: number | null }[];
+}
 /** The phrase templates alone, for the card on a site, where there is no person to be. */
-interface Phrases { op: 'phrases'; phrases: Record<string, string> }
+interface Phrases {
+  op: 'phrases';
+  phrases: Record<string, string>;
+}
 /** What the tool that showed this card handed it: who the client is and what to open on. No one's words. */
-interface Handle { address?: string | null; name?: string | null; trackers?: string[]; host?: string | null; view?: string; query?: string | null; link?: string | null }
+interface Handle {
+  address?: string | null;
+  name?: string | null;
+  trackers?: string[];
+  host?: string | null;
+  view?: string;
+  query?: string | null;
+  link?: string | null;
+}
 
 const root = document.getElementById('window') as HTMLElement;
 const state = {
@@ -88,7 +193,11 @@ let token: string | null = null;
 /** Whether there is a person in the card: always in a chat; on a site, once the page has handed it a token. */
 const personal = (): boolean => !standalone || token !== null;
 
-function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> & { class?: string } = {}, ...kids: Array<Node | string | null | undefined>): HTMLElementTagNameMap[K] {
+function h<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  props: Partial<HTMLElementTagNameMap[K]> & { class?: string } = {},
+  ...kids: Array<Node | string | null | undefined>
+): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
   const { class: cls, ...rest } = props;
   if (cls) el.className = cls;
@@ -111,7 +220,8 @@ const placeOf = (url: string): string => {
     return url;
   }
 };
-const short = (address: string): string => (address.length > 12 ? `${address.slice(0, 8)}…${address.slice(-4)}` : address);
+const short = (address: string): string =>
+  address.length > 12 ? `${address.slice(0, 8)}…${address.slice(-4)}` : address;
 const day = (iso: string): string => iso.slice(0, 10);
 const words = (s: string): string => s.replace(/_/g, ' ');
 /** The counts a row carries, summed into the three a person reads first. */
@@ -130,7 +240,9 @@ async function io<T>(op: string, body: Record<string, unknown> = {}): Promise<T>
     // On a site: the same ops as plain GETs to the reader beside this document; the on-ramp answers the read-only ones and refuses the rest.
     const q = new URLSearchParams({ op });
     for (const [k, v] of Object.entries(body)) if (v !== undefined && v !== null) q.set(k, String(v));
-    const r = await fetch(`${reader}?${q}`, { headers: { accept: 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) } });
+    const r = await fetch(`${reader}?${q}`, {
+      headers: { accept: 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    });
     const text = await r.text();
     if (r.status === 401 && token) {
       // The token ended or was revoked: the card goes back to the public view, and the page's login is the way in again.
@@ -225,22 +337,47 @@ async function reading<T>(op: string, body: Record<string, unknown>, then: (t: T
   state.busy = false;
   draw();
 }
-const search = () => reading<Searched>('search', { query: state.query }, (r) => { state.rows = r.rows; });
+const search = () =>
+  reading<Searched>('search', { query: state.query }, (r) => {
+    state.rows = r.rows;
+  });
 const openProblem = (link: string) => {
   state.view = 'problem';
-  return reading<Opened>('open', { link }, (r) => { state.opened = r; });
+  return reading<Opened>('open', { link }, (r) => {
+    state.opened = r;
+  });
 };
-const loadHot = () => reading<Hot>('hot', {}, (r) => { state.hot = r; });
-const loadLib = () => reading<Lib>('library', {}, (r) => { state.lib = r; });
-const follow = (key: string, on: boolean, name: string | null = null) => reading<Hot>('follow', { key, on, ...(name ? { name } : {}) }, (r) => { state.hot = r; });
+const loadHot = () =>
+  reading<Hot>('hot', {}, (r) => {
+    state.hot = r;
+  });
+const loadLib = () =>
+  reading<Lib>('library', {}, (r) => {
+    state.lib = r;
+  });
+const follow = (key: string, on: boolean, name: string | null = null) =>
+  reading<Hot>('follow', { key, on, ...(name ? { name } : {}) }, (r) => {
+    state.hot = r;
+  });
 
 // ---- drawing ------------------------------------------------------------------
 
-const TABS: { view: View; label: string }[] = [{ view: 'search', label: 'Search' }, { view: 'problem', label: 'Problem' }, { view: 'hot', label: 'Hot list' }, { view: 'library', label: 'Library' }, { view: 'me', label: 'Me' }];
+const TABS: { view: View; label: string }[] = [
+  { view: 'search', label: 'Search' },
+  { view: 'problem', label: 'Problem' },
+  { view: 'hot', label: 'Hot list' },
+  { view: 'library', label: 'Library' },
+  { view: 'me', label: 'Me' },
+];
 const els = {
   tabs: new Map<View, HTMLButtonElement>(),
   views: new Map<View, HTMLElement>(),
-  q: h('input', { type: 'search', placeholder: 'a word of a title, a topic, a slug', autocomplete: 'off', maxLength: 200 }),
+  q: h('input', {
+    type: 'search',
+    placeholder: 'a word of a title, a topic, a slug',
+    autocomplete: 'off',
+    maxLength: 200,
+  }),
   go: h('button', { class: 'b primary', type: 'submit', textContent: 'Find it' }),
   results: h('div', { class: 'results' }),
   problem: h('div', { class: 'problem' }),
@@ -265,13 +402,25 @@ function shell(): void {
     els.tabs.set(t.view, b);
     nav.append(b);
   }
-  const searchForm = h('form', { class: 'row' }, els.q, els.go, btn('Something to do', 'b', () => void tell(phrase('find_something_to_do'))));
+  const searchForm = h(
+    'form',
+    { class: 'row' },
+    els.q,
+    els.go,
+    btn('Something to do', 'b', () => void tell(phrase('find_something_to_do'))),
+  );
   searchForm.addEventListener('submit', (e) => {
     e.preventDefault();
     state.query = els.q.value.trim();
     void search();
   });
-  const followForm = h('form', { class: 'row' }, els.followKey, els.followName, h('button', { class: 'b', type: 'submit', textContent: 'Follow' }));
+  const followForm = h(
+    'form',
+    { class: 'row' },
+    els.followKey,
+    els.followName,
+    h('button', { class: 'b', type: 'submit', textContent: 'Follow' }),
+  );
   followForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const key = els.followKey.value.trim();
@@ -305,24 +454,60 @@ function show(view: View): void {
 function drawResults(): void {
   const rows = state.rows;
   if (rows === null) {
-    els.results.replaceChildren(h('p', { class: 'quiet' }, state.busy ? 'Searching.' : 'Search the trackers and relays this client knows, or ask for something to do.'));
+    els.results.replaceChildren(
+      h(
+        'p',
+        { class: 'quiet' },
+        state.busy ? 'Searching.' : 'Search the trackers and relays this client knows, or ask for something to do.',
+      ),
+    );
     return;
   }
   if (rows.length === 0) {
-    els.results.replaceChildren(h('p', { class: 'quiet' }, 'No problem matched on the trackers and relays this client knows.'));
+    els.results.replaceChildren(
+      h('p', { class: 'quiet' }, 'No problem matched on the trackers and relays this client knows.'),
+    );
     return;
   }
   // The Napster columns with the quilt's nouns: the work from the tracker's row where it has one (APP.md, Search), else from the counts.
-  const head = h('tr', {}, h('th', {}, 'Problem'), h('th', {}, 'By'), h('th', { class: 'n' }, 'Pieces'), h('th', { class: 'n' }, 'Returned'), h('th', { class: 'n' }, 'Accepted'), h('th', { class: 'n' }, 'Verified'), h('th', { class: 'n' }, 'Both sides'), h('th', { class: 'n' }, 'Readers'), h('th', { class: 'n' }, 'Disputed'), h('th', {}, 'Where'), h('th', {}, ''));
+  const head = h(
+    'tr',
+    {},
+    h('th', {}, 'Problem'),
+    h('th', {}, 'By'),
+    h('th', { class: 'n' }, 'Pieces'),
+    h('th', { class: 'n' }, 'Returned'),
+    h('th', { class: 'n' }, 'Accepted'),
+    h('th', { class: 'n' }, 'Verified'),
+    h('th', { class: 'n' }, 'Both sides'),
+    h('th', { class: 'n' }, 'Readers'),
+    h('th', { class: 'n' }, 'Disputed'),
+    h('th', {}, 'Where'),
+    h('th', {}, ''),
+  );
   const body = rows.map((r) => {
-    const w = r.work ?? { ...workOf(r.counts), verified: 0, traced: { both: 0, one: 0, none: 0 }, readers: 0, vendors: 0, last: null };
+    const w = r.work ?? {
+      ...workOf(r.counts),
+      verified: 0,
+      traced: { both: 0, one: 0, none: 0 },
+      readers: 0,
+      vendors: 0,
+      last: null,
+    };
     const title = h('span', { class: 't' }, r.title);
     title.addEventListener('click', () => void openProblem(r.link));
     const fork = r.from ? `; forks ${short(r.from)}` : '';
     const held = r.held?.length ?? 1;
     const where = `${r.via === 'relay' ? 'a relay; opens at ' : ''}${placeOf(r.tracker)}${held > 1 ? ` and ${held - 1} more` : ''}${r.announced ? `; as announced ${day(r.announced)}` : ''}`;
-    return h('tr', { class: r.root && r.root !== r.problem ? 'fork' : '' },
-      h('td', { class: 'title' }, title, h('span', { class: 's' }, `${r.slug}${r.topics.length ? `; ${r.topics.join(', ')}` : ''}${fork}`)),
+    return h(
+      'tr',
+      { class: r.root && r.root !== r.problem ? 'fork' : '' },
+      h(
+        'td',
+        { class: 'title' },
+        title,
+        h('span', { class: 's' }, `${r.slug}${r.topics.length ? `; ${r.topics.join(', ')}` : ''}${fork}`),
+      ),
       h('td', {}, r.owner_name ?? short(r.owner)),
       h('td', { class: 'n' }, String(r.pieces)),
       h('td', { class: 'n' }, String(w.returned)),
@@ -332,7 +517,13 @@ function drawResults(): void {
       h('td', { class: 'n' }, w.readers ? `${w.readers} / ${w.vendors}` : '0'),
       h('td', { class: 'n' }, String(w.disputed)),
       h('td', {}, where),
-      h('td', { class: 'acts' }, btn('Open', 'b small', () => void openProblem(r.link)), ' ', btn('Take a piece', 'b small', () => void tell(phrase('take_piece', r.link)), !state.phrases)),
+      h(
+        'td',
+        { class: 'acts' },
+        btn('Open', 'b small', () => void openProblem(r.link)),
+        ' ',
+        btn('Take a piece', 'b small', () => void tell(phrase('take_piece', r.link)), !state.phrases),
+      ),
     );
   });
   els.results.replaceChildren(h('table', {}, h('thead', {}, head), h('tbody', {}, ...body)));
@@ -342,8 +533,20 @@ function drawResults(): void {
 function mapOf(pieces: PieceRow[]): HTMLElement {
   const m = h('div', { class: 'map' });
   for (const p of pieces) {
-    const s = h('div', { class: `sq ${p.state}${p.attested ? ' attested' : ''}${p.verified ? ' verified' : ''}${p.stake ? ' staked' : ''}` });
-    const notes = [p.verifier, ...(p.strength ? [p.strength] : []), ...(p.weakest ? ['the weakest kind'] : []), ...(p.verified ? ['verified'] : []), ...(p.traced ? [`rests on kept reads on ${p.traced === 'both' ? 'both sides' : p.traced === 'one' ? 'one side' : 'neither side'}`] : [])];
+    const s = h('div', {
+      class: `sq ${p.state}${p.attested ? ' attested' : ''}${p.verified ? ' verified' : ''}${p.stake ? ' staked' : ''}`,
+    });
+    const notes = [
+      p.verifier,
+      ...(p.strength ? [p.strength] : []),
+      ...(p.weakest ? ['the weakest kind'] : []),
+      ...(p.verified ? ['verified'] : []),
+      ...(p.traced
+        ? [
+            `rests on kept reads on ${p.traced === 'both' ? 'both sides' : p.traced === 'one' ? 'one side' : 'neither side'}`,
+          ]
+        : []),
+    ];
     s.title = `${p.name}: ${words(p.state)} (${notes.join(', ')})`;
     m.append(s);
   }
@@ -353,7 +556,9 @@ function mapOf(pieces: PieceRow[]): HTMLElement {
 function drawProblem(): void {
   const p = state.opened;
   if (!p) {
-    els.problem.replaceChildren(h('p', { class: 'quiet' }, state.busy ? 'Opening.' : 'Open a problem from the search or the library.'));
+    els.problem.replaceChildren(
+      h('p', { class: 'quiet' }, state.busy ? 'Opening.' : 'Open a problem from the search or the library.'),
+    );
     return;
   }
   const followed = Boolean(state.hot?.keys.some((k) => k.key.toLowerCase() === p.owner.toLowerCase()));
@@ -365,56 +570,150 @@ function drawProblem(): void {
     `${p.pieces.length} pieces: ${w.returned} returned, ${w.accepted} accepted (${p.pieces.filter((x) => x.verified).length} verified by the owner's gold, ${traced} resting on kept reads on both sides), ${w.disputed} disputed${p.complete ? '; complete' : ''}.`,
     `${p.readers} reader${p.readers === 1 ? '' : 's'}${p.vendors.length ? ` from ${p.vendors.length} vendor${p.vendors.length === 1 ? '' : 's'} (${p.vendors.join(', ')})` : ''}; ${p.seeders} seeder${p.seeders === 1 ? '' : 's'}${p.tracker ? `; at ${placeOf(p.tracker)}` : ''}.`,
   ];
-  const acts = h('div', { class: 'acts' },
+  const acts = h(
+    'div',
+    { class: 'acts' },
     btn('Take a piece', 'b primary', () => void tell(phrase('take_piece', p.link)), !state.phrases),
     btn('Open with my AI', 'b', () => void tell(phrase('open_problem', p.link)), !state.phrases),
-    btn(p.seeding ? 'Kept by this home' : 'Keep it', 'b', () => void tell(phrase('keep_problem', p.link)), !state.phrases || p.seeding),
-    ...(personal() ? [btn(followed ? 'Unfollow the owner' : 'Follow the owner', 'b', () => void follow(p.owner, !followed, p.owner_name))] : []),
+    btn(
+      p.seeding ? 'Kept by this home' : 'Keep it',
+      'b',
+      () => void tell(phrase('keep_problem', p.link)),
+      !state.phrases || p.seeding,
+    ),
+    ...(personal()
+      ? [
+          btn(
+            followed ? 'Unfollow the owner' : 'Follow the owner',
+            'b',
+            () => void follow(p.owner, !followed, p.owner_name),
+          ),
+        ]
+      : []),
   );
   const shown = p.pieces.slice(0, 80);
-  const table = h('table', {},
-    h('thead', {}, h('tr', {}, h('th', {}, 'Piece'), h('th', {}, 'State'), h('th', {}, 'Kind'), h('th', { class: 'n' }, 'Readers'), h('th', {}, 'Grade'), h('th', { class: 'n' }, 'Seams'))),
-    h('tbody', {}, ...shown.map((x) => h('tr', {},
-      h('td', {}, x.name),
-      h('td', {}, words(x.state) + (x.verified ? ', verified' : '')),
-      h('td', {}, `${x.verifier}${x.strength ? `, ${x.strength}` : ''}${x.attested ? ', attested' : ''}${x.stake ? `, a stake of ${x.stake}` : ''}`),
-      h('td', { class: 'n' }, String(x.reveals)),
-      h('td', {}, x.traced === 'both' ? 'both sides rest on kept reads' : x.traced === 'one' ? 'one side rests on a kept read' : x.traced === 'none' ? 'no kept read' : x.traces ? `${x.traces} trace${x.traces === 1 ? '' : 's'}` : ''),
-      h('td', { class: 'n' }, x.seams ? String(x.seams) : ''),
-    ))),
+  const table = h(
+    'table',
+    {},
+    h(
+      'thead',
+      {},
+      h(
+        'tr',
+        {},
+        h('th', {}, 'Piece'),
+        h('th', {}, 'State'),
+        h('th', {}, 'Kind'),
+        h('th', { class: 'n' }, 'Readers'),
+        h('th', {}, 'Grade'),
+        h('th', { class: 'n' }, 'Seams'),
+      ),
+    ),
+    h(
+      'tbody',
+      {},
+      ...shown.map((x) =>
+        h(
+          'tr',
+          {},
+          h('td', {}, x.name),
+          h('td', {}, words(x.state) + (x.verified ? ', verified' : '')),
+          h(
+            'td',
+            {},
+            `${x.verifier}${x.strength ? `, ${x.strength}` : ''}${x.attested ? ', attested' : ''}${x.stake ? `, a stake of ${x.stake}` : ''}`,
+          ),
+          h('td', { class: 'n' }, String(x.reveals)),
+          h(
+            'td',
+            {},
+            x.traced === 'both'
+              ? 'both sides rest on kept reads'
+              : x.traced === 'one'
+                ? 'one side rests on a kept read'
+                : x.traced === 'none'
+                  ? 'no kept read'
+                  : x.traces
+                    ? `${x.traces} trace${x.traces === 1 ? '' : 's'}`
+                    : '',
+          ),
+          h('td', { class: 'n' }, x.seams ? String(x.seams) : ''),
+        ),
+      ),
+    ),
   );
   els.problem.replaceChildren(
     h('h3', {}, p.title),
-    h('p', { class: 'meta' }, `Published by ${p.owner_name ?? short(p.owner)}${p.owner_name ? ` (${short(p.owner)})` : ''}; ${p.slug}.${p.superseded ? ' Its owner replaced this version; the work is on the newer one.' : ''}${p.hidden ? ` Taken down on this tracker by ${short(p.hidden.by)}: ${p.hidden.why}.` : ''}`),
+    h(
+      'p',
+      { class: 'meta' },
+      `Published by ${p.owner_name ?? short(p.owner)}${p.owner_name ? ` (${short(p.owner)})` : ''}; ${p.slug}.${p.superseded ? ' Its owner replaced this version; the work is on the newer one.' : ''}${p.hidden ? ` Taken down on this tracker by ${short(p.hidden.by)}: ${p.hidden.why}.` : ''}`,
+    ),
     h('p', {}, `Done when: ${p.done_when}`),
     mapOf(p.pieces),
     h('p', { class: 'meta' }, lines[0] ?? ''),
     h('p', { class: 'meta' }, lines[1] ?? ''),
-    ...(p.gold ? [h('p', { class: 'meta' }, `Gold: ${p.gold.committed} committed, ${p.gold.verified} verified, ${p.gold.missed} missed, ${p.gold.pending} pending.`)] : []),
+    ...(p.gold
+      ? [
+          h(
+            'p',
+            { class: 'meta' },
+            `Gold: ${p.gold.committed} committed, ${p.gold.verified} verified, ${p.gold.missed} missed, ${p.gold.pending} pending.`,
+          ),
+        ]
+      : []),
     acts,
     table,
-    ...(p.pieces.length > shown.length ? [h('p', { class: 'quiet' }, `${p.pieces.length - shown.length} more pieces are on the map above.`)] : []),
+    ...(p.pieces.length > shown.length
+      ? [h('p', { class: 'quiet' }, `${p.pieces.length - shown.length} more pieces are on the map above.`)]
+      : []),
   );
 }
 
 function drawHot(): void {
   const hot = state.hot;
   if (!hot) {
-    els.hot.replaceChildren(h('p', { class: 'quiet' }, state.busy ? 'Reading.' : 'The keys you follow, kept in this home\'s library and nowhere else.'));
+    els.hot.replaceChildren(
+      h(
+        'p',
+        { class: 'quiet' },
+        state.busy ? 'Reading.' : "The keys you follow, kept in this home's library and nowhere else.",
+      ),
+    );
     return;
   }
   if (hot.keys.length === 0) {
-    els.hot.replaceChildren(h('p', { class: 'quiet' }, 'No key followed yet. Follow a problem\'s owner from its map, or an address here.'));
+    els.hot.replaceChildren(
+      h('p', { class: 'quiet' }, "No key followed yet. Follow a problem's owner from its map, or an address here."),
+    );
     return;
   }
-  const table = h('table', {},
-    h('thead', {}, h('tr', {}, h('th', {}, 'Key'), h('th', { class: 'n' }, 'Standing'), h('th', {}, 'Since'), h('th', {}, ''))),
-    h('tbody', {}, ...hot.keys.map((k) => h('tr', {},
-      h('td', {}, k.name ? `${k.name} ` : '', h('span', { class: 'mono' }, short(k.key))),
-      h('td', { class: 'n' }, k.standing === null ? '' : String(k.standing)),
-      h('td', {}, day(k.since)),
-      h('td', { class: 'acts' }, btn('Unfollow', 'b small', () => void follow(k.key, false))),
-    ))),
+  const table = h(
+    'table',
+    {},
+    h(
+      'thead',
+      {},
+      h('tr', {}, h('th', {}, 'Key'), h('th', { class: 'n' }, 'Standing'), h('th', {}, 'Since'), h('th', {}, '')),
+    ),
+    h(
+      'tbody',
+      {},
+      ...hot.keys.map((k) =>
+        h(
+          'tr',
+          {},
+          h('td', {}, k.name ? `${k.name} ` : '', h('span', { class: 'mono' }, short(k.key))),
+          h('td', { class: 'n' }, k.standing === null ? '' : String(k.standing)),
+          h('td', {}, day(k.since)),
+          h(
+            'td',
+            { class: 'acts' },
+            btn('Unfollow', 'b small', () => void follow(k.key, false)),
+          ),
+        ),
+      ),
+    ),
   );
   els.hot.replaceChildren(table);
 }
@@ -427,33 +726,86 @@ function drawLib(): void {
   }
   const s = lib.serving;
   const problems = Object.entries(lib.problems).sort(([, a], [, b]) => b.last.localeCompare(a.last));
-  const pieces = Object.entries(lib.pieces).sort(([, a], [, b]) => b.when.localeCompare(a.when)).slice(0, 20);
+  const pieces = Object.entries(lib.pieces)
+    .sort(([, a], [, b]) => b.when.localeCompare(a.when))
+    .slice(0, 20);
   const goldCommitted = Object.values(lib.gold).reduce((n, g) => n + g.committed, 0);
   const goldRevealed = Object.values(lib.gold).reduce((n, g) => n + g.revealed, 0);
-  const dl = h('dl', {},
-    h('dt', {}, 'Serving'), h('dd', {}, `${s.problems} problem${s.problems === 1 ? '' : 's'}, ${s.ledgers} ledger${s.ledgers === 1 ? '' : 's'}, ${s.blobs} page${s.blobs === 1 ? '' : 's'}; ${Math.round(s.bytes / 1024)} KB`),
-    h('dt', {}, 'Gold'), h('dd', {}, goldCommitted ? `${goldCommitted} committed, ${goldRevealed} revealed` : 'none committed'),
-    h('dt', {}, 'Queued'), h('dd', {}, `${lib.queued} event${lib.queued === 1 ? '' : 's'} waiting for a tracker`),
+  const dl = h(
+    'dl',
+    {},
+    h('dt', {}, 'Serving'),
+    h(
+      'dd',
+      {},
+      `${s.problems} problem${s.problems === 1 ? '' : 's'}, ${s.ledgers} ledger${s.ledgers === 1 ? '' : 's'}, ${s.blobs} page${s.blobs === 1 ? '' : 's'}; ${Math.round(s.bytes / 1024)} KB`,
+    ),
+    h('dt', {}, 'Gold'),
+    h('dd', {}, goldCommitted ? `${goldCommitted} committed, ${goldRevealed} revealed` : 'none committed'),
+    h('dt', {}, 'Queued'),
+    h('dd', {}, `${lib.queued} event${lib.queued === 1 ? '' : 's'} waiting for a tracker`),
   );
   const probs = problems.length
-    ? h('table', {},
-      h('thead', {}, h('tr', {}, h('th', {}, 'Problem'), h('th', {}, 'Last opened'), h('th', {}, ''))),
-      h('tbody', {}, ...problems.map(([hash, e]) => {
-        const title = h('span', { class: 't' }, e.title);
-        title.addEventListener('click', () => void openProblem(e.link));
-        return h('tr', {},
-          h('td', { class: 'title' }, title, h('span', { class: 's' }, `${e.slug}${lib.seeding[hash] ? '; kept' : ''}${e.next ? '; replaced by a newer version' : ''}`)),
-          h('td', {}, day(e.last)),
-          h('td', { class: 'acts' }, btn('Open', 'b small', () => void openProblem(e.link)), ' ', btn('Take a piece', 'b small', () => void tell(phrase('take_piece', e.link)), !state.phrases || Boolean(e.next))),
-        );
-      })),
-    )
+    ? h(
+        'table',
+        {},
+        h('thead', {}, h('tr', {}, h('th', {}, 'Problem'), h('th', {}, 'Last opened'), h('th', {}, ''))),
+        h(
+          'tbody',
+          {},
+          ...problems.map(([hash, e]) => {
+            const title = h('span', { class: 't' }, e.title);
+            title.addEventListener('click', () => void openProblem(e.link));
+            return h(
+              'tr',
+              {},
+              h(
+                'td',
+                { class: 'title' },
+                title,
+                h(
+                  'span',
+                  { class: 's' },
+                  `${e.slug}${lib.seeding[hash] ? '; kept' : ''}${e.next ? '; replaced by a newer version' : ''}`,
+                ),
+              ),
+              h('td', {}, day(e.last)),
+              h(
+                'td',
+                { class: 'acts' },
+                btn('Open', 'b small', () => void openProblem(e.link)),
+                ' ',
+                btn(
+                  'Take a piece',
+                  'b small',
+                  () => void tell(phrase('take_piece', e.link)),
+                  !state.phrases || Boolean(e.next),
+                ),
+              ),
+            );
+          }),
+        ),
+      )
     : h('p', { class: 'quiet' }, 'No problem opened from this home yet.');
   const done = pieces.length
-    ? h('table', {},
-      h('thead', {}, h('tr', {}, h('th', {}, 'Piece'), h('th', {}, 'What'), h('th', {}, 'When'))),
-      h('tbody', {}, ...pieces.map(([, e]) => h('tr', {}, h('td', {}, `${e.name} of ${lib.problems[e.problem]?.title ?? short(e.problem)}`), h('td', {}, e.what), h('td', {}, day(e.when))))),
-    )
+    ? h(
+        'table',
+        {},
+        h('thead', {}, h('tr', {}, h('th', {}, 'Piece'), h('th', {}, 'What'), h('th', {}, 'When'))),
+        h(
+          'tbody',
+          {},
+          ...pieces.map(([, e]) =>
+            h(
+              'tr',
+              {},
+              h('td', {}, `${e.name} of ${lib.problems[e.problem]?.title ?? short(e.problem)}`),
+              h('td', {}, e.what),
+              h('td', {}, day(e.when)),
+            ),
+          ),
+        ),
+      )
     : h('p', { class: 'quiet' }, 'No piece taken from this home yet.');
   els.lib.replaceChildren(dl, h('h3', {}, 'Problems'), probs, h('h3', {}, 'Pieces'), done);
 }
@@ -464,18 +816,44 @@ function drawMe(): void {
     els.meView.replaceChildren(h('p', { class: 'quiet' }, 'Reading who this client is.'));
     return;
   }
-  const dl = h('dl', {},
-    h('dt', {}, 'Address'), h('dd', {}, me.address ?? 'none yet; made at first use'),
-    h('dt', {}, 'Name'), h('dd', {}, me.name ?? 'none set'),
-    h('dt', {}, 'Declares'), h('dd', {}, me.model),
-    h('dt', {}, 'Trackers'), h('dd', {}, me.trackers.join(', ')),
+  const dl = h(
+    'dl',
+    {},
+    h('dt', {}, 'Address'),
+    h('dd', {}, me.address ?? 'none yet; made at first use'),
+    h('dt', {}, 'Name'),
+    h('dd', {}, me.name ?? 'none set'),
+    h('dt', {}, 'Declares'),
+    h('dd', {}, me.model),
+    h('dt', {}, 'Trackers'),
+    h('dd', {}, me.trackers.join(', ')),
     ...(me.relays.length ? [h('dt', {}, 'Relays'), h('dd', {}, me.relays.join(', '))] : []),
-    h('dt', {}, 'Standing'), h('dd', {}, me.standing ? `${me.standing.standing}, earned by work and not for sale (locked ${me.standing.locked}, free to stake ${me.standing.free})` : 'no tracker answered'),
-    ...(me.coin ? [h('dt', {}, 'Coin'), h('dd', {}, `${me.coin.balance} units, ${me.coin.free} free, at ${placeOf(me.coin.home)}`)] : []),
+    h('dt', {}, 'Standing'),
+    h(
+      'dd',
+      {},
+      me.standing
+        ? `${me.standing.standing}, earned by work and not for sale (locked ${me.standing.locked}, free to stake ${me.standing.free})`
+        : 'no tracker answered',
+    ),
+    ...(me.coin
+      ? [
+          h('dt', {}, 'Coin'),
+          h('dd', {}, `${me.coin.balance} units, ${me.coin.free} free, at ${placeOf(me.coin.home)}`),
+        ]
+      : []),
     ...(me.witness ? [h('dt', {}, 'Witness'), h('dd', {}, me.witness)] : []),
-    h('dt', {}, 'Library'), h('dd', {}, `${me.problems} problem${me.problems === 1 ? '' : 's'}; ${me.queued} event${me.queued === 1 ? '' : 's'} queued`),
+    h('dt', {}, 'Library'),
+    h(
+      'dd',
+      {},
+      `${me.problems} problem${me.problems === 1 ? '' : 's'}; ${me.queued} event${me.queued === 1 ? '' : 's'} queued`,
+    ),
   );
-  els.meView.replaceChildren(dl, btn('Ask my AI who I am', 'b', () => void tell(phrase('who_am_i'))));
+  els.meView.replaceChildren(
+    dl,
+    btn('Ask my AI who I am', 'b', () => void tell(phrase('who_am_i'))),
+  );
 }
 
 function drawStatus(): void {
@@ -484,10 +862,15 @@ function drawStatus(): void {
   if (t) {
     // Each problem once, however many doors hold it (window.ts, totals); a door that gave no answer is named as such.
     const n = (k: string) => t.counts[k] ?? 0;
-    parts.push(`${t.problems} problem${t.problems === 1 ? '' : 's'}, ${t.pieces} pieces: ${n('accepted') + n('accepted_provisional')} accepted, ${n('needs_verify')} waiting on a second reading, ${n('disputed')} disputed`);
+    parts.push(
+      `${t.problems} problem${t.problems === 1 ? '' : 's'}, ${t.pieces} pieces: ${n('accepted') + n('accepted_provisional')} accepted, ${n('needs_verify')} waiting on a second reading, ${n('disputed')} disputed`,
+    );
     parts.push(t.trackers.map((x) => `${placeOf(x.tracker)}${x.problems === null ? ' (no answer)' : ''}`).join(', '));
   } else parts.push('Reading the trackers.');
-  els.status.replaceChildren(h('span', {}, parts[0] ?? ''), h('span', {}, `${parts[1] ? `${parts[1]} · ` : ''}Quilt ${__QUILT_VERSION__}`));
+  els.status.replaceChildren(
+    h('span', {}, parts[0] ?? ''),
+    h('span', {}, `${parts[1] ? `${parts[1]} · ` : ''}Quilt ${__QUILT_VERSION__}`),
+  );
 }
 
 function draw(): void {
@@ -518,7 +901,20 @@ function drawTold(): void {
     h('span', { class: 'lead' }, state.copied ? 'Copied. Say it to your AI:' : 'Say this to your AI:'),
     h('code', { class: 'mono' }, state.told),
     btn(state.copied ? 'Copied' : 'Copy', 'b small', () => void copyAgain()),
-    h('span', { class: 'quiet' }, token ? 'In any chat where your Quilt is connected.' : 'In any chat where Quilt is connected. ', ...(token ? [] : [h('a', { href: new URL('join', location.href).href, target: '_blank', rel: 'noopener' }, 'No Quilt yet? Get an address.')])),
+    h(
+      'span',
+      { class: 'quiet' },
+      token ? 'In any chat where your Quilt is connected.' : 'In any chat where Quilt is connected. ',
+      ...(token
+        ? []
+        : [
+            h(
+              'a',
+              { href: new URL('join', location.href).href, target: '_blank', rel: 'noopener' },
+              'No Quilt yet? Get an address.',
+            ),
+          ]),
+    ),
   );
 }
 
@@ -599,7 +995,9 @@ async function start(): Promise<void> {
   }
   app = new App({ name: 'Quilt', version: __QUILT_VERSION__ });
   app.ontoolresult = (p) => {
-    const handles = (p.structuredContent as { handles?: { window?: Handle; query?: string; problem?: string } } | undefined)?.handles;
+    const handles = (
+      p.structuredContent as { handles?: { window?: Handle; query?: string; problem?: string } } | undefined
+    )?.handles;
     const hd = handles?.window;
     if (hd?.view === 'me') state.view = 'me';
     const query = hd?.query ?? handles?.query;

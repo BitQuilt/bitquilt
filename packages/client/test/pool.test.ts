@@ -30,7 +30,10 @@ describe('inParallel', () => {
 describe('kept', () => {
   it('answers null when the first read is slower than the wait, and has the answer for the next ask', async () => {
     let reads = 0;
-    const k = kept(async () => { reads += 1; return later(40, `read ${reads}`); }, 60_000);
+    const k = kept(async () => {
+      reads += 1;
+      return later(40, `read ${reads}`);
+    }, 60_000);
     expect(await k.get(5)).toBeNull();
     // The caller gave up and asks again: no second read starts.
     expect(await k.get(5)).toBeNull();
@@ -42,7 +45,14 @@ describe('kept', () => {
   it('serves the last answer at once once it is old, and reads afresh behind it, one read at a time', async () => {
     let clock = 0;
     let reads = 0;
-    const k = kept(async () => { reads += 1; return later(20, reads); }, 1000, () => clock);
+    const k = kept(
+      async () => {
+        reads += 1;
+        return later(20, reads);
+      },
+      1000,
+      () => clock,
+    );
     expect(await k.get(1000)).toBe(1);
     clock = 500;
     expect(await k.get(1000)).toBe(1);
@@ -57,7 +67,10 @@ describe('kept', () => {
 
   it('reads again after drop, serving the last answer meanwhile', async () => {
     let reads = 0;
-    const k = kept(async () => { reads += 1; return reads; }, 60_000);
+    const k = kept(async () => {
+      reads += 1;
+      return reads;
+    }, 60_000);
     expect(await k.get(1000)).toBe(1);
     k.drop();
     expect(await k.get(1000)).toBe(1);
@@ -69,7 +82,15 @@ describe('kept', () => {
     let clock = 0;
     let fail = false;
     let reads = 0;
-    const k = kept(async () => { reads += 1; if (fail) throw new Error('tracker down'); return 'good'; }, 1000, () => clock);
+    const k = kept(
+      async () => {
+        reads += 1;
+        if (fail) throw new Error('tracker down');
+        return 'good';
+      },
+      1000,
+      () => clock,
+    );
     expect(await k.get(1000)).toBe('good');
     fail = true;
     clock = 5000;

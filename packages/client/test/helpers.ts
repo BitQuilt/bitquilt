@@ -31,7 +31,9 @@ export function baseOf(server: Server): string {
 }
 
 /** A reference tracker on a free port, with an in-memory store and the name http://tracker.test/ unless `options` says another; the rest of `options` are the tracker's. */
-export async function startTracker(options: Omit<Parameters<typeof createTracker>[0], 'store' | 'url' | 'ipSalt'> & { url?: string } = {}): Promise<{ server: Server; base: string }> {
+export async function startTracker(
+  options: Omit<Parameters<typeof createTracker>[0], 'store' | 'url' | 'ipSalt'> & { url?: string } = {},
+): Promise<{ server: Server; base: string }> {
   const tracker = createTracker({ store: new Store(':memory:'), url: 'http://tracker.test/', ipSalt: 's', ...options });
   const server = await tracker.listen(0);
   return { server, base: baseOf(server) };
@@ -41,7 +43,10 @@ export async function startTracker(options: Omit<Parameters<typeof createTracker
  * A maker of Quilts over one tracker: each with its own temporary home, the key from `hex(n)`, and the config given
  * over the defaults with that tracker; `model` is what it declares and `host` the client it says it is.
  */
-export function quiltOver(tracker: string, extra: Partial<Config> = {}): (n: number, model?: string, host?: string) => Quilt {
+export function quiltOver(
+  tracker: string,
+  extra: Partial<Config> = {},
+): (n: number, model?: string, host?: string) => Quilt {
   const config: Config = { ...DEFAULT_CONFIG, trackers: [tracker], ...extra };
   return (n, model, host = 'Claude Code') => {
     const home = tempHome(`quilt-${n}-`);
@@ -51,9 +56,16 @@ export function quiltOver(tracker: string, extra: Partial<Config> = {}): (n: num
 }
 
 /** The connector over this Quilt, connected to a client by an in-memory pair; `close` ends both. */
-export async function mcpPair(quilt: Quilt, clientName = 'claude-test', connected?: (host: string | null) => void): Promise<{ client: Client; close: () => Promise<void> }> {
+export async function mcpPair(
+  quilt: Quilt,
+  clientName = 'claude-test',
+  connected?: (host: string | null) => void,
+): Promise<{ client: Client; close: () => Promise<void> }> {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  const server = createMcpServer(localRunner(() => quilt), connected ? { connected } : {});
+  const server = createMcpServer(
+    localRunner(() => quilt),
+    connected ? { connected } : {},
+  );
   await server.connect(serverTransport);
   const client = new Client({ name: clientName, version: '0.0.0' });
   await client.connect(clientTransport);
@@ -85,7 +97,27 @@ export async function json<T>(url: string, init?: RequestInit): Promise<T> {
  * The connector's tools as a host lists them, in the order mcp.ts registers them. It is written here on its own, so a
  * change to that order, to TOOL_NAMES or to the bundle's manifest fails a test and is not a quiet reorder.
  */
-export const LISTED_TOOLS = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_window', 'quilt_window_io', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_pay', 'quilt_transfer', 'quilt_redeem', 'quilt_reveal_gold', 'quilt_name'] as const;
+export const LISTED_TOOLS = [
+  'quilt_me',
+  'quilt_open',
+  'quilt_search',
+  'quilt_window',
+  'quilt_window_io',
+  'quilt_next',
+  'quilt_return',
+  'quilt_decline',
+  'quilt_read',
+  'quilt_rank',
+  'quilt_challenge',
+  'quilt_verdict',
+  'quilt_seed',
+  'quilt_publish',
+  'quilt_pay',
+  'quilt_transfer',
+  'quilt_redeem',
+  'quilt_reveal_gold',
+  'quilt_name',
+] as const;
 
 /** The regex the tests hold tool descriptions and manifests to: text that describes and does not instruct. */
 export const instructs = /\b(you must|always|never|do not|important|ignore)\b/i;

@@ -3,7 +3,35 @@
  * The MCP server (mcp.ts, tools.ts) and the page (page.ts) are thin shells over it; the text itself is made in
  * render.ts from what is read here. Other people's words come out only as quoted text with the signer named.
  */
-import { type Address, type Capability, type Client, type DeclineReason, type Envelope, type Event, type Hash, type Pick, type Piece, type Problem, type State, type Unsigned, DECLINE_REASONS, commitHash, eventId, expandPieces, hashBytes, isHash, newNonce, next, plainTextProblems, problemHash, renderInputs, signEvent, signObject, envelopeProblems, textIssues } from '@bitquilt/core';
+import {
+  type Address,
+  type Capability,
+  type Client,
+  type DeclineReason,
+  type Envelope,
+  type Event,
+  type Hash,
+  type Pick,
+  type Piece,
+  type Problem,
+  type State,
+  type Unsigned,
+  DECLINE_REASONS,
+  commitHash,
+  eventId,
+  expandPieces,
+  hashBytes,
+  isHash,
+  newNonce,
+  next,
+  plainTextProblems,
+  problemHash,
+  renderInputs,
+  signEvent,
+  signObject,
+  envelopeProblems,
+  textIssues,
+} from '@bitquilt/core';
 import * as coin from './coin.js';
 import type { CoinBalance } from './coin.js';
 import { type Config, type Identity, createKey, loadKey } from './config.js';
@@ -12,11 +40,37 @@ import type { Door } from './door.js';
 import * as gold from './gold.js';
 import { type Link, makeLink, parseLink } from './link.js';
 import { type RestAsked, type TraceOutcome, traceAfterReveal } from './trace.js';
-import { type ChallengeListing, type GoldCount, type LayerPiece, type Opened, type PanelListing, type Scrape, SIDES, type Seam, type SeamSide, type Side, type Takedown, type Witness } from './listings.js';
+import {
+  type ChallengeListing,
+  type GoldCount,
+  type LayerPiece,
+  type Opened,
+  type PanelListing,
+  type Scrape,
+  SIDES,
+  type Seam,
+  type SeamSide,
+  type Side,
+  type Takedown,
+  type Witness,
+} from './listings.js';
 import { type AnnouncedWork, NO_WORK, announcementEvent, postToRelays, searchRelays } from './relay.js';
 import { type Library, type Posted, type Resolver, askJson } from './resolver.js';
 import { inParallel } from './pool.js';
-import { type SentenceAsk, acceptedText, challengesText, disputedText, kindWords, layerByHash, nameOf, panelsText, pieceText, summary, waitsText, witnessesOf } from './render.js';
+import {
+  type SentenceAsk,
+  acceptedText,
+  challengesText,
+  disputedText,
+  kindWords,
+  layerByHash,
+  nameOf,
+  panelsText,
+  pieceText,
+  summary,
+  waitsText,
+  witnessesOf,
+} from './render.js';
 
 export type { CoinBalance } from './coin.js';
 export type { Door } from './door.js';
@@ -52,7 +106,14 @@ export interface AttentionItem {
  * as this key, and the hints as this client's trackers and mirrors.
  */
 /** What `publish` and the owner's sharpening answer: where the envelope went, what refused it, and the gold committed. */
-export interface Published { hash: Hash; link: string; posted: string[]; refused: string[]; relays: string[]; gold: { pieces: number; stake: number } | null }
+export interface Published {
+  hash: Hash;
+  link: string;
+  posted: string[];
+  refused: string[];
+  relays: string[];
+  gold: { pieces: number; stake: number } | null;
+}
 
 /** A problem as a search finds it (APP.md, Search): a tracker's row with the work on it, or a relay's announce (QX-13), and every place that had it. */
 export interface Found {
@@ -79,12 +140,18 @@ export interface Found {
 }
 
 /** QX-19 section 4: a brief sharpened, or not: the sentence asked for each family with a seam, whether it was kept and why not, and the version published with those kept. */
-export interface Sharpened { problem: Hash; sentences: { family: string; field: string; sentence: string | null; kept: boolean; why: string | null }[]; hash: Hash | null; posted: string[]; refused: string[] }
+export interface Sharpened {
+  problem: Hash;
+  sentences: { family: string; field: string; sentence: string | null; kept: boolean; why: string | null }[];
+  hash: Hash | null;
+  posted: string[];
+  refused: string[];
+}
 
 /** The most a sentence added to a brief may run (QX-19 section 4). */
 export const SENTENCE_MAX = 400;
 const NOT_OWNER = 'only the owner sharpens a brief';
-const FROZEN = 'that problem\'s brief is frozen in this home; `quilt freeze <problem> off` thaws it';
+const FROZEN = "that problem's brief is frozen in this home; `quilt freeze <problem> off` thaws it";
 
 export interface Pattern {
   title: string;
@@ -127,7 +194,11 @@ export interface Handed {
 }
 
 /** A plan to lock coin in place of standing (QX-17): where the coin log is, how many units at the burn rate, and the stake they stand for. */
-interface CoinPlan { coinHome: string; units: number; stake: number }
+interface CoinPlan {
+  coinHome: string;
+  units: number;
+  stake: number;
+}
 
 /** Whether a string is one of the core's fixed decline reasons. */
 function isDeclineReason(s: string): s is DeclineReason {
@@ -154,14 +225,24 @@ export class Quilt {
    * `witness` is set by the hosted on-ramp alone (QX-18): the product whose OAuth callback this session's token came
    * through, which the tracker writes beside custody on each event this Quilt posts. Null for a home of one's own.
    */
-  constructor(readonly config: Config, identity: Identity | null, readonly resolver: Resolver, hostName?: string, readonly witness: Witness | null = null) {
+  constructor(
+    readonly config: Config,
+    identity: Identity | null,
+    readonly resolver: Resolver,
+    hostName?: string,
+    readonly witness: Witness | null = null,
+  ) {
     this.held = identity;
     this.hostName = hostName;
     const q = this;
     this.door = {
       config,
-      get identity() { return q.identity; },
-      get library() { return q.library; },
+      get identity() {
+        return q.identity;
+      },
+      get library() {
+        return q.library;
+      },
       needKey: () => q.needKey(),
       stamp: (after) => q.stamp(after),
       sign: (unsigned) => q.sign(unsigned),
@@ -242,10 +323,16 @@ export class Quilt {
    * the queue. A refusal throws, with the tracker's reason under `what`; a queued event does not, since it is signed
    * and will go out, and the caller records it as written.
    */
-  private async postSigned(unsigned: Unsigned, log: Hash | null | 'coin', trackers: string[], what: string): Promise<{ event: Event; posted: Posted }> {
+  private async postSigned(
+    unsigned: Unsigned,
+    log: Hash | null | 'coin',
+    trackers: string[],
+    what: string,
+  ): Promise<{ event: Event; posted: Posted }> {
     const event = this.sign(unsigned);
     const posted = await this.resolver.post(event, log, trackers);
-    if (posted.error && !posted.queued) throw new Error(`${log === 'coin' ? 'the coin\'s home' : 'the tracker'} refused the ${what}: ${posted.error}`);
+    if (posted.error && !posted.queued)
+      throw new Error(`${log === 'coin' ? "the coin's home" : 'the tracker'} refused the ${what}: ${posted.error}`);
     return { event, posted };
   }
 
@@ -270,15 +357,28 @@ export class Quilt {
 
   /** Every string in a return through the plain-text gate; the first problem found is thrown. */
   private gate(ret: Record<string, unknown>): void {
-    for (const s of Object.values(ret)) if (typeof s === 'string') {
-      const issues = plainTextProblems(s, 'return');
-      if (issues.length) throw new Error(issues[0]);
-    }
+    for (const s of Object.values(ret))
+      if (typeof s === 'string') {
+        const issues = plainTextProblems(s, 'return');
+        if (issues.length) throw new Error(issues[0]);
+      }
   }
 
   /** This client as it knows itself, from memory and the library alone: the address, name, model, capabilities, trackers, mirrors, relays, what waits in the queue, and how many problems the library holds. */
   me() {
-    return { address: this.identity?.address ?? null, name: this.config.name ?? null, model: this.model(), can: this.config.can, trackers: this.config.trackers, mirrors: this.config.mirrors, relays: this.config.relays, queued: this.resolver.queued(), problems: Object.keys(this.library.problems).length, wordsDue: this.resolver.wordsDue(), witness: this.witness };
+    return {
+      address: this.identity?.address ?? null,
+      name: this.config.name ?? null,
+      model: this.model(),
+      can: this.config.can,
+      trackers: this.config.trackers,
+      mirrors: this.config.mirrors,
+      relays: this.config.relays,
+      queued: this.resolver.queued(),
+      problems: Object.keys(this.library.problems).length,
+      wordsDue: this.resolver.wordsDue(),
+      witness: this.witness,
+    };
   }
 
   /** This key's standing as the first tracker that answers computes it; null with no key or no tracker. */
@@ -291,14 +391,27 @@ export class Quilt {
   async standingOf(address: Address): Promise<Standing | null> {
     return this.firstAnswer(this.config.trackers, async (t) => {
       const j = await this.ask<Omit<Standing, 'tracker'>>(`${t}k/${address}/standing`);
-      return j && { tracker: t, standing: j.standing, locked: j.locked, free: j.free, founding: j.founding ?? 0, locks: j.locks };
+      return (
+        j && {
+          tracker: t,
+          standing: j.standing,
+          locked: j.locked,
+          free: j.free,
+          founding: j.founding ?? 0,
+          locks: j.locks,
+        }
+      );
     });
   }
 
   /** The hot list (APP.md, "The window"): a key followed or dropped, in this home's library alone; nothing is signed or posted. */
   async follow(address: Address, on: boolean, name: string | null = null): Promise<void> {
     const follows = (this.library.follows ??= {});
-    if (on) follows[address] = { name: name ?? follows[address]?.name ?? null, since: follows[address]?.since ?? this.stamp() };
+    if (on)
+      follows[address] = {
+        name: name ?? follows[address]?.name ?? null,
+        since: follows[address]?.since ?? this.stamp(),
+      };
     else delete follows[address];
     this.save();
   }
@@ -311,14 +424,26 @@ export class Quilt {
     const answer = this.ask<Record<string, unknown>>(`${t}.well-known/quilt`);
     this.wellKnownCache.set(t, { at: Date.now(), answer });
     // A tracker that did not answer is asked again next time.
-    answer.then((a) => { if (a === null) this.wellKnownCache.delete(t); }, () => this.wellKnownCache.delete(t));
+    answer.then(
+      (a) => {
+        if (a === null) this.wellKnownCache.delete(t);
+      },
+      () => this.wellKnownCache.delete(t),
+    );
     return answer;
   }
 
   /** The tracker's state for a problem: its pieces as the layer sees them, and the owner's gold summed (QX-16). Null when the tracker does not answer. */
-  async trackerState(hash: Hash, tracker: string): Promise<{ pieces: LayerPiece[]; gold: GoldCount | null; superseded: Hash | null } | null> {
-    const j = await this.ask<{ pieces?: LayerPiece[]; gold?: GoldCount; superseded?: Hash | null }>(`${tracker}p/${hash}/state`);
-    return j && Array.isArray(j.pieces) ? { pieces: j.pieces, gold: j.gold ?? null, superseded: isHash(j.superseded) ? j.superseded : null } : null;
+  async trackerState(
+    hash: Hash,
+    tracker: string,
+  ): Promise<{ pieces: LayerPiece[]; gold: GoldCount | null; superseded: Hash | null } | null> {
+    const j = await this.ask<{ pieces?: LayerPiece[]; gold?: GoldCount; superseded?: Hash | null }>(
+      `${tracker}p/${hash}/state`,
+    );
+    return j && Array.isArray(j.pieces)
+      ? { pieces: j.pieces, gold: j.gold ?? null, superseded: isHash(j.superseded) ? j.superseded : null }
+      : null;
   }
 
   /**
@@ -331,7 +456,9 @@ export class Quilt {
 
   /** The tracker's scrape of a problem: whether it has taken it down (QX-6) and why, in its own word, and who keeps it (QX-4). Null when the tracker does not answer. */
   async scrapeOf(hash: Hash, tracker: string): Promise<Scrape | null> {
-    const j = await this.ask<{ hidden?: Takedown | null; seeders?: number; last_seeded?: string | null }>(`${tracker}p/${hash}/scrape`);
+    const j = await this.ask<{ hidden?: Takedown | null; seeders?: number; last_seeded?: string | null }>(
+      `${tracker}p/${hash}/scrape`,
+    );
     return j && { hidden: j.hidden ?? null, seeders: j.seeders ?? 0, last_seeded: j.last_seeded ?? null };
   }
 
@@ -340,20 +467,51 @@ export class Quilt {
    * where one answered, and the witness on each reveal its receipts name (QX-18); the library remembers it and where it
    * was found.
    */
-  async open(input: string): Promise<Opened & { link: Link; layer: LayerPiece[] | null; hidden: Takedown | null; gold: GoldCount | null; scrape: Scrape | null; witnessed: Map<string, Witness>; superseded: Hash | null }> {
+  async open(input: string): Promise<
+    Opened & {
+      link: Link;
+      layer: LayerPiece[] | null;
+      hidden: Takedown | null;
+      gold: GoldCount | null;
+      scrape: Scrape | null;
+      witnessed: Map<string, Witness>;
+      superseded: Hash | null;
+    }
+  > {
     const link = parseLink(input);
     const resolved = await this.resolver.resolve(link);
     if (!resolved) throw new Error('no resolver answered for that hash');
     const state = this.resolver.state(resolved);
     const now = this.stamp();
-    const trackers = this.trackersFor(resolved.hash, [...(resolved.tracker ? [resolved.tracker] : []), ...link.trackers]);
+    const trackers = this.trackersFor(resolved.hash, [
+      ...(resolved.tracker ? [resolved.tracker] : []),
+      ...link.trackers,
+    ]);
     const entry = this.library.problems[resolved.hash];
     // The rest of the entry stays: the version it was replaced by, its topics, and the mark of the last announce (QX-13 section 3).
-    this.library.problems[resolved.hash] = { ...entry, title: state.envelope.problem.title, slug: state.envelope.problem.slug, trackers, first: entry?.first ?? now, last: now };
+    this.library.problems[resolved.hash] = {
+      ...entry,
+      title: state.envelope.problem.title,
+      slug: state.envelope.problem.slug,
+      trackers,
+      first: entry?.first ?? now,
+      last: now,
+    };
     this.save();
     const st = resolved.tracker ? await this.trackerState(resolved.hash, resolved.tracker) : null;
     const scrape = resolved.tracker ? await this.scrapeOf(resolved.hash, resolved.tracker) : null;
-    return { link, hash: resolved.hash, state, tracker: resolved.tracker, layer: st?.pieces ?? null, hidden: scrape?.hidden ?? null, gold: st?.gold ?? null, scrape, witnessed: witnessesOf(resolved.receipts), superseded: st?.superseded ?? null };
+    return {
+      link,
+      hash: resolved.hash,
+      state,
+      tracker: resolved.tracker,
+      layer: st?.pieces ?? null,
+      hidden: scrape?.hidden ?? null,
+      gold: st?.gold ?? null,
+      scrape,
+      witnessed: witnessesOf(resolved.receipts),
+      superseded: st?.superseded ?? null,
+    };
   }
 
   /**
@@ -364,9 +522,23 @@ export class Quilt {
    * problem first and its forks by the work on each; the groups come in the order of their latest reading.
    */
   async search(query: string): Promise<Found[]> {
-    type Row = { problem: Hash; title: string; slug: string; owner: string; owner_name?: string | null; from?: Hash | null; pieces: number; counts: Record<string, number>; kinds?: Record<string, number>; work?: AnnouncedWork | null; topics: string[] };
+    type Row = {
+      problem: Hash;
+      title: string;
+      slug: string;
+      owner: string;
+      owner_name?: string | null;
+      from?: Hash | null;
+      pieces: number;
+      counts: Record<string, number>;
+      kinds?: Record<string, number>;
+      work?: AnnouncedWork | null;
+      topics: string[];
+    };
     const out = new Map<string, Found>();
-    const answers = await inParallel(this.config.trackers, 4, (t) => this.ask<{ problems: Row[] }>(`${t}search?q=${encodeURIComponent(query)}`));
+    const answers = await inParallel(this.config.trackers, 4, (t) =>
+      this.ask<{ problems: Row[] }>(`${t}search?q=${encodeURIComponent(query)}`),
+    );
     this.config.trackers.forEach((t, i) => {
       for (const p of answers[i]?.problems ?? []) {
         const have = out.get(p.problem);
@@ -374,7 +546,25 @@ export class Quilt {
           have.held.push(t);
           continue;
         }
-        out.set(p.problem, { problem: p.problem, title: p.title, slug: p.slug, owner: p.owner, owner_name: p.owner_name ?? null, from: p.from ?? null, root: p.problem, pieces: p.pieces, counts: p.counts, kinds: p.kinds ?? null, work: p.work ?? null, topics: p.topics, tracker: t, via: 'tracker', held: [t], announcer: null, announced: null });
+        out.set(p.problem, {
+          problem: p.problem,
+          title: p.title,
+          slug: p.slug,
+          owner: p.owner,
+          owner_name: p.owner_name ?? null,
+          from: p.from ?? null,
+          root: p.problem,
+          pieces: p.pieces,
+          counts: p.counts,
+          kinds: p.kinds ?? null,
+          work: p.work ?? null,
+          topics: p.topics,
+          tracker: t,
+          via: 'tracker',
+          held: [t],
+          announcer: null,
+          announced: null,
+        });
       }
     });
     // QX-14: what the relays carry, with the tracker the announce named as the place to open it, and the work as the announce stated it.
@@ -385,7 +575,25 @@ export class Quilt {
         continue;
       }
       const pieces = a.pieces ?? Object.values(a.counts).reduce((n, c) => n + c, 0);
-      out.set(a.problem, { problem: a.problem, title: a.title, slug: a.slug, owner: a.owner, owner_name: null, from: a.from, root: a.problem, pieces, counts: a.counts, kinds: null, work: a.work, topics: a.topics, tracker: a.trackers[0] ?? a.relay, via: 'relay', held: [a.relay], announcer: a.announcer, announced: new Date(a.created_at * 1000).toISOString() });
+      out.set(a.problem, {
+        problem: a.problem,
+        title: a.title,
+        slug: a.slug,
+        owner: a.owner,
+        owner_name: null,
+        from: a.from,
+        root: a.problem,
+        pieces,
+        counts: a.counts,
+        kinds: null,
+        work: a.work,
+        topics: a.topics,
+        tracker: a.trackers[0] ?? a.relay,
+        via: 'relay',
+        held: [a.relay],
+        announcer: a.announcer,
+        announced: new Date(a.created_at * 1000).toISOString(),
+      });
     }
     // The root of each: `from` followed while the problem it names is in the answer.
     for (const f of out.values()) {
@@ -393,21 +601,36 @@ export class Quilt {
       for (let i = 0; i < 8 && root.from && out.has(root.from); i += 1) root = out.get(root.from)!;
       f.root = root.problem;
     }
-    const weight = (f: Found): number => (f.work ? f.work.verified * 1_000_000 + f.work.accepted * 1_000 + f.work.returned : 0);
+    const weight = (f: Found): number =>
+      f.work ? f.work.verified * 1_000_000 + f.work.accepted * 1_000 + f.work.returned : 0;
     const latest = new Map<Hash, string>();
     for (const f of out.values()) {
       const l = f.work?.last ?? '';
       if (l > (latest.get(f.root) ?? '')) latest.set(f.root, l);
     }
     return [...out.values()].sort((a, b) => {
-      if (a.root !== b.root) return (latest.get(b.root) ?? '').localeCompare(latest.get(a.root) ?? '') || a.root.localeCompare(b.root);
+      if (a.root !== b.root)
+        return (latest.get(b.root) ?? '').localeCompare(latest.get(a.root) ?? '') || a.root.localeCompare(b.root);
       if ((a.problem === a.root) !== (b.problem === b.root)) return a.problem === a.root ? -1 : 1;
       return weight(b) - weight(a) || a.problem.localeCompare(b.problem);
     });
   }
 
   /** The tracker's row for a problem, as `/p/<hash>/scrape` gives it, with its topics: what the owner's turn announces again. Null when the tracker does not answer. */
-  private rowOf(hash: Hash, tracker: string): Promise<{ title: string; slug: string; done_when: string; owner: string; from: Hash | null; pieces: number; counts: Record<string, number>; work: AnnouncedWork; topics?: string[] } | null> {
+  private rowOf(
+    hash: Hash,
+    tracker: string,
+  ): Promise<{
+    title: string;
+    slug: string;
+    done_when: string;
+    owner: string;
+    from: Hash | null;
+    pieces: number;
+    counts: Record<string, number>;
+    work: AnnouncedWork;
+    topics?: string[];
+  } | null> {
     return this.ask(`${tracker}p/${hash}/scrape`);
   }
 
@@ -429,10 +652,24 @@ export class Quilt {
       const unoffered = this.config.relays.filter((r) => !offered.includes(r));
       const row = await this.firstAnswer(trackers, (t) => this.rowOf(h, t));
       if (!row || !row.work || row.owner.toLowerCase() !== id.address.toLowerCase()) continue;
-      const mark = [row.work.returned, row.work.accepted, row.work.verified, row.work.disputed, row.work.readers].join('/');
+      const mark = [row.work.returned, row.work.accepted, row.work.verified, row.work.disputed, row.work.readers].join(
+        '/',
+      );
       if (entry.announced?.mark === mark && unoffered.length === 0) continue;
       const topics = entry.topics ?? row.topics ?? [];
-      const body = { title: row.title, slug: row.slug, done_when: row.done_when, topics, owner: id.address, from: row.from ?? null, pieces: row.pieces, counts: row.counts, work: row.work, trackers, mirrors: this.config.mirrors };
+      const body = {
+        title: row.title,
+        slug: row.slug,
+        done_when: row.done_when,
+        topics,
+        owner: id.address,
+        from: row.from ?? null,
+        pieces: row.pieces,
+        counts: row.counts,
+        work: row.work,
+        trackers,
+        mirrors: this.config.mirrors,
+      };
       const announce = this.sign({ quilt: 1, type: 'announce', problem: h, key: id.address, ts: this.stamp(), body });
       await this.resolver.post(announce, h, trackers);
       if (this.config.relays.length) await postToRelays(this.config.relays, announcementEvent(announce, id.secret));
@@ -462,14 +699,20 @@ export class Quilt {
     if (pool?.size === 0) throw new Error(nothingToVerify);
     const within = (piece: Hash): boolean => !pool || pool.has(piece);
     // 1. The tracker's word, where one answered and named a piece within the pool: the piece, the stake it asks, and the pieces this key cannot cover.
-    const asked = tracker ? await this.askedNext(hash, state, tracker, pool !== null) : { pick: null, stake: 0, unaffordable: [] as Hash[], seams: [] as Seam[] };
+    const asked = tracker
+      ? await this.askedNext(hash, state, tracker, pool !== null)
+      : { pick: null, stake: 0, unaffordable: [] as Hash[], seams: [] as Seam[] };
     let pick = asked.pick && within(asked.pick.piece.hash) ? asked.pick : null;
     let stake = pick ? asked.stake : 0;
     // 2. Else the map, within the pool and leaving out the pieces the tracker left out for their stake, since a claim on one would be refused at its door; where the tracker had named a piece outside the pool, the stake is the map's piece's own.
     if (!pick) {
-      const exclude = new Set<string>([...asked.unaffordable, ...state.pieces.filter((v) => !within(v.piece.hash)).map((v) => v.piece.hash)]);
+      const exclude = new Set<string>([
+        ...asked.unaffordable,
+        ...state.pieces.filter((v) => !within(v.piece.hash)).map((v) => v.piece.hash),
+      ]);
       pick = next(state, id.address, this.client(), this.stamp(), { exclude });
-      if (pick && asked.pick && tracker) stake = layerByHash(await this.layerOf(hash, tracker)).get(pick.piece.hash)?.stake ?? 0;
+      if (pick && asked.pick && tracker)
+        stake = layerByHash(await this.layerOf(hash, tracker)).get(pick.piece.hash)?.stake ?? 0;
     }
     // 3. Else coin in place of standing (QX-17), where the tracker carries it and this key's free coin covers a stake within the pool.
     let plan: CoinPlan | null = null;
@@ -479,14 +722,35 @@ export class Quilt {
       if (instead) ({ pick, plan } = instead);
       if (plan) stake = plan.stake;
     }
-    if (!pick) throw new Error(pool ? nothingToVerify : asked.unaffordable.length ? `every piece left on that problem asks a stake this key's free standing cannot cover (${tracker})` : 'nothing for this key on that problem right now');
+    if (!pick)
+      throw new Error(
+        pool
+          ? nothingToVerify
+          : asked.unaffordable.length
+            ? `every piece left on that problem asks a stake this key's free standing cannot cover (${tracker})`
+            : 'nothing for this key on that problem right now',
+      );
     // 4. The lock before the claim, where a stake is asked.
     const lock = await this.lockBefore(hash, pick.piece.hash, trackers, stake, plan);
     // 5. The claim, stamped after the lock so the two fold in order; where it went comes back as `posted`, refused or not.
-    const claim = this.sign({ quilt: 1, type: 'claim', problem: hash, piece: pick.piece.hash, key: id.address, ts: this.stamp(2), body: { by: this.by() } });
+    const claim = this.sign({
+      quilt: 1,
+      type: 'claim',
+      problem: hash,
+      piece: pick.piece.hash,
+      key: id.address,
+      ts: this.stamp(2),
+      body: { by: this.by() },
+    });
     const posted = await this.resolver.post(claim, hash, trackers);
     // 6. The claim in the library.
-    this.library.pieces[pick.piece.hash] = { problem: hash, name: pick.piece.name, when: claim.ts, what: 'claimed', verifier: pick.piece.verifier };
+    this.library.pieces[pick.piece.hash] = {
+      problem: hash,
+      name: pick.piece.name,
+      when: claim.ts,
+      what: 'claimed',
+      verifier: pick.piece.verifier,
+    };
     this.save();
     // The seams belong to the piece the tracker named; a piece the map picked instead has none here.
     const seams = asked.pick?.piece.hash === pick.piece.hash ? asked.seams : [];
@@ -504,12 +768,18 @@ export class Quilt {
    */
   private pool(state: State): Set<string> | null {
     if (process.env.QUILT_NEXT_ONLY !== 'verify') return null;
-    return new Set(state.pieces.filter((v) => (v.state === 'needs_verify' || v.state === 'disputed') && v.reveals.length > 0).map((v) => v.piece.hash));
+    return new Set(
+      state.pieces
+        .filter((v) => (v.state === 'needs_verify' || v.state === 'disputed') && v.reveals.length > 0)
+        .map((v) => v.piece.hash),
+    );
   }
 
   /** The core's `next` held to one piece: every other piece excluded, so the pick is that piece's, or null where this key cannot take it. */
   private pickOnly(state: State, piece: Hash, now: string): Pick | null {
-    return next(state, this.needKey().address, this.client(), now, { exclude: new Set(state.pieces.filter((v) => v.piece.hash !== piece).map((v) => v.piece.hash)) });
+    return next(state, this.needKey().address, this.client(), now, {
+      exclude: new Set(state.pieces.filter((v) => v.piece.hash !== piece).map((v) => v.piece.hash)),
+    });
   }
 
   /**
@@ -520,15 +790,32 @@ export class Quilt {
    * reader's pool (`only=verify`), so its pick is a piece with a reading on it, over its own fold: the one fold in which a
    * reading it set aside does not stand (QX-19 section 4).
    */
-  private async askedNext(hash: Hash, state: State, tracker: string, pool = false): Promise<{ pick: Pick | null; stake: number; unaffordable: Hash[]; seams: Seam[] }> {
+  private async askedNext(
+    hash: Hash,
+    state: State,
+    tracker: string,
+    pool = false,
+  ): Promise<{ pick: Pick | null; stake: number; unaffordable: Hash[]; seams: Seam[] }> {
     const id = this.needKey();
-    type Answer = { piece: Hash | null; state?: string; agree?: string[]; lease_h?: number; stake?: number; unaffordable?: Hash[]; seams?: Seam[] };
+    type Answer = {
+      piece: Hash | null;
+      state?: string;
+      agree?: string[];
+      lease_h?: number;
+      stake?: number;
+      unaffordable?: Hash[];
+      seams?: Seam[];
+    };
     let answer: Answer | null = null;
     let takenDown: string | null = null;
     try {
-      const r = await this.resolver.fetchImpl(`${tracker}p/${hash}/next?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}${pool ? '&only=verify' : ''}`, { signal: AbortSignal.timeout(8000) });
+      const r = await this.resolver.fetchImpl(
+        `${tracker}p/${hash}/next?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}${pool ? '&only=verify' : ''}`,
+        { signal: AbortSignal.timeout(8000) },
+      );
       if (r.ok) answer = (await r.json()) as Answer;
-      else if (r.status === 410) takenDown = ((await r.json().catch(() => ({}))) as { error?: string }).error ?? 'taken down';
+      else if (r.status === 410)
+        takenDown = ((await r.json().catch(() => ({}))) as { error?: string }).error ?? 'taken down';
     } catch {
       /* a tracker that does not answer names nothing */
     }
@@ -539,16 +826,28 @@ export class Quilt {
     if (!answer?.piece || !view) return { pick: null, stake, unaffordable, seams: [] };
     let pick = this.pickOnly(state, answer.piece, this.stamp());
     // QX-19: the seams of a disputed piece, as the tracker handed them over, each side's key named here.
-    const seams = (Array.isArray(answer.seams) ? answer.seams : []).map((s) => ({ ...s, sides: s.sides.map((x) => ({ ...x, name: nameOf(state, x.key) })) as [SeamSide, SeamSide] }));
+    const seams = (Array.isArray(answer.seams) ? answer.seams : []).map((s) => ({
+      ...s,
+      sides: s.sides.map((x) => ({ ...x, name: nameOf(state, x.key) })) as [SeamSide, SeamSide],
+    }));
     // A kind the core does not implement (human, judge:n, attest): the tracker's layer offered it. Or a piece whose
     // reading by this key the tracker set aside (QX-19 section 4): the core still counts that reading and would not hand
     // the piece to this key, the layer does not count it and hands it back. In both, the piece's own brief, schema and
     // lease are in the envelope this client holds, and the tracker's word on the state stands.
-    const setAsideHere = seams.some((s) => s.sides.some((x) => x.aside && x.key.toLowerCase() === id.address.toLowerCase()));
-    if (!pick && (view.state === 'unknown' || setAsideHere)) pick = {
-      piece: view.piece, state: (answer.state ?? 'open') as Pick['state'], brief: renderInputs(view, state), ...(view.piece.schema ? { schema: view.piece.schema } : {}),
-      agree: answer.agree ?? view.piece.agree ?? view.piece.schema?.required ?? [], requires: view.piece.requires, lease_h: answer.lease_h ?? view.piece.lease_h ?? state.envelope.problem.settings.lease_h, availability: view.availability,
-    };
+    const setAsideHere = seams.some((s) =>
+      s.sides.some((x) => x.aside && x.key.toLowerCase() === id.address.toLowerCase()),
+    );
+    if (!pick && (view.state === 'unknown' || setAsideHere))
+      pick = {
+        piece: view.piece,
+        state: (answer.state ?? 'open') as Pick['state'],
+        brief: renderInputs(view, state),
+        ...(view.piece.schema ? { schema: view.piece.schema } : {}),
+        agree: answer.agree ?? view.piece.agree ?? view.piece.schema?.required ?? [],
+        requires: view.piece.requires,
+        lease_h: answer.lease_h ?? view.piece.lease_h ?? state.envelope.problem.settings.lease_h,
+        availability: view.availability,
+      };
     return { pick, stake, unaffordable, seams };
   }
 
@@ -557,7 +856,12 @@ export class Quilt {
    * burn rate, that piece is picked and the plan says where the coin is locked and how much; null where no piece can
    * be covered that way.
    */
-  private async coinInstead(hash: Hash, state: State, tracker: string, unaffordable: Hash[]): Promise<{ pick: Pick; plan: CoinPlan } | null> {
+  private async coinInstead(
+    hash: Hash,
+    state: State,
+    tracker: string,
+    unaffordable: Hash[],
+  ): Promise<{ pick: Pick; plan: CoinPlan } | null> {
     const coin = await this.coinAt(tracker);
     if (!coin) return null;
     const layer = await this.layerOf(hash, tracker);
@@ -579,18 +883,59 @@ export class Quilt {
    * (QX-17), the coin locked on the home's log first and then the lock at the door naming it. The person's own client
    * asked once for the lock and the claim together. What was locked, or null where nothing was asked.
    */
-  private async lockBefore(hash: Hash, piece: Hash, trackers: string[], stake: number, plan: CoinPlan | null): Promise<'standing' | 'coin' | null> {
+  private async lockBefore(
+    hash: Hash,
+    piece: Hash,
+    trackers: string[],
+    stake: number,
+    plan: CoinPlan | null,
+  ): Promise<'standing' | 'coin' | null> {
     const key = this.needKey().address;
     if (plan) {
-      const onLog = this.sign({ quilt: 1, type: 'lock', key, ts: this.stamp(), body: { problem: hash, piece, amount: plan.units } });
+      const onLog = this.sign({
+        quilt: 1,
+        type: 'lock',
+        key,
+        ts: this.stamp(),
+        body: { problem: hash, piece, amount: plan.units },
+      });
       const c = await this.resolver.post(onLog, 'coin', [plan.coinHome]);
       // A queued lock is no lock, since the door would refuse the claim: this one is not left to the queue.
-      if (c.error || c.queued) throw new Error(`the coin's home did not take the lock of ${plan.units} units${c.error ? `: ${c.error}` : ''}; nothing was claimed`);
-      await this.postSigned({ quilt: 1, type: 'lock', problem: hash, piece, key, ts: this.stamp(1), body: { kind: 'coin', amount: plan.stake, id: eventId(onLog) } }, hash, trackers, `coin lock of ${plan.stake}`);
+      if (c.error || c.queued)
+        throw new Error(
+          `the coin's home did not take the lock of ${plan.units} units${c.error ? `: ${c.error}` : ''}; nothing was claimed`,
+        );
+      await this.postSigned(
+        {
+          quilt: 1,
+          type: 'lock',
+          problem: hash,
+          piece,
+          key,
+          ts: this.stamp(1),
+          body: { kind: 'coin', amount: plan.stake, id: eventId(onLog) },
+        },
+        hash,
+        trackers,
+        `coin lock of ${plan.stake}`,
+      );
       return 'coin';
     }
     if (stake > 0) {
-      await this.postSigned({ quilt: 1, type: 'lock', problem: hash, piece, key, ts: this.stamp(), body: { kind: 'standing', amount: stake } }, hash, trackers, `lock of ${stake}`);
+      await this.postSigned(
+        {
+          quilt: 1,
+          type: 'lock',
+          problem: hash,
+          piece,
+          key,
+          ts: this.stamp(),
+          body: { kind: 'standing', amount: stake },
+        },
+        hash,
+        trackers,
+        `lock of ${stake}`,
+      );
       return 'standing';
     }
     return null;
@@ -607,7 +952,12 @@ export class Quilt {
       }
     }
     for (const t of this.config.trackers) {
-      const offers = (await this.ask<{ offers: { problem: Hash }[] }>(`${t}offer?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}`))?.offers ?? [];
+      const offers =
+        (
+          await this.ask<{ offers: { problem: Hash }[] }>(
+            `${t}offer?key=${id.address}&can=${this.config.can.join(',')}&model=${encodeURIComponent(this.model())}`,
+          )
+        )?.offers ?? [];
       for (const o of offers) {
         try {
           return await this.next(`${t}p/${o.problem}`);
@@ -621,7 +971,12 @@ export class Quilt {
 
   /** Keeping a problem (QX-4): a seed event on its log, and the problem in this client's standing list. */
   async seed(problem: Hash, on: boolean): Promise<Posted> {
-    const { event, posted } = await this.postSigned({ quilt: 1, type: 'seed', problem, key: this.needKey().address, ts: this.stamp(), body: { on } }, problem, this.trackersFor(problem), 'seed');
+    const { event, posted } = await this.postSigned(
+      { quilt: 1, type: 'seed', problem, key: this.needKey().address, ts: this.stamp(), body: { on } },
+      problem,
+      this.trackersFor(problem),
+      'seed',
+    );
     if (on) this.library.seeding[problem] = event.ts;
     else delete this.library.seeding[problem];
     this.save();
@@ -656,11 +1011,19 @@ export class Quilt {
       const title = state.envelope.problem.title;
       const tracker = resolved.tracker;
       const over = layerByHash(tracker ? await this.layerOf(problem, tracker) : null);
-      const item = (piece: Hash | null, name: string | null, why: AttentionItem['why']) => items.push({ problem, title, piece, name, why, tracker });
+      const item = (piece: Hash | null, name: string | null, why: AttentionItem['why']) =>
+        items.push({ problem, title, piece, name, why, tracker });
       if (tracker) {
-        const [panels, challenges] = await Promise.all([this.panels(problem, tracker), this.challenges(problem, tracker)]);
-        for (const p of panels) if (p.outcome === 'open' && p.seats.some((s) => s.root === me && s.lapsed_at === null && !s.rank)) item(p.piece, p.name, 'rank');
-        for (const c of challenges) if (c.outcome === 'open' && c.seats.some((s) => s.root === me && s.lapsed_at === null && !s.verdict)) item(c.piece, c.name, 'verdict');
+        const [panels, challenges] = await Promise.all([
+          this.panels(problem, tracker),
+          this.challenges(problem, tracker),
+        ]);
+        for (const p of panels)
+          if (p.outcome === 'open' && p.seats.some((s) => s.root === me && s.lapsed_at === null && !s.rank))
+            item(p.piece, p.name, 'rank');
+        for (const c of challenges)
+          if (c.outcome === 'open' && c.seats.some((s) => s.root === me && s.lapsed_at === null && !s.verdict))
+            item(c.piece, c.name, 'verdict');
         // QX-16: a piece this key committed gold on, its window open and not yet revealed, as the tracker holds it (gold.ts, goldDue).
         for (const d of gold.goldDue(this.library, problem, over)) item(d.piece, d.name, 'gold');
       }
@@ -668,7 +1031,13 @@ export class Quilt {
         const st = over.get(v.piece.hash)?.state ?? v.state;
         const mine = this.library.pieces[v.piece.hash];
         if (st === 'disputed' && mine?.what === 'returned') item(v.piece.hash, v.piece.name, 'disputed');
-        if (v.piece.verifier === 'human' && this.library.seeding[problem] && (st === 'open' || st === 'needs_verify') && mine?.what !== 'returned') item(v.piece.hash, v.piece.name, 'person');
+        if (
+          v.piece.verifier === 'human' &&
+          this.library.seeding[problem] &&
+          (st === 'open' || st === 'needs_verify') &&
+          mine?.what !== 'returned'
+        )
+          item(v.piece.hash, v.piece.name, 'person');
       }
       return items;
     });
@@ -681,17 +1050,49 @@ export class Quilt {
    * rests (QX-19), the trace behind the reveal follows it: each page fetched once, each passage found, the reads kept
    * on the trackers and the trace posted naming the reveal (trace.ts); a rest that cannot be placed is left out and said.
    */
-  async return(problem: Hash, piece: Hash, ret: Record<string, unknown>, rests: RestAsked[] = []): Promise<{ commit: Posted; reveal: Posted; waits: string; trace: TraceOutcome | null }> {
+  async return(
+    problem: Hash,
+    piece: Hash,
+    ret: Record<string, unknown>,
+    rests: RestAsked[] = [],
+  ): Promise<{ commit: Posted; reveal: Posted; waits: string; trace: TraceOutcome | null }> {
     const key = this.needKey().address;
     const trackers = this.trackersFor(problem);
     this.gate(ret);
     const nonce = newNonce();
-    const { posted: commit } = await this.postSigned({ quilt: 1, type: 'commit', problem, piece, key, ts: this.stamp(), body: { h: commitHash(ret, nonce) } }, problem, trackers, 'commit');
-    const { event: reveal, posted: revealed } = await this.postSigned({ quilt: 1, type: 'reveal', problem, piece, key, ts: this.stamp(1), body: { return: ret, nonce, by: this.by() } }, problem, trackers, 'reveal');
+    const { posted: commit } = await this.postSigned(
+      { quilt: 1, type: 'commit', problem, piece, key, ts: this.stamp(), body: { h: commitHash(ret, nonce) } },
+      problem,
+      trackers,
+      'commit',
+    );
+    const { event: reveal, posted: revealed } = await this.postSigned(
+      { quilt: 1, type: 'reveal', problem, piece, key, ts: this.stamp(1), body: { return: ret, nonce, by: this.by() } },
+      problem,
+      trackers,
+      'reveal',
+    );
     const known = this.library.pieces[piece];
-    this.library.pieces[piece] = { problem, name: known?.name ?? piece, when: reveal.ts, what: 'returned', ...(known?.verifier ? { verifier: known.verifier } : {}) };
+    this.library.pieces[piece] = {
+      problem,
+      name: known?.name ?? piece,
+      when: reveal.ts,
+      what: 'returned',
+      ...(known?.verifier ? { verifier: known.verifier } : {}),
+    };
     this.save();
-    const trace = rests.length ? await traceAfterReveal(this.door, problem, piece, eventId(reveal), ret, rests, trackers, this.resolver.fetchImpl) : null;
+    const trace = rests.length
+      ? await traceAfterReveal(
+          this.door,
+          problem,
+          piece,
+          eventId(reveal),
+          ret,
+          rests,
+          trackers,
+          this.resolver.fetchImpl,
+        )
+      : null;
     return { commit, reveal: revealed, waits: await this.afterReturn(problem, piece, known?.verifier), trace };
   }
 
@@ -714,8 +1115,10 @@ export class Quilt {
         if (kind !== 'agree' && kind !== 'human') return waitsText(verifier);
       }
       const now: string | undefined = layerByHash(layer).get(piece)?.state ?? view?.state;
-      if (now === 'accepted_provisional' || now === 'accepted' || now === 're_accepted') return 'Two vendors agree: the piece is accepted, provisionally until the challenge window closes, and the standing for it is counted.';
-      if (now === 'disputed') return 'Another vendor read it differently: the piece is disputed, and a third production from a vendor unrelated to both settles it.';
+      if (now === 'accepted_provisional' || now === 'accepted' || now === 're_accepted')
+        return 'Two vendors agree: the piece is accepted, provisionally until the challenge window closes, and the standing for it is counted.';
+      if (now === 'disputed')
+        return 'Another vendor read it differently: the piece is disputed, and a third production from a vendor unrelated to both settles it.';
     } catch {
       // The tracker did not answer in time; the kind's words stand.
     }
@@ -725,44 +1128,97 @@ export class Quilt {
   /** A piece given back with one of the core's fixed reasons (DECLINE_REASONS); any other reason is refused here before it is signed. This key is not offered the piece again in this version of the problem. */
   async decline(problem: Hash, piece: Hash, reason: DeclineReason): Promise<Posted> {
     if (!isDeclineReason(reason)) throw new Error(`a decline gives one of ${DECLINE_REASONS.join(', ')}`);
-    const { posted } = await this.postSigned({ quilt: 1, type: 'decline', problem, piece, key: this.needKey().address, ts: this.stamp(), body: { reason } }, problem, this.trackersFor(problem), 'decline');
+    const { posted } = await this.postSigned(
+      { quilt: 1, type: 'decline', problem, piece, key: this.needKey().address, ts: this.stamp(), body: { reason } },
+      problem,
+      this.trackersFor(problem),
+      'decline',
+    );
     return posted;
   }
 
   /** A ranking of a judge piece's candidates by a key drawn to its panel (QX-2): every candidate's digest once, first choice first, signed and posted. */
   async rank(problem: Hash, piece: Hash, ranking: Hash[]): Promise<Posted & { id: Hash }> {
-    if (!Array.isArray(ranking) || ranking.length === 0 || !ranking.every((d) => isHash(d))) throw new Error('a ranking is a list of candidate digests, first choice first');
+    if (!Array.isArray(ranking) || ranking.length === 0 || !ranking.every((d) => isHash(d)))
+      throw new Error('a ranking is a list of candidate digests, first choice first');
     if (new Set(ranking).size !== ranking.length) throw new Error('a ranking names each digest once');
-    const { event, posted } = await this.postSigned({ quilt: 1, type: 'rank', problem, piece, key: this.needKey().address, ts: this.stamp(), body: { ranking } }, problem, this.trackersFor(problem), 'rank');
+    const { event, posted } = await this.postSigned(
+      { quilt: 1, type: 'rank', problem, piece, key: this.needKey().address, ts: this.stamp(), body: { ranking } },
+      problem,
+      this.trackersFor(problem),
+      'rank',
+    );
     return { id: eventId(event), ...posted };
   }
 
   /** The problem's judge panels as the first tracker that answers computes them: the one that answered for the problem, then the known ones. */
   async panels(problem: Hash, tracker: string | null = null): Promise<PanelListing[]> {
-    const found = await this.firstAnswer(this.trackersFor(problem, tracker ? [tracker] : []), async (t) => (await this.ask<{ panels: PanelListing[] }>(`${t}p/${problem}/panels`))?.panels ?? null);
+    const found = await this.firstAnswer(
+      this.trackersFor(problem, tracker ? [tracker] : []),
+      async (t) => (await this.ask<{ panels: PanelListing[] }>(`${t}p/${problem}/panels`))?.panels ?? null,
+    );
     return found ?? [];
   }
 
   /** A challenge of a piece's provisional acceptance (QX-1), or of a gold miss by a root it struck (QX-16): a stake of this key's standing, 0 allowed against a miss, and one sentence of ground, signed and posted. */
   async challenge(problem: Hash, piece: Hash, stake: number, ground: string): Promise<Posted & { id: Hash }> {
-    if (!Number.isInteger(stake) || stake < 0) throw new Error('the stake is a whole number from 0: at least 1 against an acceptance, and nothing need be staked against a gold miss');
+    if (!Number.isInteger(stake) || stake < 0)
+      throw new Error(
+        'the stake is a whole number from 0: at least 1 against an acceptance, and nothing need be staked against a gold miss',
+      );
     const issues = plainTextProblems(ground, 'ground');
     if (issues.length) throw new Error(issues[0]);
-    const { event, posted } = await this.postSigned({ quilt: 1, type: 'challenge', problem, piece, key: this.needKey().address, ts: this.stamp(), body: { stake, ground } }, problem, this.trackersFor(problem), 'challenge');
+    const { event, posted } = await this.postSigned(
+      {
+        quilt: 1,
+        type: 'challenge',
+        problem,
+        piece,
+        key: this.needKey().address,
+        ts: this.stamp(),
+        body: { stake, ground },
+      },
+      problem,
+      this.trackersFor(problem),
+      'challenge',
+    );
     return { id: eventId(event), ...posted };
   }
 
   /** A verdict on a challenge this key was drawn to judge: for the challenger or for the author, with this judge's own return as evidence where it has one. */
-  async verdict(problem: Hash, piece: Hash, challenge: Hash, side: Side, ret?: Record<string, unknown>): Promise<Posted & { id: Hash }> {
+  async verdict(
+    problem: Hash,
+    piece: Hash,
+    challenge: Hash,
+    side: Side,
+    ret?: Record<string, unknown>,
+  ): Promise<Posted & { id: Hash }> {
     if (!SIDES.includes(side)) throw new Error(`a verdict is for the ${SIDES.join(' or the ')}`);
     if (ret) this.gate(ret);
-    const { event, posted } = await this.postSigned({ quilt: 1, type: 'verdict', problem, piece, key: this.needKey().address, ts: this.stamp(), body: { challenge, for: side, ...(ret ? { return: ret } : {}) } }, problem, this.trackersFor(problem), 'verdict');
+    const { event, posted } = await this.postSigned(
+      {
+        quilt: 1,
+        type: 'verdict',
+        problem,
+        piece,
+        key: this.needKey().address,
+        ts: this.stamp(),
+        body: { challenge, for: side, ...(ret ? { return: ret } : {}) },
+      },
+      problem,
+      this.trackersFor(problem),
+      'verdict',
+    );
     return { id: eventId(event), ...posted };
   }
 
   /** The problem's challenges as the first tracker that answers computes them: the one that answered for the problem, then the known ones. */
   async challenges(problem: Hash, tracker: string | null = null): Promise<ChallengeListing[]> {
-    const found = await this.firstAnswer(this.trackersFor(problem, tracker ? [tracker] : []), async (t) => (await this.ask<{ challenges: ChallengeListing[] }>(`${t}p/${problem}/challenges`))?.challenges ?? null);
+    const found = await this.firstAnswer(
+      this.trackersFor(problem, tracker ? [tracker] : []),
+      async (t) =>
+        (await this.ask<{ challenges: ChallengeListing[] }>(`${t}p/${problem}/challenges`))?.challenges ?? null,
+    );
     return found ?? [];
   }
 
@@ -770,14 +1226,31 @@ export class Quilt {
   async hide(id: string, why: string, on = true): Promise<Posted> {
     const issues = plainTextProblems(why, 'why');
     if (issues.length) throw new Error(issues[0]);
-    const { posted } = await this.postSigned({ quilt: 1, type: 'hide', key: this.needKey().address, ts: this.stamp(), body: { id, why, on } }, null, this.config.trackers, 'hide');
+    const { posted } = await this.postSigned(
+      { quilt: 1, type: 'hide', key: this.needKey().address, ts: this.stamp(), body: { id, why, on } },
+      null,
+      this.config.trackers,
+      'hide',
+    );
     return posted;
   }
 
   /** The stake a problem asks of a claim on its pieces (QX-15): a stake_rule event from the owner on the problem's log, replacing the one before. */
   async stakeRule(problem: Hash, min: number, pieces?: string[]): Promise<Posted> {
     if (!Number.isInteger(min) || min < 0) throw new Error('the stake is a whole number from 0');
-    const { posted } = await this.postSigned({ quilt: 1, type: 'stake_rule', problem, key: this.needKey().address, ts: this.stamp(), body: { min, ...(pieces && pieces.length ? { pieces } : {}) } }, problem, this.trackersFor(problem), 'stake rule');
+    const { posted } = await this.postSigned(
+      {
+        quilt: 1,
+        type: 'stake_rule',
+        problem,
+        key: this.needKey().address,
+        ts: this.stamp(),
+        body: { min, ...(pieces && pieces.length ? { pieces } : {}) },
+      },
+      problem,
+      this.trackersFor(problem),
+      'stake rule',
+    );
     return posted;
   }
 
@@ -785,7 +1258,12 @@ export class Quilt {
   async setName(name: string): Promise<Posted> {
     const issues = plainTextProblems(name, 'name');
     if (issues.length) throw new Error(issues[0]);
-    const { posted } = await this.postSigned({ quilt: 1, type: 'name', key: this.needKey().address, ts: this.stamp(), body: { name } }, null, this.config.trackers, 'name');
+    const { posted } = await this.postSigned(
+      { quilt: 1, type: 'name', key: this.needKey().address, ts: this.stamp(), body: { name } },
+      null,
+      this.config.trackers,
+      'name',
+    );
     return posted;
   }
 
@@ -801,13 +1279,27 @@ export class Quilt {
     if (out.posted.length) {
       if (pattern.stake) {
         // QX-15: the stake the owner asks, on the problem's log right after the envelope; a refusal is listed rather than thrown, since the problem is out.
-        const rule = this.sign({ quilt: 1, type: 'stake_rule', problem: out.hash, key: id.address, ts: this.stamp(), body: { min: pattern.stake.min, ...(pattern.stake.pieces?.length ? { pieces: pattern.stake.pieces } : {}) } });
+        const rule = this.sign({
+          quilt: 1,
+          type: 'stake_rule',
+          problem: out.hash,
+          key: id.address,
+          ts: this.stamp(),
+          body: { min: pattern.stake.min, ...(pattern.stake.pieces?.length ? { pieces: pattern.stake.pieces } : {}) },
+        });
         const r = await this.resolver.post(rule, out.hash, out.posted);
         if (r.error && !r.queued) out.refused.push(`stake rule: ${r.error}`);
       }
       if (pattern.gold) {
         try {
-          out.gold = await this.commitGold(out.hash, pattern.gold.answers, pattern.gold.stake, expandPieces(problem, blobs), out.posted, pattern.stake);
+          out.gold = await this.commitGold(
+            out.hash,
+            pattern.gold.answers,
+            pattern.gold.stake,
+            expandPieces(problem, blobs),
+            out.posted,
+            pattern.stake,
+          );
         } catch (err) {
           out.refused.push(`gold: ${(err as Error).message}`);
         }
@@ -817,17 +1309,30 @@ export class Quilt {
   }
 
   /** A signed envelope posted to every tracker with its blobs; then, where it went, the announce with the topics, the relays and the version event; the home's library notes the problem. */
-  private async publishEnvelope(envelope: Envelope, blobs: Map<Hash, Uint8Array>, problem: Problem, topics: string[]): Promise<Published> {
+  private async publishEnvelope(
+    envelope: Envelope,
+    blobs: Map<Hash, Uint8Array>,
+    problem: Problem,
+    topics: string[],
+  ): Promise<Published> {
     const id = this.needKey();
     const hash = problemHash(envelope);
-    const body = JSON.stringify({ envelope, blobs: Object.fromEntries([...blobs].map(([h, b]) => [h, Buffer.from(b).toString('base64')])) });
+    const body = JSON.stringify({
+      envelope,
+      blobs: Object.fromEntries([...blobs].map(([h, b]) => [h, Buffer.from(b).toString('base64')])),
+    });
     const posted: string[] = [];
     const refused: string[] = [];
     let relays: string[] = [];
     for (const t of this.config.trackers) {
       try {
         // A whole envelope with its blobs: fifteen seconds, where a read gets eight (askJson).
-        const r = await this.resolver.fetchImpl(`${t}p`, { method: 'POST', body, headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(15000) });
+        const r = await this.resolver.fetchImpl(`${t}p`, {
+          method: 'POST',
+          body,
+          headers: { 'content-type': 'application/json' },
+          signal: AbortSignal.timeout(15000),
+        });
         if (r.status === 201) posted.push(t);
         else refused.push(`${t}: ${((await r.json().catch(() => ({}))) as { error?: string }).error ?? r.status}`);
       } catch (err) {
@@ -837,14 +1342,49 @@ export class Quilt {
     const pieces = expandPieces(problem, blobs).length;
     if (posted.length) {
       // The announce (QX-13: the owner, the fork, the pieces, every piece open, no work yet) and the version are posted where the envelope went, and a refusal of either is not the publish's to report.
-      const announce = this.sign({ quilt: 1, type: 'announce', problem: hash, key: id.address, ts: this.stamp(), body: { title: problem.title, slug: problem.slug, done_when: problem.done_when, topics, owner: id.address, from: problem.from ?? null, pieces, counts: { open: pieces }, work: NO_WORK, trackers: posted, mirrors: this.config.mirrors } });
+      const announce = this.sign({
+        quilt: 1,
+        type: 'announce',
+        problem: hash,
+        key: id.address,
+        ts: this.stamp(),
+        body: {
+          title: problem.title,
+          slug: problem.slug,
+          done_when: problem.done_when,
+          topics,
+          owner: id.address,
+          from: problem.from ?? null,
+          pieces,
+          counts: { open: pieces },
+          work: NO_WORK,
+          trackers: posted,
+          mirrors: this.config.mirrors,
+        },
+      });
       await this.resolver.post(announce, hash, posted);
-      if (this.config.relays.length) relays = (await postToRelays(this.config.relays, announcementEvent(announce, id.secret))).posted;
-      const version = this.sign({ quilt: 1, type: 'version', problem: hash, key: id.address, ts: this.stamp(), body: { slug: problem.slug, hash } });
+      if (this.config.relays.length)
+        relays = (await postToRelays(this.config.relays, announcementEvent(announce, id.secret))).posted;
+      const version = this.sign({
+        quilt: 1,
+        type: 'version',
+        problem: hash,
+        key: id.address,
+        ts: this.stamp(),
+        body: { slug: problem.slug, hash },
+      });
       await this.resolver.post(version, hash, posted);
     }
     const now = this.stamp();
-    this.library.problems[hash] = { title: problem.title, slug: problem.slug, trackers: posted, first: now, last: now, topics, announced: { at: now, mark: [0, 0, 0, 0, 0].join('/'), relays: [...this.config.relays] } };
+    this.library.problems[hash] = {
+      title: problem.title,
+      slug: problem.slug,
+      trackers: posted,
+      first: now,
+      last: now,
+      topics,
+      announced: { at: now, mark: [0, 0, 0, 0, 0].join('/'), relays: [...this.config.relays] },
+    };
     this.save();
     return { hash, link: makeLink(hash, posted, problem.slug), posted, refused, relays, gold: null };
   }
@@ -858,7 +1398,11 @@ export class Quilt {
    * topics, and the gold the home holds for this problem is committed again on the new pieces. A problem already
    * replaced is left as it is, and the home notes which version replaced which. `now` is the clock the lease is read by.
    */
-  async sharpen(problem: Hash, ask: (q: SentenceAsk) => Promise<string | null>, now = new Date().toISOString()): Promise<Sharpened> {
+  async sharpen(
+    problem: Hash,
+    ask: (q: SentenceAsk) => Promise<string | null>,
+    now = new Date().toISOString(),
+  ): Promise<Sharpened> {
     const id = this.needKey();
     if (this.library.problems[problem]?.frozen) throw new Error(FROZEN);
     const { state, layer, superseded } = await this.open(problem);
@@ -898,8 +1442,15 @@ export class Quilt {
       const key = Object.keys(pieces).find((k) => k === `${family}/*` || k === family || k === piece);
       const def = key ? pieces[key] : undefined;
       if (!def) continue;
-      const said = (await ask({ family, brief: def.brief, field: seam.field, seam, piece, grounded: both }))?.replace(/\s+/g, ' ').trim() ?? '';
-      const why = !said ? 'no sentence' : said.length > SENTENCE_MAX ? `over ${SENTENCE_MAX} characters` : textIssues(said)[0] ?? null;
+      const said =
+        (await ask({ family, brief: def.brief, field: seam.field, seam, piece, grounded: both }))
+          ?.replace(/\s+/g, ' ')
+          .trim() ?? '';
+      const why = !said
+        ? 'no sentence'
+        : said.length > SENTENCE_MAX
+          ? `over ${SENTENCE_MAX} characters`
+          : (textIssues(said)[0] ?? null);
       sentences.push({ family, field: seam.field, sentence: said || null, kept: why === null, why });
       if (why === null) def.brief = `${def.brief} ${said}`;
     }
@@ -907,16 +1458,28 @@ export class Quilt {
     const resolved = await this.resolver.resolve(parseLink(problem));
     if (!resolved) throw new Error('no resolver answered for that hash');
     const next: Problem = { ...old, prev: problem, pieces };
-    const unsigned = { quilt: 1 as const, problem: next, hints: { trackers: this.config.trackers, mirrors: this.config.mirrors } };
+    const unsigned = {
+      quilt: 1 as const,
+      problem: next,
+      hints: { trackers: this.config.trackers, mirrors: this.config.mirrors },
+    };
     const envelope: Envelope = { ...unsigned, sig: signObject(unsigned, id.secret) };
-    const announce = resolved.receipts.find((r) => r.event.type === 'announce' && r.event.key.toLowerCase() === id.address.toLowerCase());
+    const announce = resolved.receipts.find(
+      (r) => r.event.type === 'announce' && r.event.key.toLowerCase() === id.address.toLowerCase(),
+    );
     const topics = (announce?.event.body as { topics?: string[] } | undefined)?.topics ?? [];
     const out = await this.publishEnvelope(envelope, resolved.blobs, next, Array.isArray(topics) ? topics : []);
     if (out.posted.length) {
       const kept = this.library.gold?.[problem];
       if (kept && Object.keys(kept).length) {
         try {
-          out.gold = await this.commitGold(out.hash, Object.fromEntries(Object.values(kept).map((g) => [g.name, g.projection])), undefined, expandPieces(next, resolved.blobs), out.posted);
+          out.gold = await this.commitGold(
+            out.hash,
+            Object.fromEntries(Object.values(kept).map((g) => [g.name, g.projection])),
+            undefined,
+            expandPieces(next, resolved.blobs),
+            out.posted,
+          );
         } catch (err) {
           out.refused.push(`gold: ${(err as Error).message}`);
         }
@@ -937,9 +1500,10 @@ export class Quilt {
   async freeze(problem: Hash, on = true): Promise<{ problem: Hash; frozen: string | null }> {
     const id = this.needKey();
     const entry = this.library.problems[problem];
-    if (!entry) throw new Error('that problem is not in this home\'s library');
+    if (!entry) throw new Error("that problem is not in this home's library");
     const { state } = await this.open(problem);
-    if (state.envelope.problem.owner.toLowerCase() !== id.address.toLowerCase()) throw new Error('only the owner freezes a brief');
+    if (state.envelope.problem.owner.toLowerCase() !== id.address.toLowerCase())
+      throw new Error('only the owner freezes a brief');
     const kept = this.library.problems[problem]!;
     if (on) kept.frozen ??= this.stamp();
     else delete kept.frozen;
@@ -948,7 +1512,10 @@ export class Quilt {
   }
 
   /** The owner's sharpening over every problem the home knows and this key owns, each once (QX-19 section 4); the away turn runs it before its agent. A problem with no such seam, or one frozen here, is passed over in silence. */
-  async sharpenDue(ask: (q: SentenceAsk) => Promise<string | null>, now = new Date().toISOString()): Promise<Sharpened[]> {
+  async sharpenDue(
+    ask: (q: SentenceAsk) => Promise<string | null>,
+    now = new Date().toISOString(),
+  ): Promise<Sharpened[]> {
     if (!this.identity) return [];
     const out: Sharpened[] = [];
     for (const h of new Set([...Object.keys(this.library.problems), ...Object.keys(this.library.gold ?? {})])) {
@@ -957,7 +1524,8 @@ export class Quilt {
         const r = await this.sharpen(h, ask, now);
         if (r.sentences.length) out.push(r);
       } catch (e) {
-        if ((e as Error).message !== NOT_OWNER) out.push({ problem: h, sentences: [], hash: null, posted: [], refused: [(e as Error).message] });
+        if ((e as Error).message !== NOT_OWNER)
+          out.push({ problem: h, sentences: [], hash: null, posted: [], refused: [(e as Error).message] });
       }
     }
     return out;
@@ -966,7 +1534,14 @@ export class Quilt {
   // What was read, said as text: the work is in render.ts, and these hand it the config's trackers where it needs them.
 
   /** A problem said whole, as quilt_open answers it (render.ts, `summary`). */
-  summary(hash: Hash, state: State, tracker: string | null, layer: LayerPiece[] | null = null, hidden: Takedown | null = null, gold: GoldCount | null = null): string {
+  summary(
+    hash: Hash,
+    state: State,
+    tracker: string | null,
+    layer: LayerPiece[] | null = null,
+    hidden: Takedown | null = null,
+    gold: GoldCount | null = null,
+  ): string {
     return summary({ hash, state, tracker, layer, hidden, gold }, this.config.trackers);
   }
 
@@ -1035,7 +1610,14 @@ export class Quilt {
   // The owner's gold (QX-16): answers committed blind before the work, and revealed piece by piece once accepted. The work is in gold.ts, through the door.
 
   /** The owner's gold on a problem, committed blind (gold.ts, `commitGold`). */
-  commitGold(problem: Hash, answers: Record<string, Record<string, unknown>>, stakeAsked?: number, pieces?: Piece[], trackers?: string[], rule?: { min: number; pieces?: string[] }): Promise<{ pieces: number; stake: number }> {
+  commitGold(
+    problem: Hash,
+    answers: Record<string, Record<string, unknown>>,
+    stakeAsked?: number,
+    pieces?: Piece[],
+    trackers?: string[],
+    rule?: { min: number; pieces?: string[] },
+  ): Promise<{ pieces: number; stake: number }> {
     return gold.commitGold(this.door, problem, answers, stakeAsked, pieces, trackers, rule);
   }
 

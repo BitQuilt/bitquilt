@@ -30,13 +30,30 @@ const pattern: Pattern = {
   settings: { endgame_at: 1 },
   pieces: {
     'cite/*': {
-      count: 3, verifier: 'agree', requires: ['web'], brief: 'Citation {n}: {cite.sentence} Return the verdict and a quote.',
+      count: 3,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Citation {n}: {cite.sentence} Return the verdict and a quote.',
       data: { cite: 'cites' },
-      schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] }, quote: { type: 'string', maxLength: 160 } } },
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict', 'quote'],
+        properties: {
+          verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] },
+          quote: { type: 'string', maxLength: 160 },
+        },
+      },
       agree: ['verdict'],
     },
   },
-  data: { cites: [{ sentence: 'Evaluations underestimate capabilities.' }, { sentence: 'Models generalise across languages.' }, { sentence: 'Training data is mostly English.' }] },
+  data: {
+    cites: [
+      { sentence: 'Evaluations underestimate capabilities.' },
+      { sentence: 'Models generalise across languages.' },
+      { sentence: 'Training data is mostly English.' },
+    ],
+  },
 };
 
 beforeAll(async () => {
@@ -50,7 +67,10 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
 /** A piece's state as the tracker's layer shows it. */
-const trackerState = async (piece: string) => (await json<{ pieces: { hash: string; state: string }[] }>(`${base}p/${problem}/state`)).pieces.find((p) => p.hash === piece)!.state;
+const trackerState = async (piece: string) =>
+  (await json<{ pieces: { hash: string; state: string }[] }>(`${base}p/${problem}/state`)).pieces.find(
+    (p) => p.hash === piece,
+  )!.state;
 
 describe('Quilt against a tracker', () => {
   it('publishes a pattern as a signed envelope with its blobs, announces it, and names it', async () => {
@@ -64,7 +84,7 @@ describe('Quilt against a tracker', () => {
     const named = await json<{ hash: string }>(`${base}n/${owner.identity!.address}/report-2026`);
     expect(named.hash).toBe(problem);
   });
-  it('opens the problem and says it as the owner\'s quoted words with the map', async () => {
+  it("opens the problem and says it as the owner's quoted words with the map", async () => {
     const { hash, state, tracker } = await a.open(problem);
     expect(hash).toBe(problem);
     expect(tracker).toBe(base);
@@ -73,21 +93,23 @@ describe('Quilt against a tracker', () => {
     expect(text).toContain('titled it: "Does the report say what its sources say?"');
     expect(text).toContain('...\n3 open');
   });
-  it('is handed the rarest piece with the author\'s brief quoted, and claims it', async () => {
+  it("is handed the rarest piece with the author's brief quoted, and claims it", async () => {
     const { pick, posted, owner: by } = await a.next(problem);
     expect(pick.piece.family).toBe('cite');
     expect(posted.queued).toBe(false);
     expect(a.pieceText(problem, pick, by)).toContain('wrote this brief: "Citation');
     expect(await trackerState(pick.piece.hash)).toBe('in_flight');
   });
-  it('hands a return back as a commit then a reveal, and a second vendor\'s return accepts the piece', async () => {
+  it("hands a return back as a commit then a reveal, and a second vendor's return accepts the piece", async () => {
     const { state } = await a.open(problem);
     const piece = state.pieces.find((v) => v.state === 'in_flight')!.piece.hash;
     const r = await a.return(problem, piece, { verdict: 'supports', quote: 'the model was found to' });
     expect(r.commit.queued).toBe(false);
     expect(r.reveal.queued).toBe(false);
     expect(await trackerState(piece)).toBe('needs_verify');
-    await expect(a.return(problem, piece, { verdict: 'supports', quote: 'see https://x.y/z' })).rejects.toThrow(/no links/);
+    await expect(a.return(problem, piece, { verdict: 'supports', quote: 'see https://x.y/z' })).rejects.toThrow(
+      /no links/,
+    );
     // The first return is told what the piece waits for; the second, that two vendors agree.
     expect(r.waits).toBe('The piece now waits for a second production from another vendor.');
     const r2 = await b.return(problem, piece, { verdict: 'supports', quote: 'a different twenty words' });
@@ -96,7 +118,9 @@ describe('Quilt against a tracker', () => {
     expect(await trackerState(piece)).toBe('accepted_provisional');
     const opened = await b.open(problem);
     expect(b.acceptedText(opened.state)).toContain(`cite/`);
-    expect(b.acceptedText(opened.state)).toContain('returned: {"quote":"a different twenty words","verdict":"supports"}');
+    expect(b.acceptedText(opened.state)).toContain(
+      'returned: {"quote":"a different twenty words","verdict":"supports"}',
+    );
   });
   it('queues events while no tracker answers and posts them when one does', async () => {
     let up = false;
@@ -136,9 +160,11 @@ describe('the connector over MCP', () => {
     expect((read.structuredContent as { text: string }).text).toContain('Accepted so far:');
     await close();
   });
-  it('offers the phrases as prompts, each said in the person\'s words with what it takes filled in, says each sentence of its instructions once, and records the AI that connected', async () => {
+  it("offers the phrases as prompts, each said in the person's words with what it takes filled in, says each sentence of its instructions once, and records the AI that connected", async () => {
     let seen: string | null | undefined;
-    const { client, close } = await mcpPair(a, 'claude-test', (host) => { seen = host; });
+    const { client, close } = await mcpPair(a, 'claude-test', (host) => {
+      seen = host;
+    });
     expect(seen).toBe('claude-test');
     // The server's instructions open with the plain account of how Quilt works (about.ts), and describe like everything else.
     const instructions = client.getInstructions() ?? '';
@@ -156,7 +182,9 @@ describe('the connector over MCP', () => {
       for (const arg of p.arguments ?? []) expect(arg.required).toBe(true);
     }
     const taken = await client.getPrompt({ name: 'take_piece', arguments: { link: problem } });
-    expect(taken.messages).toEqual([{ role: 'user', content: { type: 'text', text: `Open ${problem} on Quilt and take a piece.` } }]);
+    expect(taken.messages).toEqual([
+      { role: 'user', content: { type: 'text', text: `Open ${problem} on Quilt and take a piece.` } },
+    ]);
     const start = await client.getPrompt({ name: 'find_something_to_do' });
     expect((start.messages[0]!.content as { text: string }).text).toBe('Find me something to do on Quilt.');
     await close();

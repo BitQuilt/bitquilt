@@ -31,7 +31,9 @@ beforeAll(async () => {
   flipping = createServer((req, res) => {
     if (answers && req.url === '/.well-known/quilt') {
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ quilt: 1, routes: ['/k/<address>/standing'], stake: { coin: 'here', burn_rate: 1000 } }));
+      res.end(
+        JSON.stringify({ quilt: 1, routes: ['/k/<address>/standing'], stake: { coin: 'here', burn_rate: 1000 } }),
+      );
     } else {
       res.writeHead(404, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: 'no such route' }));
@@ -54,14 +56,16 @@ function over(trackers: string[]): Quilt {
 describe('quilt_me and the trackers it asks', () => {
   it('names a tracker that answered without the standing route as older, not as silent', async () => {
     const me = await runTool(over([baseOf(older)]), 'quilt_me', {});
-    expect(me.text).toContain(`Standing: none; the tracker at ${baseOf(older)} answered but is an older one without the standing route (QX-15)`);
+    expect(me.text).toContain(
+      `Standing: none; the tracker at ${baseOf(older)} answered but is an older one without the standing route (QX-15)`,
+    );
     expect(me.text).not.toContain('Coin (QX-17)');
   });
   it('says no tracker answered when none does', async () => {
     const me = await runTool(over(['http://127.0.0.1:9/']), 'quilt_me', {});
     expect(me.text).toContain('Standing: no tracker answered');
   });
-  it('asks a tracker\'s well-known again once it answered nothing, so a tracker that comes up with the coin is seen', async () => {
+  it("asks a tracker's well-known again once it answered nothing, so a tracker that comes up with the coin is seen", async () => {
     const quilt = over([baseOf(flipping)]);
     expect(await quilt.wellKnown(baseOf(flipping))).toBeNull();
     expect(await quilt.coinAt(baseOf(flipping))).toBeNull();

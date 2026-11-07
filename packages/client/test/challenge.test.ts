@@ -25,8 +25,19 @@ const pattern = (slug: string, count: number): Pattern => ({
   settings: { endgame_at: 1 },
   pieces: {
     'statement/*': {
-      count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so? Return the verdict and a quote.',
-      schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] }, quote: { type: 'string', maxLength: 160 } } },
+      count,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: does the paper say so? Return the verdict and a quote.',
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict', 'quote'],
+        properties: {
+          verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] },
+          quote: { type: 'string', maxLength: 160 },
+        },
+      },
       agree: ['verdict'],
     },
   },
@@ -45,7 +56,12 @@ beforeAll(async () => {
   b = mk(2, 'openai/gpt-5', 'ChatGPT');
   c = mk(3, 'google/gemini', 'Gemini');
   stranger = mk(4, 'meta/llama', 'x');
-  judges = [mk(11, 'anthropic/claude'), mk(12, 'openai/gpt-5', 'ChatGPT'), mk(13, 'google/gemini', 'Gemini'), mk(14, 'meta/llama', 'x')];
+  judges = [
+    mk(11, 'anthropic/claude'),
+    mk(12, 'openai/gpt-5', 'ChatGPT'),
+    mk(13, 'google/gemini', 'Gemini'),
+    mk(14, 'meta/llama', 'x'),
+  ];
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
@@ -63,9 +79,13 @@ describe('challenge and verdict from the client', () => {
     await a.return(p, p1, { verdict: 'supports', quote: 'the paper says so' });
     await b.return(p, p1, { verdict: 'supports', quote: 'it does say so' });
     expect((await trackerState(p, p1)).state).toBe('accepted_provisional');
-    await expect(c.challenge(p, p1, 1, 'Both quote a sentence the paper only supposes.')).rejects.toThrow(/no panel can be seated: 0 roots/);
+    await expect(c.challenge(p, p1, 1, 'Both quote a sentence the paper only supposes.')).rejects.toThrow(
+      /no panel can be seated: 0 roots/,
+    );
     await expect(c.challenge(p, p1, 1, 'See https://example.org')).rejects.toThrow(/no links/);
-    await expect(c.challenge(p, p1, 0, 'Nothing staked.')).rejects.toThrow(/a challenge on an acceptance stakes at least 1/);
+    await expect(c.challenge(p, p1, 0, 'Nothing staked.')).rejects.toThrow(
+      /a challenge on an acceptance stakes at least 1/,
+    );
     await expect(c.challenge(p, p1, -1, 'Nothing staked.')).rejects.toThrow(/whole number from 0/);
     const [q1, q2] = [await pieceOf(q, 0), await pieceOf(q, 1)];
     await judges[0]!.return(q, q1, { verdict: 'contradicts', quote: 'one' });
@@ -95,8 +115,13 @@ describe('challenge and verdict from the client', () => {
     const undrawn = judges.find((j) => !drawn.includes(j))!;
     await expect(undrawn.verdict(p, p1, challenge!.id, 'challenger')).rejects.toThrow(/not a judge drawn/);
     await expect(stranger.verdict(p, p1, challenge!.id, 'challenger')).rejects.toThrow(/not a judge drawn/);
-    await expect(drawn[0]!.verdict(p, p1, challenge!.id, 'challenger', { verdict: 'partly', quote: 'see https://x.y' })).rejects.toThrow(/no links/);
-    const v1 = await drawn[0]!.verdict(p, p1, challenge!.id, 'challenger', { verdict: 'partly', quote: 'if we suppose blocks are generated' });
+    await expect(
+      drawn[0]!.verdict(p, p1, challenge!.id, 'challenger', { verdict: 'partly', quote: 'see https://x.y' }),
+    ).rejects.toThrow(/no links/);
+    const v1 = await drawn[0]!.verdict(p, p1, challenge!.id, 'challenger', {
+      verdict: 'partly',
+      quote: 'if we suppose blocks are generated',
+    });
     expect(v1.queued).toBe(false);
     await expect(drawn[0]!.verdict(p, p1, challenge!.id, 'author')).rejects.toThrow(/has answered/);
     await drawn[1]!.verdict(p, p1, challenge!.id, 'challenger');
@@ -108,7 +133,9 @@ describe('challenge and verdict from the client', () => {
     const { state } = await c.open(p);
     const text = c.challengesText([held!], state);
     expect(text).toContain('held: the acceptance was struck and the piece is open again');
-    expect(text).toContain(`${drawn[0]!.identity!.address}, drawn, answered for the challenger and returned: {"quote":"if we suppose blocks are generated","verdict":"partly"}`);
+    expect(text).toContain(
+      `${drawn[0]!.identity!.address}, drawn, answered for the challenger and returned: {"quote":"if we suppose blocks are generated","verdict":"partly"}`,
+    );
     expect(text).toContain(`${drawn[1]!.identity!.address}, drawn, answered for the challenger.`);
     await expect(drawn[2]!.verdict(p, p1, challenge!.id, 'author')).rejects.toThrow(/names no open challenge/);
   });
@@ -121,7 +148,10 @@ describe('challenge and verdict from the client', () => {
     expect(tools.tools.map((t) => t.name)).toContain('quilt_challenge');
     expect(tools.tools.map((t) => t.name)).toContain('quilt_verdict');
     for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
-    const posted = await client.callTool({ name: 'quilt_challenge', arguments: { problem: p, piece: p2, stake: 2, ground: 'The quotes do not contradict the statement.' } });
+    const posted = await client.callTool({
+      name: 'quilt_challenge',
+      arguments: { problem: p, piece: p2, stake: 2, ground: 'The quotes do not contradict the statement.' },
+    });
     const handles = (posted.structuredContent as { handles: { challenge: Hash } }).handles;
     expect(handles.challenge).toMatch(/^sha256:/);
     expect((posted.structuredContent as { text: string }).text).toContain('posted to');
@@ -135,9 +165,15 @@ describe('challenge and verdict from the client', () => {
     const listing = (await c.challenges(p, base)).find((x) => x.id === handles.challenge)!;
     const judge = quilts.get(listing.seats[0]!.root)!;
     const { client: judgeClient, close: closeJudge } = await mcpPair(judge, 'judge-test');
-    const v = await judgeClient.callTool({ name: 'quilt_verdict', arguments: { problem: p, piece: p2, challenge: handles.challenge, for: 'author' } });
+    const v = await judgeClient.callTool({
+      name: 'quilt_verdict',
+      arguments: { problem: p, piece: p2, challenge: handles.challenge, for: 'author' },
+    });
     expect((v.structuredContent as { text: string }).text).toContain('Verdict for the author posted to');
-    const bad = await judgeClient.callTool({ name: 'quilt_verdict', arguments: { problem: p, piece: p2, challenge: handles.challenge, for: 'author' } });
+    const bad = await judgeClient.callTool({
+      name: 'quilt_verdict',
+      arguments: { problem: p, piece: p2, challenge: handles.challenge, for: 'author' },
+    });
     expect(bad.isError).toBe(true);
     await closeJudge();
   });

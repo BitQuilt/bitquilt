@@ -23,8 +23,16 @@ const pattern = (slug: string, count: number): Pattern => ({
   settings: { endgame_at: 1 },
   pieces: {
     'statement/*': {
-      count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?',
-      schema: { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } },
+      count,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: does the paper say so?',
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict'],
+        properties: { verdict: { enum: ['supports', 'contradicts'] } },
+      },
       agree: ['verdict'],
     },
   },
@@ -40,9 +48,18 @@ beforeAll(async () => {
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
-type StateView = { stake_rule: { min: number; pieces: string[] | null } | null; pieces: { hash: Hash; stake: number }[] };
+type StateView = {
+  stake_rule: { min: number; pieces: string[] | null } | null;
+  pieces: { hash: Hash; stake: number }[];
+};
 const trackerState = (problem: Hash) => json<StateView>(`${base}p/${problem}/state`);
-const typesBy = async (problem: Hash, address: string) => (await (await fetch(`${base}p/${problem}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as { event: { type: string; key: string } }).filter((l) => l.event.key === address).map((l) => l.event.type);
+const typesBy = async (problem: Hash, address: string) =>
+  (await (await fetch(`${base}p/${problem}/events`)).text())
+    .trim()
+    .split('\n')
+    .map((l) => JSON.parse(l) as { event: { type: string; key: string } })
+    .filter((l) => l.event.key === address)
+    .map((l) => l.event.type);
 
 describe('stake at the door, from the client', () => {
   it('publishes a pattern with a stake, which the tracker shows on every piece and the summary says', async () => {
@@ -54,7 +71,9 @@ describe('stake at the door, from the client', () => {
     expect(s.pieces.map((x) => x.stake)).toEqual([2, 2]);
     const opened = await a.open(p);
     expect(opened.layer?.map((l) => l.stake)).toEqual([2, 2]);
-    expect(a.summary(p, opened.state, opened.tracker, opened.layer)).toContain('Stake asked (QX-15): 2 of the pieces ask 2 of a key\'s standing');
+    expect(a.summary(p, opened.state, opened.tracker, opened.layer)).toContain(
+      "Stake asked (QX-15): 2 of the pieces ask 2 of a key's standing",
+    );
   });
 
   it('hands a fresh key nothing it cannot cover, and says why', async () => {
@@ -74,12 +93,16 @@ describe('stake at the door, from the client', () => {
     expect(r.stake).toBe(2);
     expect(r.posted.queued).toBe(false);
     expect(await typesBy(p, a.identity!.address)).toEqual(['lock', 'claim']);
-    expect(a.pieceText(p, r.pick, 'the owner', r.stake)).toContain('It asks a stake of 2 (QX-15): that much of this key\'s standing is locked behind the claim');
+    expect(a.pieceText(p, r.pick, 'the owner', r.stake)).toContain(
+      "It asks a stake of 2 (QX-15): that much of this key's standing is locked behind the claim",
+    );
     const s = await a.standing();
     expect(s).toMatchObject({ standing: 2, locked: 2, free: 0 });
     expect(s!.locks).toEqual([{ problem: p, piece: r.pick.piece.hash, amount: 2, at: expect.any(String) }]);
     const me = await runTool(a, 'quilt_me', {});
-    expect(me.text).toContain(`Standing: 2, earned by work and not for sale (locked 2, free to stake 0) at ${base}; locks: 2 on ${r.pick.piece.hash} of ${p}`);
+    expect(me.text).toContain(
+      `Standing: 2, earned by work and not for sale (locked 2, free to stake 0) at ${base}; locks: 2 on ${r.pick.piece.hash} of ${p}`,
+    );
     // The other piece is beyond what is free now.
     await expect(a.next(p)).rejects.toThrow(/free standing cannot cover/);
     const next = await runTool(b, 'quilt_next', { problem: p });
@@ -100,7 +123,9 @@ describe('stake at the door, from the client', () => {
     const publish = tools.tools.find((t) => t.name === 'quilt_publish')!;
     expect(JSON.stringify(publish.inputSchema)).toContain('"stake"');
     const me = await client.callTool({ name: 'quilt_me', arguments: {} });
-    expect((me.structuredContent as { text: string }).text).toContain('Standing: 1, earned by work and not for sale (locked 0, free to stake 1)');
+    expect((me.structuredContent as { text: string }).text).toContain(
+      'Standing: 1, earned by work and not for sale (locked 0, free to stake 1)',
+    );
     await close();
   });
 });

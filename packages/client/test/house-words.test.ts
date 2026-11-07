@@ -13,7 +13,14 @@ import { describe, expect, it } from 'vitest';
  */
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const read = (path: string): string => readFileSync(join(root, path), 'utf8');
-const SAYING = ['docs/DEPLOY.md', 'deploy/README.md', 'deploy/docker-compose.yml', 'deploy/env.example', 'deploy/house.sh', 'examples/README.md'];
+const SAYING = [
+  'docs/DEPLOY.md',
+  'deploy/README.md',
+  'deploy/docker-compose.yml',
+  'deploy/env.example',
+  'deploy/house.sh',
+  'examples/README.md',
+];
 
 /** The services of a compose file, by name, each with the lines under it. */
 function services(compose: string): Map<string, string> {
@@ -33,7 +40,9 @@ describe('the house second opinion', () => {
   const every = /EVERY="\$\{HOUSE_EVERY:-(\d+)\}"/.exec(read('deploy/house.sh'))?.[1];
 
   it('runs as two services from one loop, and the compose file leaves the wait to the loop', () => {
-    const houses = [...services(read('deploy/docker-compose.yml'))].filter(([, body]) => body.includes('deploy/house.sh'));
+    const houses = [...services(read('deploy/docker-compose.yml'))].filter(([, body]) =>
+      body.includes('deploy/house.sh'),
+    );
     expect(houses.map(([name]) => name)).toEqual(['house', 'house-openai']);
     for (const [, body] of houses) expect(body).not.toMatch(/^\s+HOUSE_EVERY:/m);
     expect(every).toBe('300');

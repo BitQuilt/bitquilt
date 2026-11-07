@@ -10,10 +10,30 @@
  */
 import type { Address, Hash } from '@bitquilt/core';
 import {
-  type Hidden, type LayerState as TrackerLayerState, type PieceTraces, type ProblemLayer, type RecordGrade as TrackerRecordGrade,
-  type Seam as TrackerSeam, type SeamSide as TrackerSeamSide, type SeedInfo, type Side as TrackerSide, windowOpen,
+  type Hidden,
+  type LayerState as TrackerLayerState,
+  type PieceTraces,
+  type ProblemLayer,
+  type RecordGrade as TrackerRecordGrade,
+  type Seam as TrackerSeam,
+  type SeamSide as TrackerSeamSide,
+  type SeedInfo,
+  type Side as TrackerSide,
+  windowOpen,
 } from '@bitquilt/tracker';
-import type { ChallengeListing, GoldCount, LayerPiece, LayerState, PanelListing, RecordGrade, Scrape, Seam, SeamSide, Side, Takedown } from '../src/listings.js';
+import type {
+  ChallengeListing,
+  GoldCount,
+  LayerPiece,
+  LayerState,
+  PanelListing,
+  RecordGrade,
+  Scrape,
+  Seam,
+  SeamSide,
+  Side,
+  Takedown,
+} from '../src/listings.js';
 
 // What the routes read: the problem's layer, the tracker's now, the takedowns by problem, the problem's seeding, its
 // traces by piece, and the name a root chose as the fold has it (nameIn in tracker.ts).
@@ -45,24 +65,70 @@ const pieces: LayerPiece[] = pl.fold.pieces.map((v) => {
   const l = pl.byHash.get(v.piece.hash)!;
   const t = traced.get(v.piece.hash)!;
   return {
-    name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l.state, core: l.core, challenge: l.challenge?.id ?? null,
-    kind: l.kind.kind, extension: l.kind.extension, strength: l.kind.strength, says: l.kind.says, weakest: l.kind.weakest, attested: l.attested, panel: l.panel?.outcome ?? null,
-    stake: l.stake, gold: l.gold, verified: l.verified, window_open: windowOpen(v, at), traces: t.traces.length, traced: t.traced, seams: t.seams, aside: l.aside, record: t.record,
+    name: v.piece.name,
+    hash: v.piece.hash,
+    verifier: v.piece.verifier,
+    state: l.state,
+    core: l.core,
+    challenge: l.challenge?.id ?? null,
+    kind: l.kind.kind,
+    extension: l.kind.extension,
+    strength: l.kind.strength,
+    says: l.kind.says,
+    weakest: l.kind.weakest,
+    attested: l.attested,
+    panel: l.panel?.outcome ?? null,
+    stake: l.stake,
+    gold: l.gold,
+    verified: l.verified,
+    window_open: windowOpen(v, at),
+    traces: t.traces.length,
+    traced: t.traced,
+    seams: t.seams,
+    aside: l.aside,
+    record: t.record,
   };
 });
 
 // The challenges of `/p/<hash>/challenges`, as the route builds them from the layer's challenges, the piece named by the layer.
 const challenges: ChallengeListing[] = pl.challenges.map((c) => ({
-  id: c.id, piece: c.piece, name: pl.byHash.get(c.piece)?.name ?? null, root: c.root, at: c.at, stake: c.stake, ground: c.ground,
-  seats: c.seats.map((s) => ({ root: s.root, offered_at: s.offeredAt, lapsed_at: s.lapsedAt, verdict: s.verdict ? { at: s.verdict.at, for: s.verdict.for, return: s.verdict.return } : null })),
-  outcome: c.outcome, decided_at: c.decidedAt,
+  id: c.id,
+  piece: c.piece,
+  name: pl.byHash.get(c.piece)?.name ?? null,
+  root: c.root,
+  at: c.at,
+  stake: c.stake,
+  ground: c.ground,
+  seats: c.seats.map((s) => ({
+    root: s.root,
+    offered_at: s.offeredAt,
+    lapsed_at: s.lapsedAt,
+    verdict: s.verdict ? { at: s.verdict.at, for: s.verdict.for, return: s.verdict.return } : null,
+  })),
+  outcome: c.outcome,
+  decided_at: c.decidedAt,
 }));
 
 // The panels of `/p/<hash>/panels`, as the route builds them from the layer's panels: the verifier from the layer's
 // piece's kind, and the candidates' signers named once the panel has decided.
 const panels: PanelListing[] = pl.panels.map((p) => ({
-  piece: p.piece, name: p.name, verifier: pl.byHash.get(p.piece)?.kind.verifier ?? null, panel: p.panel, majority: p.majority,
-  candidates: p.candidates.map((x) => (p.outcome === 'decided' ? { digest: x.digest, return: x.return, root: x.root, signer: name(x.root) } : { digest: x.digest, return: x.return })),
-  seats: p.seats.map((s) => ({ root: s.root, offered_at: s.offeredAt, lapsed_at: s.lapsedAt, rank: s.rank ? { at: s.rank.at, ranking: s.rank.ranking } : null })),
-  outcome: p.outcome, winner: p.winner, decided_at: p.decidedAt,
+  piece: p.piece,
+  name: p.name,
+  verifier: pl.byHash.get(p.piece)?.kind.verifier ?? null,
+  panel: p.panel,
+  majority: p.majority,
+  candidates: p.candidates.map((x) =>
+    p.outcome === 'decided'
+      ? { digest: x.digest, return: x.return, root: x.root, signer: name(x.root) }
+      : { digest: x.digest, return: x.return },
+  ),
+  seats: p.seats.map((s) => ({
+    root: s.root,
+    offered_at: s.offeredAt,
+    lapsed_at: s.lapsedAt,
+    rank: s.rank ? { at: s.rank.at, ranking: s.rank.ranking } : null,
+  })),
+  outcome: p.outcome,
+  winner: p.winner,
+  decided_at: p.decidedAt,
 }));

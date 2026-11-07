@@ -30,9 +30,20 @@ const pattern: Pattern = {
   settings: { endgame_at: 1 },
   pieces: {
     'statement/*': {
-      count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: {claim.text} Return whether the paper says this, with a quote.',
+      count: 2,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: {claim.text} Return whether the paper says this, with a quote.',
       data: { claim: 'claims' },
-      schema: { type: 'object', additionalProperties: false, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] }, quote: { type: 'string', maxLength: 160 } } },
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict', 'quote'],
+        properties: {
+          verdict: { enum: ['supports', 'partly', 'contradicts', 'unreachable'] },
+          quote: { type: 'string', maxLength: 160 },
+        },
+      },
       agree: ['verdict'],
     },
   },
@@ -86,7 +97,9 @@ describe('discovery over relays (QX-14)', () => {
     createKey(home, { secretHex: hex(5) });
     const config: Config = { ...DEFAULT_CONFIG, trackers: [], relays: [relay.url] };
     const bare = new Quilt(config, loadKey(home), new Resolver(config, home), 'Claude Code');
-    expect(await findOnRelays([relay.url], problem)).toMatchObject([{ problem, trackers: [base], announcer: owner.identity!.address }]);
+    expect(await findOnRelays([relay.url], problem)).toMatchObject([
+      { problem, trackers: [base], announcer: owner.identity!.address },
+    ]);
     const opened = await bare.open(problem);
     expect(opened.hash).toBe(problem);
     expect(opened.tracker).toBe(base);
@@ -100,15 +113,30 @@ describe('discovery over relays (QX-14)', () => {
   it('drops a relay event whose signature, kind or problem tag does not hold, and keeps the latest per problem', async () => {
     const good = [...relay.events.values()][0]!;
     expect(readAnnouncement(good, relay.url)?.problem).toBe(problem);
-    expect(readAnnouncement({ ...good, sig: good.sig.replace(/^./, good.sig[0] === 'a' ? 'b' : 'a') }, relay.url)).toBeNull();
+    expect(
+      readAnnouncement({ ...good, sig: good.sig.replace(/^./, good.sig[0] === 'a' ? 'b' : 'a') }, relay.url),
+    ).toBeNull();
     expect(readAnnouncement({ ...good, kind: 1 }, relay.url)).toBeNull();
-    expect(readAnnouncement({ ...good, tags: good.tags.map((t) => (t[0] === 'd' ? ['d', 'sha256:' + '0'.repeat(64)] : t)) }, relay.url)).toBeNull();
+    expect(
+      readAnnouncement(
+        { ...good, tags: good.tags.map((t) => (t[0] === 'd' ? ['d', 'sha256:' + '0'.repeat(64)] : t)) },
+        relay.url,
+      ),
+    ).toBeNull();
     expect(readAnnouncement({ ...good, content: good.content.replace('"topics"', '"topicz"') }, relay.url)).toBeNull();
     // A later event for the same problem from the same key replaces the earlier one on the relay.
     const announce = JSON.parse(good.content);
     const later = announcementEvent(announce, owner.identity!.secret, good.created_at + 60);
     const ws = new WebSocket(relay.url);
-    await new Promise<void>((resolve) => { ws.addEventListener('open', () => { ws.send(JSON.stringify(['EVENT', later])); }); ws.addEventListener('message', () => { ws.close(); resolve(); }); });
+    await new Promise<void>((resolve) => {
+      ws.addEventListener('open', () => {
+        ws.send(JSON.stringify(['EVENT', later]));
+      });
+      ws.addEventListener('message', () => {
+        ws.close();
+        resolve();
+      });
+    });
     expect(relay.events.size).toBe(1);
     expect([...relay.events.values()][0]!.id).toBe(later.id);
     // That event is dated a minute ahead, and a relay keeps the latest, so an announce made now could not replace it; put the present one back.
@@ -117,8 +145,30 @@ describe('discovery over relays (QX-14)', () => {
   it('states the owner, the fork, the pieces, the counts and the work at publish (QX-13)', () => {
     const ev = [...relay.events.values()][0]!;
     const body = (JSON.parse(ev.content) as { body: Record<string, unknown> }).body;
-    expect(body).toMatchObject({ owner: owner.identity!.address, from: null, pieces: 2, counts: { open: 2 }, work: { returned: 0, accepted: 0, verified: 0, disputed: 0, traced: { both: 0, one: 0, none: 0 }, readers: 0, vendors: 0, last: null } });
-    expect(readAnnouncement(ev, relay.url)).toMatchObject({ owner: owner.identity!.address, announcer: owner.identity!.address, from: null, pieces: 2, counts: { open: 2 }, work: { returned: 0 } });
+    expect(body).toMatchObject({
+      owner: owner.identity!.address,
+      from: null,
+      pieces: 2,
+      counts: { open: 2 },
+      work: {
+        returned: 0,
+        accepted: 0,
+        verified: 0,
+        disputed: 0,
+        traced: { both: 0, one: 0, none: 0 },
+        readers: 0,
+        vendors: 0,
+        last: null,
+      },
+    });
+    expect(readAnnouncement(ev, relay.url)).toMatchObject({
+      owner: owner.identity!.address,
+      announcer: owner.identity!.address,
+      from: null,
+      pieces: 2,
+      counts: { open: 2 },
+      work: { returned: 0 },
+    });
   });
   it("announces again from the owner's turn once the work has moved, with the tracker's row and the same topics, and not again while it has not; a search then names the problem once, held at the tracker and the relay", async () => {
     const mk = quiltOver(base);
@@ -128,13 +178,28 @@ describe('discovery over relays (QX-14)', () => {
     await a.return(problem, piece, { verdict: 'supports', quote: 'q' });
     await b.return(problem, piece, { verdict: 'supports', quote: 'q' });
     expect(await owner.announceDue()).toEqual([problem]);
-    const body = (JSON.parse([...relay.events.values()][0]!.content) as { body: { owner: string; topics: string[]; work: { accepted: number; readers: number; vendors: number } } }).body;
-    expect(body).toMatchObject({ owner: owner.identity!.address, topics: ['citations', 'reading'], work: { accepted: 1, readers: 2, vendors: 2 } });
+    const body = (
+      JSON.parse([...relay.events.values()][0]!.content) as {
+        body: { owner: string; topics: string[]; work: { accepted: number; readers: number; vendors: number } };
+      }
+    ).body;
+    expect(body).toMatchObject({
+      owner: owner.identity!.address,
+      topics: ['citations', 'reading'],
+      work: { accepted: 1, readers: 2, vendors: 2 },
+    });
     expect(await owner.announceDue()).toEqual([]);
     expect(owner.library.problems[problem]!.announced?.mark).toBe('1/1/0/0/2');
     const found = await owner.search('reading');
     expect(found).toHaveLength(1);
-    expect(found[0]).toMatchObject({ problem, via: 'tracker', held: [base, relay.url], root: problem, from: null, announcer: null });
+    expect(found[0]).toMatchObject({
+      problem,
+      via: 'tracker',
+      held: [base, relay.url],
+      root: problem,
+      from: null,
+      announcer: null,
+    });
     expect(found[0]!.work).toMatchObject({ accepted: 1, readers: 2 });
     // The finder, with the relay alone, reads the same numbers from the announce, and says who announced and when.
     const afar = await finder.search('reading');
@@ -142,14 +207,17 @@ describe('discovery over relays (QX-14)', () => {
     expect(afar[0]!.work).toMatchObject({ accepted: 1 });
     expect(afar[0]!.announced).toMatch(/^20/);
   });
-  it("announces again, once, where a relay this home gained since has not been offered the announce, and not again while the work stands", async () => {
+  it('announces again, once, where a relay this home gained since has not been offered the announce, and not again while the work stands', async () => {
     const later = await startRelay();
     try {
       owner.config.relays.push(later.url);
       expect(owner.library.problems[problem]!.announced?.relays).toEqual([relay.url]);
       expect(await owner.announceDue()).toEqual([problem]);
       expect(later.events.size).toBe(1);
-      expect(owner.library.problems[problem]!.announced).toMatchObject({ mark: '1/1/0/0/2', relays: [relay.url, later.url] });
+      expect(owner.library.problems[problem]!.announced).toMatchObject({
+        mark: '1/1/0/0/2',
+        relays: [relay.url, later.url],
+      });
       expect(await owner.announceDue()).toEqual([]);
     } finally {
       owner.config.relays.pop();
@@ -159,22 +227,64 @@ describe('discovery over relays (QX-14)', () => {
   it("keeps what a slow relay sent before the deadline, asks a topic by its tag, drops an announce whose words fail the gate, and keeps the owner's announce over a seeder's", async () => {
     const slow = await startRelay({ holdEose: true });
     const ev = [...relay.events.values()][0]!;
-    const put = (url: string, e: unknown) => new Promise<void>((resolve) => {
-      const ws = new WebSocket(url);
-      ws.addEventListener('open', () => ws.send(JSON.stringify(['EVENT', e])));
-      ws.addEventListener('message', () => { ws.close(); resolve(); });
-    });
+    const put = (url: string, e: unknown) =>
+      new Promise<void>((resolve) => {
+        const ws = new WebSocket(url);
+        ws.addEventListener('open', () => ws.send(JSON.stringify(['EVENT', e])));
+        ws.addEventListener('message', () => {
+          ws.close();
+          resolve();
+        });
+      });
     await put(slow.url, ev);
     const got = await searchRelays([slow.url], 'reading', 400);
     expect(got.map((x) => x.problem)).toEqual([problem]);
-    expect(slow.requests.at(-1)).toEqual([{ kinds: [KIND], limit: 200 }, { kinds: [KIND], '#t': ['reading'], limit: 200 }]);
+    expect(slow.requests.at(-1)).toEqual([
+      { kinds: [KIND], limit: 200 },
+      { kinds: [KIND], '#t': ['reading'], limit: 200 },
+    ]);
     expect(searchFilters('two words', 10)).toEqual([{ kinds: [KIND], limit: 10 }]);
     await slow.close();
     // A title with an address in it: every signature holds, and the reader drops it all the same, since a relay admits anything.
-    const bad = signEvent({ quilt: 1, type: 'announce', problem, key: owner.identity!.address, ts: new Date().toISOString(), body: { title: 'See https://example.org now', slug: pattern.slug, done_when: pattern.done_when, topics: [], trackers: [base], mirrors: [] } }, owner.identity!.secret);
+    const bad = signEvent(
+      {
+        quilt: 1,
+        type: 'announce',
+        problem,
+        key: owner.identity!.address,
+        ts: new Date().toISOString(),
+        body: {
+          title: 'See https://example.org now',
+          slug: pattern.slug,
+          done_when: pattern.done_when,
+          topics: [],
+          trackers: [base],
+          mirrors: [],
+        },
+      },
+      owner.identity!.secret,
+    );
     expect(readAnnouncement(announcementEvent(bad, owner.identity!.secret), relay.url)).toBeNull();
     // A seeder's announce, later than the owner's and naming the owner: the owner's is the one kept.
-    const seeded = signEvent({ quilt: 1, type: 'announce', problem, key: finder.identity!.address, ts: new Date().toISOString(), body: { title: pattern.title, slug: pattern.slug, done_when: pattern.done_when, topics: ['reading', 'seeded'], owner: owner.identity!.address, trackers: [base], mirrors: [] } }, finder.identity!.secret);
+    const seeded = signEvent(
+      {
+        quilt: 1,
+        type: 'announce',
+        problem,
+        key: finder.identity!.address,
+        ts: new Date().toISOString(),
+        body: {
+          title: pattern.title,
+          slug: pattern.slug,
+          done_when: pattern.done_when,
+          topics: ['reading', 'seeded'],
+          owner: owner.identity!.address,
+          trackers: [base],
+          mirrors: [],
+        },
+      },
+      finder.identity!.secret,
+    );
     await put(relay.url, announcementEvent(seeded, finder.identity!.secret, ev.created_at + 600));
     expect(relay.events.size).toBe(2);
     const found = await searchRelays([relay.url], 'reading');

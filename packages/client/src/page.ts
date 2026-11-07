@@ -26,7 +26,11 @@ import { isToolName, runTool } from './tools.js';
 function pageHtml(): string {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const sea = (globalThis as { process?: { getBuiltinModule?: (n: string) => { isSea(): boolean; getAsset(k: string, enc: string): string } } }).process?.getBuiltinModule?.('node:sea');
+    const sea = (
+      globalThis as {
+        process?: { getBuiltinModule?: (n: string) => { isSea(): boolean; getAsset(k: string, enc: string): string } };
+      }
+    ).process?.getBuiltinModule?.('node:sea');
     if (sea?.isSea()) return sea.getAsset('index.html', 'utf8');
   } catch {
     /* not a single executable */
@@ -35,7 +39,10 @@ function pageHtml(): string {
 }
 
 function json(res: ServerResponse, status: number, body: unknown, anySite = false): void {
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', ...(anySite ? { 'access-control-allow-origin': '*' } : {}) });
+  res.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    ...(anySite ? { 'access-control-allow-origin': '*' } : {}),
+  });
   res.end(JSON.stringify(body));
 }
 
@@ -62,13 +69,19 @@ export interface PageOptions {
   keep?: boolean;
 }
 
-export function createPage(options: PageOptions): { handle(req: IncomingMessage, res: ServerResponse): Promise<void>; listen(port: number): Promise<Server> } {
+export function createPage(options: PageOptions): {
+  handle(req: IncomingMessage, res: ServerResponse): Promise<void>;
+  listen(port: number): Promise<Server>;
+} {
   const { quilt, person, resolver } = options;
   const html = pageHtml();
   // What the menu bar asks for every few seconds needs every kept and worked problem from its tracker, which takes
   // seconds. The node keeps the last answer for a minute, answers from it at once while a fresh one is read, reads one
   // at a time, and sets it aside after anything is written here (pool.ts).
-  const wanted = kept(() => Promise.all([person.attention(), quilt.standing().then((s) => s?.standing ?? null)]), 60_000);
+  const wanted = kept(
+    () => Promise.all([person.attention(), quilt.standing().then((s) => s?.standing ?? null)]),
+    60_000,
+  );
   const awayHome = () => ({ home: resolver.home, env: process.env, entry: entryHere(resolver.home), quilt });
   const awaySummary = kept(() => readSummary(awayHome()), 60_000);
 
@@ -77,13 +90,20 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       const u = new URL(req.url ?? '/', 'http://localhost/');
       const path = u.pathname.replace(/\/+$/, '') || '/';
       const method = req.method ?? 'GET';
-      if (path.startsWith('/api/') && fromAnotherSite(req)) return json(res, 403, { error: 'the page\'s API answers the page and programs on this machine, not another site' });
+      if (path.startsWith('/api/') && fromAnotherSite(req))
+        return json(res, 403, {
+          error: "the page's API answers the page and programs on this machine, not another site",
+        });
       if (method === 'POST') {
         wanted.drop();
         awaySummary.drop();
       }
       if (path === '/' && method === 'GET') {
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self'" });
+        res.writeHead(200, {
+          'content-type': 'text/html; charset=utf-8',
+          'content-security-policy':
+            "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self'",
+        });
         res.end(html);
         return;
       }
@@ -94,7 +114,13 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         return json(res, 200, { standing, coin });
       }
       // Each result with its link, so the menu bar can say a phrase about it (phrases.ts).
-      if (path === '/api/search') return json(res, 200, { problems: (await quilt.search(u.searchParams.get('q') ?? '')).map((r) => ({ ...r, link: makeLink(r.problem, r.tracker ? [r.tracker] : [], r.slug) })) });
+      if (path === '/api/search')
+        return json(res, 200, {
+          problems: (await quilt.search(u.searchParams.get('q') ?? '')).map((r) => ({
+            ...r,
+            link: makeLink(r.problem, r.tracker ? [r.tracker] : [], r.slug),
+          })),
+        });
       if (path === '/api/open') {
         // Everything the problem tab draws, in one answer: the problem and its map, the lines said in the render module's words, the panels this person judges, who keeps it, and the forms to offer.
         const opened = await quilt.open(u.searchParams.get('link') ?? '');
@@ -102,25 +128,65 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         const over = layerByHash(layer);
         // The judge panels this person sits on with a seat still live: the page offers a ranking form for each.
         const me = person.identity?.address ?? null;
-        const judging = me === null ? [] : (await person.panels(hash, tracker)).filter((p) => p.outcome === 'open' && p.seats.some((s) => s.root === me && s.lapsed_at === null && !s.rank));
+        const judging =
+          me === null
+            ? []
+            : (await person.panels(hash, tracker)).filter(
+                (p) => p.outcome === 'open' && p.seats.some((s) => s.root === me && s.lapsed_at === null && !s.rank),
+              );
         // QX-16: the gold this key committed here, by piece, and the pieces whose reveal is due by the rule the owner's turn
         // reveals by (gold.ts, goldDue), so the page offers the reveal where the tracker takes it; QX-17: where the coin lives, so it can offer a pay.
         const mineGold = Object.keys(quilt.library.gold?.[hash] ?? {});
         const due = new Set(goldDue(quilt.library, hash, over).map((d) => d.piece));
         const coin = tracker ? await quilt.coinAt(tracker) : null;
         return json(res, 200, {
-          problem: hash, tracker, hidden, seeders: scrape?.seeders ?? 0, last_seeded: scrape?.last_seeded ?? null, seeding: Boolean(quilt.library.seeding[hash]), title: state.envelope.problem.title, done_when: state.envelope.problem.done_when, owner: state.envelope.problem.owner, complete: state.complete,
+          problem: hash,
+          tracker,
+          hidden,
+          seeders: scrape?.seeders ?? 0,
+          last_seeded: scrape?.last_seeded ?? null,
+          seeding: Boolean(quilt.library.seeding[hash]),
+          title: state.envelope.problem.title,
+          done_when: state.envelope.problem.done_when,
+          owner: state.envelope.problem.owner,
+          complete: state.complete,
           pieces: state.pieces.map((v) => {
             const l = over.get(v.piece.hash);
             const k = kindWords(v.piece.verifier);
             return {
-              name: v.piece.name, hash: v.piece.hash, verifier: v.piece.verifier, state: l?.state ?? v.state, core: v.state, requires: v.piece.requires, kind: k.kind, strength: k.strength, says: k.says, weakest: k.weakest, attested: l?.attested ?? false,
-              stake: l?.stake ?? 0, gold: l?.gold ?? null, verified: l?.verified ?? false, mine_gold: mineGold.includes(v.piece.hash), gold_due: due.has(v.piece.hash),
+              name: v.piece.name,
+              hash: v.piece.hash,
+              verifier: v.piece.verifier,
+              state: l?.state ?? v.state,
+              core: v.state,
+              requires: v.piece.requires,
+              kind: k.kind,
+              strength: k.strength,
+              says: k.says,
+              weakest: k.weakest,
+              attested: l?.attested ?? false,
+              stake: l?.stake ?? 0,
+              gold: l?.gold ?? null,
+              verified: l?.verified ?? false,
+              mine_gold: mineGold.includes(v.piece.hash),
+              gold_due: due.has(v.piece.hash),
             };
           }),
-          kinds: kindsText(state), stake: stakeText(layer), goldLine: goldText(layer, gold),
-          judging: judging.map((p) => ({ piece: p.piece, name: p.name, verifier: p.verifier, majority: p.majority, panel: p.panel, candidates: p.candidates.map((c) => ({ digest: c.digest, return: c.return })) })),
-          accepted: quilt.acceptedText(state, layer), summary: quilt.summary(hash, state, tracker, layer, hidden, gold), gold, coin,
+          kinds: kindsText(state),
+          stake: stakeText(layer),
+          goldLine: goldText(layer, gold),
+          judging: judging.map((p) => ({
+            piece: p.piece,
+            name: p.name,
+            verifier: p.verifier,
+            majority: p.majority,
+            panel: p.panel,
+            candidates: p.candidates.map((c) => ({ digest: c.digest, return: c.return })),
+          })),
+          accepted: quilt.acceptedText(state, layer),
+          summary: quilt.summary(hash, state, tracker, layer, hidden, gold),
+          gold,
+          coin,
         });
       }
       if (path === '/api/reveal' && method === 'POST') {
@@ -149,7 +215,8 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       }
       // Names and counts, and what the node serves; the gold's answers stay in the home (resolver.ts, publicLibrary).
       if (path === '/api/library') return json(res, 200, publicLibrary(quilt.library, quilt.resolver.serving()));
-      if (path === '/api/attention') return json(res, 200, (await wanted.get(8_000).catch(() => null))?.[0] ?? await person.attention());
+      if (path === '/api/attention')
+        return json(res, 200, (await wanted.get(8_000).catch(() => null))?.[0] ?? (await person.attention()));
       if (path === '/api/phrases') {
         // The sheet the menu bar draws (phrases.ts): the home's state, the first phrase to say, and the phrases for what this person keeps, has worked and is wanted for. The trackers are asked only once an AI has connected.
         const connected = quilt.identity !== null && quilt.library.connector !== undefined;
@@ -157,7 +224,19 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         const read = connected ? await wanted.get(8_000).catch(() => null) : null;
         const [attention, standing] = read ? [read[0].items, read[1]] : [[], null];
         const file = claudeDesktopConfigPath();
-        return json(res, 200, sheetOf({ address: quilt.identity?.address ?? null, name: quilt.config.name ?? null, library: quilt.library, attention, standing, wordsDue: resolver.wordsDue(), claude: { installed: claudeHasQuilt(file), config: file, running: claudeRunning() } }));
+        return json(
+          res,
+          200,
+          sheetOf({
+            address: quilt.identity?.address ?? null,
+            name: quilt.config.name ?? null,
+            library: quilt.library,
+            attention,
+            standing,
+            wordsDue: resolver.wordsDue(),
+            claude: { installed: claudeHasQuilt(file), config: file, running: claudeRunning() },
+          }),
+        );
       }
       if (path === '/api/connector' && method === 'POST') {
         // A copy of quilt working through this node says an AI has connected to it (bin.ts, mcp): the record moves the menu bar from the install instructions to the phrases.
@@ -172,10 +251,21 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       }
       if (path === '/api/away') {
         // The menu bar's switch (away.ts): what runs while the person is away, how it went, and the switch itself, which schedules this very program as `quilt away --install` does.
-        const o = { ...awayHome(), summary: async () => (await awaySummary.get(8_000).catch(() => null)) ?? recordSummary(awayHome()) };
+        const o = {
+          ...awayHome(),
+          summary: async () => (await awaySummary.get(8_000).catch(() => null)) ?? recordSummary(awayHome()),
+        };
         if (method === 'POST') {
           const b = (await body(req)) as { on?: boolean; cap?: number };
-          return json(res, 200, await awaySwitch({ ...o, on: typeof b.on === 'boolean' ? b.on : undefined, cap: typeof b.cap === 'number' ? b.cap : undefined }));
+          return json(
+            res,
+            200,
+            await awaySwitch({
+              ...o,
+              on: typeof b.on === 'boolean' ? b.on : undefined,
+              cap: typeof b.cap === 'number' ? b.cap : undefined,
+            }),
+          );
         }
         return json(res, 200, await awayState(o));
       }
@@ -207,12 +297,27 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
       }
       if (path === '/api/flush' && method === 'POST') return json(res, 200, await resolver.flush());
       // The node: what this client holds, served to anyone who asks.
-      if (path === '/.well-known/quilt') return json(res, 200, { quilt: 1, node: true, identity: IDENTITY_LOG, routes: ['/held', '/p/<hash>', '/p/<hash>/events', '/k/events', '/b/<hash>'] }, true);
+      if (path === '/.well-known/quilt')
+        return json(
+          res,
+          200,
+          {
+            quilt: 1,
+            node: true,
+            identity: IDENTITY_LOG,
+            routes: ['/held', '/p/<hash>', '/p/<hash>/events', '/k/events', '/b/<hash>'],
+          },
+          true,
+        );
       // What this node holds, listed, and the identity log as it holds it: a mirror or another node learns and pulls from here with no tracker between (PROTOCOL.md, The mirror).
-      if (path === '/held' && method === 'GET') return json(res, 200, { quilt: 1, node: true, problems: resolver.heldProblems() }, true);
+      if (path === '/held' && method === 'GET')
+        return json(res, 200, { quilt: 1, node: true, problems: resolver.heldProblems() }, true);
       if (path === '/k/events' && method === 'GET') {
         const lines = resolver.cachedIdentity();
-        res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'access-control-allow-origin': '*' });
+        res.writeHead(200, {
+          'content-type': 'application/x-ndjson; charset=utf-8',
+          'access-control-allow-origin': '*',
+        });
         res.end(lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));
         return;
       }
@@ -221,7 +326,10 @@ export function createPage(options: PageOptions): { handle(req: IncomingMessage,
         const hash = m[1] as Hash;
         if (m[2] === 'events') {
           const lines = resolver.cachedReceipts(hash);
-          res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'access-control-allow-origin': '*' });
+          res.writeHead(200, {
+            'content-type': 'application/x-ndjson; charset=utf-8',
+            'access-control-allow-origin': '*',
+          });
           res.end(lines.map((l) => JSON.stringify(l)).join('\n') + (lines.length ? '\n' : ''));
           return;
         }

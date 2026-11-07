@@ -42,24 +42,147 @@ export const ARG_WORDS: Record<PhraseArg, string> = {
 };
 
 export const PHRASES: readonly PhraseSpec[] = [
-  { name: 'find_something_to_do', title: 'Something to do', about: 'The AI takes the rarest piece of a problem that fits it, from the problems this key keeps first and then from the trackers.', args: [], say: () => 'Find me something to do on Quilt.' },
-  { name: 'who_am_i', title: 'Who I am on Quilt', about: 'The AI says the address this key signs with, its name, its standing and its coin.', args: [], say: () => 'Open Quilt and tell me who I am: my address, my standing and my coin.' },
-  { name: 'how_it_works', title: 'How Quilt works', about: 'The AI explains Quilt in plain words: what it does with the pieces it is handed, how a square turns green, what standing and coin are, and how the person adds a problem of their own.', args: [], say: () => 'Explain how Quilt works to me, and how I would add a problem of my own.' },
-  { name: 'search_quilt', title: 'Search for a problem', about: 'The AI searches the trackers and relays for problems whose title, topics or statement of done carry the words.', args: ['words'], say: (a) => `Search Quilt for ${a.words} and tell me what you find.` },
-  { name: 'open_problem', title: 'Open a problem', about: 'The AI opens the problem and says what it asks, how far it has got, and what each piece\'s verifier is.', args: ['link'], say: (a) => `Open ${a.link} on Quilt and tell me what it asks.` },
-  { name: 'take_piece', title: 'Take a piece', about: 'The AI opens the problem, takes its rarest piece that fits, works it, and hands the return back after asking.', args: ['link'], say: (a) => `Open ${a.link} on Quilt and take a piece.` },
-  { name: 'keep_problem', title: 'Keep a problem', about: 'The AI seeds the problem, so it sits in this key\'s standing list and its pieces are offered to this key first.', args: ['link'], say: (a) => `Keep ${a.link} on Quilt: seed it, so its pieces come to me first.` },
-  { name: 'give_verdict', title: 'Give a verdict', about: 'The AI opens the problem, reads the challenge this key was drawn to judge, and gives the verdict after asking.', args: ['link'], say: (a) => `Open ${a.link} on Quilt and give my verdict on the challenge I was drawn to judge.` },
-  { name: 'rank_panel', title: 'Rank a panel', about: 'The AI opens the problem, reads the candidates of the judge piece this key sits on, and ranks them after asking.', args: ['link'], say: (a) => `Open ${a.link} on Quilt and rank the candidates of the panel I sit on.` },
-  { name: 'my_disputed_return', title: 'A return of mine is disputed', about: 'The AI opens the problem and shows the return of this key\'s that another vendor read differently.', args: ['link'], say: (a) => `Open ${a.link} on Quilt and show me the return of mine that is disputed.` },
-  { name: 'piece_for_a_person', title: 'A piece wants a person', about: 'The AI opens the problem and names the piece whose verifier is a person\'s own word, which the person hands in at the page.', args: ['link'], say: (a) => `Open ${a.link} on Quilt and tell me which piece wants a person, so I can hand it in myself at the page.` },
-  { name: 'reveal_my_gold', title: 'Reveal my gold', about: 'The AI reveals the gold this key committed on each piece of its own problem that has been accepted, after asking.', args: ['link'], say: (a) => `Open ${a.link} on Quilt and reveal my gold on every piece of it that has been accepted.` },
-  { name: 'call_me', title: 'Choose my name', about: 'The AI sets the name this key goes by on the trackers, as a signed name event, after asking.', args: ['name'], say: (a) => `Call me ${a.name} on Quilt.` },
-  { name: 'turn_into_problem', title: 'Turn this into a problem', about: 'The AI drafts a pattern from the conversation, shows it, fixes what the checker finds, and publishes it when the person says so.', args: [], say: () => 'Turn what we have been discussing into a problem on Quilt: draft the pattern, show it to me, and publish it when I say so.' },
-  { name: 'publish_pattern', title: 'Publish a pattern', about: 'The AI reads the pattern file, publishes it as a signed problem on this key\'s trackers, and posts its gold where the file carries any.', args: ['path'], say: (a) => `Publish the pattern at ${a.path} on Quilt.` },
-  { name: 'pay_workers', title: 'Pay a problem\'s workers', about: 'The AI escrows coin to the problem on the coin\'s home, paid per accepted square to the workers, after asking.', args: ['link', 'amount', 'per_square'], say: (a) => `Pay the workers of ${a.link} on Quilt: escrow ${a.amount} coin, ${a.per_square} a square.` },
-  { name: 'transfer_coin', title: 'Transfer coin', about: 'The AI moves vested free coin of this key\'s to an address on the coin log, after asking.', args: ['to', 'amount'], say: (a) => `Transfer ${a.amount} of my Quilt coin to ${a.to}.` },
-  { name: 'redeem_coin', title: 'Redeem coin to the chain', about: 'The AI takes vested free coin of this key\'s off the ledger as a redeem line, to be minted on the chain to this key\'s address, after asking.', args: ['amount'], say: (a) => `Redeem ${a.amount} of my Quilt coin to the chain.` },
+  {
+    name: 'find_something_to_do',
+    title: 'Something to do',
+    about:
+      'The AI takes the rarest piece of a problem that fits it, from the problems this key keeps first and then from the trackers.',
+    args: [],
+    say: () => 'Find me something to do on Quilt.',
+  },
+  {
+    name: 'who_am_i',
+    title: 'Who I am on Quilt',
+    about: 'The AI says the address this key signs with, its name, its standing and its coin.',
+    args: [],
+    say: () => 'Open Quilt and tell me who I am: my address, my standing and my coin.',
+  },
+  {
+    name: 'how_it_works',
+    title: 'How Quilt works',
+    about:
+      'The AI explains Quilt in plain words: what it does with the pieces it is handed, how a square turns green, what standing and coin are, and how the person adds a problem of their own.',
+    args: [],
+    say: () => 'Explain how Quilt works to me, and how I would add a problem of my own.',
+  },
+  {
+    name: 'search_quilt',
+    title: 'Search for a problem',
+    about:
+      'The AI searches the trackers and relays for problems whose title, topics or statement of done carry the words.',
+    args: ['words'],
+    say: (a) => `Search Quilt for ${a.words} and tell me what you find.`,
+  },
+  {
+    name: 'open_problem',
+    title: 'Open a problem',
+    about: "The AI opens the problem and says what it asks, how far it has got, and what each piece's verifier is.",
+    args: ['link'],
+    say: (a) => `Open ${a.link} on Quilt and tell me what it asks.`,
+  },
+  {
+    name: 'take_piece',
+    title: 'Take a piece',
+    about:
+      'The AI opens the problem, takes its rarest piece that fits, works it, and hands the return back after asking.',
+    args: ['link'],
+    say: (a) => `Open ${a.link} on Quilt and take a piece.`,
+  },
+  {
+    name: 'keep_problem',
+    title: 'Keep a problem',
+    about:
+      "The AI seeds the problem, so it sits in this key's standing list and its pieces are offered to this key first.",
+    args: ['link'],
+    say: (a) => `Keep ${a.link} on Quilt: seed it, so its pieces come to me first.`,
+  },
+  {
+    name: 'give_verdict',
+    title: 'Give a verdict',
+    about:
+      'The AI opens the problem, reads the challenge this key was drawn to judge, and gives the verdict after asking.',
+    args: ['link'],
+    say: (a) => `Open ${a.link} on Quilt and give my verdict on the challenge I was drawn to judge.`,
+  },
+  {
+    name: 'rank_panel',
+    title: 'Rank a panel',
+    about:
+      'The AI opens the problem, reads the candidates of the judge piece this key sits on, and ranks them after asking.',
+    args: ['link'],
+    say: (a) => `Open ${a.link} on Quilt and rank the candidates of the panel I sit on.`,
+  },
+  {
+    name: 'my_disputed_return',
+    title: 'A return of mine is disputed',
+    about: "The AI opens the problem and shows the return of this key's that another vendor read differently.",
+    args: ['link'],
+    say: (a) => `Open ${a.link} on Quilt and show me the return of mine that is disputed.`,
+  },
+  {
+    name: 'piece_for_a_person',
+    title: 'A piece wants a person',
+    about:
+      "The AI opens the problem and names the piece whose verifier is a person's own word, which the person hands in at the page.",
+    args: ['link'],
+    say: (a) =>
+      `Open ${a.link} on Quilt and tell me which piece wants a person, so I can hand it in myself at the page.`,
+  },
+  {
+    name: 'reveal_my_gold',
+    title: 'Reveal my gold',
+    about:
+      'The AI reveals the gold this key committed on each piece of its own problem that has been accepted, after asking.',
+    args: ['link'],
+    say: (a) => `Open ${a.link} on Quilt and reveal my gold on every piece of it that has been accepted.`,
+  },
+  {
+    name: 'call_me',
+    title: 'Choose my name',
+    about: 'The AI sets the name this key goes by on the trackers, as a signed name event, after asking.',
+    args: ['name'],
+    say: (a) => `Call me ${a.name} on Quilt.`,
+  },
+  {
+    name: 'turn_into_problem',
+    title: 'Turn this into a problem',
+    about:
+      'The AI drafts a pattern from the conversation, shows it, fixes what the checker finds, and publishes it when the person says so.',
+    args: [],
+    say: () =>
+      'Turn what we have been discussing into a problem on Quilt: draft the pattern, show it to me, and publish it when I say so.',
+  },
+  {
+    name: 'publish_pattern',
+    title: 'Publish a pattern',
+    about:
+      "The AI reads the pattern file, publishes it as a signed problem on this key's trackers, and posts its gold where the file carries any.",
+    args: ['path'],
+    say: (a) => `Publish the pattern at ${a.path} on Quilt.`,
+  },
+  {
+    name: 'pay_workers',
+    title: "Pay a problem's workers",
+    about:
+      "The AI escrows coin to the problem on the coin's home, paid per accepted square to the workers, after asking.",
+    args: ['link', 'amount', 'per_square'],
+    say: (a) => `Pay the workers of ${a.link} on Quilt: escrow ${a.amount} coin, ${a.per_square} a square.`,
+  },
+  {
+    name: 'transfer_coin',
+    title: 'Transfer coin',
+    about: "The AI moves vested free coin of this key's to an address on the coin log, after asking.",
+    args: ['to', 'amount'],
+    say: (a) => `Transfer ${a.amount} of my Quilt coin to ${a.to}.`,
+  },
+  {
+    name: 'redeem_coin',
+    title: 'Redeem coin to the chain',
+    about:
+      "The AI takes vested free coin of this key's off the ledger as a redeem line, to be minted on the chain to this key's address, after asking.",
+    args: ['amount'],
+    say: (a) => `Redeem ${a.amount} of my Quilt coin to the chain.`,
+  },
 ];
 
 /** The phrase by name; a name the list has not is a programming error. */
@@ -90,13 +213,20 @@ export interface SheetPhrase {
   problem?: { hash: Hash; title: string };
 }
 
-export interface SheetGroup { title: string; phrases: SheetPhrase[] }
+export interface SheetGroup {
+  title: string;
+  phrases: SheetPhrase[];
+}
 
 /** Which of three states the home is in: no key made yet; a key, and no AI has connected through the connector; an AI has connected. */
 export type HomeState = 'no_key' | 'no_connector' | 'connected';
 
 /** The record a connecting AI leaves in the library: its host's name, the first time, the latest time. */
-export interface ConnectorSeen { host: string | null; first: string; last: string }
+export interface ConnectorSeen {
+  host: string | null;
+  first: string;
+  last: string;
+}
 
 export interface Sheet {
   state: HomeState;
@@ -129,15 +259,32 @@ export interface SheetInput {
 }
 
 /** The phrase about a problem, with its link made from the trackers the library remembers for it. */
-function about(name: string, hash: Hash, library: Library, extra: Partial<Record<PhraseArg, string>> = {}): SheetPhrase {
+function about(
+  name: string,
+  hash: Hash,
+  library: Library,
+  extra: Partial<Record<PhraseArg, string>> = {},
+): SheetPhrase {
   const remembered = library.problems[hash];
   const link = makeLink(hash, remembered?.trackers ?? [], remembered?.slug);
   const p = phrase(name);
-  return { name, title: p.title, say: say(name, { link, ...extra }), about: p.about, problem: { hash, title: remembered?.title ?? hash } };
+  return {
+    name,
+    title: p.title,
+    say: say(name, { link, ...extra }),
+    about: p.about,
+    problem: { hash, title: remembered?.title ?? hash },
+  };
 }
 
 /** The phrase for something wanted (quilt.ts, `attention`): each reason has its sentence. */
-const WANTED: Record<AttentionItem['why'], string> = { rank: 'rank_panel', verdict: 'give_verdict', disputed: 'my_disputed_return', person: 'piece_for_a_person', gold: 'reveal_my_gold' };
+const WANTED: Record<AttentionItem['why'], string> = {
+  rank: 'rank_panel',
+  verdict: 'give_verdict',
+  disputed: 'my_disputed_return',
+  person: 'piece_for_a_person',
+  gold: 'reveal_my_gold',
+};
 
 /**
  * The sheet for this home. The state is read from the key and the library's record of a connector. The groups, when
@@ -153,22 +300,59 @@ export function sheetOf(input: SheetInput): Sheet {
   if (state === 'connected') {
     const wanted = attention.filter((it) => it.why in WANTED).map((it) => about(WANTED[it.why], it.problem, library));
     if (wanted.length) groups.push({ title: 'Wanted from you', phrases: dedupe(wanted) });
-    groups.push({ title: 'To start', phrases: ['find_something_to_do', 'who_am_i', 'how_it_works'].map((n) => ({ name: n, title: phrase(n).title, say: say(n), about: phrase(n).about })) });
+    groups.push({
+      title: 'To start',
+      phrases: ['find_something_to_do', 'who_am_i', 'how_it_works'].map((n) => ({
+        name: n,
+        title: phrase(n).title,
+        say: say(n),
+        about: phrase(n).about,
+      })),
+    });
     // A name, once there is work behind the address: the slot is left for the person to fill.
-    if (input.name === null && (input.standing ?? 0) > 1) groups.push({ title: 'Your name', phrases: [{ name: 'call_me', title: phrase('call_me').title, say: say('call_me', { name: '____' }), about: `${phrase('call_me').about} The blank is for the name.` }] });
-    const kept = Object.entries(library.seeding).sort((x, y) => (x[1] < y[1] ? 1 : -1)).map(([h]) => h as Hash).filter((h) => library.problems[h]);
+    if (input.name === null && (input.standing ?? 0) > 1)
+      groups.push({
+        title: 'Your name',
+        phrases: [
+          {
+            name: 'call_me',
+            title: phrase('call_me').title,
+            say: say('call_me', { name: '____' }),
+            about: `${phrase('call_me').about} The blank is for the name.`,
+          },
+        ],
+      });
+    const kept = Object.entries(library.seeding)
+      .sort((x, y) => (x[1] < y[1] ? 1 : -1))
+      .map(([h]) => h as Hash)
+      .filter((h) => library.problems[h]);
     if (kept.length) groups.push({ title: 'Keeping', phrases: kept.map((h) => about('take_piece', h, library)) });
-    const lately = Object.entries(library.problems).filter(([h]) => !library.seeding[h]).sort((x, y) => (x[1].last < y[1].last ? 1 : -1)).slice(0, 8).map(([h]) => h as Hash);
-    if (lately.length) groups.push({ title: 'Opened lately', phrases: lately.map((h) => about('take_piece', h, library)) });
-    const golden = Object.entries(library.gold ?? {}).filter(([, pieces]) => Object.values(pieces).some((g) => !g.revealed)).map(([h]) => h as Hash);
-    if (golden.length) groups.push({ title: 'Your gold', phrases: golden.map((h) => about('reveal_my_gold', h, library)) });
+    const lately = Object.entries(library.problems)
+      .filter(([h]) => !library.seeding[h])
+      .sort((x, y) => (x[1].last < y[1].last ? 1 : -1))
+      .slice(0, 8)
+      .map(([h]) => h as Hash);
+    if (lately.length)
+      groups.push({ title: 'Opened lately', phrases: lately.map((h) => about('take_piece', h, library)) });
+    const golden = Object.entries(library.gold ?? {})
+      .filter(([, pieces]) => Object.values(pieces).some((g) => !g.revealed))
+      .map(([h]) => h as Hash);
+    if (golden.length)
+      groups.push({ title: 'Your gold', phrases: golden.map((h) => about('reveal_my_gold', h, library)) });
   }
   return {
-    state, address, name: input.name, connector, claude, backup: input.wordsDue ? 'due' : null,
+    state,
+    address,
+    name: input.name,
+    connector,
+    claude,
+    backup: input.wordsDue ? 'due' : null,
     first: { name: first.name, title: first.title, say: say(first.name), about: first.about },
     groups,
     prompts: PHRASES.map((p) => ({ name: p.name, title: p.title, about: p.about, args: p.args })),
-    templates: Object.fromEntries(PHRASES.map((p) => [p.name, say(p.name, Object.fromEntries(p.args.map((a) => [a, `{${a}}`])))])),
+    templates: Object.fromEntries(
+      PHRASES.map((p) => [p.name, say(p.name, Object.fromEntries(p.args.map((a) => [a, `{${a}}`])))]),
+    ),
   };
 }
 

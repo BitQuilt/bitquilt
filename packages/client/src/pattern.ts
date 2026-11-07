@@ -4,19 +4,57 @@
  * conversation is told every fault in one answer, in the checker's words, and fixes them in one turn. Nothing here
  * posts anything.
  */
-import { type Address, type Envelope, type Hash, type Problem, agreeFields, blobProblems, envelopeProblems, expandPieces, hashBytes, plainTextProblems, signObject } from '@bitquilt/core';
+import {
+  type Address,
+  type Envelope,
+  type Hash,
+  type Problem,
+  agreeFields,
+  blobProblems,
+  envelopeProblems,
+  expandPieces,
+  hashBytes,
+  plainTextProblems,
+  signObject,
+} from '@bitquilt/core';
 import type { Pattern } from './quilt.js';
 
 /** The fields a pattern may carry; any other is a fault, since a misspelt one would be ignored in silence. */
-export const PATTERN_FIELDS: readonly string[] = ['title', 'done_when', 'slug', 'prev', 'from', 'settings', 'pieces', 'data', 'topics', 'stake', 'gold'];
+export const PATTERN_FIELDS: readonly string[] = [
+  'title',
+  'done_when',
+  'slug',
+  'prev',
+  'from',
+  'settings',
+  'pieces',
+  'data',
+  'topics',
+  'stake',
+  'gold',
+];
 
 /** The settings a pattern gets where it names none. */
-export const DEFAULT_SETTINGS: Problem['settings'] = { challenge_window_h: 48, lease_h: 2, endgame_at: 10, budget: 1000, patch_max: 100000 };
+export const DEFAULT_SETTINGS: Problem['settings'] = {
+  challenge_window_h: 48,
+  lease_h: 2,
+  endgame_at: 10,
+  budget: 1000,
+  patch_max: 100000,
+};
 
-export interface Drafted { envelope: Envelope; blobs: Map<Hash, Uint8Array>; problem: Problem }
+export interface Drafted {
+  envelope: Envelope;
+  blobs: Map<Hash, Uint8Array>;
+  problem: Problem;
+}
 
 /** The envelope a pattern makes under an owner, signed, with the blobs its data rows become: what `publish` posts. */
-export function draftEnvelope(pattern: Pattern, owner: { secret: Uint8Array; address: Address }, hints: { trackers: string[]; mirrors: string[] }): Drafted {
+export function draftEnvelope(
+  pattern: Pattern,
+  owner: { secret: Uint8Array; address: Address },
+  hints: { trackers: string[]; mirrors: string[] },
+): Drafted {
   const blobs = new Map<Hash, Uint8Array>();
   const data: Record<string, Hash> = {};
   for (const [name, rows] of Object.entries(pattern.data ?? {})) {
@@ -52,27 +90,45 @@ export function patternProblems(pattern: Pattern, drafted: Drafted): string[] {
   const out: string[] = [];
   const { envelope, blobs, problem } = drafted;
   for (const k of Object.keys(pattern)) if (!PATTERN_FIELDS.includes(k)) out.push(`${k}: not a field of a pattern`);
-  for (const [name, rows] of Object.entries(pattern.data ?? {})) if (!Array.isArray(rows)) out.push(`data.${name}: a list of rows, one per piece`);
+  for (const [name, rows] of Object.entries(pattern.data ?? {}))
+    if (!Array.isArray(rows)) out.push(`data.${name}: a list of rows, one per piece`);
   out.push(...envelopeProblems(envelope));
   out.push(...blobProblems(problem, blobs));
-  for (const [label, text] of [['title', problem.title], ['done_when', problem.done_when]] as const) out.push(...plainTextProblems(text, label));
-  for (const t of pattern.topics ?? []) if (typeof t !== 'string' || t.length > 40) out.push(`topics: ${JSON.stringify(t)} is not a short topic`);
+  for (const [label, text] of [
+    ['title', problem.title],
+    ['done_when', problem.done_when],
+  ] as const)
+    out.push(...plainTextProblems(text, label));
+  for (const t of pattern.topics ?? [])
+    if (typeof t !== 'string' || t.length > 40) out.push(`topics: ${JSON.stringify(t)} is not a short topic`);
   if ((pattern.topics ?? []).length > 8) out.push('topics: at most eight');
   // Rows against counts: a family with fewer rows than pieces renders empty slots; more rows than pieces are never used.
   for (const [name, d] of Object.entries(pattern.pieces ?? {})) {
     const count = 'count' in d ? (d.count as number) : 1;
     for (const [slot, blob] of Object.entries(d.data ?? {})) {
       const rows = pattern.data?.[blob];
-      if (Array.isArray(rows) && rows.length !== count) out.push(`pieces.${name}: ${count} pieces but data.${blob} has ${rows.length} rows (slot ${slot})`);
+      if (Array.isArray(rows) && rows.length !== count)
+        out.push(`pieces.${name}: ${count} pieces but data.${blob} has ${rows.length} rows (slot ${slot})`);
     }
     // QX-20: record:n takes n from 2; one reading is a note, not a record.
-    if (typeof d.verifier === 'string' && /^record:/.test(d.verifier) && !/^record:([2-9]|[1-9]\d{1,2})$/.test(d.verifier)) out.push(`pieces.${name}.verifier: record:n takes n from 2`);
+    if (
+      typeof d.verifier === 'string' &&
+      /^record:/.test(d.verifier) &&
+      !/^record:([2-9]|[1-9]\d{1,2})$/.test(d.verifier)
+    )
+      out.push(`pieces.${name}.verifier: record:n takes n from 2`);
     const brief = d.brief ?? '';
     // The template through the gate as written, so a link or an address in it is named beside the other faults, before any piece is rendered.
     out.push(...plainTextProblems(brief, `pieces.${name}.brief`));
     for (const m of brief.matchAll(/\{([A-Za-z_][\w-]*)(?:\.[\w.-]+)?\}/g)) {
       const slot = m[1]!;
-      if (slot !== 'n' && !(slot in (d.data ?? {})) && !(d.inputs ?? []).includes(slot) && !(d.inputs ?? []).includes(`${slot}/*`)) out.push(`pieces.${name}.brief: slot {${slot}} names no data slot and no input`);
+      if (
+        slot !== 'n' &&
+        !(slot in (d.data ?? {})) &&
+        !(d.inputs ?? []).includes(slot) &&
+        !(d.inputs ?? []).includes(`${slot}/*`)
+      )
+        out.push(`pieces.${name}.brief: slot {${slot}} names no data slot and no input`);
     }
   }
   let pieces: ReturnType<typeof expandPieces> = [];
@@ -87,7 +143,8 @@ export function patternProblems(pattern: Pattern, drafted: Drafted): string[] {
   for (const p of pieces) {
     // The rendered brief: what the template let through, the rows may have brought in.
     out.push(...plainTextProblems(p.brief, `pieces.${p.name}.brief`));
-    if (/\{[A-Za-z_][\w-]*(?:\.[\w.-]+)?\}/.test(p.brief) && !p.inputs.length) out.push(`pieces.${p.name}.brief: a slot stayed unfilled`);
+    if (/\{[A-Za-z_][\w-]*(?:\.[\w.-]+)?\}/.test(p.brief) && !p.inputs.length)
+      out.push(`pieces.${p.name}.brief: a slot stayed unfilled`);
     if (p.brief.length > 4000) out.push(`pieces.${p.name}.brief: ${p.brief.length} characters is long for one piece`);
   }
   if (pattern.stake) {
@@ -97,7 +154,8 @@ export function patternProblems(pattern: Pattern, drafted: Drafted): string[] {
       names.add(p.name);
     }
     if (!Number.isInteger(pattern.stake.min) || pattern.stake.min < 0) out.push('stake.min: a whole number from 0');
-    for (const n of pattern.stake.pieces ?? []) if (!names.has(n)) out.push(`stake.pieces: ${n} is not a family or piece of this problem`);
+    for (const n of pattern.stake.pieces ?? [])
+      if (!names.has(n)) out.push(`stake.pieces: ${n} is not a family or piece of this problem`);
   }
   if (pattern.gold) {
     for (const [name, answer] of Object.entries(pattern.gold.answers ?? {})) {
@@ -114,7 +172,8 @@ export function patternProblems(pattern: Pattern, drafted: Drafted): string[] {
         out.push(`gold.answers.${name}: the piece has no agreed fields`);
         continue;
       }
-      for (const f of agreeFields(p.schema, p.agree)) if (!(f in answer)) out.push(`gold.answers.${name}: lacks the agreed field ${f}`);
+      for (const f of agreeFields(p.schema, p.agree))
+        if (!(f in answer)) out.push(`gold.answers.${name}: lacks the agreed field ${f}`);
     }
   }
   return out;

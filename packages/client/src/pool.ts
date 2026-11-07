@@ -36,7 +36,14 @@ export function kept<T>(read: () => Promise<T>, ttl: number, now: () => number =
         return value;
       });
       running = p;
-      p.then(() => { if (running === p) running = null; }, () => { if (running === p) running = null; });
+      p.then(
+        () => {
+          if (running === p) running = null;
+        },
+        () => {
+          if (running === p) running = null;
+        },
+      );
     }
     return running;
   };
@@ -47,7 +54,9 @@ export function kept<T>(read: () => Promise<T>, ttl: number, now: () => number =
       p.catch(() => undefined);
       if (last) return last.value;
       let timer: ReturnType<typeof setTimeout> | undefined;
-      const late = new Promise<null>((r) => { timer = setTimeout(() => r(null), wait); });
+      const late = new Promise<null>((r) => {
+        timer = setTimeout(() => r(null), wait);
+      });
       try {
         return await Promise.race([p, late]);
       } finally {

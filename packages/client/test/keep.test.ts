@@ -19,9 +19,25 @@ let owner: Quilt, a: Quilt, b: Quilt, node: Quilt;
 let problem: Hash, piece: Hash;
 
 const pattern: Pattern = {
-  title: 'Does the paper say what people say it says?', done_when: 'Every statement has a verdict agreed by two vendors.', slug: 'paper-says',
+  title: 'Does the paper say what people say it says?',
+  done_when: 'Every statement has a verdict agreed by two vendors.',
+  slug: 'paper-says',
   settings: { endgame_at: 1 },
-  pieces: { 'statement/*': { count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema: { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } }, agree: ['verdict'] } },
+  pieces: {
+    'statement/*': {
+      count: 2,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: does the paper say so?',
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict'],
+        properties: { verdict: { enum: ['supports', 'contradicts'] } },
+      },
+      agree: ['verdict'],
+    },
+  },
 };
 const enc = new TextEncoder();
 const PAGE = 'We define an electronic coin as a chain of digital signatures.';
@@ -43,7 +59,12 @@ afterAll(async () => {
   await new Promise<void>((r) => two.close(() => r()));
 });
 
-const linesAt = async (tracker: string): Promise<Receipt[]> => (await (await fetch(`${tracker}p/${problem}/events`)).text()).trim().split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
+const linesAt = async (tracker: string): Promise<Receipt[]> =>
+  (await (await fetch(`${tracker}p/${problem}/events`)).text())
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => JSON.parse(l) as Receipt);
 
 describe('the node keeps what it holds', () => {
   it('pulls the lines that came since it opened the problem, fetches the read a trace names, and serves both; a second keep adds nothing', async () => {
@@ -52,35 +73,85 @@ describe('the node keeps what it holds', () => {
     await a.return(problem, piece, { verdict: 'supports' });
     // A's trace, resting the verdict on a page the tracker holds; signed with A's key and posted by hand, since the node under test is not A.
     expect((await fetch(`${base}b/${pageHash}`, { method: 'PUT', body: enc.encode(PAGE) })).status).toBe(202);
-    const reveal = (await linesAt(base)).find((l) => l.event.type === 'reveal' && l.event.key === a.identity!.address)!.event;
-    const trace = signEvent({ quilt: 1, type: 'trace', problem, piece, key: a.identity!.address, ts: new Date().toISOString(), body: { reveal: eventId(reveal), reads: [{ url: 'https://example.org/paper', hash: pageHash, at: new Date().toISOString() }], rests: [{ field: 'verdict', read: 0, span: [0, 24] }] } }, a.identity!.secret);
-    expect((await fetch(`${base}p/${problem}/events`, { method: 'POST', body: JSON.stringify(trace), headers: { 'content-type': 'application/json' } })).status).toBe(202);
+    const reveal = (await linesAt(base)).find(
+      (l) => l.event.type === 'reveal' && l.event.key === a.identity!.address,
+    )!.event;
+    const trace = signEvent(
+      {
+        quilt: 1,
+        type: 'trace',
+        problem,
+        piece,
+        key: a.identity!.address,
+        ts: new Date().toISOString(),
+        body: {
+          reveal: eventId(reveal),
+          reads: [{ url: 'https://example.org/paper', hash: pageHash, at: new Date().toISOString() }],
+          rests: [{ field: 'verdict', read: 0, span: [0, 24] }],
+        },
+      },
+      a.identity!.secret,
+    );
+    expect(
+      (
+        await fetch(`${base}p/${problem}/events`, {
+          method: 'POST',
+          body: JSON.stringify(trace),
+          headers: { 'content-type': 'application/json' },
+        })
+      ).status,
+    ).toBe(202);
     expect(node.resolver.cachedBlob(pageHash)).toBeNull();
     const kept = await node.resolver.keep();
     expect(kept).toMatchObject({ problems: 1, added: 3, reads: 1, refused: [] });
     expect(node.resolver.heldProblems().find((p) => p.problem === problem)!.lines).toBe(5);
-    expect(node.resolver.cachedReceipts(problem).map((l) => l.event.type)).toEqual(['announce', 'version', 'commit', 'reveal', 'trace']);
+    expect(node.resolver.cachedReceipts(problem).map((l) => l.event.type)).toEqual([
+      'announce',
+      'version',
+      'commit',
+      'reveal',
+      'trace',
+    ]);
     expect(new TextDecoder().decode(node.resolver.cachedBlob(pageHash)!)).toBe(PAGE);
     expect(await node.resolver.keep()).toMatchObject({ problems: 1, added: 0, reads: 0, refused: [] });
   });
 
-  it('keeps the identity log too, and reads another tracker\'s chain for the same problem without keeping it, since it follows one place\'s chain', async () => {
+  it("keeps the identity log too, and reads another tracker's chain for the same problem without keeping it, since it follows one place's chain", async () => {
     await owner.setName('Ada');
     const before = node.resolver.cachedIdentity().length;
     expect((await node.resolver.keep()).added).toBe(1);
     expect(node.resolver.cachedIdentity().length).toBe(before + 1);
     // The same problem on a second tracker, with B's reading there alone: its chain has other events in another order.
     const env = (await (await fetch(`${base}p/${problem}`)).json()) as unknown;
-    expect((await fetch(`${other}p`, { method: 'POST', body: JSON.stringify({ envelope: env }), headers: { 'content-type': 'application/json' } })).status).toBe(201);
+    expect(
+      (
+        await fetch(`${other}p`, {
+          method: 'POST',
+          body: JSON.stringify({ envelope: env }),
+          headers: { 'content-type': 'application/json' },
+        })
+      ).status,
+    ).toBe(201);
     const bOnTwo = quiltOver(other)(2, 'openai/gpt-5', 'ChatGPT');
     await bOnTwo.return(problem, piece, { verdict: 'supports' });
     const opened = await node.open(`quilt:${problem}?tr=${encodeURIComponent(other)}`);
     expect(opened.tracker).toBe(other);
     expect(opened.state.pieces[0]!.reveals.map((r) => r.root)).toEqual([b.identity!.address]);
     // Read, not kept: the cache still holds the first tracker's chain, and a keep pointed at the second says why.
-    expect(node.resolver.cachedReceipts(problem).map((l) => l.event.type)).toEqual(['announce', 'version', 'commit', 'reveal', 'trace']);
+    expect(node.resolver.cachedReceipts(problem).map((l) => l.event.type)).toEqual([
+      'announce',
+      'version',
+      'commit',
+      'reveal',
+      'trace',
+    ]);
     const notes: string[] = [];
-    const read = await node.resolver.receipts(problem, { hash: problem, trackers: [other], mirrors: [] }, problem, (line) => notes.push(line));
+    const read = await node.resolver.receipts(
+      problem,
+      { hash: problem, trackers: [other], mirrors: [] },
+      problem,
+      (line) => notes.push(line),
+    );
     expect(read).toHaveLength(2);
     expect(notes).toEqual([expect.stringMatching(new RegExp(`^${problem}: chain from ${other} did not only grow: `))]);
     expect(node.resolver.cachedReceipts(problem)).toHaveLength(5);
@@ -105,7 +176,11 @@ describe('the node keeps what it holds', () => {
     try {
       expect(await q.resolver.keep()).toMatchObject({ problems: 0, sent: 1 });
       expect(q.resolver.queued()).toBe(0);
-      const names = (await (await fetch(`${address}k/events`)).text()).trim().split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
+      const names = (await (await fetch(`${address}k/events`)).text())
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => JSON.parse(l) as Receipt);
       expect(names.map((l) => [l.event.type, (l.event.body as { name: string }).name])).toEqual([['name', 'Grace']]);
       expect(await q.resolver.keep()).toMatchObject({ sent: 0 });
     } finally {

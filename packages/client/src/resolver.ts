@@ -7,7 +7,23 @@
  */
 import { appendFileSync, existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type Envelope, type Event, type Hash, type Receipt, type State, IDENTITY_LOG, blobProblems, envelopeProblems, hashBytes, isHash, onlyAppends, problemHash, reduce, verifyChain, withSlash } from '@bitquilt/core';
+import {
+  type Envelope,
+  type Event,
+  type Hash,
+  type Receipt,
+  type State,
+  IDENTITY_LOG,
+  blobProblems,
+  envelopeProblems,
+  hashBytes,
+  isHash,
+  onlyAppends,
+  problemHash,
+  reduce,
+  verifyChain,
+  withSlash,
+} from '@bitquilt/core';
 import { findOnRelays } from './relay.js';
 import { type Config, ensureHome } from './config.js';
 import { type Chains, FileChains, type Held } from './chains.js';
@@ -54,12 +70,31 @@ export interface Resolved {
 export interface Library {
   /** Every problem opened or published here; `next` is the version this key published in its place (QX-19 section 4), so it is not sharpened twice; `topics` the ones this key announced with (QX-13), and `announced` the work its last announce stated and the relays an announce was offered to, so the owner's turn announces again only where the work moved or a relay has not been offered one. */
   /** `frozen` is when the owner froze the brief here (`quilt freeze`): the owner's turn sharpens it no more, and nothing republishes it. */
-  problems: Record<string, { title: string; slug: string; trackers: string[]; first: string; last: string; next?: Hash; topics?: string[]; announced?: { at: string; mark: string; relays?: string[] }; frozen?: string }>;
-  pieces: Record<string, { problem: Hash; name: string; when: string; what: 'claimed' | 'returned'; verifier?: string }>;
+  problems: Record<
+    string,
+    {
+      title: string;
+      slug: string;
+      trackers: string[];
+      first: string;
+      last: string;
+      next?: Hash;
+      topics?: string[];
+      announced?: { at: string; mark: string; relays?: string[] };
+      frozen?: string;
+    }
+  >;
+  pieces: Record<
+    string,
+    { problem: Hash; name: string; when: string; what: 'claimed' | 'returned'; verifier?: string }
+  >;
   /** The standing list (QX-4): the problems this key seeds, by the time it said so. */
   seeding: Record<string, string>;
   /** The owner's gold (QX-16), by problem then piece: the projection and nonce behind each commitment, which never leave the home, and when it was revealed. */
-  gold?: Record<string, Record<string, { name: string; projection: Record<string, unknown>; nonce: string; revealed?: string }>>;
+  gold?: Record<
+    string,
+    Record<string, { name: string; projection: Record<string, unknown>; nonce: string; revealed?: string }>
+  >;
   /** The AI that connected through the connector: its host's name, the first time and the latest. Its presence is what moves the menu bar from install instructions to the phrases (phrases.ts). */
   connector?: { host: string | null; first: string; last: string };
   /** The hot list (APP.md, "The window"): the keys this person follows, by address, with the name they knew them by. A choice at the edge; no rule reads it and no event carries it. */
@@ -69,7 +104,13 @@ export interface Library {
 const EMPTY_LIBRARY = (): Library => ({ problems: {}, pieces: {}, seeding: {} });
 
 /** What the keeper's loop did (WORKSHOP.md section 2, stage one): the problems held, the lines added to their chains and the identity log, the reads fetched, the events sent from the queue, and the chains refused for not only growing. */
-export interface Kept { problems: number; added: number; reads: number; sent: number; refused: string[] }
+export interface Kept {
+  problems: number;
+  added: number;
+  reads: number;
+  sent: number;
+  refused: string[];
+}
 
 /** How often a node that serves its page keeps: every half hour, the first two minutes after start. */
 export const KEEP_EVERY_MS = 30 * 60_000;
@@ -78,17 +119,43 @@ export const KEEP_EVERY_MS = 30 * 60_000;
  * The library as the page's API and the window show it: names and counts, and what the node serves. The gold's
  * projections and nonces never leave the home (the Library says so of itself), so each problem's gold is two counts.
  */
-export function publicLibrary(library: Library, held: Held): { problems: Record<string, Library['problems'][string]>; pieces: Library['pieces']; seeding: Library['seeding']; follows: NonNullable<Library['follows']>; connector: Library['connector'] | null; gold: Record<string, { committed: number; revealed: number }>; serving: Held } {
+export function publicLibrary(
+  library: Library,
+  held: Held,
+): {
+  problems: Record<string, Library['problems'][string]>;
+  pieces: Library['pieces'];
+  seeding: Library['seeding'];
+  follows: NonNullable<Library['follows']>;
+  connector: Library['connector'] | null;
+  gold: Record<string, { committed: number; revealed: number }>;
+  serving: Held;
+} {
   const gold: Record<string, { committed: number; revealed: number }> = {};
-  for (const [problem, pieces] of Object.entries(library.gold ?? {})) gold[problem] = { committed: Object.keys(pieces).length, revealed: Object.values(pieces).filter((g) => g.revealed).length };
-  return { problems: library.problems, pieces: library.pieces, seeding: library.seeding, follows: library.follows ?? {}, connector: library.connector ?? null, gold, serving: held };
+  for (const [problem, pieces] of Object.entries(library.gold ?? {}))
+    gold[problem] = {
+      committed: Object.keys(pieces).length,
+      revealed: Object.values(pieces).filter((g) => g.revealed).length,
+    };
+  return {
+    problems: library.problems,
+    pieces: library.pieces,
+    seeding: library.seeding,
+    follows: library.follows ?? {},
+    connector: library.connector ?? null,
+    gold,
+    serving: held,
+  };
 }
 
 /**
  * Headers a post carries to one tracker alone: the hosted on-ramp's custody secret and its witness (QX-18) go to its
  * own door, and a post to any other tracker, one a link named included, carries neither.
  */
-export interface PostHeaders { to: string; headers: Record<string, string> }
+export interface PostHeaders {
+  to: string;
+  headers: Record<string, string>;
+}
 
 export class Resolver {
   readonly home: string;
@@ -104,7 +171,13 @@ export class Resolver {
   /** The store this node keeps in and serves from (WORKSHOP.md section 2): the home's cache folder unless a store is given, as a node with a door gives the door's. */
   readonly chains: Chains;
 
-  constructor(readonly config: Config, home: string, fetchImpl: typeof fetch = fetch, postHeaders: PostHeaders | null = null, chains?: Chains) {
+  constructor(
+    readonly config: Config,
+    home: string,
+    fetchImpl: typeof fetch = fetch,
+    postHeaders: PostHeaders | null = null,
+    chains?: Chains,
+  ) {
     this.home = ensureHome(home);
     this.fetchImpl = fetchImpl;
     this.postHeaders = postHeaders;
@@ -285,10 +358,19 @@ export class Resolver {
    * does, the first that verifies, read and not kept; so a node that opened a problem from a second place goes on
    * keeping the chain of the first.
    */
-  async receipts(hash: Hash, link: Link, genesis: Hash = hash, note?: (line: string) => void, mode: 'read' | 'grow' = 'read'): Promise<Receipt[]> {
+  async receipts(
+    hash: Hash,
+    link: Link,
+    genesis: Hash = hash,
+    note?: (line: string) => void,
+    mode: 'read' | 'grow' = 'read',
+  ): Promise<Receipt[]> {
     let read: Receipt[] | null = null;
     for (const p of this.places(link, hash)) {
-      const lines = p.kind === 'mirror' ? await this.getFileLines(`${p.url}ledger/${hash}.jsonl`) : await this.getLines(`${p.url}p/${hash}/events`);
+      const lines =
+        p.kind === 'mirror'
+          ? await this.getFileLines(`${p.url}ledger/${hash}.jsonl`)
+          : await this.getLines(`${p.url}p/${hash}/events`);
       if (!lines || !verifyChain(lines, genesis).ok) continue;
       const added = this.keepLines(hash, lines, `${hash}: chain from ${p.url}`, note);
       if (added >= 0 || mode === 'read') return lines;
@@ -371,7 +453,10 @@ export class Resolver {
       }
       if (!r.ok) return null;
       const text = await r.text();
-      const lines = text.split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
+      const lines = text
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => JSON.parse(l) as Receipt);
       out.push(...lines);
       const next = r.headers.get('x-quilt-next-since');
       if (!next) break;
@@ -386,7 +471,10 @@ export class Resolver {
       const r = await this.fetchImpl(url, { signal: AbortSignal.timeout(15000) });
       if (r.status === 404) return [];
       if (!r.ok) return null;
-      return (await r.text()).split('\n').filter(Boolean).map((l) => JSON.parse(l) as Receipt);
+      return (await r.text())
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => JSON.parse(l) as Receipt);
     } catch {
       return null;
     }
@@ -396,7 +484,10 @@ export class Resolver {
   async identity(link: Link, note?: (line: string) => void, mode: 'read' | 'grow' = 'read'): Promise<Receipt[]> {
     let read: Receipt[] | null = null;
     for (const p of this.places(link)) {
-      const lines = p.kind === 'mirror' ? await this.getFileLines(`${p.url}ledger/identity.jsonl`) : await this.getLines(`${p.url}k/events`);
+      const lines =
+        p.kind === 'mirror'
+          ? await this.getFileLines(`${p.url}ledger/identity.jsonl`)
+          : await this.getLines(`${p.url}k/events`);
       if (!lines || !verifyChain(lines, IDENTITY_LOG).ok) continue;
       const added = this.keepLines(IDENTITY_LOG, lines, `identity: log from ${p.url}`, note);
       if (added >= 0 || mode === 'read') return lines;
@@ -423,10 +514,11 @@ export class Resolver {
       if (!got) break;
       if (tracker === null && got.from) tracker = got.from;
       envelopes.push(got.envelope);
-      for (const h of Object.values(got.envelope.problem.data)) if (!blobs.has(h)) {
-        const b = await this.blob(h, link);
-        if (b) blobs.set(h, b);
-      }
+      for (const h of Object.values(got.envelope.problem.data))
+        if (!blobs.has(h)) {
+          const b = await this.blob(h, link);
+          if (b) blobs.set(h, b);
+        }
       receipts.push(...(await this.receipts(cur, link)));
       cur = got.envelope.problem.prev;
     }
@@ -451,7 +543,12 @@ export class Resolver {
     const own = this.postHeaders && withSlash(this.postHeaders.to) === t ? this.postHeaders.headers : {};
     let r: Response;
     try {
-      r = await this.fetchImpl(this.logUrl(t, log), { method: 'POST', body: JSON.stringify(event), headers: { 'content-type': 'application/json', ...own }, signal: AbortSignal.timeout(8000) });
+      r = await this.fetchImpl(this.logUrl(t, log), {
+        method: 'POST',
+        body: JSON.stringify(event),
+        headers: { 'content-type': 'application/json', ...own },
+        signal: AbortSignal.timeout(8000),
+      });
     } catch (err) {
       return { status: 'down', error: (err as Error).message };
     }
@@ -477,7 +574,10 @@ export class Resolver {
   async flush(): Promise<{ sent: number; left: number }> {
     const file = join(this.home, 'queue.jsonl');
     if (!existsSync(file)) return { sent: 0, left: 0 };
-    const items = readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as { problem: Hash | null | 'coin'; event: Event; trackers: string[] });
+    const items = readFileSync(file, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => JSON.parse(l) as { problem: Hash | null | 'coin'; event: Event; trackers: string[] });
     const left: typeof items = [];
     let sent = 0;
     for (const it of items) {
@@ -505,9 +605,16 @@ export class Resolver {
    * its chain are held, so another node or a mirror learns what to pull with no tracker between. Read from the folders.
    */
   heldProblems(): { problem: Hash; title: string; slug: string; owner: string; lines: number }[] {
-    return this.chains.listEnvelopes()
+    return this.chains
+      .listEnvelopes()
       .sort((a, b) => (a.hash < b.hash ? -1 : a.hash > b.hash ? 1 : 0))
-      .map(({ hash, envelope: e }) => ({ problem: hash, title: e.problem.title, slug: e.problem.slug, owner: e.problem.owner, lines: this.chains.lines(hash).length }));
+      .map(({ hash, envelope: e }) => ({
+        problem: hash,
+        title: e.problem.title,
+        slug: e.problem.slug,
+        owner: e.problem.owner,
+        lines: this.chains.lines(hash).length,
+      }));
   }
 
   /** The identity log as this node holds it, for `GET /k/events`. */

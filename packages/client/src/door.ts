@@ -23,7 +23,12 @@ export interface Door {
   /** A signed event posted as it is, the refusal in `posted` and not thrown. */
   post(event: Event, log: Hash | null | 'coin', trackers: string[]): Promise<Posted>;
   /** Signs and posts; a refusal throws with the tracker's reason under `what`. */
-  postSigned(unsigned: Unsigned, log: Hash | null | 'coin', trackers: string[], what: string): Promise<{ event: Event; posted: Posted }>;
+  postSigned(
+    unsigned: Unsigned,
+    log: Hash | null | 'coin',
+    trackers: string[],
+    what: string,
+  ): Promise<{ event: Event; posted: Posted }>;
   /** Where posts about a problem go, each once. */
   trackersFor(problem: Hash, first?: string[]): string[];
   /** A tracker's JSON through the Quilt's own way to the network (the guarded fetch where the connector is shared), or null. */

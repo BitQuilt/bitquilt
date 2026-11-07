@@ -43,7 +43,16 @@ for (const t of targets) {
   writeFileSync(bundle, readFileSync(bundle, 'utf8').replace(/^(#![^\n]*\n)+/, ''));
   const blob = join(dist, `${t.name}.blob`);
   const config = join(dist, `${t.name}.sea.json`);
-  writeFileSync(config, JSON.stringify({ main: bundle, output: blob, disableExperimentalSEAWarning: true, useCodeCache: false, assets: Object.fromEntries(Object.entries(t.assets).map(([k, v]) => [k, join(root, v)])) }));
+  writeFileSync(
+    config,
+    JSON.stringify({
+      main: bundle,
+      output: blob,
+      disableExperimentalSEAWarning: true,
+      useCodeCache: false,
+      assets: Object.fromEntries(Object.entries(t.assets).map(([k, v]) => [k, join(root, v)])),
+    }),
+  );
   execFileSync(process.execPath, ['--experimental-sea-config', config], { stdio: 'inherit' });
   const out = join(bin, `${t.name}-${platform}${exe}`);
   if (existsSync(out)) rmSync(out);
@@ -56,7 +65,14 @@ for (const t of targets) {
   const postject = join(root, 'node_modules', 'postject', 'dist', 'cli.js');
   // The sentinel fuse is the string Node's single-executable documentation gives: the binary looks for it in itself at
   // start, and postject flips it as it puts the blob in, which is how the binary knows it carries one to run.
-  const args = [postject, out, 'NODE_SEA_BLOB', blob, '--sentinel-fuse', 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2'];
+  const args = [
+    postject,
+    out,
+    'NODE_SEA_BLOB',
+    blob,
+    '--sentinel-fuse',
+    'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2',
+  ];
   if (process.platform === 'darwin') args.push('--macho-segment-name', 'NODE_SEA');
   execFileSync(process.execPath, args, { stdio: 'inherit' });
   if (process.platform === 'darwin') execFileSync('codesign', ['--sign', '-', out]);

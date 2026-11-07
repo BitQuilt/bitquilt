@@ -36,12 +36,32 @@ const pattern: Pattern = {
   settings: { endgame_at: 1 },
   pieces: {
     'statement/*': {
-      count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: {claim.text}',
+      count: 2,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: {claim.text}',
       data: { claim: 'claims' },
-      schema: { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } },
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict'],
+        properties: { verdict: { enum: ['supports', 'contradicts'] } },
+      },
       agree: ['verdict'],
     },
-    'seat/*': { count: 1, verifier: 'human', requires: [], brief: 'A person reads statement {n} and says whether the paper says so.', schema: { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } }, agree: ['verdict'] },
+    'seat/*': {
+      count: 1,
+      verifier: 'human',
+      requires: [],
+      brief: 'A person reads statement {n} and says whether the paper says so.',
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['verdict'],
+        properties: { verdict: { enum: ['supports', 'contradicts'] } },
+      },
+      agree: ['verdict'],
+    },
   },
   data: { claims: [{ text: 'Headers are about 80 bytes.' }, { text: 'Difficulty never changes.' }] },
 };
@@ -70,12 +90,18 @@ afterAll(async () => {
 });
 
 describe('one node per home', () => {
-  it('is found by its key: mine with this home\'s address, other with another\'s, none where nothing listens', async () => {
+  it("is found by its key: mine with this home's address, other with another's, none where nothing listens", async () => {
     expect(await probeNode(port, loadKey(homeA)!.address)).toEqual({ found: 'mine' });
-    expect(await probeNode(port, owner.identity!.address)).toEqual({ found: 'other', address: loadKey(homeA)!.address });
+    expect(await probeNode(port, owner.identity!.address)).toEqual({
+      found: 'other',
+      address: loadKey(homeA)!.address,
+    });
     expect(await probeNode(port, null)).toEqual({ found: 'other', address: loadKey(homeA)!.address });
     const ta = tracker.address();
-    expect(await probeNode(typeof ta === 'object' && ta ? ta.port : 0, loadKey(homeA)!.address)).toEqual({ found: 'other', address: null });
+    expect(await probeNode(typeof ta === 'object' && ta ? ta.port : 0, loadKey(homeA)!.address)).toEqual({
+      found: 'other',
+      address: null,
+    });
     // A port with nothing on it: the node's own, once closed, would do, but any free port serves; 1 is never ours.
     expect(await probeNode(1, loadKey(homeA)!.address)).toEqual({ found: 'none' });
   });
@@ -96,7 +122,9 @@ describe('one node per home', () => {
     expect(next.text).toContain('The claim was posted to');
     expect(typeof next.handles.piece).toBe('string');
     // The library on disk, the node's, has the claim; the copy that asked holds no library of its own.
-    const lib = JSON.parse(readFileSync(join(homeA, 'library.json'), 'utf8')) as { pieces: Record<string, { what: string }> };
+    const lib = JSON.parse(readFileSync(join(homeA, 'library.json'), 'utf8')) as {
+      pieces: Record<string, { what: string }>;
+    };
     expect(lib.pieces[next.handles.piece as string]?.what).toBe('claimed');
     // The tracker saw the claim under the host's model.
     const events = await (await fetch(`${config.trackers[0]}p/${problem}/events`)).text();
@@ -106,7 +134,11 @@ describe('one node per home', () => {
     await expect(run('quilt_open', { link: 'nothing' }, 'Claude Desktop')).rejects.toThrow();
     expect(fellBack).toBe(false);
     // A name the node does not know is refused at the door.
-    const r = await fetch(`${site}api/tool/quilt_nothing`, { method: 'POST', body: '{}', headers: { 'content-type': 'application/json' } });
+    const r = await fetch(`${site}api/tool/quilt_nothing`, {
+      method: 'POST',
+      body: '{}',
+      headers: { 'content-type': 'application/json' },
+    });
     expect(r.status).toBe(404);
   });
 
@@ -127,9 +159,13 @@ describe('one node per home', () => {
     expect(evil.status).toBe(403);
     const cross = await fetch(`${site}api/me`, { headers: { 'sec-fetch-site': 'cross-site' } });
     expect(cross.status).toBe(403);
-    const sameSite = await fetch(`${site}api/me`, { headers: { 'sec-fetch-site': 'same-site', origin: `http://127.0.0.1:${port}` } });
+    const sameSite = await fetch(`${site}api/me`, {
+      headers: { 'sec-fetch-site': 'same-site', origin: `http://127.0.0.1:${port}` },
+    });
     expect(sameSite.status).toBe(403);
-    const own = await fetch(`${site}api/me`, { headers: { 'sec-fetch-site': 'same-origin', origin: `http://127.0.0.1:${port}` } });
+    const own = await fetch(`${site}api/me`, {
+      headers: { 'sec-fetch-site': 'same-origin', origin: `http://127.0.0.1:${port}` },
+    });
     expect(own.status).toBe(200);
     expect(own.headers.get('access-control-allow-origin')).toBeNull();
     const program = await fetch(`${site}api/me`);
@@ -139,7 +175,7 @@ describe('one node per home', () => {
     expect(wk.headers.get('access-control-allow-origin')).toBe('*');
   });
 
-  it('sees a one-shot command\'s write to the library rather than writing over it', async () => {
+  it("sees a one-shot command's write to the library rather than writing over it", async () => {
     // Another process (a one-shot `quilt seed`) writes the standing list while the node runs.
     const file = join(homeA, 'library.json');
     const lib = JSON.parse(readFileSync(file, 'utf8')) as { seeding: Record<string, string> };
@@ -151,16 +187,23 @@ describe('one node per home', () => {
   });
 
   it('lists what waits on the person: a human piece with a seat open in a kept problem, and nothing from a problem not kept or worked', async () => {
-    const a = (await (await fetch(`${site}api/attention`)).json()) as { items: { why: string; name: string; problem: string }[]; checked: string };
+    const a = (await (await fetch(`${site}api/attention`)).json()) as {
+      items: { why: string; name: string; problem: string }[];
+      checked: string;
+    };
     expect(a.checked).toMatch(/^\d{4}-/);
     const persons = a.items.filter((i) => i.why === 'person');
     expect(persons.map((i) => i.name)).toEqual(['seat/1']);
     expect(persons[0]!.problem).toBe(problem);
     // Reading attention left the library's dates alone.
-    const lib = JSON.parse(readFileSync(join(homeA, 'library.json'), 'utf8')) as { problems: Record<string, { last: string }> };
+    const lib = JSON.parse(readFileSync(join(homeA, 'library.json'), 'utf8')) as {
+      problems: Record<string, { last: string }>;
+    };
     const before = lib.problems[problem]!.last;
     await fetch(`${site}api/attention`);
-    expect((JSON.parse(readFileSync(join(homeA, 'library.json'), 'utf8')) as typeof lib).problems[problem]!.last).toBe(before);
+    expect((JSON.parse(readFileSync(join(homeA, 'library.json'), 'utf8')) as typeof lib).problems[problem]!.last).toBe(
+      before,
+    );
   });
 
   it('runs the same tools alone, through runTool', async () => {

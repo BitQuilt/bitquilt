@@ -6,7 +6,16 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { type Address, type Capability, addressOf, isPhrase, newPhrase, secretFromHex, secretKeyFromPhrase, secretToHex } from '@bitquilt/core';
+import {
+  type Address,
+  type Capability,
+  addressOf,
+  isPhrase,
+  newPhrase,
+  secretFromHex,
+  secretKeyFromPhrase,
+  secretToHex,
+} from '@bitquilt/core';
 
 export interface Config {
   trackers: string[];
@@ -36,17 +45,22 @@ export function quiltHome(): string {
 }
 
 export function ensureHome(home = quiltHome()): string {
-  for (const d of [home, join(home, 'cache'), join(home, 'cache', 'blobs'), join(home, 'cache', 'ledger')]) mkdirSync(d, { recursive: true });
+  for (const d of [home, join(home, 'cache'), join(home, 'cache', 'blobs'), join(home, 'cache', 'ledger')])
+    mkdirSync(d, { recursive: true });
   return home;
 }
 
 export function loadConfig(home = quiltHome()): Config {
   const file = join(home, 'config.json');
   const fromFile = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Partial<Config>) : {};
-  const env = process.env.QUILT_TRACKERS?.split(',').map((s) => s.trim()).filter(Boolean);
+  const env = process.env.QUILT_TRACKERS?.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   const config: Config = { ...DEFAULT_CONFIG, ...fromFile };
   if (env?.length) config.trackers = env;
-  const relays = process.env.QUILT_RELAYS?.split(',').map((x) => x.trim()).filter(Boolean);
+  const relays = process.env.QUILT_RELAYS?.split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
   if (relays?.length) config.relays = relays;
   if (!Array.isArray(config.relays)) config.relays = [];
   if (process.env.QUILT_PORT_PAGE) config.port = Number(process.env.QUILT_PORT_PAGE);
@@ -78,7 +92,10 @@ export function loadKey(home = quiltHome()): Identity | null {
  * Makes the key: from a phrase the person gives (a wallet's, or one they wrote down), or from a new phrase, which is
  * returned once so they can write it down, or from a secret key exported from a hosted root. Refuses to overwrite.
  */
-export function createKey(home = quiltHome(), from: { phrase?: string; secretHex?: string; keepWords?: boolean } = {}): { identity: Identity; phrase: string | null } {
+export function createKey(
+  home = quiltHome(),
+  from: { phrase?: string; secretHex?: string; keepWords?: boolean } = {},
+): { identity: Identity; phrase: string | null } {
   ensureHome(home);
   const file = join(home, 'key');
   if (existsSync(file)) throw new Error(`a key is already at ${file}`);
