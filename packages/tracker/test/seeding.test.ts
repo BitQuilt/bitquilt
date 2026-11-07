@@ -180,8 +180,9 @@ describe('the offer leaves out what assisted next leaves out (QX-5 section 4)', 
     const M = await publishHere(signed(OWN, 'a-person-or-a-model', { vote, statement: { verifier: 'agree', requires: ['web'], brief: 'Does the paper say so?', schema, agree: ['verdict'] } }));
     // Next hands an AI's client nothing on H and the statement on M. The offer names the same, so H is left out.
     expect((await nextAs(H, AI, 'web', 'meta/llama')).piece).toBeNull();
+    expect((await nextAs(M, AI, 'web', 'meta/llama')).name).toBe('statement');
     expect(await offerAs(AI, 'web', 'meta/llama')).toEqual([[M, 'statement']]);
-    // The offer held the statement on M and nothing on H, so a person asking next is offered the vote on both.
+    // The AI's next and offer held the statement on M and nothing on H, so a person's offer names the vote on both.
     expect(await offerAs(PERSON, 'web,person', 'human')).toEqual([[H, 'vote'], [M, 'vote']]);
   });
 

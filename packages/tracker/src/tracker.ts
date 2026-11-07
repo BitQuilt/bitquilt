@@ -1044,9 +1044,10 @@ export function createTracker(options: TrackerOptions): Tracker {
    * The pieces this tracker keeps from the key on one problem. Assisted next and the offer share this one rule, so the
    * offer names only a piece next would hand the key (QX-5 section 4). It keeps a piece held for another key; the
    * layer's unoffered pieces, a judge piece whose panel sits or ran out (QX-2); a human piece from a client that
-   * declares no person (QX-3); the watch pieces QX-4 keeps from the key, so a seeder is handed one first; and a staked
-   * piece the key's free standing cannot cover, on which it holds no lock (QX-15). Those last are also named apart,
-   * since next's answer lists them.
+   * declares no person (QX-3); what QX-4 section 4 keeps for the seeders: an open watch piece within its lease from a
+   * key that does not seed, and, while one is open, every other piece from a key that does, so a seeder is handed the
+   * watch piece first; and a staked piece the key's free standing cannot cover, on which it holds no lock (QX-15).
+   * Those last are also named apart, since next's answer lists them.
    */
   function excludedFor(layered: Layer, pl: ProblemLayer, input: ReduceInput, key: Address, client: Client, at: string): { exclude: Set<Hash>; unaffordable: Hash[] } {
     const exclude = new Set<Hash>([...store.heldByOthers(pl.problem, key, at), ...pl.unoffered]);
