@@ -6,11 +6,12 @@
  *   QUILT_STAMP_NAME (0)  QUILT_IP_SALT  QUILT_MAINTAINERS (addresses whose hide events this tracker honours, comma separated)
  *   QUILT_FOUNDING_STANDING (a founding standing declared per root, <address>=<amount> comma separated, QX-1 section 2 as amended)
  *   QUILT_COIN (the coin's parameters as JSON, QX-17; absent, no coin log and no coin lock honoured)
+ *   QUILT_FIRST_SEEDER (the one key whose seeded problems a key with no accepted work is offered first, QX-5 section 2)
  *   QUILT_TRUSTED_PROXIES (the proxies whose X-Forwarded-For is believed, ranges comma separated; the private networks
  *   and the machine itself unless set; `none` believes no header)
  * This file loads no store, so a binary can read it before Node's SQLite module is loaded and its warning silenced.
  */
-import type { Address } from '@bitquilt/core';
+import { type Address, isAddress } from '@bitquilt/core';
 import { type CoinParams, coinParamsProblems } from './coin.js';
 import type { TrackerOptions } from './tracker.js';
 
@@ -44,6 +45,8 @@ export function trackerOptionsFromEnv(env: NodeJS.ProcessEnv): TrackerEnv {
     if (problems.length) throw new Error(`QUILT_COIN: ${problems[0]}`);
     coin = parsed as CoinParams;
   }
+  const firstSeeder = env.QUILT_FIRST_SEEDER?.trim();
+  if (firstSeeder && !isAddress(firstSeeder)) throw new Error('QUILT_FIRST_SEEDER: an address with its checksum');
   const port = Number(env.QUILT_PORT ?? 3977);
   return {
     port,
@@ -60,6 +63,7 @@ export function trackerOptionsFromEnv(env: NodeJS.ProcessEnv): TrackerEnv {
       maintainers: list(env.QUILT_MAINTAINERS) as Address[],
       ...(env.QUILT_FOUNDING_STANDING ? { founding: foundingFromEnv(env.QUILT_FOUNDING_STANDING) } : {}),
       ...(coin ? { coin } : {}),
+      ...(firstSeeder ? { firstSeeder: firstSeeder as Address } : {}),
     },
   };
 }

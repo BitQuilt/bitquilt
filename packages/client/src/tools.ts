@@ -9,7 +9,7 @@ import type { Address, DeclineReason, Hash } from '@bitquilt/core';
 import { HOW_QUILT_WORKS } from './about.js';
 import type { Side } from './listings.js';
 import type { Pattern, Quilt } from './quilt.js';
-import { kindWords, seamsText, sessionWitnessText, recordedText } from './render.js';
+import { foundIn, foundText, kindWords, recordedText, seamsText, sessionWitnessText } from './render.js';
 import type { Posted } from './resolver.js';
 import { type RestAsked, traceText } from './trace.js';
 import { windowAnswer } from './window.js';
@@ -83,6 +83,8 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
         const done = w
           ? `${w.returned} returned, ${w.accepted} accepted${w.verified ? `, ${w.verified} of them verified by the owner's gold` : ''}${w.disputed ? `, ${w.disputed} disputed` : ''}${w.recorded ? `, ${w.recorded} recorded` : ''}${w.accepted ? `; of the accepted, ${w.traced.both} rest on kept reads on both sides, ${w.traced.one} on one, ${w.traced.none} on none` : ''}; ${w.readers} reader${w.readers === 1 ? '' : 's'} from ${w.vendors} vendor${w.vendors === 1 ? '' : 's'}${w.last ? `; last worked ${w.last.slice(0, 10)}` : ''}`
           : Object.entries(p.counts).map(([k, n]) => `${n} ${k.replace('_', ' ')}`).join(', ') || 'nothing yet';
+        const said = w ? foundText(w.found) : '';
+        const declined = w?.declined ? `; ${w.declined} declined` : '';
         const forks = found.filter((x) => x.root === p.problem && x.problem !== p.problem).length;
         const notes = [
           ...(p.from ? [`proposed from ${p.from}`] : []),
@@ -90,7 +92,7 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
           `held at ${p.held.length} place${p.held.length === 1 ? '' : 's'} (${p.held.join(', ')})`,
           ...(p.via === 'relay' ? [`as announced by ${p.announcer && p.announcer.toLowerCase() === p.owner.toLowerCase() ? 'its owner' : 'a seeder'}${p.announced ? ` on ${p.announced.slice(0, 10)}` : ''}`] : []),
         ];
-        return `${p.problem}\n  titled by ${p.owner_name ? `${p.owner_name} (${p.owner})` : p.owner}: "${p.title}" (${p.slug})${p.topics.length ? `; topics: ${p.topics.join(', ')}` : ''}\n  ${p.pieces} pieces${kinds}: ${done}; ${notes.join('; ')}; opens at ${p.tracker}`;
+        return `${p.problem}\n  titled by ${p.owner_name ? `${p.owner_name} (${p.owner})` : p.owner}: "${p.title}" (${p.slug})${p.topics.length ? `; topics: ${p.topics.join(', ')}` : ''}\n  ${p.pieces} pieces${kinds}: ${done}${declined}${said ? `; ${said}` : ''}; ${notes.join('; ')}; opens at ${p.tracker}`;
       };
       const text = found.length ? found.map(line).join('\n') : 'No problem matched on the trackers and relays this client knows.';
       return { text, handles: { problems: found.map((p) => p.problem), query: str('query') } };
@@ -132,7 +134,8 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       const [challenges, panels] = await Promise.all([quilt.challenges(h, tracker), quilt.panels(h, tracker)]);
       // QX-20: a problem with a record piece says its readings so far, between the accepted and the disputed.
       const recorded = recordedText(state, layer);
-      const text = `${quilt.summary(h, state, tracker, layer, hidden, gold)}\n\nAccepted so far:\n${quilt.acceptedText(state, layer, witnessed)}${recorded ? `\n\nRecorded:\n${recorded}` : ''}\n\nDisputed:\n${quilt.disputedText(state, layer)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}\n\nPanels:\n${quilt.panelsText(panels, state)}`;
+      const found = foundText(foundIn(state, layer));
+      const text = `${quilt.summary(h, state, tracker, layer, hidden, gold)}${found ? `\n\nFound: ${found}.` : ''}\n\nAccepted so far:\n${quilt.acceptedText(state, layer, witnessed)}${recorded ? `\n\nRecorded:\n${recorded}` : ''}\n\nDisputed:\n${quilt.disputedText(state, layer)}\n\nChallenges:\n${quilt.challengesText(challenges, state)}\n\nPanels:\n${quilt.panelsText(panels, state)}`;
       return { text, handles: { problem: h, complete: state.complete, output: state.output?.hash ?? null, challenges: challenges.map((c) => ({ id: c.id, piece: c.piece, outcome: c.outcome })), panels: panels.map((p) => ({ piece: p.piece, outcome: p.outcome, candidates: p.candidates.map((c) => c.digest) })) } };
     }
     case 'quilt_rank': {

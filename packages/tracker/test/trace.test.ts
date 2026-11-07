@@ -197,6 +197,9 @@ describe('a seam decides itself (section 4)', () => {
     const rb = await returnedOn(pa, x, B, 'openai/gpt-5', 'contradicts');
     await accepted(`/p/${pa}/events`, rested(A, pa, x, ra, span(PAGE, HOLDS)));
     expect(await stateOf(pa, x)).toMatchObject({ state: 'needs_verify', aside: [addr(B)] });
+    // The key's own list of readings says so (the directory's hot list, and a person's squares).
+    expect(((await get(`/k/${addr(B)}/work`)) as { readings: { piece: Hash; aside: boolean }[] }).readings.find((r) => r.piece === x)!.aside).toBe(true);
+    expect(((await get(`/k/${addr(A)}/work`)) as { readings: { piece: Hash; aside: boolean }[] }).readings.find((r) => r.piece === x)!.aside).toBe(false);
     await accepted(`/p/${pa}/events`, rested(B, pa, x, rb, [0, span(PAGE, HOLDS)[1] + 1]));
     const s = await stateOf(pa, x);
     expect(s).toMatchObject({ state: 'disputed', core: 'disputed', aside: [] });

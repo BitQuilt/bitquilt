@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Hash } from '@bitquilt/core';
 import { AWAY_LOG, NEEDS_AGENT, awayTurn, ownerTurn } from '../src/away.js';
-import { type SentenceAsk, sentenceAsk } from '../src/render.js';
+import { type SentenceAsk, foundText, sentenceAsk } from '../src/render.js';
 import { runTool } from '../src/tools.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
 import { publicAddress, publicFetch } from '../src/public-fetch.js';
@@ -19,7 +19,8 @@ import { join } from 'node:path';
  * its hash, posts the trace with the span, and says what rests on what; a rest whose page cannot be read, whose passage
  * is not on it or whose field the return lacks is left out and said, and with nothing left nothing is posted; the
  * square's grade and the seams of a disputed piece reach the model as text with each side's passage quoted and its
- * signer named, through quilt_read and quilt_next; the tools' words describe. And the seam decides itself (section 4):
+ * signer named, through quilt_read and quilt_next; what the accepted squares found is said in quilt_search and
+ * quilt_read, each choice quoted and counted; the tools' words describe. And the seam decides itself (section 4):
  * a reading that rests on nothing is set aside, said as such, and the same key is handed the piece again and read a
  * second time; the owner's node sharpens a brief two grounded readings read apart, the sentence asked with both
  * passages, the version published with it and `prev` set, the gold carried, the old problem said to be replaced and
@@ -197,6 +198,16 @@ describe('a return with rests', () => {
     expect(handed.handles.piece).toBe(piece);
     expect(handed.text).toContain('On verdict, the same read, at different places:');
     expect(handed.text).toContain(`rests it on "${HOLDS}" at`);
+  });
+
+  it('says what the accepted squares found, in quilt_search and quilt_read, each choice quoted as the owner\'s word and counted', async () => {
+    const searched = await runTool(c, 'quilt_search', { query: 'traced' });
+    expect(searched.text).toMatch(/the accepted squares agreed on verdict: \d+ "supports"/);
+    const read = await runTool(c, 'quilt_read', { problem: p });
+    expect(read.text).toMatch(/Found: the accepted squares agreed on verdict: \d+ "supports"\./);
+    // Most first; a field or a choice the gate refuses is left out.
+    expect(foundText({ status: { proved: 3, open: 6, 'see https://example.org': 2 }, 'see https://example.org': { x: 1 } })).toBe('the accepted squares agreed on status: 6 "open", 3 "proved"');
+    expect(foundText({})).toBe('');
   });
 
   it('fetches nothing at a private address where the connector is shared (QUILT_READS=public), by number or by name, and says so', async () => {
