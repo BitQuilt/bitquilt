@@ -1,15 +1,21 @@
 /**
  * The text runTool gives a model for quilt_search, quilt_open, quilt_read and quilt_me, pinned whole: the framing
- * tools.ts builds and the render.ts functions inside it. The inputs fire every branch of that text, each clause given
- * or left out, one or many, every outcome and every kind. A change that moves a space, a separator or a clause fails
+ * tools.ts builds and the render.ts functions inside it. A change that moves a space, a separator or a clause fails
  * here.
  *
- * Open and read run over a tracker in this process, which gives the states and the returns. Where a branch wants what
- * one tracker does not give (a stake, the gold, a takedown, witnesses, seams of each kind, challenges and panels of
- * each outcome, an answer from the cache, a state outside the legend, a patch accepted or disputed, a key signing for
- * another root), the Quilt's open, challenges and panels answer a fixed view over the real state. Search and me run
- * over a Quilt whose reads answer fixed values, since their branches want a coin, a founding, relays and forks that
- * one tracker does not give.
+ * The inputs take each side of every condition on that text: each clause given or left out, one or many, every outcome
+ * and every kind, each operand of an &&, || or ?? on its own, and each arm of a ternary. A side is left untaken only
+ * where taking it prints the same text for every input the core and the types allow, where its one caller here never
+ * takes it (witnessWords with no witness), or where it builds the handles or the kind and extension of kindWords, which
+ * these tools do not print.
+ *
+ * Open and read run over a tracker in this process, which gives the states and the returns, read by a worker's key, by
+ * the owner's and by a Quilt whose home has no key yet. Where a branch wants what one tracker does not give (a stake, the
+ * gold, a takedown, witnesses, seams of each kind, challenges and panels of each outcome, an answer from the cache, a
+ * state outside the legend, a patch accepted or disputed, a key signing for another root, a square held challenged), the
+ * Quilt's open, challenges and panels answer a fixed view over the real state. Search and me run over a Quilt whose
+ * reads answer fixed values, since their branches want a coin, a founding, relays, forks and trackers that do not
+ * answer, which one tracker does not give.
  */
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -28,7 +34,7 @@ let server: Server;
 let base: string;
 let mk: ReturnType<typeof quiltOver>;
 let owner: Quilt, a: Quilt, b: Quilt, c: Quilt, d: Quilt;
-let p: Hash, q: Hash, r: Hash, m: Hash, k: Hash, w: Hash;
+let p: Hash, q: Hash, r: Hash, m: Hash, k: Hash, w: Hash, u: Hash;
 
 const verdict = { type: 'object' as const, additionalProperties: false as const, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } };
 /** Three agree pieces and a record piece: one accepted, one disputed, one open, one recording. */
@@ -84,6 +90,11 @@ const whole: Pattern = {
   pieces: { year: { verifier: 'agree', requires: ['web'], brief: 'Is the year in the report right?', schema: yearSchema, agree: ['verdict', 'quote'] } },
 };
 const YEAR = { verdict: 'supports', quote: 'The report gives the year as 1918.' };
+/** One agree piece whose pattern names no agree list, so its required fields are the ones that agree (CORE.md section 6). */
+const unlisted: Pattern = {
+  title: 'Is the name right?', done_when: 'The name has a verdict.', slug: 'name',
+  pieces: { name: { verifier: 'agree', requires: ['web'], brief: 'Is the name in the report right?', schema: verdict } },
+};
 
 beforeAll(async () => {
   ({ server, base } = await startTracker({ limits: { keyPerHour: 1000, ipPerHour: 10000 } }));
@@ -136,12 +147,16 @@ beforeAll(async () => {
   const year = (await owner.open(w)).state.pieces[0]!.piece.hash;
   await a.return(w, year, YEAR);
   await b.return(w, year, YEAR);
+  u = (await owner.publish(unlisted)).hash;
+  const name = (await owner.open(u)).state.pieces[0]!.piece.hash;
+  await a.return(u, name, { verdict: 'supports' });
+  await b.return(u, name, { verdict: 'supports' });
 });
 afterAll(() => new Promise<void>((done) => server.close(() => done())));
 
 /** The text with this run's tracker and problem hashes named, since the port and so the hashes differ from run to run. */
 function named(text: string): string {
-  const pairs: [string, string][] = [[encodeURIComponent(base), '<tracker>'], [base, '<tracker>'], [p, '<p>'], [q, '<q>'], [r, '<r>'], [m, '<m>'], [k, '<k>'], [w, '<w>']];
+  const pairs: [string, string][] = [[encodeURIComponent(base), '<tracker>'], [base, '<tracker>'], [p, '<p>'], [q, '<q>'], [r, '<r>'], [m, '<m>'], [k, '<k>'], [w, '<w>'], [u, '<u>']];
   return pairs.reduce((t, [from, to]) => t.split(from).join(to), text);
 }
 
@@ -196,30 +211,71 @@ describe('quilt_open', () => {
   });
 });
 
+/** What quilt_read says of the first problem, with the mark after Ada's disputed return where the reader is Ada's key. */
+const readP = (mark: string): string => [
+  ...HEAD_P,
+  '',
+  'Found: the accepted squares agreed on verdict: 1 "supports".',
+  '',
+  'Accepted so far:',
+  'statement/1 (rests on no kept read), Ada returned: {"verdict":"supports"}',
+  `statement/1 (rests on no kept read), ${B} returned: {"verdict":"supports"}`,
+  'A kept read is what a return rests on (QX-19): a page\'s text under its hash and the span of it a field stands on, which anyone can fetch from the tracker and compare with the page.',
+  '',
+  'Recorded:',
+  'question (record:3; recording: 2 of 3 readings, 0 resting on kept reads, from 2 roots and 2 vendors)',
+  '  Ada returned: {"stance":"asserts"}',
+  `  ${C} returned: {"stance":"denies"}`,
+  `  On stance, one side rests on nothing kept: Ada rests it on nothing kept; ${C} rests it on nothing kept.`,
+  '',
+  'Disputed:',
+  'statement/2 is disputed, with 2 returns.',
+  'The returns differ on verdict.',
+  `On verdict, one side rests on nothing kept: Ada rests it on nothing kept; ${B} rests it on nothing kept.`,
+  `Ada (anthropic/claude)${mark} returned: {"verdict":"supports"}`,
+  `${B} (openai/gpt-5) returned: {"verdict":"contradicts"}`,
+  '',
+  'Challenges:',
+  'No challenge on this problem.',
+  '',
+  'Panels:',
+  'No judge panel on this problem.',
+].join('\n');
+
 describe('quilt_read', () => {
   it('says what was found, accepted, recorded, disputed, challenged and ranked, each under its heading', async () => {
-    expect(named((await runTool(owner, 'quilt_read', { problem: p })).text)).toBe([
-      ...HEAD_P,
-      '',
-      'Found: the accepted squares agreed on verdict: 1 "supports".',
+    expect(named((await runTool(owner, 'quilt_read', { problem: p })).text)).toBe(readP(''));
+  });
+
+  it('marks the reader\'s own return as this key\'s, and no return for a Quilt whose home has no key yet', async () => {
+    expect(named((await runTool(a, 'quilt_read', { problem: p })).text)).toBe(readP(', this key,'));
+    // The identity stays null until the first signature, so this Quilt has no key to compare a return with.
+    const config: Config = { ...DEFAULT_CONFIG, trackers: [base] };
+    const keyless = new Quilt(config, null, new Resolver(config, tempHome()));
+    expect(named((await runTool(keyless, 'quilt_read', { problem: p })).text)).toBe(readP(''));
+  });
+
+  it('says no found for an accepted piece whose pattern names no agree list', async () => {
+    // The found reads the piece's agree list, and this piece names none, though the core agreed on its required field.
+    expect(named((await runTool(owner, 'quilt_read', { problem: u })).text)).toBe([
+      'Problem <u>',
+      `The owner, ${OWNER}, titled it: "Is the name right?"`,
+      'and wrote of when it is done: "The name has a verdict."',
+      '1 pieces, version 1 along prev.',
+      'p',
+      '1 accepted provisional',
+      'Kinds: 1 agree (agreed: two returns from different vendors agree).',
+      LEGEND,
+      'Answered by <tracker>.',
+      'Link: quilt:<u>?dn=name&tr=<tracker>',
       '',
       'Accepted so far:',
-      'statement/1 (rests on no kept read), Ada returned: {"verdict":"supports"}',
-      `statement/1 (rests on no kept read), ${B} returned: {"verdict":"supports"}`,
+      'name (rests on no kept read), Ada returned: {"verdict":"supports"}',
+      `name (rests on no kept read), ${B} returned: {"verdict":"supports"}`,
       'A kept read is what a return rests on (QX-19): a page\'s text under its hash and the span of it a field stands on, which anyone can fetch from the tracker and compare with the page.',
       '',
-      'Recorded:',
-      'question (record:3; recording: 2 of 3 readings, 0 resting on kept reads, from 2 roots and 2 vendors)',
-      '  Ada returned: {"stance":"asserts"}',
-      `  ${C} returned: {"stance":"denies"}`,
-      `  On stance, one side rests on nothing kept: Ada rests it on nothing kept; ${C} rests it on nothing kept.`,
-      '',
       'Disputed:',
-      'statement/2 is disputed, with 2 returns.',
-      'The returns differ on verdict.',
-      `On verdict, one side rests on nothing kept: Ada rests it on nothing kept; ${B} rests it on nothing kept.`,
-      'Ada (anthropic/claude) returned: {"verdict":"supports"}',
-      `${B} (openai/gpt-5) returned: {"verdict":"contradicts"}`,
+      'No piece is disputed.',
       '',
       'Challenges:',
       'No challenge on this problem.',
@@ -262,12 +318,13 @@ const ID = (n: number) => `sha256:${String(n).repeat(64)}` as Hash;
  * square, each grade of a kept read, a reading set aside, a seam of each kind and each side, a record piece recorded,
  * and kinds the core does not implement held as accepted; a takedown, a gold count, the witnesses, challenges and panels
  * of every outcome. Then the same problem, and one that is whole, as the cache answers them with no tracker. The reader
- * is Ada's key, so her disputed returns are marked as this key's.
+ * is Ada's key, so her disputed returns are marked as this key's, and its config names a second tracker, so a link
+ * names the tracker that answered alone and, from the cache, every tracker the config names.
  */
 type Opened = Awaited<ReturnType<Quilt['open']>>;
-/** A Quilt with Ada's key whose reads answer a fixed view; the text is still built by runTool and render.ts. */
+/** A Quilt with Ada's key, and a second tracker that never answers here, whose reads answer a fixed view; the text is still built by runTool and render.ts. */
 function over(opened: Opened, challenges: ChallengeListing[] = [], panels: PanelListing[] = []): Quilt {
-  return Object.assign(mk(1, 'anthropic/claude'), {
+  return Object.assign(quiltOver(base, { trackers: [base, 'https://u.example/'] })(1, 'anthropic/claude'), {
     open: async () => opened,
     challenges: async () => challenges,
     panels: async () => panels,
@@ -305,8 +362,9 @@ describe('quilt_open and quilt_read over a tracker\'s view with every mark', () 
       { field: 'verdict', why: 'source', sides: [{ key: ADA, value: 'supports', read: READ_A, span: [10, 40], passage: null }, { key: B, value: 'contradicts', read: READ_B, span: [0, 27], passage: 'The minutes record no vote.' }] },
       { field: 'tone', why: 'span', sides: [{ key: ADA, value: 'plain', read: READ_A, span: [50, 90], passage: 'Write to desk@example.org for the figures.' }, { key: B, value: 'hedged', read: READ_A, span: [100, 119], passage: 'It says so plainly.' }] },
     ];
+    // The side set aside names a read and no span of it, so it too rests on nothing kept.
     const claim3: Seam[] = [
-      { field: 'verdict', why: 'unknown', sides: [{ key: ADA, value: 'supports', read: READ_B, span: [40, 72], passage: 'The report says the board voted.' }, { key: C, value: 'contradicts', read: null, span: null, passage: null, aside: true }] },
+      { field: 'verdict', why: 'unknown', sides: [{ key: ADA, value: 'supports', read: READ_B, span: [40, 72], passage: 'The report says the board voted.' }, { key: C, value: 'contradicts', read: READ_A, span: null, passage: null, aside: true }] },
     ];
     const stance: Seam[] = [
       { field: 'stance', why: 'reading', sides: [{ key: ADA, value: 'asserts', read: READ_A, span: [5, 28], passage: 'The board did not vote.' }, { key: D, value: 'denies', read: READ_A, span: [5, 28], passage: 'The board did not vote.' }] },
@@ -351,6 +409,17 @@ describe('quilt_open and quilt_read over a tracker\'s view with every mark', () 
     ].join('\n'));
   });
 
+  it('quilt_open says a gold count with nothing overruled or lapsed, and leaves both counts out', async () => {
+    const none: GoldCount = { committed: 3, pending: 0, verified: 1, missed: 2, overruled: 0, lapsed: 0 };
+    expect(named((await runTool(over({ ...real, layer, hidden: null, gold: none }), 'quilt_open', { link: m })).text)).toBe([
+      ...HEAD_M,
+      'Gold (QX-16): the owner committed answers for 3 of the pieces before the work, without saying which; 1 verified, 2 missed, 0 awaiting the owner\'s reveal.',
+      LEGEND,
+      'Answered by <tracker>.',
+      'Link: quilt:<m>?dn=claims&tr=<tracker>',
+    ].join('\n'));
+  });
+
   it('quilt_open says a whole problem answered from the cache, with the config\'s trackers in its link', async () => {
     const resolved = (await reader.resolver.resolve(parseLink(w)))!;
     // Reduced once the window has run, so the accepted square is final and the problem whole.
@@ -366,7 +435,7 @@ describe('quilt_open and quilt_read over a tracker\'s view with every mark', () 
       'Kinds: 1 agree (agreed: two returns from different vendors agree).',
       LEGEND,
       'Answered from the cache or a mirror.',
-      'Link: quilt:<w>?dn=year&tr=<tracker>',
+      'Link: quilt:<w>?dn=year&tr=<tracker>&tr=https%3A%2F%2Fu.example%2F',
     ].join('\n'));
   });
 
@@ -385,7 +454,7 @@ describe('quilt_open and quilt_read over a tracker\'s view with every mark', () 
       'Kinds: 1 agree (agreed: two returns from different vendors agree).',
       LEGEND,
       'Answered from the cache or a mirror.',
-      'Link: quilt:<w>?dn=year&tr=<tracker>',
+      'Link: quilt:<w>?dn=year&tr=<tracker>&tr=https%3A%2F%2Fu.example%2F',
       '',
       'Found: the accepted squares agreed on verdict: 1 "supports".',
       '',
@@ -537,7 +606,7 @@ describe('quilt_open and quilt_read over a tracker\'s view with every mark', () 
       KINDS_M,
       LEGEND,
       'Answered from the cache or a mirror.',
-      'Link: quilt:<m>?dn=claims&tr=<tracker>',
+      'Link: quilt:<m>?dn=claims&tr=<tracker>&tr=https%3A%2F%2Fu.example%2F',
       '',
       'Found: the accepted squares agreed on verdict: 2 "supports", 1 "contradicts"; tone: 1 "plain".',
       '',
@@ -575,6 +644,9 @@ describe('quilt_open and quilt_read over a tracker\'s view with every mark', () 
  * problem: the client posts no run, so the core's check and score sets are built here as the reducer builds them. Keys
  * that sign for another root (CORE.md section 6), which no key here is delegated to do. A seam side whose rest names a
  * read its trace does not hold, and one carrying its own name, which a tracker's layer does not send and quilt_next sets.
+ * A piece the tracker holds disputed with no returns, which the Disputed section passes over. A square the core
+ * accepted that the tracker holds challenged, which the found leaves out, and a record piece the tracker sends no seams
+ * for.
  */
 describe('quilt_open and quilt_read over what no tracker here gives', () => {
   const by = (model: string): By => ({ model, client: 'Claude Code', can: ['files'] });
@@ -597,7 +669,43 @@ describe('quilt_open and quilt_read over what no tracker here gives', () => {
     ].join('\n'));
   });
 
-  it('quilt_read says a patch accepted by two runs, and a patch disputed with no schema to differ on, between keys signing for other roots', async () => {
+  it('quilt_read leaves out of the found a square the tracker holds challenged, and says a record piece with no seams', async () => {
+    const opened = await mk(1, 'anthropic/claude').open(p);
+    // The tracker holds the first statement challenged, and sends the record piece with no seams.
+    const unseamed = ({ seams: _, ...l }: LayerPiece): LayerPiece => l;
+    const layer = (opened.layer ?? []).map((l) => (l.name === 'statement/1' ? { ...l, state: 'challenged' as const } : l.name === 'question' ? unseamed(l) : l));
+    expect(named((await runTool(over({ ...opened, layer }), 'quilt_read', { problem: p })).text)).toBe([
+      ...HEAD_P.slice(0, 4),
+      'cd.r',
+      '1 challenged, 1 disputed, 1 open, 1 recording',
+      ...HEAD_P.slice(6),
+      '',
+      'Accepted so far:',
+      'statement/1 (rests on no kept read), Ada returned: {"verdict":"supports"}',
+      `statement/1 (rests on no kept read), ${B} returned: {"verdict":"supports"}`,
+      'A kept read is what a return rests on (QX-19): a page\'s text under its hash and the span of it a field stands on, which anyone can fetch from the tracker and compare with the page.',
+      '',
+      'Recorded:',
+      'question (record:3; recording: 2 of 3 readings, 0 resting on kept reads, from 2 roots and 2 vendors)',
+      '  Ada returned: {"stance":"asserts"}',
+      `  ${C} returned: {"stance":"denies"}`,
+      '',
+      'Disputed:',
+      'statement/2 is disputed, with 2 returns.',
+      'The returns differ on verdict.',
+      `On verdict, one side rests on nothing kept: Ada rests it on nothing kept; ${B} rests it on nothing kept.`,
+      'Ada (anthropic/claude), this key, returned: {"verdict":"supports"}',
+      `${B} (openai/gpt-5) returned: {"verdict":"contradicts"}`,
+      '',
+      'Challenges:',
+      'No challenge on this problem.',
+      '',
+      'Panels:',
+      'No judge panel on this problem.',
+    ].join('\n'));
+  });
+
+  it('quilt_read says a patch accepted by two runs, and a patch disputed with no schema to differ on, between keys signing for other roots, and no piece held disputed with no returns', async () => {
     const opened = await mk(1, 'anthropic/claude').open(k);
     const ADA = a.identity!.address;
     const D = d.identity!.address;
@@ -611,14 +719,16 @@ describe('quilt_open and quilt_read over what no tracker here gives', () => {
     const state = { ...opened.state, pieces, byHash: new Map(pieces.map((v) => [v.piece.hash, v] as const)) };
     // One side's rest names a read its trace does not hold, so it rests on nothing kept; the other side carries its own name.
     const seams: Seam[] = [{ field: 'patch', why: 'unknown', sides: [{ key: ADA, value: PATCH, read: null, span: [0, 32], passage: null }, { key: D, name: 'Bea', value: `${PATCH} b`, read: READ_B, span: [0, 34], passage: null }] }];
-    const layer = (opened.layer ?? []).map((l) => (l.name === 'patch' ? { ...l, state: 'accepted_provisional' as const, verified: true } : l.name === 'scored' ? { ...l, state: 'disputed' as const, seams } : l));
+    // The oracle piece nobody worked, held disputed: the map marks it, and the Disputed section has no returns to say of it.
+    const held = (name: string): Partial<LayerPiece> => (name === 'patch' ? { state: 'accepted_provisional', verified: true } : name === 'scored' ? { state: 'disputed', seams } : name === 'oracle' ? { state: 'disputed' } : {});
+    const layer = (opened.layer ?? []).map((l) => ({ ...l, ...held(l.name) }));
     expect(named((await runTool(over({ ...opened, state, layer }), 'quilt_read', { problem: k })).text)).toBe([
       'Problem <k>',
       'The owner, Ada, titled it: "Which kinds are here?"',
       'and wrote of when it is done: "Each kind has a piece."',
       '4 pieces, version 1 along prev.',
-      'pd.?',
-      '1 accepted provisional, 1 disputed, 1 open, 1 unknown',
+      'pd.d',
+      '1 accepted provisional, 2 disputed, 1 open',
       'Kinds: 1 check (reproduced: two unrelated runs reproduce the patch); 1 score (reproduced: two unrelated runs score the patch within tolerance); 1 human (agreed: two people at seats a tracker opened for them agree); 1 oracle (unknown: a kind this client does not implement).',
       LEGEND,
       'Answered by <tracker>.',
@@ -659,6 +769,7 @@ const A64 = `sha256:${'a'.repeat(64)}` as Hash;
 const B64 = `sha256:${'b'.repeat(64)}` as Hash;
 const C64 = `sha256:${'c'.repeat(64)}` as Hash;
 const D64 = `sha256:${'d'.repeat(64)}` as Hash;
+const E64 = `sha256:${'e'.repeat(64)}` as Hash;
 
 describe('quilt_me', () => {
   it('says the words due, the relays, a standing with a founding and locks, the coin owed today and a product\'s witness bound by its key', async () => {
@@ -721,6 +832,20 @@ describe('quilt_me', () => {
     ].join('\n'));
   });
 
+  it('passes over a tracker that did not answer and names the next as older where its well-known carries no routes', async () => {
+    const quilt = answering({
+      me: me({}),
+      standing: async () => null,
+      coin: async () => null,
+      wellKnown: async (t) => (t.startsWith('https://u.') ? {} : null),
+    }, ['https://t.example/', 'https://u.example/']);
+    expect((await runTool(quilt, 'quilt_me', {})).text).toBe([
+      ...TOP,
+      'Standing: none; the tracker at https://u.example/ answered but is an older one without the standing route (QX-15)',
+      'Queued events: 2; problems in the library: 3',
+    ].join('\n'));
+  });
+
   it('says no tracker answered where none gave a standing, with a coin owing nothing and a client\'s witness by its own name or none', async () => {
     const byName = answering({
       me: me({ problems: 1, witness: { via: 'other', client: 'Cursor' } }),
@@ -763,7 +888,7 @@ const row = (over: Partial<Found>): Found => ({
 const rowFound = { verdict: { contradicts: 1, supports: 3, 'see www.example.com/x': 2, maybe: 0, half: 1.5 }, 'www.example.com/x': { yes: 1 }, quiet: { none: 0 }, odd: null } as unknown as Record<string, Record<string, number>>;
 
 describe('quilt_search', () => {
-  it('says each problem in three lines: a tracker\'s row with every count, a fork under it, a relay\'s row from its owner and one from a seeder', async () => {
+  it('says each problem in three lines: a tracker\'s row with every count, a fork under it, a relay\'s row from its owner, one from a seeder and one naming no announcer', async () => {
     const quilt = answering({
       search: async (query) => (query !== 'paper' ? [] : [
         row({
@@ -774,6 +899,8 @@ describe('quilt_search', () => {
         row({ problem: B64, from: A64, root: A64, title: 'Does the paper say so? A fork', slug: 'says-fork', work: { returned: 1, accepted: 0, verified: 0, disputed: 0, traced: { both: 0, one: 0, none: 0 }, readers: 1, vendors: 1, last: null, found: null as unknown as Record<string, Record<string, number>> } }),
         row({ problem: C64, root: C64, title: 'Announced', slug: 'announced', owner: '0xOWNER2', via: 'relay', held: ['wss://relay.example/'], announcer: '0xowner2', announced: '2026-11-05T09:00:00.000Z', counts: { open: 2, needs_verify: 1 }, tracker: 'https://u.example/' }),
         row({ problem: D64, root: D64, title: 'Seeded', slug: 'seeded', owner: '0xowner3', via: 'relay', held: ['wss://relay.example/'], announcer: '0xseeder', counts: {}, kinds: { 'judge:3': 1 } }),
+        // A relay's row with no announcer named: Quilt.search names one on every relay row, and the row's type allows none.
+        row({ problem: E64, root: E64, title: 'Unsigned', slug: 'unsigned', owner: '0xowner4', via: 'relay', held: ['wss://relay.example/'], announced: '2026-11-04T09:00:00.000Z' }),
       ]),
     });
     expect((await runTool(quilt, 'quilt_search', { query: 'paper' })).text).toBe([
@@ -789,6 +916,9 @@ describe('quilt_search', () => {
       D64,
       '  titled by 0xowner3: "Seeded" (seeded)',
       '  4 pieces (1 judge:3): nothing yet; held at 1 place (wss://relay.example/); as announced by a seeder; opens at https://t.example/',
+      E64,
+      '  titled by 0xowner4: "Unsigned" (unsigned)',
+      '  4 pieces: nothing yet; held at 1 place (wss://relay.example/); as announced by a seeder on 2026-11-04; opens at https://t.example/',
     ].join('\n'));
   });
 
