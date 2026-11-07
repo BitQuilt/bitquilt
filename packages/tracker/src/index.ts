@@ -67,7 +67,7 @@ export {
   type Via,
   type Strength,
   type KindInfo,
-  type Layered,
+  type KindsDecided,
   type PanelView,
   type PanelSeat,
   type PanelOutcome,

@@ -13,7 +13,7 @@ import {
   type State,
   isRecord,
 } from '@bitquilt/core';
-import { type Layered, viaOf } from './verifiers.js';
+import { type KindsDecided, viaOf } from './verifiers.js';
 import { type LockView, type StakeRule, liveAt } from './stake.js';
 import { type GoldView, goldLiveAt } from './gold.js';
 import type { ChallengeView } from './challenge.js';
@@ -49,7 +49,7 @@ export interface ProblemEntry {
   /** `base` with the verifier kinds decided: the fold the layer reads. */
   fold: State;
   /** The kinds decided over `base`: the panels, each piece's kind, what is not offered. */
-  layered: Layered;
+  decided: KindsDecided;
   /** The ids of the events struck out of this problem's fold. */
   struck: Set<Hash>;
   /** QX-19 section 4: the reveals set aside, by event id, each also in `struck`: a reading that rests on nothing where the other rests on the record. */
