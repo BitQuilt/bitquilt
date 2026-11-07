@@ -48,7 +48,8 @@ export function keysFromIdentity(lines: Receipt[], now: string): Record<string, 
       const body = event.body as { to: string; scope: string[]; expires: string };
       if (body.expires > now) entry.delegates.push({ to: body.to, scope: body.scope, expires: body.expires });
     }
-    if (event.type === 'revoke') entry.delegates = entry.delegates.filter((d) => d.to !== (event.body as { of: string }).of);
+    if (event.type === 'revoke')
+      entry.delegates = entry.delegates.filter((d) => d.to !== (event.body as { of: string }).of);
   }
   return keys;
 }
