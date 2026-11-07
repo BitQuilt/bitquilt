@@ -12,37 +12,78 @@ import { next, tieBreak } from '../src/next.js';
 import { reduce } from '../src/reduce.js';
 import { addr, byOf, clock, key } from './helpers.js';
 
-const owner = key(9), A = key(1), B = key(2), C = key(3);
+const owner = key(9),
+  A = key(1),
+  B = key(2),
+  C = key(3);
 const t = clock('2026-10-24T18:00:00Z');
 const by = (model: string) => byOf(model, ['web', 'shell']);
-const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } };
+const schema = {
+  type: 'object' as const,
+  additionalProperties: false as const,
+  required: ['verdict'],
+  properties: { verdict: { enum: ['supports', 'contradicts'] } },
+};
 const blobs = new Map<Hash, Uint8Array>();
 
 function envelope(pieces: Envelope['problem']['pieces'], endgame_at = 1): Envelope {
   const problem: Envelope['problem'] = {
-    title: 'T', done_when: 'D', owner: addr(owner), slug: 'p', prev: null, from: null,
-    settings: { challenge_window_h: 48, lease_h: 2, endgame_at, budget: 100, patch_max: 1000 }, pieces, data: {},
+    title: 'T',
+    done_when: 'D',
+    owner: addr(owner),
+    slug: 'p',
+    prev: null,
+    from: null,
+    settings: { challenge_window_h: 48, lease_h: 2, endgame_at, budget: 100, patch_max: 1000 },
+    pieces,
+    data: {},
   };
   const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
   return { ...unsigned, sig: signObject(unsigned, owner) };
 }
 const three = envelope({
   'cite/*': { count: 3, verifier: 'agree', requires: ['web'], brief: 'Citation {n}', schema, agree: ['verdict'] },
-  lint: { verifier: 'check', requires: ['shell'], brief: 'Lint.', workspace: { repo: 'r', base: 'b' }, check: { file: 'f' } },
+  lint: {
+    verifier: 'check',
+    requires: ['shell'],
+    brief: 'Lint.',
+    workspace: { repo: 'r', base: 'b' },
+    check: { file: 'f' },
+  },
   summary: { verifier: 'agree', inputs: ['cite/*'], brief: 'From: {cite/*}', schema },
 });
 const P = problemHash(three);
 const st = (receipts: Receipt[], now: string, env = three) => reduce({ envelopes: [env], blobs, receipts, now });
 const hashOf = (name: string, env = three) => st([], t(0), env).pieces.find((p) => p.piece.name === name)!.piece.hash;
-function ev(k: Uint8Array, type: string, at: string, body: Record<string, unknown>, piece?: Hash, problem = P): Receipt {
+function ev(
+  k: Uint8Array,
+  type: string,
+  at: string,
+  body: Record<string, unknown>,
+  piece?: Hash,
+  problem = P,
+): Receipt {
   const u: Unsigned = { quilt: 1, type, key: addr(k), ts: at, body };
-  if (piece) { u.piece = piece; u.problem = problem; }
+  if (piece) {
+    u.piece = piece;
+    u.problem = problem;
+  }
   return { event: signEvent(u, k), received: [{ by: 'https://t.example/', at }] };
 }
-function handIn(k: Uint8Array, piece: Hash, at: string, ret: Record<string, unknown>, model: string, problem = P): Receipt[] {
+function handIn(
+  k: Uint8Array,
+  piece: Hash,
+  at: string,
+  ret: Record<string, unknown>,
+  model: string,
+  problem = P,
+): Receipt[] {
   const nonce = newNonce();
   const later = new Date(Date.parse(at) + 60_000).toISOString();
-  return [ev(k, 'commit', at, { h: commitHash(ret, nonce) }, piece, problem), ev(k, 'reveal', later, { return: ret, nonce, by: by(model) }, piece, problem)];
+  return [
+    ev(k, 'commit', at, { h: commitHash(ret, nonce) }, piece, problem),
+    ev(k, 'reveal', later, { return: ret, nonce, by: by(model) }, piece, problem),
+  ];
 }
 const web = { can: ['web' as const], model: 'anthropic/claude' };
 
@@ -52,7 +93,8 @@ describe('next', () => {
     const pa = next(s, addr(A), web, t(0))!;
     const pb = next(s, addr(B), web, t(0))!;
     const cites = s.pieces.filter((v) => v.piece.family === 'cite').map((v) => v.piece);
-    const expectFor = (k: Address) => [...cites].sort((x, y) => (tieBreak(x, k, t(0)) < tieBreak(y, k, t(0)) ? -1 : 1))[0]!.hash;
+    const expectFor = (k: Address) =>
+      [...cites].sort((x, y) => (tieBreak(x, k, t(0)) < tieBreak(y, k, t(0)) ? -1 : 1))[0]!.hash;
     expect(pa.piece.hash).toBe(expectFor(addr(A)));
     expect(pb.piece.hash).toBe(expectFor(addr(B)));
     expect(next(s, addr(A), web, t(30))!.piece.hash).toBe(pa.piece.hash);
@@ -63,14 +105,22 @@ describe('next', () => {
     const s = st([], t(0));
     expect(next(s, addr(A), { can: ['shell'], model: 'x/y' }, t(0))!.piece.name).toBe('lint');
     expect(next(s, addr(A), { can: ['files'], model: 'x/y' }, t(0))).toBeNull();
-    const c1 = hashOf('cite/1'), c2 = hashOf('cite/2'), c3 = hashOf('cite/3');
-    const mine = [...handIn(A, c1, t(0), { verdict: 'supports' }, 'a/x'), ...handIn(A, c2, t(0), { verdict: 'supports' }, 'a/x'), ev(A, 'decline', t(0), { reason: 'cannot' }, c3)];
+    const c1 = hashOf('cite/1'),
+      c2 = hashOf('cite/2'),
+      c3 = hashOf('cite/3');
+    const mine = [
+      ...handIn(A, c1, t(0), { verdict: 'supports' }, 'a/x'),
+      ...handIn(A, c2, t(0), { verdict: 'supports' }, 'a/x'),
+      ev(A, 'decline', t(0), { reason: 'cannot' }, c3),
+    ];
     expect(next(st(mine, t(1)), addr(A), web, t(1))).toBeNull();
     expect(next(st(mine, t(1)), addr(owner), web, t(1))).toBeNull();
     expect(next(st(mine, t(1)), addr(B), web, t(1))).not.toBeNull();
   });
   it('prefers the rarest piece, and a claim counts as an intent, not a lock', () => {
-    const c1 = hashOf('cite/1'), c2 = hashOf('cite/2'), c3 = hashOf('cite/3');
+    const c1 = hashOf('cite/1'),
+      c2 = hashOf('cite/2'),
+      c3 = hashOf('cite/3');
     const claims = [ev(A, 'claim', t(0), { by: by('a/x') }, c1), ev(A, 'claim', t(0), { by: by('a/x') }, c2)];
     const s = st(claims, t(1));
     expect(next(s, addr(B), web, t(1))!.piece.hash).toBe(c3);
@@ -78,8 +128,14 @@ describe('next', () => {
     expect(next(st(all, t(1)), addr(B), web, t(1))!.state).toBe('in_flight');
   });
   it('offers a second production first when verifies outnumber the open, from another vendor', () => {
-    const c1 = hashOf('cite/1'), c2 = hashOf('cite/2'), c3 = hashOf('cite/3');
-    const three = [...handIn(A, c1, t(0), { verdict: 'supports' }, 'anthropic/claude'), ...handIn(B, c2, t(0), { verdict: 'supports' }, 'openai/gpt'), ...handIn(B, c3, t(0), { verdict: 'supports' }, 'openai/gpt')];
+    const c1 = hashOf('cite/1'),
+      c2 = hashOf('cite/2'),
+      c3 = hashOf('cite/3');
+    const three = [
+      ...handIn(A, c1, t(0), { verdict: 'supports' }, 'anthropic/claude'),
+      ...handIn(B, c2, t(0), { verdict: 'supports' }, 'openai/gpt'),
+      ...handIn(B, c3, t(0), { verdict: 'supports' }, 'openai/gpt'),
+    ];
     const s = st(three, t(2));
     expect(s.pieces.filter((v) => v.state === 'needs_verify')).toHaveLength(3);
     const pick = next(s, addr(C), { can: ['web'], model: 'anthropic/other' }, t(2))!;
@@ -91,7 +147,8 @@ describe('next', () => {
   it('in endgame, live claims count for nothing', () => {
     const env = envelope({ 'cite/*': { count: 2, verifier: 'agree', brief: 'C {n}', schema } }, 5);
     const p = problemHash(env);
-    const c1 = hashOf('cite/1', env), c2 = hashOf('cite/2', env);
+    const c1 = hashOf('cite/1', env),
+      c2 = hashOf('cite/2', env);
     const claim = ev(A, 'claim', t(0), { by: by('a/x') }, c1, p);
     const s = st([claim], t(1), env);
     const tieWins = tieBreak(s.pieces[0]!.piece, addr(B), t(1)) < tieBreak(s.pieces[1]!.piece, addr(B), t(1)) ? c1 : c2;
@@ -102,8 +159,13 @@ describe('next', () => {
     expect(next(s2, addr(B), web, t(1))!.piece.hash).toBe(hashOf('cite/2', notEndgame));
   });
   it('fills input slots with the accepted returns as quoted text once the inputs are accepted', () => {
-    const c1 = hashOf('cite/1'), c2 = hashOf('cite/2'), c3 = hashOf('cite/3');
-    const receipts = [c1, c2, c3].flatMap((c) => [...handIn(A, c, t(0), { verdict: 'supports' }, 'a/x'), ...handIn(B, c, t(1), { verdict: 'supports' }, 'b/y')]);
+    const c1 = hashOf('cite/1'),
+      c2 = hashOf('cite/2'),
+      c3 = hashOf('cite/3');
+    const receipts = [c1, c2, c3].flatMap((c) => [
+      ...handIn(A, c, t(0), { verdict: 'supports' }, 'a/x'),
+      ...handIn(B, c, t(1), { verdict: 'supports' }, 'b/y'),
+    ]);
     const s = st(receipts, t(60 * 49));
     expect(s.pieces.filter((v) => v.piece.family === 'cite').every((v) => v.state === 'accepted')).toBe(true);
     const pick = next(s, addr(C), { can: [], model: 'c/z' }, t(60 * 49))!;

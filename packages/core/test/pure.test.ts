@@ -13,7 +13,9 @@ const SCRIPTS = ['conformance.ts', 'verify.ts'];
 const IMPURE = ['node:', 'fetch(', 'Date.now', 'process.'];
 
 describe('the core is pure', () => {
-  const files = readdirSync(src).filter((f) => f.endsWith('.ts') && !SCRIPTS.includes(f)).sort();
+  const files = readdirSync(src)
+    .filter((f) => f.endsWith('.ts') && !SCRIPTS.includes(f))
+    .sort();
   it('reads the source files', () => {
     expect(files.length).toBeGreaterThan(10);
   });

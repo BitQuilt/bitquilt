@@ -41,7 +41,8 @@ function fieldProblems(f: unknown, at: string, allowArray: boolean): string[] {
   if ('enum' in f) {
     const extra = unknownKeys(f, ENUM_KEYS);
     if (extra.length) return [`${at}: enum fields take no ${extra.join(', ')}`];
-    if (!Array.isArray(f.enum) || f.enum.length === 0 || !f.enum.every((x) => typeof x === 'string')) return [`${at}: enum is a non-empty list of strings`];
+    if (!Array.isArray(f.enum) || f.enum.length === 0 || !f.enum.every((x) => typeof x === 'string'))
+      return [`${at}: enum is a non-empty list of strings`];
     if (new Set(f.enum).size !== f.enum.length) return [`${at}: enum repeats a value`];
     return [];
   }
@@ -49,8 +50,15 @@ function fieldProblems(f: unknown, at: string, allowArray: boolean): string[] {
     case 'string': {
       const extra = unknownKeys(f, STRING_KEYS);
       if (extra.length) return [`${at}: string fields take no ${extra.join(', ')}`];
-      if (!Number.isInteger(f.maxLength) || (f.maxLength as number) < 1) return [`${at}: maxLength is a whole number from 1`];
-      if (f.minLength !== undefined && (!Number.isInteger(f.minLength) || (f.minLength as number) < 0 || (f.minLength as number) > (f.maxLength as number))) return [`${at}: minLength is a whole number up to maxLength`];
+      if (!Number.isInteger(f.maxLength) || (f.maxLength as number) < 1)
+        return [`${at}: maxLength is a whole number from 1`];
+      if (
+        f.minLength !== undefined &&
+        (!Number.isInteger(f.minLength) ||
+          (f.minLength as number) < 0 ||
+          (f.minLength as number) > (f.maxLength as number))
+      )
+        return [`${at}: minLength is a whole number up to maxLength`];
       if (f.format !== undefined && f.format !== 'date') return [`${at}: the only format is date`];
       return [];
     }
@@ -58,7 +66,11 @@ function fieldProblems(f: unknown, at: string, allowArray: boolean): string[] {
     case 'integer': {
       const extra = unknownKeys(f, NUMBER_KEYS);
       if (extra.length) return [`${at}: number fields take no ${extra.join(', ')}`];
-      if (f.tolerance !== undefined && (typeof f.tolerance !== 'number' || !(f.tolerance >= 0) || !Number.isFinite(f.tolerance))) return [`${at}: tolerance is a finite number of at least 0`];
+      if (
+        f.tolerance !== undefined &&
+        (typeof f.tolerance !== 'number' || !(f.tolerance >= 0) || !Number.isFinite(f.tolerance))
+      )
+        return [`${at}: tolerance is a finite number of at least 0`];
       return [];
     }
     case 'boolean': {
@@ -69,7 +81,8 @@ function fieldProblems(f: unknown, at: string, allowArray: boolean): string[] {
       if (!allowArray) return [`${at}: an array of arrays is outside the subset`];
       const extra = unknownKeys(f, ARRAY_KEYS);
       if (extra.length) return [`${at}: array fields take no ${extra.join(', ')}`];
-      if (!Number.isInteger(f.maxItems) || (f.maxItems as number) < 1) return [`${at}: maxItems is a whole number from 1`];
+      if (!Number.isInteger(f.maxItems) || (f.maxItems as number) < 1)
+        return [`${at}: maxItems is a whole number from 1`];
       return fieldProblems(f.items, `${at}.items`, false);
     }
     default:
@@ -89,8 +102,11 @@ export function schemaProblems(s: unknown): string[] {
   const names = Object.keys(s.properties);
   if (names.length === 0) out.push('schema: at least one property');
   for (const name of names) out.push(...fieldProblems(s.properties[name], `schema.properties.${name}`, true));
-  if (!Array.isArray(s.required) || !s.required.every((r) => typeof r === 'string')) out.push('schema: required is a list of names');
-  else for (const r of s.required) if (!(r in s.properties)) out.push(`schema: required names ${r}, which is not a property`);
+  if (!Array.isArray(s.required) || !s.required.every((r) => typeof r === 'string'))
+    out.push('schema: required is a list of names');
+  else
+    for (const r of s.required)
+      if (!(r in s.properties)) out.push(`schema: required names ${r}, which is not a property`);
   return out;
 }
 

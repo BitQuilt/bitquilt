@@ -4,12 +4,22 @@
  */
 import { describe, expect, it } from 'vitest';
 import { hashBytes } from '../src/hash.js';
-import { blobProblems, envelopeProblems, expandPieces, inputPieces, problemHash, renderBrief, type Envelope } from '../src/envelope.js';
+import {
+  blobProblems,
+  envelopeProblems,
+  expandPieces,
+  inputPieces,
+  problemHash,
+  renderBrief,
+  type Envelope,
+} from '../src/envelope.js';
 
-const cites = new TextEncoder().encode(JSON.stringify([
-  { sentence: 'Evaluations underestimate capabilities.', source: 'Chen et al. 2025' },
-  { sentence: 'Models generalise across languages.', source: 'Okafor 2024' },
-]));
+const cites = new TextEncoder().encode(
+  JSON.stringify([
+    { sentence: 'Evaluations underestimate capabilities.', source: 'Chen et al. 2025' },
+    { sentence: 'Models generalise across languages.', source: 'Okafor 2024' },
+  ]),
+);
 const citesHash = hashBytes(cites);
 const blobs = new Map([[citesHash, cites]]);
 
@@ -30,7 +40,12 @@ export const envelope: Envelope = {
         requires: ['web'],
         brief: 'Citation {n}: {cite.sentence} Source: {cite.source} Return the verdict. {other.thing} stays.',
         data: { cite: 'cites.json' },
-        schema: { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } },
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['verdict'],
+          properties: { verdict: { enum: ['supports', 'contradicts'] } },
+        },
         agree: ['verdict'],
       },
       summary: {
@@ -38,7 +53,12 @@ export const envelope: Envelope = {
         inputs: ['cite/*'],
         candidates: 3,
         brief: 'Write the summary from {cite/*}.',
-        schema: { type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string', maxLength: 4800 } } },
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['text'],
+          properties: { text: { type: 'string', maxLength: 4800 } },
+        },
       },
       lint: {
         verifier: 'check',
@@ -59,25 +79,56 @@ describe('the envelope', () => {
     expect(envelopeProblems(envelope)).toEqual([]);
     expect(blobProblems(envelope.problem, blobs)).toEqual([]);
     const h = problemHash(envelope);
-    expect(problemHash({ ...envelope, hints: { trackers: [], mirrors: ['https://m.example/'] }, sig: '0x' + '11'.repeat(65) })).toBe(h);
+    expect(
+      problemHash({
+        ...envelope,
+        hints: { trackers: [], mirrors: ['https://m.example/'] },
+        sig: '0x' + '11'.repeat(65),
+      }),
+    ).toBe(h);
     expect(problemHash({ ...envelope, problem: { ...envelope.problem, title: 'Other' } })).not.toBe(h);
   });
   it('refuses a slug with capitals or spaces, more pieces than the budget, an agree field the schema lacks, a capability outside the list, a check piece without its workspace, an input naming no piece, an owner without its checksum, and a blob that is not present', () => {
     const p = envelope.problem;
-    expect(envelopeProblems({ ...envelope, problem: { ...p, slug: 'Bad Slug' } })).toContain('problem.slug: lower-case letters, digits and hyphens, at most 64');
-    expect(envelopeProblems({ ...envelope, problem: { ...p, settings: { ...p.settings, budget: 2 } } })[0]).toMatch(/over the budget/);
-    expect(envelopeProblems({ ...envelope, problem: { ...p, pieces: { ...p.pieces, 'cite/*': { ...p.pieces['cite/*']!, agree: ['nope'] } } } })).toContain('problem.pieces.cite/*.agree: names fields the schema has');
-    expect(envelopeProblems({ ...envelope, problem: { ...p, pieces: { ...p.pieces, 'cite/*': { ...p.pieces['cite/*']!, requires: ['teleport'] } } } })[0]).toMatch(/requires: from web, files, shell, person/);
+    expect(envelopeProblems({ ...envelope, problem: { ...p, slug: 'Bad Slug' } })).toContain(
+      'problem.slug: lower-case letters, digits and hyphens, at most 64',
+    );
+    expect(envelopeProblems({ ...envelope, problem: { ...p, settings: { ...p.settings, budget: 2 } } })[0]).toMatch(
+      /over the budget/,
+    );
+    expect(
+      envelopeProblems({
+        ...envelope,
+        problem: { ...p, pieces: { ...p.pieces, 'cite/*': { ...p.pieces['cite/*']!, agree: ['nope'] } } },
+      }),
+    ).toContain('problem.pieces.cite/*.agree: names fields the schema has');
+    expect(
+      envelopeProblems({
+        ...envelope,
+        problem: { ...p, pieces: { ...p.pieces, 'cite/*': { ...p.pieces['cite/*']!, requires: ['teleport'] } } },
+      })[0],
+    ).toMatch(/requires: from web, files, shell, person/);
     const { workspace: _w, ...lintNoWorkspace } = p.pieces.lint!;
-    expect(envelopeProblems({ ...envelope, problem: { ...p, pieces: { ...p.pieces, lint: lintNoWorkspace } } })).toContain('problem.pieces.lint.workspace: repo and base');
-    expect(envelopeProblems({ ...envelope, problem: { ...p, pieces: { ...p.pieces, summary: { ...p.pieces.summary!, inputs: ['ghost'] } } } })).toContain('problem.pieces.summary.inputs: ghost is not a piece of this problem');
-    expect(envelopeProblems({ ...envelope, problem: { ...p, owner: p.owner.toLowerCase() } })).toContain('problem.owner: an address with its checksum');
+    expect(
+      envelopeProblems({ ...envelope, problem: { ...p, pieces: { ...p.pieces, lint: lintNoWorkspace } } }),
+    ).toContain('problem.pieces.lint.workspace: repo and base');
+    expect(
+      envelopeProblems({
+        ...envelope,
+        problem: { ...p, pieces: { ...p.pieces, summary: { ...p.pieces.summary!, inputs: ['ghost'] } } },
+      }),
+    ).toContain('problem.pieces.summary.inputs: ghost is not a piece of this problem');
+    expect(envelopeProblems({ ...envelope, problem: { ...p, owner: p.owner.toLowerCase() } })).toContain(
+      'problem.owner: an address with its checksum',
+    );
     expect(blobProblems(p, new Map())).toEqual([`blob cites.json: ${citesHash} not present`]);
   });
   it('expands families to pieces named by hash, fills data slots and leaves return slots as written', () => {
     const pieces = expandPieces(envelope.problem, blobs);
     expect(pieces.map((x) => x.name)).toEqual(['cite/1', 'cite/2', 'summary', 'lint']);
-    expect(pieces[0]!.brief).toBe('Citation 1: Evaluations underestimate capabilities. Source: Chen et al. 2025 Return the verdict. {other.thing} stays.');
+    expect(pieces[0]!.brief).toBe(
+      'Citation 1: Evaluations underestimate capabilities. Source: Chen et al. 2025 Return the verdict. {other.thing} stays.',
+    );
     expect(pieces[1]!.brief).toContain('Citation 2: Models generalise');
     expect(pieces[0]!.hash).not.toBe(pieces[1]!.hash);
     expect(pieces[0]!.hash).toMatch(/^sha256:[0-9a-f]{64}$/);
@@ -90,10 +141,21 @@ describe('the envelope', () => {
     const v1 = expandPieces(envelope.problem, blobs);
     const v2 = expandPieces({ ...envelope.problem, title: 'A new title', prev: problemHash(envelope) }, blobs);
     expect(v2[0]!.hash).toBe(v1[0]!.hash);
-    const changed = expandPieces({ ...envelope.problem, pieces: { ...envelope.problem.pieces, 'cite/*': { ...envelope.problem.pieces['cite/*']!, brief: 'Different {n}' } } }, blobs);
+    const changed = expandPieces(
+      {
+        ...envelope.problem,
+        pieces: {
+          ...envelope.problem.pieces,
+          'cite/*': { ...envelope.problem.pieces['cite/*']!, brief: 'Different {n}' },
+        },
+      },
+      blobs,
+    );
     expect(changed[0]!.hash).not.toBe(v1[0]!.hash);
   });
   it('fills {n} and a data slot by its path, renders a missing value as nothing, and leaves a slot naming no data as written', () => {
-    expect(renderBrief('n={n} a={row.a} missing={row.zz} keep={x.y}', 3, { row: { a: 'A' } })).toBe('n=3 a=A missing= keep={x.y}');
+    expect(renderBrief('n={n} a={row.a} missing={row.zz} keep={x.y}', 3, { row: { a: 'A' } })).toBe(
+      'n=3 a=A missing= keep={x.y}',
+    );
   });
 });

@@ -6,7 +6,8 @@
  */
 
 /** A plain object: not null, not an array. What every body check asks first. */
-export const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+export const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** A whole number of at least `min`. */
 export const whole = (v: unknown, min: number): v is number => Number.isInteger(v) && (v as number) >= min;
@@ -21,7 +22,9 @@ export const plusHours = (t: string, h: number): string => new Date(Date.parse(t
 export const withSlash = (url: string): string => (url.endsWith('/') ? url : `${url}/`);
 
 /** The order receipts are read in wherever two carry the same time: by time, then by id. */
-export const byAtThenId = <T extends { at: string; id: string }>(a: T, b: T): number => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+export const byAtThenId = <T extends { at: string; id: string }>(a: T, b: T): number =>
+  a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 
 /** The keys of a closed object that `allowed` does not name: what a shape check reports as not a field of it. */
-export const unknownKeys = (o: Record<string, unknown>, allowed: readonly string[]): string[] => Object.keys(o).filter((k) => !allowed.includes(k));
+export const unknownKeys = (o: Record<string, unknown>, allowed: readonly string[]): string[] =>
+  Object.keys(o).filter((k) => !allowed.includes(k));

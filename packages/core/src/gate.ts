@@ -52,7 +52,8 @@ export function visible(s: string): string {
 }
 
 const LINK = /https?:|www\.|\b[a-z0-9-]+\.[a-z]{2,24}\/\S|\]\(|\]\[|^\s*\[[^\]]+\]:|<\/?[a-z][^>]*>/im;
-const DOMAIN = /\b[a-z0-9-]+\.(com|org|net|io|ai|dev|xyz|gov|edu|app|me|ly|co|gg|to|sh|link|info|biz|page|site|online|uk|de|fr|ru|cn|us)\b/gi;
+const DOMAIN =
+  /\b[a-z0-9-]+\.(com|org|net|io|ai|dev|xyz|gov|edu|app|me|ly|co|gg|to|sh|link|info|biz|page|site|online|uk|de|fr|ru|cn|us)\b/gi;
 
 function linkish(text: string): boolean {
   if (LINK.test(text)) return true;
@@ -66,7 +67,8 @@ const PHONE = /(?<![A-Za-z\d])\+?(?:\(\d{2,4}\)|\d)[\d\s().-]{5,}\d/g;
 /** Dates, times and a year in brackets, which read as when and not as whom to call. */
 const WHEN = /\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}:\d{2}\b|\(\s*(?:1\d{3}|20\d{2})\s*\)/g;
 /** A word before a run that says it is a number of something, not a telephone. */
-const NUMBERED = /\b(?:isbn|issn|doi|pmc|pmid|item|no\.?|number|id|barcode|catalogue|catalog|accession|specimen|page|pp\.?|ref\.?)\s*[:#]?\s*$/i;
+const NUMBERED =
+  /\b(?:isbn|issn|doi|pmc|pmid|item|no\.?|number|id|barcode|catalogue|catalog|accession|specimen|page|pp\.?|ref\.?)\s*[:#]?\s*$/i;
 const YEAR = /^(?:1\d{3}|20\d{2})$/;
 
 /**
@@ -85,7 +87,8 @@ function phoneLike(text: string): boolean {
     if (groups.every((g) => YEAR.test(g))) continue;
     if (NUMBERED.test(cleaned.slice(Math.max(0, m.index! - 14), m.index))) continue;
     const shaped = /^\+/.test(run) || /^\(\d{3}\)/.test(run) || /\d[-.]\d/.test(run) || groups.length === 1;
-    const spaced = groups.length >= 2 && groups.length <= 4 && groups.every((g) => g.length >= 2 && g.length <= 5) && digits >= 9;
+    const spaced =
+      groups.length >= 2 && groups.length <= 4 && groups.every((g) => g.length >= 2 && g.length <= 5) && digits >= 9;
     if (shaped || spaced) return true;
   }
   return false;
@@ -99,7 +102,10 @@ const READERS = '(?:ais?|llms?|models?|assistants?|bots?|agents?|everyone)';
 
 const READER_INSTRUCTIONS: RegExp[] = [
   ...INJECTION_PATTERNS,
-  new RegExp(`\\b${ORDER}\\s+(?:all\\s+|any\\s+|every\\s+)?(?:of\\s+)?(?:your|all previous|previous|prior|above|earlier)\\b[^.!?]{0,25}\\b${RULES}\\b`, 'i'),
+  new RegExp(
+    `\\b${ORDER}\\s+(?:all\\s+|any\\s+|every\\s+)?(?:of\\s+)?(?:your|all previous|previous|prior|above|earlier)\\b[^.!?]{0,25}\\b${RULES}\\b`,
+    'i',
+  ),
   new RegExp(
     `(?:^|[.!?:;]\\s*|\\b(?:please|ok|okay|hey)\\b[\\s,]*|(?<!\\b(?:do|does|did|would|will|can|could|should|might|may|to|that)\\s)\\b${READER_NAME}\\b\\s*[,:—–-]?\\s*|\\b${READERS}\\s*[,:—–-]\\s*)${ORDER}\\s+(?:all\\s+|any\\s+|every\\s+)?(?:of\\s+)?(?:the|these|those|its|my)?\\s*(?:own\\s+)?(?:safety\\s+)?${RULES}\\b`,
     'i',
