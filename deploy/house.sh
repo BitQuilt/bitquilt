@@ -4,7 +4,9 @@
 # stranger's square turns inside the five minutes the stranger's path allows for it) it runs the worker of HOUSE_VENDOR
 # (anthropic unless set, with ANTHROPIC_API_KEY; openai with OPENAI_API_KEY) with --second-only --all: the CLI under
 # QUILT_NEXT_ONLY=verify hands out only pieces that have a reading on them, on every problem the tracker lists with
-# such pieces, at most HOUSE_MAX (20) in a run. It never takes an open piece; which piece is the core's choice.
+# such pieces, at most HOUSE_MAX (20) in a run. It never takes an open piece; which piece is the core's choice. A
+# deploy starts it beside the tracker, so its first pass waits for the tracker to answer, at most HOUSE_TRACKER_WAIT
+# seconds (120).
 # The key it signs with lives under QUILT_HOME, on a volume; it is made on the first run and named once. Its twelve
 # words are not printed: the key file is the key, and a lost volume means a new house key, nothing more. With no
 # key nothing runs and the log says so; with HOUSE=off the same. Nothing here prints a key.
@@ -12,6 +14,7 @@ set -u
 cd "$(dirname "$0")/.."
 EVERY="${HOUSE_EVERY:-300}"
 MAX="${HOUSE_MAX:-20}"
+TRACKER_WAIT="${HOUSE_TRACKER_WAIT:-120}"
 VENDOR="${HOUSE_VENDOR:-anthropic}"
 case "$VENDOR" in
   anthropic) KEY_NAME=ANTHROPIC_API_KEY; WORKER=examples/worker-claude.mjs; MODEL="${HOUSE_MODEL:-claude-opus-5-5}" ;;
@@ -49,6 +52,27 @@ STOP=
 CHILD=
 stop() { STOP=1; [ -n "$CHILD" ] && kill -TERM "$CHILD" 2>/dev/null; }
 trap stop TERM INT
+
+# The tracker listens some seconds after a deploy starts this service beside it. A first pass that ran at once failed
+# with ECONNREFUSED, and the next came a whole HOUSE_EVERY later. So the first pass waits for the tracker the worker
+# searches, the first QUILT_TRACKERS names, to answer GET .well-known/quilt. Node's fetch asks every two seconds (the
+# image has node and no curl), for at most HOUSE_TRACKER_WAIT seconds. Past that the pass runs as before, and its log
+# says why it failed. A stop ends the wait and runs no pass.
+TRACKER="${QUILT_TRACKERS%%,*}"
+answers() {
+  node -e 'fetch(process.argv[1], { signal: AbortSignal.timeout(5000) })
+    .then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))' "${TRACKER%/}/.well-known/quilt"
+}
+FROM=$(date +%s)
+until [ -n "$STOP" ] || answers; do
+  WAITED=$(($(date +%s) - FROM))
+  if [ "$WAITED" -ge "$TRACKER_WAIT" ]; then
+    say "$TRACKER has not answered in $WAITED seconds; the first pass runs all the same"
+    break
+  fi
+  sleep 2 & wait $! || true
+done
+[ -n "$STOP" ] && exit 0
 while :; do
   # What waited in the queue while no tracker answered (the name on the first run, a return during a restart) goes out first.
   quilt flush >/dev/null 2>&1 || true
