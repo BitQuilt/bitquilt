@@ -24,7 +24,11 @@ export type ToolInput = Record<string, unknown>;
 /** Runs one tool by name for the host that asked (the client's name at connection, which the model declared follows). */
 export type ToolRunner = (name: ToolName, input: ToolInput, host: string | undefined) => Promise<ToolResult>;
 
-export const TOOL_NAMES = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_name', 'quilt_reveal_gold', 'quilt_pay', 'quilt_transfer', 'quilt_redeem', 'quilt_window', 'quilt_window_io'] as const;
+/**
+ * Every tool's name, in the order the connector registers them (mcp.ts), which is the order a host lists them in. The
+ * bundle's manifest (scripts/build-mcpb.mjs) and the tests' list keep the same order, and the tests hold all of them to it.
+ */
+export const TOOL_NAMES = ['quilt_me', 'quilt_open', 'quilt_search', 'quilt_window', 'quilt_window_io', 'quilt_next', 'quilt_return', 'quilt_decline', 'quilt_read', 'quilt_rank', 'quilt_challenge', 'quilt_verdict', 'quilt_seed', 'quilt_publish', 'quilt_pay', 'quilt_transfer', 'quilt_redeem', 'quilt_reveal_gold', 'quilt_name'] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 export function isToolName(s: string): s is ToolName {

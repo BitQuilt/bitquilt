@@ -4,8 +4,10 @@ import { type Hash } from '@bitquilt/core';
 import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.js';
 import { Resolver } from '../src/resolver.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
+import { AWAY_TOOLS } from '../src/away.js';
 import { PHRASES } from '../src/phrases.js';
-import { hex, instructs, json, mcpPair, quiltOver, startTracker, tempHome } from './helpers.js';
+import { TOOL_NAMES } from '../src/tools.js';
+import { LISTED_TOOLS, hex, instructs, json, mcpPair, quiltOver, startTracker, tempHome } from './helpers.js';
 
 /**
  * The whole of BitQuilt from the client's side, against one tracker: an owner publishes a pattern as a signed envelope
@@ -115,10 +117,13 @@ describe('Quilt against a tracker', () => {
 });
 
 describe('the connector over MCP', () => {
-  it('lists tools whose text describes and never instructs, and answers with quoted text and handles', async () => {
+  it('lists its tools in the order it registers them, which every list of them keeps, each describing and never instructing, and answers with quoted text and handles', async () => {
     const { client, close } = await mcpPair(a);
     const tools = await client.listTools();
-    expect(tools.tools.map((t) => t.name).sort()).toEqual(['quilt_challenge', 'quilt_decline', 'quilt_me', 'quilt_name', 'quilt_next', 'quilt_open', 'quilt_pay', 'quilt_publish', 'quilt_rank', 'quilt_read', 'quilt_redeem', 'quilt_return', 'quilt_reveal_gold', 'quilt_search', 'quilt_seed', 'quilt_transfer', 'quilt_verdict', 'quilt_window', 'quilt_window_io']);
+    // One order: what a host lists is the registration order, and TOOL_NAMES and the run while away's subset follow it.
+    expect(tools.tools.map((t) => t.name)).toEqual([...LISTED_TOOLS]);
+    expect([...TOOL_NAMES]).toEqual([...LISTED_TOOLS]);
+    expect([...AWAY_TOOLS]).toEqual(LISTED_TOOLS.filter((t) => (AWAY_TOOLS as readonly string[]).includes(t)));
     for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
     const me = await client.callTool({ name: 'quilt_me', arguments: {} });
     expect((me.structuredContent as { text: string }).text).toContain(a.identity!.address);
@@ -131,7 +136,7 @@ describe('the connector over MCP', () => {
     expect((read.structuredContent as { text: string }).text).toContain('Accepted so far:');
     await close();
   });
-  it('offers the phrases as prompts, each said in the person\'s words with what it takes filled in, and records the AI that connected', async () => {
+  it('offers the phrases as prompts, each said in the person\'s words with what it takes filled in, says each sentence of its instructions once, and records the AI that connected', async () => {
     let seen: string | null | undefined;
     const { client, close } = await mcpPair(a, 'claude-test', (host) => { seen = host; });
     expect(seen).toBe('claude-test');
@@ -140,6 +145,10 @@ describe('the connector over MCP', () => {
     expect(instructions).toMatch(/^How Quilt works, in plain words\./);
     expect(instructions).toContain('Anyone can add a problem, big or small');
     expect(instructions).not.toMatch(instructs);
+    // The account says that the person's client asks before anything is written; what follows it does not say so again.
+    expect(instructions.match(/asks them before anything is written/g)).toHaveLength(1);
+    const sentences = instructions.split(/(?<=[.?!])\s+/);
+    expect(new Set(sentences).size).toBe(sentences.length);
     const prompts = await client.listPrompts();
     expect(prompts.prompts.map((p) => p.name).sort()).toEqual([...PHRASES.map((p) => p.name)].sort());
     for (const p of prompts.prompts) {

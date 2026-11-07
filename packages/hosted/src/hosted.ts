@@ -20,6 +20,7 @@ import { type Address, type Hash, addressOf, eventId, randomSecretKey, secretFro
 import { PRIVATE_RANGES, type Store, clientAddress, rangesOf } from '@bitquilt/tracker';
 import { AWAY_LOG, type Config, DEFAULT_CONFIG, type OwnerTurn, Quilt, Resolver, WINDOW_HTML, WINDOW_OPS, WINDOW_READ_OPS, type Witness, createMcpServer, kindWords, localRunner, makeLink, ownerTurn, publicFetch, sheetOf, shared, windowAnswer } from 'quilt';
 import { joinPage } from './join-page.js';
+import { pagePolicy } from './page-policy.js';
 import { type SquareNow, type SquareReading, type SquareView, squarePage } from './square-page.js';
 import { type OAuthServer, createOAuth } from './oauth.js';
 import { type Sentence, vendorSentence } from './sentence.js';
@@ -88,6 +89,9 @@ function witnessHeaders(w: Witness | null): Record<string, string> {
 }
 
 const SESSION_IDLE_MS = 60 * 60 * 1000;
+
+/** The sheet's policy (page-policy.ts): its own script and style by hash, its reads from this tracker, and nothing else. */
+const SHEET_POLICY = pagePolicy(SHEET_PAGE);
 
 function encrypt(keySecret: string, plain: string): string {
   const key = createHash('sha256').update(keySecret).digest();
@@ -245,6 +249,7 @@ export function createHosted(options: HostedOptions): Hosted {
   mkdirSync(options.home, { recursive: true });
   const sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer; member: string; witness: Witness | null; last: number }>();
   const joinHtml = joinPage(options.oauth !== undefined);
+  const joinPolicy = pagePolicy(joinHtml);
   /** The member a pasted address belongs to: the long address, or its last part. */
   const memberOf = (presented: string): string | null => {
     const m = /(?:^|\/mcp\/)([0-9a-f]{64})(?:\/(?:key|sheet))?\/?$/.exec(presented.trim());
@@ -462,7 +467,7 @@ export function createHosted(options: HostedOptions): Hosted {
     }
     if (path === '/join') {
       if (method === 'GET') {
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': joinPolicy });
         res.end(joinHtml);
         return true;
       }
@@ -498,7 +503,7 @@ export function createHosted(options: HostedOptions): Hosted {
           json(res, 404, { error: 'no such address here' });
           return true;
         }
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'" });
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': SHEET_POLICY });
         res.end(SHEET_PAGE);
         return true;
       }

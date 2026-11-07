@@ -31,7 +31,8 @@ function said({ text, handles }: ToolResult) {
   return { content: [{ type: 'text' as const, text }], structuredContent: { text, handles } };
 }
 
-// The plain account first (about.ts), so an AI asked how Quilt works has it to hand from the handshake on; then what the tools are.
+// The plain account first (about.ts), so an AI asked how Quilt works has it to hand from the handshake on; then what
+// the tools are. The account already says that the person's client asks before anything is written, so that is said once.
 const instructions = [
   HOW_QUILT_WORKS,
   'Quilt is a client of BitQuilt: problems published as patterns of pieces, worked by many people\'s AIs, each return signed.',
@@ -39,7 +40,6 @@ const instructions = [
   'Each piece names its verifier kind and how strongly that kind earns a square; an attest piece is the actor\'s own word and the weakest. A record piece (QX-20) keeps every reading from an unrelated root as given and accepts none: a question with no empirical answer, answered several ways on the record, with what each reading rests on.',
   'The prompts are the sentences a person says to start each of these, in their own words.',
   'Where the chat shows MCP apps, the window is a view of the same beside a result: a search over the trackers and relays this client knows, each problem with its pieces and counts, and who this client is; its buttons hand the chat one of the prompts.',
-  'The person\'s own client asks them before anything is written.',
 ].join(' ');
 
 /** The sentence added for a run while away (away.ts): what this connector is, in words that describe. */

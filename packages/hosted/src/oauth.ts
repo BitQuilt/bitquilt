@@ -35,6 +35,7 @@ import { CLIENT_NAME_MAX, type GrantRow, type Store, inRanges, rangesOf } from '
 import type { Witness } from 'quilt';
 import { AUTHORIZE_PAGE } from './authorize-page.js';
 import { ASSERTION_TYPE, type ClientDocument, DocumentError, Documents, clientIdProblem } from './cimd.js';
+import { pagePolicy } from './page-policy.js';
 import { PRODUCTS, PRODUCT_RANGES, callbacksOf, onProductOrigin, productOf } from './products.js';
 
 /** An access token lasts an hour; a refresh token ninety days, and each refresh hands out the next. */
@@ -54,6 +55,8 @@ const REGISTERED_METHODS = ['none', 'client_secret_post', 'client_secret_basic']
 const SIGNING_ALGORITHMS = ['RS256', 'PS256', 'ES256'];
 const GRANT_TYPES = ['authorization_code', 'refresh_token'];
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
+/** The authorization page's policy (page-policy.ts): its own script and style by hash, its reads from this tracker, framed by no page. */
+const AUTHORIZE_POLICY = pagePolicy(AUTHORIZE_PAGE);
 
 export interface OAuthOptions {
   store: Store;
@@ -597,7 +600,7 @@ export function createOAuth(options: OAuthOptions): OAuthServer {
         }
         res.writeHead(c.ok ? 200 : 400, {
           'content-type': 'text/html; charset=utf-8',
-          'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'",
+          'content-security-policy': AUTHORIZE_POLICY,
           'x-frame-options': 'DENY',
           'referrer-policy': 'no-referrer',
         });
