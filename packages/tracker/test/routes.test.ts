@@ -8,8 +8,9 @@ import { type Booted, addr, boot, envelope, key } from './helpers.js';
  * lists answers, for every method it takes and for a method it refuses, beside the two paths it answers unlisted and
  * OPTIONS on every path; the 404 an unknown problem gets before any of its sub-routes; the coin's routes on a tracker
  * that carries the coin, its fallbacks there, and the 404 every path under /coin gets on a tracker that does not. The
- * list is held to the dispatcher in `handle`: the list is these rows' names in their order, and every test `handle`
- * makes of a path is one of these rows, made in the rows' order.
+ * list is held to the dispatcher in `handle`: the list is these rows' names in their order, each row's path is checked
+ * against the name it is listed under, and every test `handle` makes of a path is one of these rows, made in the rows'
+ * order.
  */
 const owner = key(9), A = key(1), B = key(2), C = key(3), D = key(4), treasury = key(7), reader = key(40);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
@@ -144,6 +145,14 @@ describe('the door\'s routes', () => {
     const listed = (withCoin: boolean) => all.filter((r) => r.listed !== null && (withCoin || !r.coin)).map((r) => r.listed);
     expect((await plain.get<{ routes: string[] }>('/.well-known/quilt')).routes).toEqual(listed(false));
     expect((await coined.get<{ routes: string[] }>('/.well-known/quilt')).routes).toEqual(listed(true));
+  });
+
+  it('asks each listed route at a path its name describes, each placeholder standing for one segment', () => {
+    for (const r of routes(plain)) {
+      if (r.listed === null) continue;
+      const name = new RegExp(`^${r.listed.replace(/<[a-z]+>/g, '[^/]+')}$`);
+      expect(name.test(r.path), `${r.path} is no ${r.listed}`).toBe(true);
+    }
   });
 
   it('tests each path in `handle` as one of these rows, in the rows\' order, and names a row for every sub-route a pattern takes', () => {

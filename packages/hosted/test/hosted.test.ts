@@ -328,7 +328,7 @@ describe('the page of a square', () => {
     expect(none).toContain('Neither reading names a page kept here.');
     expect(restsOn(none)).toEqual([NONE, NONE]);
     // The store loses the page's bytes: each rest still names the page and its hash, as a page kept here, with no passage.
-    // This pins today's answer, which looks wrong: the page says kept here when the bytes are gone. The restsOf and squareView change (K6, H2) will update this line.
+    // This pins today's answer, which looks wrong: the page says kept here when the bytes are gone. A change to how squareOf in hosted.ts reads the rests will change this line.
     const bytes = store.getBlob(read)!;
     store.db.prepare('delete from blobs where hash = ?').run(read);
     try {
@@ -340,12 +340,12 @@ describe('the page of a square', () => {
     // The owner sharpens the apart family: the traced piece keeps its hash in the newer version, and the apart piece's old hash is among the newer version's ancestral pieces.
     const newer = (await owner.sharpen(p, async () => 'Scale is read from the section that reports it.')).hash as Hash;
     // Under the newer version's address, the readings made under the earlier one are shown, and the rests are read from the newer version's log alone, so none is named, while the grade still counts both.
-    // This pins today's answer, which looks wrong: the grade counts rests the readings do not show. The restsOf and squareView change (K6, H2) will update these lines.
+    // This pins today's answer, which looks wrong: the grade counts rests the readings do not show. A change to how squareOf in hosted.ts reads the rests will change these lines.
     const kept = (await page(newer, traced)).html;
     expect(kept).toContain('Both readings rest on pages kept here.');
     expect(restsOn(kept)).toEqual([NONE, NONE]);
     const ancestral = (await page(newer, apart)).html;
-    // This pins today's answer, which looks wrong: the piece is called open beside two readings, and neither shows its rests. The restsOf and squareView change (K6, H2) will update these lines.
+    // This pins today's answer, which looks wrong: the piece is called open beside two readings, and neither shows its rests. A change to how squareOf in hosted.ts reads an ancestral piece and its rests will change these lines.
     expect(ancestral).toContain('<p class="state">It is open: nobody has read it yet.</p>');
     expect(restsOn(ancestral)).toEqual([NONE, NONE]);
     // Under the address of the version they were made under, the same readings quote their passages.
