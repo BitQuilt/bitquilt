@@ -178,14 +178,14 @@ export function createHosted(options: HostedOptions): Hosted {
     return { token, address, url: `${trackerUrl()}mcp/${token}` };
   }
 
-  /** The Quilt that signs for a member, by the hash of their address token, posting with the custody secret and the session's witness. */
+  /** The Quilt that signs for a member, by the hash of their address token, posting to this tracker with the custody secret and the session's witness, and to any other with neither. */
   function quiltFor(hash: string, hostName: string | undefined, witness: Witness | null = null): Quilt | null {
     const member = store.getMember(hash);
     if (!member) return null;
     const secret = secretFromHex(decrypt(keySecret, member.keyEnc));
     const config: Config = { ...DEFAULT_CONFIG, trackers: [trackerUrl()], relays: options.relays ?? [], can: ['web'], ...(member.name ? { name: member.name } : {}) };
     const home = join(options.home, hash);
-    const resolver = new Resolver(config, home, options.fetchImpl ?? fetch, { 'x-quilt-custody': custodySecret, ...witnessHeaders(witness) });
+    const resolver = new Resolver(config, home, options.fetchImpl ?? fetch, { to: trackerUrl(), headers: { 'x-quilt-custody': custodySecret, ...witnessHeaders(witness) } });
     return new Quilt(config, { secret, address: addressOf(secret) }, resolver, hostName, witness);
   }
 

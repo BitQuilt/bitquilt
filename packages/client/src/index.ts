@@ -3,7 +3,7 @@ export * from './config.js';
 export * from './link.js';
 export * from './listings.js';
 export * from './render.js';
-export { Resolver, askJson, KEEP_EVERY_MS, type Kept, type Library, type Posted, type Resolved } from './resolver.js';
+export { Resolver, askJson, KEEP_EVERY_MS, type Kept, type Library, type Posted, type PostHeaders, type Resolved } from './resolver.js';
 export { FileChains, type Chains, type Held } from './chains.js';
 export { Quilt, modelFor, type AttentionItem, type CoinBalance, type Handed, type Pattern, type Sharpened, type Standing } from './quilt.js';
 export { AWAY_LOG, launchdLabel, ownerTurn, type OwnerTurn } from './away.js';

@@ -80,7 +80,7 @@ export async function start(options: StartOptions): Promise<Node> {
     ...(options.page?.relays ? { relays: options.page.relays } : {}),
   };
   // The one store: the resolver keeps in and serves from the door's store, so a node's chain is one chain.
-  const resolver = new Resolver(config, options.home, fetchImpl, {}, store);
+  const resolver = new Resolver(config, options.home, fetchImpl, null, store);
   const by = options.door?.url ?? options.by ?? 'node';
   const sources = options.sources ?? [...new Set([...(options.door?.peers ?? []), ...config.trackers])];
 

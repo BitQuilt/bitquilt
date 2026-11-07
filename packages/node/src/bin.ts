@@ -37,7 +37,7 @@ async function main(): Promise<void> {
   if (roles.includes('host')) {
     if (!keySecret) throw new Error('QUILT_KEY_SECRET is required for host: the keys a node holds are encrypted with it');
     // QX-19: a host fetches a trace's pages on a stranger's word and serves what it kept to anyone, so never from a private address.
-    env.QUILT_READS ??= 'public';
+    env.QUILT_READS ||= 'public';
   }
   const oauthSecret = env.QUILT_OAUTH_SECRET;
   const ranges = env.QUILT_WITNESS_RANGES ? witnessRanges(env.QUILT_WITNESS_RANGES) : undefined;

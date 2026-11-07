@@ -7,6 +7,7 @@
  */
 import { type Hash, hashBytes } from '@bitquilt/core';
 import type { Door } from './door.js';
+import { Refused, publicGet, readCapped } from './public-fetch.js';
 import type { Posted } from './resolver.js';
 
 /** What the model hands in beside a field: the page and the words on it the field rests on. */
@@ -64,24 +65,12 @@ export function locate(text: string, passage: string): [number, number] | null {
 }
 
 /**
- * Whether a host is the machine itself or a private network, by its literal address or the local name: what a shared
- * connector does not fetch from on a stranger's word (`QUILT_READS=public`, which the hosted binary sets), since a read
- * is kept and served to anyone.
+ * A page fetched once and drawn to text, or the reason it could not be. Where the connector is shared
+ * (`QUILT_READS=public`, which the hosted binary sets), it fetches on a stranger's word and serves what it kept to
+ * anyone, so the GET is `publicGet`'s, refused at a private address on every hop. In either case the body is read to
+ * READ_MAX and no further, and the reason names the kind of failure and nothing the network or the page said.
  */
-export function privateHost(hostname: string): boolean {
-  const h = hostname.replace(/^\[|\]$/g, '').toLowerCase();
-  if (h === 'localhost' || h.endsWith('.localhost') || h === '0.0.0.0' || h === '::' || h === '::1') return true;
-  const v4 = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(h.startsWith('::ffff:') ? h.slice(7) : h);
-  if (v4) {
-    const a = Number(v4[1]);
-    const b = Number(v4[2]);
-    return a === 0 || a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
-  }
-  return /^(fc|fd|fe[89ab])/i.test(h);
-}
-
-/** A page fetched once and drawn to text, or the reason it could not be. */
-export async function fetchRead(url: string, now: string, fetchImpl: typeof fetch = fetch): Promise<{ read: ReadKept } | { why: string }> {
+export async function fetchRead(url: string, now: string): Promise<{ read: ReadKept } | { why: string }> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -89,22 +78,26 @@ export async function fetchRead(url: string, now: string, fetchImpl: typeof fetc
     return { why: 'not a URL' };
   }
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return { why: 'not an http or https URL' };
-  if (process.env.QUILT_READS === 'public' && privateHost(parsed.hostname)) return { why: 'a private address, which this connector does not fetch' };
-  let r: Response;
+  const signal = AbortSignal.timeout(FETCH_MS);
+  const accept = 'text/html, text/plain;q=0.9, */*;q=0.1';
   try {
-    r = await fetchImpl(url, { signal: AbortSignal.timeout(FETCH_MS), headers: { accept: 'text/html, text/plain;q=0.9, */*;q=0.1' }, redirect: 'follow' });
+    const r = process.env.QUILT_READS === 'public' ? await publicGet(url, { accept, signal }) : await fetch(url, { signal, headers: { accept }, redirect: 'follow' });
+    const contentType = r.headers.get('content-type') ?? 'text/plain';
+    const why = !r.ok ? `the page answered ${r.status}` : !/^(text\/|application\/(xhtml\+xml|xml|json))/i.test(contentType) ? 'the page is not text' : null;
+    if (why) {
+      await r.body?.cancel().catch(() => {});
+      return { why };
+    }
+    const raw = await readCapped(r, READ_MAX);
+    if (!raw) return { why: `the page is over ${READ_MAX} bytes` };
+    const text = drawText(new TextDecoder().decode(raw), contentType);
+    const bytes = enc.encode(text);
+    if (bytes.length === 0) return { why: 'the page has no text' };
+    return { read: { url, hash: hashBytes(bytes), at: now, media: 'text/plain', bytes, text } };
   } catch (e) {
-    return { why: `the page could not be fetched (${(e as Error).message})` };
+    if (e instanceof Refused) return { why: e.why };
+    return { why: signal.aborted ? `the page did not answer within ${FETCH_MS / 1000} seconds` : 'the page could not be reached' };
   }
-  if (!r.ok) return { why: `the page answered ${r.status}` };
-  const contentType = r.headers.get('content-type') ?? 'text/plain';
-  if (!/^(text\/|application\/(xhtml\+xml|xml|json))/i.test(contentType)) return { why: `the page is ${contentType.split(';')[0]}, not text` };
-  const raw = await r.arrayBuffer();
-  if (raw.byteLength > READ_MAX) return { why: `the page is over ${READ_MAX} bytes` };
-  const text = drawText(new TextDecoder().decode(raw), contentType);
-  const bytes = enc.encode(text);
-  if (bytes.length === 0) return { why: 'the page has no text' };
-  return { read: { url, hash: hashBytes(bytes), at: now, media: 'text/plain', bytes, text } };
 }
 
 /** A read put on a tracker under its hash (QX-19 section 2); true when it took it or already had it. */
@@ -135,7 +128,7 @@ export async function traceAfterReveal(door: Door, problem: Hash, piece: Hash, r
       continue;
     }
     if (!index.has(r.url) && !failed.has(r.url)) {
-      const got = await fetchRead(r.url, door.stamp(), fetchImpl);
+      const got = await fetchRead(r.url, door.stamp());
       if ('why' in got) failed.set(r.url, got.why);
       else {
         index.set(r.url, reads.length);
