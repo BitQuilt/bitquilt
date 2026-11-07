@@ -238,8 +238,6 @@ export interface Layer {
   free(root: Address, at?: string): number;
   /** QX-15: a root's locks live at now. */
   liveLocks(root: Address): LockView[];
-  /** The same as `liveLocks`, under the name the first readers used. */
-  locks(root: Address): LockView[];
   /** Whether a stake rule by this key would count if received now, and why not. */
   admitStakeRule(problem: Hash, key: Address, body: Record<string, unknown>): Admission;
   /** Whether a lock by this key on this piece would count if received now, and why not; a coin-kind lock comes with the word the door read of the coin lock (QX-17). */
@@ -991,7 +989,6 @@ export function challengeLayer(input: {
     locked: f.locked,
     free: f.free,
     liveLocks,
-    locks: liveLocks,
     admitStakeRule,
     admitLock,
     lockEndsAt: (l) => lockEnd(f, l),

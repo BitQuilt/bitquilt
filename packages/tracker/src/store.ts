@@ -402,11 +402,15 @@ export class Store {
       .run(tokenHash, address, keyEnc, at);
   }
 
-  getMember(tokenHash: string): { address: string; keyEnc: string; createdAt: string; name: string | null } | null {
+  /**
+   * A member by the hash of their address token. The table's `name` column is never written, so it is not read; it
+   * stays in the schema so that no store migrates.
+   */
+  getMember(tokenHash: string): { address: string; keyEnc: string; createdAt: string } | null {
     const row = this.db
-      .prepare('select address, key_enc, created_at, name from members where token_hash = ?')
-      .get(tokenHash) as { address: string; key_enc: string; created_at: string; name: string | null } | undefined;
-    return row ? { address: row.address, keyEnc: row.key_enc, createdAt: row.created_at, name: row.name } : null;
+      .prepare('select address, key_enc, created_at from members where token_hash = ?')
+      .get(tokenHash) as { address: string; key_enc: string; created_at: string } | undefined;
+    return row ? { address: row.address, keyEnc: row.key_enc, createdAt: row.created_at } : null;
   }
 
   /** The first time a member's address was used, kept once: a later call changes nothing. What the funnel counts as addresses first used (counts.ts). */

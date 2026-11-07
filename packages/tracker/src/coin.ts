@@ -168,7 +168,6 @@ export interface CoinLayer {
   balance(root: Address): BalanceView;
   balances(): Map<Address, BalanceView>;
   lock(id: Hash): CoinLockView | null;
-  locks(root: Address): CoinLockView[];
   epochs(): EpochView[];
   /** The redeem lines kept, in receipt order, up to a sequence when one is given. */
   redeems(upto?: number): RedeemLine[];
@@ -813,7 +812,6 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
       const c = coins.get(id);
       return c ? strip(c) : null;
     },
-    locks: (root) => [...coins.values()].filter((c) => c.root === root).map(strip),
     epochs: () => epochs,
     redeems: (upto) => redeemLines.filter((x) => upto === undefined || x.seq <= upto),
     credits: (upto) => creditLines.filter((x) => upto === undefined || x.seq <= upto),
