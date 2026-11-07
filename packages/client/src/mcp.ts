@@ -142,8 +142,9 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     'quilt_me',
     {
       title: 'This client',
-      description:
+      description: [
         'The address this client signs with, its name, the model it declares, what it can do, the trackers it asks, how many events wait in its queue, from the first tracker that answers its standing (what it has, earned by work and not for sale; what is locked behind its claims under QX-15; what is free to stake), and, where a tracker carries the coin (QX-17), its coin: the balance in units, what is transferable now, what is still vesting, what is locked or escrowed, and what is free to stake or pay.',
+      ].join(' '),
       inputSchema: {},
       outputSchema: toolOutput,
     },
@@ -154,8 +155,10 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     'quilt_open',
     {
       title: 'Open a problem',
-      description:
-        "Opens a problem from a quilt link, a tracker address or a bare hash: the owner's title and statement of when it is done as their quoted words, the map of pieces with their states, the verifier kinds and how strongly each earns a square, and the link to pass on. Where the chat shows MCP apps, the window comes up beside the result on the problem's map.",
+      description: [
+        "Opens a problem from a quilt link, a tracker address or a bare hash: the owner's title and statement of when it is done as their quoted words, the map of pieces with their states, the verifier kinds and how strongly each earns a square, and the link to pass on.",
+        "Where the chat shows MCP apps, the window comes up beside the result on the problem's map.",
+      ].join(' '),
       inputSchema: { link: z.string().describe("A quilt: link, a tracker's /p/<hash> address, or a sha256: hash") },
       outputSchema: toolOutput,
     },
@@ -166,8 +169,10 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     'quilt_search',
     {
       title: 'Search for problems',
-      description:
-        'Searches the trackers and the relays this client knows for problems whose title, slug, topics or statement of done contain the words, and lists each with its counts and its owner; a result from a relay names the tracker to open it from. Where the chat shows MCP apps, the window comes up beside the result with the same search in it.',
+      description: [
+        'Searches the trackers and the relays this client knows for problems whose title, slug, topics or statement of done contain the words, and lists each with its counts and its owner; a result from a relay names the tracker to open it from.',
+        'Where the chat shows MCP apps, the window comes up beside the result with the same search in it.',
+      ].join(' '),
       inputSchema: { query: z.string().min(1).max(200) },
       outputSchema: toolOutput,
     },
@@ -209,8 +214,11 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     'quilt_window_io',
     {
       title: 'What the window reads',
-      description:
-        "The window's own reader, for the card and not for the model: a search over the trackers and relays, a problem's map and grades, this home's library and what its node serves, the keys this person follows, who this client is, the trackers' totals, and the phrase templates alone, each answered as JSON text for the window to draw. Its one write is the list of followed keys in this home's library. Hidden from the model by its visibility.",
+      description: [
+        "The window's own reader, for the card and not for the model: a search over the trackers and relays, a problem's map and grades, this home's library and what its node serves, the keys this person follows, who this client is, the trackers' totals, and the phrase templates alone, each answered as JSON text for the window to draw.",
+        "Its one write is the list of followed keys in this home's library.",
+        'Hidden from the model by its visibility.',
+      ].join(' '),
       inputSchema: {
         op: z.enum(WINDOW_OPS),
         query: z.string().max(200).optional(),
@@ -324,8 +332,11 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     'quilt_read',
     {
       title: 'Read a problem',
-      description:
-        "A problem's map with its kinds, the stake it asks and the gold its owner committed (how many squares are verified, missed or awaiting the reveal), its accepted returns, each as the quoted words of the key that signed it with the signer named and a verified square said so, its disputed pieces (every return on each quoted with its signer and model named, the ones this key signed marked, and the fields they differ on), its challenges (the ground as the challenger's quoted words, the judges drawn, each verdict, the outcome), and its judge panels (each candidate's return quoted, the seats drawn, each rank, the outcome). Where the tracker keeps traces (QX-19), each accepted square says whether both returns rest on kept reads, and each disputed piece's seams say on which fields the two readings differ, why, and what each side rests on, quoted with its signer named. A record piece (QX-20) shows its readings so far, each quoted with its signer named, how many rest on kept reads, and the seams between them.",
+      description: [
+        "A problem's map with its kinds, the stake it asks and the gold its owner committed (how many squares are verified, missed or awaiting the reveal), its accepted returns, each as the quoted words of the key that signed it with the signer named and a verified square said so, its disputed pieces (every return on each quoted with its signer and model named, the ones this key signed marked, and the fields they differ on), its challenges (the ground as the challenger's quoted words, the judges drawn, each verdict, the outcome), and its judge panels (each candidate's return quoted, the seats drawn, each rank, the outcome).",
+        "Where the tracker keeps traces (QX-19), each accepted square says whether both returns rest on kept reads, and each disputed piece's seams say on which fields the two readings differ, why, and what each side rests on, quoted with its signer named.",
+        'A record piece (QX-20) shows its readings so far, each quoted with its signer named, how many rest on kept reads, and the seams between them.',
+      ].join(' '),
       inputSchema: { problem: z.string().describe('The problem, as a link or a hash') },
       outputSchema: toolOutput,
     },

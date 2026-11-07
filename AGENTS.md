@@ -25,7 +25,7 @@ The same thing is called by its nearest name at each distance, and the documents
 
 What a person or a model reads lives in sixteen places, each held by the tests named or by review:
 
-- the tool descriptions in `packages/client/src/mcp.ts`, held by `packages/client/test/e2e.test.ts` and `mcpb.test.ts`, which refuse "you must", "always", "never", "do not", "important" and "ignore";
+- the tool descriptions in `packages/client/src/mcp.ts`, held by `packages/client/test/e2e.test.ts` and `mcpb.test.ts`, which refuse "you must", "always", "never", "do not", "important" and "ignore", and byte for byte by `descriptions.test.ts`, which pins the digest of each;
 - the Claude Desktop bundle's own words in `scripts/build-mcpb.mjs`, its description, long description and each setting's title and description, which a person reads in the install dialog, held by `mcpb.test.ts` to the same refusals;
 - how Quilt works, in `about.ts`, which the connector's instructions and `quilt_me` carry, held by `phrases.test.ts` to the gate and the same words;
 - the phrases in `phrases.ts`, held by `phrases.test.ts` to the gate and the same words;
