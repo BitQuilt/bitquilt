@@ -34,7 +34,7 @@ export interface StartOptions {
   door?: { port: number; host?: string } & Omit<TrackerOptions, 'store' | 'custodySecret' | 'extra' | 'extraWellKnown'>;
   /** The person's page (`work`): its port on localhost, the home's config when none; trackers and relays that override the home's config. */
   page?: { port?: number; trackers?: string[]; relays?: string[] };
-  /** The hosted on-ramp (`host`): what createHosted takes besides the store, the door's address and the custody secret; the members' homes under the node's home unless given. */
+  /** The hosted on-ramp (`host`, which needs its key secret): what createHosted takes besides the store, the door's address and the custody secret; the members' homes under the node's home unless given. */
   host?: Omit<HostedOptions, 'store' | 'trackerUrl' | 'custodySecret' | 'home'> & { home?: string };
   /** The sources a node with `keep` and no door pulls from: the door's peers and the config's trackers unless given. */
   sources?: string[];
@@ -70,6 +70,9 @@ export async function start(options: StartOptions): Promise<Node> {
   for (const r of roles) if (!ROLES.includes(r)) throw new Error(`${r} is not a role; the roles are ${ROLES.join(', ')}`);
   if (roles.has('host') && !roles.has('admit')) throw new Error('host is a role beside admit: custody is custody at a door');
   if (roles.has('admit') && !options.door) throw new Error('admit needs a door: its port and its url');
+  // The on-ramp's options where the node holds custody. Without the key secret the door would open and fail at the first join.
+  const custody = roles.has('host') ? options.host : undefined;
+  if (roles.has('host') && !custody?.keySecret) throw new Error('host needs a key secret: the keys a node holds are encrypted with it');
   mkdirSync(options.home, { recursive: true });
   const say = options.say ?? (() => {});
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -90,9 +93,9 @@ export async function start(options: StartOptions): Promise<Node> {
   if (roles.has('admit')) {
     const { port, host, ...rest } = options.door!;
     const custodySecret = randomBytes(32).toString('hex');
-    if (roles.has('host')) {
-      const { home: membersHome, ...hostRest } = options.host ?? ({} as NonNullable<StartOptions['host']>);
-      hosted = createHosted({ ...hostRest, store, trackerUrl: rest.url, custodySecret, home: membersHome ?? join(options.home, 'hosted'), fetchImpl } as HostedOptions);
+    if (custody) {
+      const { home: membersHome, ...hostRest } = custody;
+      hosted = createHosted({ ...hostRest, store, trackerUrl: rest.url, custodySecret, home: membersHome ?? join(options.home, 'hosted'), fetchImpl });
     }
     tracker = createTracker({ ...rest, store, custodySecret, ...(hosted ? { extra: hosted.routes, extraWellKnown: hosted.describe } : {}) });
     door = await tracker.listen(port, host ?? '127.0.0.1');
