@@ -20,7 +20,6 @@ import {
   commitHash,
   eventId,
   expandPieces,
-  hashBytes,
   isHash,
   newNonce,
   next,
@@ -29,7 +28,6 @@ import {
   renderInputs,
   signEvent,
   signObject,
-  envelopeProblems,
   textIssues,
 } from '@bitquilt/core';
 import * as coin from './coin.js';
