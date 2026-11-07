@@ -1,6 +1,6 @@
 /**
  * The loop every worker with no person beside it shares (worker-claude.mjs, worker-openai.mjs): the flags, the quilt
- * CLI, the piece as the CLI prints it, the schema the answer takes, the quote check, one problem worked, and every
+ * CLI, the piece as `quilt next --json` hands it, the schema the answer takes, the quote check, one problem worked, and every
  * problem waiting on a second reading. A worker file names its vendor, its key and its model, and gives `ask`, the one
  * call to its model; `runWorker` does the rest.
  *
@@ -15,6 +15,8 @@
  * those to `quilt return` as rests, and the CLI fetches each page, finds the passage and posts the trace beside the reveal.
  * The answer is then handed back through `quilt return`, signed by this worker's key, declared as `<vendor>/<model>`
  * (set `model` in the key's config, or QUILT_MODEL, to that same value so the claim says what the reveal says).
+ * A piece the model refuses is declined with the reason `refuse`, which the tracker counts by its reason, and the run
+ * goes on to the next piece; any other failure ends the problem's turn.
  *
  * With --second-only the CLI runs with QUILT_NEXT_ONLY=verify: it hands out only a piece that already has a reading
  * on it, so this worker confirms or disagrees with that reading and never does first work; which piece is the core's
@@ -49,14 +51,24 @@ export function parseArgs(args, defaultModel) {
   return { problem: positional[0], evidenceFile: positional[1], model: flag('--model', defaultModel), max: Number(flag('--max', '1000')), secondOnly: args.includes('--second-only'), all: args.includes('--all') };
 }
 
-/** The piece as the CLI prints it: its name and hash, the brief, the schema's fields, what is required, and the seams of a piece whose two readings differ (QX-19), one line each after `Seams:`. */
-export function readPiece(text) {
-  const head = text.match(/Piece (\S+) \((sha256:[0-9a-f]+)\)/);
-  const brief = text.match(/wrote this brief: "([\s\S]*?)"\n/)?.[1];
-  const fields = text.match(/these fields: (\{[\s\S]*?\}); required: ([^;]*); agreement is on: ([^.]*)\./);
-  if (!head || !brief || !fields) return null;
-  const seams = (text.split('\nSeams:\n')[1] ?? '').split('\n').map((l) => l.trim()).filter((l) => l.startsWith('On '));
-  return { name: head[1], hash: head[2], brief, properties: JSON.parse(fields[1]), required: fields[2].split(',').map((s) => s.trim()).filter(Boolean), seams };
+/**
+ * The piece as `quilt next --json` hands it (render.ts, handedJson): its name and hash, the brief, the schema's fields,
+ * what is required, and the seams of a piece whose two readings differ (QX-19), each a line with every side's passage
+ * quoted and its signer named. Null where the piece has no schema with fields, which this loop does not work.
+ */
+export function pieceFrom(handed) {
+  const props = handed?.schema?.properties;
+  if (!handed || typeof handed.piece !== 'string' || typeof handed.brief !== 'string' || !props || typeof props !== 'object') return null;
+  return { name: handed.name, hash: handed.piece, brief: handed.brief, properties: props, required: Array.isArray(handed.schema.required) ? handed.schema.required : [], seams: Array.isArray(handed.seams) ? handed.seams : [] };
+}
+
+/**
+ * A model's refusal of a piece, as a worker's `ask` throws it: the loop posts a decline with the reason `refuse`, so
+ * the tracker counts it beside the work and this key is not offered the piece again. A transient error is not one:
+ * a decline is for good, so only a refusal the vendor said is a refusal becomes one.
+ */
+export function refusal(message) {
+  return Object.assign(new Error(message), { refusal: true });
 }
 
 /**
@@ -216,22 +228,27 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
   const lastLine = (e) => (e.stderr || e.message).trim().split('\n').pop();
 
   /**
-   * One problem worked until the CLI hands out nothing more or `budget` pieces are returned: the number returned. An
-   * answer the gate refuses is asked for once more with the gate's words; a piece the model or the tracker then
-   * refuses is logged and ends this problem; the run goes on to the next.
+   * One problem worked until the CLI hands out nothing more or `budget` pieces are handled: the numbers returned and
+   * declined. An answer the gate refuses is asked for once more with the gate's words; a piece the model refuses is
+   * declined with the reason `refuse` and the next is taken; a piece the tracker then refuses is logged and ends this
+   * problem; the run goes on to the next.
    */
   async function work(problem, budget) {
     let n = 0;
-    for (; n < budget; n++) {
+    let declined = 0;
+    const gaveBack = new Set();
+    while (n + declined < budget) {
       if (stop.asked) break;
-      let text;
-      try { text = quilt('next', problem); } catch (e) {
+      let handed;
+      try { handed = jsonOut(quilt('next', problem, '--json')); } catch (e) {
         const said = lastLine(e);
         console.log(quiet.test(said) ? `${problem.slice(0, 19)}: ${said}` : `stopped: ${said}`);
         break;
       }
-      const piece = readPiece(text);
-      if (!piece) { console.log('could not read the piece the CLI printed; this worker handles agree pieces with a schema'); break; }
+      const piece = pieceFrom(handed);
+      if (!piece) { console.log('the piece handed over has no schema with fields; this worker handles agree pieces with a schema'); break; }
+      // A decline the tracker has not taken yet leaves the piece on offer: handed it again, the turn on this problem ends.
+      if (gaveBack.has(piece.hash)) { console.log(`${piece.name}: handed again after its decline; the decline is queued`); break; }
       try {
         const schema = schemaOf(piece);
         let answer = await ask({ piece, schema, evidence, note: '', model: o.model, key });
@@ -258,12 +275,26 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
           r = jsonOut(quilt('return', problem, piece.hash, JSON.stringify(answer), JSON.stringify(rests)));
         }
         console.log(`${piece.name}: ${JSON.stringify(answer)} -> commit ${r.commit.queued ? 'queued' : 'posted'}, reveal ${r.reveal.queued ? 'queued' : 'posted'}${answer.quote && !quoteOk(answer) ? ' (quote not verbatim)' : ''}${traceSaid(r.trace, rests)}`);
+        n++;
       } catch (e) {
+        if (e.refusal) {
+          // The model's refusal, counted at the tracker by its reason, and this key is not offered the piece again.
+          try {
+            quilt('decline', problem, piece.hash, 'refuse');
+          } catch (d) {
+            console.log(`${piece.name}: refused by the model, and the decline was not posted: ${lastLine(d)}`);
+            break;
+          }
+          console.log(`${piece.name}: declined, refuse: ${e.message}`);
+          gaveBack.add(piece.hash);
+          declined++;
+          continue;
+        }
         console.log(`${piece.name}: not returned: ${lastLine(e)}`);
         break;
       }
     }
-    return n;
+    return { returned: n, declined };
   }
 
   /** The problems the tracker lists with a piece waiting on a second reading: `needs_verify` or `disputed` in its counts. */
@@ -277,17 +308,20 @@ export async function runWorker({ vendor, keyName, defaultModel, ask, file }) {
   }
 
   let n = 0;
+  let declined = 0;
   if (o.all) {
     const list = await waiting();
     console.log(`${list.length} problem${list.length === 1 ? '' : 's'} with pieces waiting on a second reading${o.secondOnly ? '' : ' (every piece is taken, --second-only not given)'}`);
     for (const [i, p] of list.entries()) {
-      if (n >= o.max || stop.asked) break;
+      if (n + declined >= o.max || stop.asked) break;
       if (i > 0) await pause(2000);
       console.log(`${p.problem.slice(0, 19)} "${p.title}": ${p.waiting} waiting`);
-      n += await work(p.problem, o.max - n);
+      const done = await work(p.problem, o.max - n - declined);
+      n += done.returned;
+      declined += done.declined;
     }
   } else {
-    n = await work(o.problem, o.max);
+    ({ returned: n, declined } = await work(o.problem, o.max));
   }
-  console.log(`${n} piece${n === 1 ? '' : 's'} returned as ${vendor}/${o.model}${o.secondOnly ? ', each a second reading' : ''}${stop.asked ? '; stopped, and no other taken' : ''}`);
+  console.log(`${n} piece${n === 1 ? '' : 's'} returned as ${vendor}/${o.model}${o.secondOnly ? ', each a second reading' : ''}${declined ? `; ${declined} declined as refused by the model` : ''}${stop.asked ? '; stopped, and no other taken' : ''}`);
 }

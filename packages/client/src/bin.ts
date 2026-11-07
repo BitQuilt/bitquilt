@@ -8,7 +8,8 @@
  *                                                         through the node already holding this home's page when there is one
  *   quilt serve [--port 3978]                             the page and the node alone
  *   quilt open <link>  |  quilt search <words>  |  quilt read <link>
- *   quilt next [problem]  |  quilt return <problem> <piece> '<json>' ['<rests json>']  |  quilt decline <problem> <piece> <reason>
+ *   quilt next [problem] [--json]  |  quilt return <problem> <piece> '<json>' ['<rests json>']  |  quilt decline <problem> <piece> <reason>
+ *                                                         --json: the piece as one object, its seams quoted with their signers named, for a program that works it
  *                                                         the rests (QX-19): [{ field, url, passage }], what each field rests on; the page is fetched and the trace posted
  *   quilt seed <problem> on|off                          keep a problem: a seed event on its log, and the problem in the standing list
  *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
@@ -20,6 +21,7 @@
  *                                                         piece whose gold is due (accepted and not yet revealed), as each `quilt away` turn does before its agent
  *   quilt gold due                                        the pieces whose gold is due, with nothing posted
  *   quilt sharpen [<problem>]                             the owner's sharpening of a brief two grounded readings read apart (QX-19), the sentence from the agent CLI on this machine; every owned problem, or one
+ *   quilt freeze <problem> [off]                          the owner's freeze of a brief in this home: no sharpening from then on, so no version republishes it; off thaws it
  *   quilt pay <problem> <amount> <per_square>            coin escrowed to a problem on the coin's home (QX-17), paid per accepted square
  *   quilt balance                                         this key's coin at the first tracker that carries one
  *   quilt transfer <to> <amount>                          coin moved to an address on the coin log, from the time the home's parameters name
@@ -37,7 +39,7 @@ import { readFileSync } from 'node:fs';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { DeclineReason } from '@bitquilt/core';
 import { NEEDS_AGENT, RUN_TIMEOUT_MS, agentSentence, awayCli, findAgent, searchDirs } from './away.js';
-import { type SentenceAsk, seamsText, sentenceAsk } from './render.js';
+import { type SentenceAsk, handedJson, seamsText, sentenceAsk } from './render.js';
 import { type Config, createKey, ensureHome, loadConfig, loadKey, quiltHome, saveConfig } from './config.js';
 import { entryHere, installHere } from './install.js';
 import type { Side } from './listings.js';
@@ -192,7 +194,13 @@ async function main(): Promise<void> {
     }
     case 'next': {
       const quilt = make();
-      const { hash, pick, posted, owner, stake, lock, seams } = await quilt.next(args[1] ?? '');
+      // --json: the piece as one object a program reads (render.ts, handedJson), the seams in it as quilt_next says them.
+      const handed = await quilt.next(args.slice(1).find((a) => a !== '--json') ?? '');
+      if (args.includes('--json')) {
+        console.log(JSON.stringify(handedJson(handed), null, 2));
+        return;
+      }
+      const { hash, pick, posted, owner, stake, lock, seams } = handed;
       console.log(quilt.pieceText(hash, pick, owner, stake));
       // QX-19: the seams of a piece whose two readings differ, as quilt_next says them, so a loop reading this output sees them too.
       if (seams.length) console.log(`Seams:\n${seamsText(seams, (k) => k).join('\n')}`);
@@ -201,6 +209,10 @@ async function main(): Promise<void> {
     }
     case 'seed': {
       console.log(JSON.stringify(await make().seed(args[1] as `sha256:${string}`, (args[2] ?? 'on') !== 'off')));
+      return;
+    }
+    case 'freeze': {
+      console.log(JSON.stringify(await make().freeze(args[1] as `sha256:${string}`, (args[2] ?? 'on') !== 'off')));
       return;
     }
     case 'sharpen': {

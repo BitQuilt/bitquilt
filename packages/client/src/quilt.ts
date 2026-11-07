@@ -84,6 +84,7 @@ export interface Sharpened { problem: Hash; sentences: { family: string; field: 
 /** The most a sentence added to a brief may run (QX-19 section 4). */
 export const SENTENCE_MAX = 400;
 const NOT_OWNER = 'only the owner sharpens a brief';
+const FROZEN = 'that problem\'s brief is frozen in this home; `quilt freeze <problem> off` thaws it';
 
 export interface Pattern {
   title: string;
@@ -859,6 +860,7 @@ export class Quilt {
    */
   async sharpen(problem: Hash, ask: (q: SentenceAsk) => Promise<string | null>, now = new Date().toISOString()): Promise<Sharpened> {
     const id = this.needKey();
+    if (this.library.problems[problem]?.frozen) throw new Error(FROZEN);
     const { state, layer, superseded } = await this.open(problem);
     const old = state.envelope.problem;
     if (old.owner.toLowerCase() !== id.address.toLowerCase()) throw new Error(NOT_OWNER);
@@ -926,12 +928,31 @@ export class Quilt {
     return { problem, sentences, hash: out.posted.length ? out.hash : null, posted: out.posted, refused: out.refused };
   }
 
-  /** The owner's sharpening over every problem the home knows and this key owns, each once (QX-19 section 4); the away turn runs it before its agent. A problem with no such seam is passed over in silence. */
+  /**
+   * The owner's freeze of a problem's brief in this home (QX-19 section 4): from now on the owner's turn does not
+   * sharpen it, so a dispute after the freeze waits beside the brief as written and no version moves the squares
+   * already made onto another hash; the gold due is still revealed. Off thaws it. Only a problem this home's library
+   * knows and this key owns.
+   */
+  async freeze(problem: Hash, on = true): Promise<{ problem: Hash; frozen: string | null }> {
+    const id = this.needKey();
+    const entry = this.library.problems[problem];
+    if (!entry) throw new Error('that problem is not in this home\'s library');
+    const { state } = await this.open(problem);
+    if (state.envelope.problem.owner.toLowerCase() !== id.address.toLowerCase()) throw new Error('only the owner freezes a brief');
+    const kept = this.library.problems[problem]!;
+    if (on) kept.frozen ??= this.stamp();
+    else delete kept.frozen;
+    this.save();
+    return { problem, frozen: kept.frozen ?? null };
+  }
+
+  /** The owner's sharpening over every problem the home knows and this key owns, each once (QX-19 section 4); the away turn runs it before its agent. A problem with no such seam, or one frozen here, is passed over in silence. */
   async sharpenDue(ask: (q: SentenceAsk) => Promise<string | null>, now = new Date().toISOString()): Promise<Sharpened[]> {
     if (!this.identity) return [];
     const out: Sharpened[] = [];
     for (const h of new Set([...Object.keys(this.library.problems), ...Object.keys(this.library.gold ?? {})])) {
-      if (!isHash(h) || this.library.problems[h]?.next) continue;
+      if (!isHash(h) || this.library.problems[h]?.next || this.library.problems[h]?.frozen) continue;
       try {
         const r = await this.sharpen(h, ask, now);
         if (r.sentences.length) out.push(r);

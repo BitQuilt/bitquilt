@@ -16,7 +16,7 @@
  */
 import { fileURLToPath } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
-import { instruction, question, runWorker } from './worker-loop.mjs';
+import { instruction, question, refusal, runWorker } from './worker-loop.mjs';
 
 const TOOLS = [
   { type: 'web_search_20260209', name: 'web_search', max_uses: 5 },
@@ -42,7 +42,7 @@ export async function ask({ piece, schema, evidence, note, model, key }) {
     // The server paused its own tool loop: the turn so far goes back as the assistant's, and it resumes where it was.
     messages.push({ role: 'assistant', content: response.content });
   }
-  if (response.stop_reason === 'refusal') throw new Error(`claude declined this piece${response.stop_details?.category ? ` (${response.stop_details.category})` : ''}`);
+  if (response.stop_reason === 'refusal') throw refusal(`claude refused this piece${response.stop_details?.category ? ` (${response.stop_details.category})` : ''}`);
   if (response.stop_reason === 'pause_turn') throw new Error('claude did not finish reading within six turns');
   const text = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
   return JSON.parse(text);

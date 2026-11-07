@@ -3,6 +3,7 @@ import { gzipSync } from 'node:zlib';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Hash } from '@bitquilt/core';
+import { HOW_QUILT_WORKS } from '../src/about.js';
 import { AWAY_LOG, NEEDS_AGENT, awayTurn, ownerTurn } from '../src/away.js';
 import { type SentenceAsk, foundText, sentenceAsk } from '../src/render.js';
 import { runTool } from '../src/tools.js';
@@ -24,7 +25,8 @@ import { join } from 'node:path';
  * a reading that rests on nothing is set aside, said as such, and the same key is handed the piece again and read a
  * second time; the owner's node sharpens a brief two grounded readings read apart, the sentence asked with both
  * passages, the version published with it and `prev` set, the gold carried, the old problem said to be replaced and
- * handing nothing, and the away turn's line counting it. Where the connector is shared, no page is fetched at a
+ * handing nothing, and the away turn's line counting it; a brief the owner froze in this home is not sharpened until
+ * thawed. Where the connector is shared, no page is fetched at a
  * private address, by number, by name or on a redirect's hop; a body is read to READ_MAX and no further; and why a page
  * was left out names the kind of failure and nothing the server said.
  */
@@ -258,6 +260,9 @@ describe('a return with rests', () => {
     for (const t of tools.tools) expect(t.description ?? '').not.toMatch(instructs);
     expect(JSON.stringify(tools.tools.find((t) => t.name === 'quilt_return')!.inputSchema)).toContain('"rests"');
     expect(tools.tools.find((t) => t.name === 'quilt_next')!.description).toContain('QX-19');
+    // The rule that decides between two readings is said as a fact, in the return's words and in how Quilt works (section 4).
+    expect(tools.tools.find((t) => t.name === 'quilt_return')!.description).toContain('one that rests on nothing is set aside');
+    expect(HOW_QUILT_WORKS).toContain('one that rests on nothing is set aside');
     await close();
   });
 });
@@ -410,5 +415,22 @@ describe('the seam decides itself (section 4)', () => {
     expect(t.said).toMatch(/sharpened: [12] published/);
     expect(lines).toEqual([]);
     expect(home).toBeTruthy();
+  });
+
+  it('passes over a problem whose brief the owner froze in this home, refuses to sharpen it by name, and sharpens it once thawed', async () => {
+    const cold = (await owner.publish({ ...pattern, slug: 'frozen', pieces: { 'statement/*': { ...pattern.pieces['statement/*']!, count: 1 } } })).hash;
+    const piece = (await a.open(cold)).state.pieces[0]!.piece.hash;
+    await a.return(cold, piece, { verdict: 'supports', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: HOLDS }]);
+    await b.return(cold, piece, { verdict: 'contradicts', quote: 'q' }, [{ field: 'verdict', url: `${site}/paper`, passage: NOT_AT_SCALE }]);
+    expect((await trackerState(cold)).pieces[0]).toMatchObject({ state: 'disputed' });
+    await expect(a.freeze(cold)).rejects.toThrow('only the owner freezes a brief');
+    expect((await owner.freeze(cold)).frozen).toMatch(/^20\d\d-/);
+    const ask = async () => 'The first section governs, whatever a later one says of scale.';
+    expect((await owner.sharpenDue(ask)).map((x) => x.problem)).not.toContain(cold);
+    await expect(owner.sharpen(cold, ask)).rejects.toThrow(/frozen in this home/);
+    expect((await trackerState(cold)).superseded).toBeNull();
+    expect(await owner.freeze(cold, false)).toEqual({ problem: cold, frozen: null });
+    expect((await owner.sharpenDue(ask)).find((x) => x.problem === cold)).toMatchObject({ sentences: [{ kept: true }], posted: [base] });
+    expect((await trackerState(cold)).superseded).not.toBeNull();
   });
 });
