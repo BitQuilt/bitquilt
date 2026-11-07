@@ -9,7 +9,7 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, w
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildWindow } from './build-window.mjs';
+import { buildWindow, version } from './build-window.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
@@ -17,9 +17,6 @@ const bin = join(dist, 'bin');
 mkdirSync(bin, { recursive: true });
 const platform = `${process.platform}-${process.arch}`;
 const exe = process.platform === 'win32' ? '.exe' : '';
-// The client's version, from its package.json as the other two build scripts read it; the root package.json is the
-// workspace's and says 0.0.0. The connector names it in its handshake, where mcp.ts reads it as QUILT_VERSION.
-const version = JSON.parse(readFileSync(join(root, 'packages', 'client', 'package.json'), 'utf8')).version;
 
 const targets = [
   { name: 'quilt', entry: 'packages/client/src/bin.ts', assets: { 'index.html': 'packages/client/page/index.html' } },
@@ -28,6 +25,8 @@ const targets = [
 
 // The window first, so the bundle carries the document that matches its sources (window.generated.ts is not committed).
 await buildWindow();
+// The version is the client's, which build-window.mjs reads from packages/client/package.json; the root package.json
+// is the workspace's and says 0.0.0. The connector names it in its handshake, where mcp.ts reads it as QUILT_VERSION.
 for (const t of targets) {
   const bundle = join(dist, `${t.name}.cjs`);
   await build({

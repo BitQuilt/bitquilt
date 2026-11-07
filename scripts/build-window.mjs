@@ -1,8 +1,8 @@
 // Builds the directory window (packages/client/window) into one self-contained HTML document and writes it as a
 // string to packages/client/src/window.generated.ts, which the connector serves as the ui:// resource (APP.md, "The
 // window"). The generated file is not committed: typecheck, test, build:mcpb and build:bin each build it first, so it
-// always matches its sources. The card names the client's version from packages/client/package.json, the one place a
-// release writes it, as the other two build scripts read it.
+// always matches its sources. The version is read here once, from packages/client/package.json: the card names it,
+// and the other two build scripts import it from here and write it into the executables and the bundle.
 //
 //   node scripts/build-window.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -12,7 +12,8 @@ import { build, transform } from 'esbuild';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const client = join(root, 'packages', 'client');
-const { version } = JSON.parse(readFileSync(join(client, 'package.json'), 'utf8'));
+/** The client's version, read once: the card names it, and the executables and the bundle carry it. */
+export const { version } = JSON.parse(readFileSync(join(client, 'package.json'), 'utf8'));
 /** The card bundles these; the comment says so, as the page says what it loads (nothing from another server). */
 const NOTICE = '<!-- Quilt, Apache-2.0. Bundles @modelcontextprotocol/ext-apps (MIT), @modelcontextprotocol/sdk (MIT) and zod (MIT). -->';
 

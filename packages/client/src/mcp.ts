@@ -18,9 +18,9 @@ import { WINDOW_HTML } from './window.generated.js';
 import { WINDOW_OPS, WINDOW_URI, WINDOW_URI_NOW } from './window.js';
 
 /**
- * The version the connector names in its handshake, which packages/client/package.json holds and a release changes
- * there alone. The executables and the bundle carry it as QUILT_VERSION, written in by their build scripts; under tsx
- * and vitest nothing is written in, and the file beside the source is read.
+ * The version the connector names in its handshake, whose one source is packages/client/package.json. The executables
+ * and the bundle carry it as QUILT_VERSION, written in by their build scripts. Under tsx and vitest nothing is written
+ * in: the variable is read from the environment where it is set, and the file beside the source otherwise.
  */
 const VERSION: string = process.env.QUILT_VERSION ?? (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
 

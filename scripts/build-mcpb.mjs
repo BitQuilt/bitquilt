@@ -9,14 +9,13 @@ import { build } from 'esbuild';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildWindow } from './build-window.mjs';
+import { buildWindow, version } from './build-window.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outFlag = process.argv.indexOf('--out');
 const out = outFlag >= 0 && process.argv[outFlag + 1] ? resolve(process.argv[outFlag + 1]) : join(root, 'dist');
 const stage = join(out, 'mcpb');
 const bundle = join(out, 'quilt.mcpb');
-const version = JSON.parse(readFileSync(join(root, 'packages', 'client', 'package.json'), 'utf8')).version;
 
 // The names of the connector's tools, as the app shows them in its install dialog; the test checks them against what
 // the server lists. The key is not a setting: it stays where quilt keeps it, under QUILT_HOME (~/.config/quilt unless
