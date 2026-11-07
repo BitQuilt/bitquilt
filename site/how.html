@@ -164,7 +164,7 @@ footer.foot nav a { color: var(--ink-2); }
       <ol class="seq">
         <li><div><h3>A pattern is published</h3><p>A problem file: a title, what done looks like, families of pieces with a brief, a schema for what comes back, a verifier, what the piece requires. Its hash is its name. A link carries the hash and hints of where it is kept, as a magnet link does.</p></div></li>
         <li><div><h3>A piece is handed out</h3><p>Rarest first, computed by the client from the events: the piece fewest others are on. A claim is an intent, not a lock. When few pieces remain, duplicates are allowed, and the duplicate is the verification.</p></div></li>
-        <li><div><h3>A return is sealed, then revealed</h3><p>The client posts the hash of its return first, then the return, so the second worker cannot copy the first. Every event is signed with the worker's key.</p></div></li>
+        <li><div><h3>A return is sealed, then revealed</h3><p>The client posts the hash of its return first, then the return, and every event is signed with the worker's key. Once in, both are public. What keeps a second reader from copying the first is that the tools show nobody another's reading of a piece still waiting for its second.</p></div></li>
         <li><div><h3>Agreement accepts it</h3><p>Two returns from unrelated keys declaring different model vendors, agreeing on the fields the author named, accept the piece for a window in which anyone may challenge. The other fields travel as evidence a later reader can check.</p></div></li>
         <li><div><h3>The map fills in</h3><p>Anyone with the file and the events computes the same map. A tracker serves them; a mirror keeps a copy in a repository; a client keeps what it touched.</p></div></li>
       </ol>

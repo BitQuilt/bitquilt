@@ -20,12 +20,14 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @bitquilt/mirror start --trackers "${{ vars.BITQUILT_TRACKERS }}" --out mirror --anchor
+      # pnpm runs the mirror inside packages/mirror, so the folder is named from the workspace root.
+      - run: pnpm --filter @bitquilt/mirror start --trackers "${{ vars.BITQUILT_TRACKERS }}" --out "$GITHUB_WORKSPACE/mirror" --anchor
       - name: commit what grew
         run: |
           git config user.name "bitquilt mirror"
           git config user.email "mirror@users.noreply.github.com"
-          # A tracker with nothing on it yet leaves no folder to add; that is a run that found nothing, not a failure.
-          if [ -d mirror ]; then git add mirror; else echo "nothing mirrored yet"; fi
+          # The mirror always writes its index and its keys, so a missing folder is a wrong path, and the run fails.
+          test -d mirror || { echo "no mirror folder at $GITHUB_WORKSPACE/mirror"; exit 1; }
+          git add mirror
           git diff --cached --quiet || git commit -m "mirror: $(date -u +%Y-%m-%dT%H:%MZ)"
           git push
