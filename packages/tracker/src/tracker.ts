@@ -1077,7 +1077,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     const state = pl.fold;
     const at = now();
     const { exclude, unaffordable } = excludedFor(layered, pl, inputFor(hash)!, key, client, at);
-    // The second reader's pool (QX-19 section 6): asked with only=verify, the pick is from the pieces in needs_verify or
+    // The second reader's pool (QX-19 section 5): asked with only=verify, the pick is from the pieces in needs_verify or
     // disputed alone, in this layer's fold. The core's order puts open pieces first wherever they outnumber those, so
     // without this a key whose reading was set aside would be handed an open piece, and its own fold would not hand it
     // the piece back, since the reading still stands there.

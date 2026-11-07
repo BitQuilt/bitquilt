@@ -1,10 +1,10 @@
 # The documents
 
-- [LAYERS.md](LAYERS.md): the whole protocol in plain words, layer by layer, with the numbers only in a table at the end. Read this first.
+- [LAYERS.md](LAYERS.md): the whole protocol in plain words, layer by layer, with the numbers left to the registry in EXTENSIONS.md. Read this first.
 - [CORE.md](CORE.md): the BitQuilt core, version 1. What a client has to get right, and nothing else.
 - [PROTOCOL.md](PROTOCOL.md): everything around the core: the tracker, the mirror, identity, governance, lineage, weaknesses, the build.
 - [APP.md](APP.md): Quilt, the thing a person opens.
-- [EXTENSIONS.md](EXTENSIONS.md): how everything outside the core changes, and the registry.
+- [EXTENSIONS.md](EXTENSIONS.md): how everything outside the core changes, and the registry, each number with its layer.
 - [ext/](ext/): one document per extension, once it is first implemented, saying exactly what is built; the three verifier kinds (`judge:n`, `human`, `attest`) share [one](ext/verifiers.md).
 - [COIN.md](COIN.md): what the coin is for and what was given up to have it; [COIN-PLAN.md](COIN-PLAN.md), the order it was built in and what waits.
 - [OPEN-PROBLEM.md](OPEN-PROBLEM.md): costless acceptance, stated as a problem.

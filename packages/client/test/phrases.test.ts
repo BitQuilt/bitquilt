@@ -2,8 +2,13 @@
  * The phrases (phrases.ts): what a person says to their AI, as the menu bar copies them and the connector offers them.
  * Each passes the plain-text gate with its slots filled, describes rather than instructs, and the sheet reads the home's
  * state from the key and the library's record of a connector, with the phrases that fit what the person keeps and is
- * wanted for.
+ * wanted for. How Quilt works (about.ts) is held here too, with every file in the repository that reads it, which its
+ * header and AGENTS.md name, and so is the count AGENTS.md gives of the places a person or a model reads, against its
+ * own list.
  */
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { textIssues } from '@bitquilt/core';
 import { HOW_QUILT_WORKS } from '../src/about.js';
@@ -16,6 +21,19 @@ const sample = { link, words: 'herbarium labels', path: '/Users/someone/patterns
 const claude = { installed: false, config: '/tmp/claude_desktop_config.json', running: false };
 const hash = ('sha256:' + 'cd'.repeat(32)) as `sha256:${string}`;
 const other = ('sha256:' + 'ef'.repeat(32)) as `sha256:${string}`;
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const agents = (): string => readFileSync(join(root, 'AGENTS.md'), 'utf8');
+
+/** Every source file in the repository outside the tests, by its path from the root, with dependencies, build output and dot folders left out. */
+function sources(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(dir)) {
+    if (name.startsWith('.') || ['node_modules', 'dist', 'coverage', 'lib', 'out', 'cache', 'test'].includes(name)) continue;
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) sources(path, out);
+    else if (/\.[cm]?[jt]sx?$/.test(name) && !/\.test\.[cm]?[jt]sx?$/.test(name)) out.push(relative(root, path).split(sep).join('/'));
+  }
+  return out;
+}
 
 describe('how Quilt works, in plain words', () => {
   it('passes the gate, describes rather than instructs, and says that anyone can add a problem', () => {
@@ -24,6 +42,45 @@ describe('how Quilt works, in plain words', () => {
     expect(HOW_QUILT_WORKS).toMatch(/^How Quilt works, in plain words\. /);
     expect(HOW_QUILT_WORKS).toContain('Anyone can add a problem, big or small');
     expect(HOW_QUILT_WORKS).toContain('asks them before anything is written');
+  });
+
+  // Its header once named the hosted join page, which shows the sentence a person says to ask, and AGENTS.md took the
+  // claim from it. The check reads every package, since another package would read it through the index, and it reads
+  // AGENTS.md's whole clause, so a carrier added there fails until a file carries it.
+  it('is read by the files its header names in any package, and AGENTS.md names the ones that carry it', () => {
+    const about = 'packages/client/src/about.ts';
+    const index = 'packages/client/src/index.ts';
+    const readers = sources(root).filter((f) => f !== about && /\bHOW_QUILT_WORKS\b|from '\.\/about\.js'/.test(readFileSync(join(root, f), 'utf8'))).sort();
+    expect(readers).toContain(index);
+    expect(readers).toContain('packages/client/src/mcp.ts');
+    // The header names each file that reads it in parentheses: the client's own by its name, another package's by its
+    // path from the root.
+    const client = 'packages/client/src/';
+    const local = (f: string): string => (f.startsWith(client) ? f.slice(client.length) : f);
+    const text = readFileSync(join(root, about), 'utf8');
+    const header = text.slice(0, text.indexOf('*/'));
+    expect([...header.matchAll(/\(([^)]+)\)/g)].map((m) => m[1]!).sort()).toEqual(readers.map(local).sort());
+    // AGENTS.md names what carries it by what a model reads, so each name maps to the file that carries it. The index
+    // only hands it on to another package, and carries it to no reader.
+    const carriers: Record<string, string> = { "the connector's instructions": 'packages/client/src/mcp.ts', '`quilt_me`': 'packages/client/src/tools.ts' };
+    const bullet = agents().split('\n').find((line) => line.startsWith('- how Quilt works, in `about.ts`')) ?? '';
+    const named = /^- how Quilt works, in `about\.ts`, which (.+) carry, held by /.exec(bullet)?.[1];
+    expect(named, bullet).toBeDefined();
+    expect(named!.split(/, and |, | and /).map((n) => carriers[n] ?? n).sort()).toEqual(readers.filter((f) => f !== index));
+  });
+});
+
+describe('where the words live (AGENTS.md, The words)', () => {
+  // The count once said eight while the list grew; a place added to the list changes the number beside it. Each word
+  // from one to twenty maps to its number, and a word not on the list fails on its own.
+  it('gives the number of places its list names', () => {
+    const text = agents();
+    const section = text.slice(text.indexOf('## The words'), text.indexOf('## Commands'));
+    const said = /lives in (\w+) places/.exec(section)?.[1] ?? '';
+    const numbers = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+    const places = section.split('\n').filter((line) => line.startsWith('- ')).length;
+    expect(numbers, `"${said}" is not a number word from one to twenty`).toContain(said);
+    expect(numbers.indexOf(said) + 1, `${said} places, ${places} listed`).toBe(places);
   });
 });
 

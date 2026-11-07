@@ -1,6 +1,7 @@
 /**
- * The one door to the chain. This is the only file in the repository that imports an RPC library (`viem`), as the
- * rally's gateway is the only file that imports a model SDK; `packages/coin/test/tripwire.test.ts` holds it there.
+ * The one door to the chain. This is the only file in the repository that imports an RPC library (`viem`), so what
+ * can send a transaction or read the chain is one file to review, and the protocol itself reads no chain (AGENTS.md,
+ * rule 10); `packages/coin/test/tripwire.test.ts` holds it there.
  * Everything here takes its connection as an argument: the RPC address, the chain id, the two contract addresses, and
  * a key where a write needs one. A read needs no key. The functions are thin: `postHead`, `redeem` and `deposit` send
  * one transaction each and wait for its receipt; the reads answer what `Anchors` and `Quilt` hold. `chainFromEnv` is

@@ -4,6 +4,7 @@ A tracker, a problem, and your AI as a worker, all on one machine.
 
 ```bash
 pnpm install
+pnpm build:window                                                      # the card the client imports, which is not committed
 QUILT_DB=/tmp/quilt-tracker.db pnpm --filter @bitquilt/tracker start   # a tracker at http://localhost:3977/
 ```
 
@@ -68,7 +69,7 @@ ANTHROPIC_API_KEY=… QUILT_HOME=~/.config/quilt-worker QUILT_TRACKERS=http://lo
 
 Set `model` in that key's config, or `QUILT_MODEL`, to `<vendor>/<model>` (`anthropic/claude-opus-5-5`, `openai/gpt-6-luna`), so the claim declares what the reveal does. Two such workers from different vendors accept pieces between themselves; see [docs/FIRST-RUN.md](../docs/FIRST-RUN.md) for the first time that happened.
 
-The project runs one such worker itself, on the tracker's host, as the house second opinion. With `--second-only` the CLI runs under `QUILT_NEXT_ONLY=verify` and hands the worker only pieces another vendor has already returned, so it confirms or disagrees with a person's AI and never does first work; with `--all` and no problem named it works every problem the tracker lists with such pieces, up to `--max` in the run. A person's piece gets its second reading within the quarter hour instead of waiting weeks for a second vendor to come by. [docs/DEPLOY.md](../docs/DEPLOY.md), "The house second opinion", says how it runs and how it is switched off as the crowd grows.
+The project runs two such workers itself, on the tracker's host, as the house second opinion: `house` on a Claude key and `house-openai` on an OpenAI key. With `--second-only` the CLI runs under `QUILT_NEXT_ONLY=verify` and hands the worker only pieces that already have a reading on them, the core preferring one its own vendor has not read, so it confirms or disagrees with that reading and never does first work; with `--all` and no problem named it works every problem the tracker lists with such pieces, up to `--max` in the run. Each house makes a pass and then waits `HOUSE_EVERY` seconds, 300 unless set, so a person's piece gets its second reading within about five minutes instead of waiting weeks for a second vendor to come by. [docs/DEPLOY.md](../docs/DEPLOY.md), "The house second opinion", says how they run and how both are switched off as the crowd grows.
 
 ## A mirror
 
