@@ -33,11 +33,27 @@ beforeAll(async () => {
   await new Promise<void>((r) => pages.listen(0, '127.0.0.1', () => r()));
   site = `http://127.0.0.1:${(pages.address() as AddressInfo).port}`;
   const custodySecret = randomBytes(16).toString('hex');
-  const hosted = createHosted({ store, trackerUrl: () => base, keySecret: 'test-secret', home: mkdtempSync(join(tmpdir(), 'hosted-')), custodySecret, relays: ['ws://127.0.0.1:1'], sentence: null });
-  server = await createTracker({ store, url: 'http://t.test/', ipSalt: 's', custodySecret, extra: hosted.routes }).listen(0);
+  const hosted = createHosted({
+    store,
+    trackerUrl: () => base,
+    keySecret: 'test-secret',
+    home: mkdtempSync(join(tmpdir(), 'hosted-')),
+    custodySecret,
+    relays: ['ws://127.0.0.1:1'],
+    sentence: null,
+  });
+  server = await createTracker({
+    store,
+    url: 'http://t.test/',
+    ipSalt: 's',
+    custodySecret,
+    extra: hosted.routes,
+  }).listen(0);
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
 });
-afterAll(() => Promise.all([new Promise<void>((r) => server.close(() => r())), new Promise<void>((r) => pages.close(() => r()))]));
+afterAll(() =>
+  Promise.all([new Promise<void>((r) => server.close(() => r())), new Promise<void>((r) => pages.close(() => r()))]),
+);
 
 function quilt(n: number, model: string): Quilt {
   const home = mkdtempSync(join(tmpdir(), 'long-'));
@@ -51,15 +67,39 @@ function fill(log: Hash, n: number): void {
   const at = '2026-01-01T00:00:00.000Z';
   const key = addressOf(new Uint8Array(32).fill(7));
   const sig = `0x${'00'.repeat(65)}` as Signature;
-  const lines: Receipt[] = Array.from({ length: n }, (_, i) => ({ event: { quilt: 1, type: 'note', key, ts: at, body: { n: i }, sig }, received: [{ by: 'http://t.test/', at }] }));
+  const lines: Receipt[] = Array.from({ length: n }, (_, i) => ({
+    event: { quilt: 1, type: 'note', key, ts: at, body: { n: i }, sig },
+    received: [{ by: 'http://t.test/', at }],
+  }));
   store.appendLines(log, lines);
 }
 
 describe('the page of a square over a long chain', () => {
   it('quotes what each reading rests on when the reveals and traces come past the old page', async () => {
-    const owner = quilt(0x31, 'anthropic/claude'), a = quilt(0x32, 'anthropic/claude'), b = quilt(0x33, 'openai/gpt-5');
-    const schema = { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } };
-    const pattern = { title: 'A long chain', done_when: 'Every claim has a verdict.', slug: 'long', pieces: { 'claim/*': { count: 1, verifier: 'agree', requires: ['web'], brief: 'Claim {n}: does the paper say so?', schema, agree: ['verdict'] } } } as Pattern;
+    const owner = quilt(0x31, 'anthropic/claude'),
+      a = quilt(0x32, 'anthropic/claude'),
+      b = quilt(0x33, 'openai/gpt-5');
+    const schema = {
+      type: 'object',
+      additionalProperties: false,
+      required: ['verdict'],
+      properties: { verdict: { enum: ['supports', 'contradicts'] } },
+    };
+    const pattern = {
+      title: 'A long chain',
+      done_when: 'Every claim has a verdict.',
+      slug: 'long',
+      pieces: {
+        'claim/*': {
+          count: 1,
+          verifier: 'agree',
+          requires: ['web'],
+          brief: 'Claim {n}: does the paper say so?',
+          schema,
+          agree: ['verdict'],
+        },
+      },
+    } as Pattern;
     const p = (await owner.publish(pattern)).hash as Hash;
     fill(p, OLD_PAGE);
     const claim = (await a.open(p)).state.pieces.find((x) => x.piece.name === 'claim/1')!.piece.hash;

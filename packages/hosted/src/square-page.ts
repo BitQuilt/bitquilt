@@ -60,7 +60,8 @@ const STATE: Record<string, string> = {
   sealed: 'sealed: a reading is committed and not yet revealed',
   needs_verify: 'waiting for a second reading, from an AI of another company',
   disputed: 'disputed: two readings differ',
-  accepted_provisional: 'accepted by two AIs from different companies, inside the window in which anyone may challenge it',
+  accepted_provisional:
+    'accepted by two AIs from different companies, inside the window in which anyone may challenge it',
   accepted: 'accepted by two AIs from different companies',
   challenged: 'challenged: a panel is deciding whether the acceptance stands',
   unreachable: 'unreachable: the window closed with no acceptance',
@@ -69,13 +70,16 @@ const STATE: Record<string, string> = {
   recorded: 'a record piece, every reading standing',
 };
 const stateWords = (s: string): string => STATE[s] ?? s;
-const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const shown = (v: unknown): string => (typeof v === 'string' ? (v.trim() === '' ? 'a blank' : `"${v}"`) : JSON.stringify(v));
+const esc = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const shown = (v: unknown): string =>
+  typeof v === 'string' ? (v.trim() === '' ? 'a blank' : `"${v}"`) : JSON.stringify(v);
 const who = (r: { key: string; name: string | null }): string => (r.name ? `${r.name} (${r.key})` : r.key);
 
 /** The page's title: the agreed answer and the vendors that agreed, or the piece's state. */
 export function squareTitle(v: SquareView): string {
-  if (v.agreed && v.agreed.length) return `${v.name}: ${v.agreed.map((a) => `${a.field} ${shown(a.value)}`).join(', ')}, agreed by AIs from ${v.vendors.join(' and ')}`;
+  if (v.agreed && v.agreed.length)
+    return `${v.name}: ${v.agreed.map((a) => `${a.field} ${shown(a.value)}`).join(', ')}, agreed by AIs from ${v.vendors.join(' and ')}`;
   return `${v.name}: ${stateWords(v.state)}`;
 }
 
@@ -88,7 +92,11 @@ function rest(x: RestedOn): string {
 }
 
 function reading(r: SquareReading): string {
-  const mark = r.accepting ? ' One of the two readings that accepted the square.' : r.aside ? ' Set aside: it rests on nothing where the other reading rests on a kept page.' : '';
+  const mark = r.accepting
+    ? ' One of the two readings that accepted the square.'
+    : r.aside
+      ? ' Set aside: it rests on nothing where the other reading rests on a kept page.'
+      : '';
   const fields = r.fields.map(([f, val]) => `<li><b>${esc(f)}</b>: ${esc(shown(val))}</li>`).join('');
   const rests = r.rests.length
     ? `<p>What it rests on:</p><ul>${r.rests.map(rest).join('')}</ul>`
@@ -99,7 +107,8 @@ function reading(r: SquareReading): string {
 function nowText(v: SquareView): string {
   const n = v.now;
   if (!n) return '';
-  if (n.same) return `<p>The owner has replaced this version of the problem. In the current version, <code>${esc(n.version)}</code>, the same piece is ${esc(stateWords(n.state))}. This page keeps saying what the version above recorded.</p>`;
+  if (n.same)
+    return `<p>The owner has replaced this version of the problem. In the current version, <code>${esc(n.version)}</code>, the same piece is ${esc(stateWords(n.state))}. This page keeps saying what the version above recorded.</p>`;
   return `<p>The owner has replaced this version of the problem and sharpened this piece's brief. In the current version, <code>${esc(n.version)}</code>, the piece of the same name is <code>${esc(n.piece)}</code>, ${esc(stateWords(n.state))}, and its brief, as the owner wrote it, reads: “${esc(n.brief)}” This page keeps saying what the version above recorded.</p>`;
 }
 
@@ -113,9 +122,18 @@ function holderText(v: SquareView): string {
 export function squarePage(v: SquareView): string {
   const title = squareTitle(v);
   const owner = v.ownerName ? `${v.ownerName} (${v.owner})` : v.owner;
-  const grade = v.traced === 'both' ? ' Both readings rest on pages kept here.' : v.traced === 'one' ? ' One of the two readings rests on a page kept here.' : v.traced === 'none' ? ' Neither reading names a page kept here.' : '';
-  const verified = v.verified ? ' The owner\'s own answer, committed before anyone read the piece, agreed with it.' : '';
-  const readings = v.readings.length ? v.readings.map(reading).join('') : '<p class="q">No reading has been revealed yet.</p>';
+  const grade =
+    v.traced === 'both'
+      ? ' Both readings rest on pages kept here.'
+      : v.traced === 'one'
+        ? ' One of the two readings rests on a page kept here.'
+        : v.traced === 'none'
+          ? ' Neither reading names a page kept here.'
+          : '';
+  const verified = v.verified ? " The owner's own answer, committed before anyone read the piece, agreed with it." : '';
+  const readings = v.readings.length
+    ? v.readings.map(reading).join('')
+    : '<p class="q">No reading has been revealed yet.</p>';
   const description = `${v.title}: ${title}.`;
   return `<!doctype html>
 <html lang="en">

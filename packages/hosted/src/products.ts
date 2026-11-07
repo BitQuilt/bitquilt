@@ -45,7 +45,8 @@ export const PRODUCTS: readonly string[] = [...new Set(PRODUCT_CALLBACKS.map((c)
 
 /** The product whose callback a redirect URI is, compared as a whole string; null for any other. */
 export function productOf(redirectUri: string): string | null {
-  for (const c of PRODUCT_CALLBACKS) if (typeof c.uri === 'string' ? redirectUri === c.uri : c.uri.test(redirectUri)) return c.product;
+  for (const c of PRODUCT_CALLBACKS)
+    if (typeof c.uri === 'string' ? redirectUri === c.uri : c.uri.test(redirectUri)) return c.product;
   return null;
 }
 
@@ -60,5 +61,7 @@ export function onProductOrigin(product: string, clientId: string): boolean {
 
 /** A product's callbacks as text, for the well-known document and the page. */
 export function callbacksOf(product: string): string[] {
-  return PRODUCT_CALLBACKS.filter((c) => c.product === product).map((c) => (typeof c.uri === 'string' ? c.uri : c.uri.source.replace(/^\^|\$$/g, '').replace(/\\/g, '')));
+  return PRODUCT_CALLBACKS.filter((c) => c.product === product).map((c) =>
+    typeof c.uri === 'string' ? c.uri : c.uri.source.replace(/^\^|\$$/g, '').replace(/\\/g, ''),
+  );
 }
