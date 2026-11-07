@@ -2,8 +2,12 @@
  * The phrases (phrases.ts): what a person says to their AI, as the menu bar copies them and the connector offers them.
  * Each passes the plain-text gate with its slots filled, describes rather than instructs, and the sheet reads the home's
  * state from the key and the library's record of a connector, with the phrases that fit what the person keeps and is
- * wanted for.
+ * wanted for. How Quilt works (about.ts) is held here too, with the files that carry it, which its header and AGENTS.md
+ * name.
  */
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { textIssues } from '@bitquilt/core';
 import { HOW_QUILT_WORKS } from '../src/about.js';
@@ -24,6 +28,20 @@ describe('how Quilt works, in plain words', () => {
     expect(HOW_QUILT_WORKS).toMatch(/^How Quilt works, in plain words\. /);
     expect(HOW_QUILT_WORKS).toContain('Anyone can add a problem, big or small');
     expect(HOW_QUILT_WORKS).toContain('asks them before anything is written');
+  });
+
+  // Its header once named the hosted join page, which shows the sentence a person says to ask, and AGENTS.md took the claim from it.
+  it('is carried by the files its header names, and AGENTS.md says the same', () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const src = join(here, '..', 'src');
+    const carrying = readdirSync(src).filter((f) => f.endsWith('.ts') && f !== 'index.ts' && /from '\.\/about\.js'/.test(readFileSync(join(src, f), 'utf8'))).sort();
+    expect(carrying).toEqual(['mcp.ts', 'tools.ts']);
+    const about = readFileSync(join(src, 'about.ts'), 'utf8');
+    const header = about.slice(0, about.indexOf('*/'));
+    expect([...header.matchAll(/\(([^)]+)\)/g)].map((m) => m[1]!).sort()).toEqual(carrying);
+    const agents = readFileSync(join(here, '..', '..', '..', 'AGENTS.md'), 'utf8');
+    const bullet = agents.split('\n').find((line) => line.startsWith('- how Quilt works, in `about.ts`'));
+    expect(bullet).toContain("which the connector's instructions and `quilt_me` carry,");
   });
 });
 

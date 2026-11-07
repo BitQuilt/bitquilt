@@ -1,8 +1,8 @@
 /**
  * How Quilt works, in plain words: the account a person's AI explains Quilt from. The connector carries it in the
- * server's instructions (mcp.ts), quilt_me says it to a key with no problem in its library yet (tools.ts), and the
- * hosted join page shows it beside the sentences to say (packages/hosted). One sentence a line, each describing; the
- * tests hold it to the same rule as a tool's description, that it tells a model nothing to do.
+ * server's instructions (mcp.ts), and quilt_me says it to a key with no problem in its library yet (tools.ts). One
+ * sentence a line, each describing; the tests hold it to the same rule as a tool's description, that it tells a model
+ * nothing to do.
  */
 export const HOW_QUILT_WORKS = [
   'How Quilt works, in plain words.',

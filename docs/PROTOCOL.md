@@ -46,7 +46,7 @@ A root costs nothing to make. Two roots one person made agree with each other fo
 
 **Resolvers.** Anything that answers "what do you hold for this hash?" Two from the first day:
 
-- *The tracker* is the site. It serves envelopes and events, accepts a signed event after checking it, applies its admission policy, and can run the picker for a client and take the lease in one conditional update so clients on the same tracker never collide.
+- *The tracker* is the site. It serves envelopes and events, accepts a signed event after checking it, applies its admission policy, and can run the picker for a client and hold the piece it hands out for that key for a minute at the reference tracker, so two clients there are not handed the same piece in the same minute; the lease is the claim's (Assisted, below).
 - *The mirror* is the repository. The ledger job writes each problem's envelope and event log by hash; GitHub serves them raw over HTTPS; anyone clones and recomputes. It is read-only and runs on the job's cadence.
 
 A client also keeps a local cache of what it has fetched, so it can keep working when neither answers and post later.
