@@ -29,7 +29,7 @@ What a person or a model reads lives in sixteen places, each held by the tests n
 - the Claude Desktop bundle's own words in `scripts/build-mcpb.mjs`, its description, long description and each setting's title and description, which a person reads in the install dialog, held by `mcpb.test.ts` to the same refusals;
 - how Quilt works, in `about.ts`, which the connector's instructions and `quilt_me` carry, held by `phrases.test.ts` to the gate and the same words;
 - the phrases in `phrases.ts`, held by `phrases.test.ts` to the gate and the same words;
-- the results in `tools.ts` and `render.ts`, held by `e2e.test.ts` and the client test of each extension whose results they say;
+- the results in `tools.ts` and `render.ts`, held whole by `tool-text.test.ts` and `tool-frames.test.ts`, and by `e2e.test.ts` and the client test of each extension whose results they say;
 - the tracker's refusals, the reason its door gives with `Refusal` in `tracker.ts` and the `why` a layer's check returns, which reach a model inside a tool's result or error (`Refused by` in `tools.ts`), held by `packages/tracker/test`, which asserts many of them, and by review for the rest;
 - the page in `packages/client/page/index.html`, held by `page.test.ts`;
 - the card in `packages/client/window/`, held by `window.test.ts`;
