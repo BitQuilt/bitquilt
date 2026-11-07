@@ -23,14 +23,19 @@ export interface TrackerEnv {
   options: Omit<TrackerOptions, 'store'>;
 }
 
-const list = (s: string | undefined): string[] => (s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+const list = (s: string | undefined): string[] =>
+  (s ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
 
 /** `<address>=<amount>` pairs, comma separated: the founding standing declared per root; a pair that is not an address and a whole number of at least 1 throws naming it. */
 export function foundingFromEnv(s: string | undefined): Record<string, number> {
   const out: Record<string, number> = {};
   for (const pair of list(s)) {
     const [address, amount] = pair.split('=').map((x) => x.trim());
-    if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address) || !amount || !/^[1-9]\d*$/.test(amount)) throw new Error(`QUILT_FOUNDING_STANDING: ${pair} is not <address>=<amount>`);
+    if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address) || !amount || !/^[1-9]\d*$/.test(amount))
+      throw new Error(`QUILT_FOUNDING_STANDING: ${pair} is not <address>=<amount>`);
     out[address] = Number(amount);
   }
   return out;
@@ -56,10 +61,18 @@ export function trackerOptionsFromEnv(env: NodeJS.ProcessEnv): TrackerEnv {
       url: env.QUILT_URL ?? `http://localhost:${port}/`,
       ...(env.QUILT_NAME ? { name: env.QUILT_NAME } : {}),
       peers: list(env.QUILT_PEERS),
-      limits: { keyPerHour: Number(env.QUILT_LIMIT_KEY_HOUR ?? 120), ipPerHour: Number(env.QUILT_LIMIT_IP_HOUR ?? 600) },
+      limits: {
+        keyPerHour: Number(env.QUILT_LIMIT_KEY_HOUR ?? 120),
+        ipPerHour: Number(env.QUILT_LIMIT_IP_HOUR ?? 600),
+      },
       stamp: { name: Number(env.QUILT_STAMP_NAME ?? 0) },
       ...(env.QUILT_IP_SALT ? { ipSalt: env.QUILT_IP_SALT } : {}),
-      ...(env.QUILT_TRUSTED_PROXIES !== undefined ? { trustedProxies: env.QUILT_TRUSTED_PROXIES.trim().toLowerCase() === 'none' ? [] : list(env.QUILT_TRUSTED_PROXIES) } : {}),
+      ...(env.QUILT_TRUSTED_PROXIES !== undefined
+        ? {
+            trustedProxies:
+              env.QUILT_TRUSTED_PROXIES.trim().toLowerCase() === 'none' ? [] : list(env.QUILT_TRUSTED_PROXIES),
+          }
+        : {}),
       maintainers: list(env.QUILT_MAINTAINERS) as Address[],
       ...(env.QUILT_FOUNDING_STANDING ? { founding: foundingFromEnv(env.QUILT_FOUNDING_STANDING) } : {}),
       ...(coin ? { coin } : {}),

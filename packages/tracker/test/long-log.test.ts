@@ -11,8 +11,20 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  * past it on the identity log takes effect (QX-6), and the fold takes a delegation past it on the same log, as the
  * mirror and the client already read them. The routes that page still page.
  */
-const owner = key(9), M = key(21), A = key(1), A2 = key(3), B = key(2), F = key(30), treasury = key(7), reader = key(40);
-const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
+const owner = key(9),
+  M = key(21),
+  A = key(1),
+  A2 = key(3),
+  B = key(2),
+  F = key(30),
+  treasury = key(7),
+  reader = key(40);
+const schema = {
+  type: 'object' as const,
+  additionalProperties: false as const,
+  required: ['verdict', 'quote'],
+  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
+};
 const by = { model: 'meta/llama', client: 'test/0', can: ['web'] };
 
 /** The page the store gave a caller that named no bounds: a log one line longer is past it. */
@@ -20,16 +32,39 @@ const OLD_PAGE = 10_000;
 
 const T0 = '2026-10-27T00:00:00.000Z';
 const coin = {
-  genesis: T0, epoch_h: 24, emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 2 }, vesting_h: 48, infra_bp: 1000, treasury: addr(treasury), unit: 1000,
-  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 }, burn_rate: 100, transfers_from: T0, redeem_from: T0, reader: addr(reader),
+  genesis: T0,
+  epoch_h: 24,
+  emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 2 },
+  vesting_h: 48,
+  infra_bp: 1000,
+  treasury: addr(treasury),
+  unit: 1000,
+  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 },
+  burn_rate: 100,
+  transfers_from: T0,
+  redeem_from: T0,
+  reader: addr(reader),
 };
-const t = boot('2026-10-27T09:00:00Z', { maintainers: [addr(M)], limits: { keyPerHour: 1000, ipPerHour: 10000 }, coin });
+const t = boot('2026-10-27T09:00:00Z', {
+  maintainers: [addr(M)],
+  limits: { keyPerHour: 1000, ipPerHour: 10000 },
+  coin,
+});
 const { ev, post, get, accepted } = t;
 beforeAll(() => t.listen());
 afterAll(() => t.close());
 
 function envelope(slug: string): Envelope {
-  return signed(owner, slug, { 'statement/*': { count: 2, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } });
+  return signed(owner, slug, {
+    'statement/*': {
+      count: 2,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: does the paper say so?',
+      schema,
+      agree: ['verdict'],
+    },
+  });
 }
 async function publish(slug: string): Promise<Hash> {
   const r = await post('/p', { envelope: envelope(slug), blobs: {} });
@@ -45,20 +80,27 @@ const filler = (() => {
   const at = '2026-10-27T08:00:00.000Z';
   const signer = addr(F);
   const sig = ev(F, 'note', { n: 0 }).sig;
-  return (n: number, hash?: string): Receipt => ({ event: { quilt: 1, type: 'note', key: signer, ts: at, body: { n }, sig }, received: [{ by: 'http://tracker.test/', at }], ...(hash ? { hash } : {}) });
+  return (n: number, hash?: string): Receipt => ({
+    event: { quilt: 1, type: 'note', key: signer, ts: at, body: { n }, sig },
+    received: [{ by: 'http://tracker.test/', at }],
+    ...(hash ? { hash } : {}),
+  });
 })();
 /** `n` lines of filler on a log, put into the store directly so the test stays fast. */
 function fill(log: Hash, n: number): void {
-  t.store.appendLines(log, Array.from({ length: n }, (_, i) => filler(i)));
+  t.store.appendLines(
+    log,
+    Array.from({ length: n }, (_, i) => filler(i)),
+  );
 }
 
 type Piece = { hash: Hash; state: string };
 const piecesOf = async (problem: Hash) => ((await get(`/p/${problem}/state`)) as { pieces: Piece[] }).pieces;
 
-describe('a log longer than the store\'s old page (QX-11)', () => {
+describe("a log longer than the store's old page (QX-11)", () => {
   let P: Hash;
   let claimed: Hash;
-  it('reads a problem\'s chain whole by its lines and a page of it by both bounds, and the events route still pages', async () => {
+  it("reads a problem's chain whole by its lines and a page of it by both bounds, and the events route still pages", async () => {
     P = await publish('long');
     fill(P, OLD_PAGE);
     claimed = (await piecesOf(P))[0]!.hash;
@@ -73,7 +115,12 @@ describe('a log longer than the store\'s old page (QX-11)', () => {
     expect((await first.text()).trim().split('\n')).toHaveLength(500);
     const last = await fetch(`${t.base}/p/${P}/events?since=${OLD_PAGE}`);
     expect(last.headers.get('x-quilt-next-since')).toBeNull();
-    expect((await last.text()).trim().split('\n').map((l) => (JSON.parse(l) as Receipt).event.type)).toEqual(['claim']);
+    expect(
+      (await last.text())
+        .trim()
+        .split('\n')
+        .map((l) => (JSON.parse(l) as Receipt).event.type),
+    ).toEqual(['claim']);
   });
   it('folds a claim past the old page, and the counts count it', async () => {
     expect((await piecesOf(P)).find((p) => p.hash === claimed)!.state).toBe('in_flight');
@@ -107,7 +154,7 @@ describe('a log longer than the store\'s old page (QX-11)', () => {
     expect(scrape.head.seq).toBe(OLD_PAGE + 1);
     expect(scrape.chain_ok).toBe(false);
   });
-  it('takes a maintainer\'s hide past the old page of the identity log (QX-6)', async () => {
+  it("takes a maintainer's hide past the old page of the identity log (QX-6)", async () => {
     const Q = await publish('hidden');
     fill(IDENTITY_LOG, OLD_PAGE);
     await accepted('/k/events', ev(M, 'hide', { id: Q, why: 'The brief names a private person.' }));
@@ -121,7 +168,10 @@ describe('a log longer than the store\'s old page (QX-11)', () => {
   });
   it('folds a delegation past the old page of the identity log', async () => {
     expect(t.store.head(IDENTITY_LOG)!.seq).toBeGreaterThan(OLD_PAGE);
-    await accepted('/k/events', ev(A, 'delegate', { to: addr(A2), scope: ['claim', 'commit', 'reveal'], expires: '2027-01-01T00:00:00Z' }));
+    await accepted(
+      '/k/events',
+      ev(A, 'delegate', { to: addr(A2), scope: ['claim', 'commit', 'reveal'], expires: '2027-01-01T00:00:00Z' }),
+    );
     const later = new Date(t.clock.tick + 1000).toISOString();
     expect(t.tracker.reduceProblem(P)!.rootOf(addr(A2), later)).toBe(addr(A));
   });

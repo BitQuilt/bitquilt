@@ -9,18 +9,51 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  * in the latest ended epoch with the parameter as its floor, published in force under `stake` and with each lock; and
  * the home admitting no problem whose challenge window is longer than it says.
  */
-const ownerP = key(9), ownerQ = key(8), A = key(1), B = key(2), judge = key(11), treasury = key(7);
+const ownerP = key(9),
+  ownerQ = key(8),
+  A = key(1),
+  B = key(2),
+  judge = key(11),
+  treasury = key(7);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
-const pieces = (count: number) => ({ 'statement/*': { count, verifier: 'agree' as const, requires: ['web' as const], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } });
+const schema = {
+  type: 'object' as const,
+  additionalProperties: false as const,
+  required: ['verdict', 'quote'],
+  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
+};
+const pieces = (count: number) => ({
+  'statement/*': {
+    count,
+    verifier: 'agree' as const,
+    requires: ['web' as const],
+    brief: 'Statement {n}: does the paper say so?',
+    schema,
+    agree: ['verdict'],
+  },
+});
 
 const T0 = '2026-10-27T00:00:00.000Z';
 const HOUR = 3_600_000;
 const params = {
-  genesis: T0, epoch_h: 24, emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 1, floor_per_epoch: 400, max_per_weight: 50 }, vesting_h: 48, infra_bp: 1000, treasury: addr(treasury), unit: 1000,
-  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 }, burn_rate: 10, burn_indexed: true, window_max_h: 48, transfers_from: T0, redeem_from: null,
+  genesis: T0,
+  epoch_h: 24,
+  emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 1, floor_per_epoch: 400, max_per_weight: 50 },
+  vesting_h: 48,
+  infra_bp: 1000,
+  treasury: addr(treasury),
+  unit: 1000,
+  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 },
+  burn_rate: 10,
+  burn_indexed: true,
+  window_max_h: 48,
+  transfers_from: T0,
+  redeem_from: null,
 };
-const t = boot(new Date(Date.parse(T0) + HOUR).toISOString(), { limits: { keyPerHour: 1000, ipPerHour: 10000 }, coin: params });
+const t = boot(new Date(Date.parse(T0) + HOUR).toISOString(), {
+  limits: { keyPerHour: 1000, ipPerHour: 10000 },
+  coin: params,
+});
 const { clock, ev, post, get, accepted, refused } = t;
 beforeAll(() => t.listen());
 afterAll(() => t.close());
@@ -52,13 +85,20 @@ describe('the emission schedule', () => {
 
   it('publishes the new parameters, the floor as the rate in force before any epoch has ended, and the window it admits', async () => {
     const w = (await get('/.well-known/quilt')) as { coin: Record<string, unknown>; stake: unknown };
-    expect(w.coin).toMatchObject({ emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 1, floor_per_epoch: 400, max_per_weight: 50 }, burn_rate: 10, burn_indexed: true, window_max_h: 48 });
+    expect(w.coin).toMatchObject({
+      emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 1, floor_per_epoch: 400, max_per_weight: 50 },
+      burn_rate: 10,
+      burn_indexed: true,
+      window_max_h: 48,
+    });
     expect(w.stake).toEqual({ extension: 'QX-15', coin: 'here', burn_rate: 10 });
   });
 
   it('admits a problem within the window it says and refuses one beyond it, with the reason', async () => {
     const patient = signed(ownerP, 'patient', pieces(1), { settings: { challenge_window_h: 72 } });
-    expect(await (await post('/p', { envelope: patient })).json()).toEqual({ error: 'the challenge window of 72 hours is beyond the 48 this home admits (QX-17)' });
+    expect(await (await post('/p', { envelope: patient })).json()).toEqual({
+      error: 'the challenge window of 72 hours is beyond the 48 this home admits (QX-17)',
+    });
     expect((await post('/p', { envelope: P })).status).toBe(201);
     expect((await post('/p', { envelope: Q })).status).toBe(201);
     [p1, p2] = ((await get(`/p/${p}/state`)) as { pieces: { hash: Hash }[] }).pieces.map((x) => x.hash) as [Hash, Hash];
@@ -69,19 +109,46 @@ describe('the emission schedule', () => {
     await accepted(`/p/${p}/events`, ev(ownerP, 'stake_rule', { min: 1 }, p));
     await returnOn(q, q1, ownerP, 'anthropic/claude');
     await returnOn(q, q1, judge, 'openai/gpt');
-    await accepted(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: [commitHash({ piece: p1, projection: gold.projection }, gold.nonce)], stake: 2 }, p));
+    await accepted(
+      `/p/${p}/events`,
+      ev(
+        ownerP,
+        'gold',
+        { commitments: [commitHash({ piece: p1, projection: gold.projection }, gold.nonce)], stake: 2 },
+        p,
+      ),
+    );
     await stakedReturn(p, p1, A, 'anthropic/claude');
     await stakedReturn(p, p1, B, 'openai/gpt');
     await accepted(`/p/${p}/events`, ev(ownerP, 'gold_reveal', gold, p, p1));
     // Before the epoch ends, the balance says what is owed: the share the mint will give, and when.
     const end0 = new Date(Date.parse(T0) + 24 * HOUR).toISOString();
-    expect(await get(`/coin/balance/${addr(A)}`)).toMatchObject({ balance: 0, pending: { amount: 90, pays_at: end0, epoch: 0 } });
+    expect(await get(`/coin/balance/${addr(A)}`)).toMatchObject({
+      balance: 0,
+      pending: { amount: 90, pays_at: end0, epoch: 0 },
+    });
     expect(await get(`/coin/balance/${addr(treasury)}`)).toMatchObject({ pending: { amount: 20, pays_at: end0 } });
     clock.tick = Date.parse(T0) + 24 * HOUR + 1000;
     const { epochs } = (await get('/coin/epochs')) as { epochs: unknown[] };
     // Four units of weight at 50 each: 200 of the curve's 1000, a tenth to the treasury, 90 to each reveal.
-    expect(epochs).toEqual([{ epoch: 0, start: T0, end: new Date(Date.parse(T0) + 24 * HOUR).toISOString(), ceiling: 1000, amount: 200, treasury: 20, weight: 4, minted: 200 }]);
-    expect(await get(`/coin/balance/${addr(A)}`)).toMatchObject({ balance: 90, minted: 90, free: 90, pending: { amount: 0, epoch: 1 } });
+    expect(epochs).toEqual([
+      {
+        epoch: 0,
+        start: T0,
+        end: new Date(Date.parse(T0) + 24 * HOUR).toISOString(),
+        ceiling: 1000,
+        amount: 200,
+        treasury: 20,
+        weight: 4,
+        minted: 200,
+      },
+    ]);
+    expect(await get(`/coin/balance/${addr(A)}`)).toMatchObject({
+      balance: 90,
+      minted: 90,
+      free: 90,
+      pending: { amount: 0, epoch: 1 },
+    });
     expect(await get(`/coin/balance/${addr(B)}`)).toMatchObject({ balance: 90 });
     expect(await get(`/coin/balance/${addr(treasury)}`)).toMatchObject({ balance: 20 });
   });
@@ -91,7 +158,9 @@ describe('the emission schedule', () => {
     expect(await rateNow()).toBe(90);
     const lock = await accepted('/coin/events', ev(A, 'lock', { problem: p, piece: p2, amount: 90 }));
     expect(await get(`/coin/lock/${lock}`)).toMatchObject({ units: 90, rate: 90, state: 'live', bound: null });
-    expect(await refused(`/p/${p}/events`, ev(A, 'lock', { kind: 'coin', amount: 2, id: lock }, p, p2))).toBe('the lock holds 90 units, a stake of 1 at 90 a point');
+    expect(await refused(`/p/${p}/events`, ev(A, 'lock', { kind: 'coin', amount: 2, id: lock }, p, p2))).toBe(
+      'the lock holds 90 units, a stake of 1 at 90 a point',
+    );
     await accepted(`/p/${p}/events`, ev(A, 'lock', { kind: 'coin', amount: 1, id: lock }, p, p2));
     expect(await get(`/coin/lock/${lock}`)).toMatchObject({ bound: expect.any(String) });
     expect(await refused('/coin/events', ev(B, 'burn', { amount: 100 }))).toBe('free coin 90 is below the burn of 100');

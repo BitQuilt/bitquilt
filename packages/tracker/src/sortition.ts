@@ -7,7 +7,11 @@
 import { type Address, hashCanonical, plusHours } from '@bitquilt/core';
 
 /** What a seat holds whatever it is for: who sits, when it was offered, and when it lapsed, null while it is open. */
-export interface Seated { root: Address; offeredAt: string; lapsedAt: string | null }
+export interface Seated {
+  root: Address;
+  offeredAt: string;
+  lapsedAt: string | null;
+}
 
 /** The pool sorted ascending by `sha256(canonical([seed, address]))` (QX-1 section 4). */
 export function drawOrder(seed: string, pool: Address[]): Address[] {
@@ -26,7 +30,12 @@ export function drawOrder(seed: string, pool: Address[]): Address[] {
  * a panel is void, at `lastLapse()`.
  */
 export function offerSeats<S extends Seated>(
-  order: Address[], n: number, offeredAt: string, leaseH: number, seat: (root: Address, offeredAt: string) => S, answered: (s: S) => boolean,
+  order: Address[],
+  n: number,
+  offeredAt: string,
+  leaseH: number,
+  seat: (root: Address, offeredAt: string) => S,
+  answered: (s: S) => boolean,
 ): { seats: S[]; advance(to: string): void; ranOut(): boolean; lastLapse(): string | null } {
   const seats: S[] = [];
   for (const root of order.slice(0, n)) seats.push(seat(root, offeredAt));
@@ -42,6 +51,10 @@ export function offerSeats<S extends Seated>(
     }
   };
   const ranOut = () => nextIdx >= order.length && seats.every((s) => answered(s) || s.lapsedAt !== null);
-  const lastLapse = () => seats.reduce<string | null>((m, s) => (s.lapsedAt !== null && (m === null || s.lapsedAt > m) ? s.lapsedAt : m), null);
+  const lastLapse = () =>
+    seats.reduce<string | null>(
+      (m, s) => (s.lapsedAt !== null && (m === null || s.lapsedAt > m) ? s.lapsedAt : m),
+      null,
+    );
   return { seats, advance, ranOut, lastLapse };
 }

@@ -23,7 +23,8 @@ export function hideBodyProblems(body: unknown): string[] {
   if (!isRecord(body)) return ['body: an object'];
   const out: string[] = [];
   if (!isHash(body.id)) out.push('body.id: an event id or a problem hash');
-  if (typeof body.why !== 'string' || !body.why.trim() || body.why.length > WHY_MAX) out.push(`body.why: text of at most ${WHY_MAX} characters`);
+  if (typeof body.why !== 'string' || !body.why.trim() || body.why.length > WHY_MAX)
+    out.push(`body.why: text of at most ${WHY_MAX} characters`);
   else out.push(...plainTextProblems(body.why, 'body.why'));
   if (body.on !== undefined && typeof body.on !== 'boolean') out.push('body.on: true or false');
   for (const k of Object.keys(body)) if (!['id', 'why', 'on'].includes(k)) out.push(`body.${k}: not a field of a hide`);

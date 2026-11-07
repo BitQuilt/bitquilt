@@ -10,22 +10,54 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  * from the unvested, and a held challenge restoring both; a transfer and a redeem from vested free coin, the redeem listed under the head for the bridge, and a credit from the reader for a deposit burned on the chain; every balance
  * under the head.
  */
-const ownerP = key(9), ownerQ = key(8), A = key(1), B = key(2), C = key(3), D = key(4), treasury = key(7);
+const ownerP = key(9),
+  ownerQ = key(8),
+  A = key(1),
+  B = key(2),
+  C = key(3),
+  D = key(4),
+  treasury = key(7);
 const reader = key(40);
 const judges = [key(11), key(12)];
-const secretOf = new Map<Address, Uint8Array>([ownerP, ownerQ, A, B, C, D, treasury, ...judges].map((k) => [addr(k), k]));
+const secretOf = new Map<Address, Uint8Array>(
+  [ownerP, ownerQ, A, B, C, D, treasury, ...judges].map((k) => [addr(k), k]),
+);
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
+const schema = {
+  type: 'object' as const,
+  additionalProperties: false as const,
+  required: ['verdict', 'quote'],
+  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
+};
 
 function envelope(owner: Uint8Array, slug: string, count: number): Envelope {
-  return signed(owner, slug, { 'statement/*': { count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } });
+  return signed(owner, slug, {
+    'statement/*': {
+      count,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: does the paper say so?',
+      schema,
+      agree: ['verdict'],
+    },
+  });
 }
 
 const T0 = '2026-10-27T00:00:00.000Z';
 const HOUR = 3_600_000;
 const coin = {
-  genesis: T0, epoch_h: 24, emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 2 }, vesting_h: 48, infra_bp: 1000, treasury: addr(treasury), unit: 1000,
-  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 }, burn_rate: 100, transfers_from: T0, redeem_from: T0, reader: addr(reader),
+  genesis: T0,
+  epoch_h: 24,
+  emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 2 },
+  vesting_h: 48,
+  infra_bp: 1000,
+  treasury: addr(treasury),
+  unit: 1000,
+  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 },
+  burn_rate: 100,
+  transfers_from: T0,
+  redeem_from: T0,
+  reader: addr(reader),
 };
 const t = boot(new Date(Date.parse(T0) + HOUR).toISOString(), { limits: { keyPerHour: 1000, ipPerHour: 10000 }, coin });
 const { clock, ev, post, get, accepted, refused } = t;
@@ -42,13 +74,30 @@ async function stakedReturn(problem: Hash, piece: Hash, k: Uint8Array, model: st
   await accepted(`/p/${problem}/events`, ev(k, 'lock', { kind: 'standing', amount: 1 }, problem, piece));
   await returnOn(problem, piece, k, model, verdict);
 }
-type Balance = { root: Address; balance: number; vested: number; unvested: number; locked: number; escrowed: number; free: number };
+type Balance = {
+  root: Address;
+  balance: number;
+  vested: number;
+  unvested: number;
+  locked: number;
+  escrowed: number;
+  free: number;
+};
 const balanceOf = async (k: Uint8Array) => (await get(`/coin/balance/${addr(k)}`)) as Balance;
 type Standing = { standing: number; locked: number; free: number };
 const standingOf = async (k: Uint8Array) => (await get(`/k/${addr(k)}/standing`)) as Standing;
 type PieceState = { hash: Hash; state: string; gold: string | null; verified: boolean };
-const pieceOf = async (problem: Hash, piece: Hash) => ((await get(`/p/${problem}/state`)) as { pieces: PieceState[] }).pieces.find((x) => x.hash === piece)!;
-type CoinLock = { id: Hash; root: Address; problem: Hash; piece: Hash; units: number; bound: Hash | null; state: string };
+const pieceOf = async (problem: Hash, piece: Hash) =>
+  ((await get(`/p/${problem}/state`)) as { pieces: PieceState[] }).pieces.find((x) => x.hash === piece)!;
+type CoinLock = {
+  id: Hash;
+  root: Address;
+  problem: Hash;
+  piece: Hash;
+  units: number;
+  bound: Hash | null;
+  state: string;
+};
 const coinLock = async (id: Hash) => (await get(`/coin/lock/${id}`)) as CoinLock;
 
 const golden = new Map<Hash, { projection: Record<string, unknown>; nonce: string }>();
@@ -62,7 +111,14 @@ function commitments(pieces: Hash[], verdict = 'supports'): Hash[] {
   }
   return out.sort();
 }
-const reveal = (problem: Hash, piece: Hash) => ev(ownerP, 'gold_reveal', { projection: golden.get(piece)!.projection, nonce: golden.get(piece)!.nonce }, problem, piece);
+const reveal = (problem: Hash, piece: Hash) =>
+  ev(
+    ownerP,
+    'gold_reveal',
+    { projection: golden.get(piece)!.projection, nonce: golden.get(piece)!.nonce },
+    problem,
+    piece,
+  );
 
 const P = envelope(ownerP, 'golden', 4);
 const Q = envelope(ownerQ, 'elsewhere', 6);
@@ -75,14 +131,65 @@ let coinLockId: Hash;
 describe('the coin as a layer', () => {
   it('publishes the parameters, names itself the home, and answers empty balances', async () => {
     const w = await get<{ coin: unknown; stake: unknown; routes: string[] }>('/.well-known/quilt');
-    expect(w.coin).toMatchObject({ extension: 'QX-17', home: 'here', genesis: T0, epoch_h: 24, vesting_h: 48, infra_bp: 1000, treasury: addr(treasury), unit: 1000, burn_rate: 100, transfers_from: T0, redeem_from: T0 });
+    expect(w.coin).toMatchObject({
+      extension: 'QX-17',
+      home: 'here',
+      genesis: T0,
+      epoch_h: 24,
+      vesting_h: 48,
+      infra_bp: 1000,
+      treasury: addr(treasury),
+      unit: 1000,
+      burn_rate: 100,
+      transfers_from: T0,
+      redeem_from: T0,
+    });
     expect(w.stake).toEqual({ extension: 'QX-15', coin: 'here', burn_rate: 100 });
-    for (const r of ['/coin/events', '/coin/lock/<id>', '/coin/balance/<root>', '/coin/epochs', '/coin/redeems', '/coin/credits', '/coin/state']) expect(w.routes).toContain(r);
-    expect(await balanceOf(A)).toEqual({ root: addr(A), balance: 0, vested: 0, unvested: 0, locked: 0, escrowed: 0, free: 0, free_vested: 0, minted: 0, received: 0, burned: 0, forfeited: 0, redeemed: 0, credited: 0, pending: { amount: 0, pays_at: expect.any(String), epoch: 0 }, at: expect.any(String), head: null });
+    for (const r of [
+      '/coin/events',
+      '/coin/lock/<id>',
+      '/coin/balance/<root>',
+      '/coin/epochs',
+      '/coin/redeems',
+      '/coin/credits',
+      '/coin/state',
+    ])
+      expect(w.routes).toContain(r);
+    expect(await balanceOf(A)).toEqual({
+      root: addr(A),
+      balance: 0,
+      vested: 0,
+      unvested: 0,
+      locked: 0,
+      escrowed: 0,
+      free: 0,
+      free_vested: 0,
+      minted: 0,
+      received: 0,
+      burned: 0,
+      forfeited: 0,
+      redeemed: 0,
+      credited: 0,
+      pending: { amount: 0, pays_at: expect.any(String), epoch: 0 },
+      at: expect.any(String),
+      head: null,
+    });
     expect((await post('/p', { envelope: P })).status).toBe(201);
     expect((await post('/p', { envelope: Q })).status).toBe(201);
-    [p1, p2, p3, p4] = ((await get(`/p/${p}/state`)) as { pieces: PieceState[] }).pieces.map((x) => x.hash) as [Hash, Hash, Hash, Hash];
-    [q1, q2, q3, q4, q5, q6] = ((await get(`/p/${q}/state`)) as { pieces: PieceState[] }).pieces.map((x) => x.hash) as [Hash, Hash, Hash, Hash, Hash, Hash];
+    [p1, p2, p3, p4] = ((await get(`/p/${p}/state`)) as { pieces: PieceState[] }).pieces.map((x) => x.hash) as [
+      Hash,
+      Hash,
+      Hash,
+      Hash,
+    ];
+    [q1, q2, q3, q4, q5, q6] = ((await get(`/p/${q}/state`)) as { pieces: PieceState[] }).pieces.map((x) => x.hash) as [
+      Hash,
+      Hash,
+      Hash,
+      Hash,
+      Hash,
+      Hash,
+    ];
     await accepted(`/p/${p}/events`, ev(ownerP, 'stake_rule', { min: 1 }, p));
     await returnOn(q, q1, ownerP, 'anthropic/claude');
     await returnOn(q, q1, judges[0]!, 'openai/gpt');
@@ -99,7 +206,7 @@ describe('the coin as a layer', () => {
     await accepted(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: commitments([p1, p2, p3]), stake: 6 }, p));
   });
 
-  it('mints an epoch\'s amount to the verified squares by weight after the treasury\'s share, nothing in an empty epoch, and vests it over time', async () => {
+  it("mints an epoch's amount to the verified squares by weight after the treasury's share, nothing in an empty epoch, and vests it over time", async () => {
     await stakedReturn(p, p1, A, 'anthropic/claude');
     await stakedReturn(p, p1, B, 'openai/gpt');
     await accepted(`/p/${p}/events`, reveal(p, p1));
@@ -109,9 +216,30 @@ describe('the coin as a layer', () => {
     expect(await pieceOf(p, p1)).toMatchObject({ verified: true });
     expect((await balanceOf(A)).balance).toBe(0);
     clock.tick = Date.parse(T0) + 24 * HOUR + 1000;
-    const epochs = (await get('/coin/epochs')) as { epochs: { epoch: number; amount: number; treasury: number; weight: number; minted: number }[] };
-    expect(epochs.epochs).toEqual([{ epoch: 0, start: T0, end: new Date(Date.parse(T0) + 24 * HOUR).toISOString(), ceiling: 1000, amount: 1000, treasury: 100, weight: 8, minted: 1000 }]);
-    expect(await balanceOf(A)).toMatchObject({ balance: 450, vested: 0, unvested: 450, locked: 0, escrowed: 0, free: 450, minted: 450 });
+    const epochs = (await get('/coin/epochs')) as {
+      epochs: { epoch: number; amount: number; treasury: number; weight: number; minted: number }[];
+    };
+    expect(epochs.epochs).toEqual([
+      {
+        epoch: 0,
+        start: T0,
+        end: new Date(Date.parse(T0) + 24 * HOUR).toISOString(),
+        ceiling: 1000,
+        amount: 1000,
+        treasury: 100,
+        weight: 8,
+        minted: 1000,
+      },
+    ]);
+    expect(await balanceOf(A)).toMatchObject({
+      balance: 450,
+      vested: 0,
+      unvested: 450,
+      locked: 0,
+      escrowed: 0,
+      free: 450,
+      minted: 450,
+    });
     expect(await balanceOf(B)).toMatchObject({ balance: 450 });
     expect(await balanceOf(treasury)).toMatchObject({ balance: 100 });
     clock.tick = Date.parse(T0) + 48 * HOUR + 1000;
@@ -121,21 +249,56 @@ describe('the coin as a layer', () => {
     expect(later.epochs[1]).toMatchObject({ epoch: 1, minted: 0, weight: 0, amount: 1000 });
   });
 
-  it('takes a coin lock the root\'s free coin covers, binds it to a stake at the door with the receipt carrying the word, and refuses what it cannot bind', async () => {
-    expect(await refused('/coin/events', ev(B, 'lock', { problem: p, piece: p3, amount: 500 }))).toBe('free coin 450 is below the lock of 500');
-    expect(await refused('/coin/events', ev(A, 'lock', { problem: p, piece: 'sha256:' + 'ab'.repeat(32), amount: 100 }))).toBe('names a piece this problem does not have');
+  it("takes a coin lock the root's free coin covers, binds it to a stake at the door with the receipt carrying the word, and refuses what it cannot bind", async () => {
+    expect(await refused('/coin/events', ev(B, 'lock', { problem: p, piece: p3, amount: 500 }))).toBe(
+      'free coin 450 is below the lock of 500',
+    );
+    expect(
+      await refused('/coin/events', ev(A, 'lock', { problem: p, piece: 'sha256:' + 'ab'.repeat(32), amount: 100 })),
+    ).toBe('names a piece this problem does not have');
     coinLockId = await accepted('/coin/events', ev(A, 'lock', { problem: p, piece: p3, amount: 100 }));
-    expect(await coinLock(coinLockId)).toMatchObject({ id: coinLockId, root: addr(A), problem: p, piece: p3, units: 100, bound: null, state: 'live' });
+    expect(await coinLock(coinLockId)).toMatchObject({
+      id: coinLockId,
+      root: addr(A),
+      problem: p,
+      piece: p3,
+      units: 100,
+      bound: null,
+      state: 'live',
+    });
     expect(await balanceOf(A)).toMatchObject({ balance: 450, locked: 100, free: 350 });
-    expect(await refused(`/p/${p}/events`, ev(A, 'lock', { kind: 'coin', amount: 2, id: coinLockId }, p, p3))).toBe('the lock holds 100 units, a stake of 1 at 100 a point');
-    expect(await refused(`/p/${p}/events`, ev(B, 'lock', { kind: 'coin', amount: 1, id: coinLockId }, p, p3))).toBe('the lock is another root\'s');
-    expect(await refused(`/p/${p}/events`, ev(A, 'lock', { kind: 'coin', amount: 1, id: 'sha256:' + 'cd'.repeat(32) }, p, p3))).toBe('no such lock on the coin log');
-    expect(await refused(`/p/${p}/events`, ev(A, 'lock', { kind: 'coin', amount: 1, id: coinLockId }, p, p4))).toBe('the lock names another piece');
+    expect(await refused(`/p/${p}/events`, ev(A, 'lock', { kind: 'coin', amount: 2, id: coinLockId }, p, p3))).toBe(
+      'the lock holds 100 units, a stake of 1 at 100 a point',
+    );
+    expect(await refused(`/p/${p}/events`, ev(B, 'lock', { kind: 'coin', amount: 1, id: coinLockId }, p, p3))).toBe(
+      "the lock is another root's",
+    );
+    expect(
+      await refused(
+        `/p/${p}/events`,
+        ev(A, 'lock', { kind: 'coin', amount: 1, id: 'sha256:' + 'cd'.repeat(32) }, p, p3),
+      ),
+    ).toBe('no such lock on the coin log');
+    expect(await refused(`/p/${p}/events`, ev(A, 'lock', { kind: 'coin', amount: 1, id: coinLockId }, p, p4))).toBe(
+      'the lock names another piece',
+    );
     const bound = await accepted(`/p/${p}/events`, ev(A, 'lock', { kind: 'coin', amount: 1, id: coinLockId }, p, p3));
-    const lines = (await (await fetch(`${t.base}/p/${p}/events`)).text()).trim().split('\n').map((l) => JSON.parse(l) as { event: { type: string; key: string }; received: { stake?: Record<string, unknown> }[] });
+    const lines = (await (await fetch(`${t.base}/p/${p}/events`)).text())
+      .trim()
+      .split('\n')
+      .map(
+        (l) =>
+          JSON.parse(l) as { event: { type: string; key: string }; received: { stake?: Record<string, unknown> }[] },
+      );
     const last = lines[lines.length - 1]!;
     expect(last.event.type).toBe('lock');
-    expect(last.received[0]!.stake).toMatchObject({ kind: 'coin', amount: 1, id: coinLockId, units: 100, home: 'here' });
+    expect(last.received[0]!.stake).toMatchObject({
+      kind: 'coin',
+      amount: 1,
+      id: coinLockId,
+      units: 100,
+      home: 'here',
+    });
     expect(await coinLock(coinLockId)).toMatchObject({ bound, state: 'live' });
     await accepted(`/p/${p}/events`, ev(A, 'claim', { by: by('anthropic/claude') }, p, p3));
     // A coin lock holds no standing: the two standing locks on the verified squares are all that is locked.
@@ -143,7 +306,9 @@ describe('the coin as a layer', () => {
   });
 
   it('escrows a pay from free coin, vested or not, pays each accepted square to its credited roots, and holds the rest', async () => {
-    expect(await refused('/coin/events', ev(A, 'pay', { problem: q, amount: 400, per_square: 50 }))).toBe('free coin 350 is below the pay of 400');
+    expect(await refused('/coin/events', ev(A, 'pay', { problem: q, amount: 400, per_square: 50 }))).toBe(
+      'free coin 350 is below the pay of 400',
+    );
     await accepted('/coin/events', ev(A, 'pay', { problem: q, amount: 200, per_square: 50 }));
     expect(await balanceOf(A)).toMatchObject({ balance: 450, locked: 100, escrowed: 200, free: 150, free_vested: 150 });
     await returnOn(q, q3, C, 'anthropic/claude');
@@ -160,56 +325,105 @@ describe('the coin as a layer', () => {
     await returnOn(p, p3, B, 'openai/gpt', 'contradicts');
     await accepted(`/p/${p}/events`, reveal(p, p3));
     // Struck: the set is gone from the layer's fold (the claim A still holds keeps the piece in flight), and the core still says accepted.
-    expect(await pieceOf(p, p3)).toMatchObject({ state: 'in_flight', core: 'accepted_provisional', gold: 'miss', verified: false });
+    expect(await pieceOf(p, p3)).toMatchObject({
+      state: 'in_flight',
+      core: 'accepted_provisional',
+      gold: 'miss',
+      verified: false,
+    });
     expect(await coinLock(coinLockId)).toMatchObject({ state: 'forfeited' });
     // The lock of 100 from the unvested, and as much again from what was left of it: 75.
     expect(await balanceOf(A)).toMatchObject({ balance: 225, locked: 0, forfeited: 175, unvested: 0 });
-    const id = await accepted(`/p/${p}/events`, ev(A, 'challenge', { stake: 0, ground: 'The paper says the opposite of the gold.' }, p, p3));
-    const c = ((await get(`/p/${p}/challenges`)) as { challenges: { id: Hash; seats: { root: Address }[] }[] }).challenges.find((x) => x.id === id)!;
-    for (const s of c.seats.slice(0, 2)) await accepted(`/p/${p}/events`, ev(secretOf.get(s.root)!, 'verdict', { challenge: id, for: 'challenger' }, p, p3));
+    const id = await accepted(
+      `/p/${p}/events`,
+      ev(A, 'challenge', { stake: 0, ground: 'The paper says the opposite of the gold.' }, p, p3),
+    );
+    const c = (
+      (await get(`/p/${p}/challenges`)) as { challenges: { id: Hash; seats: { root: Address }[] }[] }
+    ).challenges.find((x) => x.id === id)!;
+    for (const s of c.seats.slice(0, 2))
+      await accepted(
+        `/p/${p}/events`,
+        ev(secretOf.get(s.root)!, 'verdict', { challenge: id, for: 'challenger' }, p, p3),
+      );
     expect(await pieceOf(p, p3)).toMatchObject({ state: 'accepted_provisional', gold: 'overruled' });
     expect(await coinLock(coinLockId)).toMatchObject({ state: 'live', bound: expect.any(String) });
     expect(await balanceOf(A)).toMatchObject({ balance: 400, locked: 100, forfeited: 0, unvested: 175 });
   });
 
   it('burns coin for standing within what is free, from the unvested part first', async () => {
-    expect(await refused('/coin/events', ev(A, 'burn', { amount: 300 }))).toBe('free coin 150 is below the burn of 300');
+    expect(await refused('/coin/events', ev(A, 'burn', { amount: 300 }))).toBe(
+      'free coin 150 is below the burn of 300',
+    );
     await accepted('/coin/events', ev(A, 'burn', { amount: 100 }));
-    expect(await balanceOf(A)).toMatchObject({ balance: 300, burned: 100, locked: 100, escrowed: 150, free: 50, vested: 225, unvested: 75 });
+    expect(await balanceOf(A)).toMatchObject({
+      balance: 300,
+      burned: 100,
+      locked: 100,
+      escrowed: 150,
+      free: 50,
+      vested: 225,
+      unvested: 75,
+    });
     // Four after the held challenge gave back the two the miss took, and one more for the burn.
     expect(await standingOf(A)).toMatchObject({ standing: 5, locked: 2, free: 3 });
   });
 
   it('moves vested free coin by transfer, takes it off the ledger by redeem, and lists the redeem under the head', async () => {
-    expect(await refused('/coin/events', ev(A, 'transfer', { to: addr(B), amount: 100 }))).toBe('free vested coin 50 is below the transfer of 100');
+    expect(await refused('/coin/events', ev(A, 'transfer', { to: addr(B), amount: 100 }))).toBe(
+      'free vested coin 50 is below the transfer of 100',
+    );
     await accepted('/coin/events', ev(A, 'transfer', { to: addr(B), amount: 10 }));
     expect(await balanceOf(A)).toMatchObject({ balance: 290, free: 40, free_vested: 40 });
     expect(await balanceOf(B)).toMatchObject({ balance: 460, received: 10 });
-    expect(await refused('/coin/events', ev(A, 'redeem', { amount: 100 }))).toBe('free vested coin 40 is below the redeem of 100');
+    expect(await refused('/coin/events', ev(A, 'redeem', { amount: 100 }))).toBe(
+      'free vested coin 40 is below the redeem of 100',
+    );
     await accepted('/coin/events', ev(A, 'redeem', { amount: 20, to: addr(C) }));
     expect(await balanceOf(A)).toMatchObject({ balance: 270, free: 20, redeemed: 20 });
-    const r = (await get('/coin/redeems')) as { head: { seq: number; hash: string }; redeems: { id: string; seq: number; root: Address; to: Address; amount: number; at: string }[] };
+    const r = (await get('/coin/redeems')) as {
+      head: { seq: number; hash: string };
+      redeems: { id: string; seq: number; root: Address; to: Address; amount: number; at: string }[];
+    };
     expect(r.head.seq).toBe(5);
-    expect(r.redeems).toEqual([{ id: r.head.hash, seq: 5, root: addr(A), to: addr(C), amount: 20, at: expect.any(String) }]);
+    expect(r.redeems).toEqual([
+      { id: r.head.hash, seq: 5, root: addr(A), to: addr(C), amount: 20, at: expect.any(String) },
+    ]);
     expect(r.redeems[0]!.id).toMatch(/^[0-9a-f]{64}$/);
     const before = (await get('/coin/redeems?upto=4')) as { head: { seq: number }; redeems: unknown[] };
     expect(before.head.seq).toBe(4);
     expect(before.redeems).toEqual([]);
-    expect(await refused('/coin/events', ev(A, 'name', { name: 'x' }))).toBe('the coin log takes lock, pay, burn, transfer, redeem and credit');
-    expect(await refused('/coin/events', ev(A, 'burn', { amount: 1 }, p))).toBe('a coin event names no problem in its fields');
+    expect(await refused('/coin/events', ev(A, 'name', { name: 'x' }))).toBe(
+      'the coin log takes lock, pay, burn, transfer, redeem and credit',
+    );
+    expect(await refused('/coin/events', ev(A, 'burn', { amount: 1 }, p))).toBe(
+      'a coin event names no problem in its fields',
+    );
   });
 
   it('credits a deposit burned on the chain from the reader alone, once per deposit, and lists the credits under the head', async () => {
-    expect(await refused('/coin/events', ev(A, 'credit', { deposit: 1, root: addr(B), amount: 100 }))).toBe('the reader alone credits a deposit');
-    expect(await refused('/coin/events', ev(reader, 'credit', { deposit: 0, root: addr(B), amount: 100 }))).toBe('body.deposit: a whole number of at least 1, the deposit\'s number on the chain');
+    expect(await refused('/coin/events', ev(A, 'credit', { deposit: 1, root: addr(B), amount: 100 }))).toBe(
+      'the reader alone credits a deposit',
+    );
+    expect(await refused('/coin/events', ev(reader, 'credit', { deposit: 0, root: addr(B), amount: 100 }))).toBe(
+      "body.deposit: a whole number of at least 1, the deposit's number on the chain",
+    );
     await accepted('/coin/events', ev(reader, 'credit', { deposit: 1, root: addr(B), amount: 100 }));
     // Credited coin is vested, as received coin is; what B was minted is still vesting.
     expect(await balanceOf(B)).toMatchObject({ balance: 560, received: 110, credited: 100, vested: 335, free: 560 });
-    expect(await refused('/coin/events', ev(reader, 'credit', { deposit: 1, root: addr(C), amount: 5 }))).toBe('deposit 1 is credited already');
-    const r = (await get('/coin/credits')) as { head: { seq: number; hash: string }; reader: Address; credits: { id: string; seq: number; deposit: number; root: Address; amount: number; at: string }[] };
+    expect(await refused('/coin/events', ev(reader, 'credit', { deposit: 1, root: addr(C), amount: 5 }))).toBe(
+      'deposit 1 is credited already',
+    );
+    const r = (await get('/coin/credits')) as {
+      head: { seq: number; hash: string };
+      reader: Address;
+      credits: { id: string; seq: number; deposit: number; root: Address; amount: number; at: string }[];
+    };
     expect(r.head.seq).toBe(6);
     expect(r.reader).toBe(addr(reader));
-    expect(r.credits).toEqual([{ id: r.head.hash, seq: 6, deposit: 1, root: addr(B), amount: 100, at: expect.any(String) }]);
+    expect(r.credits).toEqual([
+      { id: r.head.hash, seq: 6, deposit: 1, root: addr(B), amount: 100, at: expect.any(String) },
+    ]);
     expect(((await get('/coin/credits?upto=5')) as { credits: unknown[] }).credits).toEqual([]);
   });
 

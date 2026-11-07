@@ -38,7 +38,8 @@ const cited = (text: string): string[] => [...text.matchAll(/(?:QX-\d+|verifiers
 
 describe('the phases of the layer', () => {
   it('are the same in the header and the body, in order, the set-aside of QX-19 among them', () => {
-    const head = headerPhases(), run = bodyPhases();
+    const head = headerPhases(),
+      run = bodyPhases();
     expect(run.size).toBe(7);
     expect([...head.keys()]).toEqual([...run.keys()]);
     expect([...run.keys()]).toEqual([1, 2, 3, 4, 5, 6, 7]);
@@ -46,6 +47,7 @@ describe('the phases of the layer', () => {
   });
   it('cite in the header every section the body cites for the same phase', () => {
     const head = headerPhases();
-    for (const [n, text] of bodyPhases()) for (const section of cited(text)) expect(cited(head.get(n) ?? ''), `phase ${n}`).toContain(section);
+    for (const [n, text] of bodyPhases())
+      for (const section of cited(text)) expect(cited(head.get(n) ?? ''), `phase ${n}`).toContain(section);
   });
 });

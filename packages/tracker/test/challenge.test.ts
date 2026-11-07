@@ -9,14 +9,33 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  * verdict counts only from a seat that is live; two verdicts decide; a held challenge strikes the set and a failed one
  * costs the stake; seats lapse by the lease and pass to the next in the draw; a panel that runs out is void.
  */
-const owner = key(9), A = key(1), B = key(2), C = key(3), D = key(4), E = key(5);
+const owner = key(9),
+  A = key(1),
+  B = key(2),
+  C = key(3),
+  D = key(4),
+  E = key(5);
 const judges = [key(11), key(12), key(13), key(14)];
 const secretOf = new Map<Address, Uint8Array>([owner, A, B, C, D, E, ...judges].map((k) => [addr(k), k]));
 const by = (model: string) => ({ model, client: 'test/0', can: ['web' as const] });
-const schema = { type: 'object' as const, additionalProperties: false as const, required: ['verdict', 'quote'], properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } } };
+const schema = {
+  type: 'object' as const,
+  additionalProperties: false as const,
+  required: ['verdict', 'quote'],
+  properties: { verdict: { enum: ['supports', 'contradicts'] }, quote: { type: 'string' as const, maxLength: 160 } },
+};
 
 function envelope(slug: string, count: number): Envelope {
-  return signed(owner, slug, { 'statement/*': { count, verifier: 'agree', requires: ['web'], brief: 'Statement {n}: does the paper say so?', schema, agree: ['verdict'] } });
+  return signed(owner, slug, {
+    'statement/*': {
+      count,
+      verifier: 'agree',
+      requires: ['web'],
+      brief: 'Statement {n}: does the paper say so?',
+      schema,
+      agree: ['verdict'],
+    },
+  });
 }
 
 const HOUR = 3_600_000;
@@ -33,13 +52,36 @@ async function returnOn(problem: Hash, piece: Hash, k: Uint8Array, model: string
   await accepted(`/p/${problem}/events`, ev(k, 'reveal', { return: ret, nonce, by: by(model) }, problem, piece));
 }
 const stateOf = async (problem: Hash, piece: Hash) => {
-  const s = (await get(`/p/${problem}/state`)) as { pieces: { hash: Hash; state: string; core: string; challenge: string | null }[] };
+  const s = (await get(`/p/${problem}/state`)) as {
+    pieces: { hash: Hash; state: string; core: string; challenge: string | null }[];
+  };
   return s.pieces.find((p) => p.hash === piece)!;
 };
-type Challenge = { id: Hash; piece: Hash; outcome: string; seats: { root: Address; lapsed_at: string | null; verdict: { for: string } | null }[]; struck: Hash[]; dropped: { why: string }[] };
-const challengesOf = async (problem: Hash) => ((await get(`/p/${problem}/challenges`)) as { challenges: Challenge[] }).challenges;
-const challenge = (k: Uint8Array, problem: Hash, piece: Hash, stake: number, ground = 'The sentence quoted is not in the paper.') => ev(k, 'challenge', { stake, ground }, problem, piece);
-const verdict = (root: Address, problem: Hash, piece: Hash, of: Hash, side: 'challenger' | 'author', ret?: Record<string, unknown>) => ev(secretOf.get(root)!, 'verdict', { challenge: of, for: side, ...(ret ? { return: ret } : {}) }, problem, piece);
+type Challenge = {
+  id: Hash;
+  piece: Hash;
+  outcome: string;
+  seats: { root: Address; lapsed_at: string | null; verdict: { for: string } | null }[];
+  struck: Hash[];
+  dropped: { why: string }[];
+};
+const challengesOf = async (problem: Hash) =>
+  ((await get(`/p/${problem}/challenges`)) as { challenges: Challenge[] }).challenges;
+const challenge = (
+  k: Uint8Array,
+  problem: Hash,
+  piece: Hash,
+  stake: number,
+  ground = 'The sentence quoted is not in the paper.',
+) => ev(k, 'challenge', { stake, ground }, problem, piece);
+const verdict = (
+  root: Address,
+  problem: Hash,
+  piece: Hash,
+  of: Hash,
+  side: 'challenger' | 'author',
+  ret?: Record<string, unknown>,
+) => ev(secretOf.get(root)!, 'verdict', { challenge: of, for: side, ...(ret ? { return: ret } : {}) }, problem, piece);
 
 const P = envelope('paper', 3);
 const Q = envelope('elsewhere', 2);
@@ -60,9 +102,11 @@ describe('the challenge window at the door', () => {
     await returnOn(p, p1, A, 'anthropic/claude');
     await returnOn(p, p1, B, 'openai/gpt');
     expect((await stateOf(p, p1)).state).toBe('accepted_provisional');
-    expect(await refused(`/p/${p}/events`, challenge(C, p, p1, 1))).toBe('no panel can be seated: 0 roots with an accepted return on another problem, 3 needed');
+    expect(await refused(`/p/${p}/events`, challenge(C, p, p1, 1))).toBe(
+      'no panel can be seated: 0 roots with an accepted return on another problem, 3 needed',
+    );
   });
-  it('refuses a challenge from a party, one over the gate, one with no stake, and one above the challenger\'s standing', async () => {
+  it("refuses a challenge from a party, one over the gate, one with no stake, and one above the challenger's standing", async () => {
     expect((await post('/p', { envelope: Q })).status).toBe(201);
     const s = (await get(`/p/${q}/state`)) as { pieces: { hash: Hash }[] };
     const [q1, q2] = s.pieces.map((x) => x.hash) as [Hash, Hash];
@@ -70,15 +114,23 @@ describe('the challenge window at the door', () => {
     await returnOn(q, q1, judges[1]!, 'openai/gpt');
     await returnOn(q, q2, judges[2]!, 'google/gemini');
     await returnOn(q, q2, judges[3]!, 'meta/llama');
-    expect(await refused(`/p/${p}/events`, challenge(A, p, p1, 1))).toBe('a party to the acceptance cannot challenge it');
-    expect(await refused(`/p/${p}/events`, challenge(owner, p, p1, 1))).toBe('a party to the acceptance cannot challenge it');
-    expect(await refused(`/p/${p}/events`, challenge(C, p, p1, 1, 'See https://example.org/proof'))).toMatch(/no links/);
-    expect(await refused(`/p/${p}/events`, challenge(C, p, p1, 0))).toBe('a challenge on an acceptance stakes at least 1');
+    expect(await refused(`/p/${p}/events`, challenge(A, p, p1, 1))).toBe(
+      'a party to the acceptance cannot challenge it',
+    );
+    expect(await refused(`/p/${p}/events`, challenge(owner, p, p1, 1))).toBe(
+      'a party to the acceptance cannot challenge it',
+    );
+    expect(await refused(`/p/${p}/events`, challenge(C, p, p1, 1, 'See https://example.org/proof'))).toMatch(
+      /no links/,
+    );
+    expect(await refused(`/p/${p}/events`, challenge(C, p, p1, 0))).toBe(
+      'a challenge on an acceptance stakes at least 1',
+    );
     expect(await refused(`/p/${p}/events`, challenge(C, p, p1, -1))).toBe('body.stake: a whole number from 0');
     expect(await refused(`/p/${p}/events`, challenge(C, p, p1, 2))).toBe('standing 1 is below the stake of 2');
     expect(await refused(`/p/${p}/events`, challenge(C, p, p2, 1))).toBe('nothing accepted on this piece yet');
   });
-  it('seats a panel of three by the challenge\'s receipt, holds the piece as challenged, and takes verdicts only from live seats', async () => {
+  it("seats a panel of three by the challenge's receipt, holds the piece as challenged, and takes verdicts only from live seats", async () => {
     const id = await accepted(`/p/${p}/events`, challenge(C, p, p1, 1));
     expect(await refused(`/p/${p}/events`, challenge(D, p, p1, 1))).toBe('a challenge is open on this piece');
     const view = await stateOf(p, p1);
@@ -93,10 +145,19 @@ describe('the challenge window at the door', () => {
     const pool = judges.map(addr);
     for (const d of drawn) expect(pool).toContain(d);
     const undrawn = pool.find((j) => !drawn.includes(j))!;
-    expect(await refused(`/p/${p}/events`, verdict(undrawn, p, p1, id, 'challenger'))).toBe('not a judge drawn for this challenge');
-    expect(await refused(`/p/${p}/events`, verdict(addr(E), p, p1, id, 'challenger'))).toBe('not a judge drawn for this challenge');
-    expect(await refused(`/p/${p}/events`, verdict(drawn[0]!, p, p1, id, 'challenger', { verdict: 'maybe', quote: 'x' }))).toMatch(/return.verdict/);
-    await accepted(`/p/${p}/events`, verdict(drawn[0]!, p, p1, id, 'challenger', { verdict: 'contradicts', quote: 'the paper says the opposite' }));
+    expect(await refused(`/p/${p}/events`, verdict(undrawn, p, p1, id, 'challenger'))).toBe(
+      'not a judge drawn for this challenge',
+    );
+    expect(await refused(`/p/${p}/events`, verdict(addr(E), p, p1, id, 'challenger'))).toBe(
+      'not a judge drawn for this challenge',
+    );
+    expect(
+      await refused(`/p/${p}/events`, verdict(drawn[0]!, p, p1, id, 'challenger', { verdict: 'maybe', quote: 'x' })),
+    ).toMatch(/return.verdict/);
+    await accepted(
+      `/p/${p}/events`,
+      verdict(drawn[0]!, p, p1, id, 'challenger', { verdict: 'contradicts', quote: 'the paper says the opposite' }),
+    );
     expect(await refused(`/p/${p}/events`, verdict(drawn[0]!, p, p1, id, 'author'))).toBe('this judge has answered');
     expect((await stateOf(p, p1)).state).toBe('challenged');
     await accepted(`/p/${p}/events`, verdict(drawn[1]!, p, p1, id, 'challenger'));
@@ -107,7 +168,9 @@ describe('the challenge window at the door', () => {
     const [held] = await challengesOf(p);
     expect(held!.outcome).toBe('held');
     expect(held!.struck).toHaveLength(4);
-    expect(await refused(`/p/${p}/events`, verdict(drawn[2]!, p, p1, id, 'author'))).toBe('names no open challenge on this piece');
+    expect(await refused(`/p/${p}/events`, verdict(drawn[2]!, p, p1, id, 'author'))).toBe(
+      'names no open challenge on this piece',
+    );
     expect(await refused(`/p/${p}/events`, challenge(D, p, p1, 1))).toBe('this piece has had its challenge');
     const layer = tracker.layer();
     expect(layer.standing(addr(C))).toBe(2);
@@ -121,7 +184,10 @@ describe('the challenge window at the door', () => {
   it('lapses a seat by the lease and offers the next in the draw; two verdicts for the author fail the challenge and cost the stake', async () => {
     await returnOn(p, p2, A, 'anthropic/claude');
     await returnOn(p, p2, B, 'openai/gpt');
-    const id = await accepted(`/p/${p}/events`, challenge(C, p, p2, 1, 'Both quote a sentence that supposes, not states.'));
+    const id = await accepted(
+      `/p/${p}/events`,
+      challenge(C, p, p2, 1, 'Both quote a sentence that supposes, not states.'),
+    );
     let [, c] = await challengesOf(p);
     const first = c!.seats[0]!.root;
     clock.tick += 2 * HOUR + 1000;
@@ -141,7 +207,10 @@ describe('the challenge window at the door', () => {
     expect((await stateOf(p, p2)).state).toBe('accepted_provisional');
     expect(tracker.layer().standing(addr(C))).toBe(2);
     // A fresh challenge on the same piece, inside the window, decided for the author by two seats.
-    const id2 = await accepted(`/p/${p}/events`, challenge(C, p, p2, 2, 'Both quote a sentence that supposes, not states.'));
+    const id2 = await accepted(
+      `/p/${p}/events`,
+      challenge(C, p, p2, 2, 'Both quote a sentence that supposes, not states.'),
+    );
     const list = await challengesOf(p);
     const c2 = list.find((x) => x.id === id2)!;
     await accepted(`/p/${p}/events`, verdict(c2.seats[0]!.root, p, p2, id2, 'author'));

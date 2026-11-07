@@ -8,7 +8,16 @@
  * free standing are read from that record (standing.ts), since they are functions of the whole store, and a strike
  * (challenge.ts) is a forfeit here.
  */
-import { type Address, type Hash, type Piece, type PieceView, eventSignedByKey, isRecord, orderReceipts, plusHours } from '@bitquilt/core';
+import {
+  type Address,
+  type Hash,
+  type Piece,
+  type PieceView,
+  eventSignedByKey,
+  isRecord,
+  orderReceipts,
+  plusHours,
+} from '@bitquilt/core';
 import { leaseOf, ownerOf, rootFor } from './verifiers.js';
 import type { Folding, ProblemEntry } from './standing.js';
 
@@ -20,10 +29,22 @@ export const LOCK_KINDS = ['standing', 'coin'] as const;
 export type LockKind = (typeof LOCK_KINDS)[number];
 
 /** A stake rule as the layer keeps it: the latest valid one at a time is the rule in force. */
-export interface StakeRule { id: Hash; root: Address; at: string; min: number; pieces: string[] | null }
+export interface StakeRule {
+  id: Hash;
+  root: Address;
+  at: string;
+  min: number;
+  pieces: string[] | null;
+}
 
 /** What the door wrote into a coin-kind lock's receipt (QX-17 section 5): the coin lock it read, and where. */
-export interface CoinLockWord { kind: 'coin'; amount: number; id: Hash; units: number; home: string }
+export interface CoinLockWord {
+  kind: 'coin';
+  amount: number;
+  id: Hash;
+  units: number;
+  home: string;
+}
 
 /**
  * A lock as the layer keeps it: of standing, or of coin on the coin log (QX-17) that the door vouched for. Its release
@@ -53,10 +74,12 @@ export function stakeRuleBodyProblems(body: unknown): string[] {
   if (!Number.isInteger(body.min) || (body.min as number) < 0) out.push('body.min: a whole number from 0');
   if (body.pieces !== undefined) {
     const p = body.pieces;
-    if (!Array.isArray(p) || p.length === 0 || !p.every((x) => typeof x === 'string' && x.length > 0 && x.length <= 64)) out.push('body.pieces: a list of family or piece names');
+    if (!Array.isArray(p) || p.length === 0 || !p.every((x) => typeof x === 'string' && x.length > 0 && x.length <= 64))
+      out.push('body.pieces: a list of family or piece names');
     else if (new Set(p).size !== p.length) out.push('body.pieces: each name once');
   }
-  for (const k of Object.keys(body)) if (k !== 'min' && k !== 'pieces') out.push(`body.${k}: not a field of a stake rule`);
+  for (const k of Object.keys(body))
+    if (k !== 'min' && k !== 'pieces') out.push(`body.${k}: not a field of a stake rule`);
   return out;
 }
 
@@ -64,8 +87,10 @@ export function stakeRuleBodyProblems(body: unknown): string[] {
 export function lockBodyProblems(body: unknown): string[] {
   if (!isRecord(body)) return ['body: an object'];
   const out: string[] = [];
-  if (!(LOCK_KINDS as readonly string[]).includes(body.kind as string)) out.push(`body.kind: one of ${LOCK_KINDS.join(', ')}`);
-  if (!Number.isInteger(body.amount) || (body.amount as number) < 1) out.push('body.amount: a whole number of at least 1');
+  if (!(LOCK_KINDS as readonly string[]).includes(body.kind as string))
+    out.push(`body.kind: one of ${LOCK_KINDS.join(', ')}`);
+  if (!Number.isInteger(body.amount) || (body.amount as number) < 1)
+    out.push('body.amount: a whole number of at least 1');
   const allowed = body.kind === 'coin' ? ['kind', 'amount', 'id'] : ['kind', 'amount'];
   if (body.kind === 'coin' && typeof body.id !== 'string') out.push('body.id: the id of the lock on the coin log');
   for (const k of Object.keys(body)) if (!allowed.includes(k)) out.push(`body.${k}: not a field of a lock`);
@@ -94,7 +119,13 @@ export function stakeAsked(rule: StakeRule | null, piece: Piece): number {
  * the lease when the root produced nothing on the piece by then; else when the piece's window has closed, the root's
  * claim ran out with no commit by it, or the root's commit was abandoned unrevealed. A forfeit is not decided here.
  */
-export function lockReleasedAt(lock: LockView, view: PieceView, leaseH: number, related: (a: Address, b: Address, at: string) => boolean, now: string): string | null {
+export function lockReleasedAt(
+  lock: LockView,
+  view: PieceView,
+  leaseH: number,
+  related: (a: Address, b: Address, at: string) => boolean,
+  now: string,
+): string | null {
   const mine = (root: Address, at: string) => related(root, lock.root, at);
   const claims = view.claims.filter((c) => c.at >= lock.at && mine(c.root, c.at));
   const commits = view.commits.filter((c) => c.at >= lock.at && mine(c.root, c.at));
@@ -108,16 +139,31 @@ export function lockReleasedAt(lock: LockView, view: PieceView, leaseH: number, 
   if (reveals.length || runs.length) return null;
   if (commits.length) {
     const abandoned = commits.every((c) => !c.revealed && c.abandonAt <= now);
-    return abandoned ? commits.map((c) => c.abandonAt).sort().reverse()[0]! : null;
+    return abandoned
+      ? commits
+          .map((c) => c.abandonAt)
+          .sort()
+          .reverse()[0]!
+      : null;
   }
   const ranOut = claims.every((c) => c.until <= now);
-  return ranOut ? claims.map((c) => c.until).sort().reverse()[0]! : null;
+  return ranOut
+    ? claims
+        .map((c) => c.until)
+        .sort()
+        .reverse()[0]!
+    : null;
 }
 
 // The lifecycle over the layer's record, in the order challengeLayer runs it.
 
 /** Why a stake rule would not be kept at `at` (section 1): malformed, not the owner's, or naming a piece the problem does not have; null when it would. */
-export function ruleProblem(home: ProblemEntry, key: Address, body: Record<string, unknown>, at: string): string | null {
+export function ruleProblem(
+  home: ProblemEntry,
+  key: Address,
+  body: Record<string, unknown>,
+  at: string,
+): string | null {
   const shape = stakeRuleBodyProblems(body);
   if (shape.length) return shape[0]!;
   const root = rootFor(home.fold, key, 'stake_rule', at);
@@ -130,21 +176,28 @@ export function ruleProblem(home: ProblemEntry, key: Address, body: Record<strin
 
 /** Keeps each problem's stake rules in receipt order (section 1), dropping the rest with the reason; the latest kept at a time is the rule in force. */
 export function keepStakeRules(f: Folding): void {
-  for (const e of f.entries.values()) for (const { receipt, at, id } of orderReceipts(e.input.receipts)) {
-    const ev = receipt.event;
-    if (ev.type !== 'stake_rule' || ev.problem !== e.hash) continue;
-    if (e.rules.some((r) => r.id === id)) continue;
-    if (!eventSignedByKey(ev)) {
-      e.dropped.push({ id, type: 'stake_rule', why: 'signature is not the key\'s' });
-      continue;
+  for (const e of f.entries.values())
+    for (const { receipt, at, id } of orderReceipts(e.input.receipts)) {
+      const ev = receipt.event;
+      if (ev.type !== 'stake_rule' || ev.problem !== e.hash) continue;
+      if (e.rules.some((r) => r.id === id)) continue;
+      if (!eventSignedByKey(ev)) {
+        e.dropped.push({ id, type: 'stake_rule', why: "signature is not the key's" });
+        continue;
+      }
+      const why = ruleProblem(e, ev.key, ev.body, at);
+      if (why) {
+        e.dropped.push({ id, type: 'stake_rule', why });
+        continue;
+      }
+      e.rules.push({
+        id,
+        root: ev.key,
+        at,
+        min: ev.body.min as number,
+        pieces: (ev.body.pieces as string[] | undefined) ?? null,
+      });
     }
-    const why = ruleProblem(e, ev.key, ev.body, at);
-    if (why) {
-      e.dropped.push({ id, type: 'stake_rule', why });
-      continue;
-    }
-    e.rules.push({ id, root: ev.key, at, min: ev.body.min as number, pieces: (ev.body.pieces as string[] | undefined) ?? null });
-  }
 }
 
 /** The rule in force at a time: the latest kept at or before it, or null. */
@@ -181,13 +234,22 @@ export type LockCheck = { ok: true; root: Address; view: PieceView } | { ok: fal
  * Whether a lock would be kept if received at `at`, by section 1, and why not. A coin-kind lock is kept on the door's
  * word in its receipt (QX-17 section 5), and its coin is checked there, not here.
  */
-export function checkLock(f: Folding, home: ProblemEntry, piece: Hash, key: Address, body: Record<string, unknown>, at: string, word: CoinLockWord | null): LockCheck {
+export function checkLock(
+  f: Folding,
+  home: ProblemEntry,
+  piece: Hash,
+  key: Address,
+  body: Record<string, unknown>,
+  at: string,
+  word: CoinLockWord | null,
+): LockCheck {
   const view = home.fold.byHash.get(piece);
   if (!view) return { ok: false, why: 'names a piece this problem does not have' };
   const shape = lockBodyProblems(body);
   if (shape.length) return { ok: false, why: shape[0]! };
   const coin = body.kind === 'coin';
-  if (coin && (!word || word.kind !== 'coin' || word.id !== body.id)) return { ok: false, why: 'this tracker honours no coin lock' };
+  if (coin && (!word || word.kind !== 'coin' || word.id !== body.id))
+    return { ok: false, why: 'this tracker honours no coin lock' };
   const root = rootFor(home.fold, key, 'lock', at);
   if (!root) return { ok: false, why: 'the key may not sign a lock' };
   const asked = stakeAsked(ruleAt(home, at), view.piece);

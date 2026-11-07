@@ -10,8 +10,25 @@
  * `viaOf` tells the two apart. A record piece has no accepting set at all: what it has is its standing readings.
  */
 import {
-  type AcceptingSet, type Address, type Event, type Hash, type PieceState, type PieceView, type Receipt, type Return, type Reveal, type State,
-  agreeFields, byAtThenId, eventSignedByKey, inputPieces, isHash, isRecord, orderReceipts, plusHours, returnsAgree,
+  type AcceptingSet,
+  type Address,
+  type Event,
+  type Hash,
+  type PieceState,
+  type PieceView,
+  type Receipt,
+  type Return,
+  type Reveal,
+  type State,
+  agreeFields,
+  byAtThenId,
+  eventSignedByKey,
+  inputPieces,
+  isHash,
+  isRecord,
+  orderReceipts,
+  plusHours,
+  returnsAgree,
 } from '@bitquilt/core';
 import { drawOrder, offerSeats } from './sortition.js';
 
@@ -53,11 +70,34 @@ export interface KindInfo {
 }
 
 /** QX-20: a record piece's standing readings, in receipt order: each from a root unrelated to the owner and to every earlier standing reading's root, up to `wanted`; `recordedAt` is the receipt of the last once they are in. */
-export interface RecordView { piece: Hash; name: string; wanted: number; standing: Reveal[]; recordedAt: string | null }
+export interface RecordView {
+  piece: Hash;
+  name: string;
+  wanted: number;
+  standing: Reveal[];
+  recordedAt: string | null;
+}
 
-export interface RankView { id: Hash; key: Address; root: Address; at: string; ranking: Hash[] }
-export interface PanelSeat { root: Address; offeredAt: string; lapsedAt: string | null; rank: RankView | null }
-export interface Candidate { digest: Hash; key: Address; root: Address; at: string; return: Return }
+export interface RankView {
+  id: Hash;
+  key: Address;
+  root: Address;
+  at: string;
+  ranking: Hash[];
+}
+export interface PanelSeat {
+  root: Address;
+  offeredAt: string;
+  lapsedAt: string | null;
+  rank: RankView | null;
+}
+export interface Candidate {
+  digest: Hash;
+  key: Address;
+  root: Address;
+  at: string;
+  return: Return;
+}
 export interface PanelView {
   piece: Hash;
   name: string;
@@ -130,22 +170,95 @@ export function kindOf(verifier: string): { kind: Kind; panel: number | null; wa
 /** A verifier in words: its kind, its registry number, how it earns a square, and whether it is the weakest kind. */
 export function describeKind(verifier: string): KindInfo {
   const k = kindOf(verifier);
-  if (!k) return { verifier, kind: null, extension: null, strength: null, says: 'a kind this tracker does not implement', weakest: false, panel: null, wanted: null };
+  if (!k)
+    return {
+      verifier,
+      kind: null,
+      extension: null,
+      strength: null,
+      says: 'a kind this tracker does not implement',
+      weakest: false,
+      panel: null,
+      wanted: null,
+    };
   switch (k.kind) {
     case 'check':
-      return { verifier, kind: 'check', extension: null, strength: 'reproduced', says: 'a patch that two unrelated runs reproduce', weakest: false, panel: null, wanted: null };
+      return {
+        verifier,
+        kind: 'check',
+        extension: null,
+        strength: 'reproduced',
+        says: 'a patch that two unrelated runs reproduce',
+        weakest: false,
+        panel: null,
+        wanted: null,
+      };
     case 'score':
-      return { verifier, kind: 'score', extension: null, strength: 'reproduced', says: 'a patch that two unrelated runs score within tolerance', weakest: false, panel: null, wanted: null };
+      return {
+        verifier,
+        kind: 'score',
+        extension: null,
+        strength: 'reproduced',
+        says: 'a patch that two unrelated runs score within tolerance',
+        weakest: false,
+        panel: null,
+        wanted: null,
+      };
     case 'agree':
-      return { verifier, kind: 'agree', extension: null, strength: 'agreed', says: 'two returns from different vendors agree', weakest: false, panel: null, wanted: null };
+      return {
+        verifier,
+        kind: 'agree',
+        extension: null,
+        strength: 'agreed',
+        says: 'two returns from different vendors agree',
+        weakest: false,
+        panel: null,
+        wanted: null,
+      };
     case 'human':
-      return { verifier, kind: 'human', extension: EXTENSIONS.human, strength: 'agreed', says: 'two people at seats a tracker opened for them agree', weakest: false, panel: null, wanted: null };
+      return {
+        verifier,
+        kind: 'human',
+        extension: EXTENSIONS.human,
+        strength: 'agreed',
+        says: 'two people at seats a tracker opened for them agree',
+        weakest: false,
+        panel: null,
+        wanted: null,
+      };
     case 'judge':
-      return { verifier, kind: 'judge', extension: EXTENSIONS.judge, strength: 'judged', says: `a panel of ${k.panel} drawn by sortition ranks the candidates and a majority's first choice is accepted`, weakest: false, panel: k.panel, wanted: null };
+      return {
+        verifier,
+        kind: 'judge',
+        extension: EXTENSIONS.judge,
+        strength: 'judged',
+        says: `a panel of ${k.panel} drawn by sortition ranks the candidates and a majority's first choice is accepted`,
+        weakest: false,
+        panel: k.panel,
+        wanted: null,
+      };
     case 'attest':
-      return { verifier, kind: 'attest', extension: EXTENSIONS.attest, strength: 'attested', says: 'the actor\'s own signed record, accepted at once and open to challenge for the window', weakest: true, panel: null, wanted: null };
+      return {
+        verifier,
+        kind: 'attest',
+        extension: EXTENSIONS.attest,
+        strength: 'attested',
+        says: "the actor's own signed record, accepted at once and open to challenge for the window",
+        weakest: true,
+        panel: null,
+        wanted: null,
+      };
     case 'record':
-      return { verifier, kind: 'record', extension: EXTENSIONS.record, strength: 'recorded', says: `${k.wanted} readings from roots unrelated to the owner and to each other are kept as given; none is accepted and none struck`, weakest: false, panel: null, wanted: k.wanted };
+      return {
+        verifier,
+        kind: 'record',
+        extension: EXTENSIONS.record,
+        strength: 'recorded',
+        says: `${k.wanted} readings from roots unrelated to the owner and to each other are kept as given; none is accepted and none struck`,
+        weakest: false,
+        panel: null,
+        wanted: k.wanted,
+      };
   }
 }
 
@@ -158,14 +271,17 @@ export function viaOf(set: AcceptingSet | null | undefined): Via | null {
 export function rankBodyProblems(body: unknown): string[] {
   if (!isRecord(body)) return ['body: an object'];
   const r = body.ranking;
-  if (!Array.isArray(r) || r.length === 0 || !r.every((d) => isHash(d))) return ['body.ranking: a list of candidate digests, first choice first'];
+  if (!Array.isArray(r) || r.length === 0 || !r.every((d) => isHash(d)))
+    return ['body.ranking: a list of candidate digests, first choice first'];
   if (new Set(r).size !== r.length) return ['body.ranking: each digest once'];
   return [];
 }
 
 /** The root a key counts for at a time for an extension type, or null when the key may not sign it. */
 export function rootFor(state: State, key: Address, type: string, at: string): Address | null {
-  const live = state.delegations.find((d) => d.to === key && d.since <= at && (d.revokedAt === null || d.revokedAt > at) && d.expires > at);
+  const live = state.delegations.find(
+    (d) => d.to === key && d.since <= at && (d.revokedAt === null || d.revokedAt > at) && d.expires > at,
+  );
   if (live) return live.scope.has(type) ? state.rootOf(key, at) : null;
   if (state.delegations.some((d) => d.to === key) && !state.rotations.has(key)) return null;
   return state.rootOf(key, at);
@@ -184,7 +300,8 @@ export function panelSeatProblem(panel: PanelView, root: Address): string | null
 export function rankingProblem(panel: PanelView, ranking: unknown): string | null {
   if (!Array.isArray(ranking)) return 'body.ranking: a list of candidate digests, first choice first';
   const digests = new Set(panel.candidates.map((c) => c.digest));
-  if (ranking.length !== digests.size || !ranking.every((d) => digests.has(d as Hash))) return `body.ranking: the ${digests.size} candidate digests, each once`;
+  if (ranking.length !== digests.size || !ranking.every((d) => digests.has(d as Hash)))
+    return `body.ranking: the ${digests.size} candidate digests, each once`;
   return null;
 }
 
@@ -194,8 +311,15 @@ export function fromPersonSeat(reveal: Reveal, receipt: Receipt | undefined): bo
   return receipt?.received.some((r) => r.seat === 'person' || r.custody === 'hosted') ?? false;
 }
 
-interface Line { receipt: Receipt; id: Hash }
-interface Rank { id: Hash; event: Event; at: string }
+interface Line {
+  receipt: Receipt;
+  id: Hash;
+}
+interface Rank {
+  id: Hash;
+  event: Event;
+  at: string;
+}
 
 /** What deciding a piece of one of these kinds reads: the fold being decided, its owner and window, the receipt line of a reveal, the time, and the caller's pool. */
 interface Context {
@@ -271,10 +395,12 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
     if (trail.has(v.piece.hash)) return 'locked';
     trail.add(v.piece.hash);
     // A dependent unlocks on accepted or unreachable, as the core says, and on recorded (QX-20), which is the record piece's done.
-    const inputsDone = v.piece.inputs.every((entry) => inputPieces(entry, pieces).every((dep) => {
-      const ds = stateOf(byHash.get(dep.hash)!, trail);
-      return ds === 'accepted' || ds === 'unreachable' || ds === 'recorded';
-    }));
+    const inputsDone = v.piece.inputs.every((entry) =>
+      inputPieces(entry, pieces).every((dep) => {
+        const ds = stateOf(byHash.get(dep.hash)!, trail);
+        return ds === 'accepted' || ds === 'unreachable' || ds === 'recorded';
+      }),
+    );
     let s: LayerPieceState;
     const info = kinds.get(v.piece.hash)!;
     if (!inputsDone) s = 'locked';
@@ -292,8 +418,15 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
       const panel = byPiece.get(v.piece.hash);
       if (panel?.outcome === 'open') s = 'judging';
       else if (panel?.outcome === 'void') s = 'disputed';
-      else if (v.accepting) s = v.windowEnd !== null && now < v.windowEnd ? 'accepted_provisional' : isUnreachable(v) ? 'unreachable' : 'accepted';
-      else if (hasDispute(v, fold, info.kind === 'human' ? counted.get(v.piece.hash) ?? [] : v.reveals)) s = 'disputed';
+      else if (v.accepting)
+        s =
+          v.windowEnd !== null && now < v.windowEnd
+            ? 'accepted_provisional'
+            : isUnreachable(v)
+              ? 'unreachable'
+              : 'accepted';
+      else if (hasDispute(v, fold, info.kind === 'human' ? (counted.get(v.piece.hash) ?? []) : v.reveals))
+        s = 'disputed';
       else if (v.reveals.length) s = 'needs_verify';
       else if (v.commits.some((c) => !c.revealed && c.abandonAt > now)) s = 'sealed';
       else if (v.claims.some((c) => c.until > now)) s = 'in_flight';
@@ -303,7 +436,11 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
     return s;
   };
   for (const v of views) v.state = stateOf(v, new Set()) as PieceState;
-  fold.complete = views.length > 0 && views.every((v) => v.state === 'accepted' || v.state === 'unreachable' || (v.state as LayerPieceState) === 'recorded');
+  fold.complete =
+    views.length > 0 &&
+    views.every(
+      (v) => v.state === 'accepted' || v.state === 'unreachable' || (v.state as LayerPieceState) === 'recorded',
+    );
 
   return { fold, panels, byPiece, kinds, unoffered, dropped, records };
 }
@@ -321,7 +458,13 @@ function decideRecord(v: PieceView, { fold, owner }: Context, n: number): Record
     if (standing.some((s) => fold.related(s.root, r.root, r.at))) continue;
     standing.push(r);
   }
-  return { piece: v.piece.hash, name: v.piece.name, wanted: n, standing, recordedAt: standing.length >= n ? standing[n - 1]!.at : null };
+  return {
+    piece: v.piece.hash,
+    name: v.piece.name,
+    wanted: n,
+    standing,
+    recordedAt: standing.length >= n ? standing[n - 1]!.at : null,
+  };
 }
 
 /** The first valid reveal from a root unrelated to the owner accepts the piece at once (QX-10); the window runs from its receipt. */
@@ -338,7 +481,9 @@ function decideHuman(v: PieceView, { fold, owner, windowH, lineOf }: Context): R
   const schema = v.piece.schema;
   if (!schema) return [];
   const fields = agreeFields(schema, v.piece.agree);
-  const counted = v.reveals.filter((r) => !fold.related(r.root, owner, r.at) && fromPersonSeat(r, lineOf(v.piece.hash, r)?.receipt));
+  const counted = v.reveals.filter(
+    (r) => !fold.related(r.root, owner, r.at) && fromPersonSeat(r, lineOf(v.piece.hash, r)?.receipt),
+  );
   for (let j = 0; j < counted.length && !v.accepting; j++) {
     const b = counted[j]!;
     if (counted.slice(0, j).some((a) => fold.related(a.root, b.root, b.at))) continue;
@@ -360,7 +505,12 @@ function decideHuman(v: PieceView, { fold, owner, windowH, lineOf }: Context): R
  * digests (QX-2); once they are in, a panel of n is drawn from the pool at that receipt, seeded by the first candidate's
  * receipt line, and the ranks are folded in receipt order. Null while the candidates are not yet in.
  */
-function decideJudge(v: PieceView, { fold, owner, windowH, lineOf, now, options }: Context, n: number, ranks: Rank[]): PanelView | null {
+function decideJudge(
+  v: PieceView,
+  { fold, owner, windowH, lineOf, now, options }: Context,
+  n: number,
+  ranks: Rank[],
+): PanelView | null {
   const wanted = v.piece.candidates ?? DEFAULT_CANDIDATES;
   const chosen: Reveal[] = [];
   for (const r of v.reveals) {
@@ -374,9 +524,20 @@ function decideJudge(v: PieceView, { fold, owner, windowH, lineOf, now, options 
   const last = chosen[chosen.length - 1]!;
   const seed = lineOf(v.piece.hash, first)?.receipt.hash ?? null;
   const panel: PanelView = {
-    piece: v.piece.hash, name: v.piece.name, panel: n, majority: Math.floor(n / 2) + 1, wanted,
+    piece: v.piece.hash,
+    name: v.piece.name,
+    panel: n,
+    majority: Math.floor(n / 2) + 1,
+    wanted,
     candidates: chosen.map((r) => ({ digest: r.digest, key: r.key, root: r.root, at: r.at, return: r.return })),
-    seed, completedAt: last.at, order: [], seats: [], outcome: 'open', winner: null, decidedAt: null, dropped: [],
+    seed,
+    completedAt: last.at,
+    order: [],
+    seats: [],
+    outcome: 'open',
+    winner: null,
+    decidedAt: null,
+    dropped: [],
   };
   const pool = options.pool(fold.problem, last.at, [owner, ...v.reveals.map((r) => r.root)], fold);
   if (pool.length < n) {
@@ -398,7 +559,14 @@ function decideJudge(v: PieceView, { fold, owner, windowH, lineOf, now, options 
 
 /** Offers the seats, lapses and replaces them by the lease (sortition.ts), folds the ranks in receipt order, and decides on a majority's first choice. */
 function seatPanel(panel: PanelView, fold: State, leaseH: number, ranks: Rank[], now: string): void {
-  const { seats, advance, ranOut, lastLapse } = offerSeats<PanelSeat>(panel.order, panel.panel, panel.completedAt, leaseH, (root, offeredAt) => ({ root, offeredAt, lapsedAt: null, rank: null }), (s) => s.rank !== null);
+  const { seats, advance, ranOut, lastLapse } = offerSeats<PanelSeat>(
+    panel.order,
+    panel.panel,
+    panel.completedAt,
+    leaseH,
+    (root, offeredAt) => ({ root, offeredAt, lapsedAt: null, rank: null }),
+    (s) => s.rank !== null,
+  );
   panel.seats = seats;
   const firsts = new Map<Hash, number>();
   for (const r of ranks) {
@@ -409,7 +577,7 @@ function seatPanel(panel: PanelView, fold: State, leaseH: number, ranks: Rank[],
     }
     const ev = r.event;
     if (!eventSignedByKey(ev)) {
-      drop('signature is not the key\'s');
+      drop("signature is not the key's");
       continue;
     }
     const shape = rankBodyProblems(ev.body);
@@ -459,11 +627,12 @@ function hasDispute(v: PieceView, fold: State, reveals: Reveal[]): boolean {
   const schema = v.piece.schema;
   if (!schema) return false;
   const fields = agreeFields(schema, v.piece.agree);
-  for (let j = 0; j < reveals.length; j++) for (let i = 0; i < j; i++) {
-    const a = reveals[i]!;
-    const b = reveals[j]!;
-    if (!fold.related(a.root, b.root, b.at) && !returnsAgree(schema, fields, a.return, b.return)) return true;
-  }
+  for (let j = 0; j < reveals.length; j++)
+    for (let i = 0; i < j; i++) {
+      const a = reveals[i]!;
+      const b = reveals[j]!;
+      if (!fold.related(a.root, b.root, b.at) && !returnsAgree(schema, fields, a.return, b.return)) return true;
+    }
   return false;
 }
 

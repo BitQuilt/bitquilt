@@ -18,7 +18,11 @@ export const DAYS_MAX = 365;
 const DAY_MS = 86_400_000;
 
 /** When a hosted member was made, first used and took the key home, and nothing else about them. */
-export interface MemberTimes { createdAt: string; firstUsedAt: string | null; keyTakenAt: string | null }
+export interface MemberTimes {
+  createdAt: string;
+  firstUsedAt: string | null;
+  keyTakenAt: string | null;
+}
 
 export interface FunnelInput {
   members: MemberTimes[];
@@ -49,7 +53,9 @@ export interface FunnelCounts {
   /** Squares the owner's gold verified, by the day of the reveal's receipt. */
   squares_verified: number;
 }
-export interface FunnelDay extends FunnelCounts { day: string }
+export interface FunnelDay extends FunnelCounts {
+  day: string;
+}
 export interface Funnel {
   now: string;
   window: { days: number; from: string; to: string };
@@ -68,8 +74,19 @@ export function daysFrom(raw: string | null): number | null {
 /** The UTC day a time in milliseconds falls on, as YYYY-MM-DD. */
 const dayOf = (t: number): string => new Date(t).toISOString().slice(0, 10);
 
-const noDeclines = (): Record<DeclineReason, number> => Object.fromEntries(DECLINE_REASONS.map((r) => [r, 0])) as Record<DeclineReason, number>;
-const zero = (): FunnelCounts => ({ addresses_made: 0, addresses_first_used: 0, keys_taken_home: 0, keys_first_event: { hosted: 0, own: 0 }, claims: 0, reveals: 0, declines: noDeclines(), sets_accepted: 0, squares_verified: 0 });
+const noDeclines = (): Record<DeclineReason, number> =>
+  Object.fromEntries(DECLINE_REASONS.map((r) => [r, 0])) as Record<DeclineReason, number>;
+const zero = (): FunnelCounts => ({
+  addresses_made: 0,
+  addresses_first_used: 0,
+  keys_taken_home: 0,
+  keys_first_event: { hosted: 0, own: 0 },
+  claims: 0,
+  reveals: 0,
+  declines: noDeclines(),
+  sets_accepted: 0,
+  squares_verified: 0,
+});
 
 /** The funnel over the window of `days` UTC days ending on now's, every day present, and the totals over it. */
 export function funnel(input: FunnelInput): Funnel {
@@ -89,25 +106,44 @@ export function funnel(input: FunnelInput): Funnel {
     if (row) add(row);
   };
   for (const m of members) {
-    on(m.createdAt, (c) => { c.addresses_made += 1; });
-    on(m.firstUsedAt, (c) => { c.addresses_first_used += 1; });
-    on(m.keyTakenAt, (c) => { c.keys_taken_home += 1; });
+    on(m.createdAt, (c) => {
+      c.addresses_made += 1;
+    });
+    on(m.firstUsedAt, (c) => {
+      c.addresses_first_used += 1;
+    });
+    on(m.keyTakenAt, (c) => {
+      c.keys_taken_home += 1;
+    });
   }
   // Each key's earliest receipt across every problem log, and whose custody it was in then; the keys themselves stay here.
   const first = new Map<string, { at: string; hosted: boolean }>();
-  for (const log of logs) for (const r of log) {
-    const w = r.received[0];
-    if (!w) continue;
-    if (r.event.type === 'claim') on(w.at, (c) => { c.claims += 1; });
-    if (r.event.type === 'reveal') on(w.at, (c) => { c.reveals += 1; });
-    if (r.event.type === 'decline') {
-      const reason = (r.event.body as { reason?: unknown } | undefined)?.reason;
-      if ((DECLINE_REASONS as readonly unknown[]).includes(reason)) on(w.at, (c) => { c.declines[reason as DeclineReason] += 1; });
+  for (const log of logs)
+    for (const r of log) {
+      const w = r.received[0];
+      if (!w) continue;
+      if (r.event.type === 'claim')
+        on(w.at, (c) => {
+          c.claims += 1;
+        });
+      if (r.event.type === 'reveal')
+        on(w.at, (c) => {
+          c.reveals += 1;
+        });
+      if (r.event.type === 'decline') {
+        const reason = (r.event.body as { reason?: unknown } | undefined)?.reason;
+        if ((DECLINE_REASONS as readonly unknown[]).includes(reason))
+          on(w.at, (c) => {
+            c.declines[reason as DeclineReason] += 1;
+          });
+      }
+      const seen = first.get(r.event.key);
+      if (!seen || w.at < seen.at) first.set(r.event.key, { at: w.at, hosted: w.custody === 'hosted' });
     }
-    const seen = first.get(r.event.key);
-    if (!seen || w.at < seen.at) first.set(r.event.key, { at: w.at, hosted: w.custody === 'hosted' });
-  }
-  for (const f of first.values()) on(f.at, (c) => { c.keys_first_event[f.hosted ? 'hosted' : 'own'] += 1; });
+  for (const f of first.values())
+    on(f.at, (c) => {
+      c.keys_first_event[f.hosted ? 'hosted' : 'own'] += 1;
+    });
   // The layer's fold: a set a held challenge or a miss struck is not in it. A piece two versions of a problem share counts once.
   const sets = new Set<string>();
   const squares = new Set<string>();
@@ -118,13 +154,18 @@ export function funnel(input: FunnelInput): Funnel {
       const id = `${v.piece.hash}:${set.completedAt}`;
       if (sets.has(id)) continue;
       sets.add(id);
-      on(set.completedAt, (c) => { c.sets_accepted += 1; });
+      on(set.completedAt, (c) => {
+        c.sets_accepted += 1;
+      });
     }
-    for (const g of pl.golds) for (const c of g.commitments) {
-      if (c.outcome !== 'match' || c.revealedAt === null || squares.has(c.h)) continue;
-      squares.add(c.h);
-      on(c.revealedAt, (x) => { x.squares_verified += 1; });
-    }
+    for (const g of pl.golds)
+      for (const c of g.commitments) {
+        if (c.outcome !== 'match' || c.revealedAt === null || squares.has(c.h)) continue;
+        squares.add(c.h);
+        on(c.revealedAt, (x) => {
+          x.squares_verified += 1;
+        });
+      }
   }
   const totals = zero();
   for (const r of rows.values()) {

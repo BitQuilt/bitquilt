@@ -33,13 +33,78 @@
  * both panels share are in sortition.ts.
  */
 import {
-  type Address, type Event, type Hash, type PieceState, type PieceView, type Receipt, type ReduceInput, type Return, type State,
-  byAtThenId, commitHash, eventId, eventSignedByKey, isHash, isRecord, orderReceipts, plusHours, reduce, returnProblems,
+  type Address,
+  type Event,
+  type Hash,
+  type PieceState,
+  type PieceView,
+  type Receipt,
+  type ReduceInput,
+  type Return,
+  type State,
+  byAtThenId,
+  commitHash,
+  eventId,
+  eventSignedByKey,
+  isHash,
+  isRecord,
+  orderReceipts,
+  plusHours,
+  reduce,
+  returnProblems,
 } from '@bitquilt/core';
-import { type KindInfo, type PanelView, type RecordView, applyVerifiers, leaseOf, ownerOf, panelSeatProblem, rankBodyProblems, rankingProblem, rootFor, viaOf, windowOf } from './verifiers.js';
-import { type CoinLockWord, type LockView, checkLock, hasLock, keepStakeRules, lockEnd, lockReleasedAt, liveAt, ruleAt, ruleProblem, stakeAsked } from './stake.js';
-import { type GoldCommitment, type GoldCount, type GoldState, type GoldView, checkGold, checkGoldReveal, goldCount, goldMatches, goldOn, missOn, outcomeOf } from './gold.js';
-import { type Dropped, type Folding, type ProblemEntry, acceptingRoots, creditBurns, creditedElsewhere, creditedRoots, newFolding, refreshCredits, rootOf } from './standing.js';
+import {
+  type KindInfo,
+  type PanelView,
+  type RecordView,
+  applyVerifiers,
+  leaseOf,
+  ownerOf,
+  panelSeatProblem,
+  rankBodyProblems,
+  rankingProblem,
+  rootFor,
+  viaOf,
+  windowOf,
+} from './verifiers.js';
+import {
+  type CoinLockWord,
+  type LockView,
+  checkLock,
+  hasLock,
+  keepStakeRules,
+  lockEnd,
+  lockReleasedAt,
+  liveAt,
+  ruleAt,
+  ruleProblem,
+  stakeAsked,
+} from './stake.js';
+import {
+  type GoldCommitment,
+  type GoldCount,
+  type GoldState,
+  type GoldView,
+  checkGold,
+  checkGoldReveal,
+  goldCount,
+  goldMatches,
+  goldOn,
+  missOn,
+  outcomeOf,
+} from './gold.js';
+import {
+  type Dropped,
+  type Folding,
+  type ProblemEntry,
+  acceptingRoots,
+  creditBurns,
+  creditedElsewhere,
+  creditedRoots,
+  newFolding,
+  refreshCredits,
+  rootOf,
+} from './standing.js';
 import { pieceTraces } from './trace.js';
 import { drawOrder, offerSeats } from './sortition.js';
 
@@ -56,8 +121,20 @@ export type Outcome = 'open' | 'held' | 'failed' | 'void';
 export type LayerState = PieceState | 'challenged' | 'judging' | 'recording' | 'recorded';
 export const CHALLENGE_EVENTS: ReadonlySet<string> = new Set(['challenge', 'verdict']);
 
-export interface VerdictView { id: Hash; key: Address; root: Address; at: string; for: Side; return: Return | null }
-export interface Seat { root: Address; offeredAt: string; lapsedAt: string | null; verdict: VerdictView | null }
+export interface VerdictView {
+  id: Hash;
+  key: Address;
+  root: Address;
+  at: string;
+  for: Side;
+  return: Return | null;
+}
+export interface Seat {
+  root: Address;
+  offeredAt: string;
+  lapsedAt: string | null;
+  verdict: VerdictView | null;
+}
 export interface ChallengeView {
   id: Hash;
   problem: Hash;
@@ -166,7 +243,13 @@ export interface Layer {
   /** Whether a stake rule by this key would count if received now, and why not. */
   admitStakeRule(problem: Hash, key: Address, body: Record<string, unknown>): Admission;
   /** Whether a lock by this key on this piece would count if received now, and why not; a coin-kind lock comes with the word the door read of the coin lock (QX-17). */
-  admitLock(problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>, word?: CoinLockWord | null): Admission;
+  admitLock(
+    problem: Hash,
+    piece: Hash,
+    key: Address,
+    body: Record<string, unknown>,
+    word?: CoinLockWord | null,
+  ): Admission;
   /** QX-15: when the fold releases a lock, or null while it would be live; forfeits are not judged here. */
   lockEndsAt(lock: LockView): string | null;
   /** Whether a claim, commit, reveal or run by this key on this piece is backed as the piece's stake asks, and why not. */
@@ -182,8 +265,19 @@ export interface Layer {
 /** The events this layer keeps or drops in receipt order; a verdict is read under its challenge. */
 type LayerEventKind = 'challenge' | 'lock' | 'gold' | 'gold_reveal';
 const LAYER_EVENT_KINDS: ReadonlySet<string> = new Set<LayerEventKind>(['challenge', 'lock', 'gold', 'gold_reveal']);
-interface LayerEvent { id: Hash; kind: LayerEventKind; event: Event; at: string; receipt: Receipt; home: ProblemEntry }
-interface Verdict { id: Hash; event: Event; at: string }
+interface LayerEvent {
+  id: Hash;
+  kind: LayerEventKind;
+  event: Event;
+  at: string;
+  receipt: Receipt;
+  home: ProblemEntry;
+}
+interface Verdict {
+  id: Hash;
+  event: Event;
+  at: string;
+}
 
 /** The states a piece still takes work in (QX-15 section 2): what `unaffordable` measures a key's free standing against. */
 const UNDONE: ReadonlySet<string> = new Set(['open', 'in_flight', 'sealed', 'needs_verify', 'disputed', 'recording']);
@@ -193,7 +287,8 @@ export function challengeBodyProblems(body: unknown): string[] {
   if (!isRecord(body)) return ['body: an object'];
   const out: string[] = [];
   if (!Number.isInteger(body.stake) || (body.stake as number) < 0) out.push('body.stake: a whole number from 0');
-  if (typeof body.ground !== 'string' || !body.ground.trim() || body.ground.length > GROUND_MAX) out.push(`body.ground: a sentence of at most ${GROUND_MAX} characters`);
+  if (typeof body.ground !== 'string' || !body.ground.trim() || body.ground.length > GROUND_MAX)
+    out.push(`body.ground: a sentence of at most ${GROUND_MAX} characters`);
   return out;
 }
 
@@ -213,19 +308,37 @@ function setEventIds(v: PieceView, receipts: Receipt[]): Hash[] {
   const ordered = orderReceipts(receipts);
   const ids: Hash[] = [];
   const reveal = (key: Address, at: string) => {
-    const r = ordered.find((x) => x.receipt.event.type === 'reveal' && x.receipt.event.key === key && x.receipt.event.piece === v.piece.hash && x.at === at);
+    const r = ordered.find(
+      (x) =>
+        x.receipt.event.type === 'reveal' &&
+        x.receipt.event.key === key &&
+        x.receipt.event.piece === v.piece.hash &&
+        x.at === at,
+    );
     if (!r) return;
     ids.push(r.id);
     const b = r.receipt.event.body as { return: unknown; nonce: string };
     const h = commitHash(b.return, b.nonce);
-    const c = ordered.find((x) => x.receipt.event.type === 'commit' && x.receipt.event.key === key && x.receipt.event.piece === v.piece.hash && (x.receipt.event.body as { h: Hash }).h === h);
+    const c = ordered.find(
+      (x) =>
+        x.receipt.event.type === 'commit' &&
+        x.receipt.event.key === key &&
+        x.receipt.event.piece === v.piece.hash &&
+        (x.receipt.event.body as { h: Hash }).h === h,
+    );
     if (c) ids.push(c.id);
   };
   if (v.accepting.kind === 'agree') for (const r of v.accepting.reveals) reveal(r.key, r.at);
   else {
     reveal(v.accepting.patch.key, v.accepting.patch.at);
     for (const run of v.accepting.runs) {
-      const x = ordered.find((y) => y.receipt.event.type === 'run' && y.receipt.event.key === run.key && y.receipt.event.piece === v.piece.hash && y.at === run.at);
+      const x = ordered.find(
+        (y) =>
+          y.receipt.event.type === 'run' &&
+          y.receipt.event.key === run.key &&
+          y.receipt.event.piece === v.piece.hash &&
+          y.at === run.at,
+      );
       if (x) ids.push(x.id);
     }
   }
@@ -240,13 +353,21 @@ function judgePool(f: Folding, problem: Hash, at: string, unrelatedTo: Address[]
 }
 
 /** The pool a challenge's panel is drawn from (QX-1 section 3): roots credited elsewhere, unrelated to the challenger, to each party, and to anyone with a reveal or a run on the piece. */
-function poolFor(f: Folding, home: ProblemEntry, view: PieceView, challenger: Address, parties: Address[], at: string): Address[] {
+function poolFor(
+  f: Folding,
+  home: ProblemEntry,
+  view: PieceView,
+  challenger: Address,
+  parties: Address[],
+  at: string,
+): Address[] {
   const fold = home.fold;
   const out: Address[] = [];
   for (const r of creditedElsewhere(f, home.hash, at)) {
     if (fold.related(r, challenger, at)) continue;
     if (parties.some((p) => fold.related(r, p, at))) continue;
-    if (view.reveals.some((x) => fold.related(x.root, r, at)) || view.runs.some((x) => fold.related(x.root, r, at))) continue;
+    if (view.reveals.some((x) => fold.related(x.root, r, at)) || view.runs.some((x) => fold.related(x.root, r, at)))
+      continue;
     out.push(r);
   }
   return out;
@@ -256,7 +377,12 @@ function poolFor(f: Folding, home: ProblemEntry, view: PieceView, challenger: Ad
 
 /** The verifier kinds decided over an entry's base fold, with the pool as the credits stand. */
 function refold(f: Folding, e: ProblemEntry): void {
-  e.layered = applyVerifiers(e.base, e.input.receipts.filter((x) => !e.struck.has(eventId(x.event))), f.now, { pool: (problem, at, unrelatedTo, fold) => judgePool(f, problem, at, unrelatedTo, fold) });
+  e.layered = applyVerifiers(
+    e.base,
+    e.input.receipts.filter((x) => !e.struck.has(eventId(x.event))),
+    f.now,
+    { pool: (problem, at, unrelatedTo, fold) => judgePool(f, problem, at, unrelatedTo, fold) },
+  );
   e.fold = e.layered.fold;
 }
 
@@ -270,7 +396,13 @@ function rereduce(f: Folding, e: ProblemEntry): void {
  * Strikes a piece's accepting set at `d`, as QX-1 section 6 says: the roots docked and their points withdrawn, their
  * locks forfeited (QX-15 section 3), the events left out and every fold that carried them redone.
  */
-function strike(f: Folding, home: ProblemEntry, view: PieceView, d: string, lease: number): { ids: Hash[]; roots: Address[] } {
+function strike(
+  f: Folding,
+  home: ProblemEntry,
+  view: PieceView,
+  d: string,
+  lease: number,
+): { ids: Hash[]; roots: Address[] } {
   for (const p of creditedRoots(view)) {
     const root = home.fold.rootOf(p, f.now);
     f.moves.push({ root, at: d, delta: -1 });
@@ -314,7 +446,8 @@ function setAsideUngrounded(f: Folding, blobLength: (hash: Hash) => number | nul
       const found: Hash[] = [];
       for (const v of e.fold.pieces) {
         if (v.state !== 'disputed') continue;
-        for (const id of pieceTraces(e.fold, v, e.input.receipts, blobLength, () => null).aside) if (!e.struck.has(id)) found.push(id);
+        for (const id of pieceTraces(e.fold, v, e.input.receipts, blobLength, () => null).aside)
+          if (!e.struck.has(id)) found.push(id);
       }
       if (found.length === 0) break;
       for (const id of found) {
@@ -342,7 +475,14 @@ function unstrike(f: Folding, home: ProblemEntry, c: GoldCommitment, d: string):
   for (const root of c.struckRoots) {
     if (credited.includes(root)) f.moves.push({ root, at: d, delta: 2 });
     for (const l of f.locks) {
-      if (l.problem !== home.hash || l.piece !== piece || l.root !== root || l.forfeitedAt !== c.revealedAt || l.restoredAt !== null) continue;
+      if (
+        l.problem !== home.hash ||
+        l.piece !== piece ||
+        l.root !== root ||
+        l.forfeitedAt !== c.revealedAt ||
+        l.restoredAt !== null
+      )
+        continue;
       l.restoredAt = d;
       if (l.kind === 'standing') f.moves.push({ root, at: d, delta: l.amount });
     }
@@ -355,18 +495,35 @@ function stakeShort(f: Folding, root: Address, stake: number, at: string): strin
   const l = f.locked(root, at);
   const free = Math.max(0, s - l);
   if (free >= stake) return null;
-  return l > 0 ? `free standing ${free} is below the stake of ${stake}` : `standing ${s} is below the stake of ${stake}`;
+  return l > 0
+    ? `free standing ${free} is below the stake of ${stake}`
+    : `standing ${s} is below the stake of ${stake}`;
 }
 
 type ChallengeCheck =
-  | { ok: true; root: Address; view: PieceView; parties: Address[]; pool: Address[]; gold: GoldView | null; commitment: GoldCommitment | null }
+  | {
+      ok: true;
+      root: Address;
+      view: PieceView;
+      parties: Address[];
+      pool: Address[];
+      gold: GoldView | null;
+      commitment: GoldCommitment | null;
+    }
   | { ok: false; why: string };
 
 /**
  * Whether a challenge would be kept if received at `at`, and why not: QX-1 section 1 against an acceptance; QX-16
  * section 4 against a gold miss, from a struck root, for a stake of 0 or more.
  */
-function checkChallenge(f: Folding, home: ProblemEntry, piece: Hash, key: Address, stake: number, at: string): ChallengeCheck {
+function checkChallenge(
+  f: Folding,
+  home: ProblemEntry,
+  piece: Hash,
+  key: Address,
+  stake: number,
+  at: string,
+): ChallengeCheck {
   const fold = home.fold;
   const view = fold.byHash.get(piece);
   if (!view) return { ok: false, why: 'names a piece this problem does not have' };
@@ -381,29 +538,43 @@ function checkChallenge(f: Folding, home: ProblemEntry, piece: Hash, key: Addres
   if (!view.accepting && miss) {
     if (open) return { ok: false, why: 'a challenge is open on this piece' };
     if (at >= plusHours(miss.commitment.revealedAt!, windowOf(fold))) return { ok: false, why: 'outside the window' };
-    if (!miss.commitment.struckRoots.includes(root)) return { ok: false, why: 'only a root of the struck set challenges a miss' };
+    if (!miss.commitment.struckRoots.includes(root))
+      return { ok: false, why: 'only a root of the struck set challenges a miss' };
     const parties = [ownerOf(fold, at)];
     const short = stakeShort(f, root, stake, at);
     if (short) return { ok: false, why: short };
     const pool = poolFor(f, home, view, root, parties, at).filter((r) => !miss.commitment.struckRoots.includes(r));
     return { ok: true, root, view, parties, pool, gold: miss.gold, commitment: miss.commitment };
   }
-  if (!view.accepting || view.accepting.completedAt > at) return { ok: false, why: 'nothing accepted on this piece yet' };
+  if (!view.accepting || view.accepting.completedAt > at)
+    return { ok: false, why: 'nothing accepted on this piece yet' };
   if (view.windowEnd === null || at >= view.windowEnd) return { ok: false, why: 'outside the window' };
   if (open) return { ok: false, why: 'a challenge is open on this piece' };
   const parties = [...acceptingRoots(view), fold.envelope.problem.owner as Address];
-  if (parties.some((p) => fold.related(p, root, at))) return { ok: false, why: 'a party to the acceptance cannot challenge it' };
+  if (parties.some((p) => fold.related(p, root, at)))
+    return { ok: false, why: 'a party to the acceptance cannot challenge it' };
   if (stake < 1) return { ok: false, why: 'a challenge on an acceptance stakes at least 1' };
   // QX-15 section 3: standing locked behind a claim is not staked again on a challenge.
   const short = stakeShort(f, root, stake, at);
   if (short) return { ok: false, why: short };
-  return { ok: true, root, view, parties, pool: poolFor(f, home, view, root, parties, at), gold: null, commitment: null };
+  return {
+    ok: true,
+    root,
+    view,
+    parties,
+    pool: poolFor(f, home, view, root, parties, at),
+    gold: null,
+    commitment: null,
+  };
 }
 
 /** Why an event is not this layer's to keep: it names another problem, names a piece or not as its kind asks, or its signature is not the key's; null when it is. */
 function misnamed(ev: Event, home: ProblemEntry, { piece }: { piece: boolean }): string | null {
-  if (ev.problem !== home.hash || (piece ? !ev.piece : ev.piece !== undefined)) return piece ? 'names a problem or piece this layer does not hold' : 'names a problem this layer does not hold, or a piece';
-  if (!eventSignedByKey(ev)) return 'signature is not the key\'s';
+  if (ev.problem !== home.hash || (piece ? !ev.piece : ev.piece !== undefined))
+    return piece
+      ? 'names a problem or piece this layer does not hold'
+      : 'names a problem this layer does not hold, or a piece';
+  if (!eventSignedByKey(ev)) return "signature is not the key's";
   return null;
 }
 
@@ -420,7 +591,20 @@ function keepLock(f: Folding, c: LayerEvent): void {
   const r = checkLock(f, home, ev.piece!, ev.key, ev.body, at, word);
   if (!r.ok) return drop(c, r.why);
   const coin = ev.body.kind === 'coin';
-  f.locks.push({ id: c.id, problem: home.hash, piece: ev.piece!, name: r.view.piece.name, key: ev.key, root: r.root, at, kind: coin ? 'coin' : 'standing', amount: ev.body.amount as number, coinId: coin ? (ev.body.id as Hash) : null, forfeitedAt: null, restoredAt: null });
+  f.locks.push({
+    id: c.id,
+    problem: home.hash,
+    piece: ev.piece!,
+    name: r.view.piece.name,
+    key: ev.key,
+    root: r.root,
+    at,
+    kind: coin ? 'coin' : 'standing',
+    amount: ev.body.amount as number,
+    coinId: coin ? (ev.body.id as Hash) : null,
+    forfeitedAt: null,
+    restoredAt: null,
+  });
 }
 
 /** QX-16 section 1: the owner's blind commitments, kept at their receipt against the owner's free standing then; the pieces are named at the reveals. */
@@ -430,7 +614,16 @@ function keepGold(f: Folding, c: LayerEvent): void {
   if (why) return drop(c, why);
   const r = checkGold(f, home, ev.key, ev.body, at);
   if (!r.ok) return drop(c, r.why);
-  const g: GoldView = { id: c.id, problem: home.hash, key: ev.key, root: r.root, at, stake: ev.body.stake as number, commitments: r.kept, forfeitedAt: null };
+  const g: GoldView = {
+    id: c.id,
+    problem: home.hash,
+    key: ev.key,
+    root: r.root,
+    at,
+    stake: ev.body.stake as number,
+    commitments: r.kept,
+    forfeitedAt: null,
+  };
   f.golds.push(g);
   home.golds.push(g);
 }
@@ -473,8 +666,23 @@ function keepChallenge(f: Folding, c: LayerEvent, verdicts: Verdict[]): void {
   const view = r.view;
   const seed = c.receipt.hash ?? null;
   const challenge: ChallengeView = {
-    id: c.id, problem: home.hash, piece: ev.piece!, key: ev.key, root: r.root, at, stake, ground: ev.body.ground as string, against: r.gold ? 'gold' : 'acceptance',
-    parties: r.parties, seed, order: [], seats: [], outcome: 'open', decidedAt: null, struck: [], dropped: [],
+    id: c.id,
+    problem: home.hash,
+    piece: ev.piece!,
+    key: ev.key,
+    root: r.root,
+    at,
+    stake,
+    ground: ev.body.ground as string,
+    against: r.gold ? 'gold' : 'acceptance',
+    parties: r.parties,
+    seed,
+    order: [],
+    seats: [],
+    outcome: 'open',
+    decidedAt: null,
+    struck: [],
+    dropped: [],
   };
   home.challenges.push(challenge);
   if (r.pool.length < PANEL) {
@@ -509,7 +717,13 @@ function keepChallenge(f: Folding, c: LayerEvent, verdicts: Verdict[]): void {
  * resolved at `now` throughout, moves are dated at the receipts that made them. `coin` is the coin log's receipts, read
  * for burn credits (QX-17 section 4).
  */
-export function challengeLayer(input: { problems: ReduceInput[]; now: string; coin?: Receipt[]; founding?: Map<string, number>; blobLength?: (hash: Hash) => number | null }): Layer {
+export function challengeLayer(input: {
+  problems: ReduceInput[];
+  now: string;
+  coin?: Receipt[];
+  founding?: Map<string, number>;
+  blobLength?: (hash: Hash) => number | null;
+}): Layer {
   const { now } = input;
   const f = newFolding(now, input.founding);
 
@@ -518,7 +732,20 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
     const core = reduce(p);
     if (f.entries.has(core.problem)) continue;
     const layered = applyVerifiers(core, p.receipts, now, { pool: () => [] });
-    f.entries.set(core.problem, { hash: core.problem, input: p, core, base: core, fold: layered.fold, layered, struck: new Set(), aside: new Set(), challenges: [], dropped: [], rules: [], golds: [] });
+    f.entries.set(core.problem, {
+      hash: core.problem,
+      input: p,
+      core,
+      base: core,
+      fold: layered.fold,
+      layered,
+      struck: new Set(),
+      aside: new Set(),
+      challenges: [],
+      dropped: [],
+      rules: [],
+      golds: [],
+    });
   }
 
   // 2. The kinds and the credits to a fixed point (verifiers.md section 1): a judge panel's pool is the credits on other
@@ -527,7 +754,12 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
   let fingerprint = '';
   for (let pass = 0; ; pass++) {
     refreshCredits(f);
-    const next = [...f.entries.values()].map((e) => `${e.fold.pieces.map((v) => v.state).join(',')}|${e.layered.panels.map((p) => `${p.piece}:${p.outcome}:${p.seats.map((s) => s.root).join('.')}`).join(';')}`).join('/');
+    const next = [...f.entries.values()]
+      .map(
+        (e) =>
+          `${e.fold.pieces.map((v) => v.state).join(',')}|${e.layered.panels.map((p) => `${p.piece}:${p.outcome}:${p.seats.map((s) => s.root).join('.')}`).join(';')}`,
+      )
+      .join('/');
     if (next === fingerprint || pass === 3) break;
     fingerprint = next;
     for (const e of f.entries.values()) refold(f, e);
@@ -549,21 +781,22 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
   // under its challenge.
   const events = new Map<Hash, LayerEvent>();
   const verdicts = new Map<Hash, Verdict[]>();
-  for (const e of f.entries.values()) for (const { receipt, at, id } of orderReceipts(e.input.receipts)) {
-    const ev = receipt.event;
-    if (LAYER_EVENT_KINDS.has(ev.type)) {
-      if (events.has(id)) continue;
-      const home = (ev.problem && f.entries.get(ev.problem)) || e;
-      events.set(id, { id, kind: ev.type as LayerEventKind, event: ev, at, receipt, home });
-    } else if (ev.type === 'verdict') {
-      const of = (ev.body as { challenge?: unknown }).challenge;
-      if (!isHash(of)) continue;
-      const list = verdicts.get(of) ?? [];
-      if (list.some((v) => v.id === id)) continue;
-      list.push({ id, event: ev, at });
-      verdicts.set(of, list);
+  for (const e of f.entries.values())
+    for (const { receipt, at, id } of orderReceipts(e.input.receipts)) {
+      const ev = receipt.event;
+      if (LAYER_EVENT_KINDS.has(ev.type)) {
+        if (events.has(id)) continue;
+        const home = (ev.problem && f.entries.get(ev.problem)) || e;
+        events.set(id, { id, kind: ev.type as LayerEventKind, event: ev, at, receipt, home });
+      } else if (ev.type === 'verdict') {
+        const of = (ev.body as { challenge?: unknown }).challenge;
+        if (!isHash(of)) continue;
+        const list = verdicts.get(of) ?? [];
+        if (list.some((v) => v.id === id)) continue;
+        list.push({ id, event: ev, at });
+        verdicts.set(of, list);
+      }
     }
-  }
   for (const c of [...events.values()].sort(byAtThenId)) {
     switch (c.kind) {
       case 'lock':
@@ -586,24 +819,51 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
   const all: ChallengeView[] = [];
   for (const e of f.entries.values()) {
     const asideBy = new Map<Hash, Address[]>();
-    for (const r of e.input.receipts) if (r.event.piece && e.aside.has(eventId(r.event))) asideBy.set(r.event.piece, [...(asideBy.get(r.event.piece) ?? []), r.event.key]);
+    for (const r of e.input.receipts)
+      if (r.event.piece && e.aside.has(eventId(r.event)))
+        asideBy.set(r.event.piece, [...(asideBy.get(r.event.piece) ?? []), r.event.key]);
     const pieces: PieceLayer[] = e.fold.pieces.map((v) => {
       const own = e.challenges.filter((c) => c.piece === v.piece.hash);
       const last = own.length ? own[own.length - 1]! : null;
       const core = e.core.byHash.get(v.piece.hash)?.state ?? v.state;
       const record = e.layered.records.get(v.piece.hash) ?? null;
       // QX-20: a record piece some readings stand on is held under needs_verify in the fold, so the core's `next` offers it; here it says recording.
-      const state: LayerState = last?.outcome === 'open' ? 'challenged' : record && v.state === 'needs_verify' ? 'recording' : v.state;
+      const state: LayerState =
+        last?.outcome === 'open' ? 'challenged' : record && v.state === 'needs_verify' ? 'recording' : v.state;
       const kind = e.layered.kinds.get(v.piece.hash)!;
       const commitment = goldOn(e, v.piece.hash);
       const gold = commitment ? (outcomeOf(e, commitment, now) as GoldState) : null;
-      return { hash: v.piece.hash, name: v.piece.name, core, state, challenge: last, kind, attested: viaOf(v.accepting) === 'attest', panel: e.layered.byPiece.get(v.piece.hash) ?? null, stake: stakeAsked(ruleAt(e, now), v.piece), gold, verified: gold === 'match', aside: asideBy.get(v.piece.hash) ?? [], record };
+      return {
+        hash: v.piece.hash,
+        name: v.piece.name,
+        core,
+        state,
+        challenge: last,
+        kind,
+        attested: viaOf(v.accepting) === 'attest',
+        panel: e.layered.byPiece.get(v.piece.hash) ?? null,
+        stake: stakeAsked(ruleAt(e, now), v.piece),
+        gold,
+        verified: gold === 'match',
+        aside: asideBy.get(v.piece.hash) ?? [],
+        record,
+      };
     });
     const rule = ruleAt(e, now);
     problems.set(e.hash, {
-      problem: e.hash, core: e.core, fold: e.fold, pieces, byHash: new Map(pieces.map((p) => [p.hash, p])), challenges: e.challenges,
-      panels: e.layered.panels, unoffered: e.layered.unoffered, dropped: [...e.dropped, ...e.layered.dropped],
-      stake: rule ? { min: rule.min, pieces: rule.pieces } : null, locks: f.locks.filter((l) => l.problem === e.hash), golds: e.golds, goldCount: goldCount(e.golds, (_g, c) => outcomeOf(e, c, now)),
+      problem: e.hash,
+      core: e.core,
+      fold: e.fold,
+      pieces,
+      byHash: new Map(pieces.map((p) => [p.hash, p])),
+      challenges: e.challenges,
+      panels: e.layered.panels,
+      unoffered: e.layered.unoffered,
+      dropped: [...e.dropped, ...e.layered.dropped],
+      stake: rule ? { min: rule.min, pieces: rule.pieces } : null,
+      locks: f.locks.filter((l) => l.problem === e.hash),
+      golds: e.golds,
+      goldCount: goldCount(e.golds, (_g, c) => outcomeOf(e, c, now)),
       receipts: e.input.receipts,
     });
     all.push(...e.challenges);
@@ -616,10 +876,20 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
     if (!home) return { ok: false, why: 'no such problem here' };
     const r = checkChallenge(f, home, piece, key, stake, now);
     if (!r.ok) return r;
-    if (r.pool.length < PANEL) return { ok: false, why: `no panel can be seated: ${r.pool.length} root${r.pool.length === 1 ? '' : 's'} with an accepted return on another problem, ${PANEL} needed` };
+    if (r.pool.length < PANEL)
+      return {
+        ok: false,
+        why: `no panel can be seated: ${r.pool.length} root${r.pool.length === 1 ? '' : 's'} with an accepted return on another problem, ${PANEL} needed`,
+      };
     return { ok: true };
   };
-  const admitVerdict = (problem: Hash, piece: Hash, key: Address, id: Hash, body: Record<string, unknown>): Admission => {
+  const admitVerdict = (
+    problem: Hash,
+    piece: Hash,
+    key: Address,
+    id: Hash,
+    body: Record<string, unknown>,
+  ): Admission => {
     const home = f.entries.get(problem);
     if (!home) return { ok: false, why: 'no such problem here' };
     const challenge = home.challenges.find((c) => c.id === id && c.piece === piece);
@@ -639,7 +909,14 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
     const shape = rankBodyProblems(body);
     if (shape.length) return { ok: false, why: shape[0]! };
     const panel = home.layered.byPiece.get(piece);
-    if (!panel) return { ok: false, why: home.layered.kinds.get(piece)?.kind === 'judge' ? 'the candidates for this piece are not in yet' : 'no panel sits on this piece' };
+    if (!panel)
+      return {
+        ok: false,
+        why:
+          home.layered.kinds.get(piece)?.kind === 'judge'
+            ? 'the candidates for this piece are not in yet'
+            : 'no panel sits on this piece',
+      };
     if (panel.outcome === 'decided') return { ok: false, why: 'the panel has decided' };
     if (panel.outcome === 'void') return { ok: false, why: 'the panel ran out' };
     if (panel.seats.length === 0) return { ok: false, why: 'no seats drawn yet' };
@@ -656,7 +933,13 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
     const why = ruleProblem(home, key, body, now);
     return why ? { ok: false, why } : { ok: true };
   };
-  const admitLock = (problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>, word: CoinLockWord | null = null): Admission => {
+  const admitLock = (
+    problem: Hash,
+    piece: Hash,
+    key: Address,
+    body: Record<string, unknown>,
+    word: CoinLockWord | null = null,
+  ): Admission => {
     const home = f.entries.get(problem);
     if (!home) return { ok: false, why: 'no such problem here' };
     const r = checkLock(f, home, piece, key, body, now, word);
@@ -678,7 +961,8 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
     if (!home || !pl) return out;
     const root = home.fold.rootOf(key, now);
     const free = f.free(root, now);
-    for (const p of pl.pieces) if (UNDONE.has(p.state) && p.stake > free && !hasLock(f, home, p.hash, root, now)) out.add(p.hash);
+    for (const p of pl.pieces)
+      if (UNDONE.has(p.state) && p.stake > free && !hasLock(f, home, p.hash, root, now)) out.add(p.hash);
     return out;
   };
   const liveLocks = (root: Address): LockView[] => f.locks.filter((l) => l.root === root && liveAt(f, l, now));
@@ -696,8 +980,25 @@ export function challengeLayer(input: { problems: ReduceInput[]; now: string; co
   };
 
   return {
-    now, problems, challenges: all, rootOf: (key, at = now) => rootOf(f, key, at), standing: f.standing, admitChallenge, admitVerdict, admitRank, locked: f.locked, free: f.free, liveLocks, locks: liveLocks,
-    admitStakeRule, admitLock, lockEndsAt: (l) => lockEnd(f, l), admitProduction, unaffordable, admitGold, admitGoldReveal,
+    now,
+    problems,
+    challenges: all,
+    rootOf: (key, at = now) => rootOf(f, key, at),
+    standing: f.standing,
+    admitChallenge,
+    admitVerdict,
+    admitRank,
+    locked: f.locked,
+    free: f.free,
+    liveLocks,
+    locks: liveLocks,
+    admitStakeRule,
+    admitLock,
+    lockEndsAt: (l) => lockEnd(f, l),
+    admitProduction,
+    unaffordable,
+    admitGold,
+    admitGoldReveal,
   };
 }
 
@@ -720,8 +1021,22 @@ function returnProblem(view: PieceView, ret: unknown): string | null {
 }
 
 /** Offers the seats, lapses and replaces them by the lease (sortition.ts), folds the verdicts in receipt order, and decides on a majority. */
-function seat(challenge: ChallengeView, fold: State, view: PieceView, leaseH: number, verdicts: Verdict[], now: string): void {
-  const { seats, advance, ranOut, lastLapse } = offerSeats<Seat>(challenge.order, PANEL, challenge.at, leaseH, (root, offeredAt) => ({ root, offeredAt, lapsedAt: null, verdict: null }), (s) => s.verdict !== null);
+function seat(
+  challenge: ChallengeView,
+  fold: State,
+  view: PieceView,
+  leaseH: number,
+  verdicts: Verdict[],
+  now: string,
+): void {
+  const { seats, advance, ranOut, lastLapse } = offerSeats<Seat>(
+    challenge.order,
+    PANEL,
+    challenge.at,
+    leaseH,
+    (root, offeredAt) => ({ root, offeredAt, lapsedAt: null, verdict: null }),
+    (s) => s.verdict !== null,
+  );
   challenge.seats = seats;
   const tally: Record<Side, number> = { challenger: 0, author: 0 };
   for (const v of verdicts) {
@@ -736,7 +1051,7 @@ function seat(challenge: ChallengeView, fold: State, view: PieceView, leaseH: nu
       continue;
     }
     if (!eventSignedByKey(ev)) {
-      dropVerdict('signature is not the key\'s');
+      dropVerdict("signature is not the key's");
       continue;
     }
     const shape = verdictBodyProblems(ev.body);
@@ -762,7 +1077,14 @@ function seat(challenge: ChallengeView, fold: State, view: PieceView, leaseH: nu
     }
     const side = ev.body.for as Side;
     const open = seats.find((s) => s.root === root && s.lapsedAt === null && !s.verdict)!;
-    open.verdict = { id: v.id, key: ev.key, root, at: v.at, for: side, return: (ev.body.return as Return | undefined) ?? null };
+    open.verdict = {
+      id: v.id,
+      key: ev.key,
+      root,
+      at: v.at,
+      for: side,
+      return: (ev.body.return as Return | undefined) ?? null,
+    };
     tally[side]++;
     if (tally[side] >= MAJORITY) {
       challenge.outcome = side === 'challenger' ? 'held' : 'failed';
