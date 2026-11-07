@@ -330,12 +330,18 @@ describe('the page of a square', () => {
     expect(none).toContain('Neither reading names a page kept here.');
     expect(restsOn(none)).toEqual([NONE, NONE]);
     // The store loses the page's bytes: each rest still names the page and the hash it was kept under, and says the bytes are not held here.
+    // The delete is made past the store's methods, so the test counts it as a write: the layer is read again, and the grade is the store's as it now stands.
     const bytes = store.getBlob(read)!;
     store.db.prepare('delete from blobs where hash = ?').run(read);
+    store.version += 1;
     try {
       const gone = (await page(p, traced)).html;
+      expect(gone).toContain('Neither reading names a page kept here.');
       expect(restsOn(gone)).toEqual([[GONE], [GONE]]);
-      expect(gone).not.toContain('a page kept here');
+      // No reading calls the page kept: the grade's own sentence names "a page kept here", so the check reads the readings alone.
+      const readings = gone.split('<h2>The readings</h2>')[1]!.split('<h2>The problem</h2>')[0]!;
+      expect(readings).toContain(GONE);
+      expect(readings).not.toContain('a page kept here');
     } finally {
       store.putBlob(read, bytes);
     }
