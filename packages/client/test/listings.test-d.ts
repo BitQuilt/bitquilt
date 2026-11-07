@@ -2,13 +2,14 @@
  * The wire shapes listings.ts declares again, held to the tracker's own types. The client may not import the tracker,
  * so it writes these out a second time (AGENTS.md, the arrows); a test may, so this file does. Each line assigns what
  * the tracker sends to the client's copy, and the client's typecheck fails where a copy no longer takes it. Where the
- * tracker builds a row inside a route (tracker.ts: `state`, `challenges`, `panels`), the row is built here the way the
- * route builds it, from the views it reads, so each field is held to the type it comes from. Nothing here runs: the
- * name ends in .test-d.ts, which vitest leaves out and the client's tsconfig takes in.
+ * tracker builds a row in its own code (tracker.ts: summary() for `scrape`, and the `state`, `challenges` and `panels`
+ * routes), the row is built here the way the tracker builds it, from the views it reads, so each field is held to the
+ * type it comes from. Nothing here runs: the name ends in .test-d.ts, which vitest leaves out and the client's tsconfig
+ * takes in.
  */
 import type {
   ChallengeView, Hidden, KindInfo, LayerState as TrackerLayerState, PanelView, PieceLayer, PieceTraces, ProblemLayer,
-  RecordGrade as TrackerRecordGrade, Seam as TrackerSeam, SeamSide as TrackerSeamSide, Side as TrackerSide,
+  RecordGrade as TrackerRecordGrade, Seam as TrackerSeam, SeamSide as TrackerSeamSide, SeedInfo, Side as TrackerSide,
 } from '@bitquilt/tracker';
 import type { ChallengeListing, GoldCount, LayerPiece, LayerState, PanelListing, RecordGrade, Scrape, Seam, SeamSide, Side, Takedown } from '../src/listings.js';
 
@@ -21,7 +22,10 @@ const seamSide: SeamSide = {} as TrackerSeamSide;
 const recordGrade: RecordGrade = {} as TrackerRecordGrade;
 const goldCount: GoldCount = {} as ProblemLayer['goldCount'];
 const takedown: Takedown = {} as Hidden;
-const hidden: Scrape['hidden'] = {} as Hidden | null;
+
+// The scrape of `/p/<hash>/scrape`, as summary() builds it from the takedown and the seeding.
+const si = {} as SeedInfo;
+const scrape: Scrape = { hidden: {} as Hidden | null, seeders: si.seeders.size, last_seeded: si.last_seeded };
 
 // A piece of `/p/<hash>/state`, as the route builds it from the layer's piece, its kind and its traces.
 const l = {} as PieceLayer;

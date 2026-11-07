@@ -1,9 +1,13 @@
 /**
  * The text runTool gives a model for quilt_search, quilt_open, quilt_read and quilt_me (tools.ts), pinned whole. The
- * inputs fire every branch of that text: each clause given or left out, one or many, a fork under its problem, a
- * relay's row, a tracker that is older or silent. A change to how the text is built that moves a space, a separator or
- * a clause fails here. Open and read run over a tracker in this process. Search and me run over a Quilt whose reads
- * answer fixed values, since their branches want a coin, a founding, relays and forks that one tracker does not give.
+ * inputs fire every branch tools.ts builds for these four: each clause given or left out, one or many, a fork under
+ * its problem, a relay's row, a tracker that is older or silent. A change to how tools.ts builds the text that moves a
+ * space, a separator or a clause fails here. The render.ts functions inside quilt_read's text have branches of their
+ * own that these inputs leave unfired: a challenge or a panel present, a record piece recorded, a reading not counted,
+ * a seam side resting on a passage, and found over two fields. Some of those are held where their extensions are
+ * tested (challenge.test.ts, verifiers.test.ts, record.test.ts, trace.test.ts), and this file does not hold them.
+ * Open and read run over a tracker in this process. Search and me run over a Quilt whose reads answer fixed values,
+ * since their branches want a coin, a founding, relays and forks that one tracker does not give.
  */
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
