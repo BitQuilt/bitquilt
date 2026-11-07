@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash } from '@bitquilt/core';
-import { AWAY_LOG, NEEDS_AGENT, awayTurn, goldText } from '../src/away.js';
+import { AWAY_LOG, NEEDS_AGENT, awayTurn, revealedText } from '../src/away.js';
 import { goldDue, windowOpen } from '../src/gold.js';
 import type { LayerPiece } from '../src/listings.js';
 import type { Library } from '../src/resolver.js';
@@ -253,12 +253,12 @@ describe('the reveals run with nobody asked', () => {
     expect(run[0]).toEqual({ problem: d, piece: d2, name: 'statement/2', outcome: 'miss', error: null });
     expect(run[1]).toMatchObject({ problem: d, piece: d3, name: 'statement/3', outcome: null });
     expect(run[1]!.error).toMatch(/commitment/);
-    expect(goldText(run)).toBe('gold: 1 revealed (1 miss), 1 refused');
+    expect(revealedText(run)).toBe('gold: 1 revealed (1 miss), 1 refused');
     expect((await trackerState(d)).pieces[1]).toMatchObject({ state: 'open', gold: 'miss', verified: false });
     // The miss is on the ledger, so it is not due again; the refused one is asked again next time, and refused again.
     const again = await owner2.revealDue();
     expect(again.map((r) => [r.name, r.outcome, r.error !== null])).toEqual([['statement/3', null, true]]);
-    expect(goldText([])).toBe('');
+    expect(revealedText([])).toBe('');
   });
 
   it('is wired as `quilt gold due` from the command line: a home with no gold lists nothing and posts nothing', () => {

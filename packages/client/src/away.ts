@@ -491,7 +491,7 @@ export async function agentSentence(
 }
 
 /** The turn's reveals in a few words for the log: how many were posted, what the tracker decided, and how many it refused; nothing when there were none. */
-export function goldText(gold: readonly Revealed[]): string {
+export function revealedText(gold: readonly Revealed[]): string {
   if (gold.length === 0) return '';
   const posted = gold.filter((g) => !g.error);
   const count = (outcome: string) => posted.filter((g) => g.outcome === outcome).length;
@@ -563,7 +563,7 @@ export async function ownerTurn(
     gold,
     sharpened,
     announced,
-    said: [goldText(gold), sharpenText(sharpened), announced.length ? `announced: ${announced.length}` : '']
+    said: [revealedText(gold), sharpenText(sharpened), announced.length ? `announced: ${announced.length}` : '']
       .filter(Boolean)
       .join('; '),
     kept,

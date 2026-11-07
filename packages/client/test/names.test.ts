@@ -13,11 +13,6 @@ import { describe, expect, it } from 'vitest';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const packages = readdirSync(join(root, 'packages')).filter((p) => existsSync(join(root, 'packages', p, 'src')));
 
-/** The names each package still declares in two files, each renamed by a commit of its own. */
-const READS_TWO_WAYS: Record<string, string[]> = {
-  client: ['goldText: src/away.ts, src/render.ts'],
-};
-
 function walk(dir: string, out: string[]): string[] {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
@@ -66,6 +61,6 @@ describe('one meaning per name', () => {
   });
 
   it.each(packages)('packages/%s declares each exported name in one file', (pkg) => {
-    expect(declaredTwice(pkg)).toEqual(READS_TWO_WAYS[pkg] ?? []);
+    expect(declaredTwice(pkg)).toEqual([]);
   });
 });
