@@ -181,7 +181,7 @@ export function createHosted(options: HostedOptions): Hosted {
     const st: string = l?.state ?? v.state;
     const accepting = (st === 'accepted' || st === 'accepted_provisional' || st === 'challenged') && v.accepting?.kind === 'agree' ? v.accepting : null;
     const aside = new Set((l?.aside ?? []).map((k) => k.toLowerCase()));
-    const receipts = store.receipts(problem);
+    const receipts = store.lines(problem);
     const revealOf = new Map<string, Hash>();
     for (const r of receipts) if (r.event.type === 'reveal' && r.event.piece === piece) revealOf.set(r.event.key.toLowerCase(), eventId(r.event));
     const restsOf = (key: string): SquareReading['rests'] => {
