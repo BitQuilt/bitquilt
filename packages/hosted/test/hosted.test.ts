@@ -19,9 +19,9 @@ import { answerText, sentenceVendor, vendorSentence } from '../src/sentence.js';
  * taken home by its address, and a session from one address refused at another; a post to another tracker a link
  * names carries neither the custody secret nor the witness, and where the connector is shared a link that names a
  * private address reaches nothing, for a member or the site's reader; the sheet a browser gets at the same
- * address, with its data beside it; the page of a square, which says what the version its address names recorded,
- * what each reading rests on (QX-19), pinned as the page says it today, and where the piece stands after the owner
- * replaced it. And the owners' turn (QX-19 section 4, QX-16): the on-ramp sharpens a hosted owner's brief where two
+ * address, with its data beside it; the page of a square, which says what the version its address names recorded, or
+ * the earlier version that holds a piece the later one keeps only from it, what each reading rests on (QX-19), read
+ * from the same chain as the readings, and where the piece stands after the owner replaced it. And the owners' turn (QX-19 section 4, QX-16): the on-ramp sharpens a hosted owner's brief where two
  * grounded readings read it apart, with the sentence from the vendor its environment names, and passes over a member
  * with nothing to do.
  */
@@ -295,7 +295,7 @@ describe('the page of a square', () => {
     expect((await page(`sha256:${'0'.repeat(64)}` as Hash, claim)).status).toBe(404);
   });
 
-  it('pins what the page says each reading rests on today: traced, untraced, a missing blob, and readings made under an earlier version', async () => {
+  it('says what each reading rests on from the chain its readings come from: the passage where the bytes are here, the page and its hash where they are gone, and under a later version what the version that holds the piece recorded', async () => {
     const owner = mk(0x31, 'anthropic/claude'), a = mk(0x32, 'anthropic/claude'), b = mk(0x33, 'openai/gpt-5');
     const family = (brief: string) => ({ count: 1, verifier: 'agree', requires: ['web'], brief, schema, agree: ['verdict'] });
     const families = { 'traced/*': family('Traced {n}: does the paper say so?'), 'bare/*': family('Bare {n}: does the paper say so?'), 'apart/*': family('Apart {n}: does the paper say so at scale?') };
@@ -310,7 +310,9 @@ describe('the page of a square', () => {
     await b.return(p, apart, { verdict: 'contradicts' }, at(NOT_AT_SCALE));
     // Every trace rests on the one page the test serves, kept under one hash.
     const read = (store.lines(p).find((r) => r.event.type === 'trace')!.event.body as { reads: { hash: Hash }[] }).reads[0]!.hash;
-    const rest = (passage: string | null) => `verdict rests on ${passage === null ? 'a page kept here' : `“${passage}”`} at <a href="${site}/paper" rel="nofollow noopener">${site}/paper</a>, kept as <code>${read}</code>`;
+    const link = `at <a href="${site}/paper" rel="nofollow noopener">${site}/paper</a>, kept as <code>${read}</code>`;
+    const rest = (passage: string) => `verdict rests on “${passage}” ${link}`;
+    const GONE = `verdict rests on a passage of the page ${link}; the page's bytes are not held here`;
     const NONE = 'It names no page it rests on.';
     /** What each reading on the page rests on, in the page's order: the items of its list, or the sentence that it names none. */
     const restsOn = (html: string): (string[] | string)[] => html.split('<section>').slice(1).map((section) => {
@@ -327,29 +329,37 @@ describe('the page of a square', () => {
     const none = (await page(p, bare)).html;
     expect(none).toContain('Neither reading names a page kept here.');
     expect(restsOn(none)).toEqual([NONE, NONE]);
-    // The store loses the page's bytes: each rest still names the page and its hash, as a page kept here, with no passage.
-    // This pins today's answer, which looks wrong: the page says kept here when the bytes are gone. A change to how squareOf in hosted.ts reads the rests will change this line.
+    // The store loses the page's bytes: each rest still names the page and the hash it was kept under, and says the bytes are not held here.
     const bytes = store.getBlob(read)!;
     store.db.prepare('delete from blobs where hash = ?').run(read);
     try {
-      expect(restsOn((await page(p, traced)).html)).toEqual([[rest(null)], [rest(null)]]);
+      const gone = (await page(p, traced)).html;
+      expect(restsOn(gone)).toEqual([[GONE], [GONE]]);
+      expect(gone).not.toContain('a page kept here');
     } finally {
       store.putBlob(read, bytes);
     }
 
     // The owner sharpens the apart family: the traced piece keeps its hash in the newer version, and the apart piece's old hash is among the newer version's ancestral pieces.
     const newer = (await owner.sharpen(p, async () => 'Scale is read from the section that reports it.')).hash as Hash;
-    // Under the newer version's address, the readings made under the earlier one are shown, and the rests are read from the newer version's log alone, so none is named, while the grade still counts both.
-    // This pins today's answer, which looks wrong: the grade counts rests the readings do not show. A change to how squareOf in hosted.ts reads the rests will change these lines.
+    // Under the newer version's address, the readings made under the earlier one come from the fold over the whole chain, and so do their rests: the grade and the readings say the same.
     const kept = (await page(newer, traced)).html;
     expect(kept).toContain('Both readings rest on pages kept here.');
-    expect(restsOn(kept)).toEqual([NONE, NONE]);
+    expect(restsOn(kept)).toEqual([[rest(HOLDS)], [rest(HOLDS)]]);
+    // The apart piece's old hash under the newer version's address: the page names the version that holds it and says what that version recorded, its state and the readings with their rests, as under that version's own address, and where the piece of the same name stands now.
     const ancestral = (await page(newer, apart)).html;
-    // This pins today's answer, which looks wrong: the piece is called open beside two readings, and neither shows its rests. A change to how squareOf in hosted.ts reads an ancestral piece and its rests will change these lines.
-    expect(ancestral).toContain('<p class="state">It is open: nobody has read it yet.</p>');
-    expect(restsOn(ancestral)).toEqual([NONE, NONE]);
-    // Under the address of the version they were made under, the same readings quote their passages.
-    expect(restsOn((await page(p, apart)).html)).toEqual([[rest(HOLDS)], [rest(NOT_AT_SCALE)]]);
+    const under = (await page(p, apart)).html;
+    expect(ancestral).toContain(`of the problem's version <code>${p}</code>.`);
+    expect(ancestral).toContain(`<p>The version this address names, <code>${newer}</code>, is a later version without this piece. The state and the readings below are the ones <code>${p}</code> recorded.</p>`);
+    expect(ancestral).toContain('<p class="state">It is disputed: two readings differ.</p>');
+    expect(ancestral).not.toContain('It is open');
+    expect(ancestral).toContain('<title>apart/1: disputed: two readings differ</title>');
+    expect(restsOn(ancestral)).toEqual([[rest(HOLDS)], [rest(NOT_AT_SCALE)]]);
+    expect(restsOn(under)).toEqual([[rest(HOLDS)], [rest(NOT_AT_SCALE)]]);
+    expect(ancestral).toContain(`In the current version, <code>${newer}</code>, the piece of the same name is <code>${await pieceOf(newer, 'apart/1')}</code>`);
+    // Under the older version's own address, the page reads as it did before: no later version is named as the address's.
+    expect(under).not.toContain('The version this address names');
+    expect(under).toContain('<p class="state">It is disputed: two readings differ.</p>');
   });
 });
 

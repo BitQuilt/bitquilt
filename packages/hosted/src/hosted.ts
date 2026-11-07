@@ -16,8 +16,8 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { appendFileSync } from 'node:fs';
-import { type Address, type Hash, addressOf, eventId, randomSecretKey, secretFromHex, secretToHex, withSlash } from '@bitquilt/core';
-import { PRIVATE_RANGES, type Store, clientAddress, rangesOf } from '@bitquilt/tracker';
+import { type Address, type Hash, addressOf, problemHash, randomSecretKey, secretFromHex, secretToHex, withSlash } from '@bitquilt/core';
+import { PRIVATE_RANGES, type Store, clientAddress, passageIn, rangesOf, restsOf } from '@bitquilt/tracker';
 import { AWAY_LOG, type Config, DEFAULT_CONFIG, type OwnerTurn, Quilt, Resolver, WINDOW_HTML, WINDOW_OPS, WINDOW_READ_OPS, type Witness, createMcpServer, kindWords, localRunner, makeLink, ownerTurn, publicFetch, sheetOf, shared, windowAnswer } from 'quilt';
 import { joinPage } from './join-page.js';
 import { pagePolicy } from './page-policy.js';
@@ -163,60 +163,62 @@ export function createHosted(options: HostedOptions): Hosted {
   const readerKept = new Map<string, { at: number; answer: Promise<Record<string, unknown>> }>();
 
   /**
-   * One square for its page (square-page.ts): the version the address names, opened over the reader with no key; its
-   * readings from that version's fold, the two that accepted the square and any the layer set aside marked; what each
-   * rests on, from the traces in the store and the passages of the reads kept there; and where the piece stands in the
-   * newest version, following the replacements eight at most. Null where this tracker holds no such problem or piece,
-   * or a maintainer hid the problem.
+   * One square for its page (square-page.ts): the version the address names, opened over the reader with no key, or,
+   * where that version keeps the piece only as an earlier version's (CORE.md section 6, Envelopes), the newest version
+   * of its chain that holds it, since an ancestral piece has no state where it is kept. The readings come from that
+   * version's fold, the two that accepted the square and any the layer set aside marked; what each rests on from the
+   * traces on the lines of the same chain (trace.ts, restsOf), with the passages of the reads kept here; and where the
+   * piece stands in the newest version, following the replacements eight at most. Null where this tracker holds no
+   * such problem or piece, or a maintainer hid the version the page reads.
    */
   async function squareOf(problem: Hash, piece: Hash): Promise<SquareView | null> {
     const reader = readerOf();
-    let opened: Awaited<ReturnType<Quilt['open']>>;
-    try {
-      opened = await reader.open(problem);
-    } catch {
-      return null;
+    type Opened = Awaited<ReturnType<Quilt['open']>>;
+    const openOf = async (h: Hash): Promise<Opened | null> => {
+      try {
+        return await reader.open(h);
+      } catch {
+        return null;
+      }
+    };
+    const opened = await openOf(problem);
+    if (!opened || opened.hidden || opened.hash !== problem) return null;
+    let holder: Opened | null = opened;
+    if (!opened.state.byHash.has(piece)) {
+      if (!opened.state.ancestral.has(piece)) return null;
+      holder = null;
+      for (const envelope of opened.state.chain.slice(1)) {
+        const o = await openOf(problemHash(envelope));
+        if (o?.state.byHash.has(piece)) {
+          holder = o;
+          break;
+        }
+      }
+      if (!holder || holder.hidden) return null;
     }
-    if (opened.hidden || opened.hash !== problem) return null;
-    const { state, layer } = opened;
-    const v = state.byHash.get(piece) ?? state.ancestral.get(piece);
-    if (!v) return null;
+    const { state, layer } = holder;
+    const v = state.byHash.get(piece)!;
     const l = layer?.find((x) => x.hash === piece) ?? null;
     const st: string = l?.state ?? v.state;
     const accepting = (st === 'accepted' || st === 'accepted_provisional' || st === 'challenged') && v.accepting?.kind === 'agree' ? v.accepting : null;
     const aside = new Set((l?.aside ?? []).map((k) => k.toLowerCase()));
-    const receipts = store.lines(problem);
-    const revealOf = new Map<string, Hash>();
-    for (const r of receipts) if (r.event.type === 'reveal' && r.event.piece === piece) revealOf.set(r.event.key.toLowerCase(), eventId(r.event));
-    const restsOf = (key: string): SquareReading['rests'] => {
-      const id = revealOf.get(key.toLowerCase());
-      if (!id) return [];
-      return receipts.flatMap((r) => {
-        const b = r.event.body as { reveal?: unknown; reads?: { url: string; hash: Hash }[]; rests?: { field: string; read: number; span: [number, number] }[] } | undefined;
-        if (r.event.type !== 'trace' || r.event.piece !== piece || b?.reveal !== id || !Array.isArray(b.reads) || !Array.isArray(b.rests)) return [];
-        return b.rests.flatMap((x) => {
-          const read = b.reads![x.read];
-          if (!read) return [];
-          const bytes = store.getBlob(read.hash);
-          return [{ field: x.field, url: read.url, hash: read.hash, passage: bytes ? new TextDecoder().decode(bytes.slice(x.span[0], x.span[1])) : null }];
-        });
-      });
-    };
+    const receipts = state.chain.flatMap((envelope) => store.lines(problemHash(envelope)));
+    const restsFor = restsOf(v, receipts, (h, span) => passageIn(store.getBlob(h), span));
     const accepted = new Set(accepting ? accepting.reveals.map((r) => r.key.toLowerCase()) : []);
     const readings: SquareReading[] = v.reveals.map((r) => ({
       key: r.key, name: state.names.get(r.root)?.name ?? null, vendor: r.vendor, model: r.by.model, at: r.at,
       accepting: accepted.has(r.key.toLowerCase()), aside: aside.has(r.key.toLowerCase()),
-      fields: Object.entries(r.return as Record<string, unknown>), rests: restsOf(r.key),
+      fields: Object.entries(r.return as Record<string, unknown>), rests: restsFor(r),
     }));
+    // Where the piece stands now: from the versions that replaced the one the address names, and from that version
+    // itself where it keeps the piece only as an earlier version's.
     let later: SquareNow | null = null;
-    let newest: { hash: Hash; opened: Awaited<ReturnType<Quilt['open']>> } | null = null;
+    let newest: { hash: Hash; opened: Opened } | null = holder === opened ? null : { hash: problem, opened };
     for (let next = opened.superseded, hops = 0; next && hops < 8; hops++) {
-      try {
-        newest = { hash: next, opened: await reader.open(next) };
-      } catch {
-        break;
-      }
-      next = newest.opened.superseded;
+      const o = await openOf(next);
+      if (!o) break;
+      newest = { hash: next, opened: o };
+      next = o.superseded;
     }
     if (newest) {
       const stateIn = (h: Hash, core: string): string => newest!.opened.layer?.find((x) => x.hash === h)?.state ?? core;
@@ -225,9 +227,9 @@ export function createHosted(options: HostedOptions): Hosted {
       if (same) later = { version: newest.hash, same: true, state: stateIn(piece, same.state) };
       else if (named) later = { version: newest.hash, same: false, piece: named.piece.hash, state: stateIn(named.piece.hash, named.state), brief: named.piece.brief };
     }
-    const env = state.envelope.problem;
+    const env = opened.state.envelope.problem;
     return {
-      url: `${trackerUrl()}r/${problem}/${piece}`, problem, title: env.title, owner: env.owner, ownerName: state.names.get(env.owner as Address)?.name ?? null,
+      url: `${trackerUrl()}r/${problem}/${piece}`, problem, holder: holder === opened ? null : holder.hash, title: env.title, owner: env.owner, ownerName: opened.state.names.get(env.owner as Address)?.name ?? null,
       piece, name: v.piece.name, brief: v.piece.brief, state: st, kind: kindWords(v.piece.verifier).says,
       agreed: accepting ? (v.piece.agree ?? []).map((field) => ({ field, value: (accepting.reveals[0].return as Record<string, unknown>)[field] })) : null,
       vendors: accepting ? [...new Set(accepting.reveals.map((r) => r.vendor))] : [],
