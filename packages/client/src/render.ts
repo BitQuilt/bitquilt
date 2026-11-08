@@ -22,16 +22,17 @@ import {
   textIssues,
 } from '@bitquilt/core';
 import { makeLink } from './link.js';
-import type {
-  ChallengeListing,
-  GoldCount,
-  KindWords,
-  LayerPiece,
-  Opened,
-  PanelListing,
-  Seam,
-  SeamSide,
-  Witness,
+import {
+  ACCEPTED_STATES,
+  type ChallengeListing,
+  type GoldCount,
+  type KindWords,
+  type LayerPiece,
+  type Opened,
+  type PanelListing,
+  type Seam,
+  type SeamSide,
+  type Witness,
 } from './listings.js';
 import type { Posted } from './resolver.js';
 
@@ -639,7 +640,7 @@ export function foundIn(state: State, layer: LayerPiece[] | null): FoundCounts {
   const out: FoundCounts = {};
   for (const v of state.pieces) {
     const s = byHash.get(v.piece.hash) ?? v.state;
-    if ((s !== 'accepted' && s !== 'accepted_provisional') || v.accepting?.kind !== 'agree') continue;
+    if (!ACCEPTED_STATES.includes(s) || v.accepting?.kind !== 'agree') continue;
     for (const field of v.piece.agree ?? []) {
       const choices = (v.piece.schema?.properties?.[field] as { enum?: unknown[] } | undefined)?.enum;
       const value = (v.accepting.reveals[0].return as Record<string, unknown>)[field];
