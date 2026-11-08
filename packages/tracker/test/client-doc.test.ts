@@ -18,38 +18,43 @@
  * words and no more, the vendor read before the slash; a name that names no problem; a read put twice and a path that
  * is no hash; a trace on a file; the state's `pieces` and `dropped`; the log's lines, with no id, bare hex and the
  * first `prev` the problem's. The door's checks: the paragraph before the table under "What the door checks, in order"
- * names beside each part of the code the rows of its checks, and its clauses and their rows come in the table's order;
- * each row of the table is met by a post that fails that check, with the row's status and one of its sentences, and
- * row 8's two sentences and row 11's two each by a post of its own; a post that fails several is refused for the
- * earliest, row by row as each is put right, and the bodies hold the order through row 16: each post keeps every fault
- * but the one the door named at the post before, and the third, the sixth and the eighth take on faults the one before
- * could not carry, so the door's answer is the earliest of the checks it fails; the commit and the reveal posted again
- * close the walk at rows 20 and 16; the address's writes are counted after the problem is found and before the body is
- * read, a read's put is held to the same limit, and the key's posts are counted after the signature is checked and
- * before the type is asked, so another key's signature spends none of the key's hour; the rows the walk does not reach
- * keep the table's order with the rows they share a post with: on a problem taken down, a type of the identity log's, a
- * type the log does not carry and another problem named are refused at rows 8 and 9 before row 10, a reveal is refused
- * at row 12 before row 13 on a record piece whose readings are in once a stake rule names it, and at row 16 before
- * row 17 on a human piece where the key has no commit, a run at row 12 before row 18 on a staked piece, and a trace
- * that names no piece, or one the problem lacks, at row 11 before row 19; a reveal posted again meets rows 11 to 17
- * again before row 20, and is refused at row 16 where it counted and its commit was the key's only one on the piece, at
- * row 13 once a record piece's readings are in, the readings that put them in included, and at row 12 once a staked
- * piece is accepted and the lock released; it is answered 409 where a commit by the key on the piece stays unrevealed,
- * an earlier one abandoned or not, or its own where the reveal came late; and every row is met. Beside the table: the
- * door leaves a reveal's `h` to the reducer, whose drop shows in the state, and the dropped reveal posted again is
- * answered 409 though its commit is the key's only one on the piece; and next refuses the three sentences the page
- * names. A client that reduces: the problem's log alone leaves out a return posted under an ancestor, and with the
- * ancestor's log it reaches the tracker's state. A peer's events: what a peer admitted is pulled through this door's
- * admission; an event this door's rules refuse, on a problem taken down here or a piece under a stake rule the peer
- * lacks, is named in the pull's report with the sentence a post of it gets here, which is its row's; a second pull
- * passes over what this door holds; and a pull meets no hourly limit, so a door that takes one write an hour from an
- * address takes a peer's four events from one key at once. The well-known fields the page names are in the well-known
- * document, `peers` said as QX-21 says it; each rule the page repeats from PROTOCOL.md's "What the door answers" cites
- * it beside the rule and says what it says; each function it names is defined in the file it names, the limit's wrapper
- * in tracker.ts and the door's checks in admit.ts, where the rows of `problemDoor` give each of the two checks the page
- * names the types it gives them; its links reach a file and a heading, and it has no U+2014. docs/README.md says it by
- * its six steps, and names beside it the sections its reading list links. AGENTS.md says what holds each part, the
- * worked example the core and fixture 04, the requests and the table a booted tracker, as the describes here do.
+ * names each part of the code that runs the checks with the rows it runs, the parts and their rows in the table's
+ * order, and each part's definition, read from tracker.ts or admit.ts, does what its rows check in that order, the
+ * route of a problem's events asking its guard and wrapping its POST in `limited`; each row of the table is met by a
+ * post that fails that check, with the row's status and one of its sentences, and row 8's two sentences and row 11's
+ * two each by a post of its own; a post that fails several is refused for the earliest, row by row as each is put
+ * right, and the bodies hold the order through row 16: each post keeps every fault but the one the door named at the
+ * post before, and the third, the sixth and the eighth take on faults the one before could not carry, so the door's
+ * answer is the earliest of the checks it fails; the commit and the reveal posted again close the walk at
+ * rows 20 and 16; the address's writes are counted after the problem is found and before the body is read, a read's put
+ * is held to the same limit, and the key's posts are counted after the signature is checked and before the type is
+ * asked, so another key's signature spends none of the key's hour; the rows the walk does not reach keep the table's
+ * order with the rows they share a post with: on a problem taken down, a type of the identity log's, a type the log
+ * does not carry and another problem named are refused at rows 8 and 9 before row 10, a reveal is refused at row 12
+ * before row 13 on a record piece whose readings are in once a stake rule names it, and at row 16 before row 17 on a
+ * human piece where the key has no commit, a run at row 12 before row 18 on a staked piece, and a trace that names no
+ * piece, or one the problem lacks, at row 11 before row 19; a reveal posted again meets rows 11 to 17 again before
+ * row 20, and is refused at row 16 where it counted and its commit was the key's only one on the piece, at row 13 once
+ * a record piece's readings are in, the readings that put them in included, and at row 12 once a staked piece is
+ * accepted and the lock released; it is answered 409 where a commit by the key on the piece stays unrevealed, an
+ * earlier one abandoned or not, or its own where the reveal came late; and every row is met. Beside the table: the door
+ * leaves a reveal's `h` to the reducer, whose drop shows in the state, and the dropped reveal posted again is answered
+ * 409 though its commit is the key's only one on the piece; and next refuses the three sentences the page names. A
+ * client that reduces: the problem's log alone leaves out a return posted under an ancestor, and with the ancestor's
+ * log it reaches the tracker's state. A peer's events: what a peer admitted is pulled through this door's admission;
+ * the pull, read in peers.ts and admit.ts, meets the checks of a post's event the page names, rows 5, 6 and 8 to 19,
+ * and no hourly limit; an event this door's rules refuse, on a problem taken down here or a piece under a stake rule
+ * the peer lacks, is named in the pull's report with the sentence a post of it gets here, which is its row's; a second
+ * pull passes over what this door holds; and a door that takes one write an hour from an address takes a peer's four
+ * events from one key in one pull. The well-known fields the page names are in the well-known document, `peers` said as
+ * QX-21 says it, and `routes` the table's paths in its order, without the well-known document and the index, which are
+ * answered, and with no coin path where the tracker carries no coin; each rule the page repeats from PROTOCOL.md's
+ * "What the door answers" cites it beside the rule and says what it says; each function it names is defined in the file
+ * it names, and the rows of `problemDoor` give each of the two checks the page names the types it gives them; its links
+ * reach a file and a heading, and it has no U+2014. docs/README.md says it by its six steps, and names beside it the
+ * sections its reading list links. AGENTS.md says what holds each part, the worked example the core and fixture 04, the
+ * requests and the table a booted tracker, and the part of the code that runs each check the code itself, as the
+ * describes here do.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -122,6 +127,44 @@ function section(heading: string): string {
 
 /** The names a text gives in backticks. */
 const named = (text: string): string[] => [...text.matchAll(/`([^`]+)`/g)].map((m) => m[1]!);
+
+/**
+ * The rows a text names after an opening parenthesis, in its order: `(row 1)`, `(rows 3 and 4)`, `(rows 11 to 19)`,
+ * or a list of those, as `(rows 5, 6 and 8 to 19`.
+ */
+const rowsNamed = (text: string): number[] =>
+  [...text.matchAll(/\(rows? (\d+(?:(?:, | and | to )\d+)*)/g)].flatMap((m) =>
+    m[1]!.split(/, | and /).flatMap((part) => {
+      const [from, to = from] = part.split(' to ').map(Number) as [number, number?];
+      return Array.from({ length: to - from + 1 }, (_, i) => from + i);
+    }),
+  );
+
+/** A file of the tracker's source. */
+const source = (file: string): string => readFileSync(join(DOCS, '..', 'packages', 'tracker', 'src', file), 'utf8');
+/**
+ * A definition in a file of the tracker's source, a function or a constant, from its first line to the next line
+ * indented no deeper, with that line where it closes the definition.
+ */
+function definition(file: string, name: string): string {
+  const lines = source(file).split('\n');
+  const first = new RegExp(`^\\s*(?:export\\s+)?(?:(?:async\\s+)?function\\s+${name}\\(|const\\s+${name}\\s*[:=])`);
+  const at = lines.findIndex((l) => first.test(l));
+  if (at < 0) throw new Error(`${file} defines no ${name}`);
+  const indent = lines[at]!.search(/\S/);
+  const end = lines.findIndex((l, i) => i > at && l.trim() !== '' && l.search(/\S/) <= indent && !/^\s*\)/.test(l));
+  if (end < 0) throw new Error(`${name} in ${file} does not close`);
+  return lines.slice(at, /^\s*\}/.test(lines[end]!) ? end + 1 : end).join('\n');
+}
+/** That a text, or a list, holds each mark once at least, the first of each after the first of the one before. */
+function inOrder(text: { indexOf(mark: string): number }, marks: readonly string[], what: string): void {
+  let last = -1;
+  for (const mark of marks) {
+    const at = text.indexOf(mark);
+    expect(at, `${what}: ${mark}`).toBeGreaterThan(last);
+    last = at;
+  }
+}
 
 /** A sentence as the page writes it, as a pattern: `N` stands for a number and `<type>` for a word. */
 function pattern(sentence: string): RegExp {
@@ -242,7 +285,7 @@ interface NextAnswer {
 
 /** The well-known field `peers` as the page says it, after its name. */
 const PEERS =
-  "the trackers whose chains this one pulls through its own door (QX-21 section 1). An event a peer admits on a problem both hold reaches this tracker at its next pull, where it goes through this door's own admission: the checks a post meets, without the hourly limits (QX-21 section 2). An event this door holds already is passed over. This door refuses what its own rules refuse though the peer took it, as on a problem taken down here (QX-6) or a piece under a stake rule in force here and not at the peer (QX-15). The pull's report names each event it refused, with the sentence a post gets.";
+  "the trackers whose chains this one pulls through its own door (QX-21 section 1). An event a peer admits on a problem both hold reaches this tracker at its next pull, where it goes through this door's own admission: the checks a post's event meets, its shape, its signature and its log's rules (rows 5, 6 and 8 to 19 of [the door's checks](#what-the-door-checks-in-order)), without the hourly limits (QX-21 section 2). An event this door holds already is passed over. This door refuses what its own rules refuse though the peer took it, as on a problem taken down here (QX-6) or a piece under a stake rule in force here and not at the peer (QX-15). The pull's report names each event it refused, with the sentence a post gets.";
 
 describe("CLIENT.md, fixture 04's first claim, worked", () => {
   const fixture = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Omit<ReduceInput, 'blobs'> & {
@@ -816,33 +859,163 @@ describe('CLIENT.md, what the door checks, in order', () => {
     }
   });
 
-  it("says before the table where in the code each row's check runs, in the rows' order", () => {
+  it('says before the table which part of the code runs each row, and each part runs its rows in the order the table gives them', () => {
     const paragraph = section('## What the door checks, in order').trim().split('\n\n')[0]!;
-    // Each clause with the rows it names, in the order the code runs them. The posts in this file hold that order
-    // wherever one post can fail the checks of two clauses side by side, so a clause moved, or given another row,
-    // fails here.
-    const clauses = [
-      "Its route's guard asks first that the problem is held here (row 1)",
-      "then counts the post against the address's limit before the body is read (row 2)",
-      'then reads the body as JSON (rows 3 and 4)',
-      'checks its shape (row 5)',
-      'its signature (row 6)',
-      "the key's limit (row 7)",
-      "first that the type is not the identity log's and has a row in `problemDoor`, the map from each type a problem's log takes to the one check that admits it (row 8)",
-      'then that the event names the problem it is posted under (row 9)',
-      'and that the problem is not taken down (row 10)',
-      "and last the check the type's row names (rows 11 to 19)",
-      '`postEvent` looks for a copy after that (row 20).',
+    /**
+     * The parts of the code the paragraph gives rows to, in its order: the words that name the part and its rows, the
+     * file the part is in, and each definition that runs them, with what its body does for each of its rows in the
+     * rows' order, a call it makes or a sentence it refuses with. A step with no row is the call that hands the post
+     * on once the part's rows before it have passed it. The copy's part opens with the call to `admitProblemEvent`,
+     * since `postEvent` looks for a copy once that call is done.
+     */
+    const parts: { said: string; file: string; runs: { name: string; does: [number[], string][] }[] }[] = [
+      {
+        said: "`handle` in `packages/tracker/src/tracker.ts` asks the guard of the post's route first, that the problem is held here (row 1)",
+        file: 'tracker.ts',
+        runs: [
+          {
+            name: 'handle',
+            does: [
+              [[1], "route.guard === 'problem'"],
+              [[], 'await run({'],
+            ],
+          },
+        ],
+      },
+      {
+        said: "Then `limited`, in the same file, which wraps each write the routes take, counts the post against the address's limit before the body is read (row 2)",
+        file: 'tracker.ts',
+        runs: [
+          {
+            name: 'limited',
+            does: [
+              [[2], 'limit(cx, ipBucket('],
+              [[], 'return run(asked)'],
+            ],
+          },
+        ],
+      },
+      {
+        said: "`postEvent` in `packages/tracker/src/admit.ts` then reads the body as JSON (rows 3 and 4), checks its shape (row 5), its signature (row 6) and the key's limit (row 7), and hands the event to `admitProblemEvent`",
+        file: 'admit.ts',
+        runs: [
+          {
+            name: 'postEvent',
+            does: [
+              // `readBody` refuses a body over 4 MB as it reads it, and `parseJson` what it reads that is not JSON.
+              [[3, 4], 'parseJson(await readBody('],
+              [[5], 'eventProblems('],
+              [[6], 'eventSignedByKey('],
+              [[7], 'limit(cx, `key:'],
+              [[], 'admitProblemEvent('],
+            ],
+          },
+        ],
+      },
+      {
+        said: "`admitProblemEvent` asks the log's own rules: first that the type is not the identity log's and has a row in `problemDoor`, the map from each type a problem's log takes to the one check that admits it (row 8); then that the event names the problem it is posted under (row 9), and that the problem is not taken down (row 10)",
+        file: 'admit.ts',
+        runs: [
+          {
+            name: 'admitProblemEvent',
+            does: [
+              [[8], 'identity events go to the identity log'],
+              [[8], 'this tracker does not carry'],
+              [[9], 'post an event under the problem it names'],
+              [[10], 'this problem is taken down here'],
+              [[], 'problemDoor[type]'],
+            ],
+          },
+        ],
+      },
+      {
+        said: "and last the check the type's row names (rows 11 to 19), `checkPieceEvent` for a claim, commit, reveal, decline or run, and `checkTraceEvent` for a trace",
+        file: 'admit.ts',
+        runs: [
+          {
+            name: 'checkPieceEvent',
+            does: [
+              [[11], 'names a piece this problem does not have'],
+              [[12], 'admitProduction('],
+              [[13], 'the readings for this piece are in'],
+              [[14], 'returnProblems('],
+              [[15], 'plainTextProblems('],
+              [[16], 'no unrevealed commit by this key on the piece'],
+              // A human piece's seat and a judge piece's panel are asked in `checkRevealEvent`.
+              [[17], 'checkRevealEvent('],
+              [[18], 'the digest is no revealed return of the piece'],
+            ],
+          },
+          {
+            name: 'checkTraceEvent',
+            does: [
+              [[11], 'a trace names a problem and a piece'],
+              [[11], 'names a piece this problem does not have'],
+              [[19], 'admitTrace('],
+            ],
+          },
+        ],
+      },
+      {
+        said: '`postEvent` looks for a copy after that (row 20)',
+        file: 'admit.ts',
+        runs: [
+          {
+            name: 'postEvent',
+            does: [
+              [[], 'admitProblemEvent('],
+              [[20], 'store.hasEvent('],
+            ],
+          },
+        ],
+      },
     ];
-    const at = clauses.map((c) => paragraph.indexOf(c));
-    for (const [i, c] of clauses.entries()) expect(at[i], c).toBeGreaterThanOrEqual(0);
-    expect(at).toEqual([...at].sort((a, b) => a - b));
-    // The rows the paragraph names, read in its order, are the table's, each once.
-    const numbered = [...paragraph.matchAll(/\(rows? (\d+)(?: (and|to) (\d+))?\)/g)].flatMap((m) => {
-      const [from, to] = [Number(m[1]), Number(m[3] ?? m[1])];
-      return m[2] === 'and' ? [from, to] : Array.from({ length: to - from + 1 }, (_, i) => from + i);
-    });
-    expect(numbered).toEqual(rows.map((r) => r.n));
+    // The parts come in the paragraph's order, and the rows it names, read in that order, are the table's, each once.
+    inOrder(
+      paragraph,
+      parts.map((p) => p.said),
+      'the paragraph',
+    );
+    expect(rowsNamed(paragraph)).toEqual(rows.map((r) => r.n));
+    // The code the paragraph names, each name once in its order: the parts' definitions, and the map.
+    const code = [...new Set(named(paragraph).filter((n) => /^[a-z]+(?:[A-Z][a-z]+)*$/.test(n)))];
+    expect(code).toEqual([
+      'handle',
+      'limited',
+      'postEvent',
+      'admitProblemEvent',
+      'problemDoor',
+      'checkPieceEvent',
+      'checkTraceEvent',
+    ]);
+    expect([...new Set(parts.flatMap((p) => p.runs.map((r) => r.name)))]).toEqual(
+      code.filter((n) => n !== 'problemDoor'),
+    );
+    for (const [i, part] of parts.entries()) {
+      // A part names the file it is in, or is in the file of the part before it.
+      const file = /in `packages\/tracker\/src\/([a-z]+\.ts)`/.exec(part.said)?.[1] ?? parts[i - 1]!.file;
+      expect(file, part.said).toBe(part.file);
+      // The rows a part's words name are the rows its definitions run.
+      const runsRows = [...new Set(part.runs.flatMap((r) => r.does.flatMap(([n]) => n)))].sort((a, b) => a - b);
+      expect(rowsNamed(part.said), part.said).toEqual(runsRows);
+      for (const { name, does } of part.runs) {
+        expect(part.said, name).toContain(`\`${name}\``);
+        // Each definition the words name runs its rows in the table's order: its body holds their steps in that order.
+        const ran = does.flatMap(([n]) => n);
+        expect(ran, name).toEqual([...ran].sort((a, b) => a - b));
+        inOrder(
+          definition(part.file, name),
+          does.map(([, mark]) => mark),
+          name,
+        );
+      }
+    }
+    // The post's route is the table's row for a problem's events: its guard, and its POST wrapped in `limited`.
+    const tracker = source('tracker.ts');
+    const start = tracker.indexOf("path: '/p/<hash>/events'");
+    const route = tracker.slice(start, tracker.indexOf('\n    },', start));
+    expect(route).toContain("guard: 'problem'");
+    expect(route).toMatch(/POST: limited\(\(\{ req, res, hash \}\) => postEvent\(cx, req, res, \{ kind: 'problem'/);
   });
 
   it('refuses a post that fails several checks for the earliest, row by row as each is put right', async () => {
@@ -1353,6 +1526,38 @@ describe("CLIENT.md, a peer's events at this door", () => {
     expect(new Map(again.refused.map((r) => [r.id, r.why]))).toEqual(why);
   });
 
+  it("meets in a pull the checks of a post's event the page names, through the same admission, and no hourly limit", () => {
+    const line = section('### 1. A key')
+      .split('\n')
+      .find((l) => l.startsWith('- `peers`'))!;
+    const said = line.slice(line.indexOf("the checks a post's event meets"), line.indexOf('without the hourly limits'));
+    expect(said).toContain("its shape, its signature and its log's rules");
+    expect(rowsNamed(said)).toEqual([5, 6, ...Array.from({ length: 12 }, (_, i) => 8 + i)]);
+    // The pull checks a line's shape and its signature with the sentences of rows 5 and 6, then hands the event to the
+    // door's admission. That is `admitProblemEvent` for a problem's log, which runs rows 8 to 19 as it does for a post
+    // (held under "what the door checks, in order"). None of the three counts against an hourly limit.
+    const pull = definition('peers.ts', 'pullLog');
+    inOrder(
+      pull,
+      [
+        'eventProblems(',
+        'why: shape[0]',
+        'eventSignedByKey(',
+        'why: "signature is not the key\'s"',
+        'admit(log, event, hosted)',
+      ],
+      'pullLog',
+    );
+    const admit = definition('admit.ts', 'pullDoorOf');
+    inOrder(admit, ['admit: (log, event, hosted) =>', 'exactly(', 'admitProblemEvent('], 'pullDoorOf');
+    for (const [name, body] of [
+      ['pullLog', pull],
+      ['pullDoorOf', admit],
+      ['admitProblemEvent', definition('admit.ts', 'admitProblemEvent')],
+    ] as const)
+      expect(body, name).not.toMatch(/\blimit\(/);
+  });
+
   it('takes a pull without the hourly limits, past what a post from one key or one address may do', async () => {
     const tight = boot(T0, { limits: { keyPerHour: 1, ipPerHour: 1 }, peers: [`${peer.base}/`] });
     await tight.listen();
@@ -1408,6 +1613,35 @@ describe('CLIENT.md, what it names and links', () => {
     expect(qx21).toContain("What the door refuses is said in the pull's report with the reason, not folded");
   });
 
+  it('says what routes lists: paths of the table in its order, not this document or the index, which are answered, and no coin path where there is no coin', async () => {
+    const line = section('### 1. A key')
+      .split('\n')
+      .find((l) => l.startsWith('- `routes`'));
+    expect(line).toBe(
+      '- `routes`: the paths this door lists, in the order its table tries them. This document and the index at `/` are answered and not listed, and the `/coin` paths are listed only where the tracker carries the coin ([Routes](PROTOCOL.md#routes)).',
+    );
+    const t = boot(T0);
+    await t.listen();
+    try {
+      const { routes } = await t.get<{ routes: string[] }>('/.well-known/quilt');
+      const table = t.tracker.routes.map((r) => r.path);
+      // The listed paths are the table's, in the order it tries them.
+      inOrder(table, routes, 'the table');
+      expect(routes.length).toBeGreaterThan(10);
+      // The well-known document and the index are rows of the table, answered, and not listed.
+      for (const path of ['/.well-known/quilt', '/']) {
+        expect(table, path).toContain(path);
+        expect(routes, path).not.toContain(path);
+        expect((await fetch(t.base + path)).status, path).toBe(200);
+      }
+      // The table has rows under /coin, and a tracker that carries no coin lists none of them.
+      expect(table.filter((p) => p.startsWith('/coin')).length).toBeGreaterThan(0);
+      expect(routes.filter((p) => p.startsWith('/coin'))).toEqual([]);
+    } finally {
+      await t.close();
+    }
+  });
+
   it("cites PROTOCOL.md's What the door answers beside each rule it repeats from there, and says what it says", () => {
     expect(DOC).toContain(
       'Each rule has its home in the document cited beside it, and this page repeats only what a worker needs at the step it is on;',
@@ -1436,37 +1670,23 @@ describe('CLIENT.md, what it names and links', () => {
     }
   });
 
-  it("names functions the files it names define, the limit's wrapper in tracker.ts and the door's checks in admit.ts", () => {
+  it('names functions the files it names define, and the rows of problemDoor give each of the two checks the types the page gives it', () => {
     const root = join(DOCS, '..');
-    const source = (file: string): string => readFileSync(join(root, file), 'utf8');
+    const file = (path: string): string => readFileSync(join(root, path), 'utf8');
     /** That the file defines the name: a function, a method, or a constant. */
-    const defines = (file: string, name: string): boolean =>
+    const defines = (path: string, name: string): boolean =>
       new RegExp(`\\b(?:function|def|async)\\s+${name}\\(|^\\s+${name}\\(|\\bconst\\s+${name}\\s*[:=]`, 'm').test(
-        source(file),
+        file(path),
       );
     const cited = [...DOC.matchAll(/`(\w+)` in `([^`]+\.(?:ts|py))`/g)].map((m) => [m[1]!, m[2]!] as const);
     expect(cited.length).toBeGreaterThan(5);
-    for (const [name, file] of cited) expect(defines(file, name), `${name} in ${file}`).toBe(true);
-    // The door's checks: the route's limit in tracker.ts, where its table of routes is, and the rest in admit.ts.
-    const door = section('## What the door checks, in order').trim().split('\n\n')[0]!;
-    expect(door).toContain('`limited` in `packages/tracker/src/tracker.ts`, which wraps each write the routes take');
-    expect(door).toContain('`postEvent` in `packages/tracker/src/admit.ts`');
-    const runs = [...new Set(named(door).filter((n) => /^[a-z]+(?:[A-Z][a-z]+)*$/.test(n)))];
-    expect(runs).toEqual([
-      'limited',
-      'postEvent',
-      'admitProblemEvent',
-      'problemDoor',
-      'checkPieceEvent',
-      'checkTraceEvent',
-    ]);
-    for (const name of runs.slice(1))
-      expect(defines('packages/tracker/src/admit.ts', name), `${name} in admit.ts`).toBe(true);
-    // The rows of problemDoor: the types whose row names each of the two checks, as the page gives them.
-    expect(door).toContain(
-      "the check the type's row names (rows 11 to 19): `checkPieceEvent` for a claim, commit, reveal, decline or run, and `checkTraceEvent` for a trace.",
+    for (const [name, path] of cited) expect(defines(path, name), `${name} in ${path}`).toBe(true);
+    // The rows of problemDoor: the types whose row names each of the two checks, as the page gives them. Where in the
+    // code each row's check runs is held under "what the door checks, in order".
+    expect(DOC).toContain(
+      "the check the type's row names (rows 11 to 19), `checkPieceEvent` for a claim, commit, reveal, decline or run, and `checkTraceEvent` for a trace.",
     );
-    const admit = source('packages/tracker/src/admit.ts');
+    const admit = source('admit.ts');
     const start = admit.indexOf('const problemDoor');
     const map = admit.slice(start, admit.indexOf('\n};', start));
     const typesOf = (check: string): string[] =>
@@ -1524,19 +1744,22 @@ describe('CLIENT.md, what it names and links', () => {
 
   it('is named in AGENTS.md by what holds each part, as the describes here hold it', () => {
     expect(readFileSync(join(DOCS, '..', 'AGENTS.md'), 'utf8')).toContain(
-      "`docs/CLIENT.md`'s worked example held to the core and fixture 04, and its requests and its table of the door's checks held to a booted tracker, by `packages/tracker/test/client-doc.test.ts`.",
+      "`docs/CLIENT.md`'s worked example held to the core and fixture 04, its requests and its table of the door's checks held to a booted tracker, and the part of the code it names for each check held to that code in `packages/tracker/src`, by `packages/tracker/test/client-doc.test.ts`.",
     );
-    const source = readFileSync(fileURLToPath(import.meta.url), 'utf8');
+    const own = readFileSync(fileURLToPath(import.meta.url), 'utf8');
     const block = (title: string): string => {
-      const start = source.indexOf(`describe(${title}, () => {`);
+      const start = own.indexOf(`describe(${title}, () => {`);
       expect(start, title).toBeGreaterThan(0);
-      return source.slice(start, source.indexOf('\ndescribe(', start));
+      return own.slice(start, own.indexOf('\ndescribe(', start));
     };
     const worked = block(`"CLIENT.md, fixture 04's first claim, worked"`);
     expect(worked).toContain('readFileSync(FIXTURE');
     expect(worked).not.toContain('boot(');
-    for (const title of ["'CLIENT.md, a first return in six steps'", "'CLIENT.md, what the door checks, in order'"])
-      expect(block(title)).toContain('boot(T0');
+    const door = block("'CLIENT.md, what the door checks, in order'");
+    for (const b of [block("'CLIENT.md, a first return in six steps'"), door]) expect(b).toContain('boot(T0');
+    // The parts of the code the page names for the checks are read from the source the tracker runs.
+    expect(door).toContain('definition(part.file, name)');
+    expect(door).toContain("source('tracker.ts')");
   });
 
   it('has no em-dash, U+2014', () => {
