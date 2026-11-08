@@ -360,7 +360,7 @@ export function createPage(options: PageOptions): {
       if ((m = /^\/b\/(sha256:[0-9a-f]{64})$/.exec(path)) && method === 'GET' && isHash(m[1])) {
         const b = resolver.cachedBlob(m[1] as Hash);
         if (!b) return json(res, 404, { error: 'not held here' }, true);
-        res.writeHead(200, { 'content-type': 'application/octet-stream' });
+        res.writeHead(200, { 'content-type': 'application/octet-stream', 'access-control-allow-origin': '*' });
         res.end(Buffer.from(b));
         return;
       }

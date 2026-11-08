@@ -2,7 +2,8 @@
  * PROTOCOL.md, The node's routes, held to Quilt's page over a home that opened a problem: the well-known document's
  * `routes` are the paths of every row below its own, in their order, and the well-known's row says it is unlisted;
  * each method a row names is one the node takes at that path, and another method at a listed path is `404`, `no such
- * route`; the well-known and `/held` answer the fields their rows name; the envelope and the blob are served where held
+ * route`; every answer a row gives allows any origin, the blob's and each `not held here` among them; the well-known
+ * and `/held` answer the fields their rows name; the envelope and the blob are served where held
  * and refused `not held here` where not; and a chain and the identity log come whole in one page, with no header
  * naming another. The tracker's table is packages/tracker/test/protocol-table.test.ts's, and the on-ramp's is
  * packages/hosted/test/onramp-table.test.ts's.
@@ -170,6 +171,19 @@ describe("PROTOCOL.md, the node's route table", () => {
           expect(await answer(m, filled(p)), `${m} ${p}`).toEqual({ status: 404, error: 'no such route' });
       }
     }
+  });
+
+  it('lets a page on any site read every answer a row gives, held or not', async () => {
+    expect(DOC).toContain(
+      'Every answer a row gives allows any origin, so a page on any site can read what the node holds.',
+    );
+    for (const r of routes())
+      for (const p of r.paths)
+        for (const path of [filled(p), ...(p.endsWith('<hash>') ? [p.replace('<hash>', NOT_HELD)] : [])]) {
+          const a = await fetch(site + path);
+          await a.arrayBuffer();
+          expect(a.headers.get('access-control-allow-origin'), `${a.status} ${path}`).toBe('*');
+        }
   });
 
   it("answers the fields the well-known's and /held's rows name, with the identity log's hash", async () => {
