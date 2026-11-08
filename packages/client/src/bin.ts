@@ -71,7 +71,8 @@
 import { readFileSync } from 'node:fs';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { DeclineReason } from '@bitquilt/core';
-import { NEEDS_AGENT, RUN_TIMEOUT_MS, agentSentence, awayCli, findAgent, searchDirs } from './away.js';
+import { NEEDS_AGENT, RUN_TIMEOUT_MS, agentSentence, findAgent, searchDirs } from './agents.js';
+import { awayCli } from './away.js';
 import { type SentenceAsk, handedJson, sentenceAsk } from './render.js';
 import { type Config, createKey, ensureHome, loadConfig, loadKey, quiltHome, saveConfig } from './config.js';
 import { entryHere, installHere } from './install.js';

@@ -5,6 +5,8 @@ import { DEFAULT_CONFIG, createKey, loadKey, type Config } from '../src/config.j
 import { createPage } from '../src/page.js';
 import { Resolver } from '../src/resolver.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
+import { windowAnswer } from '../src/window.js';
+import type { MapPiece, PagePiece, ProblemMap } from '../src/window-answers.js';
 import { baseOf, hex, json, quiltOver, startTracker, tempHome } from './helpers.js';
 
 /**
@@ -13,7 +15,8 @@ import { baseOf, hex, json, quiltOver, startTracker, tempHome } from './helpers.
  * another vendor returned before them is accepted by their agreement. The owner's gold (QX-16) is offered for reveal on
  * the pieces the owner's turn reveals (gold.ts, goldDue): an accepting set stands and its window is open, as the
  * tracker's `window_open` says. Once the window has closed the tracker refuses the reveal, and the page no longer
- * offers it, a challenge open on the piece or not (APP.md, "Standing, gold and the coin on the page").
+ * offers it, a challenge open on the piece or not (APP.md, "Standing, gold and the coin on the page"). Each piece on
+ * the page's map has the fields the window's map has, and a few of its own.
  */
 let tracker: Server;
 let page: Server;
@@ -113,6 +116,32 @@ describe('the page', () => {
     expect(opened.body.title).toBe('Does the paper say what people say it says?');
     expect((opened.body.pieces as { state: string }[]).map((p) => p.state)).toEqual(['open', 'open', 'open']);
     expect(opened.body.summary).toContain('titled it:');
+  });
+  it("gives each piece on its map the fields the window's map gives it, the same for a kind this client knows", async () => {
+    // One type for the piece on a problem's map (window-answers.ts, MapPiece): the page's /api/open and the window's
+    // open each add their own fields to it, and for a kind this client implements the shared fields agree.
+    const shared = [
+      'hash',
+      'name',
+      'verifier',
+      'kind',
+      'strength',
+      'weakest',
+      'attested',
+      'state',
+      'core',
+      'stake',
+      'gold',
+      'verified',
+    ] as const satisfies readonly (keyof MapPiece)[];
+    const pick = (p: object) => Object.fromEntries(shared.map((k) => [k, (p as Record<string, unknown>)[k]]));
+    const onPage = (await api(`/api/open?link=${problem}`)).body.pieces as PagePiece[];
+    const map = (await windowAnswer(new Quilt(config, loadKey(homeA), new Resolver(config, homeA)), {
+      op: 'open',
+      link: problem,
+    })) as ProblemMap;
+    expect(onPage.map(pick)).toEqual(map.pieces.map(pick));
+    expect(Object.keys(onPage[0]!).sort()).toEqual([...shared, 'says', 'requires', 'mine_gold', 'gold_due'].sort());
   });
   it('hands the person a piece another vendor already returned, as a verification, with the brief rendered', async () => {
     // The other vendor works the whole problem first; every piece then waits for a second vendor.

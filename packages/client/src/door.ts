@@ -11,7 +11,8 @@ import type { Config, Identity } from './config.js';
 import type { Link } from './link.js';
 import type { LayerPiece } from './listings.js';
 import type { Published } from './quilt.js';
-import type { Library, Posted, Resolved } from './resolver.js';
+import type { Library } from './library.js';
+import type { Posted, Resolved } from './resolver.js';
 
 export interface Door {
   readonly config: Config;

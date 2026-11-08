@@ -1,9 +1,10 @@
 /**
  * Where Quilt keeps its things: a folder in the person's home (or $QUILT_HOME), with the key readable by the person
  * alone, a config of trackers and mirrors, a cache of what has been touched, and a queue of events written while no
- * tracker answered. Nothing here leaves the machine except through the resolver.
+ * tracker answered. A key made at first use keeps its twelve words beside it until the page shows them once; they are
+ * written and read here. Nothing here leaves the machine except through the resolver.
  */
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -114,7 +115,24 @@ export function createKey(
   writeFileSync(file, secretToHex(secret) + '\n', { mode: 0o600 });
   chmodSync(file, 0o600);
   // A key made at first use, with nobody at a terminal to read the phrase: the words wait beside the key for the page
-  // to show once (`Resolver.takeWords`). They are the key, which is beside them already.
+  // to show once (`takeWords`, below). They are the key, which is beside them already.
   if (phrase && from.keepWords) writeFileSync(join(home, 'words'), phrase + '\n', { mode: 0o600 });
   return { identity: { secret, address: addressOf(secret) }, phrase };
+}
+
+/**
+ * Whether the key's twelve words, kept at first use, are still waiting to be written down: what the sheet calls a
+ * backup due.
+ */
+export function wordsDue(home: string): boolean {
+  return existsSync(join(home, 'words'));
+}
+
+/** The twelve words, once: read and removed, so they are shown one time; null when none wait. */
+export function takeWords(home: string): string | null {
+  const file = join(home, 'words');
+  if (!existsSync(file)) return null;
+  const words = readFileSync(file, 'utf8').trim();
+  unlinkSync(file);
+  return words;
 }

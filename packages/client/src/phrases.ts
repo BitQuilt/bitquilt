@@ -14,7 +14,7 @@
 import type { Address, Hash } from '@bitquilt/core';
 import { makeLink } from './link.js';
 import type { AttentionItem } from './quilt.js';
-import type { Library } from './resolver.js';
+import type { Library } from './library.js';
 
 /**
  * What a phrase takes to be said whole: a link to a problem, words to search for, a file's path, a number of units, a

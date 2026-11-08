@@ -8,11 +8,11 @@ export {
   askJson,
   KEEP_EVERY_MS,
   type KeepReport,
-  type Library,
   type Posted,
   type PostHeaders,
   type Resolved,
 } from './resolver.js';
+export { type Library } from './library.js';
 export { FileChains, type Chains, type Held } from './chains.js';
 export { Refused, publicAddress, publicFetch, readCapped, shared } from './public-fetch.js';
 export {
@@ -25,10 +25,12 @@ export {
   type Sharpened,
   type Standing,
 } from './quilt.js';
-export { AWAY_LOG, launchdLabel } from './away.js';
+export { AWAY_LOG } from './away.js';
+export { launchdLabel } from './schedule.js';
 export { ownerTurn, type OwnerTurn } from './owner-turn.js';
 export { WINDOW_OPS, WINDOW_PHRASES, WINDOW_READ_OPS, WINDOW_URI, WINDOW_URI_NOW, windowAnswer } from './window.js';
 export { WINDOW_HTML } from './window.generated.js';
+export type { WindowAnswer } from './window-answers.js';
 export { createMcpServer } from './mcp.js';
 export {
   TOOL_NAMES,

@@ -1,10 +1,11 @@
 /**
  * The client's files import one another without a loop at run time. The files that take the Door (door.ts) import
  * nothing of quilt.ts's at run time, at most a type, so they make no loop with it; and the owner's turn (owner-turn.ts)
- * imports types alone, so the away run and the on-ramp can import it without the away run coming back round. Under
- * verbatimModuleSyntax only `import type` and `export type` are erased when the code runs, so a loop of those is only
- * the type checker's to follow. An import whose every name is marked `type` keeps its line and loads its file, so it is
- * an edge here like any other.
+ * imports types alone, so the away run and the on-ramp can import it without the away run coming back round; the agent
+ * CLIs (agents.ts) and the schedule (schedule.ts) take nothing of the away run, so `quilt sharpen` asks an agent
+ * without it. Under verbatimModuleSyntax only `import type` and `export type` are erased when the code runs, so a loop
+ * of those is only the type checker's to follow. An import whose every name is marked `type` keeps its line and loads
+ * its file, so it is an edge here like any other.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -95,5 +96,12 @@ describe("the client's imports", () => {
 
   it('give the owner-turn file types alone, so the away run and the on-ramp import it without a loop', () => {
     expect(edges().get('owner-turn.ts')).toEqual([]);
+  });
+
+  it('give the agent CLIs no file of the client and the schedule the agent CLIs alone, so neither takes the away run', () => {
+    const graph = edges();
+    expect(graph.get('agents.ts')).toEqual([]);
+    expect(graph.get('schedule.ts')).toEqual(['agents.ts']);
+    expect(graph.get('away.ts')).toEqual(expect.arrayContaining(['agents.ts', 'schedule.ts']));
   });
 });

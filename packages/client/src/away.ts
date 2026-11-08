@@ -2,33 +2,36 @@
  * `quilt away`: one piece an hour while nobody is at the keyboard, and the menu bar's switch for it (page.ts,
  * /api/away). A person's AI works Quilt when they ask and approve each write; this runs the same work unattended
  * through an agent CLI the person already has on a subscription (Claude Code on a Claude plan, Codex on a ChatGPT
- * plan), with no API key. The CLI starts the connector over stdio as a chat client would, declares the vendor it is
- * (anthropic/claude, or openai/<model>, so a person with both gives the room two vendors), and is handed the tools
- * that read, take a piece, hand a return back and give one back, and no other: the connector itself offers only those
- * when QUILT_AWAY is set (mcp.ts), and Claude Code is told the same list. The daily cap lives in a file under the home
- * (away.json) that the connector reads and writes, so a run that got past the driver still stops at the cap, and the
- * claim's `can` leaves out `person` (config.ts), so a piece that wants a person is not offered. The schedule is a
- * launchd user agent on a Mac and a crontab line elsewhere. Every run is appended to away.log beside the record.
- * Before the agent, and whether or not one is here, a turn runs the owner's part (owner-turn.ts), which reveals the
- * owner's gold that has come due (QX-16, gold.ts): that needs no model, and it is what a square verifies and the coin
- * mints on.
+ * plan; agents.ts finds and runs it), with no API key. The CLI starts the connector over stdio as a chat client would,
+ * declares the vendor it is (anthropic/claude, or openai/<model>, so a person with both gives the room two vendors),
+ * and is handed the tools that read, take a piece, hand a return back and give one back, and no other: the connector
+ * itself offers only those when QUILT_AWAY is set (mcp.ts), and Claude Code is told the same list. The daily cap lives
+ * in a file under the home (away.json) that the connector reads and writes, so a run that got past the driver still
+ * stops at the cap, and the claim's `can` leaves out `person` (config.ts), so a piece that wants a person is not
+ * offered. The schedule is a launchd user agent on a Mac and a crontab line elsewhere (schedule.ts). Every run is
+ * appended to away.log beside the record. Before the agent, and whether or not one is here, a turn runs the owner's
+ * part (owner-turn.ts), which reveals the owner's gold that has come due (QX-16, gold.ts): that needs no model, and it
+ * is what a square verifies and the coin mints on.
  */
-import { execFileSync, spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import {
-  accessSync,
-  appendFileSync,
-  constants,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  unlinkSync,
-  writeFileSync,
-} from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { delimiter, dirname, join, posix, resolve } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { isHash } from '@bitquilt/core';
+import {
+  type Agent,
+  type AgentName,
+  CLAUDE_MODEL,
+  type Invocation,
+  NEEDS_AGENT,
+  RUN_TIMEOUT_MS,
+  agentSentence,
+  codexModel,
+  findAgent,
+  readIfThere,
+  runAgent,
+  saidByClaude,
+  searchDirs,
+} from './agents.js';
 import type { Revealed } from './gold.js';
 import type { ServerEntry } from './install.js';
 import { parseLink } from './link.js';
@@ -38,6 +41,19 @@ import { inParallel } from './pool.js';
 import { say } from './phrases.js';
 import type { Quilt, Sharpened } from './quilt.js';
 import { type SentenceAsk, layerByHash, sentenceAsk } from './render.js';
+import {
+  type Schedule,
+  type ScheduleOptions,
+  awayCommand,
+  crontabLine,
+  installSchedule,
+  launchAgentFile,
+  launchdLabel,
+  plistText,
+  scheduleEnv,
+  scheduleOf,
+  uninstallSchedule,
+} from './schedule.js';
 import type { ToolName } from './tools.js';
 
 /** The tools a run while away may call: the ones that read, take a piece, hand a return back and give one back. */
@@ -51,34 +67,9 @@ export const AWAY_TOOLS = [
   'quilt_read',
 ] as const satisfies readonly ToolName[];
 
-export type AgentName = 'claude' | 'codex';
-
-/** The agent CLIs looked for, in order; gemini would be a third once its headless flags are known. */
-export const AGENTS: readonly AgentName[] = ['claude', 'codex'];
-
 export const DEFAULT_CAP = 5;
 export const AWAY_FILE = 'away.json';
 export const AWAY_LOG = 'away.log';
-export const LAUNCHD_LABEL = 'org.bitquilt.quilt.away';
-
-/**
- * The launchd label for a home: the plain label for the usual home, and the label with eight hex characters of the
- * home's hash for any other, so two homes on one Mac, a person's and a maintainer's, each keep their own hourly turn.
- * Until 2 November 2026 the label was one, and installing for a second home replaced the first's.
- */
-export function launchdLabel(
-  home: string,
-  usual = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'quilt'),
-): string {
-  return resolve(home) === resolve(usual)
-    ? LAUNCHD_LABEL
-    : `${LAUNCHD_LABEL}.${createHash('sha256').update(resolve(home)).digest('hex').slice(0, 8)}`;
-}
-/** How long one run may take before it is stopped. */
-export const RUN_TIMEOUT_MS = 10 * 60_000;
-export const NEEDS_AGENT = 'Needs Claude Code or Codex on this machine.';
-/** What the run declares when Claude Code is the agent; a Codex run declares openai/<the model its config names>. */
-export const CLAUDE_MODEL = 'anthropic/claude';
 
 /**
  * One day of the record: how many runs, how many pieces returned, and which, so the summary can ask what became of
@@ -202,63 +193,7 @@ export function setCap(file: string, cap: number, now = new Date()): AwayRecord 
   return record;
 }
 
-// The agent CLI
-
-export interface Agent {
-  name: AgentName;
-  path: string;
-}
-
-function listDir(dir: string): string[] {
-  try {
-    return readdirSync(dir);
-  } catch {
-    return [];
-  }
-}
-
-function isExecutable(path: string): boolean {
-  try {
-    accessSync(path, constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Where an agent CLI is looked for: the PATH, then the places the installers put one, since launchd and an app started
- * from the Finder carry a short PATH with none of them. The nvm versions come newest first.
- */
-export function searchDirs(
-  env: NodeJS.ProcessEnv,
-  home = homedir(),
-  list: (dir: string) => string[] = listDir,
-): string[] {
-  const fromPath = (env.PATH ?? '').split(delimiter).filter(Boolean);
-  const usual = [
-    join(home, '.local', 'bin'),
-    '/opt/homebrew/bin',
-    '/usr/local/bin',
-    join(home, '.npm-global', 'bin'),
-    join(home, '.claude', 'local'),
-  ];
-  const nvm = join(home, '.nvm', 'versions', 'node');
-  const nodes = list(nvm)
-    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
-    .map((v) => join(nvm, v, 'bin'));
-  return [...new Set([...fromPath, ...usual, ...nodes])];
-}
-
-/** The first agent CLI found: claude in any of the directories, then codex. */
-export function findAgent(dirs: string[], exists: (path: string) => boolean = isExecutable): Agent | null {
-  for (const name of AGENTS)
-    for (const dir of dirs) {
-      const path = join(dir, name);
-      if (exists(path)) return { name, path };
-    }
-  return null;
-}
+// The run: what the agent is told and given, and the turn
 
 /**
  * What the run says to the agent: the phrase a person says, and that nobody is here. Fixed text, with nothing anyone
@@ -266,13 +201,6 @@ export function findAgent(dirs: string[], exists: (path: string) => boolean = is
  */
 export function awayPrompt(): string {
   return `${say('find_something_to_do')} Nobody is at the keyboard right now, so decline any piece that needs a person (reason: cannot). One piece is enough for this run.`;
-}
-
-/** An agent CLI's headless invocation, and the model the connector declares under it. */
-export interface Invocation {
-  command: string;
-  args: string[];
-  model: string;
 }
 
 /**
@@ -310,12 +238,6 @@ export function claudeInvocation(claude: string, entry: ServerEntry, awayFile: s
   };
 }
 
-/** The model Codex's config names (~/.codex/config.toml, `model = "..."`), or `codex` where it names none. */
-export function codexModel(toml: string | null): string {
-  const m = toml ? /^\s*model\s*=\s*"([^"\n]+)"/m.exec(toml) : null;
-  return m?.[1] ?? 'codex';
-}
-
 /**
  * Codex, headless: `exec` takes the prompt and exits; the connector is given as config overrides, each value JSON as
  * the CLI parses it; the sandbox is read-only and no approval is asked for. Flags as codex-cli 0.20 has them.
@@ -347,63 +269,6 @@ export function codexInvocation(
       awayPrompt(),
     ],
   };
-}
-
-/** What `claude -p --output-format json` printed, as the final text, or null where it printed something else. */
-export function saidByClaude(stdout: string): string | null {
-  for (const line of [stdout.trim(), ...stdout.trim().split('\n').reverse()]) {
-    try {
-      const j = JSON.parse(line) as { result?: unknown };
-      if (typeof j.result === 'string') return j.result;
-    } catch {
-      /* not this line */
-    }
-  }
-  return null;
-}
-
-/** The agent run with the timeout: SIGTERM at the deadline, SIGKILL ten seconds later. */
-export function runAgent(
-  inv: Invocation,
-  options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number },
-): Promise<{ code: number | null; timedOut: boolean; stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(inv.command, inv.args, {
-      cwd: options.cwd,
-      env: options.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let stdout = '';
-    let stderr = '';
-    let timedOut = false;
-    child.stdout.on('data', (d: Buffer) => {
-      stdout += d.toString();
-    });
-    child.stderr.on('data', (d: Buffer) => {
-      stderr += d.toString();
-    });
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill('SIGTERM');
-      setTimeout(() => child.kill('SIGKILL'), 10_000).unref();
-    }, options.timeoutMs);
-    child.on('error', (e) => {
-      clearTimeout(timer);
-      reject(e);
-    });
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      resolve({ code, timedOut, stdout, stderr });
-    });
-  });
-}
-
-function readIfThere(file: string | null): string | null {
-  try {
-    return file ? readFileSync(file, 'utf8') : null;
-  } catch {
-    return null;
-  }
 }
 
 export interface TurnOptions {
@@ -444,57 +309,6 @@ export interface Turn {
   sharpened: Sharpened[];
   line: string;
   record: AwayRecord;
-}
-
-/**
- * The agent CLI as a function from a prompt to its one answer, with no tools: how the owner's node asks for the
- * sentence a brief lacks (QX-19 section 4).
- */
-export function askInvocation(agent: Agent, prompt: string, lastMessage: string): Invocation {
-  return agent.name === 'claude'
-    ? {
-        command: agent.path,
-        model: CLAUDE_MODEL,
-        args: [
-          '-p',
-          prompt,
-          '--output-format',
-          'json',
-          '--max-turns',
-          '1',
-          '--strict-mcp-config',
-          '--mcp-config',
-          JSON.stringify({ mcpServers: {} }),
-        ],
-      }
-    : {
-        command: agent.path,
-        model: 'codex',
-        args: [
-          'exec',
-          '--skip-git-repo-check',
-          '--sandbox',
-          'read-only',
-          '-c',
-          'approval_policy="never"',
-          '--output-last-message',
-          lastMessage,
-          prompt,
-        ],
-      };
-}
-
-/** The agent's one answer to a prompt, trimmed, or null where it failed or said nothing. */
-export async function agentSentence(
-  agent: Agent,
-  prompt: string,
-  options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number },
-): Promise<string | null> {
-  const lastMessage = join(options.cwd, 'away.sentence');
-  const run = await runAgent(askInvocation(agent, prompt, lastMessage), options);
-  const said = agent.name === 'claude' ? saidByClaude(run.stdout) : readIfThere(lastMessage);
-  if (existsSync(lastMessage)) unlinkSync(lastMessage);
-  return run.code === 0 && said ? said.trim() : null;
 }
 
 /**
@@ -589,166 +403,6 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
     line,
     record: after,
   };
-}
-
-// The schedule
-
-/**
- * The command the schedule runs: this program with `away`, from the connector's entry (the executable, or the
- * development command). A bare name such as `pnpm` is resolved to its path in the directories given, since launchd
- * looks a program up with a PATH of its own, not the one the plist sets, and fails the job with EX_CONFIG when it is
- * not there; a name found nowhere is left as given.
- */
-export function awayCommand(
-  entry: ServerEntry,
-  dirs: string[] = [],
-  exists: (path: string) => boolean = isExecutable,
-): { command: string; args: string[] } {
-  let command = entry.command;
-  if (!command.includes('/') && !command.includes('\\')) {
-    for (const dir of dirs) {
-      const path = join(dir, command);
-      if (exists(path)) {
-        command = path;
-        break;
-      }
-    }
-  }
-  return { command, args: [...entry.args.slice(0, -1), 'away'] };
-}
-
-/**
- * The environment the schedule runs under: the connector entry's quilt variables but the model, which the run declares
- * itself, the home, and a PATH with the places an agent CLI is looked for.
- */
-export function scheduleEnv(entry: ServerEntry, dirs: string[], home: string): Record<string, string> {
-  const env = { ...entry.env };
-  delete env.QUILT_MODEL;
-  return { ...env, QUILT_HOME: home, PATH: dirs.join(delimiter) };
-}
-
-/**
- * The launchd user agent: this program's `away` every hour, not at load, with the home in its environment and its
- * output under the home.
- */
-export function plistText(o: {
-  label: string;
-  command: string;
-  args: string[];
-  home: string;
-  env: Record<string, string>;
-}): string {
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const strings = (xs: string[]) => xs.map((x) => `    <string>${esc(x)}</string>`).join('\n');
-  const env = Object.entries(o.env)
-    .map(([k, v]) => `    <key>${esc(k)}</key>\n    <string>${esc(v)}</string>`)
-    .join('\n');
-  return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
-    '<plist version="1.0">',
-    '<dict>',
-    `  <key>Label</key>\n  <string>${esc(o.label)}</string>`,
-    `  <key>ProgramArguments</key>\n  <array>\n${strings([o.command, ...o.args])}\n  </array>`,
-    '  <key>StartInterval</key>\n  <integer>3600</integer>',
-    '  <key>RunAtLoad</key>\n  <false/>',
-    `  <key>EnvironmentVariables</key>\n  <dict>\n${env}\n  </dict>`,
-    `  <key>StandardOutPath</key>\n  <string>${esc(join(o.home, 'away.out'))}</string>`,
-    `  <key>StandardErrorPath</key>\n  <string>${esc(join(o.home, 'away.err'))}</string>`,
-    '</dict>',
-    '</plist>',
-    '',
-  ].join('\n');
-}
-
-/** Where the launchd user agent for a label is written. */
-export function launchAgentFile(label = LAUNCHD_LABEL, userHome = homedir()): string {
-  // A launchd path is a Mac's, so it is joined the Mac's way wherever this runs.
-  return posix.join(userHome, 'Library', 'LaunchAgents', `${label}.plist`);
-}
-
-/** The crontab line for a machine without launchd: the same command at the top of every hour. */
-export function crontabLine(command: string, args: string[], home: string): string {
-  const q = (s: string) => (/^[\w./:=-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`);
-  return `0 * * * * QUILT_HOME=${q(home)} ${[command, ...args].map(q).join(' ')} >> ${q(join(home, 'away.out'))} 2>> ${q(join(home, 'away.err'))}`;
-}
-
-/** Runs launchctl with the arguments; true when it exited 0. */
-export type Launchctl = (args: string[]) => boolean;
-
-function launchctl(args: string[]): boolean {
-  try {
-    execFileSync('launchctl', args, { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-const uidHere = () => process.getuid?.() ?? 0;
-
-export interface ScheduleOptions {
-  platform?: NodeJS.Platform;
-  /** The plist's path; ~/Library/LaunchAgents/<label>.plist when left out. */
-  file?: string;
-  /** The launchd label; the home's (`launchdLabel`) when left out. */
-  label?: string;
-  uid?: number;
-  ctl?: Launchctl;
-}
-
-export interface Schedule {
-  kind: 'launchd' | 'crontab';
-  installed: boolean;
-  /** Whether launchd has it loaded now; false where there is no launchd. */
-  loaded: boolean;
-  file: string | null;
-  /** The line to add by hand where there is no launchd. */
-  crontab: string | null;
-}
-
-/**
- * Whether the schedule is in place: on a Mac, the plist and whether launchd has it; elsewhere, the crontab line to add.
- */
-export function scheduleOf(o: ScheduleOptions & { command: string; args: string[]; home: string }): Schedule {
-  const platform = o.platform ?? process.platform;
-  if (platform !== 'darwin')
-    return {
-      kind: 'crontab',
-      installed: false,
-      loaded: false,
-      file: null,
-      crontab: crontabLine(o.command, o.args, o.home),
-    };
-  const label = o.label ?? launchdLabel(o.home);
-  const file = o.file ?? launchAgentFile(label);
-  const installed = existsSync(file);
-  const loaded = installed && (o.ctl ?? launchctl)(['print', `gui/${o.uid ?? uidHere()}/${label}`]);
-  return { kind: 'launchd', installed, loaded, file, crontab: null };
-}
-
-/** The plist written and loaded; one already loaded is unloaded first so launchd reads the new text. */
-export function installSchedule(o: { file: string; text: string; label?: string; uid?: number; ctl?: Launchctl }): {
-  file: string;
-  loaded: boolean;
-} {
-  const ctl = o.ctl ?? launchctl;
-  const uid = o.uid ?? uidHere();
-  mkdirSync(dirname(o.file), { recursive: true });
-  writeFileSync(o.file, o.text);
-  ctl(['bootout', `gui/${uid}/${o.label ?? LAUNCHD_LABEL}`]);
-  return { file: o.file, loaded: ctl(['bootstrap', `gui/${uid}`, o.file]) };
-}
-
-/** The agent unloaded and its plist removed. */
-export function uninstallSchedule(o: { file: string; label?: string; uid?: number; ctl?: Launchctl }): {
-  file: string;
-  removed: boolean;
-} {
-  (o.ctl ?? launchctl)(['bootout', `gui/${o.uid ?? uidHere()}/${o.label ?? LAUNCHD_LABEL}`]);
-  const removed = existsSync(o.file);
-  if (removed) unlinkSync(o.file);
-  return { file: o.file, removed };
 }
 
 // Status and summary
