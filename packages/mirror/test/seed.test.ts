@@ -251,6 +251,10 @@ describe('the seed of a challenge at the mirror (QX-1 section 4)', () => {
     );
     expect(balances).toContain("reads that hash from the challenge's line in the chain it folds");
     expect(balances).toContain('draws from another seed and can seat another panel');
+    expect(balances).toContain(
+      "and a judge piece's panel the same way from its first candidate's line (verifiers.md section 2)",
+    );
+    expect(balances).not.toContain('the chain it is folded over (QX-1 section 4)');
     expect(balances).toContain('a challenge the home decided can stay open there or be decided otherwise');
   });
 });
