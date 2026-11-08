@@ -6,10 +6,7 @@ import {
   sign as signBytes,
   type KeyObject,
 } from 'node:crypto';
-import { mkdtempSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import {
@@ -26,11 +23,11 @@ import {
   OAuthProtectedResourceMetadataSchema,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { type Hash, type Receipt } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
-import { DEFAULT_CONFIG, Quilt, Resolver, createKey, loadKey, type Pattern } from 'quilt';
+import { Store } from '@bitquilt/tracker';
+import type { Pattern } from 'quilt';
 import { ASSERTION_TYPE, DOCUMENT_MAX, Documents } from '../src/cimd.js';
-import { createHosted } from '../src/hosted.js';
 import { PRODUCT_CALLBACKS, onProductOrigin, productOf } from '../src/products.js';
+import { openDoor, quiltOver } from './helpers.js';
 
 /**
  * QX-18, the product as witness, on the hosted on-ramp. The metadata at the well-known paths the MCP authorization spec
@@ -61,7 +58,6 @@ let base: string;
 let problem: Hash;
 const skew = { ms: 0 };
 const store = new Store(':memory:');
-const custodySecret = randomBytes(16).toString('hex');
 const CLAUDE = 'https://claude.ai/api/mcp/auth_callback';
 const CHATGPT = 'https://chatgpt.com/connector_platform_oauth_redirect';
 const AGENT = 'https://agent.example/callback';
@@ -354,33 +350,17 @@ async function returnPiece(client: Client, piece?: string): Promise<string> {
 const shared = { piece: '' };
 
 beforeAll(async () => {
-  const hosted = createHosted({
+  ({ server, base } = await openDoor({
     store,
-    trackerUrl: () => base,
-    keySecret: 'test-secret',
-    home: mkdtempSync(join(tmpdir(), 'hosted-oauth-')),
-    custodySecret,
-    name: 'Test tracker',
-    fetchImpl: testFetch,
-    now: () => new Date(Date.now() + skew.ms).toISOString(),
-    oauth: { secret: 'oauth-test-secret' },
-  });
-  const tracker = createTracker({
-    store,
-    url: 'http://t.test/',
-    ipSalt: 's',
-    custodySecret,
-    extra: hosted.routes,
-    extraWellKnown: hosted.describe,
-    limits: { keyPerHour: 1000, ipPerHour: 10000 },
-  });
-  server = await tracker.listen(0);
-  const a = server.address();
-  base = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}/` : '';
-  const ownerHome = mkdtempSync(join(tmpdir(), 'owner-'));
-  createKey(ownerHome, { secretHex: '00'.repeat(31) + '0a' });
-  const config = { ...DEFAULT_CONFIG, trackers: [base] };
-  const owner = new Quilt(config, loadKey(ownerHome), new Resolver(config, ownerHome), 'Claude Code');
+    tracker: { limits: { keyPerHour: 1000, ipPerHour: 10000 } },
+    hosted: {
+      name: 'Test tracker',
+      fetchImpl: testFetch,
+      now: () => new Date(Date.now() + skew.ms).toISOString(),
+      oauth: { secret: 'oauth-test-secret' },
+    },
+  }));
+  const owner = quiltOver(base, 0x0a);
   const pattern: Pattern = {
     title: 'Witnessed',
     done_when: 'Done.',

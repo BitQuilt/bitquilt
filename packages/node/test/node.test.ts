@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Hash } from '@bitquilt/core';
 import { createKey } from 'quilt';
 import { type Node, start } from '../src/node.js';
@@ -12,7 +12,8 @@ import { freePort, hex, json, lines, pattern, readerOver, tempHome } from './hel
  * node keeps in and serves from; a second node with admit and keep, naming the first as its peer, takes the problem
  * by its envelope and folds the first's readings through its own door (QX-21); a node with work alone has no door and
  * keeps what it opens in its own store; host is a role beside admit with a key secret, and a role that is not one is
- * refused at start.
+ * refused at start; a node with host runs the owners' turn a minute after it starts and every hour, and close clears
+ * the timers.
  */
 let a: Node, b: Node, c: Node;
 let urlA: string, urlB: string, pageA: number, pageC: number;
@@ -183,6 +184,31 @@ describe('one node with roles (WORKSHOP.md section 2, stage three)', () => {
       expect((await fetch(`http://127.0.0.1:${port}/join`)).status).toBe(200);
     } finally {
       await h.close();
+    }
+  });
+
+  it("runs the owners' turn of a node with host a minute after it starts and every hour, until close", async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+    try {
+      const port = await freePort();
+      const h = await start({
+        home: tempHome('quilt-node-t-'),
+        roles: ['admit', 'host'],
+        door: { port, url: `http://127.0.0.1:${port}/`, limits },
+        host: { keySecret: 'test-secret', sentence: null },
+      });
+      const turn = vi.spyOn(h.hosted!, 'turn');
+      expect(vi.getTimerCount()).toBe(2);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(turn).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(3_600_000);
+      expect(turn).toHaveBeenCalledTimes(2);
+      await h.close();
+      expect(vi.getTimerCount()).toBe(0);
+      await vi.advanceTimersByTimeAsync(3_600_000);
+      expect(turn).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
     }
   });
 });

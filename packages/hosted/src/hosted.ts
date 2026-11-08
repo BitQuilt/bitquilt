@@ -20,22 +20,12 @@ import {
   type Address,
   type Hash,
   addressOf,
-  problemHash,
   randomSecretKey,
   secretFromHex,
   secretToHex,
   withSlash,
 } from '@bitquilt/core';
-import {
-  PRIVATE_RANGES,
-  type Store,
-  clientAddress,
-  custodyHeaders,
-  json,
-  passageIn,
-  rangesOf,
-  restsOf,
-} from '@bitquilt/tracker';
+import { PRIVATE_RANGES, type Store, clientAddress, custodyHeaders, json, rangesOf } from '@bitquilt/tracker';
 import {
   AWAY_LOG,
   type Config,
@@ -48,9 +38,7 @@ import {
   WINDOW_READ_OPS,
   type Witness,
   createMcpServer,
-  kindWords,
   localRunner,
-  makeLink,
   ownerTurn,
   publicFetch,
   sheetOf,
@@ -59,7 +47,7 @@ import {
 } from 'quilt';
 import { joinPage } from './join-page.js';
 import { pagePolicy } from './page-policy.js';
-import { type SquareNow, type SquareReading, type SquareView, squarePage } from './square-page.js';
+import { squarePage, squareView } from './square-page.js';
 import { type OAuthServer, createOAuth } from './oauth.js';
 import { type Sentence, vendorSentence } from './sentence.js';
 import { SHEET_PAGE } from './sheet-page.js';
@@ -129,7 +117,8 @@ export interface Hosted {
   /**
    * The owners' turn (the part of `quilt away` that needs no agent): for every member whose home holds a problem or a
    * gold, the gold due revealed and the briefs sharpened, signed with the key this tracker holds for them, each turn's
-   * line written to the member's away.log. The binary runs it every hour; a member with nothing to do is passed over.
+   * line written to the member's away.log. Both binaries run it every hour (`scheduleOwnersTurn`, mount.ts); a member
+   * with nothing to do is passed over.
    */
   turn(): Promise<MemberTurn[]>;
 }
@@ -181,9 +170,9 @@ export function createHosted(options: HostedOptions): Hosted {
     withSlash(typeof options.trackerUrl === 'function' ? options.trackerUrl() : options.trackerUrl);
   const now = options.now ?? (() => new Date().toISOString());
   // Every request a Quilt here makes, and the authorization server's, goes to this tracker as it is and, where the
-  // connector is shared (QUILT_READS=public, which the binary sets), anywhere else through the guarded fetch: a
-  // tracker, a mirror or a coin's home that a link or a document names, and a client's metadata document, reach
-  // nothing on this machine or its networks.
+  // connector is shared (QUILT_READS=public, which both binaries set with env.ts's guardReads), anywhere else through
+  // the guarded fetch: a tracker, a mirror or a coin's home that a link or a document names, and a client's metadata
+  // document, reach nothing on this machine or its networks.
   const base = options.fetchImpl ?? fetch;
   const own = (href: string): boolean => {
     try {
@@ -220,115 +209,6 @@ export function createHosted(options: HostedOptions): Hosted {
   };
   const readerKept = new Map<string, { at: number; answer: Promise<Record<string, unknown>> }>();
 
-  /**
-   * One square for its page (square-page.ts): the version the address names, opened over the reader with no key, or,
-   * where that version keeps the piece only as an earlier version's (CORE.md section 6, Envelopes), the newest version
-   * of its chain that holds it, since an ancestral piece has no state where it is kept. The readings come from that
-   * version's fold, the two that accepted the square and any the layer set aside marked; what each rests on from the
-   * traces on the lines of the same chain (trace.ts, restsOf), with the passages of the reads kept here; and where the
-   * piece stands in the newest version, following the replacements eight at most. Null where this tracker holds no
-   * such problem or piece, or a maintainer hid the version the page reads.
-   */
-  async function squareOf(problem: Hash, piece: Hash): Promise<SquareView | null> {
-    const reader = readerOf();
-    type Opened = Awaited<ReturnType<Quilt['open']>>;
-    const openOf = async (h: Hash): Promise<Opened | null> => {
-      try {
-        return await reader.open(h);
-      } catch {
-        return null;
-      }
-    };
-    const opened = await openOf(problem);
-    if (!opened || opened.hidden || opened.hash !== problem) return null;
-    let holder: Opened | null = opened;
-    if (!opened.state.byHash.has(piece)) {
-      if (!opened.state.ancestral.has(piece)) return null;
-      holder = null;
-      for (const envelope of opened.state.chain.slice(1)) {
-        const o = await openOf(problemHash(envelope));
-        if (o?.state.byHash.has(piece)) {
-          holder = o;
-          break;
-        }
-      }
-      if (!holder || holder.hidden) return null;
-    }
-    const { state, layer } = holder;
-    const v = state.byHash.get(piece)!;
-    const l = layer?.find((x) => x.hash === piece) ?? null;
-    const st: string = l?.state ?? v.state;
-    const accepting =
-      (st === 'accepted' || st === 'accepted_provisional' || st === 'challenged') && v.accepting?.kind === 'agree'
-        ? v.accepting
-        : null;
-    const aside = new Set((l?.aside ?? []).map((k) => k.toLowerCase()));
-    const receipts = state.chain.flatMap((envelope) => store.lines(problemHash(envelope)));
-    const restsFor = restsOf(v, receipts, (h, span) => passageIn(store.getBlob(h), span));
-    const accepted = new Set(accepting ? accepting.reveals.map((r) => r.key.toLowerCase()) : []);
-    const readings: SquareReading[] = v.reveals.map((r) => ({
-      key: r.key,
-      name: state.names.get(r.root)?.name ?? null,
-      vendor: r.vendor,
-      model: r.by.model,
-      at: r.at,
-      accepting: accepted.has(r.key.toLowerCase()),
-      aside: aside.has(r.key.toLowerCase()),
-      fields: Object.entries(r.return as Record<string, unknown>),
-      rests: restsFor(r),
-    }));
-    // Where the piece stands now: from the versions that replaced the one the address names, and from that version
-    // itself where it keeps the piece only as an earlier version's.
-    let later: SquareNow | null = null;
-    let newest: { hash: Hash; opened: Opened } | null = holder === opened ? null : { hash: problem, opened };
-    for (let next = opened.superseded, hops = 0; next && hops < 8; hops++) {
-      const o = await openOf(next);
-      if (!o) break;
-      newest = { hash: next, opened: o };
-      next = o.superseded;
-    }
-    if (newest) {
-      const stateIn = (h: Hash, core: string): string => newest!.opened.layer?.find((x) => x.hash === h)?.state ?? core;
-      const same = newest.opened.state.byHash.get(piece);
-      const named = same ? null : newest.opened.state.pieces.find((x) => x.piece.name === v.piece.name);
-      if (same) later = { version: newest.hash, same: true, state: stateIn(piece, same.state) };
-      else if (named)
-        later = {
-          version: newest.hash,
-          same: false,
-          piece: named.piece.hash,
-          state: stateIn(named.piece.hash, named.state),
-          brief: named.piece.brief,
-        };
-    }
-    const env = opened.state.envelope.problem;
-    return {
-      url: `${trackerUrl()}r/${problem}/${piece}`,
-      problem,
-      holder: holder === opened ? null : holder.hash,
-      title: env.title,
-      owner: env.owner,
-      ownerName: opened.state.names.get(env.owner as Address)?.name ?? null,
-      piece,
-      name: v.piece.name,
-      brief: v.piece.brief,
-      state: st,
-      kind: kindWords(v.piece.verifier).says,
-      agreed: accepting
-        ? (v.piece.agree ?? []).map((field) => ({
-            field,
-            value: (accepting.reveals[0].return as Record<string, unknown>)[field],
-          }))
-        : null,
-      vendors: accepting ? [...new Set(accepting.reveals.map((r) => r.vendor))] : [],
-      traced: l?.traced ?? null,
-      verified: l?.verified ?? false,
-      readings,
-      now: later,
-      link: makeLink(problem, [trackerUrl()], env.slug),
-      directory: `${trackerUrl()}window?reader=window/io`,
-    };
-  }
   function readerAnswer(op: string, input: Record<string, string>): Promise<Record<string, unknown>> {
     const key = JSON.stringify([op, input]);
     const t = Date.now();
@@ -564,7 +444,7 @@ export function createHosted(options: HostedOptions): Hosted {
         res.end("<!doctype html><title>Over the limit</title><p>Over the hour's limit for reads from here.</p>");
         return true;
       }
-      const view = await squareOf(square[1] as Hash, square[2] as Hash);
+      const view = await squareView({ readerOf, store, trackerUrl }, square[1] as Hash, square[2] as Hash);
       res.writeHead(view ? 200 : 404, headers);
       res.end(
         view

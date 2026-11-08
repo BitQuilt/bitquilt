@@ -2,7 +2,7 @@
 
 A tracker is the first place a `quilt:` link resolves. The hosted one, `bitquilt-hosted`, is the reference tracker with the connector mounted beside it: a person who cannot run Quilt opens `/join`, takes an address, and pastes it into their AI's connectors. The tracker signs for them and marks every such event as held in its custody.
 
-One container runs it. This file was written on a machine without Docker, so the first build somewhere is its first test; what it runs, `pnpm --filter @bitquilt/hosted start`, is what the tests run.
+One container runs it: the image's command is `bitquilt-node` (`pnpm --filter @bitquilt/node start`) with the roles `admit,host`, the door with the on-ramp beside it, which is what the compose file runs for the public door. `bitquilt-hosted` (`pnpm --filter @bitquilt/hosted start`) is the same door as a program of its own; the table at the head of `packages/node/src/node.ts` says what each program runs. This file was written on a machine without Docker, so the first build somewhere is its first test; what it runs is what the tests run.
 
 ## What it needs
 
@@ -24,7 +24,7 @@ One container runs it. This file was written on a machine without Docker, so the
 | `QUILT_TRUSTED_PROXIES` | | The proxies whose `X-Forwarded-For` the tracker believes, as ranges, comma separated. Unset, the machine itself and the private networks, which is the compose network Caddy is on. `none` believes no header. The rate limits and the witness's address binding both read the client's address through this (QX-18 section 7). |
 | `QUILT_COIN` | | The coin's parameters as one JSON object (QX-17, `docs/ext/QX-17.md` section 1): `genesis`, `epoch_h`, `emission` (with its `floor_per_epoch` and `max_per_weight`), `vesting_h`, `infra_bp`, `treasury`, `unit`, `weights`, `burn_rate`, `burn_indexed`, `window_max_h`, `transfers_from`, `redeem_from`, and `home` where this tracker reads another's coin. Absent, the tracker has no coin log and honours no coin lock. Published at the well-known document; the mirror reads it from there. |
 
-`QUILT_DB` and `QUILT_HOSTED_HOME` are set by the image to paths under `/data`; the volume there is everything the tracker keeps.
+`QUILT_DB`, `QUILT_HOSTED_HOME` and `QUILT_HOME` are set by the image to paths under `/data`, and `QUILT_ROLES` to `admit,host`; the volume there is everything the tracker keeps.
 
 ## Build and run
 
@@ -44,7 +44,7 @@ curl -s http://127.0.0.1:3977/.well-known/quilt
 
 answers with the tracker's name, its routes, and `"hosted": true`.
 
-The same image carries `bitquilt-node` (`pnpm --filter @bitquilt/node start`), one node with roles (WORKSHOP.md section 2): `QUILT_ROLES` names them, comma separated, from `admit` (the door, the names in the table above), `work` (a Quilt and its page), `keep` (the mirror's pull over the store, from `QUILT_SOURCES` or the door's peers and the config's trackers, where there is no door) and `host` (custody beside the door, `QUILT_KEY_SECRET` and the rest the on-ramp reads), over one store at `QUILT_HOME/node.db`, or at `QUILT_DB` where a door kept a database before. The compose file runs it for both doors: `admit,host` for the public tracker over `/data/tracker.db`, `admit` for the second door. The mirror binary is the same pull over its folder of files with the publication written after it, which is what the repository's mirror job runs.
+The image runs `bitquilt-node` (`pnpm --filter @bitquilt/node start`), one node with roles (WORKSHOP.md section 2): `QUILT_ROLES` names them, comma separated, from `admit` (the door, the names in the table above), `work` (a Quilt and its page), `keep` (the mirror's pull over the store, from `QUILT_SOURCES` or the door's peers and the config's trackers, where there is no door) and `host` (custody beside the door, `QUILT_KEY_SECRET` and the rest the on-ramp reads), over one store at `QUILT_HOME/node.db`, or at `QUILT_DB` where a door kept a database before. The compose file runs it for both doors: `admit,host` for the public tracker over `/data/tracker.db`, `admit` for the second door. The mirror binary is the same pull over its folder of files with the publication written after it, which is what the repository's mirror job runs.
 
 ## The public door
 
