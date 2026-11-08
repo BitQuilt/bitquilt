@@ -35,24 +35,26 @@ import { VERDICT, addr, by, calendarBytes, key, startTracker } from './helpers.j
  * identity event another source gave the mirror and the tracker lacks moves nothing, where folding the mirror's own
  * chains would give another root the coin. A state that is not what the run already read from the tracker is refused,
  * though its balances are refolded to match: one that leaves out a problem the tracker served, names a chain at a head
- * below the lines read, or was folded at a time after its own or more than five seconds before it. So is one that
- * names a head off a chain the run read, the identity log's, the coin log's or a problem's, though the tracker serves
- * the fork to every later read: a head within the lines read is cut from them with no second read, and a head past
- * them is read again, and refused where what is read again does not extend them or does not verify. A tracker that
- * takes an event on a problem and one on the coin log after the run read the problem reproduces. The layer is folded
- * at the time the state names, which can be before its own: in a home of its own, a window that closes between the two
- * would release a lock and give back an escrow. Each read a trace names is measured by its bytes, so a reading the home
- * set aside in a dispute is set aside here, and the gold's match and its coin follow. A chain the state names that
- * cannot be read whole, or has no line with the named hash, is refused with the chain named, a read or a data blob the
- * home does not serve as named with its hash named, whatever the mirror holds, and a tracker whose balances differ is
+ * below the lines read, or was folded at a time after its own or more than five seconds before it. So is one that names
+ * a head off a chain the run read, the identity log's, the coin log's or a problem's, though the tracker serves the
+ * fork to every later read: a head within the lines read is cut from them with no second read, and a head past them is
+ * read again, and refused where what is read again does not extend them or does not verify. A tracker that takes an
+ * event on a problem and one on the coin log after the run read the problem reproduces. The layer is folded at the time
+ * the state names, which can be before its own: in a home of its own, a window that closes between the two would
+ * release a lock and give back an escrow. Each read a trace names is measured by its bytes, so a reading the home set
+ * aside in a dispute is set aside here, and the gold's match and its coin follow. A chain the state names that cannot
+ * be read whole, or has no line with the named hash, is refused with the chain named, a read or a data blob the home
+ * does not serve as named with its hash named, whatever the mirror holds, and a tracker whose balances differ is
  * refused (NODE.md section 6). A read the home answers that it does not hold, which no line the home wrote names, is
  * left out of the fold, as the home's own fold leaves it out, whether or not the mirror holds it, so a home that keeps
  * a chain without its read reproduces; a read a line the home wrote names, which the home held when it took the line,
  * is refused where the home says it holds none, and so is a data blob, which a home that folds always holds. And every
  * credit line on the coin log (the way back) is checked against the deposit the chain holds, and the balances refused
- * where one is not what the chain holds. With no chain to ask, the balances are not kept and the credits alone refuse
- * nothing (AGENTS.md, rule 10): the problems and the coin log are kept, and where the balances reproduce the report
- * says why; balances that do not reproduce are refused all the same.
+ * where one is not what the chain holds. A home that holds problems the core refuses names them among the refused, and
+ * the mirror, folding them as the home serves them, refuses the same ones and reproduces the balances; a state that
+ * names a refused one as folded, or a folded one as refused, is refused (CORE.md section 6). With no chain to ask, the
+ * balances are not kept and the credits alone refuse nothing (AGENTS.md, rule 10): the problems and the coin log are
+ * kept, and where the balances reproduce the report says why; balances that do not reproduce are refused all the same.
  * QX-17 sections 6 and 7, NODE.md section 6 and PROTOCOL.md, The mirror, say no more than that.
  */
 const owner = key(9),
@@ -301,6 +303,17 @@ describe('the coin at the mirror', () => {
     expect(balances.balances[addr(treasury)]).toMatchObject({ balance: 100 });
     expect(report.anchors?.stamped.map((s) => s.problem)).toContain('coin');
     expect(existsSync(join(out, 'anchors', 'coin', '1.ots'))).toBe(true);
+  });
+
+  it('reads the state of a home from before the refused were named as naming none', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-coin-older-'));
+    const older: Doctor = (s) => {
+      const { refused: _refused, ...folded } = s.folded as Record<string, unknown>;
+      return { ...s, folded };
+    };
+    const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(older) });
+    expect(report.refused).toEqual([]);
+    expect(report.coin).toMatchObject({ reproduced: true });
   });
 
   it('refuses a tracker whose balances it cannot reproduce, and keeps none of them', async () => {
@@ -1094,6 +1107,209 @@ describe('the state held to the chains the run read from the home', () => {
   });
 });
 
+describe('a problem the home holds and the core refuses', () => {
+  // The coin's home holds, beside a problem it lists and one it has taken down, both of which it folds, three the core
+  // refuses (CORE.md section 6), as a store can that a node with `work` beside `admit` kept in before it kept a problem
+  // only with its data: one without the data blob it names, one not its owner's, and one whose data blob its pieces
+  // cannot be read from. Its state names the three among the refused (QX-17 section 6). The mirror took the last with
+  // its blob in an earlier run, so it reads that one's chain from the home this run; it folds all five as the home
+  // serves them, refuses the same three, and keeps the balances. A state that names a refused one as folded, a folded
+  // one as refused, one it listed as refused, or leaves out one it served, is refused; and so is one whose refused
+  // problem lacks a data blob the mirror holds, since a home that withholds the blob and one that lacks it look the
+  // same.
+  let homeServer: Server;
+  let home: string;
+  const encode = (text: string) => new TextEncoder().encode(text);
+  const cites = encode(JSON.stringify([{ s: 'one' }]));
+  const others = encode(JSON.stringify([{ s: 'two' }]));
+  const notAList = encode('not a list');
+  /** A problem whose one piece reads `bytes`, signed by `signer`, its owner's key unless a test says otherwise. */
+  function withData(slug: string, bytes: Uint8Array, signer = owner): Envelope {
+    const problem: Envelope['problem'] = {
+      title: `Which source (${slug})`,
+      done_when: 'Done.',
+      owner: addr(owner),
+      slug,
+      prev: null,
+      from: null,
+      settings: { challenge_window_h: 48, lease_h: 2, endgame_at: 1, budget: 10, patch_max: 0 },
+      pieces: {
+        'cite/*': {
+          count: 1,
+          verifier: 'agree',
+          brief: 'Citation {n}: {cite.s}',
+          data: { cite: 'cites.json' },
+          schema: VERDICT,
+          agree: ['verdict'],
+        },
+      },
+      data: { 'cites.json': hashBytes(bytes) },
+    };
+    const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
+    return { ...unsigned, sig: signObject(unsigned, signer) };
+  }
+  const folds = envelope(owner, 'folds-at-the-home');
+  const F = problemHash(folds);
+  const hidden = envelope(owner, 'taken-down-at-the-home');
+  const G = problemHash(hidden);
+  const withoutData = withData('without-its-data', cites);
+  const X = problemHash(withoutData);
+  const notOwners = withData('not-its-owners', others, B);
+  const U = problemHash(notOwners);
+  const unreadable = withData('not-a-list', notAList);
+  const Y = problemHash(unreadable);
+  /**
+   * A run over the home into a folder that holds Y and its blob, as an earlier run that took Y left it; and X's blob
+   * too where `x` is 'blob', as a run that took another problem naming the same blob would, or X and its blob where
+   * `x` is 'problem', as a run that took X from another door would.
+   */
+  const run = (doctor: Doctor | null = null, x: 'none' | 'blob' | 'problem' = 'none') => {
+    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-coin-refused-'));
+    const files = new MirrorFiles(out);
+    files.putBlob(hashBytes(notAList), notAList);
+    files.putEnvelope(Y, unreadable);
+    if (x !== 'none') files.putBlob(hashBytes(cites), cites);
+    if (x === 'problem') files.putEnvelope(X, withoutData);
+    return mirror({ trackers: [home], out, now, fetchImpl: fetchWith(doctor) });
+  };
+  type Named = { problem: Hash; head: Head };
+  type Folded = { problems: Named[]; refused: Named[] };
+  /** The state with one problem moved from one of its lists to the other, or dropped where `to` is null. */
+  const moved =
+    (problem: Hash, to: 'problems' | 'refused' | null): Doctor =>
+    (s) => {
+      const f = s.folded as Folded;
+      const entry = [...f.problems, ...f.refused].find((x) => x.problem === problem)!;
+      const without = (list: Named[]) => list.filter((x) => x.problem !== problem);
+      const folded = { ...f, problems: without(f.problems), refused: without(f.refused) };
+      if (to) folded[to] = [...folded[to], entry];
+      return { ...s, folded };
+    };
+
+  beforeAll(async () => {
+    const started = await startTracker(now, { coin, maintainers: [addr(maintainer)] });
+    ({ server: homeServer, base: home } = started);
+    expect((await post('p', { envelope: folds }, home)).status).toBe(201);
+    expect((await post('p', { envelope: hidden }, home)).status).toBe(201);
+    await accepted('k/events', ev(maintainer, 'hide', { id: G, why: 'Taken down here.' }), home);
+    started.store.putEnvelope(X, withoutData, now());
+    started.store.putBlob(hashBytes(others), others);
+    started.store.putEnvelope(U, notOwners, now());
+    started.store.putBlob(hashBytes(notAList), notAList);
+    started.store.putEnvelope(Y, unreadable, now());
+  });
+  afterAll(async () => {
+    await new Promise<void>((r) => homeServer.close(() => r()));
+  });
+
+  it('names the three among the refused, and the mirror refuses the same three and keeps the balances', async () => {
+    const state = (await (await fetch(`${home}coin/state`)).json()) as { folded: Folded };
+    expect(state.folded.problems.map((x) => x.problem).sort()).toEqual([F, G].sort());
+    expect(state.folded.refused.map((x) => x.problem).sort()).toEqual([X, U, Y].sort());
+    const report = await run();
+    expect(report.refused).toEqual([]);
+    expect(report.coin).toMatchObject({ reproduced: true });
+  });
+
+  it('refuses a state that names a refused problem as folded, a folded one as refused or listed, or leaves out one it served', async () => {
+    const asFolded = await run(moved(Y, 'problems'));
+    expect(asFolded.refused).toHaveLength(1);
+    expect(asFolded.refused[0]).toMatch(
+      new RegExp(`^coin: the coin state names ${Y} as folded, and the core refuses it here: .+, from `),
+    );
+    const asRefused = await run(moved(G, 'refused'));
+    expect(asRefused.refused).toEqual([
+      `coin: the coin state names ${G} as refused, and the core folds it here, from ${home}`,
+    ]);
+    const listed = await run(moved(F, 'refused'));
+    expect(listed.refused).toEqual([
+      `coin: the coin state from ${home} names ${F} as refused, which it listed this run`,
+    ]);
+    const leftOut = await run(moved(Y, null));
+    expect(leftOut.refused).toEqual([`coin: the coin state from ${home} does not name ${Y}, which it served this run`]);
+    // A problem the state calls folded cannot lack its data: the home folds none without it.
+    const lacking = await run(moved(X, 'problems'));
+    expect(lacking.refused).toEqual([
+      `coin: the data blob ${hashBytes(cites)} of ${X} from ${home} is not served, and the home's fold rests on it`,
+    ]);
+  });
+
+  it('refuses a state whose refused problem lacks a data blob the mirror holds, or folds over what the mirror holds', async () => {
+    const blob = await run(null, 'blob');
+    expect(blob.refused).toEqual([
+      `coin: the data blob ${hashBytes(cites)} of ${X} from ${home} is not served, and this mirror holds it`,
+    ]);
+    expect(blob.coin).toMatchObject({ reproduced: false });
+    const problem = await run(null, 'problem');
+    expect(problem.refused).toEqual([
+      `coin: the coin state from ${home} names ${X} as refused, and it folds over what this mirror holds`,
+    ]);
+  });
+});
+
+describe('an earlier version the home adds that the core refuses', () => {
+  // A home lists a version P whose earlier version Q it does not hold, so P folds alone, and the mirror takes P. Then
+  // the home puts in its store Q, signed by P's owner, whose data blob its pieces cannot be read from: no line on any
+  // chain changes, and the core refuses P's input with Q in it (CORE.md section 6), so the home's fold leaves P out and
+  // its state names P and Q among the refused. The mirror holds P, which folds over what it holds, so the state is
+  // refused: an earlier version the home adds does not take with it the later one the mirror took.
+  let homeServer: Server;
+  let home: string;
+  const notAList = new TextEncoder().encode('not a list');
+  function version(slug: string, prev: Hash | null, data: Record<string, Hash>): Envelope {
+    const plain = envelope(owner, slug);
+    const problem: Envelope['problem'] = {
+      ...plain.problem,
+      prev,
+      data,
+      pieces:
+        Object.keys(data).length === 0
+          ? plain.problem.pieces
+          : {
+              'cite/*': {
+                count: 1,
+                verifier: 'agree',
+                brief: 'Citation {n}: {cite.s}',
+                data: { cite: 'cites.json' },
+                schema: VERDICT,
+                agree: ['verdict'],
+              },
+            },
+    };
+    const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
+    return { ...unsigned, sig: signObject(unsigned, owner) };
+  }
+  const earlier = version('the-earlier', null, { 'cites.json': hashBytes(notAList) });
+  const Qe = problemHash(earlier);
+  const later = version('the-later', Qe, {});
+  const Pl = problemHash(later);
+  let homeStore: Awaited<ReturnType<typeof startTracker>>['store'];
+
+  beforeAll(async () => {
+    ({ server: homeServer, base: home, store: homeStore } = await startTracker(now, { coin }));
+    homeStore.putEnvelope(Pl, later, now());
+  });
+  afterAll(async () => {
+    await new Promise<void>((r) => homeServer.close(() => r()));
+  });
+
+  it('refuses a state that names as refused a later version the mirror took, once the home adds the earlier', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-coin-earlier-'));
+    const first = await mirror({ trackers: [home], out, now, fetchImpl: fetchWith(null) });
+    expect(first.refused).toEqual([]);
+    expect(first.problems.map((p) => p.hash)).toEqual([Pl]);
+    homeStore.putBlob(hashBytes(notAList), notAList);
+    homeStore.putEnvelope(Qe, earlier, now());
+    const state = (await (await fetch(`${home}coin/state`)).json()) as { folded: { refused: { problem: Hash }[] } };
+    expect(state.folded.refused.map((x) => x.problem).sort()).toEqual([Pl, Qe].sort());
+    const second = await mirror({ trackers: [home], out, now, fetchImpl: fetchWith(null) });
+    expect(second.refused).toEqual([
+      `coin: the coin state from ${home} names ${Pl} as refused, and it folds over what this mirror holds`,
+    ]);
+    expect(second.coin).toMatchObject({ reproduced: false });
+  });
+});
+
 describe('the documents on the coin at the mirror', () => {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
   const read = (...path: string[]): string => readFileSync(join(root, ...path), 'utf8').replace(/\r\n/g, '\n');
@@ -1137,16 +1353,16 @@ describe('the documents on the coin at the mirror', () => {
   it("say the check folds the home's chains as it serves them, cut at the heads its state names", () => {
     const coin = sentences(read('docs', 'NODE.md'), '6. The mirror job', "**The coin's balances.**");
     expect(coin).toContain(
-      "It folds what the state says the balances were folded over (QX-17 section 6): each problem the home folded, in the home's order, with its chain's head, the identity log's head and the coin log's, and the time the home's layer was folded at.",
+      "It folds what the state says the balances were folded over (QX-17 section 6): each problem the home folded, in the home's order, with its chain's head, each problem the home says the core refuses, with its chain's head, the identity log's head and the coin log's, and the time the home's layer was folded at.",
     );
     expect(coin).toContain("So the fold is the home's own and not the mirror's.");
     expect(coin).toContain(
-      'A problem the home holds is folded whether or not the mirror took it, hidden and replaced ones among them, since the home serves every problem it holds by hash, a hidden one too (QX-6 section 3).',
+      'A problem the home folded is folded here whether or not the mirror took it, hidden and replaced ones among them, since the home serves every problem it holds by hash, a hidden one too (QX-6 section 3).',
     );
     expect(coin).toContain('Nothing another source gave the mirror is in it.');
     const held = coin.find((s) => s.startsWith('The state is held to what the run already had from the home'));
     expect(held).toContain(
-      'it names every problem the home listed or served that run, since the home folds every problem it holds',
+      'it names every problem the home listed or served that run, since the home names every problem it holds',
     );
     expect(held).toContain(
       'at a head no earlier than the lines read and on those lines or on a chain that extends them',

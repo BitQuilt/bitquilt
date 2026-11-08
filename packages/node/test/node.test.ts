@@ -12,7 +12,9 @@ import { freePort, hex, json, lines, pattern, readerOver, tempHome } from './hel
  * from; a second node with admit and keep, naming the first as its peer, takes the problem by its envelope and folds
  * the first's readings through its own door (QX-21); a node with work alone has no door and keeps what it opens in its
  * own store; host is a role beside admit with a key secret, and a role that is not one is refused at start; a node with
- * host runs the owners' turn a minute after it starts and every hour, and close clears the timers.
+ * host runs the owners' turn a minute after it starts and every hour, and close clears the timers. A node with admit
+ * and work keeps a problem it opens elsewhere in the door's store only once the data blob it names is held, so a blob
+ * the other place does not serve leaves the door answering and the problem out of it until the blob is served.
  */
 let a: Node, b: Node, c: Node;
 let urlA: string, urlB: string, pageA: number, pageC: number;
@@ -208,6 +210,47 @@ describe('one node with roles (NODE.md sections 1 and 2)', () => {
       expect(turn).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it('with admit and work: a problem opened elsewhere is kept in the door only with its data, and the door answers throughout', async () => {
+    const elsewhere = await readerOver(urlB, 7).publish({ ...pattern, slug: 'elsewhere' });
+    const blob = Object.values(
+      (await json<{ problem: { data: Record<string, Hash> } }>(`${urlB}p/${elsewhere.hash}`)).problem.data,
+    )[0]!;
+    let served = false;
+    const fetchImpl = ((input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (!served && url === `${urlB}b/${blob}`) return Promise.resolve(new Response('', { status: 404 }));
+      return fetch(input, init);
+    }) as typeof fetch;
+    const [port, pagePort] = await Promise.all([freePort(), freePort()]);
+    const url = `http://127.0.0.1:${port}/`;
+    const home = tempHome('quilt-node-d-');
+    createKey(home, { secretHex: hex(4) });
+    const d = await start({
+      home,
+      roles: ['admit', 'work'],
+      door: { port: port!, url, limits },
+      page: { port: pagePort!, trackers: [url] },
+      loops: false,
+      fetchImpl,
+    });
+    try {
+      const link = `quilt:${elsewhere.hash}?tr=${encodeURIComponent(urlB)}`;
+      await expect(d.quilt!.open(link)).rejects.toThrow(`not present`);
+      expect(d.store.envelopeOf(elsewhere.hash)).toBeNull();
+      expect(await json(url)).toMatchObject({ problems: [] });
+      expect((await fetch(`${url}search`)).status).toBe(200);
+      served = true;
+      await d.quilt!.open(link);
+      expect(d.store.envelopeOf(elsewhere.hash)).not.toBeNull();
+      expect(await json<{ problems: { problem: Hash }[] }>(url)).toMatchObject({
+        problems: [{ problem: elsewhere.hash }],
+      });
+      expect((await fetch(`${url}p/${elsewhere.hash}/state`)).status).toBe(200);
+    } finally {
+      await d.close();
     }
   });
 });

@@ -218,7 +218,7 @@ describe("PROTOCOL.md, the tracker's route table", () => {
     expect(row.answers).toContain(
       "`folded`, what the balances were folded over, the layer's time and each chain's head",
     );
-    expect(Object.keys(state.folded as Record<string, unknown>)).toEqual(['at', 'problems', 'identity']);
+    expect(Object.keys(state.folded as Record<string, unknown>)).toEqual(['at', 'problems', 'refused', 'identity']);
   });
 });
 

@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto';
 import { type Address, type Hash, type ReduceInput, reduce, withSlash, IDENTITY_LOG } from '@bitquilt/core';
 import { keepBlob, limit, postEvent, publish, pullDoorOf } from './admit.js';
 import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
-import { type Layer, type ProblemLayer, challengeLayer } from './challenge.js';
+import { type Layer, type ProblemLayer, challengeLayer, inputRefused } from './challenge.js';
 import { type CoinLayer, type CoinParams, COIN_LOG, coinLayer } from './coin.js';
 import { assisted, offer } from './hand.js';
 import { type Hidden, hiddenNow } from './hide.js';
@@ -26,6 +26,7 @@ import { type Store, reduceInputOf } from './store.js';
 import { type PieceTraces, passageIn, problemTraces } from './trace.js';
 import {
   blob,
+  cannotFold,
   challengesOf,
   coinBalance,
   coinCredits,
@@ -42,6 +43,7 @@ import {
   scrape,
   standingOf,
   state,
+  viewIn,
   wellKnown,
   workBy,
 } from './views.js';
@@ -212,9 +214,20 @@ function contextOf(options: TrackerOptions): Context {
     return envelope ? reduceInputOf(store, envelope, now()) : null;
   }
 
+  /**
+   * The core's state of a problem held here, or null; one whose input the core refuses is refused with its reason, as
+   * the layer leaves it out (`inputRefused`), and anything else that fails is the failure it was.
+   */
   function reduceProblem(hash: Hash) {
     const input = inputFor(hash);
-    return input ? reduce(input) : null;
+    if (!input) return null;
+    try {
+      return reduce(input);
+    } catch (err) {
+      const why = inputRefused(input);
+      if (why === null) throw err;
+      throw cannotFold(why);
+    }
   }
 
   const maintainers: Address[] = options.maintainers ?? [];
@@ -284,7 +297,7 @@ function contextOf(options: TrackerOptions): Context {
   const coinHome = (): string | null => (options.coin ? (options.coin.home ?? 'here') : null);
 
   function view(hash: Hash): ProblemLayer | null {
-    return layer().problems.get(hash) ?? null;
+    return viewIn(layer(), hash);
   }
 
   /** QX-19: how long a blob here is, or null. */
@@ -389,7 +402,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     {
       path: '/p/<hash>/state',
       guard: 'problem',
-      GET: ({ res, hash }) => json(res, 200, state(cx, hash!, view(hash!)!)),
+      GET: ({ res, hash }) => json(res, 200, state(cx, hash!, layer())),
       otherwise: 405,
     },
     {

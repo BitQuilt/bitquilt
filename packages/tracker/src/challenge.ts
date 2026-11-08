@@ -52,6 +52,7 @@ import {
   isRecord,
   orderReceipts,
   plusHours,
+  problemHash,
   reduce,
   returnProblems,
 } from '@bitquilt/core';
@@ -247,8 +248,14 @@ export interface Layer {
    * unchanged by what is kept later.
    */
   now: string;
-  /** Every problem the reader holds, by hash. */
+  /** Every problem the reader holds and the core folds, by hash. */
   problems: Map<Hash, ProblemLayer>;
+  /**
+   * Every problem the reader holds whose input the core refuses, by hash, with the core's reason: CORE.md section 6,
+   * "An envelope that fails its checks makes the input invalid: `reduce` refuses it and produces no state." A problem
+   * with no state is in no view, no standing and no coin.
+   */
+  refused: Map<Hash, string>;
   /** Every problem's, in receipt order. */
   challenges: ChallengeView[];
   /**
@@ -771,6 +778,29 @@ function keepChallenge(f: Folding, c: LayerEvent, verdicts: Verdict[]): void {
 }
 
 /**
+ * What a refusal of a problem held here whose input the core refuses says, with the core's reason (CORE.md section 6).
+ */
+export function refusedHere(why: string): string {
+  return `the core refuses this problem as held here: ${why}`;
+}
+
+/**
+ * Why the core refuses a problem's input, or null where it does not: CORE.md section 6, "An envelope that fails its
+ * checks makes the input invalid: `reduce` refuses it and produces no state." What makes it so is the
+ * envelopes and the blobs, an envelope that does not check, is not its owner's or lacks a data blob, or a data blob
+ * its pieces cannot be read from, so the input is reduced again with no receipt: where that is refused, the refusal
+ * is the input's, and where it is not, what failed was a receipt, which is no refusal of the core's.
+ */
+export function inputRefused(p: ReduceInput): string | null {
+  try {
+    reduce({ ...p, receipts: [] });
+    return null;
+  } catch (err) {
+    return (err as Error).message;
+  }
+}
+
+/**
  * The layer over every problem a reader holds, at `now`: the time lapses, windows and liveness are judged at; roots are
  * resolved at `now` throughout, moves are dated at the receipts that made them. `coin` is the coin log's receipts, read
  * for burn credits (QX-17 section 4).
@@ -785,9 +815,20 @@ export function challengeLayer(input: {
   const { now } = input;
   const f = newFolding(now, input.founding);
 
-  // 1. Every problem reduced by the core, once each by hash, and the kinds decided over it with no credits yet.
+  // 1. Every problem reduced by the core, once each by hash, and the kinds decided over it with no credits yet. A
+  // problem whose input the core refuses is left out with the core's reason (`inputRefused`), so one problem a store
+  // cannot fold leaves the others folded; anything else that fails is the failure it was.
+  const refused = new Map<Hash, string>();
   for (const p of input.problems) {
-    const core = reduce(p);
+    let core: State;
+    try {
+      core = reduce(p);
+    } catch (err) {
+      const why = inputRefused(p);
+      if (why === null || !p.envelopes[0]) throw err;
+      refused.set(problemHash(p.envelopes[0]), why);
+      continue;
+    }
     if (f.entries.has(core.problem)) continue;
     const decided = applyVerifiers(core, p.receipts, now, { pool: () => [] });
     f.entries.set(core.problem, {
@@ -805,6 +846,7 @@ export function challengeLayer(input: {
       golds: [],
     });
   }
+  for (const h of f.entries.keys()) refused.delete(h);
 
   // 2. The kinds and the credits to a fixed point (verifiers.md section 1): a judge panel's pool is the credits on
   // other problems, and a judged acceptance is itself a credit, so the credits are refreshed and the kinds decided
@@ -933,6 +975,7 @@ export function challengeLayer(input: {
   return {
     now,
     problems,
+    refused,
     challenges: all,
     rootOf: (key, at = now) => rootOf(f, key, at),
     standing: f.standing,
