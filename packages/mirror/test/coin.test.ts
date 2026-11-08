@@ -743,20 +743,47 @@ describe('a read the home does not hold', () => {
   let homeServer: Server;
   let there: string;
   let home: string;
+  let homeStore: Awaited<ReturnType<typeof startTracker>>['store'];
   const disputed = envelope(owner, 'kept-without-its-read');
   const D = problemHash(disputed);
   const page = new TextEncoder().encode('The statement holds, as the record shows.');
   const read = hashBytes(page);
-  const run = (trackers: string[]) => {
+  const run = (trackers: string[], fetchImpl: typeof fetch = fetchWith(null)) => {
     const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-coin-absent-'));
-    return mirror({ trackers, out, now, fetchImpl: fetchWith(null) }).then((report) => ({ report, out }));
+    return mirror({ trackers, out, now, fetchImpl }).then((report) => ({ report, out }));
   };
+  /** Real fetch, but the home's `/b/<read>` answers `status`, and its well-known publishes no url where asked. */
+  const homeAnswering =
+    (status: number, { noUrl = false } = {}): typeof fetch =>
+    async (input, init) => {
+      const url = String(input);
+      if (url === `${home}b/${read}`) return new Response('', { status });
+      if (noUrl && url === `${home}.well-known/quilt`) {
+        const { url: _url, ...known } = (await (await fetch(input, init)).json()) as Record<string, unknown>;
+        return new Response(JSON.stringify(known), { status: 200, headers: { 'content-type': 'application/json' } });
+      }
+      return fetchWith(null)(input, init);
+    };
   const stateAt = async (): Promise<State> => (await (await fetch(`${home}coin/state`)).json()) as State;
+  /** The home keeps a problem's envelope and chain as `there` serves them, as a node's `work` keeps what it opens. */
+  async function keepFromThere(e: Envelope): Promise<void> {
+    const h = problemHash(e);
+    homeStore.putEnvelope(h, e, now());
+    homeStore.appendLines(h, await servedLines(`${there}p/${h}/events`));
+  }
+  /** A's reveal on a problem's one piece at `at`, and A's trace over the read on it. */
+  async function tracedAt(problem: Hash, at: string): Promise<void> {
+    const piece = await pieceOf(problem, at);
+    const reveal = await returnOn(problem, piece, A, 'anthropic/claude', at);
+    const reads = [{ url: 'https://example.org/statement', hash: read, at: T0, media: 'text/plain' }];
+    const rests = [{ field: 'verdict', read: 0, span: [0, 13] }];
+    await accepted(`p/${problem}/events`, ev(A, 'trace', { reveal, reads, rests }, problem, piece), at);
+  }
 
   beforeAll(async () => {
     ({ server: thereServer, base: there } = await startTracker(now, { url: 'http://there.test/' }));
     const started = await startTracker(now, { coin });
-    ({ server: homeServer, base: home } = started);
+    ({ server: homeServer, base: home, store: homeStore } = started);
     tick = Date.parse(T0) + 24 * HOUR + 10 * 60_000;
     expect((await post('p', { envelope: elsewhere }, there)).status).toBe(201);
     const q1 = await pieceOf(Q, there);
@@ -779,11 +806,7 @@ describe('a read the home does not hold', () => {
     await accepted(`p/${D}/events`, ev(A, 'trace', { reveal: supports, reads, rests }, D, d1), there);
     await returnOn(D, d1, B, 'openai/gpt', there);
     await accepted(`p/${D}/events`, ev(owner, 'gold_reveal', { projection, nonce }, D, d1), there);
-    for (const e of [elsewhere, disputed]) {
-      const h = problemHash(e);
-      started.store.putEnvelope(h, e, now());
-      started.store.appendLines(h, await servedLines(`${there}p/${h}/events`));
-    }
+    for (const e of [elsewhere, disputed]) await keepFromThere(e);
     // The epoch's end.
     tick = Date.parse(T0) + 48 * HOUR + 60_000;
   });
@@ -813,6 +836,36 @@ describe('a read the home does not hold', () => {
     expect(both.report.refused).toEqual([]);
     expect(both.report.coin).toMatchObject({ reproduced: true });
     expect(balancesIn(both.out).balances).toEqual(state.balances);
+    // A read the home may lack is still refused where the home cannot be asked for it, and no read may be absent where
+    // the home's well-known names no url, since no line can then be told for one the home did not write.
+    const failed = await run([home], homeAnswering(503));
+    expect(failed.report.refused).toEqual([`coin: the read ${read} of a trace on ${D} from ${home} cannot be read`]);
+    const noUrl = await run([home], homeAnswering(404, { noUrl: true }));
+    expect(noUrl.report.refused).toEqual([
+      `coin: the read ${read} of a trace on ${D} from ${home} is not served, and the home's fold rests on it`,
+    ]);
+  });
+
+  it('names the problem whose line the home wrote where one read is named on a kept chain and on one the home took', async () => {
+    // The home takes a trace over the read on a problem of its own, holding the read; then it keeps from `there` a
+    // newer problem whose trace names the same read, which the layer, newest first, folds before the home's own.
+    const taken = envelope(owner, 'taken-here');
+    const E = problemHash(taken);
+    expect((await post('p', { envelope: taken }, home)).status).toBe(201);
+    expect((await fetch(`${home}b/${read}`, { method: 'PUT', body: page })).status).toBe(202);
+    await tracedAt(E, home);
+    const later = envelope(owner, 'kept-later');
+    const F = problemHash(later);
+    expect((await post('p', { envelope: later }, there)).status).toBe(201);
+    await tracedAt(F, there);
+    tick += 1000;
+    await keepFromThere(later);
+    const order = (await stateAt()).folded.problems.map((p) => p.problem);
+    expect(order.indexOf(F)).toBeLessThan(order.indexOf(E));
+    const denied = await run([home], homeAnswering(404));
+    expect(denied.report.refused).toEqual([
+      `coin: the read ${read} of a trace on ${E} from ${home} is not served, and the home's fold rests on it`,
+    ]);
   });
 });
 

@@ -690,11 +690,15 @@ const FOLDED_BEFORE_MS = 5000;
  * a head off the chain the run read does not pass.
  * Each envelope is the one held here or the home's, by its hash. Each data blob and each read a trace on those chains
  * names is the home's as it serves it (`servedAtHome`), and each read is measured by its bytes, as the home measures
- * the reads it holds (QX-19 section 2); a read the home answers it does not hold is left out, as the home's fold
- * leaves it out, where no line the home wrote names it. The problems are the home's, hidden and replaced ones among
- * them, since the home serves every problem it holds by hash, a hidden one too (QX-6 section 3), whatever this run
- * took from other sources. Why not, where the state is not what this run had from the home, or a chain, an envelope,
- * a data blob or a read it rests on is not served as named.
+ * the reads it holds (QX-19 section 2); a read the home answers it does not hold is left out, as the home's fold leaves
+ * it out, where no line the home wrote names it, and where the home's well-known document publishes no `url` no read is
+ * left out. The wrapper is not signed, and the check holds a home's chains to what this run read: so it binds a home
+ * that serves its lines as it wrote them, under the `url` it publishes now, as QX-11 section 6 says a chain proves what
+ * a reader saw; and a home with `work` beside `admit` that keeps from elsewhere a line whose wrapper carries its `url`
+ * is refused until it holds the read that line names. The problems are the home's, hidden and replaced ones among them,
+ * since the home serves every problem it holds by hash, a hidden one too (QX-6 section 3), whatever this run took from
+ * other sources. Why not, where the state is not what this run had from the home, or a chain, an envelope, a data blob
+ * or a read it rests on is not served as named.
  */
 async function servedOver(
   ctx: Context,
@@ -756,9 +760,9 @@ async function servedOver(
     for (const l of lines) {
       const tookIt = homeUrl === null || l.received.some((w) => w.by === homeUrl);
       for (const h of readsNamed(l.event)) {
+        // A read the home took is named by a problem whose line the home wrote, so a refusal names that problem.
         const named = reads.get(h);
-        if (!named) reads.set(h, { problem, tookIt });
-        else named.tookIt ||= tookIt;
+        if (!named || (tookIt && !named.tookIt)) reads.set(h, { problem, tookIt });
       }
     }
   const lengths = new Map<Hash, number | null>();
