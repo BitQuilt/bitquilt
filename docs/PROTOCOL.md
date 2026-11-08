@@ -207,7 +207,7 @@ With nothing for the key, `next` answers `{ piece: null, unaffordable }`, adding
 
 ### The node's routes
 
-Quilt's page on localhost is a node (`packages/client/src/page.ts`), and its `/api/` routes are the person's, not the protocol's. Its well-known document says `node: true`, names the identity log's hash, and lists as `routes` the paths of every row below its own, in their order, so a mirror or another node pulls from it with no tracker between ([NODE.md](NODE.md) section 4). Another method at a listed path is `404`, `no such route`. Every answer a row gives allows any origin, so a page on any site can read what the node holds. `node-table.test.ts` in `packages/client/test` holds this section.
+Quilt's page on localhost is a node (`packages/client/src/page.ts`), and its `/api/` routes are the person's, not the protocol's. Its well-known document says `node: true`, names the identity log's hash, and lists as `routes` the paths of every row below its own, in their order, so a mirror or another node pulls from it with no tracker between ([NODE.md](NODE.md) section 4). Another method at any path of the table, the well-known among them, is `404`, `no such route`. Every answer a row gives allows any origin, so a page on any site can read what the node holds. `node-table.test.ts` in `packages/client/test` holds this section.
 
 | Route | Methods | What it answers |
 | --- | --- | --- |

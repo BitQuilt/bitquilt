@@ -316,8 +316,9 @@ export function createPage(options: PageOptions): {
         return json(res, 200, await quilt.publish(b));
       }
       if (path === '/api/flush' && method === 'POST') return json(res, 200, await resolver.flush());
-      // The node: what this client holds, served to anyone who asks.
-      if (path === '/.well-known/quilt')
+      // The node: what this client holds, served to anyone who asks. Its well-known answers a GET, as the tracker's
+      // does, and another method falls to the last 404, `no such route` (PROTOCOL.md, The node's routes).
+      if (path === '/.well-known/quilt' && method === 'GET')
         return json(
           res,
           200,

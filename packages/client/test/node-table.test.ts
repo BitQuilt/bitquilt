@@ -1,11 +1,11 @@
 /**
  * PROTOCOL.md, The node's routes, held to Quilt's page over a home that opened a problem: the well-known document's
  * `routes` are the paths of every row below its own, in their order, and the well-known's row says it is unlisted;
- * each method a row names is one the node takes at that path, and another method at a listed path is `404`, `no such
- * route`; every answer a row gives allows any origin, the blob's and each `not held here` among them; the well-known
- * and `/held` answer the fields their rows name; the envelope and the blob are served where held
- * and refused `not held here` where not; and a chain and the identity log come whole in one page, with no header
- * naming another. The tracker's table is packages/tracker/test/protocol-table.test.ts's, and the on-ramp's is
+ * each method a row names is one the node takes at that path, and another method at any path of the table is `404`,
+ * `no such route`; every answer a row gives allows any origin, the blob's and each `not held here` among them; the
+ * well-known and `/held` answer the fields their rows name; the envelope and the blob are served where held and refused
+ * `not held here` where not; and a chain and the identity log come whole in one page, with no header naming another.
+ * The tracker's table is packages/tracker/test/protocol-table.test.ts's, and the on-ramp's is
  * packages/hosted/test/onramp-table.test.ts's.
  */
 import { readFileSync } from 'node:fs';
@@ -155,8 +155,10 @@ describe("PROTOCOL.md, the node's route table", () => {
     expect((await answer('GET', '/.well-known/quilt')).status).toBe(200);
   });
 
-  it('names for each row only methods the node takes at its paths, and another method at a listed path is 404, no such route', async () => {
-    expect(DOC).toContain('Another method at a listed path is `404`, `no such route`.');
+  it('names for each row only methods the node takes at its paths, and another method at any of them is 404, no such route', async () => {
+    expect(DOC).toContain(
+      'Another method at any path of the table, the well-known among them, is `404`, `no such route`.',
+    );
     for (const r of routes()) {
       expect(r.methods.length, `${r.paths.join(', ')} names its methods`).toBeGreaterThan(0);
       for (const p of r.paths) {
@@ -166,7 +168,6 @@ describe("PROTOCOL.md, the node's route table", () => {
           expect(a.status, `${m} ${p}`).not.toBe(405);
           expect(a, `${m} ${p}`).not.toEqual({ status: 404, error: 'no such route' });
         }
-        if (!listed.includes(p)) continue;
         for (const m of METHODS.filter((m) => !r.methods.includes(m)))
           expect(await answer(m, filled(p)), `${m} ${p}`).toEqual({ status: 404, error: 'no such route' });
       }
