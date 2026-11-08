@@ -8,7 +8,7 @@
  * leaves out `exactly`, so a read cannot ask for the layer built afresh, and what only the door reads.
  */
 import type { ServerResponse } from 'node:http';
-import { type Address, type Hash, isAddress, verifyChain, IDENTITY_LOG } from '@bitquilt/core';
+import { type Address, type Hash, isAddress, shortHead, verifyChain, IDENTITY_LOG } from '@bitquilt/core';
 import {
   type Layer,
   type ProblemLayer,
@@ -213,7 +213,8 @@ function summary(cx: Reads, hash: Hash, layered: Layer = cx.layer()) {
     complete: s.complete,
     output: s.output?.hash ?? null,
     last: head?.at ?? null,
-    head: head ? { seq: head.seq, hash: head.hash, short: `${head.hash.slice(0, 8)}:${head.hash.slice(8, 16)}` } : null,
+    // QX-11 section 4: the head and its short form, the core's.
+    head: head ? { seq: head.seq, hash: head.hash, short: shortHead(head.hash) } : null,
     versions: s.chain.length,
     challenges: pl.challenges.length,
     seeders: seed.seeders.size,

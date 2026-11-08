@@ -1,3 +1,4 @@
+import { readFileSync, readdirSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   type Envelope,
@@ -15,9 +16,9 @@ import { VERDICT_QUOTE, addr, boot, envelope, json, key } from './helpers.js';
 /**
  * The core at the tracker's door: the well-known document; an envelope published with its blobs and served back, or
  * refused at the gate, unsigned, or with a blob missing; receipts stamped strictly increasing and chained, a duplicate
- * refused; a reveal refused with no commit, outside the schema, or through the gate; agreement across vendors
- * accepted and pieces handed out with short holds; the identity log kept apart and announcements in the index; a name
- * resolved through a version event.
+ * refused, and the head's short form the core's own; a reveal refused with no commit, outside the schema, or through
+ * the gate; agreement across vendors accepted and pieces handed out with short holds; the identity log kept apart and
+ * announcements in the index; a name resolved through a version event.
  */
 const owner = key(9),
   A = key(1),
@@ -141,8 +142,14 @@ describe('the reference tracker', () => {
     }>(`/p/${P}/scrape`);
     expect(scrape.chain_ok).toBe(true);
     expect(scrape.head.seq).toBe(2);
-    // QX-11 section 4: the scrape states the head as the core reads it from the chain, its short form included.
+    // QX-11 section 4: the scrape states the head as the core reads it from the chain, its short form included, and
+    // the short form is written once, as the core's `shortHead`: views.ts calls it and no file of the tracker writes
+    // it again.
     expect(scrape.head).toEqual(verifyChain(lines, P).head);
+    const src = new URL('../src/', import.meta.url);
+    expect(readFileSync(new URL('views.ts', src), 'utf8')).toContain('short: shortHead(head.hash)');
+    for (const f of readdirSync(src).filter((n) => n.endsWith('.ts')))
+      expect(readFileSync(new URL(f, src), 'utf8'), f).not.toMatch(/slice\(8, 16\)/);
     expect(scrape.counts.in_flight).toBe(1);
   });
   it('refuses a reveal with no commit, a return outside the schema, and a return the gate refuses', async () => {
