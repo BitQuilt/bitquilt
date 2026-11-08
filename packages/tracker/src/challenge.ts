@@ -25,8 +25,8 @@
  *   4. The stake rules kept in receipt order (QX-15 section 1; stake.ts).
  *   5. The burns on the coin log credited as standing (QX-17 section 4; standing.ts).
  *   6. The events the layer keeps, read once each in receipt order across every problem: locks (QX-15 section 1),
- *      golds (QX-16 section 1), gold reveals (QX-16 section 3) and challenges with their verdicts (QX-1 sections 3 to
- *      6; against a gold miss, QX-16 section 4).
+ *      golds (QX-16 section 1), gold reveals (QX-16 section 3) and challenges with their verdicts
+ *      (QX-1 sections 3 to 6; against a gold miss, QX-16 section 4).
  *   7. The views a reader is handed, and the admissions the door asks before it takes an event.
  *
  * The record the phases write into, and standing, locked and free over it, are in standing.ts; the draw and the seats
