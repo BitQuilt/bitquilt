@@ -656,8 +656,8 @@ function coinAt(folded: string, clock: string): string {
  * folded in its order with its chain's head, and the identity log's head. The layer is the one `layer()` gives, kept
  * from an earlier read or built for this answer, at the store's version now; nothing is written between reading it
  * and reading the heads, so they are the heads it folded, and the coin is computed no later than five seconds after
- * its time (`coinAt`). Every problem here is folded, hidden and replaced ones too, and each is still served by hash
- * (QX-6 section 3).
+ * its time (`coinAt`). Every problem here is folded, hidden and replaced ones too, and each is still served by hash,
+ * a hidden one as QX-6 section 3 says.
  */
 function foldedOver(store: Store, layered: Layer): CoinFolded {
   const headOf = (log: Hash): LogHead => {

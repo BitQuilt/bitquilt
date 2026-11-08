@@ -37,14 +37,15 @@ export const calendarBytes = new Uint8Array([
 /**
  * A tracker at `http://t.test/` with a store in memory, the test's clock and a fixed salt, listening on a free port,
  * with the peers, the coin, the maintainers or the founding standing a test gives it; `base` is where it answers, with
- * its trailing slash.
+ * its trailing slash, and `store` is its store, which a test writes to as a node's other roles do.
  */
 export async function startTracker(
   now: () => string,
   options: Pick<TrackerOptions, 'peers' | 'coin' | 'maintainers' | 'founding'> = {},
-): Promise<{ server: Server; base: string }> {
-  const t = createTracker({ store: new Store(':memory:'), url: 'http://t.test/', now, ipSalt: 's', ...options });
+): Promise<{ server: Server; base: string; store: Store }> {
+  const store = new Store(':memory:');
+  const t = createTracker({ store, url: 'http://t.test/', now, ipSalt: 's', ...options });
   const server = await t.listen(0);
   const a = server.address();
-  return { server, base: typeof a === 'object' && a ? `http://127.0.0.1:${a.port}/` : '' };
+  return { server, base: typeof a === 'object' && a ? `http://127.0.0.1:${a.port}/` : '', store };
 }
