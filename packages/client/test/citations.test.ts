@@ -10,16 +10,24 @@
  * A citation is a document's name (CORE.md, verifiers.md, docs/ext/QX-21.md, RFC 8252) or an extension's number
  * (QX-1) with the part it names: a section, rule, step, item, stage or fix, in either case, by number or by a word for
  * one, a range such as "QX-1 sections 3 to 6" among them, or with what it is of, as in "section 2 of QX-17"; and after
- * a comma a part named by number or by one of the documents' own names, quoted or not, as in "APP.md, Search",
- * "CORE.md section 7, step 1" and "AGENTS.md, the arrows". A section cited without a document's name is of the first
- * document the file's header names, as the core's files name CORE.md. An extension's number names the document its row
- * in the registry links. A record under docs/history/ is named by its path there, so a reader takes it for a record of
- * its day and not a rule. An RFC is another body's document, and is not followed.
+ * a comma a part by number or by its name, as in "CORE.md section 7, step 1" and "APP.md, Search". A section cited
+ * without a document's name is of the first document the file's header names, as the core's files name CORE.md. An
+ * extension's number names the document its row in the registry links. A record under docs/history/ is named by its
+ * path there, so a reader takes it for a record of its day and not a rule. An RFC is another body's document, and is
+ * not followed.
+ *
+ * The words after a comma are a part's name, and held to it, where they are quoted, where they follow a document's
+ * name alone, as in "AGENTS.md, the arrows", where they open with a capital letter, as in
+ * "CORE.md section 6, Roots and delegates", and where they are one of the documents' own names in any case, as in
+ * "CORE.md section 4, the event line". After a part's comma, words in lower case that none of the documents gives as
+ * a name are prose and pass, as in "QX-19 section 4, sentence.ts" and "CORE.md section 6, the validation it runs". So
+ * a title a comment cites in lower case after a part is held while its heading keeps its name, as CORE.md's do, the
+ * core being frozen.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { codeFiles, commentLines, repoRoot as root, syntaxOf } from './helpers.js';
+import { type CommentSyntax, codeFiles, commentLines, repoRoot as root, syntaxOf } from './helpers.js';
 
 /** A path from the root, with forward slashes on every system. */
 const fromRoot = (path: string): string => relative(root, path).split(sep).join('/');
@@ -174,8 +182,8 @@ const CITATION = new RegExp(
 );
 
 /** The lines of a text where a comment's citation runs onto the next comment line, by line number from 1. */
-function splitCitations(text: string, shell = false): number[] {
-  const lines = commentLines(text, shell ? 'hash' : 'slash');
+function splitCitations(text: string, syntax: CommentSyntax = 'slash'): number[] {
+  const lines = commentLines(text, syntax);
   const found: number[] = [];
   for (let i = 0; i + 1 < lines.length; i++) {
     const end = lines[i];
@@ -220,6 +228,8 @@ const NAMED_AT = new RegExp(
 );
 /** After a document's comma, the words up to where a name would end, where they are not another document's name. */
 const CLAIMED = new RegExp(String.raw`^, (?!(?:${PATHED})(?![\w-]))([^);:,."(]+)`);
+/** After a part's comma, words that open with a capital letter, up to where a name would end: a title, not prose. */
+const TITLED = new RegExp(String.raw`^, (?!(?:${PATHED})(?![\w-]))([A-Z][^);:,."(]*)`);
 
 /** A part's word in the singular and in lower case: "Sections" is "section", "fixes" is "fix". */
 const singular = (part: string): string =>
@@ -262,11 +272,9 @@ function citationsIn(text: string): Cited[] {
       const rest = text.slice(at);
       const part = NEXT_PART.exec(rest);
       const found = part ?? /^, "([^"]+)"/.exec(rest) ?? NAMED_AT.exec(rest);
-      const claimed =
-        !found && cited.name?.endsWith('.md') && !cited.sections.length && !cited.within.length
-          ? CLAIMED.exec(rest)
-          : null;
-      const match = found ?? claimed;
+      const afterPart = cited.sections.length > 0 || cited.within.length > 0;
+      const claim = afterPart ? TITLED : cited.name?.endsWith('.md') ? CLAIMED : null;
+      const match = found ?? claim?.exec(rest) ?? null;
       if (!match) break;
       if (part) cited.within.push({ part: singular(part[1]!), numbers: numbers(part[2]!) });
       else cited.within.push({ title: match[1]!.trim() });
@@ -411,7 +419,7 @@ describe('a citation sits whole on one line', () => {
   });
 
   it('finds one in a shell script, where # opens a comment', () => {
-    expect(splitCitations('# the key (QX-17\n# section 5)', true)).toEqual([1]);
+    expect(splitCitations('# the key (QX-17\n# section 5)', 'hash')).toEqual([1]);
   });
 
   it('passes a citation whole on one line, and a name or a section with nothing of a citation after it', () => {
@@ -433,9 +441,7 @@ describe('a citation sits whole on one line', () => {
     const files = codeFiles();
     expect(files.length).toBeGreaterThan(200);
     const split = files.flatMap((file) =>
-      splitCitations(readFileSync(file, 'utf8'), syntaxOf(basename(file)) === 'hash').map(
-        (line) => `${fromRoot(file)}:${line}`,
-      ),
+      splitCitations(readFileSync(file, 'utf8'), syntaxOf(basename(file))!).map((line) => `${fromRoot(file)}:${line}`),
     );
     expect(split).toEqual([]);
   });
@@ -464,6 +470,8 @@ describe('a citation names a part its document has', () => {
     ['an RFC, which is not followed', '// the port (RFC 8252 section 7.3)'],
     ['a number with no document of its own, named alone', '// the stamp (QX-7)'],
     ['a section, then words that name no part', '// the gate (CORE.md section 11, and the stamp at the door)'],
+    ['a section, then a file after its comma', '// the sentence a brief lacks (QX-19 section 4, sentence.ts)'],
+    ['a section, its title, then prose', '// the fold (CORE.md section 6, Roots and delegates, and the Drop list)'],
   ])('passes %s', (_, text) => {
     expect(wrongIn(text)).toEqual([]);
   });
@@ -483,6 +491,16 @@ describe('a citation names a part its document has', () => {
     ],
     ['a heading quoted that is not there', '// (APP.md, "The windows")', 'docs/APP.md has no part named "The windows"'],
     ['a name after a comma that is no part', '// (APP.md, the card)', 'docs/APP.md has no part named "the card"'],
+    [
+      'a title after a section that names nothing',
+      '// (QX-11 section 7, The vanished part)',
+      'docs/ext/QX-11.md section 7 has no part named "The vanished part"',
+    ],
+    [
+      'a title after a section that only opens with a name',
+      '// the receipt (CORE.md section 6, Envelope order)',
+      'docs/CORE.md section 6 has no part named "Envelope order"',
+    ],
     ['a rule past the last', '// (AGENTS.md, rule 11)', 'AGENTS.md has no rule 11'],
     ['a step of the wrong heading', '// (docs/DEPLOY.md, "The walk", step 10)', 'has no step 10'],
     ['a document moved away', '// the default (docs/LAUNCH.md step 5)', 'no document is at docs/LAUNCH.md'],

@@ -154,7 +154,7 @@ describe.skipIf(process.platform === 'win32')('the mirror', () => {
     expect(existsSync(join(out, 'outputs', P, 'output.json'))).toBe(true);
     expect(readFileSync(join(out, 'outputs', P, 'hash'), 'utf8')).toMatch(/^sha256:[0-9a-f]{64}\n$/);
   });
-  it('takes the events a second tracker has that it lacks onto its own chain, the union of both, and refuses nothing (stage two of one peer)', async () => {
+  it('takes the events a second tracker has that it lacks onto its own chain, the union of both, and refuses nothing (NODE.md section 5)', async () => {
     await handIn(two.base, B, P, pieces[0]!, { verdict: 'supports' }, 'b/y');
     const report = await mirror({ trackers: [two.base], out, now });
     expect(report.refused).toEqual([]);
