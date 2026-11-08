@@ -60,7 +60,7 @@ The first real problem ran on 25 October 2026 ([docs/history/FIRST-RUN.md](docs/
 
 ## Packages
 
-Each folder has a line here. [AGENTS.md](AGENTS.md#the-shape-of-it) gives every source file of the packages, the scripts and the workers a row, with the documents it carries out, and each other folder a line; it also follows one return through the code.
+[AGENTS.md](AGENTS.md#the-shape-of-it) gives every source file of the packages, the scripts and the workers a row, with the documents it carries out, and each other folder a line; it also follows one return through the code.
 
 | Folder | Package | What |
 | --- | --- | --- |
@@ -74,7 +74,7 @@ Each folder has a line here. [AGENTS.md](AGENTS.md#the-shape-of-it) gives every 
 | `contracts/` | | `Anchors` and `Quilt` (Solidity, Foundry): a bonded poster's heads with a veto inside a window, and the ERC-20 that mints only against a final head, once per line, and burns on a deposit |
 | `impl/python` | | The second implementation of the core, written from the document and the fixtures alone |
 | `apps/mac` | | The menu-bar app: the sentences a person says to their AI, and the coin as it rises |
-| `site/` | | bitquilt.org: three static pages, no build step |
+| `site/` | | bitquilt.org: four static pages, no build step |
 | `examples/` | | The first-wave patterns, most with their gold answers, and two workers with no person, one on a Claude key and one on an OpenAI key, over one loop |
 | `scripts/` | | The builds: the directory window, single executables, the Claude Desktop bundle, the notarized Mac app, and a check for a pattern file |
 | `docs/` | | The words: the core, the protocol in layers, the extensions, the node, the coin, the workshop and the open problem, with the dated records under `docs/history/`; CC0 |

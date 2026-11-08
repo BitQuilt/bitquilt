@@ -8,7 +8,8 @@
  * but the packages and the scripts, which have tables of their own. Everywhere else in AGENTS.md, a path names a file
  * or a folder that exists, a name in code marks is a word of the code, and an environment name is one .env.example
  * lists. So a file or a folder added, moved or renamed, or a function renamed, fails here until the map says so. What
- * the map says of a file is held by review.
+ * the map says of a file is held by review. Of the paths rule 11 keeps where they are, the site's client id is held to
+ * the file the rule names, which names itself, and to the page on the site it comes back to.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -470,5 +471,24 @@ describe('the names AGENTS.md gives everywhere else', () => {
       }),
     );
     expect(wrong).toEqual([]);
+  });
+});
+
+describe('a path something outside the repository keeps (AGENTS.md, rule 11)', () => {
+  it("keeps the site's client id at the file the rule names, and its way back at a page the site serves", () => {
+    const meta = /<meta name="bitquilt:client" content="([^"]+)">/.exec(read('site/index.html'));
+    expect(meta, 'the bitquilt:client meta of site/index.html').not.toBeNull();
+    const id = new URL(meta![1]!);
+    const file = `site${id.pathname}`;
+    expect(file).toBe('site/.well-known/oauth/client-metadata.json');
+    expect(PROSE).toContain(`\`${file}\``);
+    const doc = JSON.parse(read(file)) as { client_id: string; redirect_uris: string[] };
+    expect(doc.client_id).toBe(id.href);
+    expect(doc.redirect_uris.length).toBeGreaterThan(0);
+    for (const back of doc.redirect_uris.map((u) => new URL(u))) {
+      expect(back.origin).toBe(id.origin);
+      expect(PROSE).toContain(`\`site${back.pathname}\``);
+      expect(exists(`site${back.pathname}`), back.href).toBe(true);
+    }
   });
 });

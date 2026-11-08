@@ -1,5 +1,5 @@
 /**
- * The plain-text gate, `gate/1`: what a tracker applies at its door to briefs, templates, topics and every string in a
+ * The plain-text gate, `gate/2`: what a tracker applies at its door to briefs, templates, topics and every string in a
  * return, and what a renderer may apply again before showing text to a person or a model. Pure and deterministic; no
  * model is asked. It is admission, not validity: the reducer does not call it (CORE.md, section 11).
  *
