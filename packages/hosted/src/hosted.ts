@@ -189,6 +189,24 @@ function parseError(res: ServerResponse): void {
   );
 }
 
+/**
+ * Why the on-ramp signs no redeem for a member, in COIN.md's words (What it is not): "A tracker keeps a record and
+ * never money; a custodial root holds coin as a record like any other and redeems it after taking the key home."
+ */
+const CUSTODIAL_REDEEM =
+  'the on-ramp refused the redeem: a tracker keeps a record and not money, so a custodial root redeems its coin after taking the key home; the sheet at its long address says how';
+
+/**
+ * The Quilt the on-ramp signs with for a member: every act of Quilt's own but a redeem, which it refuses before
+ * anything is signed, since the chain mints a redeem to the root where it names no address, and this tracker holds
+ * the root's key. A pay and a transfer stay on the ledger, and go through as Quilt's do.
+ */
+class CustodialQuilt extends Quilt {
+  override redeem(): Promise<never> {
+    return Promise.reject(new Error(CUSTODIAL_REDEEM));
+  }
+}
+
 export function createHosted(options: HostedOptions): Hosted {
   const { store, keySecret, custodySecret } = options;
   const trackerUrl = (): string =>
@@ -291,7 +309,7 @@ export function createHosted(options: HostedOptions): Hosted {
 
   /**
    * The Quilt that signs for a member, by the hash of their address token, posting to this tracker with the custody
-   * secret and the session's witness, and to any other with neither.
+   * secret and the session's witness, and to any other with neither; a custodial one, which signs no redeem.
    */
   function quiltFor(hash: string, hostName: string | undefined, witness: Witness | null = null): Quilt | null {
     const member = store.getMember(hash);
@@ -308,7 +326,7 @@ export function createHosted(options: HostedOptions): Hosted {
       to: trackerUrl(),
       headers: custodyHeaders(custodySecret, witness),
     });
-    return new Quilt(config, { secret, address: addressOf(secret) }, resolver, hostName, witness);
+    return new CustodialQuilt(config, { secret, address: addressOf(secret) }, resolver, hostName, witness);
   }
 
   // QX-19 section 4, QX-16: the owners' turn. A person who runs nothing has no node to reveal their gold or sharpen

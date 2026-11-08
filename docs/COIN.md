@@ -89,7 +89,7 @@ Until it is bridged, the coin is as decentralized as its home tracker. The home 
 - Not for sale. No premine, no sale, no allocation but the small public one counsel may allow. The one standing not earned is the founding standing the public tracker declares for the maintainers' root ([QX-1](ext/QX-1.md) section 2, amended 29 October 2026): published at the tracker's well-known document, bounded at 400, and spent on nothing but the stake behind the launch patterns' gold, which comes back as each problem settles.
 - Transferable from genesis, by the founder's decision of 27 October 2026, at the published date the parameters name.
 - Not a ranking. A balance is public in effect, as standing is, since anyone with the receipts computes it; the site's pages show a holder their own and nobody else's, as they do with standing.
-- Not held by anyone. A tracker keeps a record and never money; a custodial root holds coin as a record like any other and redeems it after taking the key home.
+- Not held by anyone. A tracker keeps a record and never money; a custodial root holds coin as a record like any other and redeems it after taking the key home. The hosted on-ramp signs no redeem for a key it holds and refuses one with this reason (`packages/hosted/src/hosted.ts`, held by `packages/hosted/test/redeem.test.ts`).
 - Not a solution to the open problem. A stake prices a wrong square for the root that holds one; the square of a worker who staked nothing is the problem it was.
 
 ## The law
