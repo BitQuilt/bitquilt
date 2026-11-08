@@ -1,11 +1,14 @@
 /**
  * COIN.md, What it is not: a tracker keeps a record and never money, and a custodial root redeems its coin after taking
  * the key home. The Quilt the on-ramp signs with for a member refuses quilt_redeem with that reason before anything is
- * signed, so the coin log keeps no redeem of the hosted root's, while its transfer goes through as Quilt's does, with
- * custody: hosted on the receipt. A key held at home redeems at the same door as it always did. The coin comes from the
- * bridge's reader as credits (QX-17 section 2), vested as a transfer's coin is. The authorization page says the same to
- * the person: a token pays or moves their coin and redeems none.
+ * signed, with or without `to`, so the coin log keeps no redeem of the hosted root's, while its transfer goes through
+ * as Quilt's does, with custody: hosted on the receipt. A key held at home redeems at the same door as it always did.
+ * The coin comes from the bridge's reader as credits (QX-17 section 2), vested as a transfer's coin is. PROTOCOL.md
+ * gives COIN.md's reason for the refusal, which covers a redeem that names `to`, and not where the chain mints a
+ * redeem, which does not. The authorization page says the same to the person: a token pays or moves their coin and
+ * redeems none.
  */
+import { readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -18,7 +21,7 @@ import { openDoor, quiltOver } from './helpers.js';
 const T0 = '2026-01-01T00:00:00.000Z';
 const key = (n: number): Uint8Array => new Uint8Array(32).fill(n);
 const READER = key(0x41);
-/** The refusal a hosted session's redeem meets, in COIN.md's words. */
+/** The refusal a hosted session's redeem meets, with or without `to`, which gives COIN.md's reason. */
 const CUSTODIAL_REDEEM =
   'the on-ramp refused the redeem: a tracker keeps a record and not money, so a custodial root redeems its coin after taking the key home; the sheet at its long address says how';
 
@@ -106,6 +109,18 @@ describe('a redeem through the hosted on-ramp', () => {
     expect(redeemed.text).toContain(`Redeem of 20 units posted to the coin log at ${base}`);
     expect(await redeems()).toEqual([expect.objectContaining({ root: own, to: own, amount: 20 })]);
     expect(await balance(own)).toBe(110);
+  });
+
+  it("is refused in PROTOCOL.md for COIN.md's reason, not for where the chain mints a redeem", () => {
+    const doc = (name: string): string => readFileSync(new URL(`../../../docs/${name}`, import.meta.url), 'utf8');
+    expect(doc('COIN.md')).toContain(
+      'A tracker keeps a record and never money; a custodial root holds coin as a record like any other and redeems it after taking the key home.',
+    );
+    const protocol = doc('PROTOCOL.md');
+    expect(protocol).toContain(
+      'A tracker keeps a record and never money, so a custodial root redeems after taking the key home, and the on-ramp refuses a redeem for a key it holds, with or without `to` ([COIN.md](COIN.md), What it is not).',
+    );
+    expect(protocol).not.toContain('or to the root (QX-17 section 2), so a custodial root redeems');
   });
 
   it('is what the authorization page says a token cannot do', () => {

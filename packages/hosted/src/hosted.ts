@@ -192,7 +192,7 @@ function parseError(res: ServerResponse): void {
 }
 
 /**
- * Why the on-ramp signs no redeem for a member, in COIN.md's words (What it is not): "A tracker keeps a record and
+ * The refusal of a redeem for a member, which gives COIN.md's reason (What it is not): "A tracker keeps a record and
  * never money; a custodial root holds coin as a record like any other and redeems it after taking the key home."
  */
 const CUSTODIAL_REDEEM =
@@ -200,8 +200,10 @@ const CUSTODIAL_REDEEM =
 
 /**
  * The Quilt the on-ramp signs with for a member: every act of Quilt's own but a redeem, which it refuses before
- * anything is signed, since the chain mints a redeem to the root where it names no address, and this tracker holds
- * the root's key. A pay and a transfer stay on the ledger, and go through as Quilt's do.
+ * anything is signed, for COIN.md's reason above. A redeem that names `to` is refused as well, since the rule is the
+ * custodial root's and not the address's: a redeem takes coin off the record for the chain, and this tracker, which
+ * holds the root's key, keeps a record and never money, wherever the chain mints the line. A pay and a transfer stay
+ * on the ledger, and go through as Quilt's do.
  */
 class CustodialQuilt extends Quilt {
   override redeem(): Promise<never> {
