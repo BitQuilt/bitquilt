@@ -1,6 +1,6 @@
 # BitQuilt: a problem by its hash
 
-Written 24 Oct 2026 and revised the same day after a reader's review; the last section says what changed. [CORE.md](CORE.md) is the short specification a client follows, frozen as version 1: the envelope, the piece hash, the event line, the reducer for three verifiers, and the link. This document is everything around it: why each part is as it is, the reference tracker and mirror, identity, governance, the lineage, where it is weak, and the build. the Workshop's SWARM.md is the argument this grew from; the Workshop's DESIGN.md is what the Workshop had built when this was written; [EXTENSIONS.md](EXTENSIONS.md) is how everything outside the core changes; [OPEN-PROBLEM.md](OPEN-PROBLEM.md) is the gap version 1 does not close, stated for anyone to attack; [APP.md](APP.md) is the thing a person opens, a search box over the world's problems, a click that hands their AI a piece, and a map filling in from strangers. Nothing in this document was built when it was written; by 27 October 2026 the core, the tracker, the mirror, Quilt and every extension but the reserved numbers were. [LAYERS.md](LAYERS.md) tells the result in plain words, and [LAUNCH.md](LAUNCH.md) what stands and what remains.
+Written 24 Oct 2026 and revised the same day after a reader's review; the last section says what changed. [CORE.md](CORE.md) is the short specification a client follows, frozen as version 1: the envelope, the piece hash, the event line, the reducer for three verifiers, and the link. This document is everything around it: why each part is as it is, the reference tracker and mirror, identity, governance, the lineage, where it is weak, and the build. the Workshop's SWARM.md is the argument this grew from; the Workshop's DESIGN.md is what the Workshop had built when this was written; [EXTENSIONS.md](EXTENSIONS.md) is how everything outside the core changes; [OPEN-PROBLEM.md](OPEN-PROBLEM.md) is the gap version 1 does not close, stated for anyone to attack; [APP.md](APP.md) is the thing a person opens, a search box over the world's problems, a click that hands their AI a piece, and a map filling in from strangers. Nothing in this document was built when it was written; by 27 October 2026 the core, the tracker, the mirror, Quilt and every extension but the reserved numbers were. [LAYERS.md](LAYERS.md) tells the result in plain words, and [history/LAUNCH.md](history/LAUNCH.md) what stood on 26 October and what remained.
 
 One sentence carries the design: **a torrent where the pieces are made, not copied.** A torrent names a file by the hash of its pieces, and any peer can check a piece against its hash. Here the file does not exist yet; the pieces are produced by strangers' AIs; and since a piece that is made has no hash to check against, a verifier stands where the hash stood. Everything else follows from taking that sentence seriously. The names are layered as BitTorrent's were. **BitQuilt** is the protocol, this specification and the organisation that keeps it. **Quilt** is the app a person opens ([APP.md](APP.md)). A **quilt** is the thing: a problem's map of squares, made of pieces by many hands to a pattern. A problem file is the pattern, its pieces are the squares, the finished map is the quilt, and the link begins `quilt:`, the noun's name, kept short.
 
@@ -51,7 +51,7 @@ A root costs nothing to make. Two roots one person made agree with each other fo
 
 A client also keeps a local cache of what it has fetched, so it can keep working when neither answers and post later.
 
-**Propagation.** A client posts an event to every tracker it knows: the link's hints first, then its own list, as a torrent client has bootstrap nodes. Trackers pull each other's events for hashes they both carry, taking the union by event id and keeping the earliest receipt: [QX-21](ext/QX-21.md) is the pull, every five minutes among the peers a tracker names, each event admitted through the puller's own door, so two doors converge on everything both admit and may differ where their layers' rules differ. The mirror job pulls from the trackers and nodes it is configured with. There is no agreement protocol. Events are signed facts, state is a function of the set, and two resolvers with different subsets disagree only until they exchange. The one log that is not pulled is the coin log (QX-17): a balance is a function of an ordered log, peers cannot order without a consensus the protocol does not have and should not grow, and the coin's home borrows its order from the chain it anchors to.
+**Propagation.** A client posts an event to every tracker it knows: the link's hints first, then its own list, as a torrent client has bootstrap nodes. Trackers pull each other's events for hashes they both carry, taking the union by event id, with the peer's receipts kept beside the puller's own on each event it lacks: [QX-21](ext/QX-21.md) is the pull, every five minutes among the peers a tracker names, each event admitted through the puller's own door, so two doors converge on everything both admit and may differ where their layers' rules differ. The mirror job pulls from the trackers and nodes it is configured with. There is no agreement protocol. Events are signed facts, state is a function of the set, and two resolvers with different subsets disagree only until they exchange. The one log that is not pulled is the coin log (QX-17): a balance is a function of an ordered log, peers cannot order without a consensus the protocol does not have and should not grow, and the coin's home borrows its order from the chain it anchors to.
 
 **Later.** Trackers that gossip, content-addressed storage for envelopes and outputs, a distributed hash table. Announcements on relays came first (QX-14, 26 October 2026), after the first real problem had run; the rest waits for the second.
 
@@ -319,41 +319,13 @@ A client chooses its trackers, and anyone may run one with other policies. This 
 
 ## The mirror
 
-The ledger job, the one automated writer to `main`, writes:
+The ledger job is the one automated writer to `main`, and the repository is the public copy. GitHub serves its files raw over HTTPS, so a client with the repository's address resolves a hash with no tracker. The verify script takes a clone and a hash, checks the chain, every signature and the envelope's hash, runs the reducer, and prints the head and the map: clone and compute, with no trust in the site. The site's database holds the same receipts and is a cache of them; if it were lost, the mirror rebuilds it.
 
-```
-problems/<hash>.json       the envelope
-blobs/<hash>               the data blobs
-ledger/<hash>.jsonl        receipts in receipt order, append-only
-ledger/identity.jsonl      the identity log, chained from the hash of quilt:identity
-ledger/coin.jsonl          the coin log, chained from the hash of quilt:coin (QX-17)
-names/<owner>/<slug>       the latest version hash
-outputs/<hash>/            the assembled output when the reducer says complete
-keys.json                  address, latest name event, delegations in force
-index.json                 every problem held, with its title, slug and counts
-coin/balances.json         the balances the tracker published, kept only where the mirror reproduces them
-anchors/<problem>/<seq>.ots  the OpenTimestamps stamp of each chain's head (QX-12)
-```
-
-The mirror is also the keeper (2 November 2026). A source is a tracker, read by its index, or a node, read by its held list: a Quilt node's `GET /held` lists every problem its cache holds with the lines of its chain, and `GET /k/events` serves the identity log as it holds it, so a mirror or another node learns and pulls from a person's node with no tracker between; the well-known says `node: true`. A problem the mirror already holds files for is taken by hash whether or not the source still lists it, since a problem hidden or replaced at its source leaves the index and not the door, so its chain keeps growing here, and one that no source serves any more stays in the index as the files have it (`kept` in the report). The reads a chain's traces name (QX-19) are fetched under their hashes beside the data blobs, so the passages a return rests on outlive the node that made them. A Quilt node keeps what it holds the same way (`quilt keep`, and on its own clock while its page is up): one place's chain per problem, kept where it only grew, with the reads its traces name.
-
-Since stage two of one peer (2 November 2026, later the same day) the mirror keeps a chain of its own per log. Each source's chain is verified whole, and every event the mirror lacks, by id, whose shape and signature hold, is appended in the source's order with the source's wrappers kept and the mirror's added, so the mirror's chain is the union of its sources' events and only grows; a file an earlier run wrote from one tracker's chain verbatim is a prefix of it. Each configured source's peers, as its well-known names them, are followed one hop, so a mirror pointed at one tracker keeps the swarm that tracker names. The coin log alone is copied whole and refused where it did anything but grow, since it is one sequence and a union of two is neither; its balances reproduce where the mirror's sources fold what the coin's home folded, and where the mirror holds more than the home does, a difference is the rule working and not a fault.
-
-GitHub serves these raw over HTTPS, so a client with the repository's address resolves a hash with no tracker. The verify script takes a clone and a hash, checks the chain, every signature and the envelope's hash, runs the reducer, and prints the head and the map: clone and compute, with no trust in the site. The site's database holds the same receipts and is a cache of them; if it were lost, the mirror rebuilds it.
+The mirror is also a keeper. It reads the trackers and nodes it is pointed at, and their peers one hop, and keeps a chain of its own per log that only grows. In a run it takes each problem's chain from the first source that gives it and appends the events that source has and the chain lacks, by id; it takes the identity log the same way from every source that lists its problems; and it copies the coin log whole, refusing one that did anything but grow. A node with `keep` and no door does the same over its own store, without the coin log, and a person's Quilt keeps one place's chain per log where it only grew. [NODE.md](NODE.md) says what each pulls and from which source, what each refuses, and the files the mirror writes (sections 4 to 6).
 
 ### Chained lines
 
-A ledger file is never edited or reordered, and the file itself has to show it, with no git around it and no site to ask. So every line a resolver keeps carries three fields beyond the wrapper, in a recipe first used for the maintainers' public log, with one change: the chain begins at the problem.
-
-| Field | What it is |
-| --- | --- |
-| `seq` | The line's number, counting from 1 with no gap |
-| `prev` | The `hash` of the line before; for the first line, the problem's hash in hex, so a chain belongs to one problem |
-| `hash` | SHA-256, in hex, over `seq`, a newline, `prev`, a newline, and the canonical JSON of the wrapper without these three fields |
-
-A change to any line changes its hash, so the `prev` of the next, so every hash after it, so the head. The head is the last line's hash, with its `seq` and a short form (the first sixteen hex characters as two groups of eight joined by a colon), served by the tracker's scrape and shown on the problem's page; the mirror writes no separate head file, since the head is the ledger file's last line, and stamps it under `anchors/` (QX-12). The mirror job copies the maintainers' tracker's chain line for line, verifies it, checks that the file only grew since the commit before (a chain rewritten whole, every hash recomputed, is refused all the same), and only then commits.
-
-A chain is a resolver's own: two trackers hold the same events in different orders under different chains, and a client that reads from both verifies each file and merges the events by id. What a chain proves is that the resolver has not rewritten or reordered what it served since its head was last seen. What it does not prove is completeness: an event a tracker declined to receive leaves no gap. Publishing the head where the ledger has no hand, by anchoring it in a public chain through OpenTimestamps, is QX-12, built in the mirror job on 26 Oct 2026 ([ext/QX-12.md](ext/QX-12.md)).
+A ledger file is never edited or reordered, and the file itself has to show it, with no git around it and no site to ask. So every line a resolver keeps carries `seq`, `prev` and `hash`, chained from the hash of its log. The recipe, the head, and what a chain proves and does not prove are [QX-11](ext/QX-11.md). Publishing the head where the ledger has no hand is [QX-12](ext/QX-12.md).
 
 ## The clients
 
@@ -373,7 +345,7 @@ Each part here has a parent, and a reader who knows them should find them named.
 - **Signed events on dumb relays, with state computed by every client from the set it holds**: [Nostr](https://github.com/nostr-protocol/nips) (NIP-01), on the same curve. The event line, the tracker as a relay that forges nothing, the client as the place where state lives. The stamp is NIP-13.
 - **Cost without identity**: [Hashcash](http://www.hashcash.org/papers/hashcash.pdf) (Back, 1997), which Bitcoin joined to money. The stamp, offered as a tracker's lever and not as a solution.
 - **Rarest first, endgame, tit for tat, the magnet link, the web seed, the signed mutable item**: [BitTorrent](https://www.bittorrent.org/beps/bep_0003.html) (Cohen, 2003; BEPs 3, 5, 9, 19, 44, 53).
-- **Redundant computation with quorum**: BOINC (Anderson, 2004), which the workshop's [prior-art report](PRIOR-ART.md) reads. BOINC used *homogeneous* redundancy so that floating point drift would not break agreement; this design wants the opposite, *heterogeneous* redundancy across model vendors, because here the failure is correlated error, not drift.
+- **Redundant computation with quorum**: BOINC (Anderson, 2004), which the workshop's prior-art report, in the Workshop repository, reads. BOINC used *homogeneous* redundancy so that floating point drift would not break agreement; this design wants the opposite, *heterogeneous* redundancy across model vendors, because here the failure is correlated error, not drift.
 - **Optimistic acceptance with a window, a stake and an escalating dispute**: optimistic rollups and [Truebit](https://people.cs.uchicago.edu/~teutsch/papers/truebit.pdf) (2017) for the window and the game; [Kleros](https://kleros.io) (2018) for sortition and appeal with a larger panel.
 - **Commit and reveal**: the ordinary construction, as in Ethereum's RANDAO and ENS registrations.
 - **Keys as identity, authorising other keys**: Farcaster's custody and signer keys; [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004)'s owner and agent wallet; [did:pkh](https://github.com/w3c-ccg/did-pkh); EIP-191 and EIP-4361 for signing and signing in.
@@ -414,7 +386,7 @@ Paste a quilt link into a chat whose connector runs locally. It resolves through
 
 ## Building it
 
-The plan as it was written on 24 October 2026, kept as it was; [LAUNCH.md](LAUNCH.md) says what of it stands.
+The plan as it was written on 24 October 2026, kept as it was; [history/LAUNCH.md](history/LAUNCH.md) says what of it stood on 26 October.
 
 Three things ship together or not at all, as every primitive that stuck shipped them: a short spec, a reference implementation, and a first use people wanted. CORE.md is the spec. The core library with its fixtures is the implementation, published as a package whose fixtures are the conformance test. The first problem is the use, and it is the product: a public that wants the answer, thousands of pieces, and a map that is itself the thing to publish.
 

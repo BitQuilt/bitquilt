@@ -22,7 +22,8 @@ import { VERDICT, addr, by, calendarBytes, key, startTracker } from './helpers.j
 /**
  * The coin at the mirror (QX-17 section 7): the coin log is pulled, verified from the coin log's hash and anchored
  * beside the problems'; the balances the tracker says it computed are kept only where the mirror reproduces them from
- * the receipts it holds and the parameters the tracker publishes; a tracker whose balances differ is refused; and every
+ * the receipts it holds and the parameters the tracker publishes; a tracker whose balances differ is refused, as are
+ * the balances where a problem the tracker folded was not taken by the time it was read (NODE.md section 6); and every
  * credit line on the coin log (the way back) is checked against the deposit the chain holds, or the balances are
  * refused.
  */
@@ -187,6 +188,21 @@ describe('the coin at the mirror', () => {
     expect(report.refused).toEqual([`coin: the balances at head 1 from ${base} do not reproduce here (${addr(A)})`]);
     expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
     expect(existsSync(join(out, 'ledger', 'coin.jsonl'))).toBe(true);
+  });
+
+  it('keeps none of the balances where a problem the home folded was not taken by the time the home was read', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-coin-less-'));
+    const unread: typeof fetch = async (input, init) =>
+      String(input).startsWith(`${base}p/${P}/events`)
+        ? new Response('', { status: 503 })
+        : fetchWith(null)(input, init);
+    const report = await mirror({ trackers: [base], out, now, fetchImpl: unread });
+    expect(report.problems.map((p) => p.hash)).toEqual([Q]);
+    expect(report.coin).toMatchObject({ lines: 1, head: 1, reproduced: false });
+    expect(report.refused).toEqual([
+      expect.stringMatching(new RegExp(`^coin: the balances at head 1 from ${base} do not reproduce here \\(0x`)),
+    ]);
+    expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
   });
 
   it('checks every credit on the coin log against the chain, and refuses the balances where a credit is not what the chain holds or there is no chain to ask', async () => {

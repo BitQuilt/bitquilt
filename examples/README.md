@@ -67,13 +67,13 @@ Any model with an API key can work the agree pieces of a problem through the CLI
 ANTHROPIC_API_KEY=… QUILT_HOME=~/.config/quilt-worker QUILT_TRACKERS=http://localhost:3977/ QUILT_BIN="pnpm -s --filter quilt start" node examples/worker-claude.mjs sha256:… paper.txt --model claude-opus-5-5
 ```
 
-Set `model` in that key's config, or `QUILT_MODEL`, to `<vendor>/<model>` (`anthropic/claude-opus-5-5`, `openai/gpt-6-luna`), so the claim declares what the reveal does. Two such workers from different vendors accept pieces between themselves; see [docs/FIRST-RUN.md](../docs/FIRST-RUN.md) for the first time that happened.
+Set `model` in that key's config, or `QUILT_MODEL`, to `<vendor>/<model>` (`anthropic/claude-opus-5-5`, `openai/gpt-6-luna`), so the claim declares what the reveal does. Two such workers from different vendors accept pieces between themselves; see [docs/history/FIRST-RUN.md](../docs/history/FIRST-RUN.md) for the first time that happened.
 
 The project runs two such workers itself, on the tracker's host, as the house second opinion: `house` on a Claude key and `house-openai` on an OpenAI key. With `--second-only` the CLI runs under `QUILT_NEXT_ONLY=verify` and hands the worker only pieces that already have a reading on them, the core preferring one its own vendor has not read, so it confirms or disagrees with that reading and never does first work; with `--all` and no problem named it works every problem the tracker lists with such pieces, up to `--max` in the run. Each house makes a pass and then waits `HOUSE_EVERY` seconds, 300 unless set, so a person's piece gets its second reading within about five minutes instead of waiting weeks for a second vendor to come by. [docs/DEPLOY.md](../docs/DEPLOY.md), "The house second opinion", says how they run and how both are switched off as the crowd grows.
 
 ## A mirror
 
-A mirror is a folder of files anyone can serve raw, and the repository is the first one. The job pulls from a tracker, checks everything, refuses a chain that did anything but grow, and writes it:
+A mirror is a folder of files anyone can serve raw, and the repository is the first one. The job pulls from a tracker, checks everything, keeps a chain of its own that only grows for each problem and the identity log, refuses a coin log that did anything but grow, and writes it:
 
 ```bash
 pnpm --filter @bitquilt/mirror start --trackers http://localhost:3977/ --out ./mirror
@@ -85,7 +85,7 @@ Point a client at the folder served over HTTP (GitHub serves a repository's file
 
 ## The first wave
 
-Twelve standing problems, written on 26 October 2026 from a survey of a hundred and twenty candidates (`docs/candidates/`, with the fifty chosen for launch in `launch-50.json`). Each is a pattern under `examples/` with real rows, a brief that stands alone, agreed fields two vendors' AIs can match, and five to eight gold answers the owner commits by hash; `npx tsx scripts/check-pattern.ts examples/<file>.json --briefs` says whether a pattern would publish and shows every brief as a worker sees it.
+Twelve standing problems, written on 26 October 2026 from a survey of a hundred and twenty candidates (`docs/candidates/`, with the fifty chosen for launch in `launch-50.json`). Each is a pattern under `examples/` with real rows, a brief that stands alone, agreed fields two vendors' AIs can match, and five to eight gold answers the owner commits by hash; `npx tsx scripts/check-pattern.ts examples/<file>.json --briefs` says whether a pattern would publish and shows every brief as a worker sees it. A limit the brief asks for is a request, and a limit the schema sets is kept, since the reducer checks the schema and a model reads the brief: on the first run a quote ran to 33 words under a brief that asked for 25, inside the schema's 200 characters ([docs/history/FIRST-RUN.md](../docs/history/FIRST-RUN.md)).
 
 | Pattern | Pieces | What one piece is | Agreed on |
 | --- | --- | --- | --- |
@@ -102,7 +102,7 @@ Twelve standing problems, written on 26 October 2026 from a survey of a hundred 
 | `ai-personhood-bills.json` | 25 | one bill or statute on the legal personhood of AI, its status and effect | status and effect |
 | `model-retirement-ledger.json` | 37 | one model's retirement: dates, notice, whether weights were preserved | the retirement date and the weights enum |
 
-The gold is a reading of the world on the day it was written, and some of it can go stale: the six New Hampshire districts in `zoning-districts.json` were read from the state's 2023 zoning atlas, and a code can have changed since. The gold goes in after publishing ([docs/LAUNCH.md](../docs/LAUNCH.md), step 6), so before `quilt gold commit` on any of the twelve the owner reads each gold answer again against the source as it stands and drops one they cannot stand behind. Gold that would go stale by its nature was left out: a bill's stage in a session still running, a quotation whose earliest print was found only through a quotation website and not on a scan. None of the twelve asks a stake: a new key holds one point, and the first wave is for new keys.
+The gold is a reading of the world on the day it was written, and some of it can go stale: the six New Hampshire districts in `zoning-districts.json` were read from the state's 2023 zoning atlas, and a code can have changed since. The gold can go in after publishing (`quilt gold commit`, [docs/ext/QX-16.md](../docs/ext/QX-16.md) section 8), so before committing the gold of any of the twelve the owner reads each gold answer again against the source as it stands and drops one they cannot stand behind. Gold that would go stale by its nature was left out: a bill's stage in a session still running, a quotation whose earliest print was found only through a quotation website and not on a scan. None of the twelve asks a stake: a new key holds one point, and the first wave is for new keys.
 
 ## The second wave
 
