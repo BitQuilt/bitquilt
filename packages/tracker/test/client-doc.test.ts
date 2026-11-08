@@ -25,37 +25,36 @@
  * two each by a post of its own; a post that fails several is refused for the earliest, row by row as each is put
  * right, and the bodies hold the order through row 16: each post keeps every fault but the one the door named at the
  * post before, and the third, the sixth and the eighth take on faults the one before could not carry, so the door's
- * answer is the earliest of the checks it fails; the commit and the reveal posted again close the walk at
- * rows 21 and 16; the address's writes are counted after the problem is found and before the body is read, a read's put
- * is held to the same limit, and the key's posts are counted after the signature is checked and before the type is
- * asked, so another key's signature spends none of the key's hour; the rows the walk does not reach keep the table's
- * order with the rows they share a post with: on a problem taken down, a type of the identity log's, a type the log
- * does not carry and another problem named are refused at rows 8 and 9 before row 10, a reveal is refused at row 12
- * before row 13 on a record piece whose readings are in once a stake rule names it, and at row 16 before row 17 on a
- * human piece where the key has no commit, a run at row 12 before row 18 on a staked piece, a trace that names no
- * piece, or one the problem lacks, at row 11 before row 19, and a version whose slug is not a slug at row 9 before
- * row 20 where it names another problem; a reveal posted again meets rows 11 to 17 again before
- * row 21, and is refused at row 16 where it counted and its commit was the key's only one on the piece, at row 13 once
- * a record piece's readings are in, the readings that put them in included, and at row 12 once a staked piece is
- * accepted and the lock released; it is answered 409 where a commit by the key on the piece stays unrevealed, an
- * earlier one abandoned or not, or its own where the reveal came late; and every row is met. Beside the table: the door
- * leaves a reveal's `h` to the reducer, whose drop shows in the state, and the dropped reveal posted again is answered
- * 409 though its commit is the key's only one on the piece; and next refuses the three sentences the page names. A
- * client that reduces: the problem's log alone leaves out a return posted under an ancestor, and with the ancestor's
- * log it reaches the tracker's state. A peer's events: what a peer admitted is pulled through this door's admission;
- * the pull, read in peers.ts and admit.ts, meets the checks of a post's event the page names, rows 5, 6 and 8 to 20,
- * and no hourly limit; an event this door's rules refuse, on a problem taken down here or a piece under a stake rule
- * the peer lacks, is named in the pull's report with the sentence a post of it gets here, which is its row's; a second
- * pull passes over what this door holds; and a door that takes one write an hour from an address takes a peer's four
- * events from one key in one pull. The well-known fields the page names are in the well-known document, `peers` said as
- * QX-21 says it, and `routes` the table's paths in its order, without the well-known document and the index, which are
- * answered, and with no coin path where the tracker carries no coin; each rule the page repeats from PROTOCOL.md's
- * "What the door answers" cites it beside the rule and says what it says; each function it names is defined in the file
- * it names, and the rows of `problemDoor` give each of the three checks the page names the types it gives them; its
- * links reach a file and a heading, and it has no U+2014. docs/README.md says it by its six steps, and names beside it
- * the sections its reading list links. AGENTS.md says what holds each part, the worked example the core and fixture 04,
- * the requests and the table a booted tracker, and the part of the code that runs each check the code itself, as the
- * describes here do.
+ * answer is the earliest of the checks it fails; the commit and the reveal posted again close the walk at rows 21 and
+ * 16; the address's writes are counted after the problem is found and before the body is read, a read's put is held to
+ * the same limit, and the key's posts are counted after the signature is checked and before the type is asked, so
+ * another key's signature spends none of the key's hour; the rows the walk does not reach keep the table's order with
+ * the rows they share a post with: on a problem taken down, a type of the identity log's, a type the log does not carry
+ * and another problem named are refused at rows 8 and 9 before row 10, a reveal is refused at row 12 before row 13 on a
+ * record piece whose readings are in once a stake rule names it, and at row 16 before row 17 on a human piece where the
+ * key has no commit, a run at row 12 before row 18 on a staked piece, a trace that names no piece, or one the problem
+ * lacks, at row 11 before row 19, and a version whose slug is not a slug at row 9 before row 20 where it names another
+ * problem; a reveal posted again meets rows 11 to 17 again before row 21, and is refused at row 16 where it counted and
+ * its commit was the key's only one on the piece, at row 13 once a record piece's readings are in, the readings that
+ * put them in included, and at row 12 once a staked piece is accepted and the lock released; it is answered 409 where a
+ * commit by the key on the piece stays unrevealed, an earlier one abandoned or not, or its own where the reveal came
+ * late; and every row is met. Beside the table: the door leaves a reveal's `h` to the reducer, whose drop shows in the
+ * state, and the dropped reveal posted again is answered 409 though its commit is the key's only one on the piece; and
+ * next refuses the three sentences the page names. A client that reduces: the problem's log alone leaves out a return
+ * posted under an ancestor, and with the ancestor's log it reaches the tracker's state. A peer's events: what a peer
+ * admitted is pulled through this door's admission; the pull, read in peers.ts and admit.ts, meets the checks of a
+ * post's event the page names, rows 5, 6 and 8 to 20, and no hourly limit; an event this door's rules refuse, on a
+ * problem taken down here or a piece under a stake rule the peer lacks, is named in the pull's report with the sentence
+ * a post of it gets here, which is its row's; a second pull passes over what this door holds; and a door that takes one
+ * write an hour from an address takes a peer's four events from one key in one pull. The well-known fields the page
+ * names are in the well-known document, `peers` said as QX-21 says it, and `routes` the table's paths in its order,
+ * without the well-known document and the index, which are answered, and with no coin path where the tracker carries no
+ * coin; each rule the page repeats from PROTOCOL.md's "What the door answers" cites it beside the rule and says what it
+ * says; each function it names is defined in the file it names, and the rows of `problemDoor` give each of the three
+ * checks the page names the types it gives them; its links reach a file and a heading, and it has no U+2014.
+ * docs/README.md says it by its six steps, and names beside it the sections its reading list links. AGENTS.md says what
+ * holds each part, the worked example the core and fixture 04, the requests and the table a booted tracker, and the
+ * part of the code that runs each check the code itself, as the describes here do.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

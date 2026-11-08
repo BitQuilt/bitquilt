@@ -14,7 +14,6 @@ import {
   eventProblems,
   eventSignedByKey,
   hashBytes,
-  isHash,
   verifyChain,
   withSlash,
 } from '@bitquilt/core';
@@ -94,7 +93,7 @@ async function linesFrom(door: PullDoor, target: string): Promise<Receipt[] | nu
 async function takeReads(door: PullDoor, peer: string, event: Event): Promise<void> {
   const { store, fetchImpl } = door;
   for (const hash of readsNamed(event)) {
-    if (!isHash(hash) || store.getBlob(hash)) continue;
+    if (store.getBlob(hash)) continue;
     try {
       const r = await fetchImpl(`${peer}b/${hash}`, { signal: AbortSignal.timeout(30_000) });
       if (!r.ok) continue;

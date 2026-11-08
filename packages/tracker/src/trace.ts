@@ -25,6 +25,7 @@ import {
   eventId,
   hashCanonical,
   isHash,
+  isRecord,
   isTime,
   returnsAgree,
   whole,
@@ -161,14 +162,19 @@ export function traceBodyProblems(body: unknown): string[] {
 }
 
 /**
- * The hashes a trace event's reads name, in the body's order, as the body states them and unchecked; none for any other
- * event. A door pulling a peer's chain and a keeper taking one fetch the reads they lack by these (QX-21 section 2),
- * each with its own check of the hash and its own report. A body whose reads are not a list fails as a loop over it
- * does, at the read that does not parse.
+ * The hashes a trace event's reads name, in the body's order, each one a hash; none for any other event. A door pulling
+ * a peer's chain and a keeper taking one fetch the reads they lack by these (QX-21 section 2), each with its own check
+ * of the bytes against the hash and its own report. They do so before any door has held the body to section 1, and a
+ * chain that verifies may hold any body, since the core's shape reads none of a type the core does not define and a
+ * core client ignores the event (EXTENSIONS.md, What an extension may do). So a read that is not an object or whose
+ * `hash` is not a hash names nothing, and reads that are not a list name nothing: no path or query is made of the
+ * body's words, and no body stops a pull.
  */
-export function* readsNamed(event: Event): Generator<unknown> {
+export function* readsNamed(event: Event): Generator<Hash> {
   if (event.type !== 'trace') return;
-  for (const read of (event.body as { reads?: { hash?: unknown }[] }).reads ?? []) yield read.hash;
+  const reads = (event.body as { reads?: unknown }).reads;
+  if (!Array.isArray(reads)) return;
+  for (const read of reads) if (isRecord(read) && isHash(read.hash)) yield read.hash;
 }
 
 /**

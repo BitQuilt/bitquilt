@@ -6,24 +6,22 @@ import { addr, boot, envelope, key } from './helpers.js';
 
 /**
  * PROTOCOL.md, The tracker, held to the door's table (`Tracker.routes`) and to the door. The rows under "### Routes"
- * name the table's paths in the table's order, all but its last row, the fallback under /coin that the prose says;
- * a row says unlisted where its path's row is left out of the well-known document, and QX-17 where its path's row
- * asks for the coin; each row's methods are the ones its table rows have handlers for, and the door takes each of
- * them; the scrape's row names every field the scrape answers, and `/` and `/search` give each problem the same
- * without `chain_ok`. Then what the door answers, as the prose names it: a method a row has no handler for, 405 under
- * a problem and the coin, the log at the two logs that read it so, the fallback's 404, and the routes mounted beside
- * the tracker asked once no row answered, and not for a path that cannot be read as a URL; any origin allowed on
- * every answer the tracker writes itself, and nothing added to what the routes beside it write; a post asked in the
- * prose's order, its guard first and its address's limit before its body is read; the fields of the piece next hands
- * over, the rows under "### The piece next hands over";
- * a post's answer, and 409 for it again; a version's slug held to the envelope's rule where the core's shape takes any
- * string, refused in the prose's words, which are the envelope's check's after the field each names, and a slug that
- * is one taken and named; the signature's
- * text form, with a `v` of 0 or 1 taken and any other
- * refused; the limits as published, the address's counting every write and the key's every post; and the hold, on
- * the piece next hands over and on the first the offer names, for 60 seconds. And The problem envelope's checks at
- * publish: the gate on the title, done_when and briefs, a prev held and by the same owner, a from by another owner
- * where it is held and taken where it is not, and the coin's home's bound on the window. Every name the document
+ * name the table's paths in the table's order, all but its last row, the fallback under /coin that the prose says; a
+ * row says unlisted where its path's row is left out of the well-known document, and QX-17 where its path's row asks
+ * for the coin; each row's methods are the ones its table rows have handlers for, and the door takes each of them; the
+ * scrape's row names every field the scrape answers, and `/` and `/search` give each problem the same without
+ * `chain_ok`. Then what the door answers, as the prose names it: a method a row has no handler for, 405 under a problem
+ * and the coin, the log at the two logs that read it so, the fallback's 404, and the routes mounted beside the tracker
+ * asked once no row answered, and not for a path that cannot be read as a URL; any origin allowed on every answer the
+ * tracker writes itself, and nothing added to what the routes beside it write; a post asked in the prose's order, its
+ * guard first and its address's limit before its body is read; the fields of the piece next hands over, the rows under
+ * "### The piece next hands over"; a post's answer, and 409 for it again; a version's slug held to the envelope's rule
+ * where the core's shape takes any string, refused in the prose's words, which are the envelope's check's after the
+ * field each names, and a slug that is one taken and named; the signature's text form, with a `v` of 0 or 1 taken and
+ * any other refused; the limits as published, the address's counting every write and the key's every post; and the
+ * hold, on the piece next hands over and on the first the offer names, for 60 seconds. And The problem envelope's
+ * checks at publish: the gate on the title, done_when and briefs, a prev held and by the same owner, a from by another
+ * owner where it is held and taken where it is not, and the coin's home's bound on the window. Every name the document
  * places in a file of the code (`name` in `packages/...`) is declared in that file. The refusals column is not read.
  * The on-ramp's table is packages/hosted/test/onramp-table.test.ts's, the node's is
  * packages/client/test/node-table.test.ts's, and the table's own words, each route's statuses and the address's limit

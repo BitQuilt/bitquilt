@@ -30,9 +30,11 @@ import { VERDICT, addr, boot, envelope, key } from './helpers.js';
  * asks of a name (CORE.md section 11) is asked of a pulled name as of a posted one, as QX-21 section 2 says, and so is
  * the envelope's rule a door holds a version's slug to: a version the peer took under a slug that climbs out of a
  * folder is refused with the words a post of it gets, and the owner's version after it is pulled and names the problem.
- * The pull reaches the tracker that runs it through the `PullDoor` it is handed (peers.ts): the door's admission
- * decides each event, a refusal is said with its reason and a failure is noted, and a line admitted carries the peer's
- * wrapper with the door's after it.
+ * A trace the peer took whose reads are not a list, hold a read that is not an object, or name a read by anything but a
+ * hash asks the peer for no read and is refused with the words a post of it gets, and the pull goes on past it. The
+ * pull reaches the tracker that runs it through the `PullDoor` it is handed (peers.ts): the door's admission decides
+ * each event, a refusal is said with its reason and a failure is noted, and a line admitted carries the peer's wrapper
+ * with the door's after it.
  */
 const owner = key(9),
   A = key(1),
@@ -315,6 +317,64 @@ describe("a pulled version's slug, by the envelope's rule (QX-21 section 2, CORE
       // The same words a post of it gets at this door.
       const direct = await here.post(`/p/${PV}/events`, climbs);
       expect([direct.status, ((await direct.json()) as { error: string }).error]).toEqual([400, said]);
+    } finally {
+      await here.close();
+    }
+  });
+});
+
+describe("a pulled trace's reads, as its body states them (QX-21 section 2)", () => {
+  it('asks the peer for no read a trace names by anything but a hash, refuses each such trace as a post of it is refused, and pulls the rest', async () => {
+    const PEER = 'http://peer.test/';
+    const T = envelope(owner, 'traces', pieces, { title: 'Traces' });
+    const PT = problemHash(T);
+    let lines: Receipt[] = [];
+    const asked: string[] = [];
+    const peerFetch = (async (input: string | URL | Request) => {
+      const u = String(input);
+      if (u === `${PEER}.well-known/quilt`) return Response.json({ quilt: 1 });
+      if (u.startsWith(`${PEER}p/${PT}/events`)) return new Response(lines.map((l) => JSON.stringify(l)).join('\n'));
+      if (u.startsWith(`${PEER}k/events`)) return new Response('');
+      asked.push(u);
+      return new Response('', { status: 404 });
+    }) as typeof fetch;
+    const here = boot(START, { limits, peers: [PEER], fetchImpl: peerFetch });
+    await here.listen();
+    try {
+      expect((await here.post('/p', { envelope: T })).status).toBe(201);
+      const piece = (await here.get<State>(`/p/${PT}/state`)).pieces[0]!.hash;
+      const read = { url: 'https://example.org/page', hash: '..', at: START };
+      const rests = [{ field: 'verdict', read: 0, span: [0, 4] }];
+      // The peer's chain: traces whose reads are not a list, hold a read that is null, or name a read by a path, a
+      // number or an object; then the owner's version, which this door takes.
+      const traces = [5, [null], [read], [{ ...read, hash: 7 }], [{ ...read, hash: { a: 1 } }]].map((reads) =>
+        here.ev(owner, 'trace', { reveal: PT, reads, rests }, PT, piece),
+      );
+      const version = here.ev(owner, 'version', { slug: 'traces', hash: PT }, PT);
+      lines = chainLines(
+        [...traces, version].map((event) => ({ event, received: [{ by: PEER, at: event.ts, custody: 'self' }] })),
+        PT,
+      );
+      here.clock.tick += 60_000;
+      const said = ['body.reads: 1 to 16 reads', ...Array(4).fill('read 0: url, hash and at')];
+      const [pull] = await here.tracker.pullPeers();
+      expect(pull).toEqual({
+        peer: PEER,
+        added: 1,
+        refused: traces.map((t, i) => ({ id: eventId(t), why: said[i] })),
+        errors: [],
+      });
+      expect(asked).toEqual([]);
+      expect(here.store.lines(PT).map((l) => l.event.sig)).toEqual([version.sig]);
+      // The same words a post of each gets at this door.
+      for (const [i, t] of traces.entries()) {
+        const direct = await here.post(`/p/${PT}/events`, t);
+        expect([direct.status, ((await direct.json()) as { error: string }).error]).toEqual([400, said[i]]);
+      }
+      const doc = readFileSync(new URL('../../../docs/ext/QX-21.md', import.meta.url), 'utf8');
+      expect(doc).toContain(
+        'one that does not hash right is not kept, a read named by anything but a hash is not asked for, and the trace is refused as its own rule refuses it.',
+      );
     } finally {
       await here.close();
     }

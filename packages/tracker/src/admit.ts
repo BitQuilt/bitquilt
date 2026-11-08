@@ -366,7 +366,7 @@ export const problemDoor: Readonly<Record<string, ProblemCheck | null>> = {
   reveal: checkPieceEvent, // CORE.md sections 4, 6 and 11; QX-15 section 2; QX-20 section 2; verifiers.md section 2
   decline: checkPieceEvent, // CORE.md sections 4 and 6
   run: checkPieceEvent, // CORE.md sections 4 and 6; QX-15 section 2; QX-20 section 2
-  version: checkVersionEvent, // CORE.md sections 2 and 4
+  version: checkVersionEvent, // CORE.md sections 2 and 4; PROTOCOL.md, What the door answers
   output: null, // CORE.md section 4
   // The extensions'.
   announce: checkAnnounceEvent, // QX-13 sections 1 and 2
@@ -461,12 +461,12 @@ function checkRevealEvent({ view }: Reads, event: Event, under: Hash, verifier: 
 }
 
 /**
- * The door for a version: its slug is a slug by the envelope's rule, "problem.slug: lower-case letters, digits and
- * hyphens, at most 64" (`isSlug` in the core's envelope.ts), said here of `body.slug` in the same words. A version's
- * body is `{ slug, hash }` (CORE.md section 4), and the core's shape asks only that the slug is a string, so a core
- * client folds any; the door asks more, as the gate is admission and not validity, since an owner's name is one
- * segment of a path:
- * `/n/<owner>/<slug>` here and `names/<owner>/<slug>` in a mirror's folder (NODE.md section 6).
+ * The door for a version (PROTOCOL.md, What the door answers): its slug is a slug by the envelope's rule,
+ * "problem.slug: lower-case letters, digits and hyphens, at most 64" (`isSlug` in the core's envelope.ts), said here of
+ * `body.slug` in the same words. A version's body is `{ slug, hash }` (CORE.md section 4), and the core's shape asks
+ * only that the slug is a string, so a core client folds any. The door asks more, its checks being admission and not
+ * validity (CORE.md section 11), since an owner's name is one segment of a path, `/n/<owner>/<slug>` here and
+ * `names/<owner>/<slug>` in a mirror's folder (NODE.md section 6).
  */
 function checkVersionEvent(_cx: Reads, event: Event): void {
   if (!isSlug(event.body.slug)) throw new Refusal(400, `body.slug: ${SLUG_RULE}`);

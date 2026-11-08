@@ -322,12 +322,13 @@ function keepTheRest(ctx: Context): void {
 /**
  * QX-19: the reads a chain's traces name, each fetched from the source under its hash where it is not held here and
  * written beside the data blobs; one that does not hash right is refused and not written, and one the source does
- * not serve is passed over, since a trace is admitted at a door that held the read and a node may not.
+ * not serve is passed over, since a trace is admitted at a door that held the read and a node may not. As
+ * NODE.md section 5, the reads, says: "A read a trace names by anything but a hash, and reads that are not a list, are
+ * not fetched, and are no refusal" (`readsNamed`), so no file's path or store's query is made of a body's words.
  */
 async function takeReads(ctx: Context, source: string, lines: Receipt[], label: string): Promise<void> {
   const wanted = new Set<Hash>();
-  for (const l of lines)
-    for (const h of readsNamed(l.event)) if (h && !ctx.store.getBlob(h as Hash)) wanted.add(h as Hash);
+  for (const l of lines) for (const h of readsNamed(l.event)) if (!ctx.store.getBlob(h)) wanted.add(h);
   for (const h of wanted) {
     const bytes = await getBytes(ctx, `${source}b/${h}`);
     if (!bytes) continue;
