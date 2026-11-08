@@ -27,7 +27,9 @@ export const VERDICT = {
   properties: { verdict: { enum: ['supports', 'contradicts'] } },
 };
 
-/** What a calendar answers to a digest in these tests: a few bytes the mirror writes after the head's digest as given. */
+/**
+ * What a calendar answers to a digest in these tests: a few bytes the mirror writes after the head's digest as given.
+ */
 export const calendarBytes = new Uint8Array([
   0xf0, 0x10, 0x01, 0x02, 0x03, 0x00, 0x83, 0xdf, 0xe3, 0x0d, 0x2e, 0xf9, 0x0c, 0x8e,
 ]);

@@ -20,5 +20,7 @@ export const HOLDER: Address = '0x3333333333333333333333333333333333333333';
 /** Another address, for a line or a deposit that is not the holder's. */
 export const OTHER: Address = '0x4444444444444444444444444444444444444444';
 
-/** A 32-byte value as 64 lowercase hex characters with no `0x`, `n` at its end: an id, a head, a root or a transaction. */
+/**
+ * A 32-byte value as 64 lowercase hex characters with no `0x`, `n` at its end: an id, a head, a root or a transaction.
+ */
 export const hex = (n: number): string => n.toString(16).padStart(64, '0');
