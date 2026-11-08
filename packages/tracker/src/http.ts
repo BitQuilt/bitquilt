@@ -4,7 +4,7 @@
  * write the JSON answers of their own routes with the same writer and keep their own body readers, since each caps and
  * parses a body its own way. An answer the writer does not write is written where it is made: a page of a chain's
  * lines, the preflight, a blob's bytes, one of the on-ramp's pages, or the connector's JSON-RPC, which the MCP SDK's
- * transport writes.
+ * transport writes, and the on-ramp in the transport's form for a body that is not JSON.
  */
 import type { ServerResponse } from 'node:http';
 

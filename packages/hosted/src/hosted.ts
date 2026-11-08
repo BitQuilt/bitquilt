@@ -14,7 +14,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
+import { ErrorCode, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { appendFileSync } from 'node:fs';
 import {
   type Address,
@@ -158,11 +158,35 @@ function decrypt(keySecret: string, stored: string): string {
 
 const tokenHash = (token: string): string => createHash('sha256').update(token).digest('hex');
 
+/** A body that does not parse as JSON, which the connector refuses with the transport's parse error. */
+const NOT_JSON: unique symbol = Symbol('not JSON');
+
+/** A request's body as JSON: nothing where it is empty, and NOT_JSON where it does not parse. */
 async function readJson(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   for await (const c of req) chunks.push(c as Buffer);
   const text = Buffer.concat(chunks).toString('utf8');
-  return text ? JSON.parse(text) : undefined;
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return NOT_JSON;
+  }
+}
+
+/**
+ * A body that is not JSON is the caller's fault, so the connector answers it as MCP's HTTP transport answers one: 400
+ * with JSON-RPC's parse error, "Invalid JSON was received by the server", written as the SDK's transport writes it.
+ */
+function parseError(res: ServerResponse): void {
+  res.writeHead(400, { 'content-type': 'application/json' });
+  res.end(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      error: { code: ErrorCode.ParseError, message: 'Parse error: Invalid JSON' },
+      id: null,
+    }),
+  );
 }
 
 export function createHosted(options: HostedOptions): Hosted {
@@ -338,6 +362,7 @@ export function createHosted(options: HostedOptions): Hosted {
       }
       s.last = Date.now();
       const body = method === 'POST' ? await readJson(req) : undefined;
+      if (body === NOT_JSON) return parseError(res);
       await s.transport.handleRequest(req, res, body);
       return;
     }
@@ -346,6 +371,7 @@ export function createHosted(options: HostedOptions): Hosted {
       return;
     }
     const body = await readJson(req);
+    if (body === NOT_JSON) return parseError(res);
     if (!isInitializeRequest(body)) {
       json(res, 400, { error: 'no session with that id; begin with an initialize request' });
       return;
