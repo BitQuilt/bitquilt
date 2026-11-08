@@ -22,7 +22,8 @@ import { COIN_LOG } from './coin.js';
 import { Refusal } from './http.js';
 import type { Store } from './store.js';
 import { readsNamed } from './trace.js';
-import type { Admitted, Log, Tracker } from './tracker.js';
+import type { Admitted, Log } from './admit.js';
+import type { Tracker } from './tracker.js';
 
 /** QX-21: doors fold each other's chains. */
 export const PEER_PULL = 'QX-21';

@@ -38,7 +38,7 @@ import type { Admission, Layer } from './challenge.js';
 
 export const EXTENSIONS = { human: 'QX-3', judge: 'QX-2', attest: 'QX-10', record: 'QX-20' } as const;
 /**
- * The types QX-2 adds to a problem's log. The door admits each through its own row of `problemDoor` in tracker.ts,
+ * The types QX-2 adds to a problem's log. The door admits each through its own row of `problemDoor` in admit.ts,
  * and admit.test.ts holds those rows to this set.
  */
 export const RANK_EVENTS: ReadonlySet<string> = new Set(['rank']);
