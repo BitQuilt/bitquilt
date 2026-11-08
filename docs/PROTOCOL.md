@@ -1,6 +1,6 @@
 # BitQuilt: a problem by its hash
 
-[CORE.md](CORE.md) is the specification a client follows, frozen as version 1. This document says why each rule is as it is, and describes the tracker, the mirror, identity, governance and the extensions. Each rule is stated once, and here gets its reason and the section that states it: the core's in CORE.md, the stamp's (QX-7) as its section 11; chained lines (QX-11) under The mirror, below; each other extension's under [ext/](ext/), listed in [EXTENSIONS.md](EXTENSIONS.md). [LAYERS.md](LAYERS.md) tells the whole in plain words. The plan of 24 October 2026 and its reviews are in [history/2026-10-24-protocol-review.md](history/2026-10-24-protocol-review.md).
+[CORE.md](CORE.md) is the specification a client follows, frozen as version 1. This document says why each rule is as it is, and describes the tracker, the mirror, identity, governance and the extensions. Each rule is stated once, and here gets its reason and the section that states it: the core's in CORE.md, the stamp's (QX-7) as its section 11; and each extension's in its document under [ext/](ext/), listed in [EXTENSIONS.md](EXTENSIONS.md). CORE.md section 4 sends a reader here for QX-11, the chained lines: Chained lines, under The mirror, gives their reason and points to [ext/QX-11.md](ext/QX-11.md), which states them. [LAYERS.md](LAYERS.md) tells the whole in plain words. The plan of 24 October 2026 and its reviews are in [history/2026-10-24-protocol-review.md](history/2026-10-24-protocol-review.md).
 
 One sentence carries the design: **a torrent where the pieces are made, not copied.** A torrent names a file by the hash of its pieces, and any peer can check a piece against its hash. Here the file does not exist yet, strangers' AIs make the pieces, and since a made piece has no hash to check against, a verifier stands where the hash stood. **BitQuilt** is the protocol, **Quilt** the app a person opens ([APP.md](APP.md)), and a **quilt** the thing: a problem's map of squares, made by many hands to a pattern.
 
@@ -87,7 +87,7 @@ The event line and the core's types are CORE.md section 4. A claim is an intent,
 | `trace` | problem | What a reveal rests on | [QX-19](ext/QX-19.md) section 1 |
 | `lock`, `pay`, `burn`, `transfer`, `redeem`, `credit` | coin | The coin's own events | [QX-17](ext/QX-17.md) section 2 |
 
-**Receipts** are CORE.md section 5. `custody`, `seat` and QX-18's `via` are the tracker's word, not the ledger's, and a reader decides whose word to take.
+**Receipts** are CORE.md section 5, which gives the wrapper's values and not what they mean. `custody` is `hosted` where the tracker signed with a key it holds for the member, and `self` where the signature arrived made. `seat` is `person` or `ai`, which only the tracker that opened the seat knows. The reference writes `hosted` and `ai` on what its on-ramp posts, and `self` with no seat on every other post (`postEvent` in `packages/tracker/src/tracker.ts`). These and QX-18's `via` are the tracker's word, not the ledger's, and a reader decides whose word to take.
 
 ## Identity: roots and delegates
 
@@ -107,7 +107,7 @@ The event line and the core's types are CORE.md section 4. A claim is an intent,
 
 ## Sortition
 
-A panel, for a challenge or a `judge:n` piece, is drawn, not filled by whoever shows up: unrelated roots with accepted work elsewhere, ordered by the hash of a seed no party makes alone with each address (QX-1 sections 3 to 5; verifiers.md section 2). The reference seeds a challenge's panel from the `hash` of its own receipt line (`challenge-receipt`), and a judge panel from its first candidate's: the signer chooses the event, the resolver stamps the time, the chain holds the rest, and another seed costs another stake. Two seeds are described and not built: `next-receipts`, the challenge's id hashed with the ids of the next `n` receipts from roots unrelated to the challenger, fast and grindable in a quiet problem; and `mirror-commit`, the mirror commit that first carries the challenge, slow and not. This is [Kleros](https://kleros.io)'s shape without a stake-weighted draw, since a standing a sybil can farm would make the draw worth farming.
+A panel, for a challenge or a `judge:n` piece, is drawn, not filled by whoever shows up: unrelated roots with accepted work elsewhere, ordered by the hash of a seed no party makes alone with each address (QX-1 sections 3 to 5; verifiers.md section 2). The reference seeds a challenge's panel from the `hash` of the challenge's own receipt line (`challenge-receipt`, QX-1 section 4): the challenger chooses the event, the resolver stamps the time and the chain holds the rest, and another seed costs another challenge and its stake. It seeds a judge panel from the receipt line of the first candidate's reveal (`first-candidate-receipt`, verifiers.md section 2), which is fixed before the last candidate, or any judge, can know who the pool will be. Two more seeds for a challenge are described and not built: `next-receipts`, the challenge's id hashed with the ids of the next `n` receipts from roots unrelated to the challenger, fast and grindable in a quiet problem; and `mirror-commit`, the mirror commit that first carries the challenge, slow and not. This is [Kleros](https://kleros.io)'s shape without a stake-weighted draw, since a standing a sybil can farm would make the draw worth farming.
 
 ## The reducer
 
@@ -214,7 +214,7 @@ Quilt's page on localhost is a node (`packages/client/src/page.ts`) whose well-k
 
 ### The on-ramp's routes
 
-Where a tracker hosts the on-ramp (`hosted: true`), these answer beside its own (`packages/hosted/src/hosted.ts`), unlisted in its `routes`.
+Where a tracker hosts the on-ramp (`hosted: true`), these answer beside its own (`packages/hosted/src/hosted.ts`, and `oauth.ts` for the authorization server), unlisted in its `routes`. `onramp-table.test.ts` in `packages/hosted/test` holds each row's methods; nothing reads the refusals column.
 
 | Route | Methods | What it answers | Refused with |
 | --- | --- | --- | --- |
@@ -223,7 +223,8 @@ Where a tracker hosts the on-ramp (`hosted: true`), these answer beside its own 
 | `/mcp/<token>/key`, `/mcp/<token>/sheet` | GET | The key itself; the person's sheet | 404, 405 |
 | `/r/<problem>/<piece>` | GET | One square's page | 404, 429 |
 | `/window`, `/window/io` | GET | The directory window, and its reader | 400, 401, 404, 405, 429 |
-| `/mcp`, `/oauth/…`, `/.well-known/oauth-…` | QX-18 section 1 | With `QUILT_OAUTH_SECRET`, the authorization server, refusing as OAuth does | 400, 401, 405, 429 |
+| `/mcp` | GET, POST, DELETE | With `QUILT_OAUTH_SECRET`, the connector for a bearer token, as at `/mcp/<token>` (QX-18 section 1) | 400, 401, 403 |
+| `/oauth/…`, `/.well-known/oauth-…` | GET, POST | With `QUILT_OAUTH_SECRET`, the authorization server and its metadata (QX-18 section 1), refusing as OAuth does | 400, 401, 405, 429 |
 
 ### Governance: what a tracker decides
 
@@ -244,7 +245,7 @@ The mirror is also a keeper. It reads the trackers and nodes it is pointed at, a
 
 ### Chained lines
 
-A ledger file is never edited or reordered, and the file itself has to show it, with no git around it and no site to ask. So every line a resolver keeps carries `seq`, `prev` and `hash`, chained from the hash of its log. The recipe, the head, and what a chain proves and does not prove are [QX-11](ext/QX-11.md). Publishing the head where the ledger has no hand is [QX-12](ext/QX-12.md).
+A ledger file is never edited or reordered, and the file itself has to show it, with no git around it and no site to ask. So every line a resolver keeps carries `seq`, `prev` and `hash`, and the first line's `prev` is the hash of its log, so a chain belongs to one log: a problem's begins at the problem's hash, the identity log's at the hash of `quilt:identity`, and the coin log's at the hash of `quilt:coin`. [QX-11](ext/QX-11.md) states the recipe (section 1), where each log begins (section 2), the head and its short form (section 4), and what a chain proves and does not (section 6). A keeper could still rewrite its chain from a point for a reader who saw no later head, so the head is published where the ledger has no hand: [QX-12](ext/QX-12.md) anchors it in Bitcoin through OpenTimestamps.
 
 ## The clients
 
