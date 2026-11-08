@@ -1,13 +1,17 @@
 /**
- * The door a Quilt hands its coin (coin.ts), its gold (gold.ts) and its trace (trace.ts): the key, the config and the
- * library; the way to sign and to post, which stays the Quilt's own; the trackers to ask and how to ask them; and what
- * the Quilt has read. A Quilt builds one from its private methods when it is made (quilt.ts), so signing and posting
- * reach those three files and no caller of the Quilt.
+ * The door a Quilt hands its coin (coin.ts), its gold (gold.ts), its stake (stake.ts), its sharpening (sharpen.ts) and
+ * its trace (trace.ts): the key, the config and the library; the way to sign and to post, which stays the Quilt's own;
+ * the trackers to ask and how to ask them; what the Quilt has read; and three acts of the Quilt's own those files build
+ * on: the core's pick held to one piece, a problem resolved, and an envelope published as `publish` publishes it, its
+ * announce and its version signed with the home's key. A Quilt builds one from its private methods when it is made
+ * (quilt.ts), so signing and posting reach those five files and no caller of the Quilt.
  */
-import type { Event, Hash, State, Unsigned } from '@bitquilt/core';
+import type { Envelope, Event, Hash, Pick, Problem, State, Unsigned } from '@bitquilt/core';
 import type { Config, Identity } from './config.js';
+import type { Link } from './link.js';
 import type { LayerPiece } from './listings.js';
-import type { Library, Posted } from './resolver.js';
+import type { Published } from './quilt.js';
+import type { Library, Posted, Resolved } from './resolver.js';
 
 export interface Door {
   readonly config: Config;
@@ -42,8 +46,22 @@ export interface Door {
   wellKnown(tracker: string): Promise<Record<string, unknown> | null>;
   /** The tracker's layer over a problem (QX-15, QX-16): per piece, the stake asked and the gold's outcome. */
   layerOf(hash: Hash, tracker: string): Promise<LayerPiece[] | null>;
-  /** A problem opened: its state and the layer of the tracker that answered. */
-  open(input: string): Promise<{ state: State; layer: LayerPiece[] | null }>;
+  /** A problem opened: its state, the layer of the tracker that answered, and the version that replaced it, if any. */
+  open(input: string): Promise<{ state: State; layer: LayerPiece[] | null; superseded: Hash | null }>;
   /** The library saved. */
   save(): void;
+  /** The core's `next` held to one piece, so the pick is that piece's, or null where this key cannot take it. */
+  pickOnly(state: State, piece: Hash, now: string): Pick | null;
+  /** The problem behind a link, resolved, with no library written; null where no resolver answered. */
+  resolve(link: Link): Promise<Resolved | null>;
+  /**
+   * A signed envelope posted to every tracker with its blobs, then its announce and its version where it went, as
+   * `publish` posts them; the home's library notes the problem.
+   */
+  publishEnvelope(
+    envelope: Envelope,
+    blobs: Map<Hash, Uint8Array>,
+    problem: Problem,
+    topics: string[],
+  ): Promise<Published>;
 }

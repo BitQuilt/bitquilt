@@ -9,8 +9,9 @@
  * (away.json) that the connector reads and writes, so a run that got past the driver still stops at the cap, and the
  * claim's `can` leaves out `person` (config.ts), so a piece that wants a person is not offered. The schedule is a
  * launchd user agent on a Mac and a crontab line elsewhere. Every run is appended to away.log beside the record.
- * Before the agent, and whether or not one is here, a turn reveals the owner's gold that has come due (QX-16, gold.ts):
- * that needs no model, and it is what a square verifies and the coin mints on.
+ * Before the agent, and whether or not one is here, a turn runs the owner's part (owner-turn.ts), which reveals the
+ * owner's gold that has come due (QX-16, gold.ts): that needs no model, and it is what a square verifies and the coin
+ * mints on.
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -31,6 +32,8 @@ import { isHash } from '@bitquilt/core';
 import type { Revealed } from './gold.js';
 import type { ServerEntry } from './install.js';
 import { parseLink } from './link.js';
+import { ACCEPTED_STATES } from './listings.js';
+import { oneLine, ownerTurn } from './owner-turn.js';
 import { inParallel } from './pool.js';
 import { say } from './phrases.js';
 import type { Quilt, Sharpened } from './quilt.js';
@@ -76,8 +79,6 @@ export const RUN_TIMEOUT_MS = 10 * 60_000;
 export const NEEDS_AGENT = 'Needs Claude Code or Codex on this machine.';
 /** What the run declares when Claude Code is the agent; a Codex run declares openai/<the model its config names>. */
 export const CLAUDE_MODEL = 'anthropic/claude';
-/** The states in which a returned piece counts as accepted so far. */
-export const ACCEPTED_STATES: readonly string[] = ['accepted_provisional', 'accepted'];
 
 /**
  * One day of the record: how many runs, how many pieces returned, and which, so the summary can ask what became of
@@ -405,11 +406,6 @@ function readIfThere(file: string | null): string | null {
   }
 }
 
-const oneLine = (s: string, max: number) => {
-  const flat = s.replace(/\s+/g, ' ').trim();
-  return flat.length > max ? `${flat.slice(0, max)}...` : flat;
-};
-
 export interface TurnOptions {
   home: string;
   /** The sentence for a seam (QX-19 section 4), in place of the agent CLI's; the tests' way in. */
@@ -448,18 +444,6 @@ export interface Turn {
   sharpened: Sharpened[];
   line: string;
   record: AwayRecord;
-}
-
-/**
- * The turn's sharpening in a few words for the log: how many versions were published and how many sentences were asked
- * and not kept; nothing when there was no seam.
- */
-export function sharpenText(list: readonly Sharpened[]): string {
-  if (list.length === 0) return '';
-  const published = list.filter((s) => s.hash && s.posted.length).length;
-  const left = list.reduce((n, s) => n + s.sentences.filter((x) => !x.kept).length, 0);
-  const refused = list.reduce((n, s) => n + s.refused.length, 0);
-  return `sharpened: ${published} published${left ? `, ${left} sentence${left === 1 ? '' : 's'} not kept` : ''}${refused ? `, ${refused} refused` : ''}`;
 }
 
 /**
@@ -511,94 +495,6 @@ export async function agentSentence(
   const said = agent.name === 'claude' ? saidByClaude(run.stdout) : readIfThere(lastMessage);
   if (existsSync(lastMessage)) unlinkSync(lastMessage);
   return run.code === 0 && said ? said.trim() : null;
-}
-
-/**
- * The turn's reveals in a few words for the log: how many were posted, what the tracker decided, and how many it
- * refused; nothing when there were none.
- */
-export function revealedText(gold: readonly Revealed[]): string {
-  if (gold.length === 0) return '';
-  const posted = gold.filter((g) => !g.error);
-  const count = (outcome: string) => posted.filter((g) => g.outcome === outcome).length;
-  const undecided = posted.length - count('match') - count('miss');
-  const parts = [
-    count('match') ? `${count('match')} match` : '',
-    count('miss') ? `${count('miss')} miss` : '',
-    undecided ? `${undecided} undecided` : '',
-  ].filter(Boolean);
-  const refused = gold.length - posted.length;
-  return `gold: ${posted.length} revealed${parts.length ? ` (${parts.join(', ')})` : ''}${refused ? `, ${refused} refused` : ''}`;
-}
-
-/**
- * What the owner's part of a turn did: the gold revealed, the briefs sharpened, the problems announced again, and all
- * three in a few words for a log line, or nothing when there was nothing to do; and what the keeper's loop did beside
- * it, the queue it sent included, which is the node's and not the owner's, so it is not in `said`.
- */
-export interface OwnerTurn {
-  gold: Revealed[];
-  sharpened: Sharpened[];
-  announced: string[];
-  said: string;
-  kept: { added: number; reads: number; sent: number };
-}
-
-/**
- * The owner's part of a turn, which needs no agent beside it: the gold due revealed (QX-16, gold.ts), and the briefs
- * sharpened where two readings read them apart (QX-19 section 4), the sentence from `ask`, or nothing sharpened where
- * there is no way to ask. A step that fails is written to the log and the turn goes on. A home's node runs it before
- * its agent, and the hosted on-ramp runs it for the owners whose keys it holds.
- */
-export async function ownerTurn(
-  quilt: Quilt,
-  ask: ((q: SentenceAsk) => Promise<string | null>) | null,
-  log: (line: string) => void,
-  now: () => Date = () => new Date(),
-): Promise<OwnerTurn> {
-  let gold: Revealed[] = [];
-  let sharpened: Sharpened[] = [];
-  try {
-    gold = await quilt.revealDue();
-  } catch (e) {
-    log(`${now().toISOString()} gold: not run (${oneLine((e as Error).message, 200)})`);
-  }
-  if (ask) {
-    try {
-      sharpened = await quilt.sharpenDue(ask, now().toISOString());
-    } catch (e) {
-      log(`${now().toISOString()} sharpen: not run (${oneLine((e as Error).message, 200)})`);
-    }
-  }
-  // QX-13 section 3: the problems this key owns announced again where the work on them moved.
-  let announced: string[] = [];
-  try {
-    announced = await quilt.announceDue();
-  } catch (e) {
-    log(`${now().toISOString()} announce: not run (${oneLine((e as Error).message, 200)})`);
-  }
-  // The keeper's loop (WORKSHOP.md section 2, stage one): what waited in the queue sent, and what this node holds kept
-  // whole and current, once an hour with the turn; its own line in the log where it did anything.
-  let kept = { added: 0, reads: 0, sent: 0 };
-  try {
-    const k = await quilt.resolver.keep();
-    kept = { added: k.added, reads: k.reads, sent: k.sent };
-    if (k.added || k.reads || k.sent || k.refused.length)
-      log(
-        `${now().toISOString()} kept: ${k.added} lines, ${k.reads} reads${k.sent ? `, ${k.sent} sent from the queue` : ''}${k.refused.length ? `; ${k.refused.length} chain${k.refused.length === 1 ? '' : 's'} not kept` : ''}`,
-      );
-  } catch (e) {
-    log(`${now().toISOString()} keep: not run (${oneLine((e as Error).message, 200)})`);
-  }
-  return {
-    gold,
-    sharpened,
-    announced,
-    said: [revealedText(gold), sharpenText(sharpened), announced.length ? `announced: ${announced.length}` : '']
-      .filter(Boolean)
-      .join('; '),
-    kept,
-  };
 }
 
 /**

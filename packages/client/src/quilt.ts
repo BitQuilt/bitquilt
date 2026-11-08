@@ -27,8 +27,6 @@ import {
   problemHash,
   renderInputs,
   signEvent,
-  signObject,
-  textIssues,
 } from '@bitquilt/core';
 import * as coin from './coin.js';
 import type { CoinBalance } from './coin.js';
@@ -39,6 +37,7 @@ import * as gold from './gold.js';
 import { type Link, makeLink, parseLink } from './link.js';
 import { type RestAsked, type TraceOutcome, traceAfterReveal } from './trace.js';
 import {
+  ACCEPTED_STATES,
   type ChallengeListing,
   type GoldCount,
   type LayerPiece,
@@ -55,6 +54,10 @@ import {
 import { type AnnouncedWork, NO_WORK, announcementEvent, postToRelays, searchRelays } from './relay.js';
 import { type Library, type Posted, type Resolver, askJson } from './resolver.js';
 import { inParallel } from './pool.js';
+import * as sharpen from './sharpen.js';
+import type { Sharpened } from './sharpen.js';
+import * as staking from './stake.js';
+import type { CoinPlan } from './stake.js';
 import {
   type SentenceAsk,
   acceptedText,
@@ -73,6 +76,7 @@ import {
 export type { CoinBalance } from './coin.js';
 export type { Door } from './door.js';
 export type { Library, Posted } from './resolver.js';
+export type { Sharpened } from './sharpen.js';
 
 /** The vendor and model a host declares, from the name it gives at connection. */
 export function modelFor(hostName: string | undefined, override?: string): string {
@@ -143,23 +147,6 @@ export interface SearchResult {
 }
 
 /**
- * QX-19 section 4: a brief sharpened, or not: the sentence asked for each family with a seam, whether it was kept and
- * why not, and the version published with those kept.
- */
-export interface Sharpened {
-  problem: Hash;
-  sentences: { family: string; field: string; sentence: string | null; kept: boolean; why: string | null }[];
-  hash: Hash | null;
-  posted: string[];
-  refused: string[];
-}
-
-/** The most a sentence added to a brief may run (QX-19 section 4). */
-export const SENTENCE_MAX = 400;
-const NOT_OWNER = 'only the owner sharpens a brief';
-const FROZEN = "that problem's brief is frozen in this home; `quilt freeze <problem> off` thaws it";
-
-/**
  * A problem as a person writes it for `publish`: the title, what done looks like, a slug, and the pieces as the core's
  * envelope takes them, with the data rows inline under the blob names the pieces draw on, and topics for the index
  * (QX-13). `publish` fills what is left out: the settings' defaults (a 48-hour challenge window, a 2-hour lease, the
@@ -224,16 +211,6 @@ export interface Handed {
   seams: Seam[];
 }
 
-/**
- * A plan to lock coin in place of standing (QX-17): where the coin log is, how many units at the burn rate, and the
- * stake they stand for.
- */
-interface CoinPlan {
-  coinHome: string;
-  units: number;
-  stake: number;
-}
-
 /** Whether a string is one of the core's fixed decline reasons. */
 function isDeclineReason(s: string): s is DeclineReason {
   return (DECLINE_REASONS as readonly string[]).includes(s);
@@ -243,8 +220,9 @@ function isDeclineReason(s: string): s is DeclineReason {
  * A Quilt holds the home's key, its config and a resolver, and keeps three things true. It signs with the home's one
  * key and nothing else: every event leaves through `sign`. A post goes to the trackers the library remembers for the
  * problem, then the config's (`trackersFor`), and waits in the resolver's queue when none takes it. The library records
- * what this key opened, claimed, returned, seeded and committed, and is saved after each. The coin (coin.ts) and the
- * gold (gold.ts) do their work through the door it hands them, built here from its private methods.
+ * what this key opened, claimed, returned, seeded and committed, and is saved after each. The coin (coin.ts), the
+ * gold (gold.ts), the stake (stake.ts), the owner's sharpening (sharpen.ts) and the trace (trace.ts) do their work
+ * through the door it hands them, built here from its private methods.
  */
 export class Quilt {
   readonly hostName: string | undefined;
@@ -254,8 +232,8 @@ export class Quilt {
    */
   private readonly wellKnownCache = new Map<string, { at: number; answer: Promise<Record<string, unknown> | null> }>();
   /**
-   * What coin.ts and gold.ts are handed (door.ts): the key, the config, the library, and this Quilt's own signing,
-   * posting and reading.
+   * What coin.ts, gold.ts, stake.ts, sharpen.ts and trace.ts are handed (door.ts): the key, the config, the library,
+   * and this Quilt's own signing, posting and reading.
    */
   private readonly door: Door;
 
@@ -295,6 +273,9 @@ export class Quilt {
       layerOf: (hash, tracker) => q.layerOf(hash, tracker),
       open: (input) => q.open(input),
       save: () => q.save(),
+      pickOnly: (state, piece, now) => q.pickOnly(state, piece, now),
+      resolve: (link) => q.resolver.resolve(link),
+      publishEnvelope: (envelope, blobs, problem, topics) => q.publishEnvelope(envelope, blobs, problem, topics),
     };
   }
 
@@ -792,7 +773,7 @@ export class Quilt {
     let plan: CoinPlan | null = null;
     const unaffordable = asked.unaffordable.filter(within);
     if (!pick && unaffordable.length && tracker) {
-      const instead = await this.coinInstead(hash, state, tracker, unaffordable);
+      const instead = await staking.coinInstead(this.door, hash, state, tracker, unaffordable);
       if (instead) ({ pick, plan } = instead);
       if (plan) stake = plan.stake;
     }
@@ -805,7 +786,7 @@ export class Quilt {
             : 'nothing for this key on that problem right now',
       );
     // 4. The lock before the claim, where a stake is asked.
-    const lock = await this.lockBefore(hash, pick.piece.hash, trackers, stake, plan);
+    const lock = await staking.lockBefore(this.door, hash, pick.piece.hash, trackers, stake, plan);
     // 5. The claim, stamped after the lock so the two fold in order; where it went comes back as `posted`, refused or
     // not.
     const claim = this.sign({
@@ -927,96 +908,6 @@ export class Quilt {
         availability: view.availability,
       };
     return { pick, stake, unaffordable, seams };
-  }
-
-  /**
-   * QX-17: standing is short. Where the tracker honours coin and this key's free coin covers a piece's stake at the
-   * burn rate, that piece is picked and the plan says where the coin is locked and how much; null where no piece can
-   * be covered that way.
-   */
-  private async coinInstead(
-    hash: Hash,
-    state: State,
-    tracker: string,
-    unaffordable: Hash[],
-  ): Promise<{ pick: Pick; plan: CoinPlan } | null> {
-    const coin = await this.coinAt(tracker);
-    if (!coin) return null;
-    const layer = await this.layerOf(hash, tracker);
-    const mine = await this.coinBalance(coin.coinHome);
-    if (!layer || !mine) return null;
-    const byHash = layerByHash(layer);
-    for (const candidate of unaffordable) {
-      const asked = byHash.get(candidate)?.stake ?? 0;
-      const units = asked * coin.burn_rate;
-      if (asked <= 0 || units > mine.free) continue;
-      const pick = this.pickOnly(state, candidate, this.stamp());
-      if (pick) return { pick, plan: { coinHome: coin.coinHome, units, stake: asked } };
-    }
-    return null;
-  }
-
-  /**
-   * The lock before the claim: of standing where the problem asks a stake (QX-15); of coin where the plan says so
-   * (QX-17), the coin locked on the home's log first and then the lock at the door naming it. The person's own client
-   * asked once for the lock and the claim together. What was locked, or null where nothing was asked.
-   */
-  private async lockBefore(
-    hash: Hash,
-    piece: Hash,
-    trackers: string[],
-    stake: number,
-    plan: CoinPlan | null,
-  ): Promise<'standing' | 'coin' | null> {
-    const key = this.needKey().address;
-    if (plan) {
-      const onLog = this.sign({
-        quilt: 1,
-        type: 'lock',
-        key,
-        ts: this.stamp(),
-        body: { problem: hash, piece, amount: plan.units },
-      });
-      const c = await this.resolver.post(onLog, 'coin', [plan.coinHome]);
-      // A queued lock is no lock, since the door would refuse the claim: this one is not left to the queue.
-      if (c.error || c.queued)
-        throw new Error(
-          `the coin's home did not take the lock of ${plan.units} units${c.error ? `: ${c.error}` : ''}; nothing was claimed`,
-        );
-      await this.postSigned(
-        {
-          quilt: 1,
-          type: 'lock',
-          problem: hash,
-          piece,
-          key,
-          ts: this.stamp(1),
-          body: { kind: 'coin', amount: plan.stake, id: eventId(onLog) },
-        },
-        hash,
-        trackers,
-        `coin lock of ${plan.stake}`,
-      );
-      return 'coin';
-    }
-    if (stake > 0) {
-      await this.postSigned(
-        {
-          quilt: 1,
-          type: 'lock',
-          problem: hash,
-          piece,
-          key,
-          ts: this.stamp(),
-          body: { kind: 'standing', amount: stake },
-        },
-        hash,
-        trackers,
-        `lock of ${stake}`,
-      );
-      return 'standing';
-    }
-    return null;
   }
 
   /**
@@ -1201,7 +1092,7 @@ export class Quilt {
         if (kind !== 'agree' && kind !== 'human') return waitsText(verifier);
       }
       const now: string | undefined = layerByHash(layer).get(piece)?.state ?? view?.state;
-      if (now === 'accepted_provisional' || now === 'accepted')
+      if (now && ACCEPTED_STATES.includes(now))
         return 'Two vendors agree: the piece is accepted, provisionally until the challenge window closes, and the standing for it is counted.';
       if (now === 'disputed')
         return 'Another vendor read it differently: the piece is disputed, and a third production from a vendor unrelated to both settles it.';
@@ -1341,28 +1232,6 @@ export class Quilt {
     return posted;
   }
 
-  /**
-   * The stake a problem asks of a claim on its pieces (QX-15): a stake_rule event from the owner on the problem's log,
-   * replacing the one before.
-   */
-  async stakeRule(problem: Hash, min: number, pieces?: string[]): Promise<Posted> {
-    if (!Number.isInteger(min) || min < 0) throw new Error('the stake is a whole number from 0');
-    const { posted } = await this.postSigned(
-      {
-        quilt: 1,
-        type: 'stake_rule',
-        problem,
-        key: this.needKey().address,
-        ts: this.stamp(),
-        body: { min, ...(pieces && pieces.length ? { pieces } : {}) },
-      },
-      problem,
-      this.trackersFor(problem),
-      'stake rule',
-    );
-    return posted;
-  }
-
   /** A name event for this key on the identity log of this client's trackers. */
   async setName(name: string): Promise<Posted> {
     const issues = plainTextProblems(name, 'name');
@@ -1389,20 +1258,7 @@ export class Quilt {
     const { envelope, blobs, problem } = drafted;
     const out = await this.publishEnvelope(envelope, blobs, problem, pattern.topics ?? []);
     if (out.posted.length) {
-      if (pattern.stake) {
-        // QX-15: the stake the owner asks, on the problem's log right after the envelope; a refusal is listed rather
-        // than thrown, since the problem is out.
-        const rule = this.sign({
-          quilt: 1,
-          type: 'stake_rule',
-          problem: out.hash,
-          key: id.address,
-          ts: this.stamp(),
-          body: { min: pattern.stake.min, ...(pattern.stake.pieces?.length ? { pieces: pattern.stake.pieces } : {}) },
-        });
-        const r = await this.resolver.post(rule, out.hash, out.posted);
-        if (r.error && !r.queued) out.refused.push(`stake rule: ${r.error}`);
-      }
+      if (pattern.stake) await staking.ruleAtPublish(this.door, out, pattern.stake);
       if (pattern.gold) {
         try {
           out.gold = await this.commitGold(
@@ -1506,153 +1362,6 @@ export class Quilt {
     return { hash, link: makeLink(hash, posted, problem.slug), posted, refused, relays, gold: null };
   }
 
-  /**
-   * QX-19 section 4: the owner's node sharpens a brief two readings read apart. For each family of this problem with a
-   * piece the core calls disputed on a `source`, `span` or `reading` seam, or disputed between readings that rest on
-   * nothing once the dispute has stood a lease past its last reveal, `ask` is given the brief, the field and both
-   * sides, and answers with the sentence the brief lacks, or null to leave it. Each sentence kept goes at the end of
-   * its family's brief in a version of the problem, `prev` this one, posted as `publish` posts, with the announce's
-   * topics, and the gold the home holds for this problem is committed again on the new pieces. A problem already
-   * replaced is left as it is, and the home notes which version replaced which. `now` is the clock the lease is read
-   * by.
-   */
-  async sharpen(
-    problem: Hash,
-    ask: (q: SentenceAsk) => Promise<string | null>,
-    now = new Date().toISOString(),
-  ): Promise<Sharpened> {
-    const id = this.needKey();
-    if (this.library.problems[problem]?.frozen) throw new Error(FROZEN);
-    const { state, layer, superseded } = await this.open(problem);
-    const old = state.envelope.problem;
-    if (old.owner.toLowerCase() !== id.address.toLowerCase()) throw new Error(NOT_OWNER);
-    const entry = this.library.problems[problem];
-    if (superseded) {
-      if (entry && entry.next !== superseded) {
-        entry.next = superseded;
-        this.save();
-      }
-      return { problem, sentences: [], hash: superseded, posted: [], refused: [] };
-    }
-    const over = layerByHash(layer);
-    const seams = new Map<string, { piece: string; seam: Seam; grounded: boolean }>();
-    const grounded = (x: SeamSide) => x.read !== null && x.span !== null;
-    for (const v of state.pieces) {
-      const l = over.get(v.piece.hash);
-      if ((l?.core ?? v.state) !== 'disputed' || seams.has(v.piece.family) || !l?.seams?.length) continue;
-      // Two readings that both rest on the record: the seam says why they differ, and the sentence decides between
-      // them.
-      const both = l.seams.find((s) => s.why !== 'unknown');
-      if (both) {
-        seams.set(v.piece.family, { piece: v.piece.name, seam: both, grounded: true });
-        continue;
-      }
-      // Readings that rest on nothing, none set aside, and the dispute a lease old since its last reveal: nothing a
-      // reader could prefer, so the sentence says which record governs and where it is read.
-      if (l.state !== 'disputed' || l.seams.some((s) => s.sides.some(grounded))) continue;
-      const leaseMs = (v.piece.lease_h ?? old.settings.lease_h) * 3_600_000;
-      const last = v.reveals.reduce((t, r) => (r.at > t ? r.at : t), '');
-      if (!last || Date.parse(last) + leaseMs > Date.parse(now)) continue;
-      seams.set(v.piece.family, { piece: v.piece.name, seam: l.seams[0]!, grounded: false });
-    }
-    const sentences: Sharpened['sentences'] = [];
-    const pieces = structuredClone(old.pieces);
-    for (const [family, { piece, seam, grounded: both }] of seams) {
-      const key = Object.keys(pieces).find((k) => k === `${family}/*` || k === family || k === piece);
-      const def = key ? pieces[key] : undefined;
-      if (!def) continue;
-      const said =
-        (await ask({ family, brief: def.brief, field: seam.field, seam, piece, grounded: both }))
-          ?.replace(/\s+/g, ' ')
-          .trim() ?? '';
-      const why = !said
-        ? 'no sentence'
-        : said.length > SENTENCE_MAX
-          ? `over ${SENTENCE_MAX} characters`
-          : (textIssues(said)[0] ?? null);
-      sentences.push({ family, field: seam.field, sentence: said || null, kept: why === null, why });
-      if (why === null) def.brief = `${def.brief} ${said}`;
-    }
-    if (!sentences.some((s) => s.kept)) return { problem, sentences, hash: null, posted: [], refused: [] };
-    const resolved = await this.resolver.resolve(parseLink(problem));
-    if (!resolved) throw new Error('no resolver answered for that hash');
-    const next: Problem = { ...old, prev: problem, pieces };
-    const unsigned = {
-      quilt: 1 as const,
-      problem: next,
-      hints: { trackers: this.config.trackers, mirrors: this.config.mirrors },
-    };
-    const envelope: Envelope = { ...unsigned, sig: signObject(unsigned, id.secret) };
-    const announce = resolved.receipts.find(
-      (r) => r.event.type === 'announce' && r.event.key.toLowerCase() === id.address.toLowerCase(),
-    );
-    const topics = (announce?.event.body as { topics?: string[] } | undefined)?.topics ?? [];
-    const out = await this.publishEnvelope(envelope, resolved.blobs, next, Array.isArray(topics) ? topics : []);
-    if (out.posted.length) {
-      const kept = this.library.gold?.[problem];
-      if (kept && Object.keys(kept).length) {
-        try {
-          out.gold = await this.commitGold(
-            out.hash,
-            Object.fromEntries(Object.values(kept).map((g) => [g.name, g.projection])),
-            undefined,
-            expandPieces(next, resolved.blobs),
-            out.posted,
-          );
-        } catch (err) {
-          out.refused.push(`gold: ${(err as Error).message}`);
-        }
-      }
-      const was = this.library.problems[problem];
-      if (was) was.next = out.hash;
-      this.save();
-    }
-    return { problem, sentences, hash: out.posted.length ? out.hash : null, posted: out.posted, refused: out.refused };
-  }
-
-  /**
-   * The owner's freeze of a problem's brief in this home (QX-19 section 4): from now on the owner's turn does not
-   * sharpen it, so a dispute after the freeze waits beside the brief as written and no version moves the squares
-   * already made onto another hash; the gold due is still revealed. Off thaws it. Only a problem this home's library
-   * knows and this key owns.
-   */
-  async freeze(problem: Hash, on = true): Promise<{ problem: Hash; frozen: string | null }> {
-    const id = this.needKey();
-    const entry = this.library.problems[problem];
-    if (!entry) throw new Error("that problem is not in this home's library");
-    const { state } = await this.open(problem);
-    if (state.envelope.problem.owner.toLowerCase() !== id.address.toLowerCase())
-      throw new Error('only the owner freezes a brief');
-    const kept = this.library.problems[problem]!;
-    if (on) kept.frozen ??= this.stamp();
-    else delete kept.frozen;
-    this.save();
-    return { problem, frozen: kept.frozen ?? null };
-  }
-
-  /**
-   * The owner's sharpening over every problem the home knows and this key owns, each once (QX-19 section 4); the away
-   * turn runs it before its agent. A problem with no such seam, or one frozen here, is passed over in silence.
-   */
-  async sharpenDue(
-    ask: (q: SentenceAsk) => Promise<string | null>,
-    now = new Date().toISOString(),
-  ): Promise<Sharpened[]> {
-    if (!this.identity) return [];
-    const out: Sharpened[] = [];
-    for (const h of new Set([...Object.keys(this.library.problems), ...Object.keys(this.library.gold ?? {})])) {
-      if (!isHash(h) || this.library.problems[h]?.next || this.library.problems[h]?.frozen) continue;
-      try {
-        const r = await this.sharpen(h, ask, now);
-        if (r.sentences.length) out.push(r);
-      } catch (e) {
-        if ((e as Error).message !== NOT_OWNER)
-          out.push({ problem: h, sentences: [], hash: null, posted: [], refused: [(e as Error).message] });
-      }
-    }
-    return out;
-  }
-
   // What was read, said as text: the work is in render.ts, and these hand it the config's trackers where it needs them.
 
   /** A problem said whole, as quilt_open answers it (render.ts, `summary`). */
@@ -1695,6 +1404,32 @@ export class Quilt {
   /** The panels said as text (render.ts, `panelsText`). */
   panelsText(list: PanelListing[], state: State): string {
     return panelsText(list, state);
+  }
+
+  // The stake (QX-15): the rule a problem's owner sets. The work is in stake.ts, through the door, with the lock
+  // before a claim that `next` posts.
+
+  /** The stake a problem asks of a claim on its pieces, replacing the one before (stake.ts, `stakeRule`). */
+  stakeRule(problem: Hash, min: number, pieces?: string[]): Promise<Posted> {
+    return staking.stakeRule(this.door, problem, min, pieces);
+  }
+
+  // The owner's sharpening (QX-19 section 4): a brief sharpened where two readings read it apart, a brief frozen in
+  // this home, and the sharpening over every problem this key owns. The work is in sharpen.ts, through the door.
+
+  /** A brief sharpened where two readings read it apart, the lease read by `now` (sharpen.ts, `sharpen`). */
+  sharpen(problem: Hash, ask: (q: SentenceAsk) => Promise<string | null>, now?: string): Promise<Sharpened> {
+    return sharpen.sharpen(this.door, problem, ask, now);
+  }
+
+  /** The owner's freeze of a problem's brief in this home, or with `on` false its thaw (sharpen.ts, `freeze`). */
+  freeze(problem: Hash, on?: boolean): Promise<{ problem: Hash; frozen: string | null }> {
+    return sharpen.freeze(this.door, problem, on);
+  }
+
+  /** The owner's sharpening over every problem the home knows and this key owns (sharpen.ts, `sharpenDue`). */
+  sharpenDue(ask: (q: SentenceAsk) => Promise<string | null>, now?: string): Promise<Sharpened[]> {
+    return sharpen.sharpenDue(this.door, ask, now);
   }
 
   // The coin (QX-17): where it lives, what this key holds of it, and the three events that move it. The work is in

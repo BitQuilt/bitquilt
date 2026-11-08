@@ -1,7 +1,8 @@
 /**
  * What a tracker lists, as this client reads it: a piece in the tracker's layer, a challenge, a judge panel, the gold
- * summed, a takedown, a scrape; and what `open` gathers of a problem for the render module. Types alone: the reading is
- * in quilt.ts and the saying in render.ts, and neither imports the other for one of these.
+ * summed, a takedown, a scrape; and what `open` gathers of a problem for the render module. Types, with the two fixed
+ * lists that go with them, the sides of a challenge and the states that count as accepted so far: the reading is in
+ * quilt.ts and the saying in render.ts, and neither imports the other for one of these.
  */
 import type { Hash, PieceState, State } from '@bitquilt/core';
 
@@ -30,6 +31,9 @@ export interface KindWords {
  * recording and recorded (QX-20).
  */
 export type LayerState = PieceState | 'challenged' | 'judging' | 'recording' | 'recorded';
+
+/** The states in which a returned piece counts as accepted so far. */
+export const ACCEPTED_STATES: readonly string[] = ['accepted_provisional', 'accepted'];
 
 /**
  * QX-20 section 3: a record piece's grade as the tracker gives it: the readings wanted and standing, how many rest on
