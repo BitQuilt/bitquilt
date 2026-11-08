@@ -24,9 +24,10 @@
  * only where the mirror's own agree.
  *
  * The keeping is over a store (files.ts: envelopes, blobs and the lines of each log), the mirror's layout under its
- * folder here and a tracker's store in a node (NODE.md section 5): `keep()` is the pull alone, which a node with the
- * `keep` role runs over the store its door writes, and `mirror()` is the same pull over the files with the publication
- * after it, the names, the outputs, the index, the keys, the balances and the anchors.
+ * folder here and a tracker's store in a node (NODE.md section 5): `keep()` is the pull alone, which a node with `keep`
+ * and no door runs over its own store, and `mirror()` is the same pull over the files with the publication after it,
+ * the names, the outputs, the index, the keys, the balances and the anchors. A node with a door keeps by the door's
+ * pull of its peers instead (NODE.md section 1).
  *
  * A run is one context carrying what every step shares, and each step is a function below that says what it refuses.
  */
@@ -104,7 +105,7 @@ export interface DepositReader {
   depositAt(n: number): Promise<{ root: string; amount: bigint | number; made: boolean }>;
 }
 
-/** The pull alone, over a store given: what a node with the `keep` role runs (NODE.md section 5). */
+/** The pull alone, over a store given: what a node with `keep` and no door runs (NODE.md section 5). */
 export interface KeepOptions {
   /** The store kept in: the mirror's files, or a node's store, each answering files.ts's methods. */
   store: KeptStore;
@@ -223,7 +224,7 @@ async function pull(ctx: Context, options: KeepOptions): Promise<void> {
   keepTheRest(ctx);
 }
 
-/** The keeper's pull over a store given, and nothing written beside it: what a node with the `keep` role runs. */
+/** The keeper's pull over a store given, and nothing written beside it: what a node with `keep` and no door runs. */
 export async function keep(options: KeepOptions): Promise<MirrorReport> {
   const ctx = contextFor(options);
   await pull(ctx, options);

@@ -2,8 +2,8 @@
  * The store a keeper keeps in (NODE.md section 2): envelopes, blobs, and the lines of each log, a problem's under its
  * hash, the identity log under IDENTITY_LOG and the coin log under COIN_LOG. The mirror's layout under its folder is
  * one (`MirrorFiles`); a tracker's store answers the same methods, as the client's cache does (`Chains` in
- * packages/client), so a node keeps with the same steps over the store its door writes. The shape is shared, not
- * imported: the mirror imports the core and the tracker alone.
+ * packages/client), so a node with `keep` and no door keeps with the same steps over its own store, the tracker's. The
+ * shape is shared, not imported: the mirror imports the core and the tracker alone.
  */
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

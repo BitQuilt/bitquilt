@@ -16,12 +16,14 @@
  * path there, so a reader takes it for a record of its day and not a rule. An RFC is another body's document, and is
  * not followed.
  *
- * The words after a comma are a part's name, and held to it, where they are quoted, where they follow a document's
- * name alone, as in "AGENTS.md, the arrows", where they open with a capital letter, as in
- * "CORE.md section 6, Roots and delegates", and where they are one of the documents' own names in any case, as in
- * "CORE.md section 4, the event line". After a part's comma, words in lower case that none of the documents gives as
- * a name are prose and pass, as in "QX-19 section 4, sentence.ts" and "CORE.md section 6, the validation it runs". So
- * a title a comment cites in lower case after a part is held while its heading keeps its name, as CORE.md's do, the
+ * The words after a comma run to the next mark, such as a comma, a colon or a closing parenthesis. They are a part's
+ * name, and held to it, where they are quoted, where they follow a document's name alone, as in
+ * "AGENTS.md, the arrows", where they open with a capital letter after a part or an extension's number, as in
+ * "CORE.md section 6, Roots and delegates", and where the whole of them is one of the documents' own names in any
+ * case, as in "CORE.md section 4, the event line". After a part's comma, or an extension's number alone, words in
+ * lower case that are not the whole of such a name are prose and pass, even where they open with one, as in
+ * "QX-19 section 4, next hands the piece on", and so does a file's name, as in "QX-19 section 4, sentence.ts". So a
+ * title a comment cites in lower case after a part is held while its heading keeps its name, as CORE.md's do, the
  * core being frozen.
  */
 import { readFileSync, readdirSync } from 'node:fs';
@@ -222,13 +224,16 @@ const NUMBERED_AT = (lead: string) => new RegExp(String.raw`^${lead}(${PART}) ($
 const FIRST_PART = NUMBERED_AT(',? ');
 const NEXT_PART = NUMBERED_AT(', ');
 const OF_NAME = new RegExp(String.raw`^ of (${PATHED})(?![\w-])`);
-const NAMED_AT = new RegExp(
-  String.raw`^, (?!(?:${PATHED})(?![\w-]))(${NAMES.map(escape).join('|')})(?![\w-]|\.\w)`,
-  'i',
-);
+/** Where a name after a comma ends: at a stop mark or the line's end, not at a file's dot, so "next.ts" is no name. */
+const STOP = String.raw`(?=\s*(?:[);:,"(]|\.(?!\w)|$))`;
+/** After a comma, the whole of one of the documents' names, up to the next stop mark, in either case. */
+const NAMED_AT = new RegExp(String.raw`^, (?!(?:${PATHED})(?![\w-]))(${NAMES.map(escape).join('|')})${STOP}`, 'i');
 /** After a document's comma, the words up to where a name would end, where they are not another document's name. */
 const CLAIMED = new RegExp(String.raw`^, (?!(?:${PATHED})(?![\w-]))([^);:,."(]+)`);
-/** After a part's comma, words that open with a capital letter, up to where a name would end: a title, not prose. */
+/**
+ * After a part's comma, or an extension's number alone, words that open with a capital letter, up to where a name
+ * would end: a title, not prose.
+ */
 const TITLED = new RegExp(String.raw`^, (?!(?:${PATHED})(?![\w-]))([A-Z][^);:,."(]*)`);
 
 /** A part's word in the singular and in lower case: "Sections" is "section", "fixes" is "fix". */
@@ -273,7 +278,8 @@ function citationsIn(text: string): Cited[] {
       const part = NEXT_PART.exec(rest);
       const found = part ?? /^, "([^"]+)"/.exec(rest) ?? NAMED_AT.exec(rest);
       const afterPart = cited.sections.length > 0 || cited.within.length > 0;
-      const claim = afterPart ? TITLED : cited.name?.endsWith('.md') ? CLAIMED : null;
+      const extension = /^QX-\d+$/.test(cited.name ?? '');
+      const claim = afterPart || extension ? TITLED : cited.name?.endsWith('.md') ? CLAIMED : null;
       const match = found ?? claim?.exec(rest) ?? null;
       if (!match) break;
       if (part) cited.within.push({ part: singular(part[1]!), numbers: numbers(part[2]!) });
@@ -471,6 +477,9 @@ describe('a citation names a part its document has', () => {
     ['a number with no document of its own, named alone', '// the stamp (QX-7)'],
     ['a section, then words that name no part', '// the gate (CORE.md section 11, and the stamp at the door)'],
     ['a section, then a file after its comma', '// the sentence a brief lacks (QX-19 section 4, sentence.ts)'],
+    ['a section, then a file whose name opens with a part', '// the hand-out (QX-19 section 4, next.ts)'],
+    ['a section, then prose that opens with a name', '// the hand-out (QX-19 section 4, next hands the piece on)'],
+    ['a section, then prose that opens with a heading', '// the hash (CORE.md section 2, order of the keys)'],
     ['a section, its title, then prose', '// the fold (CORE.md section 6, Roots and delegates, and the Drop list)'],
   ])('passes %s', (_, text) => {
     expect(wrongIn(text)).toEqual([]);
@@ -485,9 +494,9 @@ describe('a citation names a part its document has', () => {
       'docs/CORE.md section 5 has no part named "Envelopes"',
     ],
     [
-      'a heading of another document',
+      'a part of another document',
       '// what a tracker hands (CORE.md, assisted next)',
-      'docs/CORE.md has no part named "assisted"',
+      'docs/CORE.md has no part named "assisted next"',
     ],
     ['a heading quoted that is not there', '// (APP.md, "The windows")', 'docs/APP.md has no part named "The windows"'],
     ['a name after a comma that is no part', '// (APP.md, the card)', 'docs/APP.md has no part named "the card"'],
@@ -498,8 +507,18 @@ describe('a citation names a part its document has', () => {
     ],
     [
       'a title after a section that only opens with a name',
-      '// the receipt (CORE.md section 6, Envelope order)',
-      'docs/CORE.md section 6 has no part named "Envelope order"',
+      '// the receipt (CORE.md section 6, Envelopes order)',
+      'docs/CORE.md section 6 has no part named "Envelopes order"',
+    ],
+    [
+      'a title after a document that only opens with a heading',
+      '// the card (APP.md, The window manager)',
+      'docs/APP.md has no part named "The window manager"',
+    ],
+    [
+      "a title after an extension's number alone",
+      '// the root (QX-11, The vanished part)',
+      'docs/ext/QX-11.md has no part named "The vanished part"',
     ],
     ['a rule past the last', '// (AGENTS.md, rule 11)', 'AGENTS.md has no rule 11'],
     ['a step of the wrong heading', '// (docs/DEPLOY.md, "The walk", step 10)', 'has no step 10'],
