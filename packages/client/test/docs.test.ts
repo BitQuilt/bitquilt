@@ -107,13 +107,33 @@ function linksIn(file: string): Link[] {
 const links = files.flatMap(linksIn);
 const where = (l: Link): string => `${l.from}: ${l.target}`;
 
-/** The folders at the root a path in code marks opens with: every one the repository keeps, and the workflows'. */
+/**
+ * The folders at the root a path in code marks opens with, written out and not read from the disk, so a folder renamed
+ * or removed is still read and its old paths fail where a document writes them. A test holds every folder the
+ * repository keeps at the root to this list, so a new one is read too.
+ */
 const TOP = [
-  ...readdirSync(root, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !['node_modules', 'dist', 'coverage'].includes(e.name))
-    .map((e) => e.name),
   '.github',
-].sort();
+  'apps',
+  'contracts',
+  'deploy',
+  'docs',
+  'examples',
+  'impl',
+  'mirror',
+  'packages',
+  'scripts',
+  'site',
+];
+
+/** The folders at the root the repository keeps: every one but a dot folder and those .gitignore names. */
+function rootFolders(): string[] {
+  const ignored = new Set([...read('.gitignore').matchAll(/^([\w.-]+)\/$/gm)].map((m) => m[1]!));
+  return readdirSync(root)
+    .filter((name) => !name.startsWith('.') && !ignored.has(name))
+    .filter((name) => statSync(join(root, name)).isDirectory())
+    .sort();
+}
 
 /** The files at the root, by name. */
 const ROOT_NAMES = new Set(
@@ -303,6 +323,13 @@ describe("the documents' paths in code marks", () => {
     );
     expect([...bare].sort()).toEqual([...BARE].sort());
     for (const name of BARE) expect(present(name), name).toBe(true);
+  });
+
+  it('opens a path with every folder the repository keeps at the root, and still reads one that is gone', () => {
+    expect(rootFolders().filter((f) => !TOP.includes(f))).toEqual([]);
+    expect(TOP).toContain('.github');
+    expect(pathsOf('contracts/src/Gone.sol')).toEqual(['contracts/src/Gone.sol']);
+    expect(present('contracts/src/Gone.sol')).toBe(false);
   });
 
   it('finds a path that names nothing, and one whose case differs', () => {
