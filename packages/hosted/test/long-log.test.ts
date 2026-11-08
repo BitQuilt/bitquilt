@@ -1,14 +1,10 @@
-import { randomBytes } from 'node:crypto';
-import { mkdtempSync } from 'node:fs';
 import { type Server, createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash, type Receipt, type Signature, addressOf } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
-import { DEFAULT_CONFIG, Quilt, Resolver, createKey, loadKey, type Pattern } from 'quilt';
-import { createHosted } from '../src/hosted.js';
+import { Store } from '@bitquilt/tracker';
+import type { Pattern, Quilt } from 'quilt';
+import { openDoor, quiltOver } from './helpers.js';
 
 /**
  * The page of a square over a long chain (QX-19): what a reading rests on is found though its reveal and its trace
@@ -32,35 +28,13 @@ beforeAll(async () => {
   });
   await new Promise<void>((r) => pages.listen(0, '127.0.0.1', () => r()));
   site = `http://127.0.0.1:${(pages.address() as AddressInfo).port}`;
-  const custodySecret = randomBytes(16).toString('hex');
-  const hosted = createHosted({
-    store,
-    trackerUrl: () => base,
-    keySecret: 'test-secret',
-    home: mkdtempSync(join(tmpdir(), 'hosted-')),
-    custodySecret,
-    relays: ['ws://127.0.0.1:1'],
-    sentence: null,
-  });
-  server = await createTracker({
-    store,
-    url: 'http://t.test/',
-    ipSalt: 's',
-    custodySecret,
-    extra: hosted.routes,
-  }).listen(0);
-  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
+  ({ server, base } = await openDoor({ store, hosted: { relays: ['ws://127.0.0.1:1'], sentence: null } }));
 });
 afterAll(() =>
   Promise.all([new Promise<void>((r) => server.close(() => r())), new Promise<void>((r) => pages.close(() => r()))]),
 );
 
-function quilt(n: number, model: string): Quilt {
-  const home = mkdtempSync(join(tmpdir(), 'long-'));
-  createKey(home, { secretHex: '00'.repeat(31) + n.toString(16).padStart(2, '0') });
-  const config = { ...DEFAULT_CONFIG, trackers: [base], model };
-  return new Quilt(config, loadKey(home), new Resolver(config, home), 'Claude Code');
-}
+const quilt = (n: number, model: string): Quilt => quiltOver(base, n, model);
 
 /** `n` lines of an event no reader folds, received before anything else on the chain. */
 function fill(log: Hash, n: number): void {

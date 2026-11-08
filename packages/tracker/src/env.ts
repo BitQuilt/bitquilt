@@ -1,6 +1,7 @@
 /**
  * What a tracker binary reads from the environment, and nothing else: the port, host and database path the process
- * needs, and the options `createTracker` takes. Both binaries, the tracker's and the hosted on-ramp's, read it here.
+ * needs, and the options `createTracker` takes. The three binaries with a door, the tracker's, the hosted on-ramp's
+ * and the node's, read it here.
  *   QUILT_PORT (3977)
  *   QUILT_HOST (127.0.0.1)
  *   QUILT_DB (./quilt-tracker.db)

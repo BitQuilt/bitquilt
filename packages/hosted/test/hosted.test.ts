@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { type Server, createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -8,20 +8,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { type Hash, type Receipt, addressOf, secretFromHex } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
-import {
-  AWAY_LOG,
-  DEFAULT_CONFIG,
-  Quilt,
-  Resolver,
-  WINDOW_URI_NOW,
-  createKey,
-  loadKey,
-  makeLink,
-  type Pattern,
-  type SentenceAsk,
-} from 'quilt';
-import { type Hosted, createHosted } from '../src/hosted.js';
+import { Store } from '@bitquilt/tracker';
+import { AWAY_LOG, Quilt, WINDOW_URI_NOW, makeLink, type Pattern, type SentenceAsk } from 'quilt';
+import type { Hosted } from '../src/hosted.js';
+import { openDoor, quiltOver } from './helpers.js';
 import { answerText, sentenceVendor, vendorSentence } from '../src/sentence.js';
 
 /**
@@ -43,7 +33,6 @@ let hosted: Hosted;
 let pages: Server;
 let site: string;
 const hostedHome = mkdtempSync(join(tmpdir(), 'hosted-'));
-const custodySecret = randomBytes(16).toString('hex');
 const store = new Store(':memory:');
 const PAGE =
   '<!doctype html><html><body><p>The paper says the effect holds in every trial.</p><p>A later section says it does not hold at scale.</p></body></html>';
@@ -59,26 +48,18 @@ beforeAll(async () => {
   await new Promise<void>((r) => pages.listen(0, '127.0.0.1', () => r()));
   site = `http://127.0.0.1:${(pages.address() as AddressInfo).port}`;
   // A relay nothing listens on: the members' Quilts know it (QX-14) and a search's ask of it fails at once.
-  hosted = createHosted({
+  ({ server, base, hosted } = await openDoor({
     store,
-    trackerUrl: () => base,
-    keySecret: 'test-secret',
-    home: hostedHome,
-    custodySecret,
-    relays: ['ws://127.0.0.1:1'],
-    sentence: async (q) => {
-      asked.push(q);
-      return 'The first section governs, whatever a later one says of scale.';
+    hosted: {
+      home: hostedHome,
+      relays: ['ws://127.0.0.1:1'],
+      sentence: async (q) => {
+        asked.push(q);
+        return 'The first section governs, whatever a later one says of scale.';
+      },
     },
-  });
-  const tracker = createTracker({ store, url: 'http://t.test/', ipSalt: 's', custodySecret, extra: hosted.routes });
-  server = await tracker.listen(0);
-  const a = server.address();
-  base = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}/` : '';
-  const ownerHome = mkdtempSync(join(tmpdir(), 'owner-'));
-  createKey(ownerHome, { secretHex: '00'.repeat(31) + '09' });
-  const config = { ...DEFAULT_CONFIG, trackers: [base] };
-  const owner = new Quilt(config, loadKey(ownerHome), new Resolver(config, ownerHome), 'Claude Code');
+  }));
+  const owner = quiltOver(base, 0x09);
   const pattern: Pattern = {
     title: 'Hosted',
     done_when: 'Done.',
@@ -363,12 +344,7 @@ describe('the hosted on-ramp', () => {
 
 describe('the page of a square', () => {
   /** A Quilt of its own home whose key is the byte `n`, declaring `model`, over this tracker. */
-  const mk = (n: number, model: string) => {
-    const home = mkdtempSync(join(tmpdir(), 'square-'));
-    createKey(home, { secretHex: '00'.repeat(31) + n.toString(16).padStart(2, '0') });
-    const config = { ...DEFAULT_CONFIG, trackers: [base], model };
-    return new Quilt(config, loadKey(home), new Resolver(config, home), 'Claude Code');
-  };
+  const mk = (n: number, model: string) => quiltOver(base, n, model);
   const schema = {
     type: 'object',
     additionalProperties: false,
@@ -607,12 +583,7 @@ describe("the owners' turn", () => {
     )![1]! as Hash;
     await client.close();
     // Two readers of different vendors rest the field on the same page at different places.
-    const reader = (n: number, model: string, host: string): Quilt => {
-      const home = mkdtempSync(join(tmpdir(), `reader-${n}-`));
-      createKey(home, { secretHex: '00'.repeat(31) + `0${n}` });
-      const config = { ...DEFAULT_CONFIG, trackers: [base], model };
-      return new Quilt(config, loadKey(home), new Resolver(config, home), host);
-    };
+    const reader = (n: number, model: string, host: string): Quilt => quiltOver(base, n, model, host);
     const a = reader(1, 'anthropic/claude', 'Claude Code');
     const b = reader(2, 'openai/gpt-5', 'ChatGPT');
     const piece = (await a.open(hash)).state.pieces[0]!.piece.hash;

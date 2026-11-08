@@ -9,10 +9,22 @@
  * turn every hour. The store is one, the tracker's, which answers the client's `Chains` and the mirror's store: what
  * the door admits is what the node serves and keeps, and a line on a node's chain is a line whether a door or a keep
  * wrote it. A tracker is a node with `admit`; a mirror a node with `keep`, with the files it publishes written beside;
- * a worker a node with `work`; the hosted on-ramp a node with `admit` and `host`. The four binaries remain and are
- * these four starts.
+ * a worker a node with `work`; the hosted on-ramp a node with `admit` and `host`.
+ *
+ * The programs, and the roles each runs. bitquilt-node alone calls `start`; each of the others runs its roles through
+ * the same parts `start` runs, and is a program of its own for the reason its row gives.
+ *   bitquilt-node     the roles QUILT_ROLES names, admit,keep unless set, which runs as admit, since a node with a
+ *                     door keeps through the door (bin.ts)
+ *   bitquilt-tracker  admit: `createTracker` and `schedulePeerPulls`; a release executable is built from it that holds
+ *                     the tracker and the core alone (scripts/build-binaries.mjs)
+ *   bitquilt-hosted   admit and host: `hostedDoor` and `scheduleOwnersTurn`, with the members' homes at
+ *                     QUILT_HOSTED_HOME and no node home; the hosted package cannot import the node's, which imports it
+ *   bitquilt-mirror   keep: `mirror`, the pull `keep` runs, over its folder of files and with the publication written
+ *                     after it; its binary alone imports the coin, to check each credit against the chain
+ *   quilt serve       work and keep: `createPage` with its keep loop, `Resolver.keep`, over the home's files; the
+ *                     client imports the core alone
+ * The deploy runs bitquilt-node for both doors, and the image's command is the same (Dockerfile).
  */
-import { randomBytes } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { join } from 'node:path';
@@ -25,7 +37,7 @@ import {
   createTracker,
   schedulePeerPulls,
 } from '@bitquilt/tracker';
-import { type Hosted, type HostedOptions, createHosted } from '@bitquilt/hosted';
+import { type Hosted, type HostedOptions, hostedDoor, scheduleOwnersTurn } from '@bitquilt/hosted';
 import { type MirrorReport, keep as keepSwarm } from '@bitquilt/mirror';
 
 export type Role = 'admit' | 'work' | 'keep' | 'host';
@@ -90,9 +102,6 @@ export interface Node {
   close(): Promise<void>;
 }
 
-/** Every hour, the owners' turn for the keys a host holds (hosted/bin.ts does the same for the hosted binary). */
-const OWNERS_TURN_EVERY_MS = 3_600_000;
-
 export async function start(options: StartOptions): Promise<Node> {
   const roles = new Set(options.roles);
   for (const r of roles)
@@ -124,24 +133,14 @@ export async function start(options: StartOptions): Promise<Node> {
   let door: Server | null = null;
   if (roles.has('admit')) {
     const { port, host, ...rest } = options.door!;
-    const custodySecret = randomBytes(32).toString('hex');
     if (custody) {
       const { home: membersHome, ...hostRest } = custody;
-      hosted = createHosted({
-        ...hostRest,
+      ({ tracker, hosted } = hostedDoor({
         store,
-        trackerUrl: rest.url,
-        custodySecret,
-        home: membersHome ?? join(options.home, 'hosted'),
-        fetchImpl,
-      });
-    }
-    tracker = createTracker({
-      ...rest,
-      store,
-      custodySecret,
-      ...(hosted ? { extra: hosted.routes, extraWellKnown: hosted.describe } : {}),
-    });
+        tracker: rest,
+        hosted: { ...hostRest, trackerUrl: rest.url, home: membersHome ?? join(options.home, 'hosted'), fetchImpl },
+      }));
+    } else tracker = createTracker({ ...rest, store });
     door = await tracker.listen(port, host ?? '127.0.0.1');
   }
 
@@ -194,12 +193,7 @@ export async function start(options: StartOptions): Promise<Node> {
       timers.push(setTimeout(loop, 120_000).unref(), setInterval(loop, KEEP_EVERY_MS).unref());
     }
     if (tracker) schedulePeerPulls(tracker, options.door?.peers ?? [], say);
-    if (hosted) {
-      const turn = once(async () => {
-        for (const t of await hosted!.turn()) if (t.said) say(`owners' turn, ${t.address}: ${t.said}`);
-      });
-      timers.push(setTimeout(turn, 60_000).unref(), setInterval(turn, OWNERS_TURN_EVERY_MS).unref());
-    }
+    if (hosted) timers.push(...scheduleOwnersTurn(hosted, say));
   }
 
   async function keep(): Promise<{ kept: KeepReport; swarm: MirrorReport | null; pulls: PeerPull[] }> {
