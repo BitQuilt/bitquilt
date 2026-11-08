@@ -102,7 +102,8 @@ pre{font-family:ui-monospace,Menlo,monospace;font-size:.9rem;background:#e3e6eb;
   };
   $('allow').addEventListener('click', function () { answer(true); });
   $('decline').addEventListener('click', function () { answer(false); });
-  // Sign-up inside the connection: the join route makes an address, as the join page's button does, and it goes into the field above.
+  // Sign-up inside the connection: the join route makes an address, as the join page's button does, and it goes into
+  // the field above.
   var copy = function (button, value) {
     navigator.clipboard.writeText(value).then(function () { button.textContent = 'Copied'; setTimeout(function () { button.textContent = 'Copy'; }, 1500); });
   };
