@@ -118,6 +118,14 @@ export const SIDES = ['challenger', 'author'] as const;
 export type Side = (typeof SIDES)[number];
 export type Outcome = 'open' | 'held' | 'failed' | 'void';
 export type LayerState = PieceState | 'challenged' | 'judging' | 'recording' | 'recorded';
+/** Whether a piece in this layered state counts as accepted: its set stands, provisionally or not, unchallenged. */
+export function countsAsAccepted(state: string): boolean {
+  return state === 'accepted' || state === 'accepted_provisional';
+}
+/** Whether a piece in this layered state still carries its accepting set. */
+export function carriesSet(state: string): boolean {
+  return state === 'accepted' || state === 'accepted_provisional' || state === 'challenged';
+}
 export const CHALLENGE_EVENTS: ReadonlySet<string> = new Set(['challenge', 'verdict']);
 
 export interface VerdictView {

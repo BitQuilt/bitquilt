@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Address, type Envelope, type Hash, commitHash, newNonce, problemHash } from '@bitquilt/core';
+import { type Address, type Envelope, type Hash, commitHash, newNonce, problemHash, signEvent } from '@bitquilt/core';
+import { challengeLayer } from '../src/challenge.js';
+import { coinEventRefusal, coinLayer } from '../src/coin.js';
 import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
@@ -9,7 +11,8 @@ import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js
  * or not, and paid per square to the credited roots; a burn credited as standing; a forfeit taking the lock and as much
  * again from the unvested, and a held challenge restoring both; a transfer and a redeem from vested free coin, the
  * redeem listed under the head for the bridge, and a credit from the reader for a deposit burned on the chain; every
- * balance under the head.
+ * balance under the head. An event of another type, or one naming a problem, is refused in one set of words at the
+ * door and in the fold (`coinEventRefusal`).
  */
 const ownerP = key(9),
   ownerQ = key(8),
@@ -288,12 +291,14 @@ describe('the coin as a layer', () => {
       );
     const last = lines[lines.length - 1]!;
     expect(last.event.type).toBe('lock');
-    expect(last.received[0]!.stake).toMatchObject({
+    // The word is the lock word the stake layer reads, and the head the reading stood under, and nothing else.
+    expect(last.received[0]!.stake).toEqual({
       kind: 'coin',
       amount: 1,
       id: coinLockId,
       units: 100,
       home: 'here',
+      head: { seq: expect.any(Number), hash: expect.stringMatching(/^[0-9a-f]{64}$/) },
     });
     expect(await coinLock(coinLockId)).toMatchObject({ bound, state: 'live' });
     await accepted(`/p/${p}/events`, ev(A, 'claim', { by: by('anthropic/claude') }, p, p3));
@@ -397,6 +402,26 @@ describe('the coin as a layer', () => {
     expect(await refused('/coin/events', ev(A, 'burn', { amount: 1 }, p))).toBe(
       'a coin event names no problem in its fields',
     );
+  });
+
+  it('refuses an event of another type, or one naming a problem, in the same words at the door and in the fold', () => {
+    const at = new Date(clock.tick).toISOString();
+    const event = (type: string, body: Record<string, unknown>, problem?: Hash) =>
+      signEvent({ quilt: 1, type, key: addr(A), ts: at, body, ...(problem ? { problem } : {}) }, A);
+    const layered = coinLayer({
+      layer: challengeLayer({ problems: [], now: at }),
+      params: coin,
+      receipts: [],
+      now: at,
+    });
+    for (const [e, why] of [
+      [event('name', { name: 'x' }), 'the coin log takes lock, pay, burn, transfer, redeem and credit'],
+      [event('burn', { amount: 1 }, p), 'a coin event names no problem in its fields'],
+    ] as const) {
+      expect(coinEventRefusal(e)).toBe(why);
+      expect(layered.admit(e)).toEqual({ ok: false, why });
+    }
+    expect(coinEventRefusal(event('burn', { amount: 1 }))).toBeNull();
   });
 
   it('credits a deposit burned on the chain from the reader alone, once per deposit, and lists the credits under the head', async () => {

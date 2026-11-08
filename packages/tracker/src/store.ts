@@ -2,7 +2,9 @@
  * The tracker's store: SQLite through Node's own module, so a tracker runs anywhere Node runs with nothing to compile.
  * Envelopes and blobs by hash; receipts as one chained file per problem (QX-11), stamped strictly increasing; names
  * from version events; announcements for the index (QX-13); the rate-limit buckets; short holds for assisted next;
- * the hosted on-ramp's members, and the clients, codes and grants of its authorization server (QX-18).
+ * the hosted on-ramp's members, and the clients, codes and grants of its authorization server (QX-18). Beside it, the
+ * input the reducer takes for a problem, read from any store that answers an envelope, a blob and a log's lines, so
+ * the door and the mirror fold the same chains the same way.
  */
 import { DatabaseSync } from 'node:sqlite';
 import {
@@ -11,9 +13,12 @@ import {
   type Hash,
   type Receipt,
   type Received,
+  type ReduceInput,
+  IDENTITY_LOG,
   eventId,
   lineHash,
   hashHex,
+  problemHash,
 } from '@bitquilt/core';
 import type { MemberTimes } from './counts.js';
 
@@ -193,18 +198,6 @@ export class Store {
       | { n: number }
       | undefined;
     return row ? row.n : null;
-  }
-
-  /** The blobs a chain of envelopes names, those this store holds. */
-  blobsFor(chain: Envelope[]): Map<Hash, Uint8Array> {
-    const m = new Map<Hash, Uint8Array>();
-    for (const e of chain)
-      for (const h of Object.values(e.problem.data)) {
-        if (m.has(h)) continue;
-        const b = this.getBlob(h);
-        if (b) m.set(h, b);
-      }
-    return m;
   }
 
   hasEvent(problem: Hash, id: Hash): boolean {
@@ -666,4 +659,42 @@ export class Store {
       .all(problem, key, now) as { piece: string }[];
     return new Set(rows.map((r) => r.piece as Hash));
   }
+}
+
+/**
+ * What `reduceInputOf` reads a problem from: an envelope by its hash, a blob by its hash, and every line of a log. The
+ * tracker's store answers it, and so do the mirror's files and a node's store under the keeper (`KeptStore` in
+ * packages/mirror), which share the shape and do not import it.
+ */
+export interface ChainReader {
+  envelopeOf(hash: Hash): Envelope | null;
+  getBlob(hash: Hash): Uint8Array | null;
+  lines(log: Hash): Receipt[];
+}
+
+/**
+ * What the reducer takes for a problem held here: its envelope chain along prev, the blobs, every receipt along the
+ * chain and the identity log.
+ */
+export function reduceInputOf(store: ChainReader, envelope: Envelope, at: string): ReduceInput {
+  const chainEnvelopes: Envelope[] = [envelope];
+  const guard = new Set<Hash>([problemHash(envelope)]);
+  for (let cur = envelope.problem.prev; cur && !guard.has(cur); ) {
+    guard.add(cur);
+    const prev = store.envelopeOf(cur);
+    if (!prev) break;
+    chainEnvelopes.push(prev);
+    cur = prev.problem.prev;
+  }
+  const blobs = new Map<Hash, Uint8Array>();
+  for (const e of chainEnvelopes)
+    for (const h of Object.values(e.problem.data))
+      if (!blobs.has(h)) {
+        const b = store.getBlob(h);
+        if (b) blobs.set(h, b);
+      }
+  const receipts: Receipt[] = [];
+  for (const e of chainEnvelopes) receipts.push(...store.lines(problemHash(e)));
+  receipts.push(...store.lines(IDENTITY_LOG));
+  return { envelopes: chainEnvelopes, blobs, receipts, now: at };
 }

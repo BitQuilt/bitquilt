@@ -13,7 +13,6 @@ import {
   type Envelope,
   type Event,
   type Hash,
-  type Receipt,
   type ReduceInput,
   type Client,
   type Capability,
@@ -52,6 +51,7 @@ import {
   PANEL,
   challengeBodyProblems,
   challengeLayer,
+  countsAsAccepted,
   verdictBodyProblems,
 } from './challenge.js';
 import { HIDE, type Hidden, hideBodyProblems, hiddenNow } from './hide.js';
@@ -72,8 +72,8 @@ import {
   type CoinParams,
   type CoinWord,
   COIN,
-  COIN_EVENTS,
   COIN_LOG,
+  coinEventRefusal,
   coinLayer,
 } from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
@@ -86,15 +86,12 @@ import {
   TRACE,
   TRACE_EVENTS,
   admitTrace,
-  graded,
   passageIn,
-  recordDocument,
-  recordGraded,
-  recordSeams,
-  seamed,
+  problemTraces,
+  recordOutput,
   tracesKept,
 } from './trace.js';
-import type { Store } from './store.js';
+import { type Store, reduceInputOf } from './store.js';
 import { Refusal, json } from './http.js';
 import { hostedPost, witnessOf, witnessedReveals } from './witness.js';
 import { PEER_PULL, PEER_PULL_EVERY_MS, type PeerPull, type PullDoor, pullPeers } from './peers.js';
@@ -271,17 +268,12 @@ export function createTracker(options: TrackerOptions): Tracker {
   };
 
   /**
-   * What the reducer takes for a problem: its chain, the blobs, every line along the chain and the identity log, each
-   * read whole.
+   * What the reducer takes for a problem held here at now (`reduceInputOf`): its chain, the blobs, every line along the
+   * chain and the identity log, each read whole; null where this store holds no such problem.
    */
   function inputFor(hash: Hash): ReduceInput | null {
-    const chain = store.chain(hash);
-    if (chain.length === 0) return null;
-    const hashes = chain.map(problemHash);
-    const receipts: Receipt[] = [];
-    for (const h of hashes) receipts.push(...store.lines(h));
-    receipts.push(...store.lines(IDENTITY));
-    return { envelopes: chain, blobs: store.blobsFor(chain), receipts, now: now() };
+    const envelope = store.envelopeOf(hash);
+    return envelope ? reduceInputOf(store, envelope, now()) : null;
   }
 
   function reduceProblem(hash: Hash) {
@@ -495,10 +487,8 @@ export function createTracker(options: TrackerOptions): Tracker {
   /** QX-17: the coin log, admitted against the layer's balances at now; a burn's word is the standing it credits. */
   function admitCoinEvent(event: Event): Admitted {
     if (!options.coin) throw new Refusal(404, 'this tracker carries no coin');
-    if (!COIN_EVENTS.has(event.type))
-      throw new Refusal(400, 'the coin log takes lock, pay, burn, transfer, redeem and credit');
-    if (event.problem !== undefined || event.piece !== undefined)
-      throw new Refusal(400, 'a coin event names no problem in its fields');
+    const refused = coinEventRefusal(event);
+    if (refused) throw new Refusal(400, refused);
     const a = coin()!.admit(event);
     if (!a.ok) throw new Refusal(400, a.why);
     return event.type === 'burn'
@@ -945,13 +935,13 @@ export function createTracker(options: TrackerOptions): Tracker {
     const roots = new Set<string>();
     const vendors = new Set<string>();
     let last: string | null = null;
-    const grades = tracesOf(pl.problem, pl);
+    const grades = tracesOf(pl);
     for (const v of pl.fold.pieces) {
       const l = pl.byHash.get(v.piece.hash);
       if (!l) continue;
       if (v.reveals.length || v.runs.length) returned += 1;
       declined += v.declined.size;
-      if (l.state === 'accepted' || l.state === 'accepted_provisional') {
+      if (countsAsAccepted(l.state)) {
         accepted += 1;
         const g = grades.get(v.piece.hash)?.traced;
         if (g) traced[g] += 1;
@@ -1044,7 +1034,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     const s = pl.fold;
     const at = now();
     const witnessed = witnessedReveals(store, hash);
-    const traced = tracesOf(hash, pl);
+    const traced = tracesOf(pl);
     return {
       problem: hash,
       now: at,
@@ -1086,20 +1076,10 @@ export function createTracker(options: TrackerOptions): Tracker {
       gold: pl.goldCount,
       complete: s.complete,
       output: s.output?.hash ?? null,
-      record_output: recordOf(hash, pl)?.hash ?? null,
+      record_output: recordOutput(pl)?.hash ?? null,
       dropped: [...s.dropped, ...pl.dropped],
       superseded: supersededBy(hash),
     };
-  }
-
-  /**
-   * QX-20 section 4: the record document of a problem with a record piece once the layer calls it complete, with its
-   * hash; null otherwise.
-   */
-  function recordOf(hash: Hash, pl: ProblemLayer): { document: unknown; hash: Hash } | null {
-    const records = new Map(pl.pieces.filter((p) => p.record).map((p) => [p.hash, p.record!] as const));
-    if (records.size === 0 || !pl.fold.complete) return null;
-    return recordDocument(hash, pl.fold, records, pl.receipts);
   }
 
   /** QX-19: how long a blob here is, or null. */
@@ -1111,50 +1091,22 @@ export function createTracker(options: TrackerOptions): Tracker {
   }
 
   /**
-   * QX-19: each piece's traces as the door kept them, over the core's fold, which has every reveal a trace could name;
-   * the square's grade over the layer's fold, whose accepting set is the one that counts; and its seams between the
-   * readings that stand (section 4): over the layer's fold where it still calls the piece disputed, so a key that read
-   * again with grounds after its first reading was set aside is a side and not the reading set aside, and over the
-   * core's fold where the layer has set a reading aside, so the seam shows which. The passages come from this store's
-   * blobs.
+   * QX-19: each piece's traces, grade and seams as trace.ts reads them for a problem (`problemTraces`), the passages
+   * from this store's blobs.
    */
   // Computed once per layer object: the kept layer is one object until the store is written or five seconds pass,
   // and the index, the state and the directory row all read it, so the trace scan runs once for them and not per
   // request.
   const tracesMemo = new WeakMap<ProblemLayer, Map<Hash, PieceTraces>>();
-  function tracesOf(hash: Hash, pl: ProblemLayer): Map<Hash, PieceTraces> {
+  function tracesOf(pl: ProblemLayer): Map<Hash, PieceTraces> {
     const hit = tracesMemo.get(pl);
     if (hit) return hit;
-    const receipts = pl.receipts;
-    const out = new Map(
-      pl.fold.pieces.map((v) => {
-        const core = pl.core.byHash.get(v.piece.hash) ?? v;
-        const traces = tracesKept(core, receipts, blobLength);
-        // QX-20 section 3: a record piece's seams are between its standing readings, with nothing set aside, and its
-        // grade is over them.
-        const record = pl.byHash.get(v.piece.hash)?.record ?? null;
-        const over = record
-          ? { seams: recordSeams(pl.fold, v, record, receipts, traces, passageOf), aside: [] as Hash[] }
-          : v.state === 'disputed'
-            ? seamed(pl.fold, v, receipts, traces, passageOf)
-            : seamed(pl.core, core, receipts, traces, passageOf);
-        return [
-          v.piece.hash,
-          {
-            traces,
-            traced: graded(v, receipts, traces),
-            ...over,
-            record: record ? recordGraded(v, record, receipts, traces) : null,
-          },
-        ] as const;
-      }),
-    );
-    void hash;
+    const out = problemTraces(pl, blobLength, passageOf);
     tracesMemo.set(pl, out);
     return out;
   }
   /** The seams `next` hands over with a piece: the same as the state shows (`tracesOf`). */
-  const seamsOf = (pl: ProblemLayer, hash: Hash): Seam[] => tracesOf(pl.problem, pl).get(hash)?.seams ?? [];
+  const seamsOf = (pl: ProblemLayer, hash: Hash): Seam[] => tracesOf(pl).get(hash)?.seams ?? [];
 
   /**
    * The newest envelope here by the same owner whose `prev` is this problem: the version that replaced it, or null. The
@@ -1543,7 +1495,7 @@ export function createTracker(options: TrackerOptions): Tracker {
           // QX-20 section 4: the record document, once the layer calls the problem complete; its hash is the state's
           // `record_output`.
           const pl = view(hash);
-          const doc = pl ? recordOf(hash, pl) : null;
+          const doc = pl ? recordOutput(pl) : null;
           if (!doc)
             throw new Refusal(404, 'no record document yet: the problem is not complete, or has no record piece');
           json(res, 200, { hash: doc.hash, ...(doc.document as Record<string, unknown>) });
@@ -1618,7 +1570,7 @@ export function createTracker(options: TrackerOptions): Tracker {
               state: l.state,
               aside: l.aside.includes(address),
               verified: l.verified,
-              traced: tracesOf(r.problem, pl).get(r.piece)?.traced ?? null,
+              traced: tracesOf(pl).get(r.piece)?.traced ?? null,
             },
           ];
         });

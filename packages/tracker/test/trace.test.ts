@@ -1,6 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Address, type Envelope, type Hash, commitHash, hashBytes, newNonce, problemHash } from '@bitquilt/core';
-import { addr, boot, envelope as signed, key } from './helpers.js';
+import {
+  type Address,
+  type Envelope,
+  type Hash,
+  commitHash,
+  hashBytes,
+  newNonce,
+  problemHash,
+  signEvent,
+} from '@bitquilt/core';
+import { passageIn, problemTraces, readsNamed, traceBodyProblems } from '../src/trace.js';
+import { addr, boot, envelope as signed, key, layerOf } from './helpers.js';
 
 /**
  * The trace (QX-19) at the tracker's door and in its layer: a read is kept under its hash and served, refused when it
@@ -12,7 +22,11 @@ import { addr, boot, envelope as signed, key } from './helpers.js';
  * decides itself (section 4): a reading that rests on nothing where the other rests on the record is set aside, the
  * piece goes back out with the seam and the same key may read it again, a late trace lifts the set-aside, nothing is
  * set aside where neither side rests on anything, every pair is judged where a piece has three readings, and a problem
- * its owner replaced hands out nothing and leaves the index.
+ * its owner replaced hands out nothing and leaves the index. A body whose read time Date.parse cannot read, or whose
+ * read or span is not a whole number from 0, is refused with the same words as one with no field at all. The reads a
+ * trace names are read in its order as stated, one at a time, and no other event names any. What the state shows of
+ * each piece's traces is `problemTraces` over the layer: the seams over the layer's fold for a piece it calls disputed
+ * and over the core's for one where it set a reading aside.
  */
 const owner = key(9),
   A = key(1),
@@ -125,6 +139,50 @@ describe('reads as blobs', () => {
       extension: 'QX-19',
       blob_max: 1024 * 1024,
     });
+  });
+});
+
+describe('the trace body (section 1)', () => {
+  const body = (r: Record<string, unknown>, x: Record<string, unknown>) => ({
+    reveal: hashBytes(enc.encode('a reveal')),
+    reads: [{ ...read(hashBytes(enc.encode(PAGE))), ...r }],
+    rests: [{ field: 'verdict', read: 0, span: [0, 3], ...x }],
+  });
+  it('takes a read time Date.parse reads and whole numbers from 0, and refuses the rest with the same words', () => {
+    expect(traceBodyProblems(body({}, {}))).toEqual([]);
+    expect(traceBodyProblems(body({ at: '2026-11-02' }, { span: [0, 1] }))).toEqual([]);
+    for (const at of ['yesterday', '', 1730000000000, null])
+      expect(traceBodyProblems(body({ at }, {}))).toEqual(['read 0: url, hash and at']);
+    for (const r of [-1, 0.5, '0', null, 1])
+      expect(traceBodyProblems(body({}, { read: r }))).toEqual(['rest 0: read out of range']);
+    for (const span of [
+      [-1, 3],
+      [0.5, 3],
+      [0, '3'],
+      [0, Number.POSITIVE_INFINITY],
+    ])
+      expect(traceBodyProblems(body({}, { span }))).toEqual([
+        'rest 0: span is [start, end) with end at most 2000 past start',
+      ]);
+  });
+});
+
+describe('the reads a trace names', () => {
+  const named = (type: string, body: Record<string, unknown>) =>
+    readsNamed(signEvent({ quilt: 1, type, key: addr(A), ts: '2026-11-02T12:00:00Z', body }, A));
+  it('are the hashes in its order as the body states them, one at a time, and none on another event', () => {
+    const h = hashBytes(enc.encode(PAGE));
+    expect([...named('trace', { reads: [read(h), { ...read(h), hash: 'not a hash' }, {}] })]).toEqual([
+      h,
+      'not a hash',
+      undefined,
+    ]);
+    expect([...named('trace', {})]).toEqual([]);
+    expect([...named('reveal', { reads: [read(h)] })]).toEqual([]);
+    // A read that does not parse fails where a loop over the reads would, after the ones before it.
+    const reads = named('trace', { reads: [read(h), null] });
+    expect(reads.next().value).toBe(h);
+    expect(() => reads.next()).toThrow(TypeError);
   });
 });
 
@@ -581,5 +639,34 @@ describe('a seam decides itself (section 4)', () => {
     const listed = ((await get('/search')) as { problems: { problem: Hash }[] }).problems.map((x) => x.problem);
     expect(listed).toContain(newer);
     expect(listed).not.toContain(pa);
+  });
+});
+
+describe('the traces the state shows', () => {
+  it("are problemTraces over the tracker's layer, for every piece of every problem here", async () => {
+    const shown = { pieces: 0, traced: 0, seams: 0 };
+    for (const [hash, pl] of layerOf(t).problems) {
+      const read = problemTraces(
+        pl,
+        (h) => t.store.blobLength(h),
+        (h, s) => passageIn(t.store.getBlob(h), s),
+      );
+      const state = await get<{ pieces: (PieceState & { record: unknown })[] }>(`/p/${hash}/state`);
+      expect(
+        state.pieces.map((x) => ({ traces: x.traces, traced: x.traced, seams: x.seams, record: x.record })),
+      ).toEqual(
+        pl.fold.pieces.map((v) => {
+          const x = read.get(v.piece.hash)!;
+          return { traces: x.traces.length, traced: x.traced, seams: x.seams, record: x.record };
+        }),
+      );
+      for (const x of read.values()) {
+        shown.pieces += 1;
+        if (x.traced) shown.traced += 1;
+        if (x.seams.length) shown.seams += 1;
+      }
+    }
+    expect(shown.traced).toBeGreaterThan(0);
+    expect(shown.seams).toBeGreaterThan(0);
   });
 });

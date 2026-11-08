@@ -60,7 +60,9 @@ import {
   COIN_LOG,
   challengeLayer,
   coinLayer,
-  recordDocument,
+  readsNamed,
+  recordOutput,
+  reduceInputOf,
 } from '@bitquilt/tracker';
 import { type AnchorReport, type ChainHead, anchorHeads } from './anchor.js';
 import { type KeptStore, MirrorFiles } from './files.js';
@@ -312,9 +314,7 @@ function keepTheRest(ctx: Context): void {
 async function takeReads(ctx: Context, source: string, lines: Receipt[], label: string): Promise<void> {
   const wanted = new Set<Hash>();
   for (const l of lines)
-    if (l.event.type === 'trace')
-      for (const r of (l.event.body as { reads?: { hash?: Hash }[] }).reads ?? [])
-        if (r.hash && !ctx.store.getBlob(r.hash)) wanted.add(r.hash);
+    for (const h of readsNamed(l.event)) if (h && !ctx.store.getBlob(h as Hash)) wanted.add(h as Hash);
   for (const h of wanted) {
     const bytes = await getBytes(ctx, `${source}b/${h}`);
     if (!bytes) continue;
@@ -352,33 +352,6 @@ async function getLines(ctx: Context, url: string): Promise<Receipt[] | null> {
     since = Number(next);
   }
   return null;
-}
-
-/**
- * What the reducer takes for a problem held here: its envelope chain along prev, the blobs, every receipt along the
- * chain and the identity log.
- */
-function inputFor(ctx: Context, envelope: Envelope, at: string): ReduceInput {
-  const chainEnvelopes: Envelope[] = [envelope];
-  const guard = new Set<Hash>([problemHash(envelope)]);
-  for (let cur = envelope.problem.prev; cur && !guard.has(cur); ) {
-    guard.add(cur);
-    const prev = ctx.store.envelopeOf(cur);
-    if (!prev) break;
-    chainEnvelopes.push(prev);
-    cur = prev.problem.prev;
-  }
-  const blobs = new Map<Hash, Uint8Array>();
-  for (const e of chainEnvelopes)
-    for (const h of Object.values(e.problem.data))
-      if (!blobs.has(h)) {
-        const b = ctx.store.getBlob(h);
-        if (b) blobs.set(h, b);
-      }
-  const receipts: Receipt[] = [];
-  for (const e of chainEnvelopes) receipts.push(...ctx.store.lines(problemHash(e)));
-  receipts.push(...ctx.store.lines(IDENTITY_LOG));
-  return { envelopes: chainEnvelopes, blobs, receipts, now: at };
 }
 
 /**
@@ -489,7 +462,7 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
       }
   let complete = false;
   try {
-    const state = reduce(inputFor(ctx, envelope, ctx.now()));
+    const state = reduce(reduceInputOf(ctx.store, envelope, ctx.now()));
     complete = state.complete;
     if (state.output && ctx.out) {
       mkdirSync(join(ctx.out, 'outputs', hash), { recursive: true });
@@ -585,7 +558,7 @@ function reproduceBalances(
   state: CoinState,
 ): { differs: string | undefined; credits: CreditLine[] } {
   const inputs: ReduceInput[] = [];
-  for (const { envelope } of ctx.index.values()) inputs.push(inputFor(ctx, envelope, state.at));
+  for (const { envelope } of ctx.index.values()) inputs.push(reduceInputOf(ctx.store, envelope, state.at));
   const layer = challengeLayer({ problems: inputs, now: state.at, coin: lines });
   const folded = coinLayer({ layer, params, receipts: lines, now: state.at });
   const mine = Object.fromEntries(folded.balances());
@@ -614,12 +587,13 @@ async function checkCredits(chain: DepositReader | null, credits: CreditLine[]):
 /**
  * QX-20 section 4: `outputs/<hash>/record.json` and its hash beside it, for every problem with a record piece that the
  * tracker's own layer calls complete over the chains held here. The core writes no output for such a problem, since it
- * holds a record piece as unknown; the layer's document is a function of the envelope and the receipts alone, so the
- * hash here is the tracker's `record_output` where the chains are the same.
+ * holds a record piece as unknown; the layer's document is a function of the envelope and the receipts alone, and
+ * `recordOutput` is what the tracker's state reads its `record_output` from, so the hash here is the tracker's where
+ * the chains are the same.
  */
 function writeRecords(ctx: Context, at: string): void {
   const inputs: ReduceInput[] = [];
-  for (const { envelope } of ctx.index.values()) inputs.push(inputFor(ctx, envelope, at));
+  for (const { envelope } of ctx.index.values()) inputs.push(reduceInputOf(ctx.store, envelope, at));
   if (inputs.length === 0) return;
   let layer: Layer;
   try {
@@ -629,9 +603,8 @@ function writeRecords(ctx: Context, at: string): void {
     return;
   }
   for (const [hash, pl] of layer.problems) {
-    const records = new Map(pl.pieces.filter((p) => p.record).map((p) => [p.hash, p.record!] as const));
-    if (records.size === 0 || !pl.fold.complete) continue;
-    const doc = recordDocument(hash, pl.fold, records, pl.receipts);
+    const doc = recordOutput(pl);
+    if (!doc) continue;
     mkdirSync(join(ctx.out!, 'outputs', hash), { recursive: true });
     writeFileSync(join(ctx.out!, 'outputs', hash, 'record.json'), JSON.stringify(doc.document, null, 2) + '\n');
     writeFileSync(join(ctx.out!, 'outputs', hash, 'record_hash'), `${doc.hash}\n`);

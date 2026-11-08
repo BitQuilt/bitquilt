@@ -15,7 +15,7 @@ import {
   isRecord,
   next,
 } from '@bitquilt/core';
-import type { Layer, ProblemLayer } from './challenge.js';
+import { type Layer, type ProblemLayer, carriesSet, countsAsAccepted } from './challenge.js';
 import { acceptingRoots } from './standing.js';
 import { leaseOf } from './verifiers.js';
 
@@ -115,11 +115,6 @@ export interface Offer {
   pick: Pick;
 }
 
-/** Whether a piece in this layered state still carries its accepting set. */
-function stands(state: string): boolean {
-  return state === 'accepted' || state === 'accepted_provisional' || state === 'challenged';
-}
-
 /**
  * The problems this reader holds that have a piece for the key, in the order QX-5 section 2 gives: the problems of
  * owners who have worked for the key first (latest first), then the rest rarest first, and, on every tenth offer,
@@ -144,7 +139,7 @@ export function offerOrder(
   for (const pl of layer.problems.values()) {
     const ownerRoot = pl.fold.rootOf(pl.fold.envelope.problem.owner as Address, now);
     for (const p of pl.pieces) {
-      if (!stands(p.state)) continue;
+      if (!carriesSet(p.state)) continue;
       const v = pl.fold.byHash.get(p.hash);
       if (!v?.accepting) continue;
       const at = v.accepting.completedAt;
@@ -175,7 +170,7 @@ export function offerOrder(
     if (ownerRoot === w) continue;
     const pick = next(fold, key, client, now, { exclude: exclude(hash, pl, input) });
     if (!pick) continue;
-    const done = pl.pieces.filter((p) => p.state === 'accepted' || p.state === 'accepted_provisional').length;
+    const done = pl.pieces.filter((p) => countsAsAccepted(p.state)).length;
     const reciprocalAt = workedFor.get(w)?.get(ownerRoot) ?? null;
     const own = input.receipts.filter((r) => r.event.problem !== undefined);
     const last = own.length ? (own[own.length - 1]!.received[0]?.at ?? '') : '';

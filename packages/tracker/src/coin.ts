@@ -22,6 +22,8 @@ import {
   whole,
 } from '@bitquilt/core';
 import type { Admission, Layer } from './challenge.js';
+import { matchedCommitments } from './gold.js';
+import type { CoinLockWord } from './stake.js';
 import { creditedRoots } from './standing.js';
 import { leaseOf, viaOf } from './verifiers.js';
 
@@ -79,17 +81,10 @@ export interface CoinParams {
 }
 
 /**
- * What the door writes into a receipt's wrapper when it admits a coin-kind QX-15 lock: what it read of the coin lock,
- * and where.
+ * What the door writes into a receipt's wrapper when it admits a coin-kind QX-15 lock: the word the stake layer reads,
+ * what it read of the coin lock and where (`CoinLockWord`), with the coin log's head the reading stood under.
  */
-export interface CoinWord {
-  kind: 'coin';
-  amount: number;
-  id: Hash;
-  units: number;
-  home: string;
-  head: { seq: number; hash: string } | null;
-}
+export type CoinWord = CoinLockWord & { head: { seq: number; hash: string } | null };
 /** What the door writes into a burn's wrapper: the standing it credited. */
 export interface BurnWord {
   kind: 'burn';
@@ -251,6 +246,16 @@ export function coinParamsProblems(p: unknown): string[] {
   return out;
 }
 
+/**
+ * Why an event is not one the coin log takes, from its type and its fields alone, or null (QX-17 section 2): the door's
+ * first check, made before it builds the layer, and the fold's, in the same words.
+ */
+export function coinEventRefusal(event: Event): string | null {
+  if (!COIN_EVENTS.has(event.type)) return 'the coin log takes lock, pay, burn, transfer, redeem and credit';
+  if (event.problem !== undefined || event.piece !== undefined) return 'a coin event names no problem in its fields';
+  return null;
+}
+
 /** Why this is not a well-formed body for a coin-log event of this type, or nothing. */
 export function coinBodyProblems(type: string, body: unknown): string[] {
   if (!isRecord(body)) return ['body: an object'];
@@ -309,7 +314,17 @@ export function epochAmount(params: CoinParams, epoch: number): number {
   return Math.max(amount, params.emission.floor_per_epoch ?? 0);
 }
 
-type LineKind = 'verified' | 'forfeit' | 'restore' | 'release' | 'bind' | 'accepted' | 'complete' | 'mint' | 'posted';
+/** What a line the coin folds says happened; at one instant the kinds fold in the order `ORDER` gives. */
+export type LineKind =
+  | 'verified'
+  | 'forfeit'
+  | 'restore'
+  | 'release'
+  | 'bind'
+  | 'accepted'
+  | 'complete'
+  | 'mint'
+  | 'posted';
 const ORDER: Record<LineKind, number> = {
   verified: 0,
   forfeit: 1,
@@ -321,7 +336,11 @@ const ORDER: Record<LineKind, number> = {
   mint: 7,
   posted: 8,
 };
-interface Line {
+/**
+ * A line the coin folds, in time order: one derived from the problem logs, an epoch's mint, or a coin-log event
+ * (`posted`), with what its kind reads.
+ */
+export interface Line {
   kind: LineKind;
   at: string;
   id: string;
@@ -357,6 +376,92 @@ interface Escrow {
 }
 interface Coin extends CoinLockView {
   forfeit: { fromUnvested: number; fromVested: number; penalty: number } | null;
+}
+
+/**
+ * The lines the problem logs give the coin, as the layers fold them (QX-17 section 3), in problem order and unsorted:
+ * a verified line for each root of a square the owner's gold matched (QX-16), weighted by how its set was made; an
+ * accepted line for each set completed by `now`, naming the roots it credits; a complete line for a problem once its
+ * last window has closed by `now`; and for each coin-kind lock (QX-15) its bind, and its forfeit, restore and release
+ * as they fall by `now`. `verified` holds the verified lines alone, the same objects in the same order.
+ */
+export function linesFromLayer(layer: Layer, params: CoinParams, now: string): { lines: Line[]; verified: Line[] } {
+  const lines: Line[] = [];
+  const verified: Line[] = [];
+  for (const pl of layer.problems.values()) {
+    const fold = pl.fold;
+    for (const c of matchedCommitments(pl.golds)) {
+      const view = fold.byHash.get(c.piece);
+      const set = view?.accepting;
+      if (!set || set.kind !== 'agree') continue;
+      const via = viaOf(set);
+      const vendors = new Set(set.reveals.map((r) => r.vendor));
+      const weight =
+        via === 'attest'
+          ? params.weights.attest
+          : vendors.size > 1
+            ? params.weights.cross_vendor
+            : params.weights.same_vendor;
+      for (const r of set.reveals) {
+        const line: Line = {
+          kind: 'verified',
+          at: c.revealedAt,
+          id: `${c.piece}:${r.root}`,
+          problem: pl.problem,
+          piece: c.piece,
+          root: fold.rootOf(r.root, now),
+          weight,
+        };
+        verified.push(line);
+        lines.push(line);
+      }
+    }
+    for (const v of fold.pieces)
+      if (v.accepting && v.accepting.completedAt <= now) {
+        lines.push({
+          kind: 'accepted',
+          at: v.accepting.completedAt,
+          id: `${v.piece.hash}:${v.accepting.completedAt}`,
+          problem: pl.problem,
+          piece: v.piece.hash,
+          roots: creditedRoots(v).map((r) => fold.rootOf(r, now)),
+        });
+      }
+    if (fold.complete) {
+      let latest: string | null = null;
+      for (const v of fold.pieces)
+        if (v.windowEnd !== null && (latest === null || v.windowEnd > latest)) latest = v.windowEnd;
+      const at = latest ?? now;
+      if (at <= now) lines.push({ kind: 'complete', at, id: `complete:${pl.problem}`, problem: pl.problem });
+    }
+    for (const l of pl.locks) {
+      if (l.kind !== 'coin' || !l.coinId) continue;
+      lines.push({ kind: 'bind', at: l.at, id: `bind:${l.id}`, coin: l.coinId, lock: l.id });
+      if (l.forfeitedAt !== null)
+        lines.push({ kind: 'forfeit', at: l.forfeitedAt, id: `forfeit:${l.id}:${l.forfeitedAt}`, coin: l.coinId });
+      if (l.restoredAt !== null)
+        lines.push({ kind: 'restore', at: l.restoredAt, id: `restore:${l.id}:${l.restoredAt}`, coin: l.coinId });
+      const ends = layer.lockEndsAt(l);
+      if (ends !== null && ends <= now && (l.forfeitedAt === null || (l.restoredAt !== null && ends > l.restoredAt)))
+        lines.push({ kind: 'release', at: ends, id: `release:${l.id}`, coin: l.coinId });
+    }
+  }
+  return { lines, verified };
+}
+
+/**
+ * A mint line at the end of every epoch ended by `now`: epochs `epochMs` long from `genesis`, in milliseconds, the
+ * open one not among them.
+ */
+export function epochLines(genesis: number, epochMs: number, now: string): Line[] {
+  const lines: Line[] = [];
+  for (let n = 0; ; n++) {
+    const end = genesis + (n + 1) * epochMs;
+    if (end > Date.parse(now)) break;
+    lines.push({ kind: 'mint', at: new Date(end).toISOString(), id: `mint:${n}`, epoch: n });
+    if (n > 100_000) break;
+  }
+  return lines;
 }
 
 export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: Receipt[]; now: string }): CoinLayer {
@@ -410,82 +515,16 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
   const coins = new Map<Hash, Coin>();
   const escrows = new Map<Hash, Escrow[]>();
   const epochs: EpochView[] = [];
-  const lines: Line[] = [];
-  const verified: Line[] = [];
   const redeemLines: RedeemLine[] = [];
   const creditLines: CreditLine[] = [];
   const credited = new Set<number>();
 
   // Derived lines from the problem logs, as the layers fold them.
-  for (const pl of layer.problems.values()) {
-    const fold = pl.fold;
-    for (const g of pl.golds)
-      for (const c of g.commitments) {
-        if (c.outcome !== 'match' || c.revealedAt === null || c.piece === null) continue;
-        const view = fold.byHash.get(c.piece);
-        const set = view?.accepting;
-        if (!set || set.kind !== 'agree') continue;
-        const via = viaOf(set);
-        const vendors = new Set(set.reveals.map((r) => r.vendor));
-        const weight =
-          via === 'attest'
-            ? params.weights.attest
-            : vendors.size > 1
-              ? params.weights.cross_vendor
-              : params.weights.same_vendor;
-        for (const r of set.reveals) {
-          const line: Line = {
-            kind: 'verified',
-            at: c.revealedAt,
-            id: `${c.piece}:${r.root}`,
-            problem: pl.problem,
-            piece: c.piece,
-            root: fold.rootOf(r.root, now),
-            weight,
-          };
-          verified.push(line);
-          lines.push(line);
-        }
-      }
-    for (const v of fold.pieces)
-      if (v.accepting && v.accepting.completedAt <= now) {
-        lines.push({
-          kind: 'accepted',
-          at: v.accepting.completedAt,
-          id: `${v.piece.hash}:${v.accepting.completedAt}`,
-          problem: pl.problem,
-          piece: v.piece.hash,
-          roots: creditedRoots(v).map((r) => fold.rootOf(r, now)),
-        });
-      }
-    if (fold.complete) {
-      let latest: string | null = null;
-      for (const v of fold.pieces)
-        if (v.windowEnd !== null && (latest === null || v.windowEnd > latest)) latest = v.windowEnd;
-      const at = latest ?? now;
-      if (at <= now) lines.push({ kind: 'complete', at, id: `complete:${pl.problem}`, problem: pl.problem });
-    }
-    for (const l of pl.locks) {
-      if (l.kind !== 'coin' || !l.coinId) continue;
-      lines.push({ kind: 'bind', at: l.at, id: `bind:${l.id}`, coin: l.coinId, lock: l.id });
-      if (l.forfeitedAt !== null)
-        lines.push({ kind: 'forfeit', at: l.forfeitedAt, id: `forfeit:${l.id}:${l.forfeitedAt}`, coin: l.coinId });
-      if (l.restoredAt !== null)
-        lines.push({ kind: 'restore', at: l.restoredAt, id: `restore:${l.id}:${l.restoredAt}`, coin: l.coinId });
-      const ends = layer.lockEndsAt(l);
-      if (ends !== null && ends <= now && (l.forfeitedAt === null || (l.restoredAt !== null && ends > l.restoredAt)))
-        lines.push({ kind: 'release', at: ends, id: `release:${l.id}`, coin: l.coinId });
-    }
-  }
+  const { lines, verified } = linesFromLayer(layer, params, now);
   // Every epoch that has ended.
   const genesis = Date.parse(params.genesis);
   const epochMs = params.epoch_h * 3_600_000;
-  for (let n = 0; ; n++) {
-    const end = genesis + (n + 1) * epochMs;
-    if (end > Date.parse(now)) break;
-    lines.push({ kind: 'mint', at: new Date(end).toISOString(), id: `mint:${n}`, epoch: n });
-    if (n > 100_000) break;
-  }
+  for (const line of epochLines(genesis, epochMs, now)) lines.push(line);
   // The coin log's own lines, in receipt order.
   const receipts = [...input.receipts].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
   for (const r of receipts) {
@@ -528,10 +567,8 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
   type Check = { ok: true; root: Address; standing?: number } | { ok: false; why: string };
   /** Whether a posted event would be kept at `at`, by section 2 of QX-17. */
   const check = (e: Event, at: string): Check => {
-    if (!COIN_EVENTS.has(e.type))
-      return { ok: false, why: 'the coin log takes lock, pay, burn, transfer, redeem and credit' };
-    if (e.problem !== undefined || e.piece !== undefined)
-      return { ok: false, why: 'a coin event names no problem in its fields' };
+    const refused = coinEventRefusal(e);
+    if (refused) return { ok: false, why: refused };
     const shape = coinBodyProblems(e.type, e.body);
     if (shape.length) return { ok: false, why: shape[0]! };
     const root = layer.rootOf(e.key, at);
