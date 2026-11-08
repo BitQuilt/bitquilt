@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   type Hash,
@@ -9,6 +10,8 @@ import {
   hashBytes,
   newNonce,
   problemHash,
+  signEvent,
+  stamp,
   verifyChain,
 } from '@bitquilt/core';
 import { Refusal } from '../src/http.js';
@@ -23,7 +26,8 @@ import { VERDICT, addr, boot, envelope, key } from './helpers.js';
  * log is pulled; a hide the first admits from a maintainer it alone names is refused at the second's door with the
  * reason, so the two differ there and nowhere else; and a peer that does not answer is noted while the rest is pulled.
  * A human piece's seat is read from the peer's wrappers as the layer reads it (verifiers.md section 2): a reveal whose
- * wrapper says `seat: person` or `custody: hosted` is pulled, and one that says neither is refused.
+ * wrapper says `seat: person` or `custody: hosted` is pulled, and one that says neither is refused. The stamp a door
+ * asks of a name (CORE.md section 11) is asked of a pulled name as of a posted one, as QX-21 section 2 says.
  * The pull reaches the tracker that runs it through the `PullDoor` it is handed (peers.ts): the door's admission
  * decides each event, a refusal is said with its reason and a failure is noted, and a line admitted carries the peer's
  * wrapper with the door's after it.
@@ -272,6 +276,51 @@ describe("a human piece's seat, read from the peer's wrappers (QX-21 section 2)"
       expect((await here.get<State>(`/p/${PH}/state`)).pieces[0]!.state).toBe('accepted_provisional');
     } finally {
       await here.close();
+    }
+  });
+});
+
+describe('the stamp asked of a pulled name (QX-21 section 2, CORE.md section 11)', () => {
+  it('refuses a name its peer took without the stamp this door asks, with the reason a post of it gets, and pulls a stamped one', async () => {
+    const BITS = 8;
+    const peer = boot(START, { limits });
+    await peer.listen();
+    const strict = boot(START, { limits, stamp: { name: BITS }, peers: [`${peer.base}/`] });
+    await strict.listen();
+    try {
+      const plain = peer.ev(A, 'name', { name: 'Ada' });
+      await peer.accepted('/k/events', plain);
+      peer.clock.tick += 1000;
+      const unsigned = {
+        quilt: 1 as const,
+        type: 'name',
+        key: addr(B),
+        ts: new Date(peer.clock.tick).toISOString(),
+        body: { name: 'Bea' },
+      };
+      const stamped = signEvent(stamp(unsigned, BITS)!, B);
+      await peer.accepted('/k/events', stamped);
+      strict.clock.tick = peer.clock.tick + 60_000;
+      const said = `a name event here carries a stamp of ${BITS} bits`;
+      const [pull] = await strict.tracker.pullPeers();
+      expect(pull).toEqual({
+        peer: `${peer.base}/`,
+        added: 1,
+        refused: [{ id: eventId(plain), why: said }],
+        errors: [],
+      });
+      expect(strict.store.lines(IDENTITY_LOG).map((l) => l.event.sig)).toEqual([stamped.sig]);
+      // The same words a post of it gets at this door.
+      const direct = await strict.post('/k/events', plain);
+      expect([direct.status, ((await direct.json()) as { error: string }).error]).toEqual([400, said]);
+      const doc = readFileSync(new URL('../../../docs/ext/QX-21.md', import.meta.url), 'utf8');
+      expect(doc).toContain(
+        'and the stamp this door asks of a name (CORE.md section 11), which the event carries, so a name the peer took without it is refused here as a post of it would be.',
+      );
+      expect(doc).toContain('The rate limits are not applied:');
+    } finally {
+      await peer.close();
+      await strict.close();
     }
   });
 });

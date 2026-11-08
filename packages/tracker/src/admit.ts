@@ -330,7 +330,11 @@ function admitIdentityEvent(cx: Reads, event: Event): Admitted {
   return { chain: IDENTITY_LOG };
 }
 
-/** The door for a name: the stamp asked here, where one is (CORE.md section 11). */
+/**
+ * The door for a name: the stamp asked here, where one is (CORE.md section 11), of "a `nonce` whose presence makes the
+ * event's id have at least the number of leading zero bits a tracker asks for in its well-known document, on a `name`
+ * event". The event carries it, so a name pulled from a peer is asked it as a posted one is (QX-21 section 2).
+ */
 function checkNameEvent({ stampNeeded }: Reads, event: Event): void {
   if (stampNeeded > 0 && !stampOk(event, stampNeeded))
     throw new Refusal(400, `a name event here carries a stamp of ${stampNeeded} bits`);
