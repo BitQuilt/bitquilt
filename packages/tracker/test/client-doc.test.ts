@@ -4,24 +4,26 @@
  * the reveal after it, are what the core computes, and the signature is the fixture's. The six steps: the requests
  * written under "A first return, in six steps", run in their order against a tracker with each placeholder filled, are
  * answered as the page says, the name taken on the identity log, the offer and next naming one piece, every event taken
- * with the answer the page names and a read put with its own. The second reading: two workers that each take the six
- * steps read different pieces, the request written under "The second reading" hands the second the reading waiting,
- * and their readings make the square; a worker of the first's vendor may be handed it too, the offer reads no `only`,
- * and nothing is handed where no reading waits. When next hands nothing: a piece whose `requires` is not within `can`,
- * one held for another key until the hold's 60 seconds pass, one on the key's own problem, one the key has read and one
- * two vendors have made `accepted_provisional`; the offer's fields and its count. What a 202 does not say: the gate at
- * the reveal and not the commit, with a second commit taking the clean return and no claim needed; `by` held to its
- * lengths and four words and no more, the vendor read before the slash; a name that names no problem; a read put twice
- * and a path that is no hash; a trace on a file; the state's `pieces` and `dropped`; the log's lines, with no id, bare
- * hex and the first `prev` the problem's. The door's checks: each row of the table under "What the door checks, in
- * order" is met by a post that fails that check, with the row's status and one of its sentences; a post that fails
- * several is refused for the earliest, row by row as each is put right; a reveal posted again meets its commit's row
- * rather than 409 where that commit was the key's only one on the piece, and is answered 409 where a commit the key
- * never revealed stays, abandoned or not; and every row is met. Beside the table: the door leaves a reveal's `h` to the
- * reducer, whose drop shows in the state, and next refuses the three sentences the page names. A client that reduces:
- * the problem's log alone leaves out a return posted under an ancestor, and with the ancestor's log it reaches the
- * tracker's state. The well-known fields the page names are in the well-known document, `peers` said as QX-21 says it,
- * its links reach a file and a heading, and it has no U+2014.
+ * with the answer the page names and a read put with its own; the trace posted again is refused at row 19 and not
+ * answered 409. The second reading: two workers that each take the six steps read different pieces, the request written
+ * under "The second reading" hands the second the reading waiting, and their readings make the square; a worker of the
+ * first's vendor may be handed it too, the offer reads no `only`, and nothing is handed where no reading waits. When
+ * next hands nothing: a piece whose `requires` is not within `can`, one held for another key until the hold's 60
+ * seconds pass, one on the key's own problem, one the key has read, one two vendors have made `accepted_provisional`, a
+ * record piece whose readings are in, one of a kind this tracker does not define and one that waits on it; the offer's
+ * fields and its count. What a 202 does not say: the gate at the reveal and not the commit, with a second commit taking
+ * the clean return and no claim needed; `by` held to its lengths and four words and no more, the vendor read before the
+ * slash; a name that names no problem; a read put twice and a path that is no hash; a trace on a file; the state's
+ * `pieces` and `dropped`; the log's lines, with no id, bare hex and the first `prev` the problem's. The door's checks:
+ * each row of the table under "What the door checks, in order" is met by a post that fails that check, with the row's
+ * status and one of its sentences; a post that fails several is refused for the earliest, row by row as each is put
+ * right; a reveal posted again meets its commit's row rather than 409 where that commit was the key's only one on the
+ * piece, and is answered 409 where a commit the key never revealed stays, abandoned or not; and every row is met.
+ * Beside the table: the door leaves a reveal's `h` to the reducer, whose drop shows in the state, and next refuses the
+ * three sentences the page names. A client that reduces: the problem's log alone leaves out a return posted under an
+ * ancestor, and with the ancestor's log it reaches the tracker's state. The well-known fields the page names are in the
+ * well-known document, `peers` said as QX-21 says it; each rule the page repeats from PROTOCOL.md's "What the door
+ * answers" cites it beside the rule and says what it says; its links reach a file and a heading, and it has no U+2014.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -59,6 +61,7 @@ const owner = key(9),
   B = key(2),
   C = key(3),
   D = key(4),
+  E = key(5),
   M = key(8);
 const T0 = '2026-11-07T12:00:00Z';
 /** The schema of fixture 04's `cite` family, which the page's return is written for. */
@@ -256,6 +259,8 @@ describe('CLIENT.md, a first return in six steps', () => {
     'cite/*': { ...cite('Citation {n}: does the page support the claim? Give the verdict and the passage.'), count: 2 },
   });
   const page = new TextEncoder().encode('A sentence of the page that the verdict rests on. '.repeat(12));
+  /** The trace the walk posted at step 6, and where. */
+  let traced: { path: string; event: Event } | undefined;
   beforeAll(async () => {
     await walk.listen();
     expect((await walk.post('/p', { envelope: W })).status).toBe(201);
@@ -322,7 +327,9 @@ describe('CLIENT.md, a first return in six steps', () => {
         const { sig, ...rest } = r.event!;
         expect(sig).toBe('<sig>');
         const unsigned = fill(rest, values) as Record<string, unknown>;
-        const res = await walk.post(path, signEvent(unsigned as unknown as Unsigned, A));
+        const signed = signEvent(unsigned as unknown as Unsigned, A);
+        if (unsigned.type === 'trace') traced = { path, event: signed };
+        const res = await walk.post(path, signed);
         const body = (await res.json()) as Record<string, unknown>;
         expect(res.status, `${unsigned.type}: ${JSON.stringify(body)}`).toBe(202);
         expect(Object.keys(body).sort()).toEqual(taken![1]!.split(', ').sort());
@@ -353,6 +360,16 @@ describe('CLIENT.md, a first return in six steps', () => {
         values.piece = pieces.find((p) => p.hash !== values.piece)!.hash;
       }
     }
+  });
+
+  it("refuses the six steps' trace posted again at row 19, before the door looks for a copy, and not with 409", async () => {
+    expect(DOC).toContain(
+      'A trace posted again is refused the same way, at row 19, `a trace already names this reveal`, and is not answered `409`.',
+    );
+    expect(rows.find((r) => r.n === 19)!.status).toBe(400);
+    expect(traced, 'the walk posted a trace').toBeDefined();
+    const again = await walk.post(traced!.path, traced!.event);
+    expect([again.status, await again.json()]).toEqual([400, { error: 'a trace already names this reveal' }]);
   });
 });
 
@@ -489,7 +506,7 @@ describe('CLIENT.md, when next hands nothing', () => {
 
   it('hands nothing on a piece two vendors have made accepted_provisional', async () => {
     expect(DOC).toContain(
-      'its state is none of the five next takes (CORE.md section 7, step 1): it is done, `accepted_provisional`, `accepted` or `unreachable`, or waits on another, `locked` or `unknown`',
+      'its state is none of the five next takes (CORE.md section 7, step 1): it is done, `accepted_provisional`, `accepted` or `unreachable`',
     );
     t.clock.tick += 60_000;
     const piece = (await t.get<NextAnswer>(`/p/${f}/next?key=${addr(B)}&can=web,files&model=openai/gpt-5`)).piece!;
@@ -500,6 +517,30 @@ describe('CLIENT.md, when next hands nothing', () => {
     expect(await ask(A)).toEqual(nothing);
     expect(await t.get<NextAnswer>(`/p/${f}/next?key=${addr(A)}&can=web,files&model=meta/llama`)).toEqual(nothing);
     expect((await offer(A)).offers).toEqual([]);
+  });
+
+  it('hands nothing on a record piece whose readings are in, one of a kind this tracker does not define, or one that waits on it', async () => {
+    expect(DOC).toContain(
+      'or, for a record piece, `recorded` (QX-20); it waits on another, `locked`; or its kind is one this tracker does not define, `unknown` (CORE.md section 6);',
+    );
+    const K = envelope(owner, 'kinds', {
+      kept: { ...cite('How does the page read the claim? Give the verdict and the passage.'), verifier: 'record:2' },
+      asked: { ...cite('Does the oracle say the page supports the claim?'), verifier: 'oracle' },
+      after: { ...cite('Does the page the oracle named support the claim?'), inputs: ['asked'] },
+    });
+    const k = problemHash(K);
+    expect((await t.post('/p', { envelope: K })).status).toBe(201);
+    const states = async (): Promise<Record<string, string>> =>
+      Object.fromEntries((await t.get<StateAnswer>(`/p/${k}/state`)).pieces.map((x) => [x.name, x.state]));
+    const kept = (await t.get<StateAnswer>(`/p/${k}/state`)).pieces.find((x) => x.name === 'kept')!.hash;
+    // Before its readings are in, the record piece is handed out; the other two never are.
+    expect((await t.get<NextAnswer>(`/p/${k}/next?key=${addr(E)}&can=web,files&model=meta/llama`)).piece).toBe(kept);
+    await returned(t, k, A, 'anthropic/claude', kept, { verdict: 'supports', quote: 'The page reads it so.' });
+    await returned(t, k, B, 'openai/gpt-5', kept, { verdict: 'contradicts', quote: 'The page reads it otherwise.' });
+    expect(await states()).toEqual({ kept: 'recorded', asked: 'unknown', after: 'locked' });
+    t.clock.tick += 60_000;
+    expect(await t.get<NextAnswer>(`/p/${k}/next?key=${addr(E)}&can=web,files&model=meta/llama`)).toEqual(nothing);
+    expect((await offer(E)).offers).toEqual([]);
   });
 });
 
@@ -990,6 +1031,33 @@ describe('CLIENT.md, what it names and links', () => {
     expect(readFileSync(join(DOCS, 'ext', 'QX-21.md'), 'utf8')).toContain(
       "A tracker's peers are the trackers it names (`QUILT_PEERS`, published as `peers` in its well-known document",
     );
+  });
+
+  it("cites PROTOCOL.md's What the door answers beside each rule it repeats from there, and says what it says", () => {
+    expect(DOC).toContain(
+      'Each rule has its home in the document cited beside it, and this page repeats only what a worker needs at the step it is on;',
+    );
+    const protocol = readFileSync(join(DOCS, 'PROTOCOL.md'), 'utf8');
+    const answers = protocol.slice(
+      protocol.indexOf('### What the door answers'),
+      protocol.indexOf('### The piece next hands over'),
+    );
+    const cited = '([What the door answers](PROTOCOL.md#what-the-door-answers))';
+    // Each pair: the words on this page, and the same rule's words in its home. The page writes a paragraph on one line.
+    for (const [here, there] of [
+      ['`0x` and 130 lower-case hex characters', '`0x` and 130 lower-case hex characters'],
+      ['`202 { id, seq, hash, at }`', '`202 { id, seq, hash, at }`'],
+      ['or `409` for an event the door holds already', 'Held already: `409`, `already here`'],
+      ['for 60 seconds', 'for 60 seconds'],
+      ['`{ "error": "<sentence>" }`', '`{ "error": "<one sentence>" }`'],
+      ["Quilt takes a `4xx` other than `429` as the tracker's answer", 'Quilt reads a 4xx but `429` as the answer'],
+      ['The page of 500 lines', 'at most 500'],
+    ]) {
+      const lines = DOC.split('\n').filter((l) => l.includes(here!));
+      expect(lines.length, here).toBeGreaterThan(0);
+      for (const l of lines) expect(l, here).toContain(cited);
+      expect(answers, there).toContain(there);
+    }
   });
 
   it('links only files that exist, and headings they have, its own included', () => {

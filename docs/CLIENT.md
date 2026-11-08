@@ -9,7 +9,7 @@ This page is for someone writing a program that works BitQuilt's pieces with no 
 3. [QX-19](ext/QX-19.md) sections [1](ext/QX-19.md#1-events) and [2](ext/QX-19.md#2-reads-and-blobs), the trace and its reads, for step 6.
 4. [PROTOCOL.md](PROTOCOL.md), The tracker: the one table of the [routes](PROTOCOL.md#routes), [what the door answers](PROTOCOL.md#what-the-door-answers) to a post, a refusal and a read of a log, and [the piece next hands over](PROTOCOL.md#the-piece-next-hands-over), field by field. This page links that table and does not repeat it.
 
-No source file is on the path. Each rule is stated once, in the document cited beside it; the code this page names is where a reader checks it.
+No source file is on the path. Each rule has its home in the document cited beside it, and this page repeats only what a worker needs at the step it is on; the code this page names is where a reader checks it.
 
 ## The forms
 
@@ -20,7 +20,7 @@ The forms are CORE.md section 1. What a signer needs beyond its text:
 - **An address** is written with its EIP-55 checksum, in `key` and everywhere else. One in lower case is refused as `event.key: an address with its checksum`.
 - **`ts`** is ISO 8601 with a zone, such as `2026-10-24T18:00:00.000Z`. It is the signer's word; the receipt's time, which the tracker stamps, is what orders the fold (CORE.md section 6).
 - **`by`**, on a claim, a reveal and a run, is `{ model, client, can }`: `model` as `vendor/model`, or `human` for a person; `client` the program's name; `can` what the worker can do, from `web`, `files`, `shell` and `person`. The door holds `model` and `client` to 1 to 80 characters and `can` to those four words, and checks no more: not the `vendor/model` form, and not `can` against the piece's `requires` (`byProblems` in `packages/core/src/events.ts`; the 80 is in the last section of `impl/python/FINDINGS.md`, not in CORE.md). The vendor, the part before the first slash or the whole where there is none (CORE.md section 6), is the worker's own word, and the reducer counts `claude` and `anthropic/claude` as two vendors. A worker writes its vendor's name first, as `anthropic`, `openai` and `google` are written.
-- **A signature** is `0x` and 130 lower-case hex characters: `r` and `s`, 32 bytes each, then `v` as 27 or 28. The reference signs with RFC 6979's deterministic nonce and a low `s` (`signMessage` in `packages/core/src/keys.ts`), so one key signs one event one way.
+- **A signature** is `0x` and 130 lower-case hex characters: `r` and `s`, 32 bytes each, then `v` as 27 or 28 ([What the door answers](PROTOCOL.md#what-the-door-answers)). The reference signs with RFC 6979's deterministic nonce and a low `s` (`signMessage` in `packages/core/src/keys.ts`), so one key signs one event one way.
 - **A commit's `h`** is the hash of the return's canonical JSON followed by the nonce's 32 characters, both as UTF-8: the nonce's text, not the 16 bytes it spells (`commitHash` in `packages/core/src/events.ts`).
 
 ### Fixture 04's first claim, worked
@@ -90,11 +90,11 @@ The answer is `{ offer, offers }`. `offers` lists the problems with a piece for 
 GET /p/<problem>/next?key=<key>&can=web,files&model=<model>
 ```
 
-The answer is the piece's hash, its rendered `brief`, its `schema`, its `agree` fields, its `lease_h` and the rest of [the piece next hands over](PROTOCOL.md#the-piece-next-hands-over). Next, and the offer for the first piece it names, holds the piece for this key for 60 seconds, until its reveal or decline, so two workers at one tracker are not handed it at once. The 60 seconds are the reference tracker's choice. A hold is a courtesy, not a lease: another client may still claim the piece, and a second worker on it is how the piece gets its second production.
+The answer is the piece's hash, its rendered `brief`, its `schema`, its `agree` fields, its `lease_h` and the rest of [the piece next hands over](PROTOCOL.md#the-piece-next-hands-over). Next, and the offer for the first piece it names, holds the piece for this key for 60 seconds, until its reveal or decline, so two workers at one tracker are not handed it at once. The 60 seconds are the reference tracker's choice ([What the door answers](PROTOCOL.md#what-the-door-answers)). A hold is a courtesy, not a lease: another client may still claim the piece, and a second worker on it is how the piece gets its second production.
 
 Where there is nothing for this key, next answers `{ piece: null, unaffordable }`, with `superseded` where the owner replaced the problem, and the offer answers `offers: []`. Neither says why. A piece is left out where:
 
-- its state is none of the five next takes (CORE.md section 7, step 1): it is done, `accepted_provisional`, `accepted` or `unreachable`, or waits on another, `locked` or `unknown` (CORE.md section 6);
+- its state is none of the five next takes (CORE.md section 7, step 1): it is done, `accepted_provisional`, `accepted` or `unreachable`, or, for a record piece, `recorded` (QX-20); it waits on another, `locked`; or its kind is one this tracker does not define, `unknown` (CORE.md section 6);
 - its `requires` is not within `can`, as `files` is not within `web`. The examples' first problem, [`examples/first-pattern.json`](../examples/first-pattern.json), asks `files`;
 - the key's root, or one related to it, owns the problem, or has a reveal, a run, a live claim or a decline on the piece (CORE.md section 7, step 1);
 - another key holds it. The worker asks again once the hold's 60 seconds have passed;
@@ -114,7 +114,7 @@ POST /p/<problem>/events
 }
 ```
 
-The door answers every event it takes with `202 { id, seq, hash, at }`: the event's id, its line's number and hash, and the receipt time. A claim is an intent, live for the lease from its receipt (CORE.md section 4). It is optional: the door takes a commit and a reveal with no claim before them, and the reducer counts them. While a claim lives it counts in the piece's availability, so next hands other keys rarer pieces first (CORE.md sections 6 and 7).
+The door answers every event it takes with `202 { id, seq, hash, at }`: the event's id, its line's number and hash, and the receipt time ([What the door answers](PROTOCOL.md#what-the-door-answers)). A claim is an intent, live for the lease from its receipt (CORE.md section 4). It is optional: the door takes a commit and a reveal with no claim before them, and the reducer counts them. While a claim lives it counts in the piece's availability, so next hands other keys rarer pieces first (CORE.md sections 6 and 7).
 
 ### 4. The commit
 
@@ -133,7 +133,7 @@ The door runs the gate at the reveal, since a commit carries only a hash, so a w
 
 ### 5. The reveal
 
-Once the commit has answered `202`, or `409` for an event the door holds already:
+Once the commit has answered `202`, or `409` for an event the door holds already ([What the door answers](PROTOCOL.md#what-the-door-answers)):
 
 ```
 POST /p/<problem>/events
@@ -209,7 +209,7 @@ The log is `GET /p/<problem>/events`, one line `{ event, received, seq, prev, ha
 
 ## What the door checks, in order
 
-A post to `/p/<problem>/events` meets these checks in the order `handle`, `postEvent`, `admitProblemEvent` and `checkPieceEvent` run them (`packages/tracker/src/tracker.ts`). The first that fails is the answer: its status, and `{ "error": "<sentence>" }`. A check about one type passes every other type.
+A post to `/p/<problem>/events` meets these checks in the order `handle`, `postEvent`, `admitProblemEvent` and `checkPieceEvent` run them (`packages/tracker/src/tracker.ts`). The first that fails is the answer: its status, and `{ "error": "<sentence>" }` ([What the door answers](PROTOCOL.md#what-the-door-answers)). A check about one type passes every other type.
 
 | | Check | Status | Refused with |
 | --- | --- | --- | --- |
@@ -234,7 +234,7 @@ A post to `/p/<problem>/events` meets these checks in the order `handle`, `postE
 | 19 | A trace keeps QX-19 section 1 | 400 | Its first fault, such as `read N: no such blob here; put it first` |
 | 20 | The tracker does not hold the event already | 409 | `already here` |
 
-The door admits before it dedupes, so a reveal posted again meets row 16 first, which asks for any commit by the key on the piece not yet revealed. Where the reveal's commit is the key's only one on the piece, the repeat is refused there, `no unrevealed commit by this key on the piece`, and is not answered `409`. Where the key has another commit on the piece that it never revealed, as the first is after a second commit (step 4), that one stays unrevealed at the door, abandoned or not, so the repeat passes row 16 and is answered `409`, `already here`. Either way, a worker that lost the answer to its reveal looks for it in the problem's log ([After a return](#after-a-return)). The extensions' own events, a challenge, a lock or a gold, meet their own checks after row 10, each refusal naming its rule; a first return posts none of them. A failure inside the tracker is `500`, `the tracker failed`. The limits count by the UTC hour. Quilt takes a `4xx` other than `429` as the tracker's answer, and a `429`, a `5xx` or no answer as the tracker down, and tries the next ([What the door answers](PROTOCOL.md#what-the-door-answers)).
+The door admits before it dedupes, so a reveal posted again meets row 16 first, which asks for any commit by the key on the piece not yet revealed. Where the reveal's commit is the key's only one on the piece, the repeat is refused there, `no unrevealed commit by this key on the piece`, and is not answered `409`. Where the key has another commit on the piece that it never revealed, as the first is after a second commit (step 4), that one stays unrevealed at the door, abandoned or not, so the repeat passes row 16 and is answered `409`, `already here`. A trace posted again is refused the same way, at row 19, `a trace already names this reveal`, and is not answered `409`. In each case, a worker that lost the answer to its post looks for its event in the problem's log ([After a return](#after-a-return)). The extensions' own events, a challenge, a lock or a gold, meet their own checks after row 10, each refusal naming its rule; a first return posts none of them. A failure inside the tracker is `500`, `the tracker failed`. The limits count by the UTC hour. Quilt takes a `4xx` other than `429` as the tracker's answer, and a `429`, a `5xx` or no answer as the tracker down, and tries the next ([What the door answers](PROTOCOL.md#what-the-door-answers)).
 
 Next and the offer refuse with `400`, `key: an address with its checksum` or `can: from web, files, shell, person`, and next also `only: verify, or left out`; next answers `404` and `410` as a post does. A read's put counts against the address's limit, and is refused with `413` over `trace.blob_max` and with `400`, `the bytes do not match the hash`.
 
