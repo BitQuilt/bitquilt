@@ -260,10 +260,6 @@ export function takeRests(answer) {
 }
 
 /**
- * The trace in the log line: where it went, what rests on what, and what was left out and why; nothing where no rests
- * were given.
- */
-/**
  * The first words of a passage the client could not place, with the page's host, so a miss in the log says what the
  * model handed over.
  */
@@ -277,6 +273,10 @@ function leftOut(m, rests) {
   } catch {}
   return ` ("${words.slice(0, 6).join(' ')}${words.length > 6 ? '...' : ''}" on ${host})`;
 }
+/**
+ * The trace in the log line: where it went, what rests on what, and what was left out and why; nothing where no rests
+ * were given.
+ */
 export function traceSaid(t, rests = []) {
   if (!t) return '';
   const left = t.missing.length

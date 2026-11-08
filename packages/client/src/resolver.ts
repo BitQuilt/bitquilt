@@ -80,8 +80,7 @@ export interface Library {
    * it is not sharpened twice; `topics` the ones this key announced with (QX-13), and `announced` the work its last
    * announce stated and the relays an announce was offered to, so the owner's turn announces again only where the work
    * moved or a relay has not been offered one.
-   */
-  /**
+   *
    * `frozen` is when the owner froze the brief here (`quilt freeze`): the owner's turn sharpens it no more, and nothing
    * republishes it.
    */

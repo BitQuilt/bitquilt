@@ -101,13 +101,6 @@ export interface AttentionItem {
 }
 
 /**
- * A problem as a person writes it for `publish`: the title, what done looks like, a slug, and the pieces as the core's
- * envelope takes them, with the data rows inline under the blob names the pieces draw on, and topics for the index
- * (QX-13). `publish` fills what is left out: the settings' defaults (a 48-hour challenge window, a 2-hour lease, the
- * endgame at 10 pieces, a budget of 1000, a patch of at most 100000 characters), `prev` and `from` as null, the owner
- * as this key, and the hints as this client's trackers and mirrors.
- */
-/**
  * What `publish` and the owner's sharpening answer: where the envelope went, what refused it, and the gold committed.
  */
 export interface Published {
@@ -166,6 +159,13 @@ export const SENTENCE_MAX = 400;
 const NOT_OWNER = 'only the owner sharpens a brief';
 const FROZEN = "that problem's brief is frozen in this home; `quilt freeze <problem> off` thaws it";
 
+/**
+ * A problem as a person writes it for `publish`: the title, what done looks like, a slug, and the pieces as the core's
+ * envelope takes them, with the data rows inline under the blob names the pieces draw on, and topics for the index
+ * (QX-13). `publish` fills what is left out: the settings' defaults (a 48-hour challenge window, a 2-hour lease, the
+ * endgame at 10 pieces, a budget of 1000, a patch of at most 100000 characters), `prev` and `from` as null, the owner
+ * as this key, and the hints as this client's trackers and mirrors.
+ */
 export interface Pattern {
   title: string;
   done_when: string;
@@ -379,15 +379,15 @@ export class Quilt {
     return { event, posted };
   }
 
-  /**
-   * Where posts about a problem go, each once: the trackers named `first` (the one that answered, a link's), then the
-   * ones the library remembers for it, then the config's.
-   */
   /** A tracker's JSON through this Quilt's own way to the network, or null. */
   ask<T>(url: string): Promise<T | null> {
     return askJson<T>(url, 8000, this.resolver.fetchImpl);
   }
 
+  /**
+   * Where posts about a problem go, each once: the trackers named `first` (the one that answered, a link's), then the
+   * ones the library remembers for it, then the config's.
+   */
   private trackersFor(problem: Hash, first: string[] = []): string[] {
     return [...new Set([...first, ...(this.library.problems[problem]?.trackers ?? []), ...this.config.trackers])];
   }

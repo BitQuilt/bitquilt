@@ -659,8 +659,8 @@ function decideAccepting(v: PieceView, roots: Roots, owner: Address, windowH: nu
   } else if (p.verifier === 'agree' && p.schema) {
     v.accepting = acceptingReveals(v, roots, owner);
   }
-  // Section 6: "A window runs from the receipt c of the event that completed the set while now < c +
-  // challenge_window_h."
+  // Section 6: "A window runs from the receipt c of the event that completed the set while
+  // now < c + challenge_window_h."
   v.windowEnd = v.accepting ? plusHours(v.accepting.completedAt, windowH) : null;
 }
 

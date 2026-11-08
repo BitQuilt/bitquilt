@@ -115,7 +115,7 @@ const NUMBERED = String.raw`${PART} (?:${NUMBERS}|(?:one|two|three|four|five)(?!
 const OF = String.raw`(?: of (?:${NAME}|${HEADING}))`;
 /** A citation: a name with its part, or a part with what it is of or with nothing, then what its comma names. */
 const CITATION = new RegExp(
-  String.raw`(?:${NAME}(?:,? ${NUMBERED})?|${NUMBERED}${OF}?)(?:, (?:${NUMBERED}|${HEADING}))?`,
+  String.raw`(?:${NAME}(?:,? ${NUMBERED})?|${NUMBERED}${OF}?)(?:, (?:${NUMBERED}|${HEADING}))*`,
   'g',
 );
 
@@ -166,6 +166,10 @@ describe('a citation sits whole on one line', () => {
     ['a section and a comma, then a heading', '// the receipt (CORE.md section 6,\n// Envelopes)'],
     ['a section with no name and a comma, then a heading', '// receipted first (section 6,\n// Order)'],
     ['a section and a comma, then a heading in lower case', ' * the store (WORKSHOP.md section 2,\n * one peer)'],
+    [
+      'a heading, then its stage after a second comma',
+      ' * one node (WORKSHOP.md section 2, one peer,\n * stage three)',
+    ],
     ['a section and a stage broken inside', ' * the loop (WORKSHOP.md section 2, stage\n * one)'],
     ['a name with a comma, then a heading', ' * as a search finds it (APP.md,\n * Search)'],
     ['a quoted heading broken inside', '// the ui:// resource (APP.md, "The\n// window")'],
