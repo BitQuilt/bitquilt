@@ -1,6 +1,9 @@
 /**
  * PROTOCOL.md, The on-ramp's routes, held to the on-ramp mounted beside a tracker with the authorization server on
- * (QX-18 section 1): a row's Methods cell names methods and nothing else, and each method a row names is one the
+ * (QX-18 section 1): every test the `routes` of hosted.ts and oauth.ts make of a path, a literal, a pattern or a
+ * prefix, meets a row's path, and each word a pattern's alternatives take meets a row's path that ends in it, as
+ * routes.test.ts holds the door's dispatcher; a path the source builds at run time, as it builds the metadata's, is not
+ * among them. A row's Methods cell names methods and nothing else, and each method a row names is one the
  * on-ramp takes at every path the row names, answered neither 405 nor the tracker's `no such route`. The row of the
  * authorization server, whose paths end in an ellipsis, stands for the endpoints QX-18 section 1 lists, and those
  * include every endpoint the server's metadata names; across them the methods taken are the row's, no more and no
@@ -11,7 +14,7 @@
  * on-ramp and the transport give, each provoked here and held to its status. Where a browser meets the person's sheet
  * page and where the page reads its data are held from the rows' What it answers cells: the page at the address, the
  * JSON at its `/sheet`, and no page at `/mcp`. The other rows' refusals are not read. The tracker's own table is
- * protocol-table.test.ts's.
+ * protocol-table.test.ts's, and the node's is packages/client/test/node-table.test.ts's.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdtempSync, readFileSync } from 'node:fs';
@@ -137,6 +140,37 @@ function concrete(path: string): string[] {
   return [path.replace('<token>', mine.token).replace('<problem>', NO_SQUARE).replace('<piece>', NO_SQUARE)];
 }
 
+/**
+ * Every test the on-ramp's `routes` make of a request's path, in hosted.ts and in oauth.ts for the authorization
+ * server, in the order the source makes them: a literal it is compared with, a pattern run on it, or a prefix; with
+ * the words a pattern's alternatives take. A path built at run time, as the metadata's are, is not among them.
+ */
+function pathTests(): { text: string; matches: (path: string) => boolean; words: string[] }[] {
+  return ['hosted.ts', 'oauth.ts'].flatMap((file) => {
+    const source = readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8');
+    const at = source.indexOf('async function routes(');
+    if (at < 0) throw new Error(`${file} has no routes`);
+    const body = source.slice(at, source.indexOf('\n  }\n', at));
+    return [...body.matchAll(/path === '([^']+)'|\/(\^[^\n]*?\$)\/\.exec\(path\)|path\.startsWith\('([^']+)'\)/g)].map(
+      (m) => {
+        const [text, literal, pattern, prefix] = m as unknown as [
+          string,
+          string | undefined,
+          string | undefined,
+          string | undefined,
+        ];
+        if (literal !== undefined) return { text, matches: (p: string) => p === literal, words: [] };
+        if (pattern !== undefined) {
+          const re = new RegExp(pattern);
+          const words = [...pattern.matchAll(/\(([a-z]+(?:\|[a-z]+)+)\)/g)].flatMap((g) => g[1]!.split('|'));
+          return { text, matches: (p: string) => re.test(p), words };
+        }
+        return { text, matches: (p: string) => p.startsWith(prefix!), words: [] };
+      },
+    );
+  });
+}
+
 /** Whether the on-ramp takes a method at a path: an answer that is neither 405 nor the tracker's `no such route`. */
 async function takes(method: string, path: string): Promise<boolean> {
   const r = await fetch(base + path, { method, redirect: 'manual', ...(method === 'GET' ? {} : { body: '' }) });
@@ -206,6 +240,24 @@ describe("PROTOCOL.md, the on-ramp's route table", () => {
     for (const r of all) {
       expect(r.methods.length, `${r.paths.join(', ')} names its methods`).toBeGreaterThan(0);
       for (const m of r.methods) expect(METHODS, `${r.paths.join(', ')}: ${m} is a method`).toContain(m);
+    }
+  });
+
+  it('names a row for every path the routes of hosted.ts and oauth.ts test, and for every sub-route a pattern takes', () => {
+    expect(DOC).toContain("holds a row for every path the two files' `routes` test");
+    const paths = routes().flatMap((r) => r.paths.flatMap(concrete));
+    const tests = pathTests();
+    expect(tests.length).toBeGreaterThan(10);
+    for (const t of tests) {
+      expect(
+        paths.some((p) => t.matches(p)),
+        `${t.text} tests no row's path`,
+      ).toBe(true);
+      for (const w of t.words)
+        expect(
+          paths.some((p) => t.matches(p) && p.endsWith(`/${w}`)),
+          `${t.text} takes ${w}, which no row names`,
+        ).toBe(true);
     }
   });
 

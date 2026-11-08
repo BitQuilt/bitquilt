@@ -13,8 +13,8 @@ import { addr, boot, envelope, key } from './helpers.js';
  * piece next hands over"; a post's answer, and 409 for it again; the signature's text form, with a `v` of 0 or 1 taken
  * and any other refused; the limits as published, the address's counting every write and the key's every post; and the
  * hold, on the piece next hands over and on the first the offer names, for 60 seconds. The refusals column is not read.
- * The on-ramp's table is packages/hosted/test/onramp-table.test.ts's, the node's is not read, and the dispatcher's
- * order is routes.test.ts's.
+ * The on-ramp's table is packages/hosted/test/onramp-table.test.ts's, the node's is
+ * packages/client/test/node-table.test.ts's, and the dispatcher's order is routes.test.ts's.
  */
 const DOC = readFileSync(new URL('../../../docs/PROTOCOL.md', import.meta.url), 'utf8');
 const owner = key(9),

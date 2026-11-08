@@ -203,18 +203,19 @@ With nothing for the key, `next` answers `{ piece: null, unaffordable }`, adding
 
 ### The node's routes
 
-Quilt's page on localhost is a node (`packages/client/src/page.ts`) whose well-known says `node: true` and lists these, each `GET`, so a mirror pulls from it with no tracker between. Its `/api/` routes are the person's, not the protocol's.
+Quilt's page on localhost is a node (`packages/client/src/page.ts`), and its `/api/` routes are the person's, not the protocol's. Its well-known document says `node: true`, names the identity log's hash, and lists as `routes` the paths of every row below its own, in their order, so a mirror or another node pulls from it with no tracker between ([NODE.md](NODE.md) section 4). Another method at a listed path is `404`, `no such route`. `node-table.test.ts` in `packages/client/test` holds this section.
 
-| Route | What it answers |
-| --- | --- |
-| `/.well-known/quilt` | `{ quilt, node, identity, routes }` |
-| `/held` | Each problem held, with its title, owner and chain's length |
-| `/p/<hash>`, `/b/<hash>` | The envelope; a blob; `404`, `not held here` |
-| `/p/<hash>/events`, `/k/events` | The chain and the identity log as held, in one page |
+| Route | Methods | What it answers |
+| --- | --- | --- |
+| `/.well-known/quilt` | GET | `{ quilt, node, identity, routes }`; unlisted |
+| `/held` | GET | `{ quilt, node, problems }`: for each problem held, its hash as `problem`, its `title`, `slug` and `owner`, and the `lines` of its chain held |
+| `/p/<hash>` | GET | The envelope; `404`, `not held here` |
+| `/p/<hash>/events`, `/k/events` | GET | The chain and the identity log as held, in one page |
+| `/b/<hash>` | GET | A blob; `404`, `not held here` |
 
 ### The on-ramp's routes
 
-Where a tracker hosts the on-ramp (`hosted: true`), these answer beside its own (`packages/hosted/src/hosted.ts`, and `oauth.ts` for the authorization server), unlisted in its `routes`. `onramp-table.test.ts` in `packages/hosted/test` holds each row's methods, the refusals of the connector's two rows, and where a browser meets the sheet page and where the page reads its data.
+Where a tracker hosts the on-ramp (`hosted: true`), these answer beside its own (`packages/hosted/src/hosted.ts`, and `oauth.ts` for the authorization server), unlisted in its `routes`. `onramp-table.test.ts` in `packages/hosted/test` holds a row for every path the two files' `routes` test, each row's methods, the refusals of the connector's two rows, and where a browser meets the sheet page and where the page reads its data.
 
 | Route | Methods | What it answers | Refused with |
 | --- | --- | --- | --- |
@@ -241,7 +242,7 @@ A client chooses its trackers, and anyone may run one with other policies. This 
 
 ## The mirror
 
-The ledger job (`packages/mirror/src/mirror.ts`) is the one automated writer to `main`, and the repository is the public copy. GitHub serves its files raw over HTTPS, so a client with the repository's address resolves a hash with no tracker. The verify script (`packages/core/src/verify.ts`) takes a clone's files and a hash, checks the chain, every signature and the envelope's hash, runs the reducer, and prints the head and the map: clone and compute, with no trust in the site. The site's database holds the same receipts and is a cache of them; were it lost, the mirror's files hold every event it served up to the mirror's last run.
+The ledger job (`packages/mirror/src/mirror.ts`) is the one automated writer to `main`, and the repository is the public copy. GitHub serves its files raw over HTTPS, so a client with the repository's address resolves a hash with no tracker. The verify script (`packages/core/src/verify.ts`) takes a clone's files and a hash, checks the chain, every signature and the envelope's hash, runs the reducer, and prints the head and the map: clone and compute, with no trust in the site. The site's database holds the same receipts and is a cache of them. Were it lost, the mirror's files hold every event the site had on a problem at the last run that took the problem from it, and the identity events and, at the coin's home, the coin log it had at the last run that took each ([NODE.md](NODE.md) section 5). They lack a problem hidden or replaced there before any run listed it, since the site's index at `/` leaves those out and the mirror asks by hash only for problems it holds.
 
 The mirror is also a keeper. It reads the trackers and nodes it is pointed at, and their peers one hop, and keeps a chain of its own per log that only grows. In a run it takes each problem's chain from the first source that gives it and appends the events that source has and the chain lacks, by id; it takes the identity log the same way from every source that lists its problems; and it copies the coin log whole, refusing one that did anything but grow. A node with `keep` and no door does the same over its own store, without the coin log, and a person's Quilt keeps one place's chain per log where it only grew. [NODE.md](NODE.md) says what each pulls and from which source, what each refuses, and the files the mirror writes (sections 4 to 6).
 
