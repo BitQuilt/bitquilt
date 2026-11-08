@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type Hash, eventId, hashBytes, problemHash } from '@bitquilt/core';
 import type { Route } from '../src/routes.js';
 import { addr, boot, envelope, key } from './helpers.js';
@@ -12,7 +12,8 @@ import { addr, boot, envelope, key } from './helpers.js';
  * them; the scrape's row names every field the scrape answers, and `/` and `/search` give each problem the same
  * without `chain_ok`. Then what the door answers, as the prose names it: a method a row has no handler for, 405 under
  * a problem and the coin, the log at the two logs that read it so, the fallback's 404, and the routes mounted beside
- * the tracker asked once no row answered; a post asked in the prose's order, its guard first and its address's limit
+ * the tracker asked once no row answered; any origin allowed on every answer the tracker writes itself, and nothing
+ * added to what the routes beside it write; a post asked in the prose's order, its guard first and its address's limit
  * before its body is read; the fields of the piece next hands over, the rows under "### The piece next hands over";
  * a post's answer, and 409 for it again; the signature's text form, with a `v` of 0 or 1 taken and any other
  * refused; the limits as published, the address's counting every write and the key's every post; and the hold, on
@@ -253,6 +254,59 @@ describe('PROTOCOL.md, what the door answers', () => {
       expect(await asked('GET', '/declined')).toEqual({ status: 404, body: { error: 'no such route' } });
     } finally {
       await beside.close();
+    }
+  });
+
+  it('allows any origin on every answer the tracker writes itself, and adds nothing to what the routes beside it write', async () => {
+    expect(DOC).toContain(
+      "Every answer the tracker writes itself allows any origin, so a page on any site can read the door: the `204`, each row's answer, a guard's or a row's refusal, the last `404` and the `500`. The routes mounted beside it write their own headers, and the tracker adds none to what they write.",
+    );
+    const door = boot('2026-11-07T12:00:00Z', {
+      limits,
+      coin,
+      extra: async (_req, res, u) => {
+        if (u.pathname === '/fails') throw new Error('a route beside the tracker failed');
+        if (u.pathname !== '/beside') return false;
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        res.end('<!doctype html><title>Beside</title>');
+        return true;
+      },
+    });
+    /** What the door answers a method on a path: its status and the origins it allows, null where it names none. */
+    const origin = async (base: string, method: string, path: string, body?: Uint8Array) => {
+      const r = await fetch(base + path, { method, ...(method === 'GET' ? {} : { body: body ?? '' }) });
+      await r.arrayBuffer();
+      return { status: r.status, origin: r.headers.get('access-control-allow-origin') };
+    };
+    const failed = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await door.listen();
+    try {
+      expect(
+        await origin(door.base, 'POST', '/p', new TextEncoder().encode(JSON.stringify({ envelope: env }))),
+      ).toEqual({ status: 201, origin: '*' });
+      const read = new TextEncoder().encode('one read');
+      const at = `/b/${hashBytes(read)}`;
+      expect(await origin(door.base, 'PUT', at, read)).toEqual({ status: 202, origin: '*' });
+      expect(await origin(door.base, 'GET', at)).toEqual({ status: 200, origin: '*' });
+      // Each row by every method it has a handler for and by one it has none for: its answer, its refusal, its log,
+      // or the last 404 once the routes beside take nothing.
+      for (const row of door.tracker.routes) {
+        const path = filled(row.path.replace(/\*$/, '/nothing'));
+        for (const method of [...handled(row), 'DELETE']) {
+          expect((await origin(door.base, method, path)).origin, `${method} ${path}`).toBe('*');
+        }
+      }
+      // The preflight, the two guards, the last 404 and the 500.
+      expect(await origin(door.base, 'OPTIONS', '/beside')).toEqual({ status: 204, origin: '*' });
+      expect(await origin(door.base, 'GET', `/p/sha256:${'0'.repeat(64)}`)).toEqual({ status: 404, origin: '*' });
+      expect(await origin(plain.base, 'GET', '/coin/state')).toEqual({ status: 404, origin: '*' });
+      expect(await origin(door.base, 'GET', '/nowhere')).toEqual({ status: 404, origin: '*' });
+      expect(await origin(door.base, 'GET', '/fails')).toEqual({ status: 500, origin: '*' });
+      // What a route beside the tracker writes reaches the reader with its own headers and nothing the tracker adds.
+      expect(await origin(door.base, 'GET', '/beside')).toEqual({ status: 200, origin: null });
+    } finally {
+      failed.mockRestore();
+      await door.close();
     }
   });
 
