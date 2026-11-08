@@ -4,7 +4,7 @@
  * code it describes, and a diff of one sentence shows that sentence. The lines read are the comment lines of each
  * package's sources and tests, the card's sources, the scripts, the example workers and vitest.config.ts: a line that
  * opens with `//` or a star, a line of a block, and a shell script's `#` line. A comment after code is code's line, and
- * the formatter's. A line is measured in characters as a person counts them, not in UTF-16 units.
+ * the formatter's. A line is measured in code points, so an astral letter counts as one, not as two UTF-16 units.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { basename, join, relative, sep } from 'node:path';
