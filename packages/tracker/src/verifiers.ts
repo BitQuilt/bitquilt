@@ -386,9 +386,10 @@ export function fromPersonSeat(reveal: Reveal, receipt: Receipt | undefined): bo
  * Whether a line's wrappers say its seat is a person's: one says `seat: person`, or one says `custody: hosted`
  * whatever `seat` it names beside. The on-ramp writes `seat: ai` beside its custody, since a member's product makes
  * the calls, and the seat is the member's, a person who took an address at its door (verifiers.md section 2). The door
- * reads a pulled line's seat here from the peer's wrappers, as the layer reads every line's (QX-21 section 2).
+ * reads a post's seat here from the wrapper it will write, and a pulled line's from the peer's wrappers, as the layer
+ * reads every line's (QX-21 section 2).
  */
-export function personSeatIn(received: readonly Received[]): boolean {
+export function personSeatIn(received: readonly Pick<Received, 'custody' | 'seat'>[]): boolean {
   return received.some((r) => r.seat === 'person' || r.custody === 'hosted');
 }
 

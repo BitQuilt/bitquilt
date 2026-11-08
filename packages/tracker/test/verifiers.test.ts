@@ -15,16 +15,17 @@ import {
   signObject,
 } from '@bitquilt/core';
 import { challengeLayer } from '../src/challenge.js';
-import { describeKind, kindOf } from '../src/verifiers.js';
+import { describeKind, kindOf, personSeatIn } from '../src/verifiers.js';
 import { SETTINGS as settings, VERDICT_QUOTE, addr, boot, key, line } from './helpers.js';
 
 /**
  * The three verifier kinds the core does not know (docs/ext/verifiers.md), as the tracker's layer decides them: an
  * `attest` piece accepted at once on the actor's own record, marked attested, and struck by a challenge; a `human`
  * piece accepted only when both reveals come from a person's seat, the on-ramp's custody one whatever seat it names
- * beside, as verifiers.md and PROTOCOL.md say; a `judge:3` piece whose candidates a panel of three
- * ranks, decided by two first choices. Beside each, the core's own word stays `unknown`. The envelopes here are signed
- * by hand, since each names pieces of several kinds.
+ * beside, as verifiers.md and PROTOCOL.md say, and read at a post through `personSeatIn` from the wrapper the door
+ * writes, as the pull and the layer read theirs; a `judge:3` piece whose candidates a panel of three ranks, decided by
+ * two first choices. Beside each, the core's own word stays `unknown`. The envelopes here are signed by hand, since
+ * each names pieces of several kinds.
  */
 const owner = key(9),
   A = key(1),
@@ -384,6 +385,33 @@ describe('the verifier kinds at the tracker', () => {
       attested: false,
     });
     expect(tracker.layer().standing(addr(persons[0]!))).toBe(2);
+  });
+
+  it("reads a post's seat through personSeatIn from the wrapper it writes, as the pull and the layer read theirs", async () => {
+    // The two reveals the test before took on the vote: the member's through the connector, whose wrapper says a
+    // person's seat, and the person's at the page, whose wrapper says none and whose `by.model` is `human`.
+    const reveals = (await (await fetch(`${t.base}/p/${p}/events`)).text())
+      .trim()
+      .split('\n')
+      .map((l) => JSON.parse(l) as Receipt)
+      .filter((l) => l.event.type === 'reveal' && l.event.piece === vote);
+    const wrapperOf = (k: Uint8Array) => reveals.find((l) => l.event.key === addr(k))!.received;
+    expect(wrapperOf(persons[1]!)).toMatchObject([{ custody: 'hosted', seat: 'ai' }]);
+    expect(personSeatIn(wrapperOf(persons[1]!))).toBe(true);
+    expect(wrapperOf(persons[0]!)).toMatchObject([{ custody: 'self' }]);
+    expect(personSeatIn(wrapperOf(persons[0]!))).toBe(false);
+    // The door builds the seat's words before it admits the post, asks personSeatIn of them, and writes the same words
+    // in the receipt's wrapper. The pull asks it of the peer's wrappers, and the layer of every line's.
+    const source = (file: string) => readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8');
+    const admit = source('admit.ts');
+    const start = admit.indexOf('export async function postEvent(');
+    const postEvent = admit.slice(start, admit.indexOf('\n}\n', start));
+    expect(postEvent).toContain('admitProblemEvent(cx, event, log.hash, personSeatIn([wrapper]))');
+    expect(postEvent).toContain(
+      'store.appendReceipt(chain, event, id, url, now(), wrapper.custody, wrapper.seat, extra)',
+    );
+    expect(source('peers.ts')).toContain('personSeatIn(line.received)');
+    expect(source('verifiers.ts')).toContain('personSeatIn(receipt.received)');
   });
 
   it('seats a panel of three on a judge piece once its candidates are in, and accepts the candidate two of them rank first', async () => {

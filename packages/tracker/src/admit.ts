@@ -15,6 +15,7 @@ import {
   type Envelope,
   type Event,
   type Hash,
+  type Received,
   blobProblems,
   envelopeProblems,
   eventId,
@@ -44,7 +45,7 @@ import { PRODUCTION_EVENTS, lockBodyProblems, stakeRuleBodyProblems } from './st
 import type { Store } from './store.js';
 import { BLOB_MAX, admitTrace, tracesKept } from './trace.js';
 import type { Context } from './tracker.js';
-import { kindOf, rankBodyProblems } from './verifiers.js';
+import { kindOf, personSeatIn, rankBodyProblems } from './verifiers.js';
 import { hostedPost, witnessOf } from './witness.js';
 
 /** The most a post may carry, 4 MB: room for an envelope with its blobs. */
@@ -234,19 +235,20 @@ export async function postEvent(cx: Reads, req: IncomingMessage, res: ServerResp
   limit(cx, `key:${event.key}`, limits.keyPerHour);
   const id = eventId(event);
   const hosted = hostedPost(req, options.custodySecret);
-  // A hosted post's wrapper says `custody: hosted`, a person's seat (verifiers.md section 2); every other post's says
-  // `custody: self` and no seat.
+  // What the receipt's wrapper will say of its seat, built before the admission and read through `personSeatIn`, as
+  // the pull and the layer read theirs: a hosted post's says `custody: hosted` and `seat: ai`, a person's seat
+  // (verifiers.md section 2); every other post's says `custody: self` and no seat.
+  const wrapper: Pick<Received, 'custody' | 'seat'> = hosted ? { custody: 'hosted', seat: 'ai' } : { custody: 'self' };
   const { chain, word } = await exactly(() =>
     log.kind === 'coin'
       ? admitCoinEvent(cx, event)
       : log.kind === 'identity'
         ? admitIdentityEvent(cx, event)
-        : admitProblemEvent(cx, event, log.hash, hosted),
+        : admitProblemEvent(cx, event, log.hash, personSeatIn([wrapper])),
   );
   if (store.hasEvent(chain, id)) throw new Refusal(409, 'already here');
-  const line = hosted
-    ? store.appendReceipt(chain, event, id, url, now(), 'hosted', 'ai', { ...witnessOf(req), ...word })
-    : store.appendReceipt(chain, event, id, url, now(), 'self', undefined, word);
+  const extra = hosted ? { ...witnessOf(req), ...word } : word;
+  const line = store.appendReceipt(chain, event, id, url, now(), wrapper.custody, wrapper.seat, extra);
   const at = line.received[0]!.at;
   noteAppended(store, log, event, at);
   json(res, 202, { id, seq: line.seq, hash: line.hash, at });
