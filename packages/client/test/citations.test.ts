@@ -2,12 +2,13 @@
  * A citation in a comment sits whole on one line (AGENTS.md, The words). The code cites the documents by section, so
  * a search for "QX-19 section 4" or "CORE.md section 6" finds every comment that cites it only when no line break falls
  * inside one. The comments under each package's src and test, the card's sources, scripts and the example workers are
- * read. A citation is a document's name (CORE.md, verifiers.md) or an extension's number (QX-1) with the part it
- * names: a section, rule, step, item, stage or fix, by number and in either case, a range such as "sections 3 to 6"
- * among them, or "section 2 of QX-17"; and after a comma a part named by number or by one of the documents' own
- * headings, quoted or not, as in "APP.md, Search", "section 6, Envelopes" and "section 3, item 9". A section cited
- * without a document's name counts too, as the core cites its own. Each comment line is read joined to the next, and
- * a citation that runs across the join fails here.
+ * read. A citation is a document's name (CORE.md, verifiers.md, RFC 8252) or an extension's number (QX-1) with the
+ * part it names: a section, rule, step, item, stage or fix, in either case, by number or by a word for one, a range
+ * such as "sections 3 to 6" among them, or with what it is of, as in "section 2 of QX-17" and "stage two of one peer";
+ * and after a comma a part named by number or by one of the documents' own headings, quoted or not, as in
+ * "APP.md, Search", "section 3, item 9" and "AGENTS.md, the arrows". A section cited without a document's name counts
+ * too, as the core cites its own. Each comment line is read joined to the next, and a citation that runs across the
+ * join fails here.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -61,17 +62,23 @@ function comments(text: string, shell: boolean): (string | null)[] {
 }
 
 /**
- * The names the documents give their parts: each heading, with its number and a trailing date set aside, and the bold
- * words that open a paragraph, as CORE.md section 6 names Envelopes and Order. A heading with a colon is named by its
- * first words too, as "PROTOCOL.md, Identity" names "Identity: roots and delegates". Longest first, so the whole of a
- * name is read where a shorter one opens it.
+ * The names the documents give their parts: each heading, with its number and a trailing date set aside, the bold
+ * words that open a paragraph, as CORE.md section 6 names Envelopes and Order, and the few plain words that open a
+ * paragraph before a colon, as AGENTS.md names "The arrows". A heading with a colon is named by its first words too,
+ * as "PROTOCOL.md, Identity" names "Identity: roots and delegates". Longest first, so the whole of a name is read
+ * where a shorter one opens it.
  */
 function headings(): string[] {
   const docs = [join(root, 'AGENTS.md'), join(root, 'README.md'), ...walk(join(root, 'docs'), [], /\.md$/)];
   const names = new Set<string>();
   for (const doc of docs) {
-    for (const line of readFileSync(doc, 'utf8').split('\n')) {
-      const title = /^#+\s+(?:\d+\.\s+)?(.+)$/.exec(line)?.[1] ?? /^\*\*([^*]+)\*\*/.exec(line)?.[1];
+    const lines = readFileSync(doc, 'utf8').split('\n');
+    for (const [i, line] of lines.entries()) {
+      const opens = i === 0 || lines[i - 1]?.trim() === '';
+      const title =
+        /^#+\s+(?:\d+\.\s+)?(.+)$/.exec(line)?.[1] ??
+        /^\*\*([^*]+)\*\*/.exec(line)?.[1] ??
+        (opens ? /^([A-Z][\w'-]*(?: [\w'-]+){0,3}):\s/.exec(line)?.[1] : undefined);
       if (title == null) continue;
       const name = title
         .replace(/\s+\([^)]*\)$|,\s+\d.*$/, '')
@@ -94,16 +101,21 @@ function heading(name: string): string {
   return either + escape(name.slice(1));
 }
 
-const HEADING = `(?:${headings().map(heading).join('|')})`;
-const NAME = String.raw`(?:QX-\d+|[A-Za-z][\w-]*\.md)`;
+const HEADINGS = `(?:${headings().map(heading).join('|')})`;
+/** A heading, quoted or not, read to a word's end, so "Order" is not read in "Ordered". */
+const HEADING = String.raw`(?:"${HEADINGS}"|${HEADINGS}(?![\w-]))`;
+/** A document's name: an RFC by number, a file of the documents, or an extension's number with no file after it. */
+const NAME = String.raw`(?:RFC \d+|[A-Za-z][\w-]*\.md|QX-\d+)`;
 const PART = String.raw`(?:[Ss]ections?|[Rr]ules?|[Ss]teps?|[Ii]tems?|[Ss]tages?|[Ff]ix(?:es)?)`;
 const NUMBER = String.raw`\d+(?:\.\d+)*`;
 const NUMBERS = String.raw`${NUMBER}(?:(?:,|,? to|,? and) ${NUMBER})*`;
-/** What may follow a citation's comma: a part by number, "stage one" among them, or a heading, quoted or not. */
-const NAMED = String.raw`(?:${PART} (?:${NUMBER}|one|two|three|four|five)|"${HEADING}"|${HEADING}(?![\w-]))`;
-/** A citation: a name with its part, or a part with the name after "of" or with none, then what its comma names. */
+/** A part by number, or by a word for one, as "stage one" and "stage two" are cited. */
+const NUMBERED = String.raw`${PART} (?:${NUMBERS}|(?:one|two|three|four|five)(?![\w-]))`;
+/** A part's document or heading after "of", as in "section 2 of QX-17" and "stage two of one peer". */
+const OF = String.raw`(?: of (?:${NAME}|${HEADING}))`;
+/** A citation: a name with its part, or a part with what it is of or with nothing, then what its comma names. */
 const CITATION = new RegExp(
-  String.raw`(?:${NAME}(?:,? ${PART} ${NUMBERS})?|${PART} ${NUMBERS}(?: of ${NAME})?)(?:, ${NAMED})?`,
+  String.raw`(?:${NAME}(?:,? ${NUMBERED})?|${NUMBERED}${OF}?)(?:, (?:${NUMBERED}|${HEADING}))?`,
   'g',
 );
 
@@ -127,9 +139,9 @@ function splitCitations(text: string, shell = false): number[] {
 describe('a citation sits whole on one line', () => {
   it('knows the parts the code names in words, from the documents', () => {
     const names = headings();
-    for (const name of ['Envelopes', 'Order', 'One peer', 'The window', 'The mirror', 'Search', 'Identity', 'next']) {
-      expect(names).toContain(name);
-    }
+    const headed = ['Envelopes', 'Order', 'One peer', 'The window', 'The mirror', 'Search', 'Identity', 'next'];
+    const opened = ['The arrows'];
+    for (const name of [...headed, ...opened]) expect(names).toContain(name);
   });
 
   it.each([
@@ -158,6 +170,13 @@ describe('a citation sits whole on one line', () => {
     ['a name with a comma, then a heading', ' * as a search finds it (APP.md,\n * Search)'],
     ['a quoted heading broken inside', '// the ui:// resource (APP.md, "The\n// window")'],
     ['a heading broken inside', ' * the pull (PROTOCOL.md, The\n * mirror)'],
+    ['a name with a comma, then a plain paragraph opener', ' * written out (AGENTS.md,\n * the arrows)'],
+    ['a plain paragraph opener broken inside', ' * written out (AGENTS.md, the\n * arrows)'],
+    ['a stage by a word, then of and a heading', ' * its own chain (stage two of\n * one peer)'],
+    ['the word stage, then its word and what it is of', ' * its own chain (stage\n * two of one peer)'],
+    ['an RFC, then its section', ' * the loopback port (RFC 8252\n * section 7.3)'],
+    ['an RFC broken before its number', ' * the loopback port (RFC\n * 8252 section 7.3)'],
+    ['an extension by its file, then its section', ' * the vesting (docs/ext/QX-17.md\n * section 4)'],
     ['a block with no leading star', '/* the narrow frame (QX-19\n   section 4) */'],
   ])('finds %s', (_, text) => {
     expect(splitCitations(text)).toEqual([1]);
@@ -175,7 +194,9 @@ describe('a citation sits whole on one line', () => {
       ' * section 2 of a list that names no document, and the two documents CORE.md',
       ' * and QX-1.md, then the sentence a brief lacks (QX-19 section 4,',
       ' * sentence.ts), and the reducer (CORE.md section 6,',
-      ' * the validation it runs)',
+      ' * the validation it runs), where the form RFC 8785 is',
+      ' * the one a hash reads, as in step one of',
+      ' * the three a key takes.',
     ].join('\n');
     expect(splitCitations(text)).toEqual([]);
   });
