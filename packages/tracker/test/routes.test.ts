@@ -1,16 +1,20 @@
-import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash, commitHash, hashBytes, newNonce, problemHash } from '@bitquilt/core';
+import { type Route as TableRow, handlerOf, segmentsOf } from '../src/routes.js';
 import { type Booted, addr, boot, envelope, key } from './helpers.js';
 
 /**
  * The door's routes (PROTOCOL.md, The tracker; QX-17 for the coin's): the status each route the well-known document
  * lists answers, for every method it takes and for a method it refuses, beside the two paths it answers unlisted and
  * OPTIONS on every path; the 404 an unknown problem gets before any of its sub-routes; the coin's routes on a tracker
- * that carries the coin, its fallbacks there, and the 404 every path under /coin gets on a tracker that does not. The
- * list is held to the dispatcher in `handle`: the list is these rows' names in their order, each row's path is checked
- * against the name it is listed under, and every test `handle` makes of a path is one of these rows, made in the rows'
- * order.
+ * that carries the coin, its fallbacks there, and the 404 every path under /coin gets on a tracker that does not. These
+ * rows are held to the door's table (routes.ts), whose rows the well-known document lists: the list is these rows'
+ * names in their order, each row's path is checked against the name it is listed under, and each path these rows ask
+ * finds its own row of the table, in the table's order, with every row of the table found. The address's hourly limit:
+ * the five writes the table takes are the ones it counts, each spends one address's budget and is refused once it is
+ * spent, before its body is read; a read, a listing, a 405 and a guard's 404 spend nothing. And the table's own words:
+ * a row's path takes a request's path whole, each placeholder one segment of its kind and a final `*` the rest, and a
+ * method the row has no handler for is answered by its GET only where the row says so.
  */
 const owner = key(9),
   A = key(1),
@@ -79,7 +83,7 @@ interface Ask extends Answer {
   body?: () => string | Uint8Array;
 }
 /**
- * A path the door answers, in the order `handle` tests it: the name the well-known lists it under, or null where it
+ * A path the door answers, in the order of the door's table: the name the well-known lists it under, or null where it
  * lists none; whether it is the coin's; and each method asked of it.
  */
 interface Route {
@@ -95,8 +99,7 @@ const post = (status: number, error?: string): Ask => ({ method: 'POST', status,
 const sent = (event: unknown) => () => JSON.stringify(event);
 
 /**
- * Every route, in the order `handle` tests the paths. Built once a test runs, when the setup has made what the rows
- * name.
+ * Every route, in the order of the door's table. Built once a test runs, when the setup has made what the rows name.
  */
 function routes(t: Booted): Route[] {
   const { ev } = t;
@@ -191,9 +194,22 @@ function routes(t: Booted): Route[] {
   ];
 }
 
-/** What the door answers a request: its status, and the sentence of a refusal written as JSON. */
-async function answer(t: Booted, method: string, path: string, body?: string | Uint8Array): Promise<Answer> {
-  const r = await fetch(t.base + path, { method, ...(body === undefined ? {} : { body }) });
+/**
+ * What the door answers a request: its status, and the sentence of a refusal written as JSON. With `client`, the
+ * request names that address as the one the trusted proxy saw it from.
+ */
+async function answer(
+  t: Booted,
+  method: string,
+  path: string,
+  body?: string | Uint8Array,
+  client?: string,
+): Promise<Answer> {
+  const r = await fetch(t.base + path, {
+    method,
+    ...(body === undefined ? {} : { body }),
+    ...(client ? { headers: { 'x-forwarded-for': client } } : {}),
+  });
   if (r.status >= 400 && (r.headers.get('content-type') ?? '').startsWith('application/json'))
     return { status: r.status, error: ((await r.json()) as { error: string }).error };
   await r.arrayBuffer();
@@ -206,32 +222,6 @@ async function reading(t: Booted, k: Uint8Array, model: string, stance: string):
   const nonce = newNonce();
   await t.accepted(`/p/${P}/events`, t.ev(k, 'commit', { h: commitHash(ret, nonce) }, P, question));
   await t.accepted(`/p/${P}/events`, t.ev(k, 'reveal', { return: ret, nonce, by: by(model) }, P, question));
-}
-
-/**
- * Every test `handle` makes of the path, in the order its source makes them: a literal it is compared with, a pattern
- * run on it, or a prefix.
- */
-function pathTests(): { text: string; matches: (path: string) => boolean; words: string[] }[] {
-  const source = readFileSync(new URL('../src/tracker.ts', import.meta.url), 'utf8');
-  const handle = source.slice(source.indexOf('async function handle('), source.indexOf('function listen('));
-  return [...handle.matchAll(/path === '([^']+)'|\/(\^[^\n]*?\$)\/\.exec\(path\)|path\.startsWith\('([^']+)'\)/g)].map(
-    (m) => {
-      const [text, literal, pattern, prefix] = m as unknown as [
-        string,
-        string | undefined,
-        string | undefined,
-        string | undefined,
-      ];
-      if (literal !== undefined) return { text, matches: (p: string) => p === literal, words: [] };
-      if (pattern !== undefined) {
-        const re = new RegExp(pattern);
-        const words = [...pattern.matchAll(/\(([a-z]+(?:\|[a-z]+)+)\)/g)].flatMap((g) => g[1]!.split('|'));
-        return { text, matches: (p: string) => re.test(p), words };
-      }
-      return { text, matches: (p: string) => p.startsWith(prefix!), words: [] };
-    },
-  );
 }
 
 beforeAll(async () => {
@@ -254,7 +244,7 @@ afterAll(async () => {
 });
 
 describe("the door's routes", () => {
-  it("lists every route it answers but the front page and the well-known document, in the order `handle` tests them, and the coin's only where it carries the coin", async () => {
+  it("lists every route it answers but the front page and the well-known document, in the order of its table, and the coin's only where it carries the coin", async () => {
     const all = routes(plain);
     const listed = (withCoin: boolean) =>
       all.filter((r) => r.listed !== null && (withCoin || !r.coin)).map((r) => r.listed);
@@ -270,26 +260,29 @@ describe("the door's routes", () => {
     }
   });
 
-  it("tests each path in `handle` as one of these rows, in the rows' order, and names a row for every sub-route a pattern takes", () => {
-    const rows = routes(plain).map((r) => r.path);
-    const tests = pathTests();
-    expect(tests.length).toBeGreaterThan(20);
+  it("finds each path these rows ask at its own row of the door's table, in the table's order, and every row of the table at one of them", () => {
+    const table = plain.tracker.routes;
+    const found = routes(plain).map((r) => {
+      const taking = table.flatMap((row, i) => (segmentsOf(row.path, r.path) ? [i] : []));
+      return { r, at: taking[0] ?? -1, taking };
+    });
+    expect(table.length).toBeGreaterThan(20);
     let last = 0;
-    for (const t of tests) {
-      const first = rows.findIndex((p) => t.matches(p));
-      expect(first, `${t.text} tests no row`).toBeGreaterThanOrEqual(0);
-      expect(first, `${t.text} is tested out of the rows' order`).toBeGreaterThanOrEqual(last);
-      last = first;
-      for (const w of t.words)
-        expect(
-          rows.some((p) => t.matches(p) && p.endsWith(`/${w}`)),
-          `${t.text} takes ${w}, which no row names`,
-        ).toBe(true);
+    for (const { r, at, taking } of found) {
+      expect(at, `${r.path} finds no row`).toBeGreaterThanOrEqual(0);
+      expect(at, `${r.path} is found out of the table's order`).toBeGreaterThanOrEqual(last);
+      last = at;
+      const row = table[at]!;
+      expect(row.listed === false ? null : row.path, `${r.path} is listed as its row says`).toBe(r.listed);
+      expect(row.guard === 'coin', `${r.path} is the coin's as its row says`).toBe(r.coin === true);
+      // The first row that takes a path answers it: where a later row takes it too, the first answers every method, so
+      // the later is never asked.
+      if (taking.length > 1) expect(row.otherwise, `${r.path} is taken by two rows`).toBeDefined();
     }
-    for (const p of rows)
+    for (const [i, row] of table.entries())
       expect(
-        tests.some((t) => t.matches(p)),
-        `${p} is tested nowhere in handle`,
+        found.some((f) => f.at === i),
+        `${row.path} is asked by no row here`,
       ).toBe(true);
   });
 
@@ -330,5 +323,176 @@ describe("the door's routes", () => {
           error: 'no such problem here',
         });
     }
+  });
+});
+
+describe("the address's hourly limit", () => {
+  const ipPerHour = 3;
+  const capped = boot('2026-11-07T12:00:00Z', { limits: { keyPerHour: 1000, ipPerHour }, coin });
+  const coinless = boot('2026-11-07T12:00:00Z', { limits: { keyPerHour: 1000, ipPerHour } });
+  const OVER: Answer = { status: 429, error: "over the hour's limit" };
+  /** A body no write takes: refused once it is read, so a write sent it changes nothing but the address's budget. */
+  const BODY = 'not JSON';
+  /**
+   * The writes the limit counts, in the table's order: the method, the path the row is listed under, a path it takes,
+   * and what the body above gets while the budget holds.
+   */
+  const WRITES = [
+    { method: 'POST', row: '/p', path: '/p', malformed: 'not JSON' },
+    { method: 'POST', row: '/p/<hash>/events', path: `/p/${P}/events`, malformed: 'not JSON' },
+    { method: 'POST', row: '/k/events', path: '/k/events', malformed: 'not JSON' },
+    { method: 'PUT', row: '/b/<hash>', path: `/b/${KEPT_HASH}`, malformed: 'the bytes do not match the hash' },
+    { method: 'POST', row: '/coin/events', path: '/coin/events', malformed: 'not JSON' },
+  ];
+  /** The reads on the writes' paths, and the listing any method but POST gets on the two logs. */
+  const READS = [
+    { method: 'GET', path: '/p' },
+    { method: 'GET', path: `/p/${P}/events` },
+    { method: 'GET', path: '/k/events' },
+    { method: 'PUT', path: '/k/events' },
+    { method: 'GET', path: `/b/${KEPT_HASH}` },
+    { method: 'GET', path: '/coin/events' },
+    { method: 'PUT', path: '/coin/events' },
+  ];
+  let clients = 0;
+  /** An address no request has come from yet, so its hour's budget is whole. */
+  const fresh = () => `203.0.113.${++clients}`;
+  /** What each read answers the address. */
+  async function reads(t: Booted, from: string): Promise<Answer[]> {
+    const answers: Answer[] = [];
+    for (const r of READS) answers.push(await answer(t, r.method, r.path, undefined, from));
+    return answers;
+  }
+  /**
+   * Spends the address's whole budget on one write and holds that it is spent: the body refused once for each hit the
+   * hour allows, then 429.
+   */
+  async function spend(t: Booted, from: string, w: (typeof WRITES)[number]): Promise<void> {
+    for (let i = 0; i < ipPerHour; i++)
+      expect(await answer(t, w.method, w.path, BODY, from), `${w.method} ${w.path} inside the budget`).toEqual({
+        status: 400,
+        error: w.malformed,
+      });
+    expect(await answer(t, w.method, w.path, BODY, from), `${w.method} ${w.path} past the budget`).toEqual(OVER);
+  }
+
+  beforeAll(async () => {
+    for (const t of [capped, coinless]) {
+      await t.listen();
+      expect((await t.post('/p', { envelope: env })).status).toBe(201);
+    }
+  });
+  afterAll(async () => {
+    await capped.close();
+    await coinless.close();
+  });
+
+  it('counts the writes of every row that takes a method other than GET, and those are these five', () => {
+    const taken = capped.tracker.routes.flatMap((row) =>
+      (['POST', 'PUT'] as const).flatMap((method) => (row[method] ? [`${method} ${row.path}`] : [])),
+    );
+    expect(taken).toEqual(WRITES.map((w) => `${w.method} ${w.row}`));
+  });
+
+  it('refuses every write once any one of them has spent the budget, before the body is read, and answers every read as before', async () => {
+    for (const [t, writes] of [
+      [capped, WRITES],
+      [coinless, WRITES.filter((w) => w.row !== '/coin/events')],
+    ] as const) {
+      for (const spender of writes) {
+        const from = fresh();
+        const before = await reads(t, from);
+        await spend(t, from, spender);
+        for (const w of writes)
+          expect(
+            await answer(t, w.method, w.path, BODY, from),
+            `${w.method} ${w.path} once ${spender.method} ${spender.path} spent the budget`,
+          ).toEqual(OVER);
+        expect(await reads(t, from), `the reads once ${spender.method} ${spender.path} spent the budget`).toEqual(
+          before,
+        );
+      }
+    }
+  });
+
+  it("spends nothing on a read, a listing, a method a row does not take, or a path its guard refuses, and the guard's 404 comes before the 429", async () => {
+    const unknown = { status: 404, error: 'no such problem here' };
+    const told = { status: 405, error: 'GET' };
+    const from = fresh();
+    const first = await reads(capped, from);
+    for (let i = 0; i <= ipPerHour; i++) {
+      expect(await reads(capped, from)).toEqual(first);
+      expect(await answer(capped, 'POST', `/p/${UNKNOWN}/events`, BODY, from)).toEqual(unknown);
+      expect(await answer(capped, 'POST', `/p/${P}`, BODY, from)).toEqual(told);
+      expect(await answer(capped, 'PUT', `/p/${P}/events`, BODY, from)).toEqual(told);
+    }
+    await spend(capped, from, WRITES[2]!);
+    expect(await answer(capped, 'POST', `/p/${UNKNOWN}/events`, BODY, from)).toEqual(unknown);
+    expect(await answer(capped, 'POST', `/p/${P}`, BODY, from)).toEqual(told);
+
+    // On a tracker without the coin, every path under /coin is refused before the limit is asked.
+    const coinFrom = fresh();
+    for (let i = 0; i <= ipPerHour; i++)
+      for (const method of ['POST', 'PUT'])
+        expect(await answer(coinless, method, '/coin/events', BODY, coinFrom), `${method} /coin/events`).toEqual({
+          status: 404,
+          error: NO_COIN,
+        });
+    await spend(coinless, coinFrom, WRITES[2]!);
+    expect(await answer(coinless, 'POST', '/coin/events', BODY, coinFrom)).toEqual({ status: 404, error: NO_COIN });
+  });
+});
+
+describe("the door's table", () => {
+  const HASH = `sha256:${'ab'.repeat(32)}`;
+  const ADDRESS = '0x00000000000000000000000000000000000000Ab';
+
+  it('takes a path whole, each placeholder one segment of its kind, and names the segments it took', () => {
+    expect(segmentsOf('/p/<hash>', `/p/${HASH}`)).toEqual({ hash: HASH });
+    expect(segmentsOf('/p/<hash>/state', `/p/${HASH}/state`)).toEqual({ hash: HASH });
+    expect(segmentsOf('/p/<hash>', `/p/${HASH}/state`)).toBeNull();
+    expect(segmentsOf('/p/<hash>', `/p/${HASH.toUpperCase()}`)).toBeNull();
+    expect(segmentsOf('/p/<hash>', `/p/sha256:${'ab'.repeat(31)}`)).toBeNull();
+    expect(segmentsOf('/coin/lock/<id>', `/coin/lock/${HASH}`)).toEqual({ id: HASH });
+    // An address in any case: its checksum is the handler's to check.
+    expect(segmentsOf('/k/<address>/standing', `/k/${ADDRESS}/standing`)).toEqual({ address: ADDRESS });
+    expect(segmentsOf('/k/<address>/standing', `/k/${ADDRESS.toLowerCase()}/standing`)).toEqual({
+      address: ADDRESS.toLowerCase(),
+    });
+    expect(segmentsOf('/coin/balance/<root>', `/coin/balance/${ADDRESS.slice(0, -1)}`)).toBeNull();
+    expect(segmentsOf('/n/<owner>/<slug>', `/n/${ADDRESS}/a-slug-9`)).toEqual({ owner: ADDRESS, slug: 'a-slug-9' });
+    expect(segmentsOf('/n/<owner>/<slug>', `/n/${ADDRESS}/A-Slug`)).toBeNull();
+    expect(segmentsOf('/n/<owner>/<slug>', `/n/${ADDRESS}/${'a'.repeat(65)}`)).toBeNull();
+    // The literal text is literal: the dot in the well-known path is a dot.
+    expect(segmentsOf('/.well-known/quilt', '/.well-known/quilt')).toEqual({});
+    expect(segmentsOf('/.well-known/quilt', '/Xwell-known/quilt')).toBeNull();
+    expect(segmentsOf('/', '/')).toEqual({});
+    expect(segmentsOf('/', '/search')).toBeNull();
+  });
+
+  it('takes every path that starts with what comes before a final *', () => {
+    for (const path of ['/coin', '/coins', '/coin/nope', '/coin/lock/x'])
+      expect(segmentsOf('/coin*', path)).toEqual({});
+    for (const path of ['/coi', '/x/coin', '/']) expect(segmentsOf('/coin*', path)).toBeNull();
+  });
+
+  it('refuses a placeholder that is no kind of segment', () => {
+    expect(() => segmentsOf('/p/<piece>', '/p/x')).toThrow('no kind of segment');
+    expect(() => segmentsOf('/p/<constructor>', '/p/x')).toThrow('no kind of segment');
+  });
+
+  it("runs a method's own handler, the GET for any other method only where the row says so, and none otherwise", () => {
+    const GET = () => {};
+    const POST = () => {};
+    const listing: TableRow = { path: '/k/events', otherwise: 'GET', GET, POST };
+    const told: TableRow = { path: '/p/<hash>', otherwise: 405, GET };
+    const passed: TableRow = { path: '/search', GET };
+    expect(handlerOf(listing, 'POST')).toBe(POST);
+    expect(handlerOf(listing, 'PUT')).toBe(GET);
+    expect(handlerOf(listing, 'HEAD')).toBe(GET);
+    expect(handlerOf(told, 'GET')).toBe(GET);
+    expect(handlerOf(told, 'POST')).toBeUndefined();
+    expect(handlerOf(passed, 'DELETE')).toBeUndefined();
+    expect(handlerOf(passed, 'constructor')).toBeUndefined();
   });
 });
