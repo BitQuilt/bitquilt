@@ -491,9 +491,9 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
 /**
  * NODE.md section 6: an owner's name, `names/<owner>/<slug>`, from a version the owner signed. It is written only for a
  * slug by the envelope's rule, "problem.slug: lower-case letters, digits and hyphens, at most 64" (`isSlug`), and only
- * at a path inside names/<owner>/. A version with any other slug is passed over, and is no refusal: the core's shape
- * asks only that a version's slug is a string (CORE.md section 4), so a core client holds it, and a refusal would fail
- * every run and stop main growing.
+ * at a path inside names/<owner>/. A version with any other slug is passed over, and is no refusal. CORE.md section 4
+ * gives a version `{ slug, hash }` and no form for the slug, and the core's shape (`eventProblems`) asks only that it
+ * is a string, so a core client holds it, and a refusal would fail every run and stop main growing.
  */
 function writeName(out: string, owner: string, body: Record<string, unknown>): void {
   const { slug, hash } = body;

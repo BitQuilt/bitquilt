@@ -2,12 +2,13 @@
  * NODE.md section 6, the names: `names/<owner>/<slug>` holds the latest version hash from the owner's own version
  * events, and is written only for a slug by the envelope's rule, "problem.slug: lower-case letters, digits and hyphens,
  * at most 64" (`isSlug` in the core's envelope.ts). A tracker holds a version whose slug is not one, written to its
- * store directly, as a tracker serves one it took before its door refused it; the core's shape asks only that a
- * version's slug is a string (CORE.md section 4), so a core client folds it. The slugs climb out of the names, over a
- * problem's ledger, the coin's balances or out of the folder, name a folder, or break the rule some other way. The
- * mirror holds the event on its chain, which verifies, writes nothing for it anywhere, refuses nothing for it, so a run
- * exits 0, and still writes the owner's good name beside it. The section's sentences on the names are held to that,
- * and the rule's words to the envelope's check.
+ * store directly, as a tracker serves one it took before its door refused it. CORE.md section 4 gives a version
+ * `{ slug, hash }` and no form for the slug, and the core's shape (`eventProblems` in the core's events.ts) asks only
+ * that it is a string, so a core client folds it. The slugs climb out of the names, over a problem's ledger, the coin's
+ * balances or out of the folder, name a folder, or break the rule some other way. The mirror holds the event on its
+ * chain, which verifies, writes nothing for it anywhere, refuses nothing for it, so a run exits 0, and still writes the
+ * owner's good name beside it. The section's sentences on the names are held to that, and the rule's words to the
+ * envelope's check.
  */
 import { existsSync, mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import type { Server } from 'node:http';
@@ -139,7 +140,7 @@ describe('the names a mirror writes (NODE.md section 6)', () => {
       "**The names.** A name is written only for a version whose `slug` is a slug by the rule the envelope's check holds a problem's slug to, lower-case letters, digits and hyphens, at most 64 (`isSlug` in `packages/core/src/envelope.ts`), so its file is `names/<owner>/<slug>` and nowhere else.",
     );
     expect(section).toContain(
-      "The mirror holds such a version on its chain and passes it over: no file is written for it, and it is no refusal, since a core client holds it (the core's shape asks only that a version's slug is a string, CORE.md section 4) and a refusal would stop `main` growing on every run.",
+      "The mirror holds such a version on its chain and passes it over: no file is written for it, and it is no refusal. CORE.md section 4 gives a version `{ slug, hash }` and no form for the slug, and the core's shape (`eventProblems` in `packages/core/src/events.ts`) asks only that it is a string, so a core client holds it, and a refusal would stop `main` growing on every run.",
     );
     // The rule's words are the envelope's check's own, and the door's refusal of such a version says them.
     expect(envelopeProblems({ ...env, problem: { ...env.problem, slug: '../x' } })).toEqual([

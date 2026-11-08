@@ -1,10 +1,3 @@
-import type { Server } from 'node:http';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Hash, type Receipt, eventId, hashBytes, signEvent } from '@bitquilt/core';
-import { Store, createTracker } from '@bitquilt/tracker';
-import { type Pattern, Quilt } from '../src/quilt.js';
-import { baseOf, quiltOver, startTracker } from './helpers.js';
-
 /**
  * The client's node as keeper (NODE.md section 4; PROTOCOL.md, The mirror): a node that opened a problem holds its
  * chain, and `keep` pulls it again from where it is held, keeps the lines that came since, fetches the read a trace
@@ -12,8 +5,18 @@ import { baseOf, quiltOver, startTracker } from './helpers.js';
  * events in another order, is read for the state it gives and not kept, since a node follows one place's chain per
  * problem; the identity log is one place's too, so a name the second tracker holds alone is not kept
  * (NODE.md section 4); a second keep adds nothing; and what waited in the queue while no tracker answered goes out at
- * the start of a keep (APP.md, the node).
+ * the start of a keep (APP.md, the node). A trace whose reads are not a list, or hold a read that is not an object, is
+ * written to a tracker's store directly, since the door refuses it; the node holds it on its chain, fetches only the
+ * reads it names by a hash, and goes on to the problems after it and the identity log, as the section's step 3 says.
  */
+import { readFileSync } from 'node:fs';
+import type { Server } from 'node:http';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { type Hash, type Receipt, eventId, hashBytes, signEvent } from '@bitquilt/core';
+import { Store, createTracker } from '@bitquilt/tracker';
+import { type Pattern, Quilt } from '../src/quilt.js';
+import { baseOf, quiltOver, startTracker } from './helpers.js';
+
 let one: Server, two: Server;
 let base: string, other: string;
 let owner: Quilt, a: Quilt, b: Quilt, node: Quilt;
@@ -208,5 +211,76 @@ describe('the node keeps what it holds', () => {
     } finally {
       await new Promise<void>((r) => up.close(() => r()));
     }
+  });
+});
+
+describe('the node keeps past a trace whose reads are not hashes', () => {
+  const NODE = readFileSync(new URL('../../../docs/NODE.md', import.meta.url), 'utf8');
+  const good = { url: 'https://example.org/paper', hash: pageHash, at: '2026-11-08T08:00:00Z' };
+
+  it.each<[string, unknown, number]>([
+    ['reads that are a number', 5, 0],
+    ['a read that is null beside a good one', [null, good], 1],
+    ['reads that are an object', { 0: good }, 0],
+  ])(
+    'holds a trace with %s, fetches its good reads alone, and keeps the problems after it and the identity log',
+    async (_, reads, fetched) => {
+      // A tracker whose store this test writes to directly, as a tracker serves a trace it took before its door held
+      // the body to QX-19 section 1.
+      const store = new Store(':memory:');
+      const server = await createTracker({ store, url: 'http://tracker.test/', ipSalt: 's' }).listen(0);
+      try {
+        const there = baseOf(server);
+        const mk = quiltOver(there);
+        const owner = mk(9);
+        const worker = mk(1, 'anthropic/claude');
+        const node = mk(5);
+        const one = (await owner.publish(pattern)).hash;
+        const two = (await owner.publish({ ...pattern, title: 'Does the second paper say so?', slug: 'second' })).hash;
+        // The node holds both; the trace goes on the one its keep reaches first, so the other comes after it.
+        const [first, after] = [one, two].sort();
+        await node.open(first!);
+        const afterPiece = (await node.open(after!)).state.pieces[0]!.piece.hash;
+        store.putBlob(pageHash, enc.encode(PAGE));
+        const trace = signEvent(
+          {
+            quilt: 1,
+            type: 'trace',
+            problem: first!,
+            key: owner.identity!.address,
+            ts: new Date().toISOString(),
+            body: { reads },
+          },
+          owner.identity!.secret,
+        );
+        store.appendReceipt(first!, trace, eventId(trace), 'http://tracker.test/', new Date().toISOString(), 'self');
+        await worker.return(after!, afterPiece, { verdict: 'supports' });
+        await owner.setName('Ada');
+        const identity = node.resolver.cachedIdentity().length;
+        const kept = await node.resolver.keep();
+        expect(kept).toMatchObject({ problems: 2, added: 4, reads: fetched, refused: [] });
+        expect(node.resolver.cachedReceipts(first!).map((l) => eventId(l.event))).toContain(eventId(trace));
+        expect(node.resolver.cachedReceipts(after!).map((l) => l.event.type)).toEqual([
+          'announce',
+          'version',
+          'commit',
+          'reveal',
+        ]);
+        expect(node.resolver.cachedIdentity()).toHaveLength(identity + 1);
+        expect(node.resolver.cachedBlob(pageHash) !== null).toBe(fetched === 1);
+      } finally {
+        await new Promise<void>((r) => server.close(() => r()));
+      }
+    },
+  );
+
+  it('says in NODE.md section 4 that a read named by anything but a hash is not fetched, and the loop goes on', () => {
+    const section = NODE.slice(
+      NODE.indexOf('## 4. The keeper in a Quilt'),
+      NODE.indexOf('## 5. The keeper over a store'),
+    );
+    expect(section).toContain(
+      "3. It fetches the reads the chain's traces name, under their hashes (QX-19). A read a trace names by anything but a hash, and reads that are not a list, are not fetched. A core client ignores a trace whatever its body (EXTENSIONS.md, What an extension may do), so the chain holds it, and the loop goes on to the problems after it and the identity log.",
+    );
   });
 });
