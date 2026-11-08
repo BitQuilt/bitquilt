@@ -1,7 +1,10 @@
 /**
  * QX-1 section 4 at the mirror: the seed of a challenge's draw is the hash of its receipt line on the tracker it was
  * posted to, and the mirror keeps a chain of its own (NODE.md section 5). A challenge is posted and seated at a
- * tracker. The tracker's chain as it serves it gives the tracker's seed and the tracker's seats to anyone who folds it.
+ * tracker. The tracker's chains as it serves them give the tracker's seed and the tracker's seats to anyone who folds
+ * them: the seed from the challenge's line on its problem's log, and the pool from that log, the log of the other
+ * problem it carries and its identity log (QX-1 section 3). The challenge's problem's log alone gives the seed and an
+ * empty pool, so it seats no panel.
  * The mirror's line for the same challenge keeps the tracker's wrappers and adds its own, so its hash is the mirror's,
  * and the layer folded over the mirror's files seeds from that hash and not the tracker's. QX-1 section 4 says so, and
  * names the section that states the mirror's chain. So the mirror's fold seats another panel: two verdicts decide the
@@ -152,6 +155,10 @@ describe('the seed of a challenge at the mirror (QX-1 section 4)', () => {
     const folded = challengeLayer({ problems: inputs, now: now() }).problems.get(P)!.challenges[0]!;
     expect(folded.seed).toBe(tracked!.seed);
     expect(folded.seats.map((s) => s.root)).toEqual(tracked!.seats.map((s) => s.root));
+    // The challenge's problem's log alone gives the seed and an empty pool, so it seats no panel (QX-1 section 3).
+    const alone = challengeLayer({ problems: [inputs[1]!], now: now() }).problems.get(P)!.challenges[0]!;
+    expect(alone.seed).toBe(tracked!.seed);
+    expect(alone.seats).toEqual([]);
 
     // The mirror's chain: the same event and the tracker's wrappers, then the mirror's own, under the mirror's hash.
     const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-seed-'));
@@ -212,13 +219,17 @@ describe('the seed of a challenge at the mirror (QX-1 section 4)', () => {
     );
   });
 
-  it("says so in QX-1 section 4, and names the section that states the mirror's own chain", () => {
+  it("says so in QX-1 section 4, with the logs the seed and the pool are read from, and the mirror's own chain", () => {
     const doc = readFileSync(join(root, 'docs', 'ext', 'QX-1.md'), 'utf8').replace(/\r\n/g, '\n');
     const start = doc.indexOf('\n## 4. The seed and the draw\n');
     expect(start).toBeGreaterThan(-1);
     const section = doc.slice(start + 1).split('\n## ')[0]!;
     expect(section).not.toContain('line for line');
-    expect(section).toContain('the chain of the tracker the challenge was posted to, as that tracker serves it');
+    expect(section).toContain('the chains of the tracker the challenge was posted to, as that tracker serves them');
+    expect(section).toContain("the seed from the challenge's line on its problem's log (`GET /p/<hash>/events`)");
+    expect(section).toContain(
+      'the pool from that log, the log of every other problem it carries and its identity log (`GET /k/events`)',
+    );
     expect(section).toContain('the mirror keeps one of its own');
     expect(section).toContain('[NODE.md](../NODE.md) section 5');
   });
