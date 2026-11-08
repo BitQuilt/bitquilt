@@ -52,6 +52,7 @@ import {
   isRecord,
   orderReceipts,
   plusHours,
+  problemHash,
   reduce,
   returnProblems,
 } from '@bitquilt/core';
@@ -247,8 +248,14 @@ export interface Layer {
    * unchanged by what is kept later.
    */
   now: string;
-  /** Every problem the reader holds, by hash. */
+  /** Every problem the reader holds and the core folds, by hash. */
   problems: Map<Hash, ProblemLayer>;
+  /**
+   * Every problem the reader holds whose input the core refuses, by hash, with the core's reason: CORE.md section 6,
+   * "An envelope that fails its checks makes the input invalid: `reduce` refuses it and produces no state." A problem
+   * with no state is in no view, no standing and no coin.
+   */
+  refused: Map<Hash, string>;
   /** Every problem's, in receipt order. */
   challenges: ChallengeView[];
   /**
@@ -785,9 +792,19 @@ export function challengeLayer(input: {
   const { now } = input;
   const f = newFolding(now, input.founding);
 
-  // 1. Every problem reduced by the core, once each by hash, and the kinds decided over it with no credits yet.
+  // 1. Every problem reduced by the core, once each by hash, and the kinds decided over it with no credits yet. A
+  // problem whose input the core refuses, an envelope that does not check or a data blob not held, is left out with the
+  // core's reason, so one problem a store cannot fold leaves the others folded.
+  const refused = new Map<Hash, string>();
   for (const p of input.problems) {
-    const core = reduce(p);
+    let core: State;
+    try {
+      core = reduce(p);
+    } catch (err) {
+      const first = p.envelopes[0];
+      if (first) refused.set(problemHash(first), (err as Error).message);
+      continue;
+    }
     if (f.entries.has(core.problem)) continue;
     const decided = applyVerifiers(core, p.receipts, now, { pool: () => [] });
     f.entries.set(core.problem, {
@@ -805,6 +822,7 @@ export function challengeLayer(input: {
       golds: [],
     });
   }
+  for (const h of f.entries.keys()) refused.delete(h);
 
   // 2. The kinds and the credits to a fixed point (verifiers.md section 1): a judge panel's pool is the credits on
   // other problems, and a judged acceptance is itself a credit, so the credits are refreshed and the kinds decided
@@ -933,6 +951,7 @@ export function challengeLayer(input: {
   return {
     now,
     problems,
+    refused,
     challenges: all,
     rootOf: (key, at = now) => rootOf(f, key, at),
     standing: f.standing,

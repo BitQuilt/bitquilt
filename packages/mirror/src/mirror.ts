@@ -507,8 +507,9 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
   }
   const chain = await takeChain(ctx, `${tracker}p/${hash}/events`, hash, hash, hash);
   if (!chain) return;
-  if (!ctx.store.envelopeOf(hash)) ctx.store.putEnvelope(hash, envelope, ctx.now());
+  // The blobs go in before the envelope, so a store a door folds never holds a problem without its data.
   for (const [h, bytes] of blobs) if (!ctx.store.getBlob(h)) ctx.store.putBlob(h, bytes);
+  if (!ctx.store.envelopeOf(hash)) ctx.store.putEnvelope(hash, envelope, ctx.now());
   await takeReads(ctx, tracker, chain.lines, hash);
   ctx.index.set(hash, { envelope, tracker });
   // Names and the output come from the events, not the tracker's word; both are the publication's, written where there

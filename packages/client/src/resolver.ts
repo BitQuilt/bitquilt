@@ -23,6 +23,7 @@ import {
   onlyAppends,
   problemHash,
   reduce,
+  signedBy,
   verifyChain,
   withSlash,
 } from '@bitquilt/core';
@@ -242,7 +243,7 @@ export class Resolver {
       for (const p of this.places(link, hash)) {
         const j = await this.getJson(p.kind === 'mirror' ? `${p.url}problems/${hash}.json` : `${p.url}p/${hash}`);
         if (j && envelopeProblems(j).length === 0 && problemHash(j as Envelope) === hash) {
-          if (!this.chains.envelopeOf(hash)) this.chains.putEnvelope(hash, j as Envelope, new Date().toISOString());
+          await this.keepEnvelope(hash, j as Envelope, link);
           return { envelope: j as Envelope, from: p.kind === 'tracker' ? p.url : null };
         }
       }
@@ -256,6 +257,19 @@ export class Resolver {
     // places are asked.
     if (await this.learnFromRelays(hash)) return asked();
     return null;
+  }
+
+  /**
+   * An envelope kept once the core would fold it, as CORE.md section 6 checks one: "Each is checked against its hash and
+   * its owner's signature; each blob against its hash." Its hash is checked where it is read; here its signature, and
+   * each data blob it names fetched and kept first, so the store never holds a problem without its data. A node with
+   * `work` beside `admit` keeps in the door's store, whose layer folds every problem there (NODE.md section 2).
+   */
+  private async keepEnvelope(hash: Hash, envelope: Envelope, link: Link): Promise<void> {
+    if (this.chains.envelopeOf(hash)) return;
+    if (!signedBy(envelope as unknown as Record<string, unknown>, envelope.problem.owner)) return;
+    for (const h of Object.values(envelope.problem.data)) if (!(await this.blob(h, link))) return;
+    this.chains.putEnvelope(hash, envelope, new Date().toISOString());
   }
 
   async blob(hash: Hash, link: Link): Promise<Uint8Array | null> {

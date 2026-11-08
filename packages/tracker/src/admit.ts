@@ -210,8 +210,9 @@ export async function publish(
   }
   const hash = problemHash(e);
   const at = now();
-  store.putEnvelope(hash, e, at);
+  // The blobs go in before the envelope, so the store never holds a problem without the data the core folds it over.
   for (const [h, bytes] of blobs) store.putBlob(h, bytes);
+  store.putEnvelope(hash, e, at);
   json(res, 201, { hash });
 }
 

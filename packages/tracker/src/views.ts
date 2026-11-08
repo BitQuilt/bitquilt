@@ -184,6 +184,23 @@ function workOf(
 }
 
 /**
+ * A problem's view in a layer, or null where the store holds no such problem. A problem the store holds whose input the
+ * core refuses has no state (CORE.md section 6), so a read that needs its view is refused with the core's reason.
+ */
+export function viewIn(layered: Layer, hash: Hash): ProblemLayer | null {
+  const pl = layered.problems.get(hash);
+  if (pl) return pl;
+  const why = layered.refused.get(hash);
+  if (why !== undefined) throw cannotFold(why);
+  return null;
+}
+
+/** The refusal of a problem held here whose input the core refuses (CORE.md section 6), with the core's reason. */
+export function cannotFold(why: string): Refusal {
+  return new Refusal(503, `the core refuses this problem as held here: ${why}`);
+}
+
+/**
  * A problem in one line for the index and the scrape: its title, counts, head, the work on it, and what the
  * extensions add.
  */
@@ -288,6 +305,8 @@ export function state({ store, now, hidden, tracesOf }: Reads, hash: Hash, pl: P
  */
 export function scrape(cx: Reads, hash: Hash) {
   const { store } = cx;
+  const layered = cx.layer();
+  viewIn(layered, hash);
   const chain = verifyChain(store.lines(hash), hash);
   const topics = [
     ...new Set(
@@ -296,7 +315,7 @@ export function scrape(cx: Reads, hash: Hash) {
         .flatMap((a) => ((a.event.body as { topics?: string[] }).topics ?? []).map((x) => x.toLowerCase())),
     ),
   ];
-  return { ...summary(cx, hash), topics, chain_ok: chain.ok };
+  return { ...summary(cx, hash, layered), topics, chain_ok: chain.ok };
 }
 
 /**
@@ -657,7 +676,8 @@ function coinAt(folded: string, clock: string): string {
  * from an earlier read or built for this answer, at the store's version now; nothing is written between reading it
  * and reading the heads, so they are the heads it folded, and the coin is computed no later than five seconds after
  * its time (`coinAt`). Every problem here is folded, hidden and replaced ones too, and each is still served by hash,
- * a hidden one as QX-6 section 3 says.
+ * a hidden one as QX-6 section 3 says; one whose input the core refuses has no state (CORE.md section 6), so the layer
+ * left it out and it is not named.
  */
 function foldedOver(store: Store, layered: Layer): CoinFolded {
   const headOf = (log: Hash): LogHead => {

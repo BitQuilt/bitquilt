@@ -23,7 +23,7 @@ import { offerOrder, seedInfo, watchExclusions } from './seeding.js';
 import type { Store } from './store.js';
 import type { Seam } from './trace.js';
 import type { Context } from './tracker.js';
-import { replaced, supersededBy } from './views.js';
+import { replaced, supersededBy, viewIn } from './views.js';
 
 /** What the hand-out reads of the tracker's context (tracker.ts). */
 type Reads = Pick<Context, 'store' | 'options' | 'now' | 'layer' | 'inputFor' | 'hidden' | 'tracesOf'>;
@@ -87,7 +87,7 @@ export function assisted(cx: Reads, res: ServerResponse, hash: Hash, query: URLS
   const { key, client } = clientFrom(query);
   // The layer's fold: a struck piece is open again, and a challenged one is not offered while its panel sits.
   const layered = layer();
-  const pl = layered.problems.get(hash);
+  const pl = viewIn(layered, hash);
   if (!pl) throw new Refusal(404, 'no such problem here');
   if (hidden().has(hash)) throw new Refusal(410, 'this problem is taken down here');
   // A problem its owner has replaced with a newer version hands out nothing: the work is on the version that replaced

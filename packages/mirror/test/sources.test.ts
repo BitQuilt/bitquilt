@@ -26,7 +26,8 @@ import { VERDICT, addr, by, key, startTracker } from './helpers.js';
  * is passed over whole, so its identity log is not taken either. A problem its source hid or replaced before any run
  * took it is not taken, since the index leaves it out though the door still serves it: one no run listed, and one a
  * run listed and passed over, its chain not read whole, with nothing refused, so that run would have committed. Once
- * the store holds it, it is asked for by hash and taken (PROTOCOL.md, The mirror).
+ * the store holds it, it is asked for by hash and taken (PROTOCOL.md, The mirror). A problem's blobs are kept before
+ * its envelope, so a store a door folds never holds a problem without its data (CORE.md section 6).
  */
 const owner = key(9),
   A = key(1),
@@ -200,5 +201,23 @@ describe('the source a keeper takes each log from (NODE.md section 5)', () => {
     } finally {
       await new Promise<void>((r) => four.server.close(() => r()));
     }
+  });
+});
+
+describe('what a keeper writes of a problem', () => {
+  it('keeps its blobs before its envelope', async () => {
+    const store = new Store(':memory:');
+    const writes: string[] = [];
+    const { putBlob, putEnvelope } = store;
+    store.putBlob = (h, bytes) => {
+      writes.push(`blob ${h}`);
+      putBlob.call(store, h, bytes);
+    };
+    store.putEnvelope = (h, e, at) => {
+      writes.push(`envelope ${h}`);
+      putEnvelope.call(store, h, e, at);
+    };
+    await keep({ store, sources: [one.base], peers: false, coin: false, now });
+    expect(writes).toEqual([`blob ${citesHash}`, `envelope ${P}`]);
   });
 });
