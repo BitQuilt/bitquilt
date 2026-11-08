@@ -2,93 +2,49 @@
  * The reference tracker (PROTOCOL.md, The tracker): a resolver that answers a hash, accepts a signed event after
  * checking it, stamps receipts strictly increasing on each problem, keeps the chain, serves an index, and forges
  * nothing. Everything it serves is checkable from hashes and signatures; what it may do beyond serving is stamp,
- * refuse, omit and hide. Admission (the gate, rate limits, the stamp) lives here and not in the reducer.
+ * refuse, omit and hide. Admission (the gate, rate limits, the stamp) lives at its door and not in the reducer.
  *
- * The file runs in the order a request does: the options and the shared readers, publishing, the door (what is checked
- * before an event is appended: what every event is asked, then, for the identity log and a problem's, a map from each
- * event type to the one check that admits it), the views (what is served), then the table of routes that ties the two
- * to paths, one row each (routes.ts says what a row holds), and `handle`, which finds a request's row in it.
+ * This file holds what a tracker is made with (`TrackerOptions`) and what it is (`Tracker`); the context its jobs
+ * share, built once (`contextOf`); and `createTracker`, whose table of routes ties each job to its paths, one row each
+ * (routes.ts says what a row holds), and whose `handle` finds a request's row. Each job is a file of its own: admit.ts
+ * takes a post (the door: what every event is asked, then, for the identity log and a problem's, a map from each event
+ * type to the one check that admits it), views.ts answers a read, and hand.ts hands a key a piece.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import {
-  type Address,
-  type Envelope,
-  type Event,
-  type Hash,
-  type ReduceInput,
-  type Client,
-  type Capability,
-  blobProblems,
-  envelopeProblems,
-  eventId,
-  eventProblems,
-  eventSignedByKey,
-  expandPieces,
-  hashBytes,
-  isAddress,
-  isHash,
-  next,
-  plainTextProblems,
-  problemHash,
-  reduce,
-  returnProblems,
-  returnStrings,
-  signedBy,
-  stampOk,
-  textIssues,
-  verifyChain,
-  withSlash,
-  CAPABILITIES,
-  IDENTITY_LOG,
-} from '@bitquilt/core';
 import { createHash } from 'node:crypto';
-import {
-  type Layer,
-  type ProblemLayer,
-  CHALLENGE,
-  CHALLENGE_SEED,
-  GROUND_MAX,
-  MAJORITY,
-  PANEL,
-  challengeBodyProblems,
-  challengeLayer,
-  countsAsAccepted,
-  verdictBodyProblems,
-} from './challenge.js';
-import { HIDE, type Hidden, hideBodyProblems, hiddenNow } from './hide.js';
-import { RECIPROCITY, SEEDING, offerOrder, seedBodyProblems, seedInfo, watchExclusions } from './seeding.js';
-import { EXTENSIONS, JUDGE_SEED, kindOf, rankBodyProblems } from './verifiers.js';
-import { PRODUCTION_EVENTS, STAKE, lockBodyProblems, stakeRuleBodyProblems } from './stake.js';
-import { GOLD, goldBodyProblems, goldRevealBodyProblems, windowOpen } from './gold.js';
-import {
-  type CoinLayer,
-  type CoinLockView,
-  type CoinParams,
-  type CoinWord,
-  COIN,
-  COIN_LOG,
-  coinEventRefusal,
-  coinLayer,
-} from './coin.js';
-import { DAYS_MAX, daysFrom, funnel } from './counts.js';
+import { type Address, type Hash, type ReduceInput, reduce, withSlash, IDENTITY_LOG } from '@bitquilt/core';
+import { keepBlob, limit, postEvent, publish, pullDoorOf } from './admit.js';
 import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
-import {
-  BLOB_MAX,
-  type PieceTraces,
-  type Seam,
-  RECORD,
-  TRACE,
-  admitTrace,
-  passageIn,
-  problemTraces,
-  recordOutput,
-  tracesKept,
-} from './trace.js';
-import { type Store, reduceInputOf } from './store.js';
+import { type Layer, type ProblemLayer, challengeLayer } from './challenge.js';
+import { type CoinLayer, type CoinParams, COIN_LOG, coinLayer } from './coin.js';
+import { assisted, offer } from './hand.js';
+import { type Hidden, hiddenNow } from './hide.js';
 import { Refusal, json } from './http.js';
-import { hostedPost, witnessOf, witnessedReveals } from './witness.js';
-import { PEER_PULL, PEER_PULL_EVERY_MS, type PeerPull, type PullDoor, pullPeers } from './peers.js';
+import { type PeerPull, pullPeers } from './peers.js';
 import { type Handler, type Route, handlerOf, routeOf } from './routes.js';
+import { type Store, reduceInputOf } from './store.js';
+import { type PieceTraces, passageIn, problemTraces } from './trace.js';
+import {
+  blob,
+  challengesOf,
+  coinBalance,
+  coinCredits,
+  coinEpochs,
+  coinLock,
+  coinRedeems,
+  coinState,
+  countsOf,
+  events,
+  index,
+  named,
+  panelsOf,
+  recordOf,
+  scrape,
+  standingOf,
+  state,
+  wellKnown,
+  workBy,
+} from './views.js';
 
 /**
  * The identity log (CORE.md section 4): the pseudo-problem that name, delegate, revoke, rotate and hide events are
@@ -96,13 +52,6 @@ import { type Handler, type Route, handlerOf, routeOf } from './routes.js';
  * door itself says IDENTITY_LOG.
  */
 export const IDENTITY: Hash = IDENTITY_LOG;
-/** The most a post may carry, 4 MB: room for an envelope with its blobs. */
-const MAX_BODY = 4 * 1024 * 1024;
-/**
- * How long a piece handed out by next or the offer is held for that key, so two clients here are not handed the same
- * piece in the same minute.
- */
-const HOLD_SECONDS = 60;
 export interface TrackerOptions {
   store: Store;
   /** This tracker's own address, written into every receipt. */
@@ -182,86 +131,62 @@ export interface Tracker {
   pullPeers(): Promise<PeerPull[]>;
 }
 
-async function readBody(req: IncomingMessage): Promise<string> {
-  const chunks: Buffer[] = [];
-  let size = 0;
-  for await (const chunk of req) {
-    size += (chunk as Buffer).length;
-    if (size > MAX_BODY) throw new Refusal(413, 'body over 4 MB');
-    chunks.push(chunk as Buffer);
-  }
-  return Buffer.concat(chunks).toString('utf8');
-}
-
-/** The request's body as bytes, at most `max`: what a read's blob arrives as (QX-19). */
-async function readBytes(req: IncomingMessage, max: number): Promise<Uint8Array> {
-  const chunks: Buffer[] = [];
-  let size = 0;
-  for await (const chunk of req) {
-    size += (chunk as Buffer).length;
-    if (size > max) throw new Refusal(413, `a blob of at most ${max} bytes`);
-    chunks.push(chunk as Buffer);
-  }
-  return new Uint8Array(Buffer.concat(chunks));
-}
-
-function parseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Refusal(400, 'not JSON');
-  }
-}
-
-/** Which log a post goes to: a problem's, the identity log, or the coin log (QX-17). */
-export type Log = { kind: 'problem'; hash: Hash } | { kind: 'identity' } | { kind: 'coin' };
 /**
- * What the door read of an event it admits: the chain it is appended to, and the word it vouches for in the receipt's
- * wrapper (QX-17).
+ * What `createTracker` builds once and hands the jobs of its door: admit.ts takes a post, views.ts answers a read, and
+ * hand.ts hands a key a piece. It holds the store, the options with their defaults filled, and the layer as it is kept
+ * between writes, with what is read over it. Each of those files says in its own `Reads` the part of this it takes, and
+ * each function there names in its signature or its first line what it reads of that. What a tracker keeps from one
+ * request to the next (the kept layer, the traces read over it, the burn rate a coin's home published) is here and
+ * nowhere else, so two trackers in one process share nothing.
  */
-export interface Admitted {
-  chain: Hash;
-  word?: Record<string, unknown>;
-}
-/**
- * What the door asks of one type of event on a problem's log, as a row of `problemDoor` in `createTracker` names it:
- * given the event, the problem it is under, that problem's fold, and whether the connector posted it, it refuses by
- * throwing a Refusal, and answers the word the receipt's wrapper carries where it has one.
- */
-type ProblemCheck = (
-  event: Event,
-  under: Hash,
-  state: ReturnType<typeof reduce>,
-  hosted: boolean,
-) => void | Promise<Record<string, unknown> | undefined>;
-/**
- * A coin lock as the door read it (QX-17 section 5), with the rate it is read at and the coin log's head the reading
- * stood under.
- */
-interface CoinLockRead {
-  lock: CoinLockView | null;
-  rate: number;
-  head: { seq: number; hash: string } | null;
+export interface Context {
+  /** The chains, the blobs, the holds and the hourly counts. */
+  readonly store: Store;
+  /** The options as the tracker was made with them. */
+  readonly options: TrackerOptions;
+  /** This tracker's own address, ending in a slash, as every receipt names it. */
+  readonly url: string;
+  /** The clock: the options', or the system's. */
+  readonly now: () => string;
+  /** Posts an hour from one key and from one network address: the options', or 120 and 600. */
+  readonly limits: { keyPerHour: number; ipPerHour: number };
+  /** The bits of proof of work a name event carries here (CORE.md, the stamp): the options', or 0, which asks none. */
+  readonly stampNeeded: number;
+  /** The keys whose hide events this tracker honours (QX-6), in lower case. */
+  readonly maintainerSet: ReadonlySet<string>;
+  /** The founding standing by root in lower case, as the layer counts it (QX-1 section 2). */
+  readonly founding: ReadonlyMap<string, number>;
+  /** How the tracker reaches another tracker: the options', or the global fetch. */
+  readonly fetchImpl: typeof fetch;
+  /**
+   * The challenge layer over every problem here at now, kept by the store's version and the five-second span of the
+   * clock it was built in, and built afresh inside `exactly`.
+   */
+  readonly layer: () => Layer;
+  /** Runs an admission with every layer it reads built afresh at now. */
+  readonly exactly: <T>(admit: () => T | Promise<T>) => Promise<T>;
+  /** What the reducer takes for a problem held here at now, or null. */
+  readonly inputFor: (hash: Hash) => ReduceInput | null;
+  /** The core's fold of a problem held here, or null. */
+  readonly reduceProblem: (hash: Hash) => ReturnType<typeof reduce> | null;
+  /** One problem's view in the layer, or null. */
+  readonly view: (hash: Hash) => ProblemLayer | null;
+  /** QX-6: what the maintainers have taken down here. */
+  readonly hidden: () => Map<string, Hidden>;
+  /** QX-17: the coin over the layer given, or over the layer at now; null where this tracker carries none. */
+  readonly coin: (layered?: Layer) => CoinLayer | null;
+  /** QX-17: where the coin's log is kept: `here`, another tracker's address, or null where there is no coin. */
+  readonly coinHome: () => string | null;
+  /** QX-19: each piece's traces, grade and seams on a problem, read once per layer. */
+  readonly tracesOf: (pl: ProblemLayer) => Map<Hash, PieceTraces>;
+  /** QX-17 section 5: the burn rate the coin's home publishes, read once where its answer for a lock gives none. */
+  homeRate: number | null;
 }
 
-export function createTracker(options: TrackerOptions): Tracker {
+/** The context a tracker's jobs share, built once from its options. */
+function contextOf(options: TrackerOptions): Context {
   const { store } = options;
-  const url = withSlash(options.url);
   const now = options.now ?? (() => new Date().toISOString());
-  const limits = options.limits ?? { keyPerHour: 120, ipPerHour: 600 };
-  const stampNeeded = options.stamp?.name ?? 0;
-  const ipSalt = options.ipSalt ?? createHash('sha256').update(String(Math.random())).digest('hex');
-
-  const trustedProxies = rangesOf(options.trustedProxies ?? PRIVATE_RANGES);
-  const ipOf = (req: IncomingMessage): string => clientAddress(req, trustedProxies);
-  const ipBucket = (req: IncomingMessage): string =>
-    `ip:${createHash('sha256')
-      .update(ipSalt + ipOf(req))
-      .digest('hex')
-      .slice(0, 16)}`;
-  const limit = (bucket: string, max: number): void => {
-    if (store.hit(bucket, now().slice(0, 13), max)) throw new Refusal(429, "over the hour's limit");
-  };
 
   /**
    * What the reducer takes for a problem held here at now (`reduceInputOf`): its chain, the blobs, every line along the
@@ -278,7 +203,6 @@ export function createTracker(options: TrackerOptions): Tracker {
   }
 
   const maintainers: Address[] = options.maintainers ?? [];
-  const maintainerSet = new Set(maintainers.map((a) => a.toLowerCase()));
   /** The founding standing by root in lower case, as the layer counts it. */
   const founding = new Map(Object.entries(options.founding ?? {}).map(([a, n]) => [a.toLowerCase(), n]));
   /** QX-6: what the maintainers have taken down here, read from the identity log each time. */
@@ -339,799 +263,9 @@ export function createTracker(options: TrackerOptions): Tracker {
       : null;
   }
   const coinHome = (): string | null => (options.coin ? (options.coin.home ?? 'here') : null);
-  const fetchImpl = options.fetchImpl ?? fetch;
-  let homeRate: number | null = null;
 
   function view(hash: Hash): ProblemLayer | null {
     return layer().problems.get(hash) ?? null;
-  }
-
-  // Publishing
-
-  /** A problem published: its envelope and blobs, once the route has held the post to its address's hourly limit. */
-  async function publish(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const body = parseJson(await readBody(req)) as { envelope?: unknown; blobs?: Record<string, string> };
-    const envelope = body.envelope;
-    const problems = envelopeProblems(envelope);
-    if (problems.length) throw new Refusal(400, problems[0]!);
-    const e = envelope as Envelope;
-    if (!signedBy(e as unknown as Record<string, unknown>, e.problem.owner))
-      throw new Refusal(400, 'envelope: not signed by its owner');
-    const blobs = new Map<Hash, Uint8Array>();
-    for (const [h, b64] of Object.entries(body.blobs ?? {})) {
-      if (!isHash(h)) throw new Refusal(400, `blob ${h}: not a hash`);
-      const bytes = Uint8Array.from(Buffer.from(b64, 'base64'));
-      if (hashBytes(bytes) !== h) throw new Refusal(400, `blob ${h}: does not match its hash`);
-      blobs.set(h, bytes);
-    }
-    for (const h of Object.values(e.problem.data))
-      if (!blobs.has(h)) {
-        const stored = store.getBlob(h);
-        if (stored) blobs.set(h, stored);
-      }
-    const bp = blobProblems(e.problem, blobs);
-    if (bp.length) throw new Refusal(400, bp[0]!);
-    // Admission: the gate on what a thousand AIs will read.
-    for (const [label, text] of [
-      ['title', e.problem.title],
-      ['done_when', e.problem.done_when],
-    ] as const) {
-      const issues = plainTextProblems(text, label);
-      if (issues.length) throw new Refusal(400, issues[0]!);
-    }
-    for (const [name, d] of Object.entries(e.problem.pieces)) {
-      const issues = plainTextProblems(d.brief, `pieces.${name}.brief`);
-      if (issues.length) throw new Refusal(400, issues[0]!);
-    }
-    // QX-17: at the coin's home, a window longer than the home admits would leave a fake's coin vested before a late
-    // challenge decides.
-    const windowMax = options.coin?.window_max_h;
-    if (windowMax !== undefined && coinHome() === 'here' && e.problem.settings.challenge_window_h > windowMax) {
-      throw new Refusal(
-        400,
-        `the challenge window of ${e.problem.settings.challenge_window_h} hours is beyond the ${windowMax} this home admits (QX-17)`,
-      );
-    }
-    if (e.problem.prev) {
-      const prev = store.getEnvelope(e.problem.prev);
-      if (!prev) throw new Refusal(400, 'prev: not a problem this tracker holds');
-      if (prev.envelope.problem.owner !== e.problem.owner) throw new Refusal(400, 'prev: by another owner');
-    }
-    // CORE.md section 2: `from` is another owner's problem this one forks; the same owner's next version sets `prev`. A
-    // fork of a problem not held here is taken on the forker's word, as the core takes it.
-    if (e.problem.from) {
-      const from = store.getEnvelope(e.problem.from);
-      if (from && from.envelope.problem.owner === e.problem.owner)
-        throw new Refusal(400, 'from: by the same owner; a version sets prev');
-    }
-    try {
-      expandPieces(e.problem, blobs);
-    } catch (err) {
-      throw new Refusal(400, `data: ${(err as Error).message}`);
-    }
-    const hash = problemHash(e);
-    const at = now();
-    store.putEnvelope(hash, e, at);
-    for (const [h, bytes] of blobs) store.putBlob(h, bytes);
-    json(res, 201, { hash });
-  }
-
-  // The door
-
-  /**
-   * Takes an event for a log, once the route has held the post to its network address's hourly limit: the parse, the
-   * shape, the signature, the key's limit, then the log's own admission, the dedupe, the append, and what the append
-   * changes beside the chain.
-   */
-  async function postEvent(req: IncomingMessage, res: ServerResponse, log: Log): Promise<void> {
-    const event = parseJson(await readBody(req)) as Event;
-    const shape = eventProblems(event);
-    if (shape.length) throw new Refusal(400, shape[0]!);
-    if (!eventSignedByKey(event)) throw new Refusal(400, "signature is not the key's");
-    limit(`key:${event.key}`, limits.keyPerHour);
-    const id = eventId(event);
-    const hosted = hostedPost(req, options.custodySecret);
-    const { chain, word } = await exactly(() =>
-      log.kind === 'coin'
-        ? admitCoinEvent(event)
-        : log.kind === 'identity'
-          ? admitIdentityEvent(event)
-          : admitProblemEvent(event, log.hash, hosted),
-    );
-    if (store.hasEvent(chain, id)) throw new Refusal(409, 'already here');
-    const line = hosted
-      ? store.appendReceipt(chain, event, id, url, now(), 'hosted', 'ai', { ...witnessOf(req), ...word })
-      : store.appendReceipt(chain, event, id, url, now(), 'self', undefined, word);
-    const at = line.received[0]!.at;
-    noteAppended(log, event, at);
-    json(res, 202, { id, seq: line.seq, hash: line.hash, at });
-  }
-
-  /**
-   * What the door keeps beside the chain once a line is on it: a hold released by a reveal or a decline, an
-   * announcement for the index, a name for `/n/<owner>/<slug>`.
-   */
-  function noteAppended(log: Log, event: Event, at: string): void {
-    const type = event.type;
-    if (log.kind === 'problem') {
-      if ((type === 'reveal' || type === 'decline') && event.piece) store.releaseHold(log.hash, event.piece, event.key);
-      if (type === 'announce') store.putAnnouncement(log.hash, event.key, event, at);
-    }
-    if (type === 'version')
-      store.putName(event.key, (event.body as { slug: string }).slug, (event.body as { hash: Hash }).hash, at);
-  }
-
-  /**
-   * QX-21: what the peer pull reaches of this tracker. A peer's event is admitted as a post's is, with the layer built
-   * afresh at now while it is (`exact`); the coin log is not pulled.
-   */
-  const pullDoor: PullDoor = {
-    store,
-    url,
-    now,
-    fetchImpl,
-    peers: options.peers ?? [],
-    admit: (log, event, hosted) =>
-      exactly(() =>
-        log.kind === 'identity'
-          ? admitIdentityEvent(event)
-          : admitProblemEvent(event, (log as { hash: Hash }).hash, hosted),
-      ),
-    noteAppended,
-  };
-
-  /**
-   * QX-17: the coin log, admitted against the layer's balances at now; a burn's word is the standing it credits. The
-   * coin log has no map by type as the other two logs have below. Its six types are admitted by one rule, the coin
-   * layer's (QX-17 section 2), which the fold reads too, so what it takes is COIN_EVENTS in coin.ts, said once for
-   * both.
-   */
-  function admitCoinEvent(event: Event): Admitted {
-    if (!options.coin) throw new Refusal(404, 'this tracker carries no coin');
-    const refused = coinEventRefusal(event);
-    if (refused) throw new Refusal(400, refused);
-    const a = coin()!.admit(event);
-    if (!a.ok) throw new Refusal(400, a.why);
-    return event.type === 'burn'
-      ? { chain: COIN_LOG, word: { stake: { kind: 'burn', amount: event.body.amount, standing: a.standing ?? 0 } } }
-      : { chain: COIN_LOG };
-  }
-
-  /**
-   * The identity log's door by event type: the one check each type is admitted through once it names no problem, with
-   * where its rule is written. The keys are what the identity log takes, so a new type is one row; null where the
-   * shape the core checks before any log is asked is the whole of it.
-   */
-  const identityDoor: Readonly<Record<string, ((event: Event) => void) | null>> = {
-    name: checkNameEvent, // CORE.md sections 4 and 11, the stamp
-    delegate: null, // CORE.md section 4
-    revoke: null, // CORE.md section 4
-    rotate: null, // CORE.md section 4
-    hide: checkHideEvent, // QX-6 section 1
-  };
-
-  /** The identity log: a type its door takes, naming no problem, then that type's own check. */
-  function admitIdentityEvent(event: Event): Admitted {
-    if (!Object.hasOwn(identityDoor, event.type)) {
-      const types = Object.keys(identityDoor);
-      throw new Refusal(400, `the identity log takes ${types.slice(0, -1).join(', ')} and ${types.at(-1)}`);
-    }
-    if (event.problem !== undefined || event.piece !== undefined)
-      throw new Refusal(400, 'an identity event names no problem');
-    identityDoor[event.type]?.(event);
-    return { chain: IDENTITY_LOG };
-  }
-
-  /** The door for a name: the stamp asked here, where one is (CORE.md section 11). */
-  function checkNameEvent(event: Event): void {
-    if (stampNeeded > 0 && !stampOk(event, stampNeeded))
-      throw new Refusal(400, `a name event here carries a stamp of ${stampNeeded} bits`);
-  }
-
-  /** The door for QX-6's hide: well formed, and signed by one of this tracker's maintainers. */
-  function checkHideEvent(event: Event): void {
-    const hp = hideBodyProblems(event.body);
-    if (hp.length) throw new Refusal(400, hp[0]!);
-    if (!maintainerSet.has(event.key.toLowerCase()))
-      throw new Refusal(403, "a hide is signed by one of this tracker's maintainers");
-  }
-
-  /**
-   * The problem log's door by event type: the one check each type is admitted through once it is under the problem it
-   * names, held here and not taken down, with where its rule is written. The keys are what a problem's log takes, so a
-   * new type is one row; null where the shape the core checks before any log is asked is the whole of it.
-   */
-  const problemDoor: Readonly<Record<string, ProblemCheck | null>> = {
-    // The core's.
-    claim: checkPieceEvent, // CORE.md sections 4 and 6; QX-15 section 2; QX-20 section 2
-    commit: checkPieceEvent, // CORE.md sections 4 and 6; QX-15 section 2; QX-20 section 2
-    reveal: checkPieceEvent, // CORE.md sections 4, 6 and 11; QX-15 section 2; QX-20 section 2; verifiers.md section 2
-    decline: checkPieceEvent, // CORE.md sections 4 and 6
-    run: checkPieceEvent, // CORE.md sections 4 and 6; QX-15 section 2; QX-20 section 2
-    version: null, // CORE.md section 4
-    output: null, // CORE.md section 4
-    // The extensions'.
-    announce: checkAnnounceEvent, // QX-13 sections 1 and 2
-    seed: checkSeedEvent, // QX-4 section 1
-    challenge: checkChallengeEvent, // QX-1 section 1, and QX-16 section 4 for a challenge on a miss
-    verdict: checkVerdictEvent, // QX-1 section 1
-    rank: checkRankEvent, // verifiers.md section 2, judge:n (QX-2)
-    stake_rule: checkStakeRuleEvent, // QX-15 section 1
-    lock: checkLockEvent, // QX-15 section 1, and QX-17 section 5 for a coin-kind lock
-    gold: checkGoldEvent, // QX-16 section 1
-    gold_reveal: checkGoldRevealEvent, // QX-16 section 1
-    trace: checkTraceEvent, // QX-19 section 1
-  };
-
-  /**
-   * A problem's log: a type its door takes, under the problem it names, held here and not taken down, then that type's
-   * own check, whose word, where it has one, the receipt's wrapper carries.
-   */
-  async function admitProblemEvent(event: Event, under: Hash, hosted: boolean): Promise<Admitted> {
-    const type = event.type;
-    if (Object.hasOwn(identityDoor, type)) throw new Refusal(400, 'identity events go to the identity log');
-    if (!Object.hasOwn(problemDoor, type)) throw new Refusal(400, `this tracker does not carry ${type} events`);
-    if (event.problem !== under) throw new Refusal(400, 'post an event under the problem it names');
-    if (hidden().has(under)) throw new Refusal(410, 'this problem is taken down here');
-    const state = reduceProblem(under);
-    if (!state) throw new Refusal(404, 'no such problem here');
-    const word = await problemDoor[type]?.(event, under, state, hosted);
-    return word ? { chain: under, word } : { chain: under };
-  }
-
-  /**
-   * The door for the core's piece events: a piece the problem has; on a staked piece, a root with a live lock (QX-15);
-   * a reveal's return through the schema and the gate, on an unrevealed commit; a run on a revealed digest.
-   */
-  function checkPieceEvent(event: Event, under: Hash, state: ReturnType<typeof reduce>, hosted: boolean): void {
-    const view = event.piece ? state.byHash.get(event.piece) : undefined;
-    if (!view) throw new Refusal(400, 'names a piece this problem does not have');
-    if (PRODUCTION_EVENTS.has(event.type)) {
-      // QX-15: on a staked piece, work is admitted only from a root with a live lock. The layer's admission is in
-      // stake.ts.
-      const a = layer().admitProduction(under, event.piece!, event.key);
-      if (!a.ok) throw new Refusal(400, a.why);
-      // QX-20 section 2: a record is fixed once its readings are in; no claim, commit, reveal or run is taken on it
-      // after.
-      if (
-        kindOf(view.piece.verifier)?.kind === 'record' &&
-        layer().problems.get(under)?.byHash.get(event.piece!)?.state === 'recorded'
-      )
-        throw new Refusal(400, 'the readings for this piece are in');
-    }
-    if (event.type === 'reveal') {
-      const ret = (event.body as { return: Record<string, unknown> }).return;
-      if (view.piece.schema) {
-        const rp = returnProblems(view.piece.schema, ret);
-        if (rp.length) throw new Refusal(400, rp[0]!);
-      }
-      for (const s of returnStrings(ret)) {
-        const issues = plainTextProblems(s, 'return');
-        if (issues.length) throw new Refusal(400, issues[0]!);
-      }
-      if (!view.commits.some((c) => c.key === event.key && !c.revealed))
-        throw new Refusal(400, 'no unrevealed commit by this key on the piece');
-      checkRevealEvent(event, under, view.piece.verifier, hosted);
-    }
-    if (event.type === 'run' && !view.reveals.some((r) => r.digest === (event.body as { digest: Hash }).digest))
-      throw new Refusal(400, 'the digest is no revealed return of the piece');
-  }
-
-  /**
-   * The door for the verifier kinds' reveals: a human piece takes a return only from a person's seat (QX-3), which here
-   * is the connector's custody or a client declaring the model `human`; a judge piece takes no more candidates once its
-   * panel sits (QX-2). The layer would count neither; the door says why.
-   */
-  function checkRevealEvent(event: Event, under: Hash, verifier: string, hosted: boolean): void {
-    const kind = kindOf(verifier)?.kind;
-    if (kind === 'human') {
-      const by = (event.body as { by: { model: string } }).by;
-      if (by.model !== 'human' && !hosted) throw new Refusal(400, "a human piece takes a return from a person's seat");
-    }
-    if (kind === 'judge' && event.piece && view(under)?.panels.some((p) => p.piece === event.piece))
-      throw new Refusal(400, 'the candidates for this piece are in');
-  }
-
-  /**
-   * The door for QX-13's announce: the title, slug and done_when are the envelope's, and the topics are few, short and
-   * through the gate.
-   */
-  function checkAnnounceEvent(event: Event, _under: Hash, { envelope }: ReturnType<typeof reduce>): void {
-    const b = event.body as Record<string, unknown>;
-    if (
-      b.title !== envelope.problem.title ||
-      b.slug !== envelope.problem.slug ||
-      b.done_when !== envelope.problem.done_when
-    )
-      throw new Refusal(400, "announce: title, slug and done_when are the envelope's");
-    if (
-      !Array.isArray(b.topics) ||
-      b.topics.length > 8 ||
-      !b.topics.every((t) => typeof t === 'string' && t.length <= 40 && textIssues(t).length === 0)
-    )
-      throw new Refusal(400, 'announce: at most eight short topics through the gate');
-    // QX-13 section 2: the owner and the fork are the envelope's where the announce states them; the pieces, the counts
-    // and the work are whole numbers, and are the announcer's word.
-    if (b.owner !== undefined && b.owner !== envelope.problem.owner)
-      throw new Refusal(400, "announce: owner is the envelope's");
-    if (b.from !== undefined && b.from !== (envelope.problem.from ?? null))
-      throw new Refusal(400, "announce: from is the envelope's");
-    const whole = (x: unknown): boolean => typeof x === 'number' && Number.isInteger(x) && x >= 0;
-    const countsOk =
-      b.counts === undefined ||
-      (!!b.counts && typeof b.counts === 'object' && Object.values(b.counts as Record<string, unknown>).every(whole));
-    const w = b.work as Record<string, unknown> | undefined;
-    const t = w?.traced as Record<string, unknown> | undefined;
-    const workOk =
-      w === undefined ||
-      (!!w &&
-        typeof w === 'object' &&
-        ['returned', 'accepted', 'verified', 'disputed', 'readers', 'vendors'].every((k) => whole(w[k])) &&
-        !!t &&
-        typeof t === 'object' &&
-        ['both', 'one', 'none'].every((k) => whole(t[k])) &&
-        (w.last === null || (typeof w.last === 'string' && !Number.isNaN(Date.parse(w.last)))));
-    if ((b.pieces !== undefined && !whole(b.pieces)) || !countsOk || !workOk)
-      throw new Refusal(400, 'announce: pieces, counts and work are whole numbers');
-  }
-
-  /** The door for QX-4's seed: a well-formed body, and nothing more. */
-  function checkSeedEvent(event: Event): void {
-    const sp = seedBodyProblems(event.body);
-    if (sp.length) throw new Refusal(400, sp[0]!);
-  }
-
-  /**
-   * The door for QX-1's challenge: from a root with standing, inside the window, with a panel to seat. The layer's
-   * admission is in challenge.ts (challengeAdmissions).
-   */
-  function checkChallengeEvent(event: Event, under: Hash): void {
-    if (!event.piece) throw new Refusal(400, 'a challenge names a problem and a piece');
-    const layered = layer();
-    const body = event.body;
-    const shape = challengeBodyProblems(body);
-    if (shape.length) throw new Refusal(400, shape[0]!);
-    const issues = plainTextProblems(body.ground as string, 'ground');
-    if (issues.length) throw new Refusal(400, issues[0]!);
-    const a = layered.admitChallenge(under, event.piece, event.key, body.stake as number);
-    if (!a.ok) throw new Refusal(400, a.why);
-  }
-
-  /**
-   * The door for QX-1's verdict: from a judge drawn, with any return it carries through the gate. The layer's admission
-   * is in challenge.ts (challengeAdmissions).
-   */
-  function checkVerdictEvent(event: Event, under: Hash): void {
-    if (!event.piece) throw new Refusal(400, 'a verdict names a problem and a piece');
-    const layered = layer();
-    const body = event.body;
-    const shape = verdictBodyProblems(body);
-    if (shape.length) throw new Refusal(400, shape[0]!);
-    if (body.return !== undefined)
-      for (const s of returnStrings(body.return as Record<string, unknown>)) {
-        const issues = plainTextProblems(s, 'return');
-        if (issues.length) throw new Refusal(400, issues[0]!);
-      }
-    const a = layered.admitVerdict(under, event.piece, event.key, body.challenge as Hash, body);
-    if (!a.ok) throw new Refusal(400, a.why);
-  }
-
-  /**
-   * The door for QX-2's rank: from a judge drawn to the piece's panel, naming every candidate once. The layer's
-   * admission is in verifiers.ts.
-   */
-  function checkRankEvent(event: Event, under: Hash): void {
-    if (!event.piece) throw new Refusal(400, 'a rank names a problem and a piece');
-    const shape = rankBodyProblems(event.body);
-    if (shape.length) throw new Refusal(400, shape[0]!);
-    const a = layer().admitRank(under, event.piece, event.key, event.body);
-    if (!a.ok) throw new Refusal(400, a.why);
-  }
-
-  /**
-   * The door for QX-15's stake rule: from the owner, naming pieces the problem has. The layer's admission is in
-   * stake.ts.
-   */
-  function checkStakeRuleEvent(event: Event, under: Hash): void {
-    if (event.piece !== undefined) throw new Refusal(400, 'a stake rule names a problem and no piece');
-    const shape = stakeRuleBodyProblems(event.body);
-    if (shape.length) throw new Refusal(400, shape[0]!);
-    const a = layer().admitStakeRule(under, event.key, event.body);
-    if (!a.ok) throw new Refusal(400, a.why);
-  }
-
-  /**
-   * The door for QX-15's lock: one a root can cover, on a piece that asks one. A coin-kind lock is checked against the
-   * coin log (QX-17), and what the door read is its word for the receipt. The layer's admission is in stake.ts.
-   */
-  async function checkLockEvent(
-    event: Event,
-    under: Hash,
-    state: ReturnType<typeof reduce>,
-  ): Promise<{ stake: CoinWord } | undefined> {
-    if (!event.piece) throw new Refusal(400, 'a lock names a problem and a piece');
-    const shape = lockBodyProblems(event.body);
-    if (shape.length) throw new Refusal(400, shape[0]!);
-    let word: CoinWord | null = null;
-    if (event.body.kind === 'coin') {
-      if (!state.byHash.has(event.piece)) throw new Refusal(400, 'names a piece this problem does not have');
-      word = await coinWord(under, event, state.rootOf(event.key, now()));
-    }
-    const a = layer().admitLock(under, event.piece, event.key, event.body, word);
-    if (!a.ok) throw new Refusal(400, a.why);
-    return word ? { stake: word } : undefined;
-  }
-
-  /**
-   * The door for QX-16's gold: the owner's, kept whole or refused naming the piece. The layer's admission is in
-   * gold.ts.
-   */
-  function checkGoldEvent(event: Event, under: Hash): void {
-    if (event.piece !== undefined) throw new Refusal(400, 'a gold names a problem and no piece');
-    const shape = goldBodyProblems(event.body);
-    if (shape.length) throw new Refusal(400, shape[0]!);
-    const a = layer().admitGold(under, event.key, event.body);
-    if (!a.ok) throw new Refusal(400, a.why);
-  }
-
-  /**
-   * The door for QX-16's gold reveal: the owner's, on an accepted piece inside its window. The layer's admission is in
-   * gold.ts.
-   */
-  function checkGoldRevealEvent(event: Event, under: Hash): void {
-    if (!event.piece) throw new Refusal(400, 'a gold reveal names a problem and a piece');
-    const shape = goldRevealBodyProblems(event.body);
-    if (shape.length) throw new Refusal(400, shape[0]!);
-    const a = layer().admitGoldReveal(under, event.piece, event.key, event.body);
-    if (!a.ok) throw new Refusal(400, a.why);
-  }
-
-  /**
-   * The door for QX-19: a trace from the key that revealed, naming reads this tracker holds, with every span inside its
-   * read (QX-19 section 1).
-   */
-  function checkTraceEvent(event: Event, under: Hash, state: ReturnType<typeof reduce>): void {
-    if (!event.piece) throw new Refusal(400, 'a trace names a problem and a piece');
-    const view = state.byHash.get(event.piece);
-    if (!view) throw new Refusal(400, 'names a piece this problem does not have');
-    const receipts = inputFor(under)!.receipts;
-    const a = admitTrace(view, receipts, event, tracesKept(view, receipts, blobLength), blobLength);
-    if (!a.ok) throw new Refusal(400, a.why);
-  }
-
-  /**
-   * A coin lock as the door reads it (QX-17 section 5): from this tracker's own coin layer at the home, from the home's
-   * route elsewhere, with the burn rate the home publishes. `head` is the coin log's head the reading stood under, null
-   * where there was none to read.
-   */
-  async function readCoinLock(home: string, id: Hash): Promise<CoinLockRead> {
-    let head: { seq: number; hash: string } | null = null;
-    if (home === 'here') {
-      const c = coin()!;
-      return { lock: c.lock(id), rate: c.burnRateAt(c.now), head: c.head };
-    }
-    let lock: CoinLockView | null = null;
-    let rate: number | null = null;
-    try {
-      const r = await fetchImpl(`${home}coin/lock/${id}`, { signal: AbortSignal.timeout(8000) });
-      if (r.ok) {
-        const {
-          head: h,
-          rate: read,
-          ...rest
-        } = (await r.json()) as CoinLockView & {
-          head: { seq: number; hash: string } | null;
-          at: string;
-          rate?: number;
-        };
-        lock = rest;
-        head = h;
-        // The rate in force at the home when it answered; an indexed one moves with the epochs.
-        if (typeof read === 'number') rate = read;
-      } else if (r.status !== 404) throw new Error(`${r.status}`);
-      if (rate === null) {
-        // An older home answers no rate with the lock; the one its well-known publishes is read once.
-        if (homeRate === null) {
-          const w = (await (
-            await fetchImpl(`${home}.well-known/quilt`, { signal: AbortSignal.timeout(8000) })
-          ).json()) as { stake?: { burn_rate?: number }; coin?: { burn_rate?: number } };
-          const published = w.stake?.burn_rate ?? w.coin?.burn_rate;
-          if (typeof published !== 'number') throw new Error('no coin');
-          homeRate = published;
-        }
-        rate = homeRate;
-      }
-    } catch {
-      throw new Refusal(400, 'the home did not answer');
-    }
-    return { lock, rate, head };
-  }
-
-  /**
-   * Why the door does not admit a coin-kind lock on the coin lock it read, in the order QX-17 section 5 gives: the lock
-   * is the root's, names this problem and piece, is live, is unbound, and backs at least the amount at the burn rate;
-   * null when it does.
-   */
-  function coinLockProblem(lock: CoinLockView, rate: number, root: Address, under: Hash, event: Event): string | null {
-    if (lock.root !== root) return "the lock is another root's";
-    if (lock.problem !== under || lock.piece !== event.piece) return 'the lock names another piece';
-    if (lock.state !== 'live') return 'the lock has ended';
-    if (lock.bound !== null) return 'the lock is bound';
-    const amount = event.body.amount as number;
-    if (Math.floor(lock.units / rate) < amount)
-      return `the lock holds ${lock.units} units, a stake of ${Math.floor(lock.units / rate)} at ${rate} a point`;
-    return null;
-  }
-
-  /**
-   * QX-17 section 5: what the door reads of a coin lock before it admits a coin-kind QX-15 lock, and writes into the
-   * receipt as its word.
-   */
-  async function coinWord(under: Hash, event: Event, root: Address): Promise<CoinWord> {
-    const home = coinHome();
-    if (home === null) throw new Refusal(400, 'this tracker honours no coin lock');
-    const id = event.body.id as Hash;
-    const { lock, rate, head } = await readCoinLock(home, id);
-    if (!lock) throw new Refusal(400, 'no such lock on the coin log');
-    const why = coinLockProblem(lock, rate, root, under, event);
-    if (why) throw new Refusal(400, why);
-    return { kind: 'coin', amount: event.body.amount as number, id, units: lock.units, home, head };
-  }
-
-  // The views
-
-  /**
-   * What this tracker says of itself: its name, limits, the extensions it carries with their constants, and its routes.
-   */
-  function wellKnown() {
-    return {
-      quilt: 1,
-      tracker: options.name ?? url,
-      url,
-      peers: options.peers ?? [],
-      limits,
-      stamp: { name: stampNeeded },
-      sortition: CHALLENGE_SEED,
-      challenge: { extension: CHALLENGE, panel: PANEL, majority: MAJORITY, ground_max: GROUND_MAX },
-      verifiers: {
-        human: EXTENSIONS.human,
-        'judge:n': EXTENSIONS.judge,
-        attest: EXTENSIONS.attest,
-        'record:n': EXTENSIONS.record,
-        judge_seed: JUDGE_SEED,
-      },
-      chain: 'QX-11',
-      pull: options.peers?.length ? { extension: PEER_PULL, every_ms: PEER_PULL_EVERY_MS } : null,
-      seeding: SEEDING,
-      reciprocity: RECIPROCITY,
-      hide: HIDE,
-      maintainers,
-      founding: options.founding ?? {},
-      identity: IDENTITY_LOG,
-      hosted: options.extra !== undefined,
-      ...(options.extraWellKnown?.() ?? {}),
-      // `stake.burn_rate` is the rate in force now, which with `burn_indexed` moves with the epochs; `coin.burn_rate`
-      // is the parameter, its floor.
-      stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: coin()!.burnRateAt(now()) } : {}) },
-      gold: { extension: GOLD },
-      trace: { extension: TRACE, blob_max: BLOB_MAX },
-      record: { extension: RECORD },
-      coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
-      // The paths a client reads: the listed rows of the door's table, in the order `handle` tries them, and the coin's
-      // only where this tracker carries the coin.
-      routes: routes
-        .filter((r) => r.listed !== false && (r.guard !== 'coin' || Boolean(options.coin)))
-        .map((r) => r.path),
-    };
-  }
-
-  /**
-   * The work on a problem in numbers (APP.md, Search): what the directory shows beside the counts, so a reader can tell
-   * how much is done and of what quality without the state. `returned` counts pieces with a kept reveal or run over the
-   * layer's fold, `accepted` and `disputed` the layer's states, `verified` the squares the owner's gold matched
-   * (QX-16), `traced` the accepted squares by their grade (QX-19 section 3; a square accepted by runs or attest is in
-   * none of the three), `readers` the distinct roots that revealed or ran, `vendors` the distinct vendors among them,
-   * and `last` the receipt time of the latest reveal or run. `declined` counts the roots that declined a piece, a
-   * model's refusal among them, so a piece nobody would read is seen beside the work. `found` is what the accepted
-   * squares say: for each agreed field whose schema is a list of choices, how many accepted squares agreed on each
-   * choice ("status: 3 proved, 6 open"), a count and nothing more.
-   */
-  function workOf(pl: ProblemLayer): {
-    returned: number;
-    accepted: number;
-    verified: number;
-    disputed: number;
-    traced: { both: number; one: number; none: number };
-    readers: number;
-    vendors: number;
-    last: string | null;
-    recorded: number;
-    declined: number;
-    found: Record<string, Record<string, number>>;
-  } {
-    const traced = { both: 0, one: 0, none: 0 };
-    const found: Record<string, Record<string, number>> = {};
-    let declined = 0;
-    let returned = 0;
-    let accepted = 0;
-    let verified = 0;
-    let disputed = 0;
-    let recorded = 0;
-    const roots = new Set<string>();
-    const vendors = new Set<string>();
-    let last: string | null = null;
-    const grades = tracesOf(pl);
-    for (const v of pl.fold.pieces) {
-      const l = pl.byHash.get(v.piece.hash);
-      if (!l) continue;
-      if (v.reveals.length || v.runs.length) returned += 1;
-      declined += v.declined.size;
-      if (countsAsAccepted(l.state)) {
-        accepted += 1;
-        const g = grades.get(v.piece.hash)?.traced;
-        if (g) traced[g] += 1;
-        if (v.accepting?.kind === 'agree') {
-          for (const field of v.piece.agree ?? []) {
-            const choices = (v.piece.schema?.properties?.[field] as { enum?: unknown[] } | undefined)?.enum;
-            const value = (v.accepting.reveals[0].return as Record<string, unknown>)[field];
-            if (!Array.isArray(choices) || typeof value !== 'string' || !choices.includes(value)) continue;
-            const byValue = (found[field] ??= {});
-            byValue[value] = (byValue[value] ?? 0) + 1;
-          }
-        }
-      }
-      if (l.state === 'disputed' || l.state === 'challenged') disputed += 1;
-      if (l.state === 'recorded') recorded += 1;
-      if (l.verified) verified += 1;
-      for (const r of v.reveals) {
-        roots.add(r.root);
-        vendors.add(r.vendor);
-        if (last === null || r.at > last) last = r.at;
-      }
-      for (const r of v.runs) {
-        roots.add(r.root);
-        if (last === null || r.at > last) last = r.at;
-      }
-    }
-    return {
-      returned,
-      accepted,
-      verified,
-      disputed,
-      traced,
-      readers: roots.size,
-      vendors: vendors.size,
-      last,
-      recorded,
-      declined,
-      found,
-    };
-  }
-
-  /**
-   * A problem in one line for the index and the scrape: its title, counts, head, the work on it, and what the
-   * extensions add.
-   */
-  function summary(hash: Hash, layered: Layer = layer()) {
-    const pl = layered.problems.get(hash);
-    if (!pl) return null;
-    const s = pl.fold;
-    const counts: Record<string, number> = {};
-    for (const v of pl.pieces) counts[v.state] = (counts[v.state] ?? 0) + 1;
-    const kinds: Record<string, number> = {};
-    for (const v of s.pieces) kinds[v.piece.verifier] = (kinds[v.piece.verifier] ?? 0) + 1;
-    const head = store.head(hash);
-    const seed = seedInfo(pl.receipts, pl.fold, layered.now);
-    return {
-      problem: hash,
-      title: s.envelope.problem.title,
-      slug: s.envelope.problem.slug,
-      owner: s.envelope.problem.owner,
-      owner_name: nameIn(pl)(s.envelope.problem.owner),
-      from: s.envelope.problem.from ?? null,
-      done_when: s.envelope.problem.done_when,
-      pieces: s.pieces.length,
-      counts,
-      kinds,
-      work: workOf(pl),
-      complete: s.complete,
-      output: s.output?.hash ?? null,
-      last: head?.at ?? null,
-      head: head
-        ? { seq: head.seq, hash: head.hash, short: `${head.hash.slice(0, 8)}:${head.hash.slice(8, 16)}` }
-        : null,
-      versions: s.chain.length,
-      challenges: pl.challenges.length,
-      seeders: seed.seeders.size,
-      last_seeded: seed.last_seeded,
-      panels: pl.panels.length,
-      hidden: hidden().get(hash) ?? null,
-    };
-  }
-
-  /**
-   * A problem's state as the layer has it, with the core's beside each piece: a core client reads `core`, one with the
-   * extensions reads `state`, and the kind says how the square is earned and how strongly. `window_open` says whether a
-   * reveal of the owner's gold is taken on the piece at `now`, which `state` does not say under an open challenge
-   * (QX-16).
-   */
-  function state(hash: Hash, pl: ProblemLayer) {
-    const s = pl.fold;
-    const at = now();
-    const witnessed = witnessedReveals(store, hash);
-    const traced = tracesOf(pl);
-    return {
-      problem: hash,
-      now: at,
-      hidden: hidden().get(hash) ?? null,
-      stake_rule: pl.stake,
-      pieces: s.pieces.map((v) => {
-        const l = pl.byHash.get(v.piece.hash)!;
-        const t = traced.get(v.piece.hash)!;
-        return {
-          name: v.piece.name,
-          hash: v.piece.hash,
-          verifier: v.piece.verifier,
-          state: l.state,
-          core: l.core,
-          challenge: l.challenge?.id ?? null,
-          kind: l.kind.kind,
-          extension: l.kind.extension,
-          strength: l.kind.strength,
-          says: l.kind.says,
-          weakest: l.kind.weakest,
-          attested: l.attested,
-          panel: l.panel?.outcome ?? null,
-          availability: v.availability,
-          dependents: v.dependents,
-          reveals: v.reveals.length,
-          claims: v.claims.length,
-          stake: l.stake,
-          gold: l.gold,
-          verified: l.verified,
-          window_open: windowOpen(v, at),
-          witnessed: witnessed.get(v.piece.hash) ?? [],
-          traces: t.traces.length,
-          traced: t.traced,
-          seams: t.seams,
-          aside: l.aside,
-          record: t.record,
-        };
-      }),
-      gold: pl.goldCount,
-      complete: s.complete,
-      output: s.output?.hash ?? null,
-      record_output: recordOutput(pl)?.hash ?? null,
-      dropped: [...s.dropped, ...pl.dropped],
-      superseded: supersededBy(hash),
-    };
-  }
-
-  /**
-   * A problem in one line with its chain checked, and with the topics every announce gave it, as the index shows them,
-   * so the owner's turn can announce again with the same (QX-13 section 3).
-   */
-  function scrape(hash: Hash) {
-    const chain = verifyChain(store.lines(hash), hash);
-    const topics = [
-      ...new Set(
-        store
-          .announcements(hash)
-          .flatMap((a) => ((a.event.body as { topics?: string[] }).topics ?? []).map((x) => x.toLowerCase())),
-      ),
-    ];
-    return { ...summary(hash), topics, chain_ok: chain.ok };
-  }
-
-  /**
-   * QX-20 section 4: the record document, once the layer calls the problem complete; its hash is the state's
-   * `record_output`.
-   */
-  function recordOf(hash: Hash) {
-    const pl = view(hash);
-    const doc = pl ? recordOutput(pl) : null;
-    if (!doc) throw new Refusal(404, 'no record document yet: the problem is not complete, or has no record piece');
-    return { hash: doc.hash, ...(doc.document as Record<string, unknown>) };
   }
 
   /** QX-19: how long a blob here is, or null. */
@@ -1157,494 +291,43 @@ export function createTracker(options: TrackerOptions): Tracker {
     tracesMemo.set(pl, out);
     return out;
   }
-  /** The seams `next` hands over with a piece: the same as the state shows (`tracesOf`). */
-  const seamsOf = (pl: ProblemLayer, hash: Hash): Seam[] => tracesOf(pl).get(hash)?.seams ?? [];
 
-  /**
-   * The newest envelope here by the same owner whose `prev` is this problem: the version that replaced it, or null. The
-   * state says so, and `next` hands nothing on a replaced problem.
-   */
-  function supersededBy(hash: Hash): Hash | null {
-    const owner = store.getEnvelope(hash)?.envelope.problem.owner;
-    if (!owner) return null;
-    return (
-      store.listEnvelopes().find((e) => e.envelope.problem.prev === hash && e.envelope.problem.owner === owner)?.hash ??
-      null
-    );
-  }
+  return {
+    store,
+    options,
+    url: withSlash(options.url),
+    now,
+    limits: options.limits ?? { keyPerHour: 120, ipPerHour: 600 },
+    stampNeeded: options.stamp?.name ?? 0,
+    maintainerSet: new Set(maintainers.map((a) => a.toLowerCase())),
+    founding,
+    fetchImpl: options.fetchImpl ?? fetch,
+    layer,
+    exactly,
+    inputFor,
+    reduceProblem,
+    view,
+    hidden,
+    coin,
+    coinHome,
+    tracesOf,
+    homeRate: null,
+  };
+}
 
-  /**
-   * The problems here their owners have replaced with a newer version, left out of the index and the offer: the work is
-   * on the versions that replaced them.
-   */
-  function replaced(): Set<Hash> {
-    const out = new Set<Hash>();
-    const byHash = new Map(store.listEnvelopes().map((e) => [e.hash, e] as const));
-    for (const e of byHash.values()) {
-      const prev = e.envelope.problem.prev;
-      if (prev && byHash.get(prev)?.envelope.problem.owner === e.envelope.problem.owner) out.add(prev);
-    }
-    return out;
-  }
+export function createTracker(options: TrackerOptions): Tracker {
+  const cx = contextOf(options);
+  const { store, url, limits, layer, reduceProblem, view, hidden, coin } = cx;
+  const ipSalt = options.ipSalt ?? createHash('sha256').update(String(Math.random())).digest('hex');
+  const pullDoor = pullDoorOf(cx);
 
-  /** The name a root chose, as the problem's fold has it, or null. */
-  function nameIn(pl: ProblemLayer): (a: string) => string | null {
-    return (a) => pl.fold.names.get(a as Address)?.name ?? null;
-  }
-
-  /**
-   * A problem's challenges as the tracker computes them at now: the seats, each verdict with its judge, the outcome.
-   */
-  function challenges(pl: ProblemLayer, name: (a: string) => string | null) {
-    return pl.challenges.map((c) => ({
-      id: c.id,
-      piece: c.piece,
-      name: pl.byHash.get(c.piece)?.name ?? null,
-      key: c.key,
-      root: c.root,
-      challenger: name(c.root),
-      at: c.at,
-      stake: c.stake,
-      ground: c.ground,
-      against: c.against,
-      parties: c.parties,
-      seed: c.seed,
-      panel: PANEL,
-      majority: MAJORITY,
-      seats: c.seats.map((s) => ({
-        root: s.root,
-        judge: name(s.root),
-        offered_at: s.offeredAt,
-        lapsed_at: s.lapsedAt,
-        verdict: s.verdict
-          ? { id: s.verdict.id, at: s.verdict.at, for: s.verdict.for, return: s.verdict.return }
-          : null,
-      })),
-      outcome: c.outcome,
-      decided_at: c.decidedAt,
-      struck: c.struck,
-      dropped: c.dropped,
-    }));
-  }
-
-  /**
-   * A problem's judge panels as the tracker computes them at now: the candidates by digest (their signers named once
-   * the panel has decided), the seats, each rank, the outcome.
-   */
-  function panels(pl: ProblemLayer, name: (a: string) => string | null) {
-    return pl.panels.map((p) => ({
-      piece: p.piece,
-      name: p.name,
-      verifier: pl.byHash.get(p.piece)?.kind.verifier ?? null,
-      panel: p.panel,
-      majority: p.majority,
-      wanted: p.wanted,
-      seed: p.seed,
-      completed_at: p.completedAt,
-      candidates: p.candidates.map((c) =>
-        p.outcome === 'decided'
-          ? { digest: c.digest, return: c.return, root: c.root, signer: name(c.root) }
-          : { digest: c.digest, return: c.return },
-      ),
-      seats: p.seats.map((s) => ({
-        root: s.root,
-        judge: name(s.root),
-        offered_at: s.offeredAt,
-        lapsed_at: s.lapsedAt,
-        rank: s.rank ? { id: s.rank.id, at: s.rank.at, ranking: s.rank.ranking } : null,
-      })),
-      outcome: p.outcome,
-      winner: p.winner,
-      decided_at: p.decidedAt,
-      dropped: p.dropped,
-    }));
-  }
-
-  /** A problem's challenges at now, with the problem and the time. */
-  function challengesOf(hash: Hash) {
-    const pl = view(hash)!;
-    return { problem: hash, now: now(), challenges: challenges(pl, nameIn(pl)) };
-  }
-
-  /** A problem's judge panels at now, with the problem and the time. */
-  function panelsOf(hash: Hash) {
-    const pl = view(hash)!;
-    return { problem: hash, now: now(), panels: panels(pl, nameIn(pl)) };
-  }
-
-  /**
-   * The problems here, each in summary with its topics (QX-13), those matching `q` when one is given; hidden ones left
-   * out.
-   */
-  function index(query: URLSearchParams) {
-    const q = (query.get('q') ?? '').trim().toLowerCase();
-    const topicsByProblem = new Map<Hash, Set<string>>();
-    for (const a of store.announcements()) {
-      const set = topicsByProblem.get(a.problem) ?? new Set<string>();
-      for (const t of (a.event.body as { topics?: string[] }).topics ?? []) set.add(t.toLowerCase());
-      topicsByProblem.set(a.problem, set);
-    }
-    const out: unknown[] = [];
-    const layered = layer();
-    const hid = hidden();
-    const gone = replaced();
-    for (const e of store.listEnvelopes()) {
-      if (hid.has(e.hash) || gone.has(e.hash)) continue;
-      const topics = [...(topicsByProblem.get(e.hash) ?? [])];
-      const hay =
-        `${e.envelope.problem.title} ${e.envelope.problem.slug} ${e.envelope.problem.done_when} ${topics.join(' ')}`.toLowerCase();
-      if (q && !hay.includes(q)) continue;
-      const s = summary(e.hash, layered);
-      if (s) out.push({ ...s, topics });
-    }
-    return out;
-  }
-
-  /** QX-15: a key's standing, what is locked behind its claims, what is free, and the locks themselves. */
-  function standingOf(address: string) {
-    if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
-    const layered = layer();
-    const root = layered.rootOf(address);
-    return {
-      address,
-      root,
-      standing: layered.standing(root),
-      locked: layered.locked(root),
-      free: layered.free(root),
-      founding: founding.get(root.toLowerCase()) ?? 0,
-      locks: layered.liveLocks(root).map((l) => ({ problem: l.problem, piece: l.piece, amount: l.amount, at: l.at })),
-      at: layered.now,
-    };
-  }
-
-  /**
-   * The directory's hot list (APP.md, "The window"): a key's latest readings, newest first, each with its state and
-   * grade as this tracker holds them, and `aside` where the layer set this key's reading aside (QX-19 section 4).
-   * Receipts are by key, so a delegate's readings sit under the delegate's address; the root is said beside it.
-   */
-  function workBy(address: string, query: URLSearchParams) {
-    if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
-    const asked = Number(query.get('limit') ?? 20);
-    const limit = Math.min(50, Math.max(1, Number.isFinite(asked) ? Math.floor(asked) : 20));
-    const layered = layer();
-    const root = layered.rootOf(address);
-    const readings = store.revealsBy(address, limit).flatMap((r) => {
-      const pl = layered.problems.get(r.problem);
-      const l = pl?.byHash.get(r.piece);
-      if (!pl || !l) return [];
-      return [
-        {
-          problem: r.problem,
-          title: pl.fold.envelope.problem.title,
-          piece: r.piece,
-          name: l.name,
-          at: r.at,
-          state: l.state,
-          aside: l.aside.includes(address),
-          verified: l.verified,
-          traced: tracesOf(pl).get(r.piece)?.traced ?? null,
-        },
-      ];
-    });
-    const first = layered.problems.values().next().value as ProblemLayer | undefined;
-    return {
-      address,
-      root,
-      name: first ? nameIn(first)(root) : null,
-      standing: layered.standing(root),
-      readings,
-      at: layered.now,
-    };
-  }
-
-  /** QX-19 section 2: a read kept under its hash, so a trace can rest on it. */
-  async function keepBlob(req: IncomingMessage, res: ServerResponse, hash: Hash): Promise<void> {
-    const bytes = await readBytes(req, BLOB_MAX);
-    if (hashBytes(bytes) !== hash) throw new Refusal(400, 'the bytes do not match the hash');
-    store.putBlob(hash, bytes);
-    json(res, 202, { hash, bytes: bytes.length });
-  }
-
-  /** A blob's bytes as this store keeps them. */
-  function blob(res: ServerResponse, hash: Hash): void {
-    const bytes = store.getBlob(hash);
-    if (!bytes) throw new Refusal(404, 'no such blob here');
-    res.writeHead(200, { 'content-type': 'application/octet-stream', 'access-control-allow-origin': '*' });
-    res.end(Buffer.from(bytes));
-  }
-
-  /** The problem an owner's slug names here, as the owner's version events set it. */
-  function named(owner: string, slug: string) {
-    const hash = store.getName(owner, slug);
-    if (!hash) throw new Refusal(404, 'no such name here');
-    return { hash };
-  }
-
-  /**
-   * The launch funnel by the UTC day (JOURNEY-AUDIT.md section 3, item 9): counts with nobody in them, so the route is
-   * public.
-   */
-  function countsOf(query: URLSearchParams) {
-    const days = daysFrom(query.get('days'));
-    if (days === null) throw new Refusal(400, `days: a whole number from 1 to ${DAYS_MAX}`);
-    return funnel({
-      members: store.memberTimes(),
-      logs: store.listEnvelopes().map((e) => store.lines(e.hash)),
-      layer: layer(),
-      now: now(),
-      days,
-    });
-  }
-
-  /** A chain's lines after `since`, a page at a time, as newline-delimited JSON; the header names the next page. */
-  function events(res: ServerResponse, hash: Hash, since: number): void {
-    const page = 500;
-    const lines = store.receipts(hash, since, page + 1);
-    const more = lines.length > page;
-    const out = more ? lines.slice(0, page) : lines;
-    const headers: Record<string, string> = {
-      'content-type': 'application/x-ndjson; charset=utf-8',
-      'access-control-allow-origin': '*',
-    };
-    if (more) headers['x-quilt-next-since'] = String(out[out.length - 1]!.seq);
-    res.writeHead(200, headers);
-    res.end(out.map((l) => JSON.stringify(l)).join('\n') + (out.length ? '\n' : ''));
-  }
-
-  /** A chain's head at a sequence: that line's seq and hash, or null where the chain is shorter. */
-  function headAt(hash: Hash, seq: number): { seq: number; hash: string } | null {
-    const line = store.receipts(hash, Math.max(0, seq - 1), 1)[0];
-    return line && line.seq === seq && typeof line.hash === 'string' ? { seq: line.seq, hash: line.hash } : null;
-  }
-
-  /**
-   * The coin log's head a listing stands under: the head itself, or the line at the query's `upto` when that is
-   * earlier.
-   */
-  function headUpto(
-    c: CoinLayer,
-    query: URLSearchParams,
-  ): { head: { seq: number; hash: string } | null; upto: number | undefined } {
-    const asked = query.get('upto');
-    const n = asked === null ? null : Number(asked);
-    if (n !== null && (!Number.isInteger(n) || n < 0)) throw new Refusal(400, 'upto: a whole number');
-    const head = n === null || c.head === null || n >= c.head.seq ? c.head : headAt(COIN_LOG, n);
-    return { head, upto: n ?? undefined };
-  }
-
-  /** QX-17 section 5: a lock on the coin log, under the head it stands under, with the burn rate in force. */
-  function coinLock(id: Hash) {
-    const c = coin()!;
-    const lock = c.lock(id);
-    if (!lock) throw new Refusal(404, 'no such lock on the coin log');
-    return { ...lock, head: c.head, at: c.now, rate: c.burnRateAt(c.now) };
-  }
-
-  /** QX-17: a root's balance and what is pending for it, under the coin log's head. */
-  function coinBalance(address: string) {
-    if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
-    const layered = layer();
-    const c = coin(layered)!;
-    const root = layered.rootOf(address, c.now);
-    return { ...c.balance(root), pending: c.pending(root), at: c.now, head: c.head };
-  }
-
-  /** QX-17: the epochs from `since` on, under the coin log's head. */
-  function coinEpochs(query: URLSearchParams) {
-    const since = Number(query.get('since') ?? 0);
-    const c = coin()!;
-    return { epochs: c.epochs().filter((e) => e.epoch >= since), at: c.now, head: c.head };
-  }
-
-  /**
-   * The door out: the redeem lines the layer kept, each the chain line's hash the ERC-20 mints against once, under the
-   * head they stand under.
-   */
-  function coinRedeems(query: URLSearchParams) {
-    const c = coin()!;
-    const { head, upto } = headUpto(c, query);
-    return { head, at: c.now, redeems: c.redeems(upto) };
-  }
-
-  /**
-   * The way back: the credit lines the layer kept, each a deposit burned on the chain, under the head they stand under;
-   * what the mirror checks against the chain.
-   */
-  function coinCredits(query: URLSearchParams) {
-    const c = coin()!;
-    const { head, upto } = headUpto(c, query);
-    return { head, at: c.now, reader: options.coin?.reader ?? null, credits: c.credits(upto) };
-  }
-
-  /** QX-17: the coin as this tracker computes it at now: the parameters, every balance, and what was dropped. */
-  function coinState() {
-    const c = coin()!;
-    return {
-      head: c.head,
-      at: c.now,
-      params: { extension: COIN, ...options.coin, home: coinHome() },
-      balances: Object.fromEntries(c.balances()),
-      dropped: c.dropped,
-    };
-  }
-
-  /**
-   * The key and the client a next or an offer is asked for: `key` with its checksum, `can` from the capabilities,
-   * `model` as declared.
-   */
-  function clientFrom(query: URLSearchParams): { key: Address; client: Client } {
-    const key = query.get('key');
-    if (!isAddress(key)) throw new Refusal(400, 'key: an address with its checksum');
-    const can = (query.get('can') ?? '').split(',').filter(Boolean);
-    if (!can.every((c) => (CAPABILITIES as readonly string[]).includes(c)))
-      throw new Refusal(400, `can: from ${CAPABILITIES.join(', ')}`);
-    return { key, client: { can: can as Capability[], model: query.get('model') ?? 'unknown/unknown' } };
-  }
-
-  /** Holds a piece for the key it was handed to, for HOLD_SECONDS from `at`. */
-  function holdFor(problem: Hash, piece: Hash, key: Address, at: string): void {
-    store.hold(problem, piece, key, new Date(Date.parse(at) + HOLD_SECONDS * 1000).toISOString());
-  }
-
-  /**
-   * The pieces this tracker keeps from the key on one problem. Assisted next and the offer share this one rule, so the
-   * offer names only a piece next would hand the key (QX-5 section 4). It keeps a piece held for another key; the
-   * layer's unoffered pieces, a judge piece whose panel sits or ran out (QX-2); a human piece from a client that
-   * declares no person (QX-3); what QX-4 section 4 keeps for the seeders: an open watch piece within its lease from a
-   * key that does not seed, and, while one is open, every other piece from a key that does, so a seeder is handed the
-   * watch piece first; and a staked piece the key's free standing cannot cover, on which it holds no lock (QX-15).
-   * Those last are also named apart, since next's answer lists them.
-   */
-  function excludedFor(
-    layered: Layer,
-    pl: ProblemLayer,
-    input: ReduceInput,
-    key: Address,
-    client: Client,
-    at: string,
-  ): { exclude: Set<Hash>; unaffordable: Hash[] } {
-    const exclude = new Set<Hash>([...store.heldByOthers(pl.problem, key, at), ...pl.unoffered]);
-    if (!client.can.includes('person')) for (const p of pl.pieces) if (p.kind.kind === 'human') exclude.add(p.hash);
-    for (const h of watchExclusions(pl, input, key, seedInfo(input.receipts, pl.fold, at).seeders, at)) exclude.add(h);
-    const unaffordable = [...layered.unaffordable(pl.problem, key)];
-    for (const h of unaffordable) exclude.add(h);
-    return { exclude, unaffordable };
-  }
-
-  /** Assisted next (CORE.md): the piece this tracker hands the key on one problem, held for it a minute. */
-  function assisted(res: ServerResponse, hash: Hash, query: URLSearchParams): void {
-    const { key, client } = clientFrom(query);
-    // The layer's fold: a struck piece is open again, and a challenged one is not offered while its panel sits.
-    const layered = layer();
-    const pl = layered.problems.get(hash);
-    if (!pl) throw new Refusal(404, 'no such problem here');
-    if (hidden().has(hash)) throw new Refusal(410, 'this problem is taken down here');
-    // A problem its owner has replaced with a newer version hands out nothing: the work is on the version that replaced
-    // it.
-    const superseded = supersededBy(hash);
-    if (superseded) {
-      json(res, 200, { piece: null, unaffordable: [], superseded });
-      return;
-    }
-    const state = pl.fold;
-    const at = now();
-    const { exclude, unaffordable } = excludedFor(layered, pl, inputFor(hash)!, key, client, at);
-    // The second reader's pool (QX-19 section 5): asked with only=verify, the pick is from the pieces in needs_verify
-    // or disputed alone, in this layer's fold. The core's order puts open pieces first wherever they outnumber those,
-    // so without this a key whose reading was set aside would be handed an open piece, and its own fold would not hand
-    // it the piece back, since the reading still stands there.
-    const only = query.get('only');
-    if (only !== null && only !== 'verify') throw new Refusal(400, 'only: verify, or left out');
-    // A record piece (QX-20) is outside that pool: a second reader confirms or disagrees, and a record takes no second
-    // opinion, only another reading.
-    if (only === 'verify')
-      for (const v of state.pieces)
-        if ((v.state !== 'needs_verify' && v.state !== 'disputed') || pl.byHash.get(v.piece.hash)?.record)
-          exclude.add(v.piece.hash);
-    const pick = next(state, key, client, at, { exclude });
-    if (!pick) {
-      json(res, 200, { piece: null, unaffordable });
-      return;
-    }
-    const { kind, stake, state: layerState } = pl.byHash.get(pick.piece.hash)!;
-    holdFor(hash, pick.piece.hash, key, at);
-    // QX-19 section 4: a piece whose readings differ goes out with its seams between the readings that stand, whether
-    // the layer still calls it disputed or has set one reading aside, so the next reader sees what each rests on.
-    const seams = seamsOf(pl, pick.piece.hash);
-    // The state is the layer's word: the fold's, except `recording` where the fold holds a record piece under
-    // needs_verify (QX-20).
-    json(res, 200, {
-      piece: pick.piece.hash,
-      name: pick.piece.name,
-      state: layerState,
-      brief: pick.brief,
-      schema: pick.schema ?? null,
-      agree: pick.agree,
-      requires: pick.requires,
-      lease_h: pick.lease_h,
-      verifier: pick.piece.verifier,
-      kind: kind.kind,
-      extension: kind.extension,
-      strength: kind.strength,
-      says: kind.says,
-      weakest: kind.weakest,
-      workspace: pick.piece.workspace ?? null,
-      check: pick.piece.check ?? null,
-      stake,
-      unaffordable,
-      seams,
-    });
-  }
-
-  /**
-   * QX-5: the problems here with a piece for the key, in the order they are offered, each piece the one assisted next
-   * would name; the first is held as assisted next holds.
-   */
-  function offer(res: ServerResponse, query: URLSearchParams): void {
-    const { key, client } = clientFrom(query);
-    const at = now();
-    const layered = layer();
-    const inputs = new Map<Hash, ReduceInput>();
-    const hid = hidden();
-    const gone = replaced();
-    for (const h of layered.problems.keys()) {
-      if (hid.has(h) || gone.has(h)) continue;
-      const input = inputFor(h);
-      if (input) inputs.set(h, input);
-    }
-    const count = store.nextOfferCount(key);
-    const firstSeeder = options.firstSeeder;
-    const list = offerOrder(
-      layered,
-      inputs,
-      key,
-      client,
-      at,
-      count,
-      (_h, pl, input) => excludedFor(layered, pl, input, key, client, at).exclude,
-      firstSeeder
-        ? (_h, pl, input) => seedInfo(input.receipts, pl.fold, at).seeders.has(pl.fold.rootOf(firstSeeder, at))
-        : undefined,
-    );
-    const first = list[0];
-    if (first) holdFor(first.problem, first.pick.piece.hash, key, at);
-    json(res, 200, {
-      offer: count,
-      offers: list.map((o) => ({
-        problem: o.problem,
-        title: o.title,
-        slug: o.slug,
-        owner: o.owner,
-        reason: o.reason,
-        piece: o.pick.piece.hash,
-        name: o.pick.piece.name,
-        state: o.pick.state,
-        verifier: o.pick.piece.verifier,
-        requires: o.pick.requires,
-        lease_h: o.pick.lease_h,
-      })),
-    });
-  }
+  const trustedProxies = rangesOf(options.trustedProxies ?? PRIVATE_RANGES);
+  const ipOf = (req: IncomingMessage): string => clientAddress(req, trustedProxies);
+  const ipBucket = (req: IncomingMessage): string =>
+    `ip:${createHash('sha256')
+      .update(ipSalt + ipOf(req))
+      .digest('hex')
+      .slice(0, 16)}`;
 
   // The routes
 
@@ -1655,7 +338,7 @@ export function createTracker(options: TrackerOptions): Tracker {
   const limited =
     (run: Handler): Handler =>
     (asked) => {
-      limit(ipBucket(asked.req), limits.ipPerHour);
+      limit(cx, ipBucket(asked.req), limits.ipPerHour);
       return run(asked);
     };
   const noRoute = (): never => {
@@ -1667,10 +350,10 @@ export function createTracker(options: TrackerOptions): Tracker {
    * same order. What a row holds is in routes.ts.
    */
   const routes: Route[] = [
-    { path: '/.well-known/quilt', listed: false, GET: ({ res }) => json(res, 200, wellKnown()) },
+    { path: '/.well-known/quilt', listed: false, GET: ({ res }) => json(res, 200, wellKnown(cx, routes)) },
     // The problems: published, served by hash, their events, states and what the extensions compute. A path naming a
     // problem not held here is 404 whatever the method; under one held here, a method the row does not take is 405.
-    { path: '/p', POST: limited(({ req, res }) => publish(req, res)) },
+    { path: '/p', POST: limited(({ req, res }) => publish(cx, req, res)) },
     {
       path: '/p/<hash>',
       guard: 'problem',
@@ -1680,107 +363,112 @@ export function createTracker(options: TrackerOptions): Tracker {
     {
       path: '/p/<hash>/events',
       guard: 'problem',
-      GET: ({ res, query, hash }) => events(res, hash!, Number(query.get('since') ?? 0)),
-      POST: limited(({ req, res, hash }) => postEvent(req, res, { kind: 'problem', hash: hash! })),
+      GET: ({ res, query, hash }) => events(store, res, hash!, Number(query.get('since') ?? 0)),
+      POST: limited(({ req, res, hash }) => postEvent(cx, req, res, { kind: 'problem', hash: hash! })),
       otherwise: 405,
     },
     {
       path: '/p/<hash>/state',
       guard: 'problem',
-      GET: ({ res, hash }) => json(res, 200, state(hash!, view(hash!)!)),
+      GET: ({ res, hash }) => json(res, 200, state(cx, hash!, view(hash!)!)),
       otherwise: 405,
     },
     {
       path: '/p/<hash>/scrape',
       guard: 'problem',
-      GET: ({ res, hash }) => json(res, 200, scrape(hash!)),
+      GET: ({ res, hash }) => json(res, 200, scrape(cx, hash!)),
       otherwise: 405,
     },
     {
       path: '/p/<hash>/next',
       guard: 'problem',
-      GET: ({ res, query, hash }) => assisted(res, hash!, query),
+      GET: ({ res, query, hash }) => assisted(cx, res, hash!, query),
       otherwise: 405,
     },
     {
       path: '/p/<hash>/challenges',
       guard: 'problem',
-      GET: ({ res, hash }) => json(res, 200, challengesOf(hash!)),
+      GET: ({ res, hash }) => json(res, 200, challengesOf(cx, hash!)),
       otherwise: 405,
     },
     {
       path: '/p/<hash>/panels',
       guard: 'problem',
-      GET: ({ res, hash }) => json(res, 200, panelsOf(hash!)),
+      GET: ({ res, hash }) => json(res, 200, panelsOf(cx, hash!)),
       otherwise: 405,
     },
     {
       path: '/p/<hash>/record',
       guard: 'problem',
-      GET: ({ res, hash }) => json(res, 200, recordOf(hash!)),
+      GET: ({ res, hash }) => json(res, 200, recordOf(cx, hash!)),
       otherwise: 405,
     },
     // The identity log, which any method but POST lists, and a key's standing and work.
     {
       path: '/k/events',
-      GET: ({ res, query }) => events(res, IDENTITY_LOG, Number(query.get('since') ?? 0)),
-      POST: limited(({ req, res }) => postEvent(req, res, { kind: 'identity' })),
+      GET: ({ res, query }) => events(store, res, IDENTITY_LOG, Number(query.get('since') ?? 0)),
+      POST: limited(({ req, res }) => postEvent(cx, req, res, { kind: 'identity' })),
       otherwise: 'GET',
     },
-    { path: '/k/<address>/standing', GET: ({ res, address }) => json(res, 200, standingOf(address!)) },
-    { path: '/k/<address>/work', GET: ({ res, query, address }) => json(res, 200, workBy(address!, query)) },
+    { path: '/k/<address>/standing', GET: ({ res, address }) => json(res, 200, standingOf(cx, address!)) },
+    { path: '/k/<address>/work', GET: ({ res, query, address }) => json(res, 200, workBy(cx, address!, query)) },
     // Blobs and names.
     {
       path: '/b/<hash>',
-      PUT: limited(({ req, res, hash }) => keepBlob(req, res, hash!)),
-      GET: ({ res, hash }) => blob(res, hash!),
+      PUT: limited(({ req, res, hash }) => keepBlob(store, req, res, hash!)),
+      GET: ({ res, hash }) => blob(store, res, hash!),
     },
-    { path: '/n/<owner>/<slug>', GET: ({ res, owner, slug }) => json(res, 200, named(owner!, slug!)) },
+    { path: '/n/<owner>/<slug>', GET: ({ res, owner, slug }) => json(res, 200, named(store, owner!, slug!)) },
     // The index: the front page and the search, the offer, what is taken down, and the launch funnel.
     {
       path: '/',
       listed: false,
-      GET: ({ res, query }) => json(res, 200, { quilt: 1, tracker: url, problems: index(query) }),
+      GET: ({ res, query }) => json(res, 200, { quilt: 1, tracker: url, problems: index(cx, query) }),
     },
-    { path: '/search', GET: ({ res, query }) => json(res, 200, { problems: index(query) }) },
-    { path: '/offer', GET: ({ res, query }) => offer(res, query) },
+    { path: '/search', GET: ({ res, query }) => json(res, 200, { problems: index(cx, query) }) },
+    { path: '/offer', GET: ({ res, query }) => offer(cx, res, query) },
     { path: '/hidden', GET: ({ res }) => json(res, 200, { hidden: [...hidden().values()] }) },
-    { path: '/counts', GET: ({ res, query }) => json(res, 200, countsOf(query)) },
+    { path: '/counts', GET: ({ res, query }) => json(res, 200, countsOf(cx, query)) },
     // The coin (QX-17): its log, which any method but POST lists, and what the layer computes from it. Every path under
     // /coin is the coin's, 404 on a tracker that carries none; on one that does, a method a row does not take is 405.
     {
       path: '/coin/events',
       guard: 'coin',
-      GET: ({ res, query }) => events(res, COIN_LOG, Number(query.get('since') ?? 0)),
-      POST: limited(({ req, res }) => postEvent(req, res, { kind: 'coin' })),
+      GET: ({ res, query }) => events(store, res, COIN_LOG, Number(query.get('since') ?? 0)),
+      POST: limited(({ req, res }) => postEvent(cx, req, res, { kind: 'coin' })),
       otherwise: 'GET',
     },
     {
       path: '/coin/lock/<id>',
       guard: 'coin',
-      GET: ({ res, id }) => json(res, 200, coinLock(id!)),
+      GET: ({ res, id }) => json(res, 200, coinLock(cx, id!)),
       otherwise: 405,
     },
     {
       path: '/coin/balance/<root>',
       guard: 'coin',
-      GET: ({ res, root }) => json(res, 200, coinBalance(root!)),
+      GET: ({ res, root }) => json(res, 200, coinBalance(cx, root!)),
       otherwise: 405,
     },
-    { path: '/coin/epochs', guard: 'coin', GET: ({ res, query }) => json(res, 200, coinEpochs(query)), otherwise: 405 },
+    {
+      path: '/coin/epochs',
+      guard: 'coin',
+      GET: ({ res, query }) => json(res, 200, coinEpochs(cx, query)),
+      otherwise: 405,
+    },
     {
       path: '/coin/redeems',
       guard: 'coin',
-      GET: ({ res, query }) => json(res, 200, coinRedeems(query)),
+      GET: ({ res, query }) => json(res, 200, coinRedeems(cx, query)),
       otherwise: 405,
     },
     {
       path: '/coin/credits',
       guard: 'coin',
-      GET: ({ res, query }) => json(res, 200, coinCredits(query)),
+      GET: ({ res, query }) => json(res, 200, coinCredits(cx, query)),
       otherwise: 405,
     },
-    { path: '/coin/state', guard: 'coin', GET: ({ res }) => json(res, 200, coinState()), otherwise: 405 },
+    { path: '/coin/state', guard: 'coin', GET: ({ res }) => json(res, 200, coinState(cx)), otherwise: 405 },
     // Any other path under /coin: a GET finds no route, and any other method is told GET.
     { path: '/coin*', listed: false, guard: 'coin', GET: noRoute, otherwise: 405 },
   ];

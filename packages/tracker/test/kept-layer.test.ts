@@ -5,7 +5,9 @@ import { VERDICT, addr, boot, envelope as signed, key } from './helpers.js';
 /**
  * What keeps a tracker's reads cheap: the layer, which reduces every problem here, is built once and answered from
  * while nothing is written and the clock stays in the same five seconds; a write or the clock moving on builds it
- * again, and admitting an event always builds it at now. Recovering a signer is remembered by signature and message.
+ * again, and admitting an event always builds it at now. The kept layer is the tracker's own: two trackers in one
+ * process, their stores at the same version and their clocks in the same five seconds, each answer from their own.
+ * Recovering a signer is remembered by signature and message.
  */
 const owner = key(9),
   worker = key(1);
@@ -52,6 +54,29 @@ describe('the kept layer', () => {
     expect(t.tracker.layer()).not.toBe(a);
     const after = await t.get<{ pieces: { hash: Hash; state: string }[] }>(`/p/${p}/state`);
     expect(after.pieces.find((x) => x.hash === piece)!.state).toBe('in_flight');
+  });
+
+  it("is each tracker's own, where two in one process hold different problems at the same version", async () => {
+    const one = boot('2026-10-31T12:00:00Z');
+    const two = boot('2026-10-31T12:00:00Z');
+    const Q = signed(owner, 'other', {
+      statement: { verifier: 'agree', requires: ['web'], brief: 'Does the other paper say so?', schema: VERDICT },
+    });
+    await one.listen();
+    await two.listen();
+    try {
+      expect((await one.post('/p', { envelope: P })).status).toBe(201);
+      expect((await two.post('/p', { envelope: Q })).status).toBe(201);
+      expect(one.store.version).toBe(two.store.version);
+      expect([...one.tracker.layer().problems.keys()]).toEqual([p]);
+      expect([...two.tracker.layer().problems.keys()]).toEqual([problemHash(Q)]);
+      expect(two.tracker.layer()).not.toBe(one.tracker.layer());
+      const index = await two.get<{ problems: { problem: Hash }[] }>('/');
+      expect(index.problems.map((x) => x.problem)).toEqual([problemHash(Q)]);
+    } finally {
+      await one.close();
+      await two.close();
+    }
   });
 });
 

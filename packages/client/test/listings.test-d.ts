@@ -2,7 +2,7 @@
  * The wire shapes listings.ts declares again, held to the tracker's own types. The client may not import the tracker,
  * so it writes these out a second time (AGENTS.md, the arrows); a test may, so this file does. Each line assigns what
  * the tracker sends to the client's copy, and the client's typecheck fails where a copy no longer takes it. Where the
- * tracker builds a row in its own code (tracker.ts: summary() for `scrape`, and the `state`, `challenges` and `panels`
+ * tracker builds a row in its own code (views.ts: summary() for `scrape`, and the `state`, `challenges` and `panels`
  * routes), the row is built here with the route's own expressions over the same inputs: the problem's layer, its fold,
  * the traces and the names. A field the route takes from the layer's piece, its kind, the fold's piece view or the
  * traces is taken from the same place here, so a type that moves under the route moves under this file too. Nothing
@@ -37,7 +37,7 @@ import type {
 } from '../src/listings.js';
 
 // What the routes read: the problem's layer, the tracker's now, the takedowns by problem, the problem's seeding, its
-// traces by piece, and the name a root chose as the fold has it (nameIn in tracker.ts).
+// traces by piece, and the name a root chose as the fold has it (nameIn in views.ts).
 const hash = {} as Hash;
 const pl = {} as ProblemLayer;
 const at = {} as string;
