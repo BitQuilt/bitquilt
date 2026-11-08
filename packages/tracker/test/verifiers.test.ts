@@ -564,8 +564,8 @@ describe('the pure layer', () => {
     });
     const twoPeople = [...handIn(A, 0, 'human', {}), ...handIn(B, 5, 'human', {})];
     expect(stateWith(twoPeople).state).toBe('accepted_provisional');
-    // The on-ramp writes `seat: ai` beside its custody, since a member's product makes the calls, and the custody
-    // counts whatever seat it names: the seat is the member's. The documents say both.
+    // On a member's reveal the on-ramp writes `seat: ai` beside its custody, since the member's product makes the
+    // calls, and the custody counts whatever seat it names: the seat is the member's. The documents say both.
     const twoMembers = [
       ...handIn(A, 0, 'anthropic/claude', { custody: 'hosted', seat: 'ai' }),
       ...handIn(B, 5, 'openai/gpt', { custody: 'hosted', seat: 'ai' }),
