@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash, commitHash, hashBytes, newNonce, problemHash } from '@bitquilt/core';
-import { addr, boot, envelope, key } from './helpers.js';
+import { passageIn, problemTraces, recordOutput } from '../src/trace.js';
+import { addr, boot, envelope, key, layerOf } from './helpers.js';
 
 /**
  * The record kind (docs/ext/QX-20.md): a `record:4` piece takes the first four readings from roots unrelated to the
@@ -9,7 +10,8 @@ import { addr, boot, envelope, key } from './helpers.js';
  * standing readings with the seams between them and nothing set aside, and every root's standing is unmoved; the
  * owner's reading does not stand; the fourth makes it `recorded`, a fifth is refused at the door, the dependent opens,
  * a challenge is refused; the record document's hash is the state's and is the same with no blobs measured. Beside it
- * the core's own word stays `unknown`.
+ * the core's own word stays `unknown`. The grade and the seams the state shows are `problemTraces`'s, and the record
+ * document is `recordOutput`'s.
  */
 const owner = key(9),
   A = key(1),
@@ -166,6 +168,13 @@ describe('the record kind (QX-20)', () => {
     ]);
     expect(q.seams.every((s) => s.sides.every((x) => !x.aside))).toBe(true);
     expect(q.aside).toEqual([]);
+    // The grade and the seams are problemTraces over the tracker's layer.
+    const traced = problemTraces(
+      layerOf(t).problems.get(P)!,
+      (h) => t.store.blobLength(h),
+      (h, s) => passageIn(t.store.getBlob(h), s),
+    ).get(question)!;
+    expect({ record: q.record, seams: q.seams }).toEqual({ record: traced.record, seams: traced.seams });
     expect(await Promise.all([A, B, C].map(standing))).toEqual(before);
     const s = await stateOf();
     expect(s.complete).toBe(false);
@@ -260,5 +269,11 @@ describe('the record kind (QX-20)', () => {
       state: 'accepted',
       agreed: { stance: 'asserts' },
     });
+    // The route's document and hash are recordOutput's over the layer, with every blob measured as the tracker builds
+    // it and with none as the mirror does.
+    for (const measured of [true, false]) {
+      const out = recordOutput(layerOf(t, { measured }).problems.get(P)!)!;
+      expect({ hash: out.hash, ...(out.document as Record<string, unknown>) }).toEqual(doc);
+    }
   });
 });

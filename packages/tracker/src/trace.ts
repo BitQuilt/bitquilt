@@ -5,9 +5,11 @@
  * kept reads (section 3) and, where reveals differ, says why from the traces, pair by pair, and which readings rest on
  * nothing where another rests on the record (section 4): those the layer sets aside (challenge.ts). On a record piece
  * (QX-20) the same traces grade the standing readings and give the seams between them, with nothing set aside, and
- * the record document states each reading with its trace as the chain has it. What each reading rests on, field by
- * field with its passage, is read here too, for any page that shows a reading. Pure over the fold, the receipts, and a
- * way to measure and read a blob. Nothing here changes what the core calls a piece.
+ * the record document states each reading with its trace as the chain has it. Which fold each piece of a problem is
+ * read over, for the state and for `next`, is said here too (`problemTraces`), and so are a complete problem's record
+ * output (`recordOutput`) and what each reading rests on, field by field with its passage, for any page that shows a
+ * reading. Pure over the fold, the receipts, and a way to measure and read a blob. Nothing here changes what the core
+ * calls a piece.
  */
 import {
   type Address,
@@ -23,9 +25,11 @@ import {
   eventId,
   hashCanonical,
   isHash,
+  isTime,
   returnsAgree,
+  whole,
 } from '@bitquilt/core';
-import type { Admission } from './challenge.js';
+import type { Admission, ProblemLayer } from './challenge.js';
 import type { RecordView } from './verifiers.js';
 
 export const TRACE = 'QX-19';
@@ -112,9 +116,6 @@ export interface RestedOn {
   passage: string | null;
 }
 
-const isTime = (s: unknown): s is string => typeof s === 'string' && !Number.isNaN(Date.parse(s));
-const isWhole = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0;
-
 /** Why this is not a well-formed trace body, or nothing; the reveal and the blobs are checked by `admitTrace`. */
 export function traceBodyProblems(body: unknown): string[] {
   const b = body as Partial<TraceBody> | null;
@@ -141,18 +142,29 @@ export function traceBodyProblems(body: unknown): string[] {
   for (const [i, x] of b.rests.entries()) {
     if (!x || typeof x !== 'object' || typeof x.field !== 'string' || x.field.length < 1 || x.field.length > 200)
       return [`rest ${i}: a field name`];
-    if (!isWhole(x.read) || x.read >= b.reads.length) return [`rest ${i}: read out of range`];
+    if (!whole(x.read, 0) || x.read >= b.reads.length) return [`rest ${i}: read out of range`];
     if (
       !Array.isArray(x.span) ||
       x.span.length !== 2 ||
-      !isWhole(x.span[0]) ||
-      !isWhole(x.span[1]) ||
+      !whole(x.span[0], 0) ||
+      !whole(x.span[1], 0) ||
       x.span[0] >= x.span[1] ||
       x.span[1] - x.span[0] > SPAN_MAX
     )
       return [`rest ${i}: span is [start, end) with end at most ${SPAN_MAX} past start`];
   }
   return [];
+}
+
+/**
+ * The hashes a trace event's reads name, in the body's order, as the body states them and unchecked; none for any other
+ * event. A door pulling a peer's chain and a keeper taking one fetch the reads they lack by these (QX-21 section 2),
+ * each with its own check of the hash and its own report. A body whose reads are not a list fails as a loop over it
+ * does, at the read that does not parse.
+ */
+export function* readsNamed(event: Event): Generator<unknown> {
+  if (event.type !== 'trace') return;
+  for (const read of (event.body as { reads?: { hash?: unknown }[] }).reads ?? []) yield read.hash;
 }
 
 /**
@@ -462,7 +474,8 @@ export function recordSeams(
 
 /**
  * The three over one fold: the traces kept, the grade, and the seams with the reveals to set aside. The layer's fold is
- * asked this way (challenge.ts); a record piece's grade is the tracker's to add.
+ * asked this way (challenge.ts); a problem's pieces with the fold each is read over and a record piece's grade are
+ * `problemTraces`'s.
  */
 export function pieceTraces(
   fold: State,
@@ -478,6 +491,58 @@ export function pieceTraces(
     ...seamed(fold, view, receipts, traces, passage),
     record: null,
   };
+}
+
+/**
+ * Each piece's traces on a problem as the door kept them, over the core's fold, which has every reveal a trace could
+ * name; the square's grade over the layer's fold, whose accepting set is the one that counts; and its seams between the
+ * readings that stand (section 4): over the layer's fold where it still calls the piece disputed, so a key that read
+ * again with grounds after its first reading was set aside is a side and not the reading set aside, and over the
+ * core's fold where the layer has set a reading aside, so the seam shows which. What the state, the directory row,
+ * a key's work and `next` show. `blobLength` measures a read and `passageOf` reads a span of it as text, or null
+ * where the blob is not here.
+ */
+export function problemTraces(
+  pl: ProblemLayer,
+  blobLength: (hash: Hash) => number | null,
+  passageOf: (hash: Hash, span: [number, number]) => string | null,
+): Map<Hash, PieceTraces> {
+  const receipts = pl.receipts;
+  const out = new Map(
+    pl.fold.pieces.map((v) => {
+      const core = pl.core.byHash.get(v.piece.hash) ?? v;
+      const traces = tracesKept(core, receipts, blobLength);
+      // QX-20 section 3: a record piece's seams are between its standing readings, with nothing set aside, and its
+      // grade is over them.
+      const record = pl.byHash.get(v.piece.hash)?.record ?? null;
+      const over = record
+        ? { seams: recordSeams(pl.fold, v, record, receipts, traces, passageOf), aside: [] as Hash[] }
+        : v.state === 'disputed'
+          ? seamed(pl.fold, v, receipts, traces, passageOf)
+          : seamed(pl.core, core, receipts, traces, passageOf);
+      return [
+        v.piece.hash,
+        {
+          traces,
+          traced: graded(v, receipts, traces),
+          ...over,
+          record: record ? recordGraded(v, record, receipts, traces) : null,
+        },
+      ] as const;
+    }),
+  );
+  return out;
+}
+
+/**
+ * QX-20 section 4: the record document of a problem with a record piece once the layer calls it complete, with its
+ * hash; null otherwise. The tracker's state answers the hash as `record_output` and the mirror writes the document
+ * under `outputs/`, so the two are the same where the chains are.
+ */
+export function recordOutput(pl: ProblemLayer): { document: unknown; hash: Hash } | null {
+  const records = new Map(pl.pieces.filter((p) => p.record).map((p) => [p.hash, p.record!] as const));
+  if (records.size === 0 || !pl.fold.complete) return null;
+  return recordDocument(pl.problem, pl.fold, records, pl.receipts);
 }
 
 /**

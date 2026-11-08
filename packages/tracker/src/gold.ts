@@ -173,6 +173,20 @@ export function goldCount(golds: GoldView[], outcomeOf: (g: GoldView, c: GoldCom
   return n;
 }
 
+/**
+ * The commitments of a problem's golds that the owner's reveal matched (section 3), in gold and commitment order: each
+ * a verified square, with the piece it names and the time it was revealed. The coin mints on them (QX-17 section 3)
+ * and the counts count them.
+ */
+export function* matchedCommitments(
+  golds: readonly GoldView[],
+): Generator<GoldCommitment & { piece: Hash; revealedAt: string }> {
+  for (const g of golds)
+    for (const c of g.commitments)
+      if (c.outcome === 'match' && c.revealedAt !== null && c.piece !== null)
+        yield c as GoldCommitment & { piece: Hash; revealedAt: string };
+}
+
 // The lifecycle over the layer's record, in the order challengeLayer runs it.
 
 /** When a problem's pieces are all final at `now` (section 3): complete, with every window closed; null until then. */

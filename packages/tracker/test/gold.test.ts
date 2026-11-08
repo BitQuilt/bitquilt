@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Address, type Envelope, type Hash, commitHash, newNonce, problemHash } from '@bitquilt/core';
-import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
+import { matchedCommitments } from '../src/gold.js';
+import { VERDICT_QUOTE, addr, boot, envelope as signed, key, layerOf } from './helpers.js';
 
 /**
  * Gold pieces (QX-16) at the tracker's door and in its layer: the owner commits by hash before the work and nobody
@@ -14,7 +15,8 @@ import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js
  * zero can still challenge it; a commitment left unrevealed lapses once the problem has settled. The state route's
  * `window_open` says where a reveal is taken: it follows the window, and on an attest piece whose window closes while a
  * challenge sits, where the layer says `challenged` and the core `unknown`, it says the window has closed as the
- * refusal does.
+ * refusal does. The matched commitments of a problem's golds, which the coin mints on and the counts count, are
+ * `matchedCommitments`, and each is a square the layer calls verified.
  */
 const ownerP = key(9),
   ownerQ = key(8),
@@ -355,5 +357,16 @@ describe('gold pieces', () => {
     clock.tick = acceptedAt + 48.5 * HOUR;
     expect(await pieceOf(s, s1)).toMatchObject({ state: 'challenged', core: 'unknown', window_open: false });
     expect(await refused(`/p/${s}/events`, reveal(ownerP, s, s1))).toBe('the window has closed');
+  });
+
+  it('walks the commitments the owner matched, in gold and commitment order, each a square the layer calls verified', () => {
+    let seen = 0;
+    for (const pl of layerOf(t).problems.values()) {
+      const matched = [...matchedCommitments(pl.golds)];
+      expect(matched).toEqual(pl.golds.flatMap((g) => g.commitments).filter((c) => c.outcome === 'match'));
+      for (const c of matched) expect(pl.byHash.get(c.piece)!.verified).toBe(true);
+      seen += matched.length;
+    }
+    expect(seen).toBeGreaterThan(0);
   });
 });

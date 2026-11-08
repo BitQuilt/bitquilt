@@ -1,8 +1,9 @@
 /**
  * What the tracker's tests share: fixed keys, the two verdict schemas most of their pieces answer in, an envelope
  * signed by its owner, a receipt made by hand for the pure layers, a tracker of its own with a store in memory and a
- * clock the test moves, and the posts and reads against it. Each test file keeps its own pieces, any other schema and
- * the helpers that differ from these. vitest runs `*.test.ts` alone, so this file is no test of its own.
+ * clock the test moves, the posts and reads against it, and the layer over its store as the tracker builds it. Each
+ * test file keeps its own pieces, any other schema and the helpers that differ from these. vitest runs `*.test.ts`
+ * alone, so this file is no test of its own.
  */
 import { expect } from 'vitest';
 import type { Server } from 'node:http';
@@ -17,7 +18,9 @@ import {
   signEvent,
 } from '@bitquilt/core';
 import { signObject } from '@bitquilt/core';
-import { Store } from '../src/store.js';
+import { type Layer, challengeLayer } from '../src/challenge.js';
+import { COIN_LOG } from '../src/coin.js';
+import { Store, reduceInputOf } from '../src/store.js';
 import { type Tracker, type TrackerOptions, createTracker } from '../src/tracker.js';
 
 /** A fixed secret key: thirty-one zero bytes and `n`. */
@@ -179,4 +182,23 @@ export function boot(start: string, options: Partial<Omit<TrackerOptions, 'store
     },
   };
   return t;
+}
+
+/**
+ * The challenge layer over every problem in a booted tracker's store at its clock, built as the tracker builds it for
+ * one with no founding standing: each problem's reduce input in the store's order, every blob measured, and with `coin`
+ * the coin log. With `measured` false no blob is, as the mirror builds it.
+ */
+export function layerOf(
+  t: Booted,
+  { measured = true, coin = false }: { measured?: boolean; coin?: boolean } = {},
+): Layer {
+  const now = new Date(t.clock.tick).toISOString();
+  const problems = t.store.listEnvelopes().map((e) => reduceInputOf(t.store, e.envelope, now));
+  return challengeLayer({
+    problems,
+    now,
+    ...(measured ? { blobLength: (h: Hash) => t.store.blobLength(h) } : {}),
+    ...(coin ? { coin: t.store.lines(COIN_LOG) } : {}),
+  });
 }

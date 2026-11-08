@@ -11,7 +11,7 @@
  * answer and the vendors that agreed, or the state; a field agreed blank says so.
  */
 import { type Address, type Hash, problemHash } from '@bitquilt/core';
-import { type RestedOn, type Store, passageIn, restsOf } from '@bitquilt/tracker';
+import { type RestedOn, type Store, carriesSet, passageIn, restsOf } from '@bitquilt/tracker';
 import { type Quilt, kindWords, makeLink } from 'quilt';
 
 /**
@@ -117,10 +117,7 @@ export async function squareView(
   const v = state.byHash.get(piece)!;
   const l = layer?.find((x) => x.hash === piece) ?? null;
   const st: string = l?.state ?? v.state;
-  const accepting =
-    (st === 'accepted' || st === 'accepted_provisional' || st === 'challenged') && v.accepting?.kind === 'agree'
-      ? v.accepting
-      : null;
+  const accepting = carriesSet(st) && v.accepting?.kind === 'agree' ? v.accepting : null;
   const aside = new Set((l?.aside ?? []).map((k) => k.toLowerCase()));
   const receipts = state.chain.flatMap((envelope) => store.lines(problemHash(envelope)));
   const restsFor = restsOf(v, receipts, (h, span) => passageIn(store.getBlob(h), span));

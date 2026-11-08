@@ -11,6 +11,7 @@
  */
 import { DECLINE_REASONS, type DeclineReason, type Receipt } from '@bitquilt/core';
 import type { Layer } from './challenge.js';
+import { matchedCommitments } from './gold.js';
 
 /** The window a `days` query asks for when it says nothing, and the most it may ask. */
 export const DAYS_DEFAULT = 30;
@@ -166,14 +167,13 @@ export function funnel(input: FunnelInput): Funnel {
         c.sets_accepted += 1;
       });
     }
-    for (const g of pl.golds)
-      for (const c of g.commitments) {
-        if (c.outcome !== 'match' || c.revealedAt === null || squares.has(c.h)) continue;
-        squares.add(c.h);
-        on(c.revealedAt, (x) => {
-          x.squares_verified += 1;
-        });
-      }
+    for (const c of matchedCommitments(pl.golds)) {
+      if (squares.has(c.h)) continue;
+      squares.add(c.h);
+      on(c.revealedAt, (x) => {
+        x.squares_verified += 1;
+      });
+    }
   }
   const totals = zero();
   for (const r of rows.values()) {

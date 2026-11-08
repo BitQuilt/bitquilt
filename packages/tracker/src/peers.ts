@@ -21,6 +21,7 @@ import {
 import { COIN_LOG } from './coin.js';
 import { Refusal } from './http.js';
 import type { Store } from './store.js';
+import { readsNamed } from './trace.js';
 import type { Admitted, Log, Tracker } from './tracker.js';
 
 /** QX-21: doors fold each other's chains. */
@@ -89,8 +90,7 @@ async function linesFrom(door: PullDoor, target: string): Promise<Receipt[] | nu
  */
 async function takeReads(door: PullDoor, peer: string, event: Event): Promise<void> {
   const { store, fetchImpl } = door;
-  for (const read of (event.body as { reads?: { hash?: unknown }[] }).reads ?? []) {
-    const hash = read.hash;
+  for (const hash of readsNamed(event)) {
     if (!isHash(hash) || store.getBlob(hash)) continue;
     try {
       const r = await fetchImpl(`${peer}b/${hash}`, { signal: AbortSignal.timeout(30_000) });

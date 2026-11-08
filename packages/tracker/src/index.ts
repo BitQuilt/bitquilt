@@ -1,6 +1,7 @@
 /**
  * The tracker as a library: Quilt and the mirror import the store and `createTracker` to run one in their tests, and
- * the mirror imports `challengeLayer`, `coinLayer` and `COIN_LOG` to recompute a tracker's balances from its chains.
+ * the mirror imports `reduceInputOf`, `challengeLayer`, `coinLayer` and `COIN_LOG` to fold a tracker's chains as the
+ * tracker does and recompute its balances from them.
  * The files, by extension: tracker.ts (the door and the routes), http.ts (the refusal and the JSON writer, which the
  * hosted on-ramp writes its JSON answers with too), store.ts, challenge.ts (QX-1, with standing.ts and sortition.ts),
  * verifiers.ts (QX-2, QX-3, QX-10, QX-20), trace.ts (QX-19, and QX-20's grade and document), seeding.ts (QX-4, QX-5),
@@ -8,7 +9,14 @@
  * env.ts (the binaries' environment). The body checks, the constants and the view types are exported for the tests,
  * which enter through `createTracker` and `challengeLayer`.
  */
-export { Store, type OAuthClientRow, type OAuthCodeRow, type GrantRow } from './store.js';
+export {
+  Store,
+  reduceInputOf,
+  type ChainReader,
+  type OAuthClientRow,
+  type OAuthCodeRow,
+  type GrantRow,
+} from './store.js';
 export { createTracker, IDENTITY, type Tracker, type TrackerOptions } from './tracker.js';
 export { schedulePeerPulls, PEER_PULL, PEER_PULL_EVERY_MS, type PeerPull } from './peers.js';
 export { json } from './http.js';
@@ -19,6 +27,8 @@ export {
   challengeLayer,
   challengeBodyProblems,
   verdictBodyProblems,
+  countsAsAccepted,
+  carriesSet,
   acceptingRoots,
   rootFor,
   CHALLENGE,
@@ -92,6 +102,7 @@ export {
   goldBodyProblems,
   goldRevealBodyProblems,
   goldMatches,
+  matchedCommitments,
   goldShare,
   hasAgreedFields,
   firstProductionAt,
@@ -107,6 +118,7 @@ export {
   COIN_EVENTS,
   coinLayer,
   coinParamsProblems,
+  coinEventRefusal,
   coinBodyProblems,
   epochAmount,
   type CoinParams,
@@ -143,11 +155,14 @@ export {
   READS_MAX,
   RESTS_MAX,
   traceBodyProblems,
+  readsNamed,
   admitTrace,
   pieceTraces,
+  problemTraces,
   recordGraded,
   recordSeams,
   recordDocument,
+  recordOutput,
   tracesStated,
   restsOf,
   passageIn,

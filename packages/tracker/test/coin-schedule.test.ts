@@ -1,13 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash, commitHash, newNonce, problemHash } from '@bitquilt/core';
-import { epochAmount } from '../src/coin.js';
-import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
+import { epochAmount, epochLines, linesFromLayer } from '../src/coin.js';
+import { VERDICT_QUOTE, addr, boot, envelope as signed, key, layerOf } from './helpers.js';
 
 /**
  * The emission schedule's shape (QX-17 section 4, amended 28 October 2026): the curve's tail; the cap on what a unit
  * of verified weight earns in an epoch, the rest of the curve unminted; the burn rate indexed to what a reveal earned
  * in the latest ended epoch with the parameter as its floor, published in force under `stake` and with each lock; and
- * the home admitting no problem whose challenge window is longer than it says.
+ * the home admitting no problem whose challenge window is longer than it says. What the coin folds from the problem
+ * logs (QX-17 section 3) is `linesFromLayer`'s, and an epoch's mint is `epochLines`'s, one at the end of each ended
+ * epoch.
  */
 const ownerP = key(9),
   ownerQ = key(8),
@@ -164,5 +166,31 @@ describe('the emission schedule', () => {
     // After a quiet epoch the rate is the floor again.
     clock.tick = Date.parse(T0) + 48 * HOUR + 1000;
     expect(await rateNow()).toBe(10);
+  });
+
+  it('folds the lines the problem logs give, and a mint at the end of every ended epoch', () => {
+    const now = new Date(clock.tick).toISOString();
+    const { lines, verified } = linesFromLayer(layerOf(t, { coin: true }), params, now);
+    // The square the owner's gold matched gives a verified line a root, cross-vendor; both sets were accepted; the
+    // coin lock behind A's stake on the second piece is bound.
+    expect(verified.map((l) => [l.problem, l.piece, l.root, l.weight])).toEqual([
+      [p, p1, addr(A), 2],
+      [p, p1, addr(B), 2],
+    ]);
+    expect(lines.filter((l) => l.kind === 'verified')).toEqual(verified);
+    expect(
+      lines
+        .filter((l) => l.kind === 'accepted')
+        .map((l) => l.piece)
+        .sort(),
+    ).toEqual([p1, q1].sort());
+    expect(lines.filter((l) => l.kind === 'bind')).toHaveLength(1);
+    const g = Date.parse(T0);
+    expect(epochLines(g, 24 * HOUR, now).map((l) => [l.kind, l.id, l.at])).toEqual([
+      ['mint', 'mint:0', new Date(g + 24 * HOUR).toISOString()],
+      ['mint', 'mint:1', new Date(g + 48 * HOUR).toISOString()],
+    ]);
+    expect(epochLines(g, 24 * HOUR, new Date(g + 48 * HOUR).toISOString())).toHaveLength(2);
+    expect(epochLines(g, 24 * HOUR, T0)).toEqual([]);
   });
 });
