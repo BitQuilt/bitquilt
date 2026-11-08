@@ -3,6 +3,7 @@ import {
   type Hash,
   type Receipt,
   IDENTITY_LOG,
+  chainLines,
   commitHash,
   eventId,
   hashBytes,
@@ -21,6 +22,8 @@ import { VERDICT, addr, boot, envelope, key } from './helpers.js';
  * line carries both doors' wrappers and the chain verifies; a second pull adds nothing; a name on the first's identity
  * log is pulled; a hide the first admits from a maintainer it alone names is refused at the second's door with the
  * reason, so the two differ there and nowhere else; and a peer that does not answer is noted while the rest is pulled.
+ * A human piece's seat is read from the peer's wrappers as the layer reads it (verifiers.md section 2): a reveal whose
+ * wrapper says `seat: person` or `custody: hosted` is pulled, and one that says neither is refused.
  * The pull reaches the tracker that runs it through the `PullDoor` it is handed (peers.ts): the door's admission
  * decides each event, a refusal is said with its reason and a failure is noted, and a line admitted carries the peer's
  * wrapper with the door's after it.
@@ -206,6 +209,73 @@ describe("doors fold each other's chains (QX-21)", () => {
   });
 });
 
+describe("a human piece's seat, read from the peer's wrappers (QX-21 section 2)", () => {
+  it("pulls a human piece's reveal where the peer's wrapper says seat: person or custody: hosted, and refuses one that says neither", async () => {
+    const PEER = 'http://peer.test/';
+    const H = envelope(
+      owner,
+      'vote',
+      {
+        vote: {
+          verifier: 'human',
+          requires: ['web'],
+          brief: 'Does the paper say so? A person answers.',
+          schema: VERDICT,
+          agree: ['verdict'],
+        },
+      },
+      { title: 'A vote' },
+    );
+    const PH = problemHash(H);
+    let lines: Receipt[] = [];
+    const peerFetch = (async (input: string | URL | Request) => {
+      const u = String(input);
+      if (u === `${PEER}.well-known/quilt`) return Response.json({ quilt: 1 });
+      if (u.startsWith(`${PEER}p/${PH}/events`)) return new Response(lines.map((l) => JSON.stringify(l)).join('\n'));
+      if (u.startsWith(`${PEER}k/events`)) return new Response('');
+      return new Response('', { status: 404 });
+    }) as typeof fetch;
+    const here = boot(START, { limits, peers: [PEER], fetchImpl: peerFetch });
+    await here.listen();
+    try {
+      expect((await here.post('/p', { envelope: H })).status).toBe(201);
+      const vote = (await here.get<State>(`/p/${PH}/state`)).pieces[0]!.hash;
+      // Three keys commit and reveal at the peer, whose wrappers say a person's seat, the on-ramp's custody with the
+      // seat it writes, and nothing about the seat.
+      const C = key(3);
+      const seats: [Uint8Array, string, Record<string, string>][] = [
+        [A, 'anthropic/claude', { seat: 'person' }],
+        [B, 'openai/gpt-5', { custody: 'hosted', seat: 'ai' }],
+        [C, 'google/gemini', {}],
+      ];
+      const receipts: Receipt[] = [];
+      const reveals: Hash[] = [];
+      for (const [k, model, seat] of seats) {
+        const ret = { verdict: 'supports' };
+        const nonce = newNonce();
+        const commit = here.ev(k, 'commit', { h: commitHash(ret, nonce) }, PH, vote);
+        receipts.push({ event: commit, received: [{ by: PEER, at: commit.ts, custody: 'self' }] });
+        const reveal = here.ev(k, 'reveal', { return: ret, nonce, by: by(model) }, PH, vote);
+        receipts.push({ event: reveal, received: [{ by: PEER, at: reveal.ts, custody: 'self', ...seat }] });
+        reveals.push(eventId(reveal));
+      }
+      lines = chainLines(receipts, PH);
+      here.clock.tick += 60_000;
+      const [pull] = await here.tracker.pullPeers();
+      expect(pull).toEqual({
+        peer: PEER,
+        added: 5,
+        refused: [{ id: reveals[2], why: "a human piece takes a return from a person's seat" }],
+        errors: [],
+      });
+      // The two seats a person's are the accepting set, as the layer counts them.
+      expect((await here.get<State>(`/p/${PH}/state`)).pieces[0]!.state).toBe('accepted_provisional');
+    } finally {
+      await here.close();
+    }
+  });
+});
+
 describe('the pull through the door it is handed (peers.ts)', () => {
   it("reaches the tracker that runs it through its PullDoor alone: the door's admission decides each event, a refusal is said with why, a failure is noted, and a line admitted carries both wrappers", async () => {
     // One more name on the first's identity log, from a key whose event this door fails on.
@@ -219,8 +289,8 @@ describe('the pull through the door it is handed (peers.ts)', () => {
       now: () => '2026-11-03T09:00:00.000Z',
       fetchImpl: fetch,
       peers: [one.base],
-      admit: async (log, event, hosted) => {
-        admitted.push(`${log.kind} ${event.type} ${hosted}`);
+      admit: async (log, event, personSeat) => {
+        admitted.push(`${log.kind} ${event.type} ${personSeat}`);
         if (event.type === 'hide') throw new Refusal(403, 'not a maintainer here');
         if (event.key === addr(A)) throw new Error('the door failed');
         return { chain: IDENTITY_LOG, word: { seen: true } };

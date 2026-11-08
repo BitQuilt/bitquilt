@@ -83,15 +83,16 @@ type Reads = Pick<
 >;
 /**
  * What the door asks of one type of event on a problem's log, as a row of `problemDoor` names it: given the door's
- * part of the context, the event, the problem it is under, that problem's fold, and whether the connector posted it,
- * it refuses by throwing a Refusal, and answers the word the receipt's wrapper carries where it has one.
+ * part of the context, the event, the problem it is under, that problem's fold, and whether the line's wrappers say
+ * its seat is a person's (`personSeatIn` in verifiers.ts), it refuses by throwing a Refusal, and answers the word the
+ * receipt's wrapper carries where it has one.
  */
 type ProblemCheck = (
   cx: Reads,
   event: Event,
   under: Hash,
   state: ReturnType<typeof reduce>,
-  hosted: boolean,
+  personSeat: boolean,
 ) => void | Promise<Record<string, unknown> | undefined>;
 /**
  * A coin lock as the door read it (QX-17 section 5), with the rate it is read at and the coin log's head the reading
@@ -233,6 +234,8 @@ export async function postEvent(cx: Reads, req: IncomingMessage, res: ServerResp
   limit(cx, `key:${event.key}`, limits.keyPerHour);
   const id = eventId(event);
   const hosted = hostedPost(req, options.custodySecret);
+  // A hosted post's wrapper says `custody: hosted`, a person's seat (verifiers.md section 2); every other post's says
+  // `custody: self` and no seat.
   const { chain, word } = await exactly(() =>
     log.kind === 'coin'
       ? admitCoinEvent(cx, event)
@@ -275,11 +278,11 @@ export function pullDoorOf(cx: Reads): PullDoor {
     now,
     fetchImpl,
     peers: options.peers ?? [],
-    admit: (log, event, hosted) =>
+    admit: (log, event, personSeat) =>
       exactly(() =>
         log.kind === 'identity'
           ? admitIdentityEvent(cx, event)
-          : admitProblemEvent(cx, event, (log as { hash: Hash }).hash, hosted),
+          : admitProblemEvent(cx, event, (log as { hash: Hash }).hash, personSeat),
       ),
     noteAppended: (log, event, at) => noteAppended(store, log, event, at),
   };
@@ -372,7 +375,7 @@ const problemDoor: Readonly<Record<string, ProblemCheck | null>> = {
  * A problem's log: a type its door takes, under the problem it names, held here and not taken down, then that type's
  * own check, whose word, where it has one, the receipt's wrapper carries.
  */
-async function admitProblemEvent(cx: Reads, event: Event, under: Hash, hosted: boolean): Promise<Admitted> {
+async function admitProblemEvent(cx: Reads, event: Event, under: Hash, personSeat: boolean): Promise<Admitted> {
   const { hidden, reduceProblem } = cx;
   const type = event.type;
   if (Object.hasOwn(identityDoor, type)) throw new Refusal(400, 'identity events go to the identity log');
@@ -381,7 +384,7 @@ async function admitProblemEvent(cx: Reads, event: Event, under: Hash, hosted: b
   if (hidden().has(under)) throw new Refusal(410, 'this problem is taken down here');
   const state = reduceProblem(under);
   if (!state) throw new Refusal(404, 'no such problem here');
-  const word = await problemDoor[type]?.(cx, event, under, state, hosted);
+  const word = await problemDoor[type]?.(cx, event, under, state, personSeat);
   return word ? { chain: under, word } : { chain: under };
 }
 
@@ -394,7 +397,7 @@ function checkPieceEvent(
   event: Event,
   under: Hash,
   state: ReturnType<typeof reduce>,
-  hosted: boolean,
+  personSeat: boolean,
 ): void {
   const { layer } = cx;
   const view = event.piece ? state.byHash.get(event.piece) : undefined;
@@ -424,22 +427,24 @@ function checkPieceEvent(
     }
     if (!view.commits.some((c) => c.key === event.key && !c.revealed))
       throw new Refusal(400, 'no unrevealed commit by this key on the piece');
-    checkRevealEvent(cx, event, under, view.piece.verifier, hosted);
+    checkRevealEvent(cx, event, under, view.piece.verifier, personSeat);
   }
   if (event.type === 'run' && !view.reveals.some((r) => r.digest === (event.body as { digest: Hash }).digest))
     throw new Refusal(400, 'the digest is no revealed return of the piece');
 }
 
 /**
- * The door for the verifier kinds' reveals: a human piece takes a return only from a person's seat (QX-3), which here
- * is the connector's custody or a client declaring the model `human`; a judge piece takes no more candidates once its
- * panel sits (QX-2). The layer would count neither; the door says why.
+ * The door for the verifier kinds' reveals: a human piece takes a return only from a person's seat (QX-3), which is
+ * the line's wrappers saying so, the connector's custody at a post here and a peer's word at a pull, or a client
+ * declaring the model `human`; a judge piece takes no more candidates once its panel sits (QX-2). The layer would
+ * count neither; the door says why.
  */
-function checkRevealEvent({ view }: Reads, event: Event, under: Hash, verifier: string, hosted: boolean): void {
+function checkRevealEvent({ view }: Reads, event: Event, under: Hash, verifier: string, personSeat: boolean): void {
   const kind = kindOf(verifier)?.kind;
   if (kind === 'human') {
     const by = (event.body as { by: { model: string } }).by;
-    if (by.model !== 'human' && !hosted) throw new Refusal(400, "a human piece takes a return from a person's seat");
+    if (by.model !== 'human' && !personSeat)
+      throw new Refusal(400, "a human piece takes a return from a person's seat");
   }
   if (kind === 'judge' && event.piece && view(under)?.panels.some((p) => p.piece === event.piece))
     throw new Refusal(400, 'the candidates for this piece are in');

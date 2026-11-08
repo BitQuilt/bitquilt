@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   type Address,
@@ -20,7 +21,8 @@ import { SETTINGS as settings, VERDICT_QUOTE, addr, boot, key, line } from './he
 /**
  * The three verifier kinds the core does not know (docs/ext/verifiers.md), as the tracker's layer decides them: an
  * `attest` piece accepted at once on the actor's own record, marked attested, and struck by a challenge; a `human`
- * piece accepted only when both reveals come from a person's seat; a `judge:3` piece whose candidates a panel of three
+ * piece accepted only when both reveals come from a person's seat, the on-ramp's custody one whatever seat it names
+ * beside, as verifiers.md and PROTOCOL.md say; a `judge:3` piece whose candidates a panel of three
  * ranks, decided by two first choices. Beside each, the core's own word stays `unknown`. The envelopes here are signed
  * by hand, since each names pieces of several kinds.
  */
@@ -534,6 +536,20 @@ describe('the pure layer', () => {
     });
     const twoPeople = [...handIn(A, 0, 'human', {}), ...handIn(B, 5, 'human', {})];
     expect(stateWith(twoPeople).state).toBe('accepted_provisional');
+    // The on-ramp writes `seat: ai` beside its custody, since a member's product makes the calls, and the custody
+    // counts whatever seat it names: the seat is the member's. The documents say both.
+    const twoMembers = [
+      ...handIn(A, 0, 'anthropic/claude', { custody: 'hosted', seat: 'ai' }),
+      ...handIn(B, 5, 'openai/gpt', { custody: 'hosted', seat: 'ai' }),
+    ];
+    expect(stateWith(twoMembers).state).toBe('accepted_provisional');
+    const doc = (name: string) => readFileSync(new URL(`../../../docs/${name}`, import.meta.url), 'utf8');
+    expect(doc('ext/verifiers.md')).toContain(
+      'the wrapper says `custody: "hosted"`, whatever `seat` it says beside (a key the tracker holds for a member who took an address at its door and connects their own client to it: the seat is the member\'s, and the reference writes `seat: "ai"` beside it, since the member\'s product makes the calls)',
+    );
+    expect(doc('PROTOCOL.md')).toContain(
+      "The `human` verifier counts a hosted custody as a person's seat whatever its `seat` says, since the on-ramp opened the seat for a member, a person who took an address at its door (verifiers.md section 2).",
+    );
     const related = [...handIn(A, 0, 'human', {}), ...handIn(A, 5, 'human', {})];
     expect(stateWith(related).state).toBe('needs_verify');
   });
