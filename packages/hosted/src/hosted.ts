@@ -177,6 +177,8 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
 /**
  * A body that is not JSON is the caller's fault, so the connector answers it as MCP's HTTP transport answers one: 400
  * with JSON-RPC's parse error, "Invalid JSON was received by the server", written as the SDK's transport writes it.
+ * Inside a session the transport writes it itself; this writes it at a session's start, where no transport is made
+ * yet, and before the transport's checks of the headers, as the on-ramp's 400 for a body that is not an initialize is.
  */
 function parseError(res: ServerResponse): void {
   res.writeHead(400, { 'content-type': 'application/json' });
@@ -379,9 +381,10 @@ export function createHosted(options: HostedOptions): Hosted {
         return;
       }
       s.last = Date.now();
+      // A body that is not JSON goes to the transport as no body. The stream is read, so the transport reads it
+      // empty and writes its own parse error, after its own checks of the accept and the body's type.
       const body = method === 'POST' ? await readJson(req) : undefined;
-      if (body === NOT_JSON) return parseError(res);
-      await s.transport.handleRequest(req, res, body);
+      await s.transport.handleRequest(req, res, body === NOT_JSON ? undefined : body);
       return;
     }
     if (method !== 'POST') {

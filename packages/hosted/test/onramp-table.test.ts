@@ -13,9 +13,10 @@
  * when it refuses another, and each is answered in the session, DELETE last. Their refusals are the statuses the
  * on-ramp and the transport give, each provoked here and held to its status, and a body that is not JSON, at a
  * session's start or inside one, is refused with the transport's own parse error, as PROTOCOL.md says under the
- * table. Where a browser meets the person's sheet page and where the page reads its data are held from the rows' What
- * it answers cells: the page at the address, the JSON at its `/sheet`, and no page at `/mcp`. The other rows'
- * refusals are not read. The tracker's own table is protocol-table.test.ts's, and the node's is
+ * table: inside a session after the transport's checks of the headers, and at a session's start before them. Where a
+ * browser meets the person's sheet page and where the page reads its data are held from the rows' What it answers
+ * cells: the page at the address, the JSON at its `/sheet`, and no page at `/mcp`. The other rows' refusals are not
+ * read. The tracker's own table is protocol-table.test.ts's, and the node's is
  * packages/client/test/node-table.test.ts's.
  */
 import { createHash, randomBytes } from 'node:crypto';
@@ -309,7 +310,7 @@ describe("PROTOCOL.md, the on-ramp's route table", () => {
       },
     };
     expect(DOC).toContain(
-      "A body that is not JSON is the caller's fault, and the connector refuses it with 400 and the transport's own parse error, a JSON-RPC error -32700, at a session's start and inside one.",
+      "A body that is not JSON is the caller's fault, and the connector refuses it with 400 and the transport's own parse error, a JSON-RPC error -32700. Inside a session the transport gives it after its checks of the `accept` and the body's type, so a header it refuses meets its 406 or 415 first; at a session's start the on-ramp gives it before those checks, as it gives its own 400 to any body that is not an initialize.",
     );
     const other: Door = { url: `${base}/mcp/${theirs.token}`, headers: {} };
     const another = await session(other);
@@ -382,14 +383,30 @@ describe("PROTOCOL.md, the on-ramp's route table", () => {
         type: 'application/json',
         body: PARSE_ERROR,
       });
+      const broken = '{"jsonrpc": "2.0", "id": 4,';
       for (const [what, headers] of [
         ['a session begun with a body that is not JSON', { ...as.headers, ...typed }],
+        ['a session begun with a body neither JSON nor typed as JSON', { ...as.headers, accept: ACCEPT }],
         ['a body that is not JSON in a session', inside],
       ] as const) {
-        const r = await fetch(as.url, { method: 'POST', headers, body: '{"jsonrpc": "2.0", "id": 4,' });
+        const r = await fetch(as.url, { method: 'POST', headers, body: broken });
         const got = { status: r.status, type: r.headers.get('content-type'), body: await r.text() };
         expect(got, `${path}: ${what}`).toEqual(parseError);
         refused.add(r.status);
+      }
+      // Inside a session the transport checks the headers before it reads the body, so a body that is not JSON
+      // under a header the transport refuses meets that header's refusal, as a ping under it does.
+      for (const [what, status, headers] of [
+        ['not typed as JSON', 415, { ...inside, 'content-type': 'text/plain' }],
+        ['under an accept without the event stream', 406, { ...inside, accept: 'application/json' }],
+      ] as const) {
+        const answer = async (body: string): Promise<unknown> => {
+          const r = await fetch(as.url, { method: 'POST', headers, body });
+          return { status: r.status, type: r.headers.get('content-type'), body: await r.text() };
+        };
+        const ping = (await answer(rpc(5, 'ping'))) as { status: number };
+        expect(ping.status, `${path}: a ping in a session ${what}`).toBe(status);
+        expect(await answer(broken), `${path}: a body that is not JSON in a session ${what}`).toEqual(ping);
       }
       await refuses(403, "another address's session", as.url, {
         method: 'POST',
