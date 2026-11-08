@@ -81,7 +81,7 @@ The event line and the core's types are CORE.md section 4. A claim is an intent,
 | `rank` | problem | A drawn judge's blind ranking | verifiers.md section 2 |
 | `seed` | problem | The problem on or off a standing list | [QX-4](ext/QX-4.md) section 1 |
 | `hide` | identity | A maintainer's takedown | [QX-6](ext/QX-6.md) section 1 |
-| `announce` | problem | What a problem is about | [QX-13](ext/QX-13.md) section 1 |
+| `announce` | problem | What a problem is about | [QX-13](ext/QX-13.md) sections 1 and 2 |
 | `stake_rule`, `lock` | problem | The owner's stake, and a root's lock | [QX-15](ext/QX-15.md) section 1 |
 | `gold`, `gold_reveal` | problem | The owner's blind answer, and its reveal | [QX-16](ext/QX-16.md) section 1 |
 | `trace` | problem | What a reveal rests on | [QX-19](ext/QX-19.md) section 1 |
