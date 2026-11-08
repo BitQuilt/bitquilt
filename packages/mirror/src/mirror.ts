@@ -402,12 +402,8 @@ async function getLines(ctx: Context, url: string): Promise<Receipt[] | null> {
       return null;
     }
     if (!r.ok) return null;
-    lines.push(
-      ...(await r.text())
-        .split('\n')
-        .filter(Boolean)
-        .map((l) => JSON.parse(l) as Receipt),
-    );
+    // Line by line, not spread into one call, which a page of more than about a hundred thousand lines would overflow.
+    for (const l of (await r.text()).split('\n')) if (l) lines.push(JSON.parse(l) as Receipt);
     const next = r.headers.get('x-quilt-next-since');
     if (!next) return lines;
     since = Number(next);

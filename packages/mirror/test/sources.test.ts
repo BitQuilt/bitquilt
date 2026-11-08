@@ -27,7 +27,8 @@ import { VERDICT, addr, by, key, startTracker } from './helpers.js';
  * took it is not taken, since the index leaves it out though the door still serves it: one no run listed, and one a
  * run listed and passed over, its chain not read whole, with nothing refused, so that run would have committed. Once
  * the store holds it, it is asked for by hash and taken (PROTOCOL.md, The mirror). A problem's blobs are kept before
- * its envelope, so a store a door folds never holds a problem without its data (CORE.md section 6).
+ * its envelope, so a store a door folds never holds a problem without its data (CORE.md section 6). A page of a log
+ * longer than one call takes is read line by line.
  */
 const owner = key(9),
   A = key(1),
@@ -219,5 +220,28 @@ describe('what a keeper writes of a problem', () => {
     };
     await keep({ store, sources: [one.base], peers: false, coin: false, now });
     expect(writes).toEqual([`blob ${citesHash}`, `envelope ${P}`]);
+  });
+});
+
+describe('a page longer than one call takes', () => {
+  it('is read line by line, so the keeper goes on to say the chain does not verify', async () => {
+    const many = Array.from({ length: 130_000 }, () => '{}').join('\n');
+    const fetchImpl = (async (input: string | URL | Request) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (url === 'http://many.test/.well-known/quilt') return new Response('{}');
+      if (url === 'http://many.test/') return new Response('{"problems":[]}');
+      if (url === 'http://many.test/k/events?since=0') return new Response(many);
+      return new Response('', { status: 404 });
+    }) as typeof fetch;
+    const report = await keep({
+      store: new Store(':memory:'),
+      sources: ['http://many.test/'],
+      peers: false,
+      coin: false,
+      now,
+      fetchImpl,
+    });
+    expect(report.identity.added).toBe(0);
+    expect([...report.refused, ...report.errors].join('\n')).toMatch(/identity|does not verify/);
   });
 });

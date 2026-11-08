@@ -3,7 +3,8 @@
  * its owner's signature; each blob against its hash"): an envelope is kept only once its owner's signature checks and
  * every data blob it names is held, the blobs kept first, since a node with `work` beside `admit` keeps in the door's
  * store and the door's layer folds every problem there (NODE.md section 2). An envelope whose blob no place serves,
- * that its owner did not sign, or whose pieces cannot be read from its blob, is read and not kept.
+ * that its owner did not sign, or whose pieces cannot be read from its blob, is read and not kept. A page of a log
+ * longer than one call takes is read line by line.
  */
 import { describe, expect, it } from 'vitest';
 import { type Envelope, type Hash, addressOf, hashBytes, problemHash, signObject } from '@bitquilt/core';
@@ -124,5 +125,15 @@ describe('the envelope the resolver keeps', () => {
     const { resolver, chains } = over(serving(e, true));
     await resolver.resolve(linkTo(hash));
     expect(chains.envelopeOf(hash)).toBeNull();
+  });
+});
+
+describe('a page longer than one call takes', () => {
+  it('is read line by line, so a chain that does not verify is passed over and the cache answers', async () => {
+    const many = Array.from({ length: 130_000 }, () => '{}').join('\n');
+    const hash = `sha256:${'b'.repeat(64)}` as Hash;
+    const { resolver } = over((async () => new Response(many)) as typeof fetch);
+    expect(await resolver.receipts(hash, linkTo(hash))).toEqual([]);
+    expect(await resolver.identity(linkTo(hash))).toEqual([]);
   });
 });

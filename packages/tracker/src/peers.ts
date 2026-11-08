@@ -112,6 +112,16 @@ async function pullLog(door: PullDoor, peer: string, target: string, log: Log, o
   const chain: Hash = log.kind === 'identity' ? IDENTITY_LOG : log.kind === 'problem' ? log.hash : COIN_LOG;
   const lines = await linesFrom(door, target);
   if (!lines) return;
+  // Each line's event and wrapper are held to the door's bound on bodies before any of it is read through the core's
+  // recursive canonical form, which verifying the chain does; a chain with a line over it is left whole, as one that
+  // does not verify, since it cannot be verified past that line.
+  for (const [i, line] of lines.entries()) {
+    const over = [...bodyOver(line.event, 'event'), ...bodyOver(line.received, 'received')];
+    if (over.length) {
+      out.errors.push(`${target}: line ${i + 1}: ${over[0]}`);
+      return;
+    }
+  }
   const check = verifyChain(lines, chain);
   if (!check.ok) {
     out.errors.push(`${target}: chain does not verify: ${check.problems[0]}`);
@@ -119,8 +129,7 @@ async function pullLog(door: PullDoor, peer: string, target: string, log: Log, o
   }
   for (const line of lines) {
     const event = line.event;
-    const over = bodyOver(event, 'event');
-    const shape = over.length ? over : eventProblems(event);
+    const shape = eventProblems(event);
     if (shape.length) {
       out.refused.push({ id: eventId(event), why: shape[0]! });
       continue;
@@ -180,9 +189,14 @@ export async function pullPeers(door: PullDoor): Promise<PeerPull[]> {
       out.push(report);
       continue;
     }
-    await pullLog(door, peer, `${peer}k/events`, { kind: 'identity' }, report);
-    for (const e of store.listEnvelopes())
-      await pullLog(door, peer, `${peer}p/${e.hash}/events`, { kind: 'problem', hash: e.hash }, report);
+    // A pull that fails on one peer is noted in its report, and the other peers are pulled all the same.
+    try {
+      await pullLog(door, peer, `${peer}k/events`, { kind: 'identity' }, report);
+      for (const e of store.listEnvelopes())
+        await pullLog(door, peer, `${peer}p/${e.hash}/events`, { kind: 'problem', hash: e.hash }, report);
+    } catch (err) {
+      report.errors.push(`${peer}: ${(err as Error).message}`);
+    }
     out.push(report);
   }
   return out;

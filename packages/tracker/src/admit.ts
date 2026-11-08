@@ -174,6 +174,41 @@ export function bodyOver(value: unknown, label: string): string[] {
 }
 
 /**
+ * The most pieces a problem a door takes expands to (PROTOCOL.md, What the door answers). The owner's budget is the
+ * core's bound (CORE.md section 2), and the owner sets it; every read folds every problem's pieces, so a few hundred
+ * thousand pieces from an envelope of a few hundred bytes would slow every page and outgrow the heap.
+ */
+export const PIECES_MAX = 10_000;
+
+/** Why a problem expands to more pieces than `PIECES_MAX`, counted before it is expanded, or nothing. */
+export function piecesOver(p: Envelope['problem']): string[] {
+  let n = 0;
+  for (const d of Object.values(p.pieces)) n += typeof d.count === 'number' ? d.count : 1;
+  return n > PIECES_MAX ? [`problem.pieces: ${n} pieces after expansion, over the ${PIECES_MAX} a door takes`] : [];
+}
+
+/**
+ * Each name a problem looks a field or a blob up by that is not one it has: an `agree` field or a schema's `required`
+ * field that is not one of the schema's own properties, or a data slot's blob that is not one of the problem's own
+ * blobs. The core asks with `in`, which also finds what every object has, such as `constructor`, so a name like that
+ * would pass its check and put a function where the fold writes a value.
+ */
+export function namesNotOwn(p: Envelope['problem']): string[] {
+  const out: string[] = [];
+  for (const [name, d] of Object.entries(p.pieces)) {
+    const at = `problem.pieces.${name}`;
+    const props = d.schema?.properties ?? {};
+    for (const f of d.agree ?? [])
+      if (!Object.hasOwn(props, f)) out.push(`${at}.agree: ${f} is not a field of the schema`);
+    for (const r of d.schema?.required ?? [])
+      if (!Object.hasOwn(props, r)) out.push(`${at}.schema: required names ${r}, which is not a property`);
+    for (const blob of Object.values(d.data ?? {}))
+      if (!Object.hasOwn(p.data, blob)) out.push(`${at}.data: ${blob} is not a blob of this problem`);
+  }
+  return out;
+}
+
+/**
  * The most hours a door takes for a lease or a challenge window (PROTOCOL.md, What the door answers). The fold adds
  * them to a receipt's time (CORE.md section 6): a claim is live for its lease, a commit unabandoned for twice the
  * piece's, and a window runs from the receipt that completed a set. A date is written only up to the year 275760, so
@@ -247,8 +282,8 @@ export async function publish(
   const problems = envelopeProblems(envelope);
   if (problems.length) throw new Refusal(400, problems[0]!);
   const e = envelope as Envelope;
-  const hours = envelopeHoursOver(e.problem);
-  if (hours.length) throw new Refusal(400, hours[0]!);
+  const named = [...envelopeHoursOver(e.problem), ...namesNotOwn(e.problem), ...piecesOver(e.problem)];
+  if (named.length) throw new Refusal(400, named[0]!);
   if (!signedBy(e as unknown as Record<string, unknown>, e.problem.owner))
     throw new Refusal(400, 'envelope: not signed by its owner');
   const blobs = new Map<Hash, Uint8Array>();
@@ -256,8 +291,6 @@ export async function publish(
     if (!isHash(h)) throw new Refusal(400, `blob ${h}: not a hash`);
     const bytes = Uint8Array.from(Buffer.from(b64, 'base64'));
     if (hashBytes(bytes) !== h) throw new Refusal(400, `blob ${h}: does not match its hash`);
-    const blobOver = bodyOver(jsonOf(bytes), `blob ${h}`);
-    if (blobOver.length) throw new Refusal(400, blobOver[0]!);
     blobs.set(h, bytes);
   }
   for (const h of Object.values(e.problem.data))
@@ -265,6 +298,12 @@ export async function publish(
       const stored = store.getBlob(h);
       if (stored) blobs.set(h, stored);
     }
+  // Each data blob the problem names, sent with it or held already, read as JSON where it is.
+  for (const h of Object.values(e.problem.data)) {
+    const bytes = blobs.get(h);
+    const over = bytes ? bodyOver(jsonOf(bytes), `blob ${h}`) : [];
+    if (over.length) throw new Refusal(400, over[0]!);
+  }
   const bp = blobProblems(e.problem, blobs);
   if (bp.length) throw new Refusal(400, bp[0]!);
   // Admission: the gate on what a thousand AIs will read.
@@ -527,7 +566,13 @@ function checkPieceEvent(
   if (event.type === 'reveal') {
     const ret = (event.body as { return: Record<string, unknown> }).return;
     if (view.piece.schema) {
-      const rp = returnProblems(view.piece.schema, ret);
+      // The core asks a return's fields with `in`, which also finds what every object has; a field is one of the
+      // schema's own properties.
+      const own = Object.keys(ret ?? {}).filter((k) => !Object.hasOwn(view.piece.schema!.properties, k));
+      const rp = [
+        ...returnProblems(view.piece.schema, ret),
+        ...own.map((k) => `return.${k}: not a field of the schema`),
+      ];
       if (rp.length) throw new Refusal(400, rp[0]!);
     }
     for (const s of returnStrings(ret)) {
