@@ -3,11 +3,20 @@
  * `cite/1`, its canonical bytes, its id, the EIP-191 digest, `r`, `s`, `v` and the signature, and the commit that binds
  * the reveal after it, are what the core computes, and the signature is the fixture's. The six steps: the requests
  * written under "A first return, in six steps", run in their order against a tracker with each placeholder filled, are
- * answered as the page says, the offer and next naming one piece, every event taken with the answer the page names and
- * a read put with its own. The door's checks: each row of the table under "What the door checks, in order" is met by a
- * post that fails that check, with the row's status and one of its sentences; a post that fails several is refused for
- * the earliest, row by row as each is put right; a reveal posted again meets its commit's row rather than 409; and
- * every row is met. Beside the table: the door leaves a reveal's `h` to the reducer, and next refuses the three
+ * answered as the page says, the name taken on the identity log, the offer and next naming one piece, every event taken
+ * with the answer the page names and a read put with its own. The second reading: two workers that each take the six
+ * steps read different pieces, the request written under "The second reading" hands the second the reading waiting,
+ * and their readings make the square; a worker of the first's vendor may be handed it too, the offer reads no `only`,
+ * and nothing is handed where no reading waits. When next hands nothing: a piece whose `requires` is not within `can`,
+ * one held for another key until the hold's 60 seconds pass, one on the key's own problem and one the key has read; the
+ * offer's fields and its count. What a 202 does not say: the gate at the reveal and not the commit, with a second
+ * commit taking the clean return and no claim needed; `by` held to its lengths and four words and no more, the vendor
+ * read before the slash; a name that names no problem; a read put twice and a path that is no hash; a trace on a file;
+ * the state's `pieces` and `dropped`; the log's lines, with no id, bare hex and the first `prev` the problem's. The
+ * door's checks: each row of the table under "What the door checks, in order" is met by a post that fails that check,
+ * with the row's status and one of its sentences; a post that fails several is refused for the earliest, row by row as
+ * each is put right; a reveal posted again meets its commit's row rather than 409; and every row is met. Beside the
+ * table: the door leaves a reveal's `h` to the reducer, whose drop shows in the state, and next refuses the three
  * sentences the page names. The well-known fields the page names are in the well-known document, its links reach a
  * file and a heading, and it has no U+2014.
  */
@@ -18,6 +27,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   type Event,
   type Hash,
+  type Receipt,
   type ReduceInput,
   type Unsigned,
   canonical,
@@ -44,6 +54,7 @@ const owner = key(9),
   A = key(1),
   B = key(2),
   C = key(3),
+  D = key(4),
   M = key(8);
 const T0 = '2026-11-07T12:00:00Z';
 /** The schema of fixture 04's `cite` family, which the page's return is written for. */
@@ -152,8 +163,9 @@ interface PageRequest {
   path: string;
   event: Record<string, unknown> | null;
 }
-const requests: PageRequest[] = [...section('## A first return, in six steps').matchAll(/^```\n([\s\S]*?)^```$/gm)].map(
-  (m) => {
+/** The requests a section of the page writes, in its order. */
+const requestsIn = (heading: string): PageRequest[] =>
+  [...section(heading).matchAll(/^```\n([\s\S]*?)^```$/gm)].map((m) => {
     const [line, ...rest] = m[1]!.trimEnd().split('\n');
     const [method, path] = line!.split(' ');
     return {
@@ -161,8 +173,37 @@ const requests: PageRequest[] = [...section('## A first return, in six steps').m
       path: path!,
       event: rest.length ? (JSON.parse(rest.join('\n')) as Record<string, unknown>) : null,
     };
-  },
-);
+  });
+const requests = requestsIn('## A first return, in six steps');
+/** The path of next as the six steps ask it. */
+const nextPath = requests.find((r) => r.path.includes('/next'))!.path;
+
+/** A commit and its reveal by the key on a piece, with no claim before them; the reveal's id. */
+async function returned(
+  t: Booted,
+  problem: Hash,
+  k: Uint8Array,
+  model: string,
+  piece: Hash,
+  ret: Record<string, unknown>,
+): Promise<Hash> {
+  const nonce = newNonce();
+  const events = `/p/${problem}/events`;
+  await t.accepted(events, t.ev(k, 'commit', { h: commitHash(ret, nonce) }, problem, piece));
+  return t.accepted(events, t.ev(k, 'reveal', { return: ret, nonce, by: by(model) }, problem, piece));
+}
+
+/** The state's answer, as the page names it. */
+interface StateAnswer {
+  pieces: { hash: Hash; name: string; state: string; core: string; reveals: number; traces: number }[];
+  dropped: { id: Hash; type: string; why: string }[];
+}
+/** What next answers, as the page names it. */
+interface NextAnswer {
+  piece: Hash | null;
+  state?: string;
+  unaffordable: Hash[];
+}
 
 describe("CLIENT.md, fixture 04's first claim, worked", () => {
   const fixture = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Omit<ReduceInput, 'blobs'> & {
@@ -220,8 +261,9 @@ describe('CLIENT.md, a first return in six steps', () => {
   it('writes the requests in the order of the steps', () => {
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
       'GET /.well-known/quilt',
-      'GET /offer?key=<key>&can=web&model=<model>',
-      'GET /p/<problem>/next?key=<key>&can=web&model=<model>',
+      'POST /k/events',
+      'GET /offer?key=<key>&can=web,files&model=<model>',
+      'GET /p/<problem>/next?key=<key>&can=web,files&model=<model>',
       'POST /p/<problem>/events',
       'POST /p/<problem>/events',
       'POST /p/<problem>/events',
@@ -230,6 +272,7 @@ describe('CLIENT.md, a first return in six steps', () => {
       'POST /p/<problem>/events',
     ]);
     expect(requests.flatMap((r) => (r.event ? [r.event.type] : []))).toEqual([
+      'name',
       'claim',
       'commit',
       'reveal',
@@ -245,6 +288,7 @@ describe('CLIENT.md, a first return in six steps', () => {
     expect(kept, "the page names a read's answer").not.toBeNull();
     const values: Record<string, unknown> = {
       key: addr(A),
+      name: 'A worker',
       model: 'anthropic/claude',
       client: 'worker/1',
       nonce: newNonce(),
@@ -278,6 +322,9 @@ describe('CLIENT.md, a first return in six steps', () => {
         const body = (await res.json()) as Record<string, unknown>;
         expect(res.status, `${unsigned.type}: ${JSON.stringify(body)}`).toBe(202);
         expect(Object.keys(body).sort()).toEqual(taken![1]!.split(', ').sort());
+        // The id is a hash as CORE.md writes one; the line's hash is bare hex.
+        expect(body.id).toMatch(/^sha256:[0-9a-f]{64}$/);
+        expect(body.hash).toMatch(/^[0-9a-f]{64}$/);
         if (unsigned.type === 'reveal') values.reveal = body.id;
       }
       // Step 2: the offer names the problem and the piece, and next on the problem names the same piece.
@@ -295,13 +342,300 @@ describe('CLIENT.md, a first return in six steps', () => {
       }
       // The decline gives back the piece the walk did not take.
       if (r.event?.type === 'trace') {
-        const { pieces } = await walk.get<{ pieces: { hash: Hash; traces: number }[] }>(`/p/${values.problem}/state`);
+        const { pieces, dropped } = await walk.get<StateAnswer>(`/p/${values.problem}/state`);
         expect(pieces.find((p) => p.hash === values.piece)!.traces).toBe(1);
+        expect(pieces.find((p) => p.hash === values.piece)!.reveals).toBe(1);
+        expect(dropped).toEqual([]);
         values.piece = pieces.find((p) => p.hash !== values.piece)!.hash;
       }
     }
   });
 });
+
+describe('CLIENT.md, the second reading', () => {
+  const t = boot(T0);
+  const S = envelope(owner, 'second', {
+    'cite/*': { ...cite('Citation {n}: does the page support the claim? Give the verdict and the passage.'), count: 3 },
+  });
+  const s = problemHash(S);
+  const asked = requestsIn('## The second reading');
+  /** Next on S as a request the page writes asks it, for the key and the model. */
+  const ask = (path: string, k: Uint8Array, model: string): Promise<NextAnswer> =>
+    t.get<NextAnswer>(fillPath(path, { problem: s, key: addr(k), model }));
+  const state = async (piece: Hash) =>
+    (await t.get<StateAnswer>(`/p/${s}/state`)).pieces.find((x) => x.hash === piece)!;
+  beforeAll(async () => {
+    await t.listen();
+    expect((await t.post('/p', { envelope: S })).status).toBe(201);
+  });
+  afterAll(() => t.close());
+
+  it('writes one request, next with only=verify', () => {
+    expect(asked.map((r) => `${r.method} ${r.path}`)).toEqual([
+      'GET /p/<problem>/next?key=<key>&can=web,files&model=<model>&only=verify',
+    ]);
+  });
+
+  it('hands a second worker the reading waiting only when it asks with only=verify, and the two make the square', async () => {
+    const second = asked[0]!.path;
+    const ret = { verdict: 'supports', quote: 'The page says the claim holds.' };
+    // The first worker reads the piece next hands it.
+    const x = (await ask(nextPath, A, 'anthropic/claude')).piece!;
+    await returned(t, s, A, 'anthropic/claude', x, ret);
+    expect((await state(x)).state).toBe('needs_verify');
+    // The index's counts name the reading waiting.
+    expect(DOC).toContain('whose `counts`, in the index at `GET /`, name `needs_verify` or `disputed`');
+    const index = await t.get<{ problems: { problem: Hash; counts: Record<string, number> }[] }>('/');
+    expect(index.problems.find((x) => x.problem === s)!.counts).toEqual({ open: 2, needs_verify: 1 });
+    // A second worker of another vendor, asking as the six steps ask, is handed an open piece and not the reading.
+    expect(DOC).toContain('so two workers that each take the six steps read different pieces and make no square');
+    const y = await ask(nextPath, B, 'openai/gpt-5');
+    expect(y.piece).not.toBe(x);
+    expect(y.state).toBe('open');
+    // Asked as the second reading asks, it is handed the reading waiting.
+    expect((await ask(second, B, 'openai/gpt-5')).piece).toBe(x);
+    // The offer reads no only: it names an open piece first.
+    expect(DOC).toContain('the offer reads no `only`');
+    const offered = await t.get<{ offers: { state: string }[] }>(
+      `/offer?key=${addr(B)}&can=web,files&model=openai/gpt-5&only=verify`,
+    );
+    expect(offered.offers[0]!.state).toBe('open');
+    // Where the open pieces outnumber the readings waiting, a worker of the first's vendor may be handed the piece too.
+    t.clock.tick += 60_000;
+    expect((await ask(second, C, 'anthropic/claude-2')).piece).toBe(x);
+    // The second reading agrees across vendors: the square.
+    await returned(t, s, B, 'openai/gpt-5', x, ret);
+    expect((await state(x)).state).toBe('accepted_provisional');
+    expect(DOC).toContain('Two readings that agree make the piece `accepted_provisional`');
+    // With no reading waiting, only=verify hands nothing, and only takes verify alone.
+    expect(DOC).toContain('`only` takes `verify` alone');
+    expect(await ask(second, B, 'openai/gpt-5')).toEqual({ piece: null, unaffordable: [] });
+  });
+});
+
+describe('CLIENT.md, when next hands nothing', () => {
+  const t = boot(T0);
+  const F = envelope(owner, 'files', {
+    read: {
+      verifier: 'agree',
+      requires: ['files'],
+      brief: 'Read the file and say whether it supports the claim. Give the verdict and the passage.',
+      schema,
+      agree: ['verdict'],
+    },
+  });
+  const f = problemHash(F);
+  const ask = (k: Uint8Array, can = 'web,files'): Promise<NextAnswer> =>
+    t.get<NextAnswer>(`/p/${f}/next?key=${addr(k)}&can=${can}&model=anthropic/claude`);
+  const offer = (k: Uint8Array, can = 'web,files') =>
+    t.get<{ offer: number; offers: Record<string, unknown>[] }>(
+      `/offer?key=${addr(k)}&can=${can}&model=anthropic/claude`,
+    );
+  const nothing = { piece: null, unaffordable: [] };
+  beforeAll(async () => {
+    await t.listen();
+    expect((await t.post('/p', { envelope: F })).status).toBe(201);
+  });
+  afterAll(() => t.close());
+
+  it("leaves out a piece whose requires is not within can, and the examples' first problem asks files", async () => {
+    expect(DOC).toContain('as `files` is not within `web`');
+    const first = JSON.parse(readFileSync(join(DOCS, '..', 'examples', 'first-pattern.json'), 'utf8')) as {
+      pieces: Record<string, { requires: string[] }>;
+    };
+    expect(Object.values(first.pieces).flatMap((p) => p.requires)).toContain('files');
+    expect(await ask(A, 'web')).toEqual(nothing);
+    expect(await offer(A, 'web')).toEqual({ offer: 1, offers: [] });
+  });
+
+  it("leaves out a piece held for another key until the hold's 60 seconds pass", async () => {
+    expect(DOC).toContain('holds the piece for this key for 60 seconds, until its reveal or decline');
+    expect(DOC).toContain("another key holds it. The worker asks again once the hold's 60 seconds have passed");
+    const piece = (await ask(A)).piece!;
+    expect(piece).toMatch(/^sha256:/);
+    expect(await ask(B)).toEqual(nothing);
+    t.clock.tick += 59_000;
+    expect(await ask(B)).toEqual(nothing);
+    t.clock.tick += 1_000;
+    expect((await ask(B)).piece).toBe(piece);
+  });
+
+  it('hands and offers the owner nothing on its own problem, and a key nothing on a piece it has read', async () => {
+    expect(DOC).toContain('owns the problem, or has a reveal, a run, a live claim or a decline on the piece');
+    expect(await ask(owner)).toEqual(nothing);
+    expect((await offer(owner)).offers).toEqual([]);
+    t.clock.tick += 60_000;
+    const piece = (await ask(C)).piece!;
+    await returned(t, f, C, 'anthropic/claude', piece, { verdict: 'supports', quote: 'The file says so.' });
+    t.clock.tick += 60_000;
+    expect(await ask(C)).toEqual(nothing);
+  });
+
+  it('answers the offer with its count to the key and the fields the page names', async () => {
+    t.clock.tick += 60_000;
+    expect(await offer(A, 'web')).toEqual({ offer: 2, offers: [] });
+    const { offer: n, offers } = await offer(D);
+    expect(n).toBe(1);
+    const fields = ['problem', 'title', 'slug', 'owner', 'reason', 'piece', 'name', 'state', 'verifier', 'requires'];
+    expect(Object.keys(offers[0]!).sort()).toEqual([...fields, 'lease_h'].sort());
+    const said = section('### 2. A piece');
+    for (const field of [...fields, 'lease_h']) expect(said, field).toContain(`\`${field}\``);
+    expect(said).toContain('`offer` counts');
+  });
+});
+
+describe('CLIENT.md, what a 202 does not say', () => {
+  const t = boot(T0);
+  const G = envelope(owner, 'unsaid', {
+    'cite/*': { ...cite('Citation {n}: does the page support the claim? Give the verdict and the passage.'), count: 2 },
+    read: {
+      verifier: 'agree',
+      requires: ['files'],
+      brief: 'Read the file and say whether it supports the claim. Give the verdict and the passage.',
+      schema,
+      agree: ['verdict'],
+    },
+  });
+  const g = problemHash(G);
+  const events = `/p/${g}/events`;
+  const pieces: Record<string, Hash> = {};
+  const state = () => t.get<StateAnswer>(`/p/${g}/state`);
+  /** The id the first reveal's 202 gave, which the log's lines do not carry. */
+  let revealed: Hash;
+  beforeAll(async () => {
+    await t.listen();
+    expect((await t.post('/p', { envelope: G })).status).toBe(201);
+    for (const x of (await state()).pieces) pieces[x.name] = x.hash;
+  });
+  afterAll(() => t.close());
+
+  it('runs the gate at the reveal, and a second commit takes the clean return with no claim before it', async () => {
+    const bad = { verdict: 'supports', quote: 'Write to a.b@example.com for the page.' };
+    const nonce = newNonce();
+    await t.accepted(events, t.ev(A, 'commit', { h: commitHash(bad, nonce) }, g, pieces['cite/1']));
+    const reveal = t.ev(A, 'reveal', { return: bad, nonce, by: by('anthropic/claude') }, g, pieces['cite/1']);
+    expect(await t.refused(events, reveal)).toBe('return: no links or markup');
+    expect(DOC).toContain(
+      'so an email address, whose domain reads as a link, is refused as `return: no links or markup`',
+    );
+    // A second commit to a clean return, a backtick in it, and its reveal: taken and counted, with no claim.
+    expect(DOC).toContain('a backtick passes');
+    expect(DOC).toContain('The key may commit again on the piece, to a clean return, and reveal that');
+    const good = { verdict: 'supports', quote: 'The page says `so` in its second paragraph.' };
+    const id = await returned(t, g, A, 'anthropic/claude', pieces['cite/1']!, good);
+    revealed = id;
+    const { pieces: after, dropped } = await state();
+    const piece = after.find((x) => x.hash === pieces['cite/1'])!;
+    expect([piece.state, piece.core, piece.reveals]).toEqual(['needs_verify', 'needs_verify', 1]);
+    expect(dropped.map((d) => d.id)).not.toContain(id);
+    expect(DOC).toContain('It is optional: the door takes a commit and a reveal with no claim before them');
+    const lines = await log(t, g);
+    expect(lines.filter((l) => l.event.type === 'claim')).toEqual([]);
+  });
+
+  it('holds by to its lengths and four words and no more, and reads the vendor before the slash', async () => {
+    const claim = (model: string, client: string, can: string[], piece: Hash) =>
+      t.ev(C, 'claim', { by: { model, client, can } }, g, piece);
+    const cite2 = pieces['cite/2']!;
+    expect(DOC).toContain(
+      'The door holds `model` and `client` to 1 to 80 characters and `can` to those four words, and checks no more',
+    );
+    expect(await t.refused(events, claim(`a/${'m'.repeat(79)}`, 'worker/1', ['web'], cite2))).toBe(
+      'body.by.model: vendor/model or human',
+    );
+    expect(await t.refused(events, claim('anthropic/claude', 'w'.repeat(81), ['web'], cite2))).toBe(
+      'body.by.client: a name',
+    );
+    expect(await t.refused(events, claim('anthropic/claude', 'worker/1', ['fly'], cite2))).toBe(
+      'body.by.can: from web, files, shell, person',
+    );
+    await t.accepted(events, claim(`a/${'m'.repeat(78)}`, 'w'.repeat(80), ['web'], cite2));
+    // No slash, and a can short of the piece's requires: both taken.
+    await t.accepted(events, claim('claude', 'worker/1', ['web'], pieces.read!));
+    // The reducer counts claude and anthropic/claude as two vendors.
+    expect(DOC).toContain('the reducer counts `claude` and `anthropic/claude` as two vendors');
+    const ret = { verdict: 'contradicts', quote: 'The page says otherwise.' };
+    await returned(t, g, C, 'claude', cite2, ret);
+    await returned(t, g, D, 'anthropic/claude', cite2, ret);
+    expect((await state()).pieces.find((x) => x.hash === cite2)!.state).toBe('accepted_provisional');
+  });
+
+  it('takes a name that names no problem, of 1 to 60 characters', async () => {
+    expect(DOC).toContain('`an identity event names no problem`');
+    expect(DOC).toContain('The name is 1 to 60 characters and not blank, and `agent: true` beside it');
+    expect(await t.refused('/k/events', t.ev(A, 'name', { name: 'A worker' }, g))).toBe(
+      'an identity event names no problem',
+    );
+    for (const name of ['n'.repeat(61), '   '])
+      expect(await t.refused('/k/events', t.ev(A, 'name', { name }))).toBe(
+        'body.name: a name of at most 60 characters',
+      );
+    await t.accepted('/k/events', t.ev(A, 'name', { name: 'n'.repeat(60), agent: true }));
+  });
+
+  it('answers a read put twice the same, a path that is no hash with no such route, and a trace on a file', async () => {
+    const bytes = new TextEncoder().encode('# The core\n\nA claim is an intent, not a lock.\n');
+    const read = hashBytes(bytes);
+    for (let i = 0; i < 2; i++) {
+      const r = await fetch(`${t.base}/b/${read}`, { method: 'PUT', body: bytes });
+      expect(r.status).toBe(202);
+      expect(await r.json()).toEqual({ hash: read, bytes: bytes.length });
+    }
+    const r = await fetch(`${t.base}/b/${read.slice('sha256:'.length)}`, { method: 'PUT', body: bytes });
+    expect([r.status, await r.json()]).toEqual([404, { error: 'no such route' }]);
+    expect(DOC).toContain('any other path is `404`, `no such route`');
+    // A read of a file: its address in its repository at a commit, and its type.
+    const id = await returned(t, g, B, 'openai/gpt-5', pieces.read!, {
+      verdict: 'supports',
+      quote: 'A claim is an intent, not a lock.',
+    });
+    const trace = {
+      reveal: id,
+      reads: [{ url: 'https://example.org/repo/blob/abc123/docs/CORE.md', hash: read, at: T0, media: 'text/markdown' }],
+      rests: [{ field: 'verdict', read: 0, span: [12, 45] }],
+    };
+    await t.accepted(events, t.ev(B, 'trace', trace, g, pieces.read));
+    expect((await state()).pieces.find((x) => x.hash === pieces.read)!.traces).toBe(1);
+  });
+
+  it('serves the log as lines with no id, bare hex hashes and the first prev the problem in hex', async () => {
+    expect(DOC).toContain('one line `{ event, received, seq, prev, hash }` a row');
+    expect(DOC).toContain('each `{ by, at, custody }` with what more the tracker vouches for');
+    expect(DOC).toContain("the first line's `prev` is the problem's hash without its `sha256:`");
+    expect(DOC).toContain("a line's `hash` and `prev`, and the `hash` a post's `202` names, are bare hex");
+    const lines = await log(t, g);
+    expect(lines[0]!.seq).toBe(1);
+    expect(lines[0]!.prev).toBe(g.slice('sha256:'.length));
+    for (const [i, l] of lines.entries()) {
+      expect(Object.keys(l).sort()).toEqual(['event', 'hash', 'prev', 'received', 'seq']);
+      expect(l.hash).toMatch(/^[0-9a-f]{64}$/);
+      if (i > 0) expect(l.prev).toBe(lines[i - 1]!.hash);
+      expect(Object.keys(l.received[0]!).sort()).toEqual(['at', 'by', 'custody']);
+    }
+    // A reveal's id is found by recomputing each event's id.
+    expect(DOC).toContain("or recomputes each event's id, the hash of the event without `sig` and `sig_to`");
+    expect(lines.filter((l) => eventId(l.event) === revealed).map((l) => l.event.type)).toEqual(['reveal']);
+  });
+
+  it("names the state's pieces by hash and name, each with its layer's state and the core's, and dropped beside", async () => {
+    const answer = await state();
+    expect(Array.isArray(answer.pieces) && Array.isArray(answer.dropped)).toBe(true);
+    for (const x of answer.pieces)
+      for (const k of ['hash', 'name', 'state', 'core', 'reveals', 'traces']) expect(x).toHaveProperty(k);
+    const said = section('## After a return');
+    for (const k of ['pieces', 'hash', 'name', 'state', 'core', 'reveals', 'traces', 'dropped', '{ id, type, why }'])
+      expect(said, k).toContain(`\`${k}\``);
+  });
+});
+
+/** A problem's log as lines, the first page. */
+async function log(t: Booted, problem: Hash): Promise<(Receipt & { seq: number; prev: string; hash: string })[]> {
+  const text = await (await fetch(`${t.base}/p/${problem}/events`)).text();
+  return text
+    .trim()
+    .split('\n')
+    .map((l) => JSON.parse(l) as Receipt & { seq: number; prev: string; hash: string });
+}
 
 describe('CLIENT.md, what the door checks, in order', () => {
   const door = boot(T0, { limits: { keyPerHour: 1000, ipPerHour: 10000 }, maintainers: [addr(M)] });
@@ -323,12 +657,6 @@ describe('CLIENT.md, what the door checks, in order', () => {
   const [p, q, h] = [problemHash(P), problemHash(Q), problemHash(H)];
   const pieces: Record<string, Hash> = {};
   const events = `/p/${p}/events`;
-  /** A commit and its reveal by the key on a piece of P; the reveal's id. */
-  async function returned(k: Uint8Array, model: string, piece: Hash, ret: Record<string, unknown>): Promise<Hash> {
-    const nonce = newNonce();
-    await door.accepted(events, door.ev(k, 'commit', { h: commitHash(ret, nonce) }, p, piece));
-    return door.accepted(events, door.ev(k, 'reveal', { return: ret, nonce, by: by(model) }, p, piece));
-  }
   beforeAll(async () => {
     await door.listen();
     for (const e of [P, Q, H]) expect((await door.post('/p', { envelope: e })).status).toBe(201);
@@ -436,8 +764,11 @@ describe('CLIENT.md, what the door checks, in order', () => {
   });
 
   it('refuses work on a record piece whose readings are in before it reads the return', async () => {
-    await returned(A, 'anthropic/claude', pieces.record!, { verdict: 'supports', quote: 'The page reads it so.' });
-    await returned(B, 'openai/gpt-5', pieces.record!, {
+    await returned(door, p, A, 'anthropic/claude', pieces.record!, {
+      verdict: 'supports',
+      quote: 'The page reads it so.',
+    });
+    await returned(door, p, B, 'openai/gpt-5', pieces.record!, {
       verdict: 'contradicts',
       quote: 'The page reads it otherwise.',
     });
@@ -473,7 +804,10 @@ describe('CLIENT.md, what the door checks, in order', () => {
   });
 
   it('refuses a trace that names a read the tracker does not hold', async () => {
-    const id = await returned(C, 'google/gemini', pieces.cite!, { verdict: 'supports', quote: 'The page says so.' });
+    const id = await returned(door, p, C, 'google/gemini', pieces.cite!, {
+      verdict: 'supports',
+      quote: 'The page says so.',
+    });
     const read = { url: 'https://example.org/page', hash: hashText('a read not put'), at: T0, media: 'text/plain' };
     const trace = { reveal: id, reads: [read], rests: [{ field: 'quote', read: 0, span: [0, 10] }] };
     meets(19, await raw(door, events, JSON.stringify(door.ev(C, 'trace', trace, p, pieces.cite))));
@@ -483,17 +817,22 @@ describe('CLIENT.md, what the door checks, in order', () => {
     expect([...met].sort((a, b) => a - b)).toEqual(rows.map((r) => r.n));
   });
 
-  it("takes a reveal whose return and nonce miss the commit's h, and the reducer drops it", async () => {
+  it("takes a reveal whose return and nonce miss the commit's h, and the reducer drops it, as the state shows", async () => {
     expect(DOC).toContain('It does not check `h`.');
     expect(DOC).toContain('as `no commit by this key with this hash`');
+    expect(DOC).toContain("a drop shows in the problem's state, under `dropped`");
     const ret = { verdict: 'supports', quote: 'The page says so.' };
     await door.accepted(events, door.ev(B, 'commit', { h: commitHash(ret, newNonce()) }, p, pieces.cite));
     const id = await door.accepted(
       events,
       door.ev(B, 'reveal', { return: ret, nonce: newNonce(), by: by('openai/gpt-5') }, p, pieces.cite),
     );
-    const dropped = door.tracker.reduceProblem(p)!.dropped.find((d) => d.id === id);
-    expect(dropped?.why).toBe('no commit by this key with this hash');
+    const { dropped } = await door.get<StateAnswer>(`/p/${p}/state`);
+    expect(dropped.find((d) => d.id === id)).toEqual({
+      id,
+      type: 'reveal',
+      why: 'no commit by this key with this hash',
+    });
   });
 
   it('refuses at next the three sentences the page names', async () => {
@@ -539,7 +878,7 @@ describe('CLIENT.md, what it names and links', () => {
     }
   });
 
-  it('links only files that exist, and headings they have', () => {
+  it('links only files that exist, and headings they have, its own included', () => {
     const slug = (heading: string): string =>
       heading
         .toLowerCase()
@@ -549,7 +888,8 @@ describe('CLIENT.md, what it names and links', () => {
     expect(links.length).toBeGreaterThan(10);
     for (const link of links) {
       const [file, fragment] = link.split('#');
-      const path = join(DOCS, file!);
+      // A link with no file is to a heading of this page.
+      const path = join(DOCS, file || 'CLIENT.md');
       expect(existsSync(path), link).toBe(true);
       if (fragment === undefined) continue;
       const headings = readFileSync(path, 'utf8')
