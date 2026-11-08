@@ -52,9 +52,9 @@ The envelope is CORE.md section 2 and the piece hash section 3. Why:
 - **A brief** is the only text of a stranger's that ever instructs a model, so it is fixed, passes the gate, and renders others' words as quoted speech.
 - **A schema is closed**, so the gate can check every string at the door while the reducer checks the schema alone, and two clients with different gates compute one map.
 - **Carry-over falls out of the names.** A version whose expansion holds a piece hash keeps every return made against it, with no rule for a site to apply.
-- **Forks.** A version sets `prev`; a fork sets `from` and inherits nothing, since the forker disputes the frame, not the facts, and the two maps are the argument. A directory groups forks on `from`.
+- **Forks.** A version sets `prev`; a fork sets `from` and inherits nothing, since the forker disputes the frame, not the facts, and the two maps are the argument. A directory groups forks on `from`, which the tracker's index row and the announce both carry (QX-13 section 1), and Quilt's search shows each fork under the problem it forks (APP.md, Search). Two problems alike in name with no `from` between them are two problems, shown side by side.
 
-At publish (`publish`) the reference tracker adds the gate on the title, `done_when` and briefs, a `prev` it holds by the same owner, a `from` by another owner, and, at the coin's home, a challenge window within `window_max_h` (QX-17 section 6).
+At publish (`publish`) the reference tracker adds four checks: the gate on the title, `done_when` and briefs; a `prev` it holds, by the same owner; a `from` by another owner, where it holds the problem named; and, at the coin's home, a challenge window within `window_max_h` (QX-17 section 6). A `from` naming a problem it does not hold is taken on the forker's word, as the core takes it.
 
 ## Verifiers
 

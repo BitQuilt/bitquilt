@@ -12,7 +12,10 @@ import { addr, boot, envelope, key } from './helpers.js';
  * the two logs that do so, and 405 at a problem's; the fields of the piece next hands over, the rows under "### The
  * piece next hands over"; a post's answer, and 409 for it again; the signature's text form, with a `v` of 0 or 1 taken
  * and any other refused; the limits as published, the address's counting every write and the key's every post; and the
- * hold, on the piece next hands over and on the first the offer names, for 60 seconds. The refusals column is not read.
+ * hold, on the piece next hands over and on the first the offer names, for 60 seconds. And The problem envelope's
+ * checks at publish: the gate on the title, done_when and briefs, a prev held and by the same owner, a from by another
+ * owner where it is held and taken where it is not, and the coin's home's bound on the window. The refusals column is
+ * not read.
  * The on-ramp's table is packages/hosted/test/onramp-table.test.ts's, the node's is
  * packages/client/test/node-table.test.ts's, and the dispatcher's order is routes.test.ts's.
  */
@@ -302,6 +305,56 @@ describe('PROTOCOL.md, what the door answers', () => {
       expect(await handed(C, first.problem), 'and not for 60').toBe(first.piece);
     } finally {
       await held.close();
+    }
+  });
+});
+
+describe('PROTOCOL.md, The problem envelope, what the reference tracker adds at publish', () => {
+  it("gates the text, takes a prev it holds by the same owner and a from it holds by another owner, takes a from it does not hold, and bounds the window at the coin's home", async () => {
+    expect(DOC).toContain(
+      "At publish (`publish`) the reference tracker adds four checks: the gate on the title, `done_when` and briefs; a `prev` it holds, by the same owner; a `from` by another owner, where it holds the problem named; and, at the coin's home, a challenge window within `window_max_h` (QX-17 section 6). A `from` naming a problem it does not hold is taken on the forker's word, as the core takes it.",
+    );
+    const bare = boot('2026-11-07T12:00:00Z', { limits });
+    const home = boot('2026-11-07T12:00:00Z', { limits, coin: { ...coin, window_max_h: 48 } });
+    const B = key(2);
+    const elsewhere = `sha256:${'cd'.repeat(32)}` as Hash;
+    /** An envelope of the table's piece by `k`, with what `extra` says. */
+    const one = (k: Uint8Array, slug: string, extra: Parameters<typeof envelope>[3] = {}) =>
+      envelope(k, slug, { claim: piece }, extra);
+    const taken = async (t: typeof bare, e: ReturnType<typeof envelope>) =>
+      expect((await t.post('/p', { envelope: e })).status, e.problem.slug).toBe(201);
+    try {
+      for (const t of [bare, home]) {
+        await t.listen();
+        await taken(t, env);
+      }
+      const linked = 'Read example.com, then answer holds or fails.';
+      expect(await bare.refused('/p', { envelope: one(owner, 'title', { title: linked }) })).toBe(
+        'title: no links or markup',
+      );
+      expect(await bare.refused('/p', { envelope: one(owner, 'done', { done_when: linked }) })).toBe(
+        'done_when: no links or markup',
+      );
+      const briefed = envelope(owner, 'brief', { claim: { ...piece, brief: linked } });
+      expect(await bare.refused('/p', { envelope: briefed })).toBe('pieces.claim.brief: no links or markup');
+      expect(await bare.refused('/p', { envelope: one(owner, 'unheld', { prev: elsewhere }) })).toBe(
+        'prev: not a problem this tracker holds',
+      );
+      expect(await bare.refused('/p', { envelope: one(B, 'theirs', { prev: P }) })).toBe('prev: by another owner');
+      await taken(bare, one(owner, 'table', { title: 'One statement, again', prev: P }));
+      expect(await bare.refused('/p', { envelope: one(owner, 'mine', { from: P }) })).toBe(
+        'from: by the same owner; a version sets prev',
+      );
+      await taken(bare, one(B, 'fork', { from: P }));
+      await taken(bare, one(B, 'fork-elsewhere', { from: elsewhere }));
+      const patient = one(owner, 'patient', { settings: { challenge_window_h: 72 } });
+      expect(await home.refused('/p', { envelope: patient })).toBe(
+        'the challenge window of 72 hours is beyond the 48 this home admits (QX-17)',
+      );
+      await taken(bare, patient);
+    } finally {
+      await bare.close();
+      await home.close();
     }
   });
 });
