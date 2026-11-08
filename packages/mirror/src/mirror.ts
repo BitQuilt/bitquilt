@@ -25,11 +25,10 @@
  * publishes, and not the mirror's own chains, whose lines carry the mirror's hashes and so draw other panels
  * (QX-1 section 4). A state is refused where it is not what the run already had from the home (a problem the home
  * listed or served left out, a chain named below the lines read or off them, a fold outside the five seconds before its
- * time), where a chain or an envelope it rests on is not served as named, or where a data blob or a read cannot be
- * asked of the home or does not hash to its name; one the home answers it does not hold is left out of the fold, as the
- * home's own fold leaves it out. The tracker's balances are kept only where the mirror's own agree, and only where
- * every credit is what the chain holds; with no chain to ask, a ledger with credits keeps no balances, and the credits
- * alone refuse nothing.
+ * time), or where a chain, an envelope, a data blob or a read it rests on is not served as named; a read the home
+ * answers it does not hold, which no line the home wrote names, is left out of the fold, as the home's own fold leaves
+ * it out. The tracker's balances are kept only where the mirror's own agree, and only where every credit is what the
+ * chain holds; with no chain to ask, a ledger with credits keeps no balances, and the credits alone refuse nothing.
  *
  * The keeping is over a store (files.ts: envelopes, blobs and the lines of each log), the mirror's layout under its
  * folder here and a tracker's store in a node (NODE.md section 5): `keep()` is the pull alone, which a node with `keep`
@@ -584,6 +583,7 @@ async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | nu
   const wellKnown = (await getJson(ctx, `${tracker}.well-known/quilt`)) as {
     coin?: (CoinParams & { home?: string | null; extension?: string }) | null;
     founding?: unknown;
+    url?: unknown;
   } | null;
   const published = wellKnown?.coin ?? null;
   if (!published || !(published.home === 'here' || published.home === undefined || published.home === null)) return;
@@ -601,7 +601,8 @@ async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | nu
   if (!state) return;
   const { home: _home, extension: _extension, ...params } = published;
   try {
-    const served = await servedOver(ctx, tracker, state, before);
+    const homeUrl = typeof wellKnown?.url === 'string' ? wellKnown.url : null;
+    const served = await servedOver(ctx, tracker, state, before, homeUrl);
     if (typeof served === 'string') {
       ctx.report.refused.push(`coin: ${served}`);
       coin.reproduced = false;
@@ -688,18 +689,19 @@ const FOLDED_BEFORE_MS = 5000;
  * head, and otherwise read whole, verified from its log's hash and held to extend what this run read (`servedTo`), so
  * a head off the chain the run read does not pass.
  * Each envelope is the one held here or the home's, by its hash. Each data blob and each read a trace on those chains
- * names is the home's as the home holds it (`heldAtHome`), and each read is measured by its bytes, as the home measures
- * the reads it holds (QX-19 section 2): one the home answers it does not hold is left out, as the home's fold leaves
- * it out. The problems are the home's, hidden and replaced ones among them, since the home serves every problem it
- * holds by hash, a hidden one too (QX-6 section 3), whatever this run took from other sources. Why not, where the
- * state is not what this run had from the home, a chain or an envelope it rests on is not served as named, or a data
- * blob or a read cannot be asked of the home or does not hash to its name.
+ * names is the home's as it serves it (`servedAtHome`), and each read is measured by its bytes, as the home measures
+ * the reads it holds (QX-19 section 2); a read the home answers it does not hold is left out, as the home's fold
+ * leaves it out, where no line the home wrote names it. The problems are the home's, hidden and replaced ones among
+ * them, since the home serves every problem it holds by hash, a hidden one too (QX-6 section 3), whatever this run
+ * took from other sources. Why not, where the state is not what this run had from the home, or a chain, an envelope,
+ * a data blob or a read it rests on is not served as named.
  */
 async function servedOver(
   ctx: Context,
   tracker: string,
   state: CoinState,
   before: ReadBefore,
+  homeUrl: string | null,
 ): Promise<Served | string> {
   const { folded } = state;
   const lag = Date.parse(state.at) - Date.parse(folded.at);
@@ -743,19 +745,34 @@ async function servedOver(
   for (const [problem, e] of envelopes)
     for (const h of Object.values(e.problem.data))
       if (!blobs.has(h)) {
-        const bytes = await heldAtHome(ctx, tracker, h, `the data blob ${h} of ${problem} from ${tracker}`);
+        const bytes = await servedAtHome(ctx, tracker, h, `the data blob ${h} of ${problem} from ${tracker}`, false);
         if (typeof bytes === 'string') return bytes;
         blobs.set(h, bytes);
       }
-  const lengths = new Map<Hash, number | null>();
+  // Each read a trace names, with where it is first named and whether a line the home wrote names it: the home's own
+  // wrapper, `by` its well-known `url`, says the home took that line, and with it the read.
+  const reads = new Map<Hash, { problem: Hash; tookIt: boolean }>();
   for (const [problem, lines] of chains)
-    for (const l of lines)
-      for (const h of readsNamed(l.event))
-        if (!lengths.has(h)) {
-          const bytes = await heldAtHome(ctx, tracker, h, `the read ${h} of a trace on ${problem} from ${tracker}`);
-          if (typeof bytes === 'string') return bytes;
-          lengths.set(h, bytes && bytes.length);
-        }
+    for (const l of lines) {
+      const tookIt = homeUrl === null || l.received.some((w) => w.by === homeUrl);
+      for (const h of readsNamed(l.event)) {
+        const named = reads.get(h);
+        if (!named) reads.set(h, { problem, tookIt });
+        else named.tookIt ||= tookIt;
+      }
+    }
+  const lengths = new Map<Hash, number | null>();
+  for (const [h, { problem, tookIt }] of reads) {
+    const bytes = await servedAtHome(
+      ctx,
+      tracker,
+      h,
+      `the read ${h} of a trace on ${problem} from ${tracker}`,
+      !tookIt,
+    );
+    if (typeof bytes === 'string') return bytes;
+    lengths.set(h, bytes && bytes.length);
+  }
   const reader: ChainReader = {
     envelopeOf: (h) => envelopes.get(h) ?? null,
     getBlob: (h) => blobs.get(h) ?? null,
@@ -769,26 +786,31 @@ async function servedOver(
 }
 
 /**
- * A data blob or a read the home's fold reads, as the home holds it: its bytes, the copy held here where it hashes
- * right and the home's otherwise, where the home serves it; null where the home answers that it holds none (`404`),
- * whatever is held here, since its own fold then reads none (a node with `work` beside `admit` keeps into the door's
- * store chains and envelopes its door did not take, NODE.md section 2, and can lack a read or a blob they name). Why
- * not, where the home cannot be asked or its bytes do not hash to the name. A home that answers `404` for one its fold
- * read gets balances that do not reproduce, so this takes nothing on its word.
+ * A data blob or a read the home's fold reads, as the home serves it at `/b/<hash>`: its bytes, which must hash to the
+ * name, whatever is held here, since the balances rest on what the home serves. Null, for a read the home's fold
+ * measured as absent, only where `mayLack` and the home answers that it holds none (`404`): a node with `work` beside
+ * `admit` keeps in the door's store chains its door did not take (NODE.md section 2), and can lack a read a trace on
+ * them names. A data blob is never absent, since the core refuses a problem without one and a home that lacks one
+ * cannot fold; nor is a read a line the home wrote names, since its door takes no trace whose read it lacks and a
+ * store keeps a blob for good. Why not, where the home cannot be asked, does not serve it, or serves other bytes.
  */
-async function heldAtHome(ctx: Context, tracker: string, h: Hash, label: string): Promise<Uint8Array | null | string> {
+async function servedAtHome(
+  ctx: Context,
+  tracker: string,
+  h: Hash,
+  label: string,
+  mayLack: boolean,
+): Promise<Uint8Array | null | string> {
   let r: Response;
   try {
     r = await ctx.fetchImpl(`${tracker}b/${h}`, { signal: AbortSignal.timeout(30000) });
   } catch {
     return `${label} cannot be read`;
   }
-  const held = ctx.store.getBlob(h);
-  if (!r.ok || (held && hashBytes(held) === h)) {
-    // The status is the answer here, and a copy that hashes to the name is the home's bytes, so the body is not read.
+  if (!r.ok) {
     await r.body?.cancel().catch(() => undefined);
-    if (r.ok) return held;
-    return r.status === 404 ? null : `${label} cannot be read`;
+    if (r.status !== 404) return `${label} cannot be read`;
+    return mayLack ? null : `${label} is not served, and the home's fold rests on it`;
   }
   try {
     const bytes = new Uint8Array(await r.arrayBuffer());

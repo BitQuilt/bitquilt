@@ -44,13 +44,15 @@ import { VERDICT, addr, by, calendarBytes, key, startTracker } from './helpers.j
  * would release a lock and give back an escrow. Each read a trace names is measured by its bytes, so a reading the home
  * set aside in a dispute is set aside here, and the gold's match and its coin follow. A chain the state names that
  * cannot be read whole, or has no line with the named hash, is refused with the chain named, a read or a data blob the
- * home cannot be asked for with its hash named, and a tracker whose balances differ is refused (NODE.md section 6). A
- * read the home answers that it does not hold is left out of the fold, as the home's own fold leaves it out, whether or
- * not the mirror holds it, so a home that keeps a chain without its read reproduces, and a home that says so of a read
- * its fold measured does not. And every credit line on the coin log (the way back) is checked against the deposit the
- * chain holds, and the balances refused where one is not what the chain holds. With no chain to ask, the balances are
- * not kept and the credits alone refuse nothing (AGENTS.md, rule 10): the problems and the coin log are kept, and where
- * the balances reproduce the report says why; balances that do not reproduce are refused all the same.
+ * home does not serve as named with its hash named, whatever the mirror holds, and a tracker whose balances differ is
+ * refused (NODE.md section 6). A read the home answers that it does not hold, which no line the home wrote names, is
+ * left out of the fold, as the home's own fold leaves it out, whether or not the mirror holds it, so a home that keeps
+ * a chain without its read reproduces; a read a line the home wrote names, which the home held when it took the line,
+ * is refused where the home says it holds none, and so is a data blob, which a home that folds always holds. And every
+ * credit line on the coin log (the way back) is checked against the deposit the chain holds, and the balances refused
+ * where one is not what the chain holds. With no chain to ask, the balances are not kept and the credits alone refuse
+ * nothing (AGENTS.md, rule 10): the problems and the coin log are kept, and where the balances reproduce the report
+ * says why; balances that do not reproduce are refused all the same.
  * QX-17 sections 6 and 7, NODE.md section 6 and PROTOCOL.md, The mirror, say no more than that.
  */
 const owner = key(9),
@@ -690,38 +692,53 @@ describe("the fold at the time the home's state names, with each read a trace na
     expect(atItsTime.refused).toEqual([`coin: the balances at head 2 from ${home} do not reproduce here (${addr(A)})`]);
   });
 
-  it('refuses the balances where a read a trace names, or a data blob, cannot be read from the home, naming its hash', async () => {
+  it('refuses the balances where a read a trace names, or a data blob, is not served as named, whatever the mirror holds, naming its hash', async () => {
     const answering =
-      (hash: Hash, status: number): typeof fetch =>
+      (hash: Hash, status: number, body = '', doctor: Doctor | null = null): typeof fetch =>
       async (input, init) =>
-        String(input) === `${home}b/${hash}` ? new Response('', { status }) : fetchWith(null)(input, init);
-    const unserved = (hash: Hash) => answering(hash, 503);
-    const noRead = await run(unserved(read));
+        String(input) === `${home}b/${hash}` ? new Response(body, { status }) : fetchWith(doctor)(input, init);
+    const noRead = await run(answering(read, 503));
     expect(noRead.refused).toEqual([`coin: the read ${read} of a trace on ${D} from ${home} cannot be read`]);
     expect(noRead.coin).toMatchObject({ reproduced: false });
-    // A home that answers that it does not hold a read its fold measured: the read is left out, as it says its fold
-    // left it out, and the balances do not reproduce.
-    const denied = await run(answering(read, 404));
-    expect(denied.refused).toEqual([`coin: the balances at head 2 from ${home} do not reproduce here (${addr(B)})`]);
+    // The home took A's trace, so it held the read then, and a store keeps a blob for good: a 404 for that read is
+    // refused, though the state is refolded without the read to match.
+    const withoutRead: Doctor = async (s) => ({ ...s, balances: await balancesOver(home, s as unknown as State) });
+    const denied = await run(answering(read, 404, '', withoutRead));
+    expect(denied.refused).toEqual([
+      `coin: the read ${read} of a trace on ${D} from ${home} is not served, and the home's fold rests on it`,
+    ]);
+    // The home's bytes are read whatever the mirror holds: other bytes under the read's hash are refused where the
+    // mirror took the read in an earlier run.
+    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-coin-other-bytes-'));
+    expect((await mirror({ trackers: [home], out, now, fetchImpl: fetchWith(null) })).refused).toEqual([]);
+    expect(new MirrorFiles(out).getBlob(read)).toEqual(page);
+    const otherBytes = await mirror({ trackers: [home], out, now, fetchImpl: answering(read, 200, 'not the page') });
+    expect(otherBytes.refused).toEqual([`coin: the read ${read} of a trace on ${D} from ${home} does not check`]);
+    // A data blob is never absent: the core refuses a problem without one, so a home that lacks one cannot fold.
     const cited = citing();
     const C = problemHash(cited);
     const blobs = { [citesHash]: Buffer.from(cites).toString('base64') };
     expect((await post('p', { envelope: cited, blobs }, home)).status).toBe(201);
-    const noBlob = await run(unserved(citesHash));
+    const noBlob = await run(answering(citesHash, 503));
     expect(noBlob.refused).toEqual([
       `${C}: a blob from ${home} does not check`,
       `coin: the data blob ${citesHash} of ${C} from ${home} cannot be read`,
     ]);
     expect(noBlob.coin).toMatchObject({ reproduced: false });
+    const lacksBlob = await run(answering(citesHash, 404));
+    expect(lacksBlob.refused).toEqual([
+      `${C}: a blob from ${home} does not check`,
+      `coin: the data blob ${citesHash} of ${C} from ${home} is not served, and the home's fold rests on it`,
+    ]);
   });
 });
 
 describe('a read the home does not hold', () => {
   // Two doors. The dispute of the describe above is decided at `there`, which holds the read A's trace names. The
   // coin's home keeps both problems, their envelopes and chains as `there` serves them, and not the read, as a node
-  // with `work` beside `admit` keeps what its Quilt opens (NODE.md section 2). Its fold measures the read as absent, so
-  // the dispute stands there and the epoch mints nothing for it; the mirror's check leaves the read out as the home's
-  // fold does, whether or not the mirror holds it.
+  // with `work` beside `admit` keeps what its Quilt opens (NODE.md section 2), so no line the home wrote names the
+  // read. Its fold measures the read as absent, so the dispute stands at the home and the epoch mints nothing for it;
+  // the mirror's check leaves the read out as the home's fold does, whether or not the mirror holds it.
   let thereServer: Server;
   let homeServer: Server;
   let there: string;
@@ -737,7 +754,7 @@ describe('a read the home does not hold', () => {
   const stateAt = async (): Promise<State> => (await (await fetch(`${home}coin/state`)).json()) as State;
 
   beforeAll(async () => {
-    ({ server: thereServer, base: there } = await startTracker(now));
+    ({ server: thereServer, base: there } = await startTracker(now, { url: 'http://there.test/' }));
     const started = await startTracker(now, { coin });
     ({ server: homeServer, base: home } = started);
     tick = Date.parse(T0) + 24 * HOUR + 10 * 60_000;
@@ -777,6 +794,8 @@ describe('a read the home does not hold', () => {
 
   it("folds the read as absent where the home answers that it does not hold it, as the home's fold does", async () => {
     expect((await fetch(`${home}b/${read}`)).status).toBe(404);
+    const kept = await servedLines(`${home}p/${D}/events`);
+    expect(kept.flatMap((l) => l.received.map((w) => w.by))).not.toContain('http://t.test/');
     const state = await stateAt();
     // The read decides the coin: measured, A's square on the dispute is verified and the epoch pays A for it.
     expect(state.balances[addr(A)]).toBeUndefined();
@@ -1085,17 +1104,17 @@ describe('the documents on the coin at the mirror', () => {
     expect(
       coin.find((s) => s.startsWith('A state that is not what the run already had from the home is refused')),
     ).toContain(
-      'an envelope the fold rests on that does not check, and a data blob or a read the home does not answer for or serves under another hash, each with its chain or its hash named',
+      'and an envelope, a data blob or a read the fold rests on that is not served as named, each with its chain or its hash named',
     );
     expect(coin).toContain(
       'A door alone holds every data blob, since it takes no problem without them, and every read a trace on its chains names, since it takes no trace whose read it lacks.',
     );
-    expect(coin.find((s) => s.startsWith('A node with `work` beside `admit`'))).toContain(
-      'a data blob or a read the home answers `404` for is left out here too, as its fold leaves it out, whatever the mirror holds (`heldAtHome`)',
-    );
+    const lacked = coin.find((s) => s.startsWith('So a read the home answers `404` for is left out here too'));
+    expect(lacked).toContain('whatever the mirror holds, where no line the home wrote names it');
+    expect(lacked).toContain('the home held the read of a trace it took, since a store keeps a blob for good');
     const differ = coin.find((s) => s.startsWith('Two things can still make them differ'));
     expect(differ).toContain('a home restarted with other parameters or another founding standing');
-    expect(differ).toContain("a data blob or a read a home with `work` took between its state and the mirror's asking");
+    expect(differ).toContain("a read a home with `work` took between its state and the mirror's asking");
     expect(coin.join(' ')).not.toContain('in three ways');
     expect(coin.join(' ')).not.toContain('A head that moved');
     expect(coin.join(' ')).not.toContain('could not fetch');
@@ -1108,7 +1127,7 @@ describe('the documents on the coin at the mirror', () => {
     expect(route).toContain('`problems`, each problem the layer folded, every one the tracker holds');
     expect(route).toContain("`identity`, the identity log's head");
     expect(route).toContain("a hidden problem's (QX-6 section 3) and a replaced one's among them");
-    expect(route).toContain('`/b/<hash>` answers `404` for one it does not');
+    expect(route).toContain('the fold measures a read it lacks as absent, for which `/b/<hash>` answers `404`');
     expect(route).toContain(
       "computes the coin at its clock's time held to `folded.at` and the five seconds after it, however long the fold took",
     );
