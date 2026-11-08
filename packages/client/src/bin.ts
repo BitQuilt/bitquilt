@@ -2,37 +2,69 @@
 /**
  * quilt: the thing a person opens, and the MCP server their AI connects to.
  *
- *   quilt init [--phrase "twelve words"] [--secret <hex>] [--from <address>]   make or import the key (the phrase is shown once); --from brings a hosted address's key home
- *   quilt me                                              the address, name, model, trackers, queue, and the standing a tracker computes (what is locked, what is free)
- *   quilt mcp                                             the MCP server over stdio, with the page on localhost (what a chat client starts);
- *                                                         through the node already holding this home's page when there is one
+ *   quilt init [--phrase "twelve words"] [--secret <hex>] [--from <address>]
+ *                                                         make or import the key (the phrase is shown once); --from
+ *                                                         brings a hosted address's key home
+ *   quilt me                                              the address, name, model, trackers, queue, and the standing a
+ *                                                         tracker computes (what is locked, what is free)
+ *   quilt mcp                                             the MCP server over stdio, with the page on localhost (what a
+ *                                                         chat client starts); through the node already holding this
+ *                                                         home's page when there is one
  *   quilt serve [--port 3978]                             the page and the node alone
- *   quilt open <link>  |  quilt search <words>  |  quilt read <link>
- *                                                         open and read print the text quilt_open and quilt_read give (tools.ts), so the command line and the connector say one thing
- *   quilt next [problem] [--json]  |  quilt return <problem> <piece> '<json>' ['<rests json>']  |  quilt decline <problem> <piece> <reason>
- *                                                         next prints the text quilt_next gives; --json: the piece as one object, its seams quoted with their signers named, for a program that works it
- *                                                         the rests (QX-19): [{ field, url, passage }], what each field rests on; the page is fetched and the trace posted
- *   quilt seed <problem> on|off                          keep a problem: a seed event on its log, and the problem in the standing list
- *   quilt publish <pattern.json>  |  quilt name <name>  |  quilt flush
- *   quilt keep                                            the keeper's loop once: the queue sent, then every problem this node holds pulled again from where it is held, its
- *                                                         chain kept where it only grew, the reads its traces name fetched (the page runs it every half hour, the away turn every hour)
- *   quilt stake <problem> <min> [<family> ...]           the owner's stake rule (QX-15): what a claim on the pieces locks; 0 asks nothing
- *   quilt gold commit <problem> <answers.json>            the owner's gold after publishing (QX-16): piece names to answers, as a pattern's gold.answers; the stake follows the shares
- *   quilt gold reveal [<problem> <piece>]                 the owner's reveal of the gold committed on a piece (QX-16), from this home's library; with no piece, every
- *                                                         piece whose gold is due (its window open and not yet revealed), as each `quilt away` turn does before its agent
+ *   quilt open <link>
+ *   quilt search <words>
+ *   quilt read <link>                                     open and read print the text quilt_open and quilt_read give
+ *                                                         (tools.ts), so the command line and the connector say one
+ *                                                         thing
+ *   quilt next [problem] [--json]                         next prints the text quilt_next gives; --json: the piece as
+ *                                                         one object, its seams quoted with their signers named, for a
+ *                                                         program that works it
+ *   quilt return <problem> <piece> '<json>' ['<rests json>']
+ *                                                         the rests (QX-19): [{ field, url, passage }], what each field
+ *                                                         rests on; the page is fetched and the trace posted
+ *   quilt decline <problem> <piece> <reason>
+ *   quilt seed <problem> on|off                           keep a problem: a seed event on its log, and the problem in
+ *                                                         the standing list
+ *   quilt publish <pattern.json>
+ *   quilt name <name>
+ *   quilt flush
+ *   quilt keep                                            the keeper's loop once: the queue sent, then every problem
+ *                                                         this node holds pulled again from where it is held, its chain
+ *                                                         kept where it only grew, the reads its traces name fetched
+ *                                                         (the page runs it every half hour, the away turn every hour)
+ *   quilt stake <problem> <min> [<family> ...]            the owner's stake rule (QX-15): what a claim on the pieces
+ *                                                         locks; 0 asks nothing
+ *   quilt gold commit <problem> <answers.json>            the owner's gold after publishing (QX-16): piece names to
+ *                                                         answers, as a pattern's gold.answers; the stake follows the
+ *                                                         shares
+ *   quilt gold reveal [<problem> <piece>]                 the owner's reveal of the gold committed on a piece (QX-16),
+ *                                                         from this home's library; with no piece, every piece whose
+ *                                                         gold is due (its window open and not yet revealed), as each
+ *                                                         `quilt away` turn does before its agent
  *   quilt gold due                                        the pieces whose gold is due, with nothing posted
- *   quilt sharpen [<problem>]                             the owner's sharpening of a brief two grounded readings read apart (QX-19), the sentence from the agent CLI on this machine; every owned problem, or one
- *   quilt freeze <problem> [off]                          the owner's freeze of a brief in this home: no sharpening from then on, so no version republishes it; off thaws it
- *   quilt pay <problem> <amount> <per_square>            coin escrowed to a problem on the coin's home (QX-17), paid per accepted square
+ *   quilt sharpen [<problem>]                             the owner's sharpening of a brief two grounded readings read
+ *                                                         apart (QX-19), the sentence from the agent CLI on this
+ *                                                         machine; every owned problem, or one
+ *   quilt freeze <problem> [off]                          the owner's freeze of a brief in this home: no sharpening
+ *                                                         from then on, so no version republishes it; off thaws it
+ *   quilt pay <problem> <amount> <per_square>             coin escrowed to a problem on the coin's home (QX-17), paid
+ *                                                         per accepted square
  *   quilt balance                                         this key's coin at the first tracker that carries one
- *   quilt transfer <to> <amount>                          coin moved to an address on the coin log, from the time the home's parameters name
- *   quilt redeem <amount> [to]                            coin taken off the ledger for minting on the chain (the door out)
- *   quilt challenge <problem> <piece> <stake> <ground>  |  quilt verdict <problem> <piece> <challenge> <challenger|author> ['<json>']
+ *   quilt transfer <to> <amount>                          coin moved to an address on the coin log, from the time the
+ *                                                         home's parameters name
+ *   quilt redeem <amount> [to]                            coin taken off the ledger for minting on the chain (the door
+ *                                                         out)
+ *   quilt challenge <problem> <piece> <stake> <ground>
+ *   quilt verdict <problem> <piece> <challenge> <challenger|author> ['<json>']
  *   quilt rank <problem> <piece> <digest> [<digest>...]   a judge's ranking of a piece's candidates, first choice first
- *   quilt hide <id or hash> <why> [--lift]                a maintainer's takedown on this client's trackers, or its lift
- *   quilt install claude [--anyway]                     the connector written into Claude Desktop's config (run it while Claude is closed)
+ *   quilt hide <id or hash> <why> [--lift]                a maintainer's takedown on this client's trackers, or its
+ *                                                         lift
+ *   quilt install claude [--anyway]                       the connector written into Claude Desktop's config (run it
+ *                                                         while Claude is closed)
  *   quilt away [--cap N] [--install|--uninstall|--status|--summary] [--json]
- *                                                         one piece an hour while nobody is here, through Claude Code or Codex on the person's own plan (away.ts): a turn, the cap, the schedule, where it stands
+ *                                                         one piece an hour while nobody is here, through Claude Code
+ *                                                         or Codex on the person's own plan (away.ts): a turn, the cap,
+ *                                                         the schedule, where it stands
  *
  * Started by a chat client (no TTY on stdin) with no command, it runs `mcp`. Logs go to stderr; stdout is the protocol.
  */
@@ -57,7 +89,8 @@ const flag = (name: string): string | undefined => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
 };
-// The command is the first argument that is neither a flag nor the value after one; none at a terminal means `me`, none under a chat client (no TTY) means `mcp`.
+// The command is the first argument that is neither a flag nor the value after one; none at a terminal means `me`, none
+// under a chat client (no TTY) means `mcp`.
 const command =
   args.find((a) => !a.startsWith('--') && args[args.indexOf(a) - 1]?.startsWith('--') !== true) ??
   (process.stdin.isTTY ? 'me' : 'mcp');
@@ -73,14 +106,16 @@ function make(hostName?: string): Quilt {
 async function main(): Promise<void> {
   switch (command) {
     case 'init': {
-      // Two programs read the lines this prints by position, and test/init.test.ts holds them. deploy/house.sh keeps the
-      // first line alone, the address, so the twelve words stay out of the docker log. apps/mac's Node.swift takes the
-      // line after the one starting "Phrase" as the words, and reads a line starting "The key came home" as a key home.
+      // Two programs read the lines this prints by position, and test/init.test.ts holds them. deploy/house.sh keeps
+      // the first line alone, the address, so the twelve words stay out of the docker log. apps/mac's Node.swift takes
+      // the line after the one starting "Phrase" as the words, and reads a line starting "The key came home" as a key
+      // home.
       const phrase = flag('--phrase');
       const from = flag('--from');
       let secret = flag('--secret');
       if (from) {
-        // An address on a tracker (the hosted on-ramp, /join): its key, fetched once from <address>/key, comes home with the standing and coin it earned; the address is spent from then.
+        // An address on a tracker (the hosted on-ramp, /join): its key, fetched once from <address>/key, comes home
+        // with the standing and coin it earned; the address is spent from then.
         const r = await fetch(`${from.replace(/\/+$/, '')}/key`, { signal: AbortSignal.timeout(15000) });
         if (!r.ok) throw new Error(`the tracker did not hand over the key: ${r.status}`);
         const j = (await r.json()) as { secret?: string };
@@ -162,7 +197,8 @@ async function main(): Promise<void> {
       return;
     }
     case 'mcp': {
-      // One resolver, so every Quilt this process makes (one per host that connects, and the person's) shares one library.
+      // One resolver, so every Quilt this process makes (one per host that connects, and the person's) shares one
+      // library.
       const identity = loadKey(home);
       const resolver = new Resolver(config, home);
       const quiltFor = (hostName?: string) => new Quilt(config, identity, resolver, hostName);
@@ -187,7 +223,8 @@ async function main(): Promise<void> {
           );
         run = alone();
       }
-      // The AI that connects is recorded for the menu bar (phrases.ts): through the node when there is one, else in this copy's library.
+      // The AI that connects is recorded for the menu bar (phrases.ts): through the node when there is one, else in
+      // this copy's library.
       const connected = (host: string | null) => {
         if (node.found !== 'mine') return resolver.sawConnector(host);
         fetch(`http://127.0.0.1:${config.port}/api/connector`, {
@@ -213,7 +250,8 @@ async function main(): Promise<void> {
       console.log(`quilt page at http://localhost:${port}/`);
       return;
     }
-    // open, read and next print the tools' own text (tools.ts, runTool), so a line added to a tool reaches the command line with it.
+    // open, read and next print the tools' own text (tools.ts, runTool), so a line added to a tool reaches the command
+    // line with it.
     case 'open': {
       console.log((await runTool(make(), 'quilt_open', { link: args[1] ?? '' })).text);
       return;
@@ -229,12 +267,14 @@ async function main(): Promise<void> {
     }
     case 'next': {
       const problem = args.slice(1).find((a) => a !== '--json') ?? '';
-      // --json: the piece as one object a program reads (render.ts, handedJson), the seams in it as quilt_next says them.
+      // --json: the piece as one object a program reads (render.ts, handedJson), the seams in it as quilt_next says
+      // them.
       if (args.includes('--json')) {
         console.log(JSON.stringify(handedJson(await make().next(problem)), null, 2));
         return;
       }
-      // QX-19: quilt_next's text carries the seams of a piece whose two readings differ, so a person here sees them too.
+      // QX-19: quilt_next's text carries the seams of a piece whose two readings differ, so a person here sees them
+      // too.
       console.log((await runTool(make(), 'quilt_next', { problem })).text);
       return;
     }
@@ -247,7 +287,8 @@ async function main(): Promise<void> {
       return;
     }
     case 'sharpen': {
-      // QX-19 section 4: the owner's node sharpens its briefs, the sentence for each seam from the agent CLI on this machine.
+      // QX-19 section 4: the owner's node sharpens its briefs, the sentence for each seam from the agent CLI on this
+      // machine.
       const quilt = make();
       const agent = findAgent(searchDirs(process.env));
       if (!agent) {
@@ -266,7 +307,8 @@ async function main(): Promise<void> {
       return;
     }
     case 'return': {
-      // QX-19: a fourth argument, the rests as JSON, is what each field rests on; the page is fetched and the trace posted after the reveal.
+      // QX-19: a fourth argument, the rests as JSON, is what each field rests on; the page is fetched and the trace
+      // posted after the reveal.
       const rests = args[4] ? (JSON.parse(args[4]) as RestAsked[]) : [];
       const r = await make().return(
         args[1] as `sha256:${string}`,
@@ -360,7 +402,8 @@ async function main(): Promise<void> {
       return;
     }
     case 'away': {
-      // One piece an hour while nobody is at the keyboard (away.ts): a turn through an agent CLI on the person's own plan, or the cap, the schedule, the status and the summary of it.
+      // One piece an hour while nobody is at the keyboard (away.ts): a turn through an agent CLI on the person's own
+      // plan, or the cap, the schedule, the status and the summary of it.
       const r = await awayCli(args, { home, env: process.env, entry: entryHere(home), quilt: () => make() });
       console.log(r.out);
       if (r.code) process.exit(r.code);

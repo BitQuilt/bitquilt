@@ -16,7 +16,10 @@ import { hex, tempHome } from './helpers.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** `quilt init` with these arguments into a fresh home: its exit code and its output, stdout and stderr in one file as `2>&1` writes them. */
+/**
+ * `quilt init` with these arguments into a fresh home: its exit code and its output, stdout and stderr in one file as
+ * `2>&1` writes them.
+ */
 async function init(args: string[]): Promise<{ code: number | null; lines: string[] }> {
   const home = tempHome('quilt-init-');
   const file = join(home, 'out.txt');

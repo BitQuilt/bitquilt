@@ -25,7 +25,9 @@ export interface NostrEvent {
   sig: string;
 }
 
-/** The work on a problem as an announce states it (QX-13): the tracker's row when it was posted, or zeros at publish. */
+/**
+ * The work on a problem as an announce states it (QX-13): the tracker's row when it was posted, or zeros at publish.
+ */
 export interface AnnouncedWork {
   returned: number;
   accepted: number;
@@ -34,11 +36,12 @@ export interface AnnouncedWork {
   traced: { both: number; one: number; none: number };
   readers: number;
   vendors: number;
-  last:
-    | string
-    | null /** QX-20: the record pieces whose readings are in; absent from an announce made before the kind. */;
-  recorded?: number /** The roots that declined a piece, from a tracker's row; an announce's is not read. */;
-  declined?: number /** What the accepted squares found, from a tracker's row; an announce's is not read. */;
+  last: string | null;
+  /** QX-20: the record pieces whose readings are in; absent from an announce made before the kind. */
+  recorded?: number;
+  /** The roots that declined a piece, from a tracker's row; an announce's is not read. */
+  declined?: number;
+  /** What the accepted squares found, from a tracker's row; an announce's is not read. */
   found?: Record<string, Record<string, number>>;
 }
 
@@ -68,7 +71,10 @@ export interface RelayAnnouncement {
   mirrors: string[];
   relay: string;
   created_at: number;
-  /** QX-13: the problem this one forks, the pieces, the counts and the work, as the announcer's tracker counted them when it posted; null or empty where the announce says none. */
+  /**
+   * QX-13: the problem this one forks, the pieces, the counts and the work, as the announcer's tracker counted them
+   * when it posted; null or empty where the announce says none.
+   */
   from: Hash | null;
   pieces: number | null;
   counts: Record<string, number>;
@@ -83,7 +89,10 @@ function idOf(pubkey: string, created_at: number, kind: number, tags: string[][]
   return bytesToHex(sha256(new TextEncoder().encode(JSON.stringify([0, pubkey, created_at, kind, tags, content]))));
 }
 
-/** The relay event carrying a BitQuilt announce: `d` is the problem hash, `t` the topics, the content the announce itself. */
+/**
+ * The relay event carrying a BitQuilt announce: `d` is the problem hash, `t` the topics, the content the announce
+ * itself.
+ */
 export function announcementEvent(
   announce: Event,
   secret: Uint8Array,
@@ -171,7 +180,10 @@ export function readAnnouncement(ev: NostrEvent, relay: string): RelayAnnounceme
   }
 }
 
-/** One relay, one conversation, one deadline. The run gets the socket and a way to finish with a value; `onFail` is what the deadline or a dropped socket resolves with. */
+/**
+ * One relay, one conversation, one deadline. The run gets the socket and a way to finish with a value; `onFail` is what
+ * the deadline or a dropped socket resolves with.
+ */
 function talk<T>(
   relay: string,
   timeoutMs: number,
@@ -237,7 +249,10 @@ export async function postToRelays(
   return { posted, refused };
 }
 
-/** The filters a search sends: the latest announcements, and, for one word, the announcements tagged with it, since a relay's limit may cut the first short (NIP-01 takes several filters as a union; NIP-24 has tags in lower case). */
+/**
+ * The filters a search sends: the latest announcements, and, for one word, the announcements tagged with it, since a
+ * relay's limit may cut the first short (NIP-01 takes several filters as a union; NIP-24 has tags in lower case).
+ */
 export function searchFilters(query: string, limit: number): Record<string, unknown>[] {
   const q = query.trim().toLowerCase();
   const filters: Record<string, unknown>[] = [{ kinds: [KIND], limit }];

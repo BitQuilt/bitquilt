@@ -3,9 +3,9 @@
  * the houses beside the tracker, and the first pass used to run before the tracker listened, fail with ECONNREFUSED,
  * and leave the next pass five minutes off. The loop now asks the tracker for GET /.well-known/quilt every two seconds
  * and runs the first pass once it answers, or once HOUSE_TRACKER_WAIT seconds have passed; a stop inside the wait runs
- * no pass. Each test runs house.sh itself, copied into a folder of its own beside a worker that writes down when it ran,
- * against a tracker that opens late, never opens, or is up from the start. The loop needs a POSIX sh, its signals and
- * process groups, so the tests skip on Windows.
+ * no pass. Each test runs house.sh itself, copied into a folder of its own beside a worker that writes down when it
+ * ran, against a tracker that opens late, never opens, or is up from the start. The loop needs a POSIX sh, its signals
+ * and process groups, so the tests skip on Windows.
  */
 import { type ChildProcess, spawn } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';

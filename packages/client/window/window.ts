@@ -174,21 +174,33 @@ const state = {
   hot: null as Hot | null,
   lib: null as Lib | null,
   me: null as Me | null,
-  /** The person's own phrases, each with {link} where a problem's link goes: from `me` in a chat, from `phrases` on a site. */
+  /**
+   * The person's own phrases, each with {link} where a problem's link goes: from `me` in a chat, from `phrases` on a
+   * site.
+   */
   phrases: null as Record<string, string> | null,
   totals: null as Totals | null,
   busy: false,
   error: '',
-  /** Something was just handed to the person's AI: the answer comes in the chat, under the card. On a site, the sentence copied for the person to say. */
+  /**
+   * Something was just handed to the person's AI: the answer comes in the chat, under the card. On a site, the sentence
+   * copied for the person to say.
+   */
   told: '',
   copied: false,
 };
 let app: App | null = null;
-/** On a site: the reader's address from the page's own query, resolved against this document (`window/io` beside `/window`); in a chat, none. */
+/**
+ * On a site: the reader's address from the page's own query, resolved against this document (`window/io` beside
+ * `/window`); in a chat, none.
+ */
 const params = new URLSearchParams(location.search);
 const reader = params.get('reader') ? new URL(params.get('reader') as string, location.href).href : null;
 const standalone = reader !== null;
-/** On a site, a member's bearer token from the tracker's own authorization server, handed by the page that frames the card and kept here in memory alone; null until then, and again when the page says so. */
+/**
+ * On a site, a member's bearer token from the tracker's own authorization server, handed by the page that frames the
+ * card and kept here in memory alone; null until then, and again when the page says so.
+ */
 let token: string | null = null;
 /** Whether there is a person in the card: always in a chat; on a site, once the page has handed it a token. */
 const personal = (): boolean => !standalone || token !== null;
@@ -211,7 +223,10 @@ function btn(text: string, cls: string, act: () => void, disabled = false): HTML
   b.addEventListener('click', act);
   return b;
 }
-/** Where a tracker is, as a person reads it: the host, with the path where a door is a path under one name (tracker.bitquilt.org/two). */
+/**
+ * Where a tracker is, as a person reads it: the host, with the path where a door is a path under one name
+ * (tracker.bitquilt.org/two).
+ */
 const placeOf = (url: string): string => {
   try {
     const u = new URL(url);
@@ -237,7 +252,8 @@ function workOf(counts: Record<string, number>): { returned: number; accepted: n
 /** The reader behind the card: the app-only tool, over the session the host relays, answering JSON as text. */
 async function io<T>(op: string, body: Record<string, unknown> = {}): Promise<T> {
   if (reader) {
-    // On a site: the same ops as plain GETs to the reader beside this document; the on-ramp answers the read-only ones and refuses the rest.
+    // On a site: the same ops as plain GETs to the reader beside this document; the on-ramp answers the read-only ones
+    // and refuses the rest.
     const q = new URLSearchParams({ op });
     for (const [k, v] of Object.entries(body)) if (v !== undefined && v !== null) q.set(k, String(v));
     const r = await fetch(`${reader}?${q}`, {
@@ -245,7 +261,8 @@ async function io<T>(op: string, body: Record<string, unknown> = {}): Promise<T>
     });
     const text = await r.text();
     if (r.status === 401 && token) {
-      // The token ended or was revoked: the card goes back to the public view, and the page's login is the way in again.
+      // The token ended or was revoked: the card goes back to the public view, and the page's login is the way in
+      // again.
       token = null;
       setTimeout(() => void relaunch(), 0);
       throw new Error('Your login ended; log in again on the page.');
@@ -290,7 +307,10 @@ async function tell(text: string): Promise<void> {
   draw();
 }
 
-/** The sentence onto the clipboard: the clipboard API where the frame is allowed it (a site grants it on the frame), else the old copy command over the shown sentence, selected. */
+/**
+ * The sentence onto the clipboard: the clipboard API where the frame is allowed it (a site grants it on the frame),
+ * else the old copy command over the shown sentence, selected.
+ */
 async function copy(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
@@ -469,7 +489,8 @@ function drawResults(): void {
     );
     return;
   }
-  // The Napster columns with the quilt's nouns: the work from the tracker's row where it has one (APP.md, Search), else from the counts.
+  // The Napster columns with the quilt's nouns: the work from the tracker's row where it has one (APP.md, Search), else
+  // from the counts.
   const head = h(
     'tr',
     {},
@@ -529,7 +550,10 @@ function drawResults(): void {
   els.results.replaceChildren(h('table', {}, h('thead', {}, head), h('tbody', {}, ...body)));
 }
 
-/** The map: one square a piece, coloured by its state, dotted where attested, ringed where verified, underlined where a stake is asked. */
+/**
+ * The map: one square a piece, coloured by its state, dotted where attested, ringed where verified, underlined where a
+ * stake is asked.
+ */
 function mapOf(pieces: PieceRow[]): HTMLElement {
   const m = h('div', { class: 'map' });
   for (const p of pieces) {
@@ -887,7 +911,10 @@ function draw(): void {
   drawTold();
 }
 
-/** What the last button did: on a site, the sentence to say with a button that copies it again; in a chat, that the AI has it. */
+/**
+ * What the last button did: on a site, the sentence to say with a button that copies it again; in a chat, that the AI
+ * has it.
+ */
 function drawTold(): void {
   if (!state.told) {
     els.told.replaceChildren();
@@ -953,7 +980,10 @@ async function load(): Promise<void> {
   }
 }
 
-/** The card again after a login or a logout on the page: the person's views dropped, the tabs made again, everything read anew. */
+/**
+ * The card again after a login or a logout on the page: the person's views dropped, the tabs made again, everything
+ * read anew.
+ */
 async function relaunch(): Promise<void> {
   state.me = null;
   state.hot = null;
@@ -979,7 +1009,8 @@ async function start(): Promise<void> {
       state.view = 'problem';
     }
     if (window.parent !== window) {
-      // The page that frames the card may hand it a member's token, and take it back; the card says it is ready to take one. Nothing else is read from a message.
+      // The page that frames the card may hand it a member's token, and take it back; the card says it is ready to take
+      // one. Nothing else is read from a message.
       window.addEventListener('message', (e: MessageEvent) => {
         const d = e.data as { type?: unknown; token?: unknown } | null;
         if (!d || typeof d !== 'object' || d.type !== 'quilt:token') return;

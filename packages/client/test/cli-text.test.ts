@@ -15,9 +15,10 @@ import { hex, quiltOver, startTracker, tempHome } from './helpers.js';
 /**
  * The command line says what the tools say (bin.ts against tools.ts): `quilt open`, `quilt read` and `quilt next` print
  * the text runTool gives for quilt_open, quilt_read and quilt_next over the same home and the same ledger. So the lines
- * the command line once left out are there: the owner's gold (QX-16), the version that replaced a problem (QX-19
- * section 4), what the accepted squares found, and the record pieces' readings (QX-20). quilt_read opens with what
- * quilt_open says, the replaced-by line included. `quilt next --json` prints the piece as handedJson makes it, as before.
+ * the command line once left out are there: the owner's gold (QX-16), the version that replaced a problem
+ * (QX-19 section 4), what the accepted squares found, and the record pieces' readings (QX-20). quilt_read opens with
+ * what quilt_open says, the replaced-by line included. `quilt next --json` prints the piece as handedJson makes it, as
+ * before.
  */
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const run = promisify(execFile);
@@ -61,11 +62,17 @@ const pattern: Pattern = {
   },
 };
 
-/** A Quilt over the reader's home as the command line makes one (bin.ts, `make`): the same config and key, and no host named. */
+/**
+ * A Quilt over the reader's home as the command line makes one (bin.ts, `make`): the same config and key, and no host
+ * named.
+ */
 const asCli = (fetchImpl: typeof fetch = fetch): Quilt =>
   new Quilt(config, loadKey(home), new Resolver(config, home, fetchImpl));
 
-/** A fetch that takes every post as a tracker would and keeps it from the tracker, so the command line's claim after it meets the same ledger. */
+/**
+ * A fetch that takes every post as a tracker would and keeps it from the tracker, so the command line's claim after it
+ * meets the same ledger.
+ */
 const keepsPosts: typeof fetch = async (input, init) =>
   init?.method === 'POST' ? new Response('{}', { status: 202 }) : fetch(input, init);
 

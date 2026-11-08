@@ -52,7 +52,8 @@ import { instructs, json, mcpPair, quiltOver, startTracker, tempHome } from './h
  * cap, in words that describe; the driver refuses to start at the cap, and otherwise runs the agent and records the
  * run; the launchd plist runs this program's `away` every hour; the switch writes and removes it.
  */
-// The run while away is for a Mac or Linux: launchd or cron, a shell, posix paths. The tests that lean on those are skipped on Windows.
+// The run while away is for a Mac or Linux: launchd or cron, a shell, posix paths. The tests that lean on those are
+// skipped on Windows.
 const posix = it.skipIf(process.platform === 'win32');
 const entry = {
   command: '/opt/quilt',
@@ -302,7 +303,8 @@ describe('the schedule', () => {
         'start',
         'away',
       ]);
-      // A bare name is resolved to its path in the directories given, since launchd looks a program up with a PATH of its own; one found nowhere is left as given.
+      // A bare name is resolved to its path in the directories given, since launchd looks a program up with a PATH of
+      // its own; one found nowhere is left as given.
       const dev = { ...entry, command: 'pnpm', args: ['-s', '--filter', 'quilt', '--dir', '/r', 'start', 'mcp'] };
       expect(
         awayCommand(

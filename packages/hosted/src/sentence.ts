@@ -13,7 +13,10 @@ export type Sentence = (q: SentenceAsk) => Promise<string | null>;
 /** The models asked when none is named: the house's own defaults (deploy/house.sh). */
 export const SENTENCE_MODELS = { anthropic: 'claude-opus-5-5', openai: 'gpt-6-luna' } as const;
 
-/** The vendor the environment names, or null with no key: which key is set, and the model `QUILT_SENTENCE_MODEL` names or the default. */
+/**
+ * The vendor the environment names, or null with no key: which key is set, and the model `QUILT_SENTENCE_MODEL` names
+ * or the default.
+ */
 export function sentenceVendor(
   env: NodeJS.ProcessEnv,
 ): { vendor: 'anthropic' | 'openai'; key: string; model: string } | null {

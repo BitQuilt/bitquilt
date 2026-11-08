@@ -6,14 +6,15 @@ import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js
  * Gold pieces (QX-16) at the tracker's door and in its layer: the owner commits by hash before the work and nobody
  * else can, and the commitments are blind: the ledger shows how many there are and not which pieces, until the reveal
  * names one; the stake covers each commitment at the largest share among the pieces a gold can be on, one for each root
- * a miss would dock at the stake the rule asks and so two a piece where no stake is asked, and the owner's free standing
- * covers the stake, which is then locked; a reveal is refused on a piece worked before the gold, before acceptance,
- * after the window, twice, and when it matches no commitment; a match marks the square verified; a miss strikes the
- * set, docks its roots, forfeits their locks and sends the piece back; a struck root's challenge on the miss stakes
- * nothing, and one that holds restores the set and forfeits the owner's stake; a new root the miss left at zero can
- * still challenge it; a commitment left unrevealed lapses once the problem has settled. The state route's `window_open`
- * says where a reveal is taken: it follows the window, and on an attest piece whose window closes while a challenge
- * sits, where the layer says `challenged` and the core `unknown`, it says the window has closed as the refusal does.
+ * a miss would dock at the stake the rule asks and so two a piece where no stake is asked, and the owner's free
+ * standing covers the stake, which is then locked; a reveal is refused on a piece worked before the gold, before
+ * acceptance, after the window, twice, and when it matches no commitment; a match marks the square verified; a miss
+ * strikes the set, docks its roots, forfeits their locks and sends the piece back; a struck root's challenge on the
+ * miss stakes nothing, and one that holds restores the set and forfeits the owner's stake; a new root the miss left at
+ * zero can still challenge it; a commitment left unrevealed lapses once the problem has settled. The state route's
+ * `window_open` says where a reveal is taken: it follows the window, and on an attest piece whose window closes while a
+ * challenge sits, where the layer says `challenged` and the core `unknown`, it says the window has closed as the
+ * refusal does.
  */
 const ownerP = key(9),
   ownerQ = key(8),
@@ -73,7 +74,10 @@ type Challenge = { id: Hash; against: string; outcome: string; seats: { root: Ad
 const challengesOf = async (problem: Hash) =>
   ((await get(`/p/${problem}/challenges`)) as { challenges: Challenge[] }).challenges;
 
-/** The owner's gold: the projection of each answer to the agreed fields, a nonce each, and the blind commitments, in hash order. */
+/**
+ * The owner's gold: the projection of each answer to the agreed fields, a nonce each, and the blind commitments, in
+ * hash order.
+ */
 const golden = new Map<Hash, { projection: Record<string, unknown>; nonce: string }>();
 function commitments(pieces: Hash[], verdict = 'supports'): Hash[] {
   const out: Hash[] = [];
@@ -184,7 +188,8 @@ describe('gold pieces', () => {
     );
     expect(await refused(`/p/${p}/events`, reveal(ownerP, p, p1))).toBe('nothing accepted on this piece yet');
     expect((await pieceOf(p, p1)).window_open).toBe(false);
-    // A plain piece beside the gold, worked by the other owner, who earns the point a later gold of theirs is backed by.
+    // A plain piece beside the gold, worked by the other owner, who earns the point a later gold of theirs is backed
+    // by.
     await stakedReturn(p, p5, ownerQ, 'anthropic/claude');
     await stakedReturn(p, p5, judges[0]!, 'openai/gpt');
     expect(await standingOf(ownerQ)).toMatchObject({ standing: 2, locked: 1, free: 1 });
@@ -217,7 +222,8 @@ describe('gold pieces', () => {
       gold: 'miss',
       verified: false,
     });
-    // Five points: one docked, the square's withdrawn, the lock of one forfeited; the lock on the verified square still holds.
+    // Five points: one docked, the square's withdrawn, the lock of one forfeited; the lock on the verified square still
+    // holds.
     expect(await standingOf(A)).toMatchObject({ standing: 2, locked: 1, free: 1 });
     expect(await standingOf(B)).toMatchObject({ standing: 2, locked: 1, free: 1 });
     const offered = (await get(`/p/${p}/next?key=${addr(judges[3]!)}&can=web&model=meta/llama`)) as {
@@ -252,10 +258,12 @@ describe('gold pieces', () => {
       );
     expect((await challengesOf(p)).find((x) => x.id === id)!.outcome).toBe('held');
     expect(await pieceOf(p, p2)).toMatchObject({ state: 'accepted_provisional', gold: 'overruled', verified: false });
-    // The point docked, the square's point and the lock come back; nothing was staked, so nothing more is won: five, with two locked.
+    // The point docked, the square's point and the lock come back; nothing was staked, so nothing more is won: five,
+    // with two locked.
     expect(await standingOf(A)).toMatchObject({ standing: 5, locked: 2, free: 3 });
     expect(await standingOf(B)).toMatchObject({ standing: 5, locked: 2, free: 3 });
-    // The owner's first gold is forfeited whole, its unrevealed commitment dropped with it; the second still locks its two.
+    // The owner's first gold is forfeited whole, its unrevealed commitment dropped with it; the second still locks its
+    // two.
     expect(await standingOf(ownerP)).toMatchObject({ standing: 2, locked: 2, free: 0 });
     expect(await pieceOf(p, p3)).toMatchObject({ gold: null });
     expect(await goldOf(p)).toEqual({ committed: 3, pending: 1, verified: 1, missed: 0, overruled: 1, lapsed: 0 });
@@ -337,11 +345,13 @@ describe('gold pieces', () => {
     await returnOn(s, s1, F, 'meta/llama');
     const acceptedAt = clock.tick;
     expect(await pieceOf(s, s1)).toMatchObject({ state: 'accepted_provisional', core: 'unknown', window_open: true });
-    // A challenge half an hour before the window closes: challenged, and the core cannot say whether the window is open.
+    // A challenge half an hour before the window closes: challenged, and the core cannot say whether the window is
+    // open.
     clock.tick = acceptedAt + 47.5 * HOUR;
     await accepted(`/p/${s}/events`, ev(A, 'challenge', { stake: 1, ground: 'The author was never asked.' }, s, s1));
     expect(await pieceOf(s, s1)).toMatchObject({ state: 'challenged', core: 'unknown', window_open: true });
-    // Half an hour after, the panel still sits and the piece is still challenged; the window has closed, and the reveal is refused.
+    // Half an hour after, the panel still sits and the piece is still challenged; the window has closed, and the reveal
+    // is refused.
     clock.tick = acceptedAt + 48.5 * HOUR;
     expect(await pieceOf(s, s1)).toMatchObject({ state: 'challenged', core: 'unknown', window_open: false });
     expect(await refused(`/p/${s}/events`, reveal(ownerP, s, s1))).toBe('the window has closed');

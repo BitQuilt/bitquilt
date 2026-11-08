@@ -4,8 +4,8 @@
  * host's owner can serve, and by its own name, quoted; where the answer goes, which is what the tracker's mark reads;
  * what the token lets the client do and what it does not; and it takes the address the person holds as their proof, or
  * makes them one there (the join route, called from the page), so a person new to Quilt signs up inside the
- * connection and pastes nothing. One self-contained document, as the join page and the sheet are: nothing is loaded from
- * elsewhere, and what the script puts on the page it sets with `textContent`. It reads the request at
+ * connection and pastes nothing. One self-contained document, as the join page and the sheet are: nothing is loaded
+ * from elsewhere, and what the script puts on the page it sets with `textContent`. It reads the request at
  * `/oauth/authorize/request` and posts the answer to `/oauth/authorize`, then follows the redirect it is given.
  */
 export const AUTHORIZE_PAGE = `<!doctype html>

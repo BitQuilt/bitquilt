@@ -51,5 +51,6 @@ dt { color: var(--muted); } dd { margin: 0; word-break: break-all; }
 .told .lead { font-weight: 600; }
 .told .mono { user-select: all; word-break: break-all; }
 .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
-/* A narrow frame, a phone or a site's column: the five columns read least fold away, and the title, who, the pieces, the returned and the accepted stay with the buttons. */
+/* A narrow frame, a phone or a site's column: the five columns read least fold away, and the title, who, the pieces,
+   the returned and the accepted stay with the buttons. */
 @media (max-width: 640px) { .results th:nth-child(n+6):not(:last-child), .results td:nth-child(n+6):not(:last-child) { display: none; } }

@@ -20,7 +20,10 @@ export async function inParallel<T, R>(items: readonly T[], width: number, f: (i
 
 /** A read with its last answer cached, as `kept` makes it. */
 export interface Cached<T> {
-  /** The last answer while it is younger than the age given; else the last answer at once, with a fresh read started; else, where there is none yet, the first read's answer, or null where it takes longer than `wait` ms. */
+  /**
+   * The last answer while it is younger than the age given; else the last answer at once, with a fresh read started;
+   * else, where there is none yet, the first read's answer, or null where it takes longer than `wait` ms.
+   */
   get(wait: number): Promise<T | null>;
   /** The last answer set aside, for after a write that changes it: the next get reads again. */
   drop(): void;

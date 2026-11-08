@@ -5,7 +5,8 @@
  * docs/DEPLOY.md). The loop is examples/worker-loop.mjs; this file is the one call to the model.
  *
  *   ANTHROPIC_API_KEY=… QUILT_HOME=~/.config/quilt-worker QUILT_TRACKERS=http://localhost:3977/ \
- *     node examples/worker-claude.mjs <problem hash> [evidence.txt] [--model claude-opus-5-5] [--max 16] [--second-only]
+ *     node examples/worker-claude.mjs <problem hash> [evidence.txt] [--model claude-opus-5-5] [--max 16] \
+ *       [--second-only]
  *
  * The model is given the author's brief as quoted words and the evidence file when there is one; without one it is
  * given the search and fetch tools, so a source the brief names by an id (a PubMed Central id, a DOI, a title) is
@@ -25,7 +26,10 @@ const TOOLS = [
 const WITHOUT =
   'No evidence is given here: find the source the brief names with the search tool and read it with the fetch tool before answering, and quote from what you read.';
 
-/** The one call: the piece answered in its schema's shape by a Claude model, reading the source itself when no evidence is given. */
+/**
+ * The one call: the piece answered in its schema's shape by a Claude model, reading the source itself when no evidence
+ * is given.
+ */
 export async function ask({ piece, schema, evidence, note, model, key }) {
   const client = new Anthropic({ apiKey: key });
   const messages = [{ role: 'user', content: question(piece, evidence, WITHOUT) }];

@@ -3,7 +3,8 @@
 // an asset, and injected into a copy of this Node binary with postject. The release workflow runs this on a runner per
 // platform; locally it builds for the host.
 //
-//   node scripts/build-binaries.mjs            -> dist/bin/quilt-<platform>-<arch>, dist/bin/bitquilt-tracker-<platform>-<arch>
+//   node scripts/build-binaries.mjs            -> dist/bin/quilt-<platform>-<arch>,
+//                                                 dist/bin/bitquilt-tracker-<platform>-<arch>
 import { build } from 'esbuild';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';

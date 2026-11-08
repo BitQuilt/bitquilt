@@ -23,7 +23,8 @@ import { VERDICT, addr, by, calendarBytes, key, startTracker } from './helpers.j
  * The coin at the mirror (QX-17 section 7): the coin log is pulled, verified from the coin log's hash and anchored
  * beside the problems'; the balances the tracker says it computed are kept only where the mirror reproduces them from
  * the receipts it holds and the parameters the tracker publishes; a tracker whose balances differ is refused; and every
- * credit line on the coin log (the way back) is checked against the deposit the chain holds, or the balances are refused.
+ * credit line on the coin log (the way back) is checked against the deposit the chain holds, or the balances are
+ * refused.
  */
 const owner = key(9),
   A = key(1),

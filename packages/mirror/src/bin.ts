@@ -1,13 +1,14 @@
 #!/usr/bin/env tsx
 /**
- * bitquilt-mirror --trackers https://a/,https://b/ --out ./mirror [--by <name>] [--no-peers] [--anchor [--calendars https://a.pool.opentimestamps.org,...]]
+ * bitquilt-mirror --trackers https://a/,https://b/ --out ./mirror [--by <name>] [--no-peers]
+ *   [--anchor [--calendars https://a.pool.opentimestamps.org,...]]
  * Pulls from the sources and each one's peers one hop, verifies, keeps a chain of its own per log as the union of
  * their events, and writes the mirror's files; with --anchor, stamps every chain's head through OpenTimestamps (QX-12).
  * Each flag has a variable of the repository job's: BITQUILT_TRACKERS, BITQUILT_MIRROR, BITQUILT_MIRROR_BY (what the
- * mirror's own wrapper says), BITQUILT_PEERS (0 to follow none), BITQUILT_CALENDARS and BITQUILT_ANCHOR (set to 1). QUILT_CHAIN_RPC, QUILT_CHAIN_ID and QUILT_CONTRACTS are shared with the coin's jobs:
- * set, the bin opens the connection and the mirror checks every credit line on the coin log against the deposit the
- * chain holds (the way back); without them a ledger with credits is refused. Exits 1 when a tracker's chain is
- * refused, so a job notices.
+ * mirror's own wrapper says), BITQUILT_PEERS (0 to follow none), BITQUILT_CALENDARS and BITQUILT_ANCHOR (set to 1).
+ * QUILT_CHAIN_RPC, QUILT_CHAIN_ID and QUILT_CONTRACTS are shared with the coin's jobs: set, the bin opens the
+ * connection and the mirror checks every credit line on the coin log against the deposit the chain holds (the way
+ * back); without them a ledger with credits is refused. Exits 1 when a tracker's chain is refused, so a job notices.
  */
 import { chainFromEnv, depositAt } from '@bitquilt/coin';
 import { type DepositReader, mirror } from './mirror.js';

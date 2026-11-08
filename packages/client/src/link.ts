@@ -4,7 +4,8 @@
  */
 import { type Hash, isAddress, isHash, withSlash } from '@bitquilt/core';
 
-// The trailing slash a tracker's address carries is the core's rule; it stays reachable from here for what imports it from the link module.
+// The trailing slash a tracker's address carries is the core's rule; it stays reachable from here for what imports it
+// from the link module.
 export { withSlash } from '@bitquilt/core';
 
 export interface Link {

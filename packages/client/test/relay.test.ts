@@ -139,7 +139,8 @@ describe('discovery over relays (QX-14)', () => {
     });
     expect(relay.events.size).toBe(1);
     expect([...relay.events.values()][0]!.id).toBe(later.id);
-    // That event is dated a minute ahead, and a relay keeps the latest, so an announce made now could not replace it; put the present one back.
+    // That event is dated a minute ahead, and a relay keeps the latest, so an announce made now could not replace it;
+    // put the present one back.
     relay.events.set(`${good.pubkey}:${good.kind}:${problem}`, good);
   });
   it('states the owner, the fork, the pieces, the counts and the work at publish (QX-13)', () => {
@@ -245,7 +246,8 @@ describe('discovery over relays (QX-14)', () => {
     ]);
     expect(searchFilters('two words', 10)).toEqual([{ kinds: [KIND], limit: 10 }]);
     await slow.close();
-    // A title with an address in it: every signature holds, and the reader drops it all the same, since a relay admits anything.
+    // A title with an address in it: every signature holds, and the reader drops it all the same, since a relay admits
+    // anything.
     const bad = signEvent(
       {
         quilt: 1,

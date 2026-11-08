@@ -48,7 +48,8 @@ export interface CoinLockWord {
 
 /**
  * A lock as the layer keeps it: of standing, or of coin on the coin log (QX-17) that the door vouched for. Its release
- * is computed from the fold; a strike sets `forfeitedAt`, and a held challenge on a gold miss (QX-16) sets `restoredAt`.
+ * is computed from the fold; a strike sets `forfeitedAt`, and a held challenge on a gold miss (QX-16) sets
+ * `restoredAt`.
  */
 export interface LockView {
   id: Hash;
@@ -157,7 +158,10 @@ export function lockReleasedAt(
 
 // The lifecycle over the layer's record, in the order challengeLayer runs it.
 
-/** Why a stake rule would not be kept at `at` (section 1): malformed, not the owner's, or naming a piece the problem does not have; null when it would. */
+/**
+ * Why a stake rule would not be kept at `at` (section 1): malformed, not the owner's, or naming a piece the problem
+ * does not have; null when it would.
+ */
 export function ruleProblem(
   home: ProblemEntry,
   key: Address,
@@ -174,7 +178,10 @@ export function ruleProblem(
   return null;
 }
 
-/** Keeps each problem's stake rules in receipt order (section 1), dropping the rest with the reason; the latest kept at a time is the rule in force. */
+/**
+ * Keeps each problem's stake rules in receipt order (section 1), dropping the rest with the reason; the latest kept at
+ * a time is the rule in force.
+ */
 export function keepStakeRules(f: Folding): void {
   for (const e of f.entries.values())
     for (const { receipt, at, id } of orderReceipts(e.input.receipts)) {
@@ -207,7 +214,10 @@ export function ruleAt(home: ProblemEntry, at: string): StakeRule | null {
   return found;
 }
 
-/** When the fold releases a lock, read at `f.now`, or null while it would be live; a forfeit and its undoing are judged in `liveAt`. */
+/**
+ * When the fold releases a lock, read at `f.now`, or null while it would be live; a forfeit and its undoing are judged
+ * in `liveAt`.
+ */
 export function lockEnd(f: Folding, l: LockView): string | null {
   const home = f.entries.get(l.problem);
   const view = home?.fold.byHash.get(l.piece);
@@ -215,7 +225,10 @@ export function lockEnd(f: Folding, l: LockView): string | null {
   return lockReleasedAt(l, view, leaseOf(home.fold, view), home.fold.related, f.now);
 }
 
-/** Whether a lock is live at `at` (section 3): received by then, not forfeited then unless restored since, and not yet released. */
+/**
+ * Whether a lock is live at `at` (section 3): received by then, not forfeited then unless restored since, and not yet
+ * released.
+ */
 export function liveAt(f: Folding, l: LockView, at: string): boolean {
   if (l.at > at) return false;
   if (l.forfeitedAt !== null && at >= l.forfeitedAt && (l.restoredAt === null || at < l.restoredAt)) return false;

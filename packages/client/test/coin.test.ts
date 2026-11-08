@@ -87,7 +87,8 @@ const eventsBy = async (problem: Hash, address: string) =>
 
 describe('the coin, from the client', () => {
   it('shows coin in quilt_me once an epoch has minted it to the verified squares', async () => {
-    // Four points of standing for two gold pieces where no stake rule applies: two a piece, one for each root a miss would dock.
+    // Four points of standing for two gold pieces where no stake rule applies: two a piece, one for each root a miss
+    // would dock.
     q = (await other.publish(pattern('elsewhere', 3))).hash;
     for (let i = 0; i < 3; i++) {
       const qi = await pieceOf(q, i);
@@ -150,7 +151,8 @@ describe('the coin, from the client', () => {
 
   it('locks coin in place of standing when the standing is short, in one step with the claim', async () => {
     r = (await owner.publish({ ...pattern('staked', 1), stake: { min: 4 } })).hash;
-    // A has three points of standing and none locked; four are asked. Free coin: 380 units, and a point costs 50 at this door.
+    // A has three points of standing and none locked; four are asked. Free coin: 380 units, and a point costs 50 at
+    // this door.
     expect(await a.standing()).toMatchObject({ standing: 3, locked: 0, free: 3 });
     const handed = await a.next(r);
     expect(handed.stake).toBe(4);

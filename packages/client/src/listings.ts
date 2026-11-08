@@ -5,7 +5,10 @@
  */
 import type { Hash, PieceState, State } from '@bitquilt/core';
 
-/** The two sides of a challenge (QX-1): the key that challenged, and the author of the return it challenges. A verdict is for one of them. */
+/**
+ * The two sides of a challenge (QX-1): the key that challenged, and the author of the return it challenges. A verdict
+ * is for one of them.
+ */
 export const SIDES = ['challenger', 'author'] as const;
 export type Side = (typeof SIDES)[number];
 
@@ -22,10 +25,16 @@ export interface KindWords {
   weakest: boolean;
 }
 
-/** A piece's state as the layer shows it: the core's, or one the layer adds: challenged (QX-1), judging (QX-2), recording and recorded (QX-20). */
+/**
+ * A piece's state as the layer shows it: the core's, or one the layer adds: challenged (QX-1), judging (QX-2),
+ * recording and recorded (QX-20).
+ */
 export type LayerState = PieceState | 'challenged' | 'judging' | 'recording' | 'recorded';
 
-/** QX-20 section 3: a record piece's grade as the tracker gives it: the readings wanted and standing, how many rest on kept reads, from how many roots and vendors, and the keys whose readings stand. */
+/**
+ * QX-20 section 3: a record piece's grade as the tracker gives it: the readings wanted and standing, how many rest on
+ * kept reads, from how many roots and vendors, and the keys whose readings stand.
+ */
 export interface RecordGrade {
   wanted: number;
   standing: number;
@@ -53,18 +62,24 @@ export interface LayerPiece extends Omit<KindWords, 'kind' | 'strength'> {
   challenge: Hash | null;
   /** The stake of standing the problem asks of a claim on this piece (QX-15); 0 or absent where none. */
   stake?: number;
-  /** The piece's gold (QX-16): null or absent while no commitment has been revealed on it, else match, miss or overruled. */
+  /**
+   * The piece's gold (QX-16): null or absent while no commitment has been revealed on it, else match, miss or
+   * overruled.
+   */
   gold?: string | null;
   /** A square whose accepting set agreed with the owner's gold. */
   verified?: boolean;
   /**
-   * QX-16: whether an accepting set stands on the piece with its window open at the tracker's now, where a reveal of the
-   * gold is taken, a challenge open on it or not. Absent from a tracker older than 7 November 2026.
+   * QX-16: whether an accepting set stands on the piece with its window open at the tracker's now, where a reveal of
+   * the gold is taken, a challenge open on it or not. Absent from a tracker older than 7 November 2026.
    */
   window_open?: boolean;
   /** QX-19: how many traces the tracker keeps on the piece. */
   traces?: number;
-  /** QX-19: whether both reveals of the accepting set rest on kept reads, one, or neither; null where no two reveals accept it. */
+  /**
+   * QX-19: whether both reveals of the accepting set rest on kept reads, one, or neither; null where no two reveals
+   * accept it.
+   */
   traced?: 'both' | 'one' | 'none' | null;
   /** QX-19: where the two readings of a disputed piece differ, and why. */
   seams?: Seam[];
@@ -74,20 +89,28 @@ export interface LayerPiece extends Omit<KindWords, 'kind' | 'strength'> {
   record?: RecordGrade | null;
 }
 
-/** QX-19: one side of a seam: the key, what it returned for the field, and the read, span and passage it rests on, where it rests on anything. */
+/**
+ * QX-19: one side of a seam: the key, what it returned for the field, and the read, span and passage it rests on, where
+ * it rests on anything.
+ */
 export interface SeamSide {
   key: string;
   name?: string;
   value: unknown;
   read: { url: string; hash: Hash; at: string; media?: string } | null;
   span: [number, number] | null;
-  passage:
-    | string
-    | null /** QX-19 section 4: the layer folds the piece without this reading, since it rests on nothing where the other rests on the record. */;
+  passage: string | null;
+  /**
+   * QX-19 section 4: the layer folds the piece without this reading, since it rests on nothing where the other rests
+   * on the record.
+   */
   aside?: boolean;
 }
 
-/** QX-19: a field on which the two readings of a disputed piece differ, and why, read from what each rests on: different reads, the same read at different places, the same words read two ways, or nothing kept on a side. */
+/**
+ * QX-19: a field on which the two readings of a disputed piece differ, and why, read from what each rests on: different
+ * reads, the same read at different places, the same words read two ways, or nothing kept on a side.
+ */
 export interface Seam {
   field: string;
   why: 'source' | 'span' | 'reading' | 'unknown';
@@ -123,7 +146,10 @@ export interface ChallengeListing {
   decided_at: string | null;
 }
 
-/** A judge panel as a tracker lists it at /p/<hash>/panels (QX-2): the candidates by digest, their signers named once it has decided, the seats, each rank, the outcome. */
+/**
+ * A judge panel as a tracker lists it at /p/<hash>/panels (QX-2): the candidates by digest, their signers named once it
+ * has decided, the seats, each rank, the outcome.
+ */
 export interface PanelListing {
   piece: Hash;
   name: string;
@@ -145,7 +171,10 @@ export interface PanelListing {
 export interface Witness {
   via: string;
   client: string | null;
-  /** How a product's mark was bound to the product: the token exchange came from its published addresses, or was signed with its published key. Absent on `other`, and on a mark from before the binding. */
+  /**
+   * How a product's mark was bound to the product: the token exchange came from its published addresses, or was signed
+   * with its published key. Absent on `other`, and on a mark from before the binding.
+   */
   by?: 'address' | 'key' | null;
 }
 
@@ -157,7 +186,10 @@ export interface Takedown {
   at: string;
 }
 
-/** A problem's scrape as a tracker answers it at /p/<hash>/scrape: whether it is taken down (QX-6), and who keeps it (QX-4). */
+/**
+ * A problem's scrape as a tracker answers it at /p/<hash>/scrape: whether it is taken down (QX-6), and who keeps it
+ * (QX-4).
+ */
 export interface Scrape {
   hidden: Takedown | null;
   seeders: number;

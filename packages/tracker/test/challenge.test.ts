@@ -194,7 +194,8 @@ describe('the challenge window at the door', () => {
     expect(await refused(`/p/${p}/events`, verdict(first, p, p2, id, 'author'))).toBe('this seat lapsed');
     expect((await stateOf(p, p2)).state).toBe('challenged');
     await accepted(`/p/${p}/events`, verdict(fourth.root, p, p2, id, 'author'));
-    // The three that lapsed are done, the fourth has answered, and nobody else is in the pool: one verdict is no majority, so void.
+    // The three that lapsed are done, the fourth has answered, and nobody else is in the pool: one verdict is no
+    // majority, so void.
     [, c] = await challengesOf(p);
     expect(c!.outcome).toBe('void');
     expect(c!.seats.filter((s) => s.verdict).map((s) => s.verdict!.for)).toEqual(['author']);

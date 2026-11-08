@@ -17,7 +17,10 @@ import {
 } from '@bitquilt/core';
 import type { MemberTimes } from './counts.js';
 
-/** A client registered with the hosted on-ramp's authorization server (QX-18): its metadata as kept, and the hash of its secret where it has one. */
+/**
+ * A client registered with the hosted on-ramp's authorization server (QX-18): its metadata as kept, and the hash of its
+ * secret where it has one.
+ */
 export interface OAuthClientRow {
   clientId: string;
   metadata: Record<string, unknown>;
@@ -25,7 +28,10 @@ export interface OAuthClientRow {
   createdAt: string;
 }
 
-/** An authorization code by the hash it is kept under: the client, the member who presented their address, where it was sent, the PKCE challenge, and when it was spent. */
+/**
+ * An authorization code by the hash it is kept under: the client, the member who presented their address, where it was
+ * sent, the PKCE challenge, and when it was spent.
+ */
 export interface OAuthCodeRow {
   clientId: string;
   tokenHash: string;
@@ -64,7 +70,10 @@ export interface StoredEnvelope {
 
 export class Store {
   readonly db: DatabaseSync;
-  /** How many envelopes, blobs and receipts this store has taken since it opened: what the tracker's kept layer is keyed on. */
+  /**
+   * How many envelopes, blobs and receipts this store has taken since it opened: what the tracker's kept layer is keyed
+   * on.
+   */
   version = 0;
 
   constructor(path: string) {
@@ -94,8 +103,9 @@ export class Store {
       create index if not exists oauth_grants_member on oauth_grants (token_hash);
       create table if not exists oauth_assertions (jti_hash text primary key, expires_at text not null);
     `);
-    // SQLite has no "add column if not exists": a column the members table gained after the first databases were made is
-    // added here when it is missing, so a database made before it upgrades on open. Every store, new or old, takes this path.
+    // SQLite has no "add column if not exists": a column the members table gained after the first databases were made
+    // is added here when it is missing, so a database made before it upgrades on open. Every store, new or old, takes
+    // this path.
     const columns = new Set(
       (this.db.prepare('pragma table_info(members)').all() as { name: string }[]).map((c) => c.name),
     );
@@ -174,7 +184,10 @@ export class Store {
     return row ? new Uint8Array(row.bytes) : null;
   }
 
-  /** How many bytes a blob has, without reading it, or null where this store has none: what a trace's spans are measured against (QX-19). */
+  /**
+   * How many bytes a blob has, without reading it, or null where this store has none: what a trace's spans are measured
+   * against (QX-19).
+   */
   blobLength(hash: Hash): number | null {
     const row = this.db.prepare('select length(bytes) as n from blobs where hash = ?').get(hash) as
       | { n: number }
@@ -222,7 +235,8 @@ export class Store {
     const last = this.last(problem);
     let at = now;
     if (last && at <= last.at) at = new Date(Date.parse(last.at) + 1).toISOString();
-    // The wrapper may carry what the door read and vouches for (CORE.md section 5 allows extra fields); the coin's word is one (QX-17).
+    // The wrapper may carry what the door read and vouches for (CORE.md section 5 allows extra fields); the coin's word
+    // is one (QX-17).
     const received: Received = { by, at, ...(custody ? { custody } : {}), ...(seat ? { seat } : {}), ...(extra ?? {}) };
     const seq = (last?.seq ?? 0) + 1;
     const prev = last?.hash ?? hashHex(problem);
@@ -296,7 +310,10 @@ export class Store {
     return this.receipts(log, 0, Number.MAX_SAFE_INTEGER);
   }
 
-  /** Lines kept as another place gave them, with their seq, prev and hash: the node's keep after a chain only grew (PROTOCOL.md, The mirror). */
+  /**
+   * Lines kept as another place gave them, with their seq, prev and hash: the node's keep after a chain only grew
+   * (PROTOCOL.md, The mirror).
+   */
   appendLines(log: Hash, lines: Receipt[]): void {
     const insert = this.db.prepare(
       'insert into receipts (problem, seq, id, type, key, at, json, received, prev, hash) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -386,7 +403,9 @@ export class Store {
     return row.count > limit;
   }
 
-  /** A short hold on a piece for a key, so two clients on this tracker are not handed the same piece in the same minute. */
+  /**
+   * A short hold on a piece for a key, so two clients on this tracker are not handed the same piece in the same minute.
+   */
   hold(problem: Hash, piece: Hash, key: string, until: string): void {
     this.db
       .prepare(
@@ -395,7 +414,10 @@ export class Store {
       .run(problem, piece, key, until);
   }
 
-  /** A member whose key this tracker holds, by the hash of their address token. The key is stored encrypted; the store never sees it plain. */
+  /**
+   * A member whose key this tracker holds, by the hash of their address token. The key is stored encrypted; the store
+   * never sees it plain.
+   */
   putMember(tokenHash: string, address: string, keyEnc: string, at: string): void {
     this.db
       .prepare('insert into members (token_hash, address, key_enc, created_at) values (?, ?, ?, ?)')
@@ -413,14 +435,20 @@ export class Store {
     return row ? { address: row.address, keyEnc: row.key_enc, createdAt: row.created_at } : null;
   }
 
-  /** The first time a member's address was used, kept once: a later call changes nothing. What the funnel counts as addresses first used (counts.ts). */
+  /**
+   * The first time a member's address was used, kept once: a later call changes nothing. What the funnel counts as
+   * addresses first used (counts.ts).
+   */
   markMemberUsed(tokenHash: string, at: string): void {
     this.db
       .prepare('update members set first_used_at = ? where token_hash = ? and first_used_at is null')
       .run(at, tokenHash);
   }
 
-  /** When a member took the key home, kept once: a later call changes nothing. What the funnel counts as keys taken home (counts.ts). */
+  /**
+   * When a member took the key home, kept once: a later call changes nothing. What the funnel counts as keys taken home
+   * (counts.ts).
+   */
   markMemberKeyTaken(tokenHash: string, at: string): void {
     this.db
       .prepare('update members set key_taken_at = ? where token_hash = ? and key_taken_at is null')
@@ -434,7 +462,10 @@ export class Store {
     ).map((r) => r.token_hash);
   }
 
-  /** When each member was made, first used and took the key home, and nothing else about them: what the funnel reads (counts.ts). */
+  /**
+   * When each member was made, first used and took the key home, and nothing else about them: what the funnel reads
+   * (counts.ts).
+   */
   memberTimes(): MemberTimes[] {
     const rows = this.db
       .prepare('select created_at, first_used_at, key_taken_at from members order by created_at')
@@ -471,7 +502,9 @@ export class Store {
       .run(codeHash, code.clientId, code.tokenHash, code.redirectUri, code.challenge, code.resource, code.expiresAt);
   }
 
-  /** Spends a code: marks it used at `at` the first time, and returns it as it stood before, so a second use is seen. */
+  /**
+   * Spends a code: marks it used at `at` the first time, and returns it as it stood before, so a second use is seen.
+   */
   spendOAuthCode(codeHash: string, at: string): OAuthCodeRow | null {
     const row = this.db
       .prepare(
@@ -554,7 +587,10 @@ export class Store {
       : null;
   }
 
-  /** QX-18: a signed client assertion's id, kept once so the assertion is not presented again; false when it was seen already. */
+  /**
+   * QX-18: a signed client assertion's id, kept once so the assertion is not presented again; false when it was seen
+   * already.
+   */
   putAssertion(jtiHash: string, expiresAt: string): boolean {
     return (
       this.db
@@ -571,7 +607,10 @@ export class Store {
     return ids.map((r) => this.getGrant(r.id)!);
   }
 
-  /** Moves a live grant's refresh tokens on by one, from the generation presented; false where that is not the newest or the grant is revoked. */
+  /**
+   * Moves a live grant's refresh tokens on by one, from the generation presented; false where that is not the newest or
+   * the grant is revoked.
+   */
   rotateGrant(id: string, from: number): boolean {
     return (
       this.db
@@ -587,7 +626,10 @@ export class Store {
     this.db.prepare('update oauth_grants set revoked_at = ? where id = ? and revoked_at is null').run(at, id);
   }
 
-  /** A key's latest reveals across every log, newest first, by the index on (key, at): what the directory's hot list reads (APP.md, "The window"). */
+  /**
+   * A key's latest reveals across every log, newest first, by the index on (key, at): what the directory's hot list
+   * reads (APP.md, "The window").
+   */
   revealsBy(key: string, limit: number): { problem: Hash; piece: Hash; at: string }[] {
     const rows = this.db
       .prepare(

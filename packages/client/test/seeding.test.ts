@@ -4,7 +4,10 @@ import { type Hash } from '@bitquilt/core';
 import { type Pattern, Quilt } from '../src/quilt.js';
 import { json, quiltOver, startTracker } from './helpers.js';
 
-/** Quilt's side of QX-4 and QX-5: the seed verb and the standing list, and `next` with no problem named taking the tracker's offer. */
+/**
+ * Quilt's side of QX-4 and QX-5: the seed verb and the standing list, and `next` with no problem named taking the
+ * tracker's offer.
+ */
 let server: Server;
 let base: string;
 let owner: Quilt, a: Quilt, b: Quilt;
@@ -65,8 +68,9 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
 describe('seeding and the offer from Quilt', () => {
-  // The seeder's test runs first: with nobody seeding, the watch piece is anyone's, and which of three equally rare pieces
-  // comes first turns on the hour's tie-break. Once the seeder holds it, the other key can only draw a statement.
+  // The seeder's test runs first: with nobody seeding, the watch piece is anyone's, and which of three equally rare
+  // pieces comes first turns on the hour's tie-break. Once the seeder holds it, the other key can only draw a
+  // statement.
   it('seeds a problem: a seed event the tracker counts, the standing list, and the watch piece first', async () => {
     const r = await b.seed(problem, true);
     expect(r.queued).toBe(false);

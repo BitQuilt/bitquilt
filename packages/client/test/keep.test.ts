@@ -7,11 +7,11 @@ import { baseOf, quiltOver, startTracker } from './helpers.js';
 
 /**
  * The client's node as keeper (WORKSHOP.md section 2, stage one; PROTOCOL.md, The mirror): a node that opened a
- * problem holds its chain, and `keep` pulls it again from where it is held, keeps the lines that came since, fetches the
- * read a trace names so the node serves it, and keeps the identity log; a second tracker's chain for the same problem,
- * the same events in its own order, is read for the state it gives and not kept, since a node follows one place's
- * chain per problem; a second keep adds nothing; and what waited in the queue while no tracker answered goes out at the
- * start of a keep (APP.md, the node).
+ * problem holds its chain, and `keep` pulls it again from where it is held, keeps the lines that came since, fetches
+ * the read a trace names so the node serves it, and keeps the identity log; a second tracker's chain for the same
+ * problem, the same events in its own order, is read for the state it gives and not kept, since a node follows one
+ * place's chain per problem; a second keep adds nothing; and what waited in the queue while no tracker answered goes
+ * out at the start of a keep (APP.md, the node).
  */
 let one: Server, two: Server;
 let base: string, other: string;
@@ -71,7 +71,8 @@ describe('the node keeps what it holds', () => {
     // The publish put an announce and a version on the chain; the node holds those two from its open.
     expect(node.resolver.heldProblems().find((p) => p.problem === problem)!.lines).toBe(2);
     await a.return(problem, piece, { verdict: 'supports' });
-    // A's trace, resting the verdict on a page the tracker holds; signed with A's key and posted by hand, since the node under test is not A.
+    // A's trace, resting the verdict on a page the tracker holds; signed with A's key and posted by hand, since the
+    // node under test is not A.
     expect((await fetch(`${base}b/${pageHash}`, { method: 'PUT', body: enc.encode(PAGE) })).status).toBe(202);
     const reveal = (await linesAt(base)).find(
       (l) => l.event.type === 'reveal' && l.event.key === a.identity!.address,
@@ -155,7 +156,8 @@ describe('the node keeps what it holds', () => {
     expect(read).toHaveLength(2);
     expect(notes).toEqual([expect.stringMatching(new RegExp(`^${problem}: chain from ${other} did not only grow: `))]);
     expect(node.resolver.cachedReceipts(problem)).toHaveLength(5);
-    // The open put the second tracker first among the problem's places; a keep passes over its chain and its log, says so, and grows from the first as before.
+    // The open put the second tracker first among the problem's places; a keep passes over its chain and its log, says
+    // so, and grows from the first as before.
     const again = await node.resolver.keep();
     expect(again).toMatchObject({ problems: 1, added: 0, reads: 0 });
     expect(again.refused).toHaveLength(2);

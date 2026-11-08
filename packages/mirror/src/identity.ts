@@ -11,14 +11,20 @@ export interface Hide {
   at: string;
 }
 
-/** What keys.json holds for an address: its latest name, whether it is an agent on its own, and the delegations in force. */
+/**
+ * What keys.json holds for an address: its latest name, whether it is an agent on its own, and the delegations in
+ * force.
+ */
 export interface KeyEntry {
   name?: string;
   agent?: boolean;
   delegates: { to: string; scope: string[]; expires: string }[];
 }
 
-/** QX-6: every hide in an identity log, by the problem or event it names and the key that signed it; a lift by the same key removes its entry. The reader decides whom to trust. */
+/**
+ * QX-6: every hide in an identity log, by the problem or event it names and the key that signed it; a lift by the same
+ * key removes its entry. The reader decides whom to trust.
+ */
 export function hiddenFromIdentity(lines: Receipt[]): Map<string, Hide[]> {
   const out = new Map<string, Hide[]>();
   for (const line of lines) {
@@ -34,7 +40,10 @@ export function hiddenFromIdentity(lines: Receipt[]): Map<string, Hide[]> {
   return out;
 }
 
-/** keys.json: each address's latest name, whether it is an agent on its own, and the delegations in force at `now`: a delegation past its expiry is dropped, and a revoke removes the delegation to the address it names (`of`). */
+/**
+ * keys.json: each address's latest name, whether it is an agent on its own, and the delegations in force at `now`: a
+ * delegation past its expiry is dropped, and a revoke removes the delegation to the address it names (`of`).
+ */
 export function keysFromIdentity(lines: Receipt[], now: string): Record<string, KeyEntry> {
   const keys: Record<string, KeyEntry> = {};
   for (const line of lines) {

@@ -68,7 +68,10 @@ const AGENT = 'https://agent.example/callback';
 /** An address inside the range Anthropic publishes for its servers, and one outside every product's. */
 const ANTHROPIC = '160.79.104.10';
 const ELSEWHERE = '203.0.113.9';
-/** ChatGPT's document, as it is published; the hosted claude.ai document, whose address Anthropic does not publish, so a path on claude.ai's origin stands for it here. */
+/**
+ * ChatGPT's document, as it is published; the hosted claude.ai document, whose address Anthropic does not publish, so a
+ * path on claude.ai's origin stands for it here.
+ */
 const CHATGPT_DOC = 'https://chatgpt.com/oauth/client.json';
 const CHATGPT_JWKS = 'https://chatgpt.com/oauth/jwks.json';
 const CLAUDE_DOC = 'https://claude.ai/oauth/test-client-metadata';
@@ -80,7 +83,10 @@ const { publicKey: chatgptPublic, privateKey: chatgptPrivate } = generateKeyPair
 const { privateKey: strangerPrivate } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const chatgptJwk = { ...chatgptPublic.export({ format: 'jwk' }), kid: KID, use: 'sig', alg: 'RS256' };
 
-/** The documents the on-ramp may read, served from memory; everything else goes to the network, since the tracker is real. */
+/**
+ * The documents the on-ramp may read, served from memory; everything else goes to the network, since the tracker is
+ * real.
+ */
 const documents: Record<string, Record<string, unknown>> = {
   [CHATGPT_DOC]: {
     client_id: CHATGPT_DOC,
@@ -104,7 +110,8 @@ const documents: Record<string, Record<string, unknown>> = {
     response_types: ['code'],
     token_endpoint_auth_method: 'none',
   },
-  // The site's own document, as site/.well-known/oauth/client-metadata.json publishes it: no secret, PKCE in the browser, its login page the callback.
+  // The site's own document, as site/.well-known/oauth/client-metadata.json publishes it: no secret, PKCE in the
+  // browser, its login page the callback.
   [SITE_DOC]: {
     client_id: SITE_DOC,
     client_name: 'bitquilt.org',
@@ -115,7 +122,8 @@ const documents: Record<string, Record<string, unknown>> = {
     token_endpoint_auth_method: 'none',
     scope: 'quilt',
   },
-  // Documents of the wrong shape: one whose client_id is not its URL, one borrowing another host's keys, and one of a stranger's naming claude.ai's callback.
+  // Documents of the wrong shape: one whose client_id is not its URL, one borrowing another host's keys, and one of a
+  // stranger's naming claude.ai's callback.
   'https://agent.example/client.json': {
     client_id: 'https://agent.example/other.json',
     client_name: 'Agent',
@@ -201,7 +209,10 @@ function assertion(
   return `${head}.${body}.${signBytes('sha256', Buffer.from(`${head}.${body}`), key).toString('base64url')}`;
 }
 
-/** The person's part, as a browser does it: the page, what it reads of the request, and the answer with the address; the code where the redirect lands. */
+/**
+ * The person's part, as a browser does it: the page, what it reads of the request, and the answer with the address; the
+ * code where the redirect lands.
+ */
 async function person(
   authorization: URL,
   address: string,
@@ -212,7 +223,8 @@ async function person(
   expect(page.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
   const html = await page.text();
   expect(html).toContain('Let a client use your Quilt');
-  // Sign-up inside the connection: the page's own button calls the join route, and the address it makes answers the request.
+  // Sign-up inside the connection: the page's own button calls the join route, and the address it makes answers the
+  // request.
   expect(html).toContain('Make me an address');
   expect(html).toContain("fetch('/join', { method: 'POST' })");
   expect(html).not.toMatch(/(src|href)="https?:/);
@@ -248,7 +260,10 @@ async function person(
   };
 }
 
-/** A product's backend as the SDK's OAuth client plays it: identified by its document, sending the person to the page and keeping what the server hands it. */
+/**
+ * A product's backend as the SDK's OAuth client plays it: identified by its document, sending the person to the page
+ * and keeping what the server hands it.
+ */
 class Product implements OAuthClientProvider {
   info: OAuthClientInformationMixed | undefined;
   saved: OAuthTokens | undefined;
@@ -689,7 +704,8 @@ describe("ChatGPT's flow, end to end", () => {
     const me = await meText(client);
     expect(me.text).toContain('Witnessed by chatgpt.com');
     expect(me.text).toContain('signed with the key chatgpt.com publishes');
-    // The second vendor on the piece claude.ai returned, so the square is accepted and quilt_read names both witnesses; then the open piece, for the next client to second.
+    // The second vendor on the piece claude.ai returned, so the square is accepted and quilt_read names both witnesses;
+    // then the open piece, for the next client to second.
     await returnPiece(client, shared.piece);
     await returnPiece(client);
     for (const l of await receiptsOf(member.address))
@@ -854,7 +870,8 @@ describe('a code lifted from the browser', () => {
         }),
       ),
     ).toContain('redeemed by claude.ai');
-    // A document of one's own naming the product's callback binds by address like any other: from the range, the product itself made the request.
+    // A document of one's own naming the product's callback binds by address like any other: from the range, the
+    // product itself made the request.
     const fromRange = await landedCode('https://evil.example/claude.json', CLAUDE, {
       name: 'Claude',
       product: 'claude.ai',

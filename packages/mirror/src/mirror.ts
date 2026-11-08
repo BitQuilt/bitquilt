@@ -12,7 +12,8 @@
  * and refused where it did anything but grow:
  *
  *   problems/<hash>.json   blobs/<hash>   ledger/<hash>.jsonl   ledger/identity.jsonl   ledger/coin.jsonl (QX-17)
- *   names/<owner>/<slug>   outputs/<hash>/output.json   outputs/<hash>/record.json (QX-20)   keys.json   index.json   coin/balances.json   anchors/<problem>/<seq>.ots (QX-12, when asked)
+ *   names/<owner>/<slug>   outputs/<hash>/output.json   outputs/<hash>/record.json (QX-20)   keys.json   index.json
+ *   coin/balances.json   anchors/<problem>/<seq>.ots (QX-12, when asked)
  *
  * No `.head` file is written: the head is the ledger file's last line, stamped under `anchors/`. The mirror reads no
  * chain itself; the bin hands it one when the environment names it.
@@ -69,13 +70,20 @@ export interface MirrorOptions {
   /** The sources: trackers, or nodes, each read by what its well-known says it is. */
   trackers: string[];
   out: string;
-  /** What the mirror's own wrapper on every line it appends says received the event: its name or address; `mirror` unless set. */
+  /**
+   * What the mirror's own wrapper on every line it appends says received the event: its name or address; `mirror`
+   * unless set.
+   */
   by?: string;
-  /** Follow each configured source's peers (its well-known `peers`) one hop, as sources of their own; on unless false. */
+  /**
+   * Follow each configured source's peers (its well-known `peers`) one hop, as sources of their own; on unless false.
+   */
   peers?: boolean;
   fetchImpl?: typeof fetch;
   now?: () => string;
-  /** QX-12: stamp every chain's head through OpenTimestamps; true for the default calendars, or the calendars to ask. */
+  /**
+   * QX-12: stamp every chain's head through OpenTimestamps; true for the default calendars, or the calendars to ask.
+   */
   anchor?: boolean | { calendars?: string[] };
   /** QX-17: pull the coin log of a tracker that is the coin's home and reproduce its balances; on unless false. */
   coin?: boolean;
@@ -86,7 +94,10 @@ export interface MirrorOptions {
   chain?: DepositReader | null;
 }
 
-/** What the chain holds at a deposit number: `depositAt` of @bitquilt/coin bound to a connection; the mirror's only read of the chain. */
+/**
+ * What the chain holds at a deposit number: `depositAt` of @bitquilt/coin bound to a connection; the mirror's only read
+ * of the chain.
+ */
 export interface DepositReader {
   depositAt(n: number): Promise<{ root: string; amount: bigint | number; made: boolean }>;
 }
@@ -97,11 +108,19 @@ export interface KeepOptions {
   store: KeptStore;
   /** The sources: trackers, or nodes, each read by what its well-known says it is. */
   sources: string[];
-  /** The folder the publication goes to (the names, the outputs, the coin's balances); none for a node that keeps and serves from its store. */
+  /**
+   * The folder the publication goes to (the names, the outputs, the coin's balances); none for a node that keeps and
+   * serves from its store.
+   */
   out?: string | null;
-  /** What the keeper's own wrapper on every line it appends says received the event: its name or address; `mirror` unless set. */
+  /**
+   * What the keeper's own wrapper on every line it appends says received the event: its name or address; `mirror`
+   * unless set.
+   */
   by?: string;
-  /** Follow each configured source's peers (its well-known `peers`) one hop, as sources of their own; on unless false. */
+  /**
+   * Follow each configured source's peers (its well-known `peers`) one hop, as sources of their own; on unless false.
+   */
   peers?: boolean;
   fetchImpl?: typeof fetch;
   now?: () => string;
@@ -114,17 +133,26 @@ export interface MirrorReport {
   /** Every source read this run: the configured ones, then the peers followed. */
   sources: string[];
   problems: { hash: Hash; lines: number; added: number; complete: boolean }[];
-  /** The problems held here that no source listed this run, kept as they were: hidden or replaced at their source, or the source gone. */
+  /**
+   * The problems held here that no source listed this run, kept as they were: hidden or replaced at their source, or
+   * the source gone.
+   */
   kept: Hash[];
   identity: { lines: number; added: number };
-  /** QX-17: the coin log held, whether the tracker's balances at its head reproduced here (null where the head moved between reads), and how many credits were checked against the chain. */
+  /**
+   * QX-17: the coin log held, whether the tracker's balances at its head reproduced here (null where the head moved
+   * between reads), and how many credits were checked against the chain.
+   */
   coin?: { lines: number; added: number; head: number | null; reproduced: boolean | null; credits?: number };
   refused: string[];
   errors: string[];
   anchors?: AnchorReport;
 }
 
-/** A guard against a tracker whose paging has no end: a chain not read whole within it is refused like any other that cannot be read whole. */
+/**
+ * A guard against a tracker whose paging has no end: a chain not read whole within it is refused like any other that
+ * cannot be read whole.
+ */
 const MAX_PAGES = 10_000;
 
 /** What `/coin/state` answers: the head the balances are of, the time they were computed at, and the balances. */
@@ -134,7 +162,10 @@ interface CoinState {
   balances: Record<string, BalanceView>;
 }
 
-/** What every step of a run shares: the store kept in, where the publication goes if anywhere, how to fetch, the clock, the report being built, and the problems taken so far with the tracker each came from. */
+/**
+ * What every step of a run shares: the store kept in, where the publication goes if anywhere, how to fetch, the clock,
+ * the report being built, and the problems taken so far with the tracker each came from.
+ */
 interface Context {
   store: KeptStore;
   /** The publication's folder (names, outputs, balances, keys, index, anchors), or null for a node that only keeps. */
@@ -164,7 +195,10 @@ function contextFor(options: KeepOptions): Context {
   };
 }
 
-/** The pull: every source, and each configured one's peers one hop behind it, so a keeper pointed at one tracker keeps the swarm it names; then what no source listed, kept as it was. */
+/**
+ * The pull: every source, and each configured one's peers one hop behind it, so a keeper pointed at one tracker keeps
+ * the swarm it names; then what no source listed, kept as it was.
+ */
 async function pull(ctx: Context, options: KeepOptions): Promise<void> {
   const configured = [...new Set(options.sources.map(withSlash))];
   const sources = [...configured];
@@ -226,7 +260,10 @@ async function getBytes(ctx: Context, url: string): Promise<Uint8Array | null> {
   }
 }
 
-/** What a source's well-known says of it: whether it is a node, and the peers it names; a source with no well-known is read as a tracker with none. */
+/**
+ * What a source's well-known says of it: whether it is a node, and the peers it names; a source with no well-known is
+ * read as a tracker with none.
+ */
 async function describeSource(ctx: Context, source: string): Promise<{ node: boolean; peers: string[] }> {
   const known = (await getJson(ctx, `${source}.well-known/quilt`)) as { node?: boolean; peers?: unknown } | null;
   const peers = Array.isArray(known?.peers)
@@ -289,7 +326,10 @@ async function takeReads(ctx: Context, source: string, lines: Receipt[], label: 
   }
 }
 
-/** A chain read whole from a tracker, page by page along `x-quilt-next-since`; null where a page could not be read or the pages did not end within `MAX_PAGES`. */
+/**
+ * A chain read whole from a tracker, page by page along `x-quilt-next-since`; null where a page could not be read or
+ * the pages did not end within `MAX_PAGES`.
+ */
 async function getLines(ctx: Context, url: string): Promise<Receipt[] | null> {
   const lines: Receipt[] = [];
   let since = 0;
@@ -314,7 +354,10 @@ async function getLines(ctx: Context, url: string): Promise<Receipt[] | null> {
   return null;
 }
 
-/** What the reducer takes for a problem held here: its envelope chain along prev, the blobs, every receipt along the chain and the identity log. */
+/**
+ * What the reducer takes for a problem held here: its envelope chain along prev, the blobs, every receipt along the
+ * chain and the identity log.
+ */
 function inputFor(ctx: Context, envelope: Envelope, at: string): ReduceInput {
   const chainEnvelopes: Envelope[] = [envelope];
   const guard = new Set<Hash>([problemHash(envelope)]);
@@ -344,8 +387,8 @@ function inputFor(ctx: Context, envelope: Envelope, at: string): ReduceInput {
  * lacks, by id, whose shape and signature hold, is appended to the mirror's own chain in the source's order, with the
  * source's wrappers kept and the mirror's added (CORE.md section 5: the union of `received`, the earliest deciding the
  * time), so the chain here is the union of every source's events and only grows; a file written by an earlier run from
- * one source's chain verbatim is a prefix of it. As a whole (the coin log, QX-17): the source's chain is taken as it is,
- * and refused where it did anything but grow, since a coin log is one sequence and a union of two is neither.
+ * one source's chain verbatim is a prefix of it. As a whole (the coin log, QX-17): the source's chain is taken as it
+ * is, and refused where it did anything but grow, since a coin log is one sequence and a union of two is neither.
  */
 async function takeChain(
   ctx: Context,
@@ -390,7 +433,10 @@ async function takeChain(
   return { lines: held, added };
 }
 
-/** The envelope's blobs, each from the file held here where it hashes right and from the tracker otherwise; null where one does not check. */
+/**
+ * The envelope's blobs, each from the file held here where it hashes right and from the tracker otherwise; null where
+ * one does not check.
+ */
 async function takeBlobs(ctx: Context, tracker: string, envelope: Envelope): Promise<Map<Hash, Uint8Array> | null> {
   const blobs = new Map<Hash, Uint8Array>();
   for (const h of Object.values(envelope.problem.data)) {
@@ -402,7 +448,11 @@ async function takeBlobs(ctx: Context, tracker: string, envelope: Envelope): Pro
   return blobProblems(envelope.problem, blobs).length ? null : blobs;
 }
 
-/** A problem from a tracker, taken once: refuses an envelope that does not check or is not its owner's, a blob that does not check, and a chain that does not verify or did not only grow; a problem taken from an earlier tracker is left as it is. */
+/**
+ * A problem from a tracker, taken once: refuses an envelope that does not check or is not its owner's, a blob that does
+ * not check, and a chain that does not verify or did not only grow; a problem taken from an earlier tracker is left as
+ * it is.
+ */
 async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<void> {
   if (ctx.index.has(hash)) return;
   ctx.tried.add(hash);
@@ -427,7 +477,8 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
   for (const [h, bytes] of blobs) if (!ctx.store.getBlob(h)) ctx.store.putBlob(h, bytes);
   await takeReads(ctx, tracker, chain.lines, hash);
   ctx.index.set(hash, { envelope, tracker });
-  // Names and the output come from the events, not the tracker's word; both are the publication's, written where there is one.
+  // Names and the output come from the events, not the tracker's word; both are the publication's, written where there
+  // is one.
   if (ctx.out)
     for (const line of chain.lines)
       if (line.event.type === 'version' && line.event.key === envelope.problem.owner) {
@@ -454,7 +505,10 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
   ctx.report.problems.push({ hash, lines: chain.lines.length, added: chain.added, complete });
 }
 
-/** The identity log from a tracker, taken like a chain. Every tracker serves the one log, so with several the report's `lines` is the last one's count and `added` the most any one of them added over what was held when it was read. */
+/**
+ * The identity log from a tracker, taken like a chain. Every tracker serves the one log, so with several the report's
+ * `lines` is the last one's count and `added` the most any one of them added over what was held when it was read.
+ */
 async function takeIdentity(ctx: Context, tracker: string): Promise<void> {
   const identity = await takeChain(ctx, `${tracker}k/events`, IDENTITY_LOG, IDENTITY_LOG, 'identity');
   if (identity)
@@ -466,7 +520,8 @@ async function takeIdentity(ctx: Context, tracker: string): Promise<void> {
  * The tracker's balances are its word. They are kept only where the mirror computes the same from the receipts it
  * holds and the parameters the tracker publishes, and, since the ledger admits a credit on the reader's signature
  * alone, only where every credit is what the chain holds at that deposit; with no chain to ask, a ledger with credits
- * is refused rather than trusted. A head that moved between the two reads is left for the next run (`reproduced: null`).
+ * is refused rather than trusted. A head that moved between the two reads is left for the next run
+ * (`reproduced: null`).
  */
 async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | null): Promise<void> {
   const wellKnown = (await getJson(ctx, `${tracker}.well-known/quilt`)) as {
@@ -519,7 +574,10 @@ async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | nu
   }
 }
 
-/** The balances recomputed here from the receipts held and the parameters published, with the tracker's own layer code: the first root whose balance is not the tracker's, and the credits the ledger kept. */
+/**
+ * The balances recomputed here from the receipts held and the parameters published, with the tracker's own layer code:
+ * the first root whose balance is not the tracker's, and the credits the ledger kept.
+ */
 function reproduceBalances(
   ctx: Context,
   params: CoinParams,
@@ -536,7 +594,10 @@ function reproduceBalances(
   return { differs, credits: folded.credits() };
 }
 
-/** Every credit the ledger kept, against the deposit the chain holds at its number: why the first wrong one is refused, or null; with no chain to ask, any credit at all is refused. */
+/**
+ * Every credit the ledger kept, against the deposit the chain holds at its number: why the first wrong one is refused,
+ * or null; with no chain to ask, any credit at all is refused.
+ */
 async function checkCredits(chain: DepositReader | null, credits: CreditLine[]): Promise<string | null> {
   if (!chain)
     return credits.length
@@ -585,7 +646,9 @@ function writeKeys(ctx: Context, at: string): void {
   );
 }
 
-/** index.json: every problem taken, with its title, slug, owner, the tracker it came from and the hides on it (QX-6). */
+/**
+ * index.json: every problem taken, with its title, slug, owner, the tracker it came from and the hides on it (QX-6).
+ */
 function writeIndex(ctx: Context, at: string): void {
   const hiddenBy = hiddenFromIdentity(ctx.store.lines(IDENTITY_LOG));
   const problems = [...ctx.index].map(([hash, { envelope, tracker }]) => ({
@@ -599,7 +662,10 @@ function writeIndex(ctx: Context, at: string): void {
   writeFileSync(join(ctx.out!, 'index.json'), JSON.stringify({ quilt: 1, mirrored: at, problems }, null, 2) + '\n');
 }
 
-/** QX-12: the head of every chain held here (each problem's, the identity log's and the coin log's), stamped outside the ledger when asked; a head already stamped is kept. */
+/**
+ * QX-12: the head of every chain held here (each problem's, the identity log's and the coin log's), stamped outside the
+ * ledger when asked; a head already stamped is kept.
+ */
 async function anchorAll(ctx: Context, anchor: true | { calendars?: string[] }): Promise<void> {
   const heads: ChainHead[] = [];
   const headOf = (log: Hash, problem: string) => {

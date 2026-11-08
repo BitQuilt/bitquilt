@@ -15,7 +15,10 @@ import { instruction, question, refusal, runWorker } from './worker-loop.mjs';
 const WITHOUT =
   'No evidence is given here: find the source the brief names with web search and read it before answering, and quote from what you read.';
 
-/** The one call: the piece answered in its schema's shape by an OpenAI model, searching for the source itself when no evidence is given. */
+/**
+ * The one call: the piece answered in its schema's shape by an OpenAI model, searching for the source itself when no
+ * evidence is given.
+ */
 export async function ask({ piece, schema, evidence, note, model, key }) {
   const body = {
     model,

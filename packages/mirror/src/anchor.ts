@@ -135,7 +135,10 @@ export async function anchorHeads(options: {
   return report;
 }
 
-/** The anchors a mirror holds, read back: one entry per stamped head, in sequence order. Nothing in the job calls it; it is for a script or a test that reads a mirror. */
+/**
+ * The anchors a mirror holds, read back: one entry per stamped head, in sequence order. Nothing in the job calls it; it
+ * is for a script or a test that reads a mirror.
+ */
 export function anchorsHeld(
   out: string,
   problem: string,

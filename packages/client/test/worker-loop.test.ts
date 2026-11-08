@@ -84,8 +84,8 @@ function handed(
 /**
  * The loop the workers with no person beside them share (examples/worker-loop.mjs): the flags, the piece read from
  * what `quilt next --json` prints, made here by the client's own function, the schema the answer takes, the words the
- * model is given, and a model's refusal marked so the loop declines the piece with the reason `refuse`. The one call to a model is the
- * vendor file's own and is not called here.
+ * model is given, and a model's refusal marked so the loop declines the piece with the reason `refuse`. The one call to
+ * a model is the vendor file's own and is not called here.
  */
 describe("the workers' shared loop", () => {
   it('reads the flags: the problem and the evidence by position, the model and the cap by name, the two switches', () => {
@@ -157,7 +157,8 @@ describe("the workers' shared loop", () => {
       ]),
     )!;
     expect(schemaOf(dated).properties.when).toEqual({ type: 'string', description: 'A date as YYYY-MM-DD' });
-    // A string field the piece does not require says it may be left empty, since the strict shape asks for every field; fit leaves an empty one out.
+    // A string field the piece does not require says it may be left empty, since the strict shape asks for every field;
+    // fit leaves an empty one out.
     expect(schemaOf(dated).properties.note).toEqual({
       type: 'string',
       description: 'Empty where the record gives none',
@@ -200,7 +201,8 @@ describe("the workers' shared loop", () => {
     expect(question(piece, '')).toBe(
       `The author wrote this brief: "Find the date."\n\nAnswer with the fields: date. ${REST_ASK}`,
     );
-    // QX-19 section 4: the seams handed over go into the question, each line as quilt_next says it, every passage quoted with its signer named.
+    // QX-19 section 4: the seams handed over go into the question, each line as quilt_next says it, every passage
+    // quoted with its signer named.
     const seam: Seam = {
       field: 'date',
       why: 'source',
@@ -235,7 +237,8 @@ describe("the workers' shared loop", () => {
     expect(REST_ASK).toMatch(/^Under rests, /);
     expect(instruction('')).toMatch(/^You work one piece of a problem/);
     expect(instruction('')).toContain('no links or web addresses');
-    // The rests are the one place an address goes, said so, since a model told no string holds one names the page by title there too and nothing can be fetched.
+    // The rests are the one place an address goes, said so, since a model told no string holds one names the page by
+    // title there too and nothing can be fetched.
     expect(instruction('')).toContain('The rests are not part of the answer and are the one place an address goes');
     expect(instruction('Copy the words exactly.')).toMatch(/ Copy the words exactly\.$/);
   });
@@ -291,7 +294,8 @@ describe("the workers' shared loop", () => {
         missing: [],
       }),
     ).toBe(', trace refused: read 0: no such blob here; put it first: verdict on 1 read');
-    // A passage the client could not place is named in the log by its first words and its page, so the miss can be read.
+    // A passage the client could not place is named in the log by its first words and its page, so the miss can be
+    // read.
     const miss = [{ field: 'verdict', url: 'https://example.org/a', why: 'the passage is not on the page as fetched' }];
     expect(
       traceSaid({ posted: null, reads: 0, rested: [], missing: miss }, [
@@ -386,7 +390,8 @@ describe('the words the loop reads, from the sources that say them', () => {
 
   it('reads the three ways next says it has nothing to hand out as quiet', async () => {
     await worker.return(problem, piece, { when: '1776-08-02' });
-    // The piece read by this key: nothing on the problem for it, nothing to verify under the house's switch, and nothing on any tracker.
+    // The piece read by this key: nothing on the problem for it, nothing to verify under the house's switch, and
+    // nothing on any tracker.
     const said = [
       await thrown(worker.next(problem)),
       await thrown(verifying(() => worker.next(problem))),

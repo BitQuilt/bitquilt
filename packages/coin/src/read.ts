@@ -10,7 +10,10 @@ import { type Chain, type Deposit, depositAt, depositCount } from './chain.js';
 import { type HomeRead, fromHome, homeUrl } from './home.js';
 import { address, checkLine, hex64, wholeNumber } from './shapes.js';
 
-/** One credit line as the home serves it at `GET /coin/credits`: the shape `packages/tracker/src/coin.ts` serves there; keep the two the same. */
+/**
+ * One credit line as the home serves it at `GET /coin/credits`: the shape `packages/tracker/src/coin.ts` serves there;
+ * keep the two the same.
+ */
 export interface CreditLine {
   /** The coin log line's hash, 64 lowercase hex characters. */
   id: string;
@@ -44,7 +47,10 @@ export interface ReadOptions {
   door?: ReaderDoor;
   fetchImpl?: typeof fetch;
   now?: () => string;
-  /** Count deposits as of the chain's finalized block, which is the default; false reads the latest block, for a local chain that finalizes nothing. */
+  /**
+   * Count deposits as of the chain's finalized block, which is the default; false reads the latest block, for a local
+   * chain that finalizes nothing.
+   */
   finalized?: boolean;
 }
 
@@ -84,7 +90,10 @@ export function readCredits(home: string, options: HomeRead): Promise<Credits> {
   return fromHome(home, '/coin/credits', options, checkCredits);
 }
 
-/** One run of the reader: every finalized deposit the home has not credited yet goes up as a signed credit line, in order. */
+/**
+ * One run of the reader: every finalized deposit the home has not credited yet goes up as a signed credit line, in
+ * order.
+ */
 export async function read(options: ReadOptions): Promise<ReadReport> {
   const door: ReaderDoor = options.door ?? { depositCount, depositAt };
   const fetchImpl = options.fetchImpl ?? fetch;

@@ -155,7 +155,8 @@ describe('one node with roles (WORKSHOP.md section 2, stage three)', () => {
       'mirror is not a role',
     );
     const port = await freePort();
-    // Host without its key secret is refused before the store opens or the door listens, given no options or an empty secret.
+    // Host without its key secret is refused before the store opens or the door listens, given no options or an empty
+    // secret.
     for (const host of [undefined, { keySecret: '' }]) {
       const home = tempHome('quilt-node-s-');
       await expect(

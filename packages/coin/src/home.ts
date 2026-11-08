@@ -8,7 +8,10 @@
 /** The home's address with no trailing slash, for a path with a leading one to be joined onto. */
 export const homeUrl = (home: string): string => home.replace(/\/+$/, '');
 
-/** How a job reads the home: the sequence to read the ledger as of, the job's name for the user agent, and the fetch to use. */
+/**
+ * How a job reads the home: the sequence to read the ledger as of, the job's name for the user agent, and the fetch to
+ * use.
+ */
 export interface HomeRead {
   /** Ask the home for the ledger as it stood at this sequence; absent, its current head. */
   upto?: number | undefined;

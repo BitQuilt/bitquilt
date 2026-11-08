@@ -81,7 +81,8 @@ describe('the directory window', () => {
       `ui://quilt/window.${createHash('sha256').update(WINDOW_HTML).digest('hex').slice(0, 10)}.html`,
     );
     expect(WINDOW_HTML).toContain('<title>Quilt</title>');
-    // Rule 6, as page.test.ts holds the page: nothing loaded from another server, and the sources set text and never markup.
+    // Rule 6, as page.test.ts holds the page: nothing loaded from another server, and the sources set text and never
+    // markup.
     expect(WINDOW_HTML).not.toMatch(/<(script|link|img)[^>]+(src|href)=["']https?:/i);
     expect(WINDOW_HTML).not.toMatch(/\bhref=["']https?:/i);
     for (const f of ['window.ts', 'window.css']) {
@@ -118,7 +119,8 @@ describe('the directory window', () => {
     for (const name of card) expect(ui(name), name).toMatchObject({ resourceUri: WINDOW_URI_NOW });
     expect(ui('quilt_window_io')).toMatchObject({ resourceUri: WINDOW_URI_NOW, visibility: ['app'] });
     for (const t of tools) {
-      // quilt_next holds a piece as a side effect, so the card is not on it: a card that could show it would take pieces by being drawn.
+      // quilt_next holds a piece as a side effect, so the card is not on it: a card that could show it would take
+      // pieces by being drawn.
       if (![...card, 'quilt_window_io'].includes(t.name)) expect(ui(t.name), t.name).toBeUndefined();
       expect(t.description ?? '').not.toMatch(instructs);
     }
@@ -231,7 +233,8 @@ describe('the directory window', () => {
       counts: { open: 2, needs_verify: 1 },
       trackers: [{ tracker: base, problems: 1 }],
     });
-    // The same door under two names, as two doors folding each other look to a client that names both: each problem is counted once, by hash, and each place says what it lists.
+    // The same door under two names, as two doors folding each other look to a client that names both: each problem is
+    // counted once, by hash, and each place says what it lists.
     const alias = base.replace('127.0.0.1', 'localhost');
     const both = quiltOver(base, { trackers: [base, alias] })(3);
     expect(await windowAnswer(both, { op: 'totals' })).toEqual({

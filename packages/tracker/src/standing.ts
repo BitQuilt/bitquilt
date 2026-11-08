@@ -18,7 +18,10 @@ import { type LockView, type StakeRule, liveAt } from './stake.js';
 import { type GoldView, goldLiveAt } from './gold.js';
 import type { ChallengeView } from './challenge.js';
 
-/** A point a root earned: a reveal in an accepting set, counted from the set's completion `at`, and withdrawn at `until` by the strike that struck the set. */
+/**
+ * A point a root earned: a reveal in an accepting set, counted from the set's completion `at`, and withdrawn at `until`
+ * by the strike that struck the set.
+ */
 export interface Credit {
   root: Address;
   problem: Hash;
@@ -52,7 +55,10 @@ export interface ProblemEntry {
   decided: KindsDecided;
   /** The ids of the events struck out of this problem's fold. */
   struck: Set<Hash>;
-  /** QX-19 section 4: the reveals set aside, by event id, each also in `struck`: a reading that rests on nothing where the other rests on the record. */
+  /**
+   * QX-19 section 4: the reveals set aside, by event id, each also in `struck`: a reading that rests on nothing where
+   * the other rests on the record.
+   */
   aside: Set<Hash>;
   challenges: ChallengeView[];
   dropped: Dropped[];
@@ -70,12 +76,18 @@ export interface ProblemEntry {
 export interface Folding {
   /** The time the layer is read at: roots are resolved at it, lapses, windows and liveness are judged against it. */
   now: string;
-  /** QX-1 section 2 as amended 29 October 2026: the founding standing this tracker declares, by root in lower case, counted from the ledger's beginning. */
+  /**
+   * QX-1 section 2 as amended 29 October 2026: the founding standing this tracker declares, by root in lower case,
+   * counted from the ledger's beginning.
+   */
   founding: Map<string, number>;
   entries: Map<Hash, ProblemEntry>;
   /** The credits as the folds stand now, refreshed after every refold. */
   credits: Credit[];
-  /** The credits a strike withdrew, kept with the time they were withdrawn, so a panel drawn before the strike keeps its pool. */
+  /**
+   * The credits a strike withdrew, kept with the time they were withdrawn, so a panel drawn before the strike keeps its
+   * pool.
+   */
   struckCredits: Credit[];
   moves: Move[];
   /** Every standing or coin lock kept (QX-15), live or not. */
@@ -84,7 +96,10 @@ export interface Folding {
   golds: GoldView[];
   /** A root's standing at a time, `now` when none is given. */
   standing(root: Address, at?: string): number;
-  /** QX-15 section 3: the sum of a root's live standing locks and the stakes of its live golds (QX-16 section 5), at a time. */
+  /**
+   * QX-15 section 3: the sum of a root's live standing locks and the stakes of its live golds (QX-16 section 5), at a
+   * time.
+   */
   locked(root: Address, at?: string): number;
   /** QX-15 section 3: standing less locked, never below zero. */
   free(root: Address, at?: string): number;
@@ -108,14 +123,20 @@ export function newFolding(now: string, founding: Map<string, number> = new Map(
   return f;
 }
 
-/** The roots of a piece's accepting set: both reveals of an agree set; the patch's root and the two runners of a check or score set. */
+/**
+ * The roots of a piece's accepting set: both reveals of an agree set; the patch's root and the two runners of a check
+ * or score set.
+ */
 export function acceptingRoots(v: PieceView): Address[] {
   if (!v.accepting) return [];
   if (v.accepting.kind === 'agree') return v.accepting.reveals.map((r) => r.root);
   return [v.accepting.patch.root, ...v.accepting.runs.map((r) => r.root)];
 }
 
-/** The roots whose standing a set credits: the reveals, not the runs; an attested acceptance credits nobody, being the actor's own word. */
+/**
+ * The roots whose standing a set credits: the reveals, not the runs; an attested acceptance credits nobody, being the
+ * actor's own word.
+ */
 export function creditedRoots(v: PieceView): Address[] {
   if (!v.accepting) return [];
   if (viaOf(v.accepting) === 'attest') return [];
@@ -161,7 +182,10 @@ export function rootOf(f: Folding, key: Address, at: string): Address {
   return first ? first.fold.rootOf(key, at) : key;
 }
 
-/** QX-17 section 4: a burn on the coin log is credited as standing on the door's word in its wrapper, as a reader takes custody. */
+/**
+ * QX-17 section 4: a burn on the coin log is credited as standing on the door's word in its wrapper, as a reader takes
+ * custody.
+ */
 export function creditBurns(f: Folding, coin: Receipt[]): void {
   for (const r of coin) {
     const at = r.received[0]?.at;
@@ -208,7 +232,10 @@ function standingAt(f: Folding, root: Address, at: string): number {
   return s;
 }
 
-/** What a root has locked at a time: its live standing locks (QX-15 section 3) and the stakes of its live golds (QX-16 section 5). */
+/**
+ * What a root has locked at a time: its live standing locks (QX-15 section 3) and the stakes of its live golds
+ * (QX-16 section 5).
+ */
 function lockedAt(f: Folding, root: Address, at: string): number {
   return (
     f.locks.reduce(

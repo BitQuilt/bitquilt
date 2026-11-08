@@ -15,13 +15,13 @@ import { instructs, json, mcpPair, quiltOver, startTracker, tempHome } from './h
 
 /**
  * Gold pieces (QX-16) from the client's side: an owner publishes with the answers to some pieces, which leave the home
- * only as blind hashes naming no piece while the projections and nonces stay in the library; attention lists a reveal due once a piece is
- * accepted; the reveal through the tool marks the square verified, or strikes the set on a miss and says so; the
- * summary counts the gold; the tools describe and never instruct. And the reveals run with nobody asked (`revealDue`):
- * the away turn reveals every piece whose gold is due before its agent, whether or not one is here, says in its line
- * what the tracker decided, posts nothing twice, and keeps a refusal rather than throwing; `quilt gold due` lists them.
- * What is due follows the window the tracker holds open (`window_open`), under a challenge too, where the core says
- * `unknown` for an attest piece; a tracker that does not say it is read by its states and the core's.
+ * only as blind hashes naming no piece while the projections and nonces stay in the library; attention lists a reveal
+ * due once a piece is accepted; the reveal through the tool marks the square verified, or strikes the set on a miss and
+ * says so; the summary counts the gold; the tools describe and never instruct. And the reveals run with nobody asked
+ * (`revealDue`): the away turn reveals every piece whose gold is due before its agent, whether or not one is here, says
+ * in its line what the tracker decided, posts nothing twice, and keeps a refusal rather than throwing; `quilt gold due`
+ * lists them. What is due follows the window the tracker holds open (`window_open`), under a challenge too, where the
+ * core says `unknown` for an attest piece; a tracker that does not say it is read by its states and the core's.
  */
 let server: Server;
 let base: string;
@@ -172,7 +172,8 @@ describe('gold pieces, from the client', () => {
     expect(r.outcome).toBe('miss');
     expect((await trackerState(p)).pieces[1]).toMatchObject({ state: 'open', gold: 'miss', verified: false });
     await expect(owner.revealGold(p, p2)).rejects.toThrow(/the gold on this piece is revealed/);
-    // A struck root's challenge on the miss stakes nothing: 0 passes the client and the door, which on this small tracker then finds no panel to seat.
+    // A struck root's challenge on the miss stakes nothing: 0 passes the client and the door, which on this small
+    // tracker then finds no panel to seat.
     await expect(a.challenge(p, p2, -1, 'The gold is wrong.')).rejects.toThrow(/whole number from 0/);
     await expect(a.challenge(p, p2, 0, 'The gold is wrong.')).rejects.toThrow(/no panel can be seated/);
     const { client, close } = await mcpPair(owner);
@@ -191,7 +192,8 @@ describe('the reveals run with nobody asked', () => {
   const nobody = { env: { PATH: '/nonexistent' }, entry, dirs: ['/nonexistent'] };
 
   it('lists nothing due before a square is accepted, then reveals what is due in the away turn before any agent, and the line says what was decided', async () => {
-    // Standing first: four plain squares on another owner's problem, since a gold's stake is two a commitment; a fresh key starts at one.
+    // Standing first: four plain squares on another owner's problem, since a gold's stake is two a commitment; a fresh
+    // key starts at one.
     const plain = (await a.publish(pattern('plain', 4))).hash;
     for (let i = 0; i < 4; i++) {
       const pi = await pieceOf(plain, i);
@@ -244,7 +246,8 @@ describe('the reveals run with nobody asked', () => {
     const d3 = await pieceOf(d, 2);
     await a.return(d, d2, { verdict: 'supports', quote: 'q' });
     await b.return(d, d2, { verdict: 'supports', quote: 'q' });
-    // A commitment the library claims and the ledger never saw: the tracker refuses its reveal, and the run says so and goes on.
+    // A commitment the library claims and the ledger never saw: the tracker refuses its reveal, and the run says so and
+    // goes on.
     owner2.library.gold![d]![d3] = { name: 'statement/3', projection: { verdict: 'supports' }, nonce: '00'.repeat(16) };
     await a.return(d, d3, { verdict: 'supports', quote: 'q' });
     await b.return(d, d3, { verdict: 'supports', quote: 'q' });

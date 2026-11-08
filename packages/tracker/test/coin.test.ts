@@ -5,10 +5,11 @@ import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js
 /**
  * The coin as a layer (QX-17) at its home tracker: the parameters published; an epoch's amount minted to the verified
  * squares by weight after the treasury's share, nothing in an empty epoch, vesting over time; a coin lock on the coin
- * log bound to a stake at the problem's door with the receipt carrying the word; a pay escrowed from free coin, vested or not,
- * and paid per square to the credited roots; a burn credited as standing; a forfeit taking the lock and as much again
- * from the unvested, and a held challenge restoring both; a transfer and a redeem from vested free coin, the redeem listed under the head for the bridge, and a credit from the reader for a deposit burned on the chain; every balance
- * under the head.
+ * log bound to a stake at the problem's door with the receipt carrying the word; a pay escrowed from free coin, vested
+ * or not, and paid per square to the credited roots; a burn credited as standing; a forfeit taking the lock and as much
+ * again from the unvested, and a held challenge restoring both; a transfer and a redeem from vested free coin, the
+ * redeem listed under the head for the bridge, and a credit from the reader for a deposit burned on the chain; every
+ * balance under the head.
  */
 const ownerP = key(9),
   ownerQ = key(8),
@@ -195,7 +196,8 @@ describe('the coin as a layer', () => {
     await returnOn(q, q5, judges[1]!, 'google/gemini');
     await returnOn(q, q6, ownerP, 'anthropic/claude');
     await returnOn(q, q6, C, 'openai/gpt');
-    // Six points of standing for three gold pieces: a share of two each under a rule of 1, one for each root a miss would dock.
+    // Six points of standing for three gold pieces: a share of two each under a rule of 1, one for each root a miss
+    // would dock.
     expect(await standingOf(ownerP)).toMatchObject({ standing: 6, free: 6 });
     await accepted(`/p/${p}/events`, ev(ownerP, 'gold', { commitments: commitments([p1, p2, p3]), stake: 6 }, p));
   });
@@ -309,7 +311,8 @@ describe('the coin as a layer', () => {
     await returnOn(q, q3, D, 'openai/gpt');
     expect(await balanceOf(C)).toMatchObject({ balance: 25, vested: 25, received: 25 });
     expect(await balanceOf(D)).toMatchObject({ balance: 25 });
-    // The square paid left the payer's balance, from the unvested part first; the rest of the escrow waits for the next.
+    // The square paid left the payer's balance, from the unvested part first; the rest of the escrow waits for the
+    // next.
     expect(await balanceOf(A)).toMatchObject({ balance: 400, escrowed: 150, free: 150, vested: 225, unvested: 175 });
   });
 
@@ -318,7 +321,8 @@ describe('the coin as a layer', () => {
     await returnOn(p, p3, A, 'anthropic/claude', 'contradicts');
     await returnOn(p, p3, B, 'openai/gpt', 'contradicts');
     await accepted(`/p/${p}/events`, reveal(p, p3));
-    // Struck: the set is gone from the layer's fold (the claim A still holds keeps the piece in flight), and the core still says accepted.
+    // Struck: the set is gone from the layer's fold (the claim A still holds keeps the piece in flight), and the core
+    // still says accepted.
     expect(await pieceOf(p, p3)).toMatchObject({
       state: 'in_flight',
       core: 'accepted_provisional',

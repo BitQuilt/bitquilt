@@ -34,7 +34,10 @@ export const PRODUCT_ORIGINS: Readonly<Record<string, readonly string[]>> = {
   'chatgpt.com': ['https://chatgpt.com'],
 };
 
-/** The address ranges each product publishes for the servers that make its calls, as read on 1 November 2026; `QUILT_WITNESS_RANGES` replaces them. */
+/**
+ * The address ranges each product publishes for the servers that make its calls, as read on 1 November 2026;
+ * `QUILT_WITNESS_RANGES` replaces them.
+ */
 export const PRODUCT_RANGES: Readonly<Record<string, readonly string[]>> = {
   'claude.ai': ['160.79.104.0/21'],
   'chatgpt.com': [],

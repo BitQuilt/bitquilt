@@ -147,7 +147,8 @@ describe('the hosted on-ramp', () => {
     expect(mine.every((l) => l.received[0]!.custody === 'hosted' && l.received[0]!.seat === 'ai')).toBe(true);
     // The bare address names no witness (QX-18): only a token from the authorization server brings one.
     expect(mine.every((l) => !('via' in l.received[0]!))).toBe(true);
-    // The directory window (APP.md): the card's document is a resource of the same session, and its reader answers over it.
+    // The directory window (APP.md): the card's document is a resource of the same session, and its reader answers over
+    // it.
     expect((await client.listResources()).resources.map((r) => r.uri)).toContain(WINDOW_URI_NOW);
     const doc = (await client.readResource({ uri: WINDOW_URI_NOW })).contents[0] as {
       mimeType?: string;
@@ -165,7 +166,8 @@ describe('the hosted on-ramp', () => {
     await client.close();
   });
   it('sends the custody secret to its own door alone: a post to a tracker a link names carries none of it', async () => {
-    // Another tracker, by a link: it serves what this one serves and refuses every post as down, so each event goes on to this door.
+    // Another tracker, by a link: it serves what this one serves and refuses every post as down, so each event goes on
+    // to this door.
     const posts: Record<string, string | undefined>[] = [];
     const other = createServer((req, res) => {
       if (req.method === 'POST') {
@@ -294,13 +296,15 @@ describe('the hosted on-ramp', () => {
     expect(joinHtml).toContain('Find me something to do on Quilt.');
     expect(joinHtml).toContain('Explain how Quilt works to me, and how I would add a problem of my own.');
     expect(joinHtml).toContain('claude mcp add --transport http quilt');
-    // The add-to-claude.ai link: its address is filled in by the page's script once the address is made, so the document itself links nowhere else.
+    // The add-to-claude.ai link: its address is filled in by the page's script once the address is made, so the
+    // document itself links nowhere else.
     expect(joinHtml).toContain('id="claude" class="button" href="#"');
     expect(joinHtml).toContain(
       'https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Quilt&connectorUrl=',
     );
     expect(joinHtml).not.toMatch(/(src|href)="https?:/);
-    // The window for a site: the card as a page any site may frame, and its reader beside it, answering the read-only ops alone over this tracker.
+    // The window for a site: the card as a page any site may frame, and its reader beside it, answering the read-only
+    // ops alone over this tracker.
     const win = await fetch(`${base}window`);
     expect(win.headers.get('content-type')).toMatch(/text\/html/);
     expect(win.headers.get('content-security-policy')).toContain('frame-ancestors *');
@@ -498,7 +502,10 @@ describe('the page of a square', () => {
     const rest = (passage: string) => `verdict rests on “${passage}” ${link}`;
     const GONE = `verdict rests on a passage of the page ${link}; the page's bytes are not held here`;
     const NONE = 'It names no page it rests on.';
-    /** What each reading on the page rests on, in the page's order: the items of its list, or the sentence that it names none. */
+    /**
+     * What each reading on the page rests on, in the page's order: the items of its list, or the sentence that it names
+     * none.
+     */
     const restsOn = (html: string): (string[] | string)[] =>
       html
         .split('<section>')
@@ -517,8 +524,9 @@ describe('the page of a square', () => {
     const none = (await page(p, bare)).html;
     expect(none).toContain('Neither reading names a page kept here.');
     expect(restsOn(none)).toEqual([NONE, NONE]);
-    // The store loses the page's bytes: each rest still names the page and the hash it was kept under, and says the bytes are not held here.
-    // The delete is made past the store's methods, so the test counts it as a write: the layer is read again, and the grade is the store's as it now stands.
+    // The store loses the page's bytes: each rest still names the page and the hash it was kept under, and says the
+    // bytes are not held here. The delete is made past the store's methods, so the test counts it as a write: the layer
+    // is read again, and the grade is the store's as it now stands.
     const bytes = store.getBlob(read)!;
     store.db.prepare('delete from blobs where hash = ?').run(read);
     store.version += 1;
@@ -526,7 +534,8 @@ describe('the page of a square', () => {
       const gone = (await page(p, traced)).html;
       expect(gone).toContain('Neither reading names a page kept here.');
       expect(restsOn(gone)).toEqual([[GONE], [GONE]]);
-      // No reading calls the page kept: the grade's own sentence names "a page kept here", so the check reads the readings alone.
+      // No reading calls the page kept: the grade's own sentence names "a page kept here", so the check reads the
+      // readings alone.
       const readings = gone.split('<h2>The readings</h2>')[1]!.split('<h2>The problem</h2>')[0]!;
       expect(readings).toContain(GONE);
       expect(readings).not.toContain('a page kept here');
@@ -534,13 +543,17 @@ describe('the page of a square', () => {
       store.putBlob(read, bytes);
     }
 
-    // The owner sharpens the apart family: the traced piece keeps its hash in the newer version, and the apart piece's old hash is among the newer version's ancestral pieces.
+    // The owner sharpens the apart family: the traced piece keeps its hash in the newer version, and the apart piece's
+    // old hash is among the newer version's ancestral pieces.
     const newer = (await owner.sharpen(p, async () => 'Scale is read from the section that reports it.')).hash as Hash;
-    // Under the newer version's address, the readings made under the earlier one come from the fold over the whole chain, and so do their rests: the grade and the readings say the same.
+    // Under the newer version's address, the readings made under the earlier one come from the fold over the whole
+    // chain, and so do their rests: the grade and the readings say the same.
     const kept = (await page(newer, traced)).html;
     expect(kept).toContain('Both readings rest on pages kept here.');
     expect(restsOn(kept)).toEqual([[rest(HOLDS)], [rest(HOLDS)]]);
-    // The apart piece's old hash under the newer version's address: the page names the version that holds it and says what that version recorded, its state and the readings with their rests, as under that version's own address, and where the piece of the same name stands now.
+    // The apart piece's old hash under the newer version's address: the page names the version that holds it and says
+    // what that version recorded, its state and the readings with their rests, as under that version's own address, and
+    // where the piece of the same name stands now.
     const ancestral = (await page(newer, apart)).html;
     const under = (await page(p, apart)).html;
     expect(ancestral).toContain(`of the problem's version <code>${p}</code>.`);
@@ -555,7 +568,8 @@ describe('the page of a square', () => {
     expect(ancestral).toContain(
       `In the current version, <code>${newer}</code>, the piece of the same name is <code>${await pieceOf(newer, 'apart/1')}</code>`,
     );
-    // Under the older version's own address, the page reads as it did before: no later version is named as the address's.
+    // Under the older version's own address, the page reads as it did before: no later version is named as the
+    // address's.
     expect(under).not.toContain('The version this address names');
     expect(under).toContain('<p class="state">It is disputed: two readings differ.</p>');
   });
@@ -612,7 +626,9 @@ describe("the owners' turn", () => {
       pieces: { state: string; seams: { why: string }[] }[];
     };
     expect(state.pieces[0]).toMatchObject({ state: 'disputed', seams: [{ why: 'span' }] });
-    // The turn: the member's brief sharpened with the sentence, the version published under their key, the line in their log. A member with nothing in their home is passed over, and one who only worked another owner's problem has nothing to say.
+    // The turn: the member's brief sharpened with the sentence, the version published under their key, the line in
+    // their log. A member with nothing in their home is passed over, and one who only worked another owner's problem
+    // has nothing to say.
     const turns = await hosted.turn();
     const mine = turns.filter((t) => t.said);
     expect(mine.map((t) => t.address)).toEqual([made.address]);

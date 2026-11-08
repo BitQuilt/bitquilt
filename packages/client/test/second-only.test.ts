@@ -64,7 +64,8 @@ beforeAll(async () => {
   q = (await owner.publish(pattern('second'))).hash;
   [s1, s2] = (await claude.open(p)).state.pieces.map((v) => v.piece.hash) as [Hash, Hash];
   [q1, q2] = (await claude.open(q)).state.pieces.map((v) => v.piece.hash) as [Hash, Hash];
-  // On the first problem, one piece returned by Claude and one open; on the second, one returned by another OpenAI key and one open.
+  // On the first problem, one piece returned by Claude and one open; on the second, one returned by another OpenAI key
+  // and one open.
   await claude.return(p, s1, { verdict: 'supports' });
   await other.return(q, q1, { verdict: 'supports' });
 });

@@ -289,10 +289,12 @@ describe('the verifier kinds at the tracker', () => {
     expect(r.reveal).toMatch(/^sha256:/);
     const view = await pieceOf(p, 'told');
     expect(view).toMatchObject({ state: 'accepted_provisional', core: 'unknown', attested: true, weakest: true });
-    // As the core has it, a dependent unlocks on accepted, not on provisional: the window has to close first (the pure layer below).
+    // As the core has it, a dependent unlocks on accepted, not on provisional: the window has to close first (the pure
+    // layer below).
     expect(await pieceOf(p, 'after')).toMatchObject({ state: 'locked', core: 'locked' });
     expect(tracker.layer().standing(addr(A))).toBe(1);
-    // What is left for an AI: the judge piece; the human piece is kept for a person, the attested one is taken, the agree one waits.
+    // What is left for an AI: the judge piece; the human piece is kept for a person, the attested one is taken, the
+    // agree one waits.
     const offered = await nextFor(p, D, 'web');
     expect(offered.piece).toBe(summary);
     expect(offered).toMatchObject({ verifier: 'judge:3', strength: 'judged', weakest: false });
@@ -333,7 +335,8 @@ describe('the verifier kinds at the tracker', () => {
     expect(
       await refused(`/p/${p}/events`, ev(B, 'reveal', { return: ret, nonce, by: by('openai/gpt') }, p, vote)),
     ).toBe("a human piece takes a return from a person's seat");
-    // On a problem of one human piece, a client that declared no person is handed nothing; a person is handed the piece.
+    // On a problem of one human piece, a client that declared no person is handed nothing; a person is handed the
+    // piece.
     const H = sign({
       title: 'A vote alone',
       done_when: 'Two people agree.',

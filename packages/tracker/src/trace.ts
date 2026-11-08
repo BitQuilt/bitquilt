@@ -77,7 +77,10 @@ export interface Seam {
   why: SeamWhy;
   sides: [SeamSide, SeamSide];
 }
-/** QX-20 section 3: a record piece's grade: the readings wanted and standing, how many rest every agreed field on a kept read, from how many roots and vendors, and the keys that signed the standing ones. */
+/**
+ * QX-20 section 3: a record piece's grade: the readings wanted and standing, how many rest every agreed field on a kept
+ * read, from how many roots and vendors, and the keys that signed the standing ones.
+ */
 export interface RecordGrade {
   wanted: number;
   standing: number;
@@ -86,7 +89,10 @@ export interface RecordGrade {
   vendors: number;
   keys: Address[];
 }
-/** A piece's traces, its grade, its seams, the ids of the reveals set aside, where there are any (section 4), and on a record piece its grade (QX-20). */
+/**
+ * A piece's traces, its grade, its seams, the ids of the reveals set aside, where there are any (section 4), and on a
+ * record piece its grade (QX-20).
+ */
 export interface PieceTraces {
   traces: TraceView[];
   traced: Traced | null;
@@ -94,7 +100,10 @@ export interface PieceTraces {
   aside: Hash[];
   record: RecordGrade | null;
 }
-/** What a reading rests one field on: the read's address and the hash it was kept under, the span, and the passage as text where the read's bytes are held, or null where they are not. */
+/**
+ * What a reading rests one field on: the read's address and the hash it was kept under, the span, and the passage as
+ * text where the read's bytes are held, or null where they are not.
+ */
 export interface RestedOn {
   field: string;
   url: string;
@@ -146,7 +155,10 @@ export function traceBodyProblems(body: unknown): string[] {
   return [];
 }
 
-/** The kept reveals on a piece by the id of their event; a dropped reveal has no entry, so a trace naming it is dropped too. */
+/**
+ * The kept reveals on a piece by the id of their event; a dropped reveal has no entry, so a trace naming it is dropped
+ * too.
+ */
 function revealsById(view: PieceView, receipts: Receipt[]): Map<Hash, Reveal> {
   const out = new Map<Hash, Reveal>();
   for (const r of receipts) {
@@ -159,7 +171,10 @@ function revealsById(view: PieceView, receipts: Receipt[]): Map<Hash, Reveal> {
   return out;
 }
 
-/** Whether a trace by this key would be kept on this piece, and why not (section 1); `kept` are the traces already on the piece. */
+/**
+ * Whether a trace by this key would be kept on this piece, and why not (section 1); `kept` are the traces already on
+ * the piece.
+ */
 export function admitTrace(
   view: PieceView,
   receipts: Receipt[],
@@ -284,7 +299,10 @@ export function graded(view: PieceView, receipts: Receipt[], traces: readonly Tr
   return n === 2 ? 'both' : n === 1 ? 'one' : 'none';
 }
 
-/** QX-20 section 3: a record piece's grade over its standing readings, by the same rule as a square's: each is grounded when its trace rests every agreed field on a kept read. */
+/**
+ * QX-20 section 3: a record piece's grade over its standing readings, by the same rule as a square's: each is grounded
+ * when its trace rests every agreed field on a kept read.
+ */
 export function recordGraded(
   view: PieceView,
   record: RecordView,
@@ -321,7 +339,10 @@ function pairSeams(
   return own;
 }
 
-/** One reading's side of a seam on a field: the key, the value, and the read, span and passage its trace gives the field. */
+/**
+ * One reading's side of a seam on a field: the key, the value, and the read, span and passage its trace gives the
+ * field.
+ */
 function sideOf(
   view: PieceView,
   receipts: Receipt[],
@@ -344,7 +365,10 @@ function sideOf(
   };
 }
 
-/** A span of a read's bytes as text, or null where the bytes are not held: one way to read a passage, for the seams and the square page alike. */
+/**
+ * A span of a read's bytes as text, or null where the bytes are not held: one way to read a passage, for the seams and
+ * the square page alike.
+ */
 export function passageIn(bytes: Uint8Array | null, span: [number, number]): string | null {
   return bytes ? new TextDecoder().decode(bytes.subarray(span[0], span[1])) : null;
 }
@@ -436,7 +460,10 @@ export function recordSeams(
   return disputingPairs(fold, schema, fields, record.standing).flatMap((pair) => pairSeams(schema, fields, pair, side));
 }
 
-/** The three over one fold: the traces kept, the grade, and the seams with the reveals to set aside. The layer's fold is asked this way (challenge.ts); a record piece's grade is the tracker's to add. */
+/**
+ * The three over one fold: the traces kept, the grade, and the seams with the reveals to set aside. The layer's fold is
+ * asked this way (challenge.ts); a record piece's grade is the tracker's to add.
+ */
 export function pieceTraces(
   fold: State,
   view: PieceView,

@@ -13,7 +13,9 @@ import { freePort, tempHome } from './helpers.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const bin = join(root, 'packages', 'node', 'src', 'bin.ts');
 
-/** Runs the binary until its first line on stdout, or for a minute at most, then stops it; what it wrote to each stream. */
+/**
+ * Runs the binary until its first line on stdout, or for a minute at most, then stops it; what it wrote to each stream.
+ */
 function firstLine(env: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string }> {
   return new Promise((done, fail) => {
     const child = spawn(process.execPath, ['--import', 'tsx', bin], {

@@ -32,7 +32,10 @@ const ALGORITHMS: Record<string, { key: 'RSA' | 'EC'; options: Record<string, un
 };
 export const ASSERTION_TYPE = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer';
 
-/** A client metadata document as the on-ramp keeps it: the metadata the registration schema reads, the methods it allows at the token endpoint, and where its keys are. */
+/**
+ * A client metadata document as the on-ramp keeps it: the metadata the registration schema reads, the methods it allows
+ * at the token endpoint, and where its keys are.
+ */
 export interface ClientDocument {
   clientId: string;
   metadata: Record<string, unknown>;
@@ -79,7 +82,10 @@ function base64urlJson(part: string): Record<string, unknown> | null {
   }
 }
 
-/** How long a response may be kept: its max-age within the bounds, the default when it says nothing, and nothing at all when it says no-store. */
+/**
+ * How long a response may be kept: its max-age within the bounds, the default when it says nothing, and nothing at all
+ * when it says no-store.
+ */
 function keepFor(headers: Headers): number {
   const cc = headers.get('cache-control') ?? '';
   if (/\bno-store\b/i.test(cc)) return 0;
@@ -108,7 +114,10 @@ export class Documents {
     return Date.parse(this.options.now());
   }
 
-  /** A small JSON document from a public URL: no redirect followed, read to DOCUMENT_MAX bytes and no further, JSON or nothing. */
+  /**
+   * A small JSON document from a public URL: no redirect followed, read to DOCUMENT_MAX bytes and no further, JSON or
+   * nothing.
+   */
   private async read(url: string): Promise<{ json: unknown; headers: Headers }> {
     let r: Response;
     try {
@@ -152,7 +161,10 @@ export class Documents {
     return doc;
   }
 
-  /** The document held to the rules: its client_id is the URL, its redirect URIs parse, it authenticates as none or with a key, and a key is published on its own host. */
+  /**
+   * The document held to the rules: its client_id is the URL, its redirect URIs parse, it authenticates as none or with
+   * a key, and a key is published on its own host.
+   */
   private check(clientId: string, json: unknown): ClientDocument {
     if (!json || typeof json !== 'object' || Array.isArray(json))
       throw new DocumentError('the client metadata document is not a JSON object');
@@ -198,7 +210,10 @@ export class Documents {
     return { clientId, metadata: m as Record<string, unknown>, methods, jwksUri, jwks };
   }
 
-  /** The keys of a document: inline, or from its jwks_uri, read again for a key it does not have when the last reading is old enough. */
+  /**
+   * The keys of a document: inline, or from its jwks_uri, read again for a key it does not have when the last reading
+   * is old enough.
+   */
   private async keysOf(doc: ClientDocument, kid: string | undefined): Promise<JsonWebKey[]> {
     if (doc.jwks) return doc.jwks.keys;
     if (!doc.jwksUri) return [];

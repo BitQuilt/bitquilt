@@ -25,7 +25,8 @@ export {
 } from './read.js';
 export { deposit, selfAddress } from './chain.js';
 
-// The connection: from the environment, the reads the mirror and the claim make through it, and the writes the doors default to.
+// The connection: from the environment, the reads the mirror and the claim make through it, and the writes the doors
+// default to.
 export {
   chainFromEnv,
   lastPosted,

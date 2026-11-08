@@ -96,14 +96,19 @@ import {
 } from './trace.js';
 import type { Store } from './store.js';
 
-/** The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under. */
+/**
+ * The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under.
+ */
 export const IDENTITY: Hash = IDENTITY_LOG;
 /** QX-21: doors fold each other's chains. */
 export const PEER_PULL = 'QX-21';
 /** How often a tracker with peers pulls their chains, in milliseconds; the first pull a minute after start. */
 export const PEER_PULL_EVERY_MS = 300_000;
 
-/** QX-21: what one pull from one peer did: the lines added here, the events this door refused with why, and what could not be read. */
+/**
+ * QX-21: what one pull from one peer did: the lines added here, the events this door refused with why, and what could
+ * not be read.
+ */
 export interface PeerPull {
   peer: string;
   added: number;
@@ -125,13 +130,19 @@ const PROBLEM_LOG_EVENTS: ReadonlySet<string> = new Set([
 ]);
 /** The most a post may carry, 4 MB: room for an envelope with its blobs. */
 const MAX_BODY = 4 * 1024 * 1024;
-/** How long a piece handed out by next or the offer is held for that key, so two clients here are not handed the same piece in the same minute. */
+/**
+ * How long a piece handed out by next or the offer is held for that key, so two clients here are not handed the same
+ * piece in the same minute.
+ */
 const HOLD_SECONDS = 60;
 /** QX-18: a witness is a product's host name in lower case, or `other`. */
 export const WITNESS_VIA = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
 /** QX-18: the most characters of a client's own name the receipt carries. */
 export const CLIENT_NAME_MAX = 80;
-/** QX-18: how a product's mark was bound to the product: the token exchange came from its published addresses, or was signed with its published key. */
+/**
+ * QX-18: how a product's mark was bound to the product: the token exchange came from its published addresses, or was
+ * signed with its published key.
+ */
 export const WITNESS_BOUND_BY: readonly string[] = ['address', 'key'];
 /** QX-18: what the wrapper of a hosted post carries beside custody, when the on-ramp named a witness. */
 type Witnessed = { via?: string; via_by?: string; via_client?: string };
@@ -142,7 +153,10 @@ export interface TrackerOptions {
   url: string;
   /** The name the well-known document gives this tracker; its address when none. */
   name?: string;
-  /** QX-5 section 2: the one key whose seeded problems a key with no accepted work here is offered first (`QUILT_FIRST_SEEDER`); none when left out. */
+  /**
+   * QX-5 section 2: the one key whose seeded problems a key with no accepted work here is offered first
+   * (`QUILT_FIRST_SEEDER`); none when left out.
+   */
   firstSeeder?: Address;
   /** Other trackers' addresses, published at the well-known document for a client to try next. */
   peers?: string[];
@@ -150,23 +164,40 @@ export interface TrackerOptions {
   limits?: { keyPerHour: number; ipPerHour: number };
   /** The bits of proof of work a name event carries here (CORE.md, the stamp); 0, the default, asks none. */
   stamp?: { name: number };
-  /** What a network address is hashed with before it names a rate-limit bucket; random at each start when none is given, so a bucket is not read back to an address. */
+  /**
+   * What a network address is hashed with before it names a rate-limit bucket; random at each start when none is given,
+   * so a bucket is not read back to an address.
+   */
   ipSalt?: string;
   /** The clock, for the tests; the system's when none is given. */
   now?: () => string;
   /** The keys whose hide events this tracker honours (QX-6); published at the well-known document. */
   maintainers?: Address[];
-  /** QX-1 section 2 as amended 29 October 2026: a founding standing declared per root, published at the well-known document and counted into that root's standing from the ledger's beginning. */
+  /**
+   * QX-1 section 2 as amended 29 October 2026: a founding standing declared per root, published at the well-known
+   * document and counted into that root's standing from the ledger's beginning.
+   */
   founding?: Record<string, number>;
-  /** A secret only this process knows: a post carrying it in x-quilt-custody was made by the connector mounted beside the tracker, for a key it holds. */
+  /**
+   * A secret only this process knows: a post carrying it in x-quilt-custody was made by the connector mounted beside
+   * the tracker, for a key it holds.
+   */
   custodySecret?: string;
   /** Routes mounted beside the tracker, such as the hosted on-ramp. Answers true when it handled the request. */
   extra?: (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<boolean>;
-  /** What the routes mounted beside the tracker say of themselves at the well-known document, such as the witness the hosted on-ramp binds (QX-18). */
+  /**
+   * What the routes mounted beside the tracker say of themselves at the well-known document, such as the witness the
+   * hosted on-ramp binds (QX-18).
+   */
   extraWellKnown?: () => Record<string, unknown>;
-  /** The proxies whose X-Forwarded-For is believed (address.ts), as ranges; the private networks and the machine itself when none are given, and none at all for an empty list. */
+  /**
+   * The proxies whose X-Forwarded-For is believed (address.ts), as ranges; the private networks and the machine itself
+   * when none are given, and none at all for an empty list.
+   */
   trustedProxies?: readonly string[];
-  /** QX-17: the coin this tracker carries, or reads from a home; absent, it has no coin log and honours no coin lock. */
+  /**
+   * QX-17: the coin this tracker carries, or reads from a home; absent, it has no coin log and honours no coin lock.
+   */
   coin?: CoinParams;
   /** How the tracker reaches another tracker: the coin's home for a coin lock, and its parameters. */
   fetchImpl?: typeof fetch;
@@ -177,17 +208,26 @@ export interface Tracker {
   listen(port: number, host?: string): Promise<Server>;
   /** The core's fold of a problem this tracker holds. */
   reduceProblem(hash: Hash): ReturnType<typeof reduce> | null;
-  /** The layer over every problem this tracker holds, at now: the challenge window (QX-1), the verifier kinds (QX-2, QX-3, QX-10), the stakes and locks (QX-15) and the owner's gold (QX-16). */
+  /**
+   * The layer over every problem this tracker holds, at now: the challenge window (QX-1), the verifier kinds (QX-2,
+   * QX-3, QX-10), the stakes and locks (QX-15) and the owner's gold (QX-16).
+   */
   layer(): Layer;
   /** One problem's view in that layer. */
   view(hash: Hash): ProblemLayer | null;
   /** QX-17: the coin as this tracker computes it at now, or null where it carries none. */
   coin(): CoinLayer | null;
-  /** QX-21: every peer's chains for the logs this tracker keeps, pulled and folded through this door; what each pull did. */
+  /**
+   * QX-21: every peer's chains for the logs this tracker keeps, pulled and folded through this door; what each pull
+   * did.
+   */
   pullPeers(): Promise<PeerPull[]>;
 }
 
-/** What the door answers a request with when it refuses: a status and one sentence saying why, which `handle` writes as `{ error }`. */
+/**
+ * What the door answers a request with when it refuses: a status and one sentence saying why, which `handle` writes as
+ * `{ error }`.
+ */
 class Refusal extends Error {
   constructor(
     readonly status: number,
@@ -240,12 +280,18 @@ function parseJson(text: string): unknown {
 
 /** Which log a post goes to: a problem's, the identity log, or the coin log (QX-17). */
 type Log = { kind: 'problem'; hash: Hash } | { kind: 'identity' } | { kind: 'coin' };
-/** What the door read of an event it admits: the chain it is appended to, and the word it vouches for in the receipt's wrapper (QX-17). */
+/**
+ * What the door read of an event it admits: the chain it is appended to, and the word it vouches for in the receipt's
+ * wrapper (QX-17).
+ */
 interface Admitted {
   chain: Hash;
   word?: Record<string, unknown>;
 }
-/** A coin lock as the door read it (QX-17 section 5), with the rate it is read at and the coin log's head the reading stood under. */
+/**
+ * A coin lock as the door read it (QX-17 section 5), with the rate it is read at and the coin log's head the reading
+ * stood under.
+ */
 interface CoinLockRead {
   lock: CoinLockView | null;
   rate: number;
@@ -271,7 +317,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     if (store.hit(bucket, now().slice(0, 13), max)) throw new Refusal(429, "over the hour's limit");
   };
 
-  /** What the reducer takes for a problem: its chain, the blobs, every line along the chain and the identity log, each read whole. */
+  /**
+   * What the reducer takes for a problem: its chain, the blobs, every line along the chain and the identity log, each
+   * read whole.
+   */
   function inputFor(hash: Hash): ReduceInput | null {
     const chain = store.chain(hash);
     if (chain.length === 0) return null;
@@ -383,7 +432,8 @@ export function createTracker(options: TrackerOptions): Tracker {
       const issues = plainTextProblems(d.brief, `pieces.${name}.brief`);
       if (issues.length) throw new Refusal(400, issues[0]!);
     }
-    // QX-17: at the coin's home, a window longer than the home admits would leave a fake's coin vested before a late challenge decides.
+    // QX-17: at the coin's home, a window longer than the home admits would leave a fake's coin vested before a late
+    // challenge decides.
     const windowMax = options.coin?.window_max_h;
     if (windowMax !== undefined && coinHome() === 'here' && e.problem.settings.challenge_window_h > windowMax) {
       throw new Refusal(
@@ -396,7 +446,8 @@ export function createTracker(options: TrackerOptions): Tracker {
       if (!prev) throw new Refusal(400, 'prev: not a problem this tracker holds');
       if (prev.envelope.problem.owner !== e.problem.owner) throw new Refusal(400, 'prev: by another owner');
     }
-    // CORE.md section 2: `from` is another owner's problem this one forks; the same owner's next version sets `prev`. A fork of a problem not held here is taken on the forker's word, as the core takes it.
+    // CORE.md section 2: `from` is another owner's problem this one forks; the same owner's next version sets `prev`. A
+    // fork of a problem not held here is taken on the forker's word, as the core takes it.
     if (e.problem.from) {
       const from = store.getEnvelope(e.problem.from);
       if (from && from.envelope.problem.owner === e.problem.owner)
@@ -451,7 +502,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     json(res, 202, { id, seq: line.seq, hash: line.hash, at });
   }
 
-  /** What the door keeps beside the chain once a line is on it: a hold released by a reveal or a decline, an announcement for the index, a name for `/n/<owner>/<slug>`. */
+  /**
+   * What the door keeps beside the chain once a line is on it: a hold released by a reveal or a decline, an
+   * announcement for the index, a name for `/n/<owner>/<slug>`.
+   */
   function noteAppended(log: Log, event: Event, at: string): void {
     const type = event.type;
     if (log.kind === 'problem') {
@@ -462,7 +516,10 @@ export function createTracker(options: TrackerOptions): Tracker {
       store.putName(event.key, (event.body as { slug: string }).slug, (event.body as { hash: Hash }).hash, at);
   }
 
-  /** QX-21: a chain read whole from a peer, page by page along `x-quilt-next-since`; null where the peer does not hold it, did not answer, or did not end its pages. */
+  /**
+   * QX-21: a chain read whole from a peer, page by page along `x-quilt-next-since`; null where the peer does not hold
+   * it, did not answer, or did not end its pages.
+   */
   async function linesFrom(target: string): Promise<Receipt[] | null> {
     const lines: Receipt[] = [];
     let since = 0;
@@ -487,7 +544,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     return null;
   }
 
-  /** QX-21 section 2: the reads a peer's trace names that this door lacks, fetched from the peer under their hashes and kept where they check; one that does not is left to the trace's own refusal. */
+  /**
+   * QX-21 section 2: the reads a peer's trace names that this door lacks, fetched from the peer under their hashes and
+   * kept where they check; one that does not is left to the trace's own refusal.
+   */
   async function takeReads(peer: string, event: Event): Promise<void> {
     for (const read of (event.body as { reads?: { hash?: unknown }[] }).reads ?? []) {
       const hash = read.hash;
@@ -533,7 +593,8 @@ export function createTracker(options: TrackerOptions): Tracker {
         continue;
       }
       const hosted = line.received.some((w) => w.custody === 'hosted');
-      // QX-19 section 2: a trace is admitted where its reads are held, so the reads it names are taken from the peer under their hashes first, as the mirror and a node's keep take them.
+      // QX-19 section 2: a trace is admitted where its reads are held, so the reads it names are taken from the peer
+      // under their hashes first, as the mirror and a node's keep take them.
       if (event.type === 'trace') await takeReads(peer, event);
       exact += 1;
       try {
@@ -556,7 +617,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     }
   }
 
-  /** QX-21: every peer in turn, its identity log first and then its chain for every problem held here; the coin log is one sequence and is not pulled (QX-17). */
+  /**
+   * QX-21: every peer in turn, its identity log first and then its chain for every problem held here; the coin log is
+   * one sequence and is not pulled (QX-17).
+   */
   async function pullPeers(): Promise<PeerPull[]> {
     const out: PeerPull[] = [];
     for (const peer of (options.peers ?? []).map(withSlash)) {
@@ -582,7 +646,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     return out;
   }
 
-  /** Whether a post was made by the connector mounted beside this tracker, for a key it holds: a seat this tracker opened for a person. */
+  /**
+   * Whether a post was made by the connector mounted beside this tracker, for a key it holds: a seat this tracker
+   * opened for a person.
+   */
   function hostedPost(req: IncomingMessage): boolean {
     return options.custodySecret !== undefined && req.headers['x-quilt-custody'] === options.custodySecret;
   }
@@ -625,7 +692,10 @@ export function createTracker(options: TrackerOptions): Tracker {
       : { chain: COIN_LOG };
   }
 
-  /** The identity log: its five kinds and no problem named; a name carries the stamp asked here; a hide (QX-6) is a maintainer's and well formed. */
+  /**
+   * The identity log: its five kinds and no problem named; a name carries the stamp asked here; a hide (QX-6) is a
+   * maintainer's and well formed.
+   */
   function admitIdentityEvent(event: Event): Admitted {
     const type = event.type;
     if (!IDENTITY_EVENTS.has(type))
@@ -643,7 +713,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     return { chain: IDENTITY };
   }
 
-  /** A problem's log: what the allow-list takes, under the problem it names, not taken down, then each kind's own check in the order the list reads. */
+  /**
+   * A problem's log: what the allow-list takes, under the problem it names, not taken down, then each kind's own check
+   * in the order the list reads.
+   */
   async function admitProblemEvent(event: Event, under: Hash, hosted: boolean): Promise<Admitted> {
     const type = event.type;
     if (IDENTITY_EVENTS.has(type)) throw new Refusal(400, 'identity events go to the identity log');
@@ -670,7 +743,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     return word ? { chain: under, word } : { chain: under };
   }
 
-  /** The door for QX-19: a trace from the key that revealed, naming reads this tracker holds, with every span inside its read (QX-19 section 1). */
+  /**
+   * The door for QX-19: a trace from the key that revealed, naming reads this tracker holds, with every span inside its
+   * read (QX-19 section 1).
+   */
   function checkTraceEvent(event: Event, under: Hash, state: ReturnType<typeof reduce>): void {
     if (!event.piece) throw new Refusal(400, 'a trace names a problem and a piece');
     const view = state.byHash.get(event.piece);
@@ -680,7 +756,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     if (!a.ok) throw new Refusal(400, a.why);
   }
 
-  /** The door for the core's piece events: a piece the problem has; on a staked piece, a root with a live lock (QX-15); a reveal's return through the schema and the gate, on an unrevealed commit; a run on a revealed digest. */
+  /**
+   * The door for the core's piece events: a piece the problem has; on a staked piece, a root with a live lock (QX-15);
+   * a reveal's return through the schema and the gate, on an unrevealed commit; a run on a revealed digest.
+   */
   function checkPieceEvent(event: Event, under: Hash, state: ReturnType<typeof reduce>, hosted: boolean): void {
     const view = event.piece ? state.byHash.get(event.piece) : undefined;
     if (!view) throw new Refusal(400, 'names a piece this problem does not have');
@@ -688,7 +767,8 @@ export function createTracker(options: TrackerOptions): Tracker {
       // QX-15: on a staked piece, work is admitted only from a root with a live lock.
       const a = layer().admitProduction(under, event.piece!, event.key);
       if (!a.ok) throw new Refusal(400, a.why);
-      // QX-20 section 2: a record is fixed once its readings are in; no claim, commit, reveal or run is taken on it after.
+      // QX-20 section 2: a record is fixed once its readings are in; no claim, commit, reveal or run is taken on it
+      // after.
       if (
         kindOf(view.piece.verifier)?.kind === 'record' &&
         layer().problems.get(under)?.byHash.get(event.piece!)?.state === 'recorded'
@@ -714,8 +794,8 @@ export function createTracker(options: TrackerOptions): Tracker {
   }
 
   /**
-   * The door for the verifier kinds' reveals: a human piece takes a return only from a person's seat (QX-3), which here is
-   * the connector's custody or a client declaring the model `human`; a judge piece takes no more candidates once its
+   * The door for the verifier kinds' reveals: a human piece takes a return only from a person's seat (QX-3), which here
+   * is the connector's custody or a client declaring the model `human`; a judge piece takes no more candidates once its
    * panel sits (QX-2). The layer would count neither; the door says why.
    */
   function checkRevealEvent(event: Event, under: Hash, verifier: string, hosted: boolean): void {
@@ -728,7 +808,10 @@ export function createTracker(options: TrackerOptions): Tracker {
       throw new Refusal(400, 'the candidates for this piece are in');
   }
 
-  /** The door for QX-13's announce: the title, slug and done_when are the envelope's, and the topics are few, short and through the gate. */
+  /**
+   * The door for QX-13's announce: the title, slug and done_when are the envelope's, and the topics are few, short and
+   * through the gate.
+   */
   function checkAnnounceEvent(event: Event, envelope: Envelope): void {
     const b = event.body as Record<string, unknown>;
     if (
@@ -743,7 +826,8 @@ export function createTracker(options: TrackerOptions): Tracker {
       !b.topics.every((t) => typeof t === 'string' && t.length <= 40 && textIssues(t).length === 0)
     )
       throw new Refusal(400, 'announce: at most eight short topics through the gate');
-    // QX-13 section 2: the owner and the fork are the envelope's where the announce states them; the pieces, the counts and the work are whole numbers, and are the announcer's word.
+    // QX-13 section 2: the owner and the fork are the envelope's where the announce states them; the pieces, the counts
+    // and the work are whole numbers, and are the announcer's word.
     if (b.owner !== undefined && b.owner !== envelope.problem.owner)
       throw new Refusal(400, "announce: owner is the envelope's");
     if (b.from !== undefined && b.from !== (envelope.problem.from ?? null))
@@ -767,7 +851,10 @@ export function createTracker(options: TrackerOptions): Tracker {
       throw new Refusal(400, 'announce: pieces, counts and work are whole numbers');
   }
 
-  /** The door for QX-1: a challenge from a root with standing, inside the window, with a panel to seat; a verdict from a judge drawn. */
+  /**
+   * The door for QX-1: a challenge from a root with standing, inside the window, with a panel to seat; a verdict from a
+   * judge drawn.
+   */
   function checkChallengeEvent(event: Event, under: Hash): void {
     if (!event.piece) throw new Refusal(400, `a ${event.type} names a problem and a piece`);
     const layered = layer();
@@ -803,7 +890,8 @@ export function createTracker(options: TrackerOptions): Tracker {
 
   /**
    * The door for QX-15: a stake rule from the owner naming pieces the problem has; a lock a root can cover, on a piece
-   * that asks one. A coin-kind lock is checked against the coin log (QX-17), and what the door read is its word for the receipt.
+   * that asks one. A coin-kind lock is checked against the coin log (QX-17), and what the door read is its word for the
+   * receipt.
    */
   async function checkStakeEvent(
     event: Event,
@@ -831,7 +919,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     return word;
   }
 
-  /** The door for QX-16: the owner's gold, kept whole or refused naming the piece; the owner's reveal on an accepted piece inside its window. */
+  /**
+   * The door for QX-16: the owner's gold, kept whole or refused naming the piece; the owner's reveal on an accepted
+   * piece inside its window.
+   */
   function checkGoldEvent(event: Event, under: Hash): void {
     if (event.type === 'gold') {
       if (event.piece !== undefined) throw new Refusal(400, 'a gold names a problem and no piece');
@@ -912,7 +1003,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     return null;
   }
 
-  /** QX-17 section 5: what the door reads of a coin lock before it admits a coin-kind QX-15 lock, and writes into the receipt as its word. */
+  /**
+   * QX-17 section 5: what the door reads of a coin lock before it admits a coin-kind QX-15 lock, and writes into the
+   * receipt as its word.
+   */
   async function coinWord(under: Hash, event: Event, root: Address): Promise<CoinWord> {
     const home = coinHome();
     if (home === null) throw new Refusal(400, 'this tracker honours no coin lock');
@@ -926,7 +1020,9 @@ export function createTracker(options: TrackerOptions): Tracker {
 
   // The views
 
-  /** What this tracker says of itself: its name, limits, the extensions it carries with their constants, and its routes. */
+  /**
+   * What this tracker says of itself: its name, limits, the extensions it carries with their constants, and its routes.
+   */
   function wellKnown() {
     return {
       quilt: 1,
@@ -954,7 +1050,8 @@ export function createTracker(options: TrackerOptions): Tracker {
       identity: IDENTITY,
       hosted: options.extra !== undefined,
       ...(options.extraWellKnown?.() ?? {}),
-      // `stake.burn_rate` is the rate in force now, which with `burn_indexed` moves with the epochs; `coin.burn_rate` is the parameter, its floor.
+      // `stake.burn_rate` is the rate in force now, which with `burn_indexed` moves with the epochs; `coin.burn_rate`
+      // is the parameter, its floor.
       stake: { extension: STAKE, coin: coinHome(), ...(options.coin ? { burn_rate: coin()!.burnRateAt(now()) } : {}) },
       gold: { extension: GOLD },
       trace: { extension: TRACE, blob_max: BLOB_MAX },
@@ -998,13 +1095,13 @@ export function createTracker(options: TrackerOptions): Tracker {
   /**
    * The work on a problem in numbers (APP.md, Search): what the directory shows beside the counts, so a reader can tell
    * how much is done and of what quality without the state. `returned` counts pieces with a kept reveal or run over the
-   * layer's fold, `accepted` and `disputed` the layer's states, `verified` the squares the owner's gold matched (QX-16),
-   * `traced` the accepted squares by their grade (QX-19 section 3; a square accepted by runs or attest is in none of the
-   * three), `readers` the distinct roots that revealed or ran, `vendors` the distinct vendors among them, and `last` the
-   * receipt time of the latest reveal or run. `declined` counts the roots that declined a piece, a model's refusal
-   * among them, so a piece nobody would read is seen beside the work. `found` is what the accepted squares say: for each
-   * agreed field whose schema is a list of choices, how many accepted squares agreed on each choice ("status: 3 proved,
-   * 6 open"), a count and nothing more.
+   * layer's fold, `accepted` and `disputed` the layer's states, `verified` the squares the owner's gold matched
+   * (QX-16), `traced` the accepted squares by their grade (QX-19 section 3; a square accepted by runs or attest is in
+   * none of the three), `readers` the distinct roots that revealed or ran, `vendors` the distinct vendors among them,
+   * and `last` the receipt time of the latest reveal or run. `declined` counts the roots that declined a piece, a
+   * model's refusal among them, so a piece nobody would read is seen beside the work. `found` is what the accepted
+   * squares say: for each agreed field whose schema is a list of choices, how many accepted squares agreed on each
+   * choice ("status: 3 proved, 6 open"), a count and nothing more.
    */
   function workOf(pl: ProblemLayer): {
     returned: number;
@@ -1078,7 +1175,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     };
   }
 
-  /** A problem in one line for the index and the scrape: its title, counts, head, the work on it, and what the extensions add. */
+  /**
+   * A problem in one line for the index and the scrape: its title, counts, head, the work on it, and what the
+   * extensions add.
+   */
   function summary(hash: Hash, layered: Layer = layer()) {
     const pl = layered.problems.get(hash);
     if (!pl) return null;
@@ -1119,7 +1219,8 @@ export function createTracker(options: TrackerOptions): Tracker {
   /**
    * A problem's state as the layer has it, with the core's beside each piece: a core client reads `core`, one with the
    * extensions reads `state`, and the kind says how the square is earned and how strongly. `window_open` says whether a
-   * reveal of the owner's gold is taken on the piece at `now`, which `state` does not say under an open challenge (QX-16).
+   * reveal of the owner's gold is taken on the piece at `now`, which `state` does not say under an open challenge
+   * (QX-16).
    */
   function state(hash: Hash, pl: ProblemLayer) {
     const s = pl.fold;
@@ -1173,7 +1274,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     };
   }
 
-  /** QX-20 section 4: the record document of a problem with a record piece once the layer calls it complete, with its hash; null otherwise. */
+  /**
+   * QX-20 section 4: the record document of a problem with a record piece once the layer calls it complete, with its
+   * hash; null otherwise.
+   */
   function recordOf(hash: Hash, pl: ProblemLayer): { document: unknown; hash: Hash } | null {
     const records = new Map(pl.pieces.filter((p) => p.record).map((p) => [p.hash, p.record!] as const));
     if (records.size === 0 || !pl.fold.complete) return null;
@@ -1216,11 +1320,13 @@ export function createTracker(options: TrackerOptions): Tracker {
    * QX-19: each piece's traces as the door kept them, over the core's fold, which has every reveal a trace could name;
    * the square's grade over the layer's fold, whose accepting set is the one that counts; and its seams between the
    * readings that stand (section 4): over the layer's fold where it still calls the piece disputed, so a key that read
-   * again with grounds after its first reading was set aside is a side and not the reading set aside, and over the core's
-   * fold where the layer has set a reading aside, so the seam shows which. The passages come from this store's blobs.
+   * again with grounds after its first reading was set aside is a side and not the reading set aside, and over the
+   * core's fold where the layer has set a reading aside, so the seam shows which. The passages come from this store's
+   * blobs.
    */
   // Computed once per layer object: the kept layer is one object until the store is written or five seconds pass,
-  // and the index, the state and the directory row all read it, so the trace scan runs once for them and not per request.
+  // and the index, the state and the directory row all read it, so the trace scan runs once for them and not per
+  // request.
   const tracesMemo = new WeakMap<ProblemLayer, Map<Hash, PieceTraces>>();
   function tracesOf(hash: Hash, pl: ProblemLayer): Map<Hash, PieceTraces> {
     const hit = tracesMemo.get(pl);
@@ -1230,7 +1336,8 @@ export function createTracker(options: TrackerOptions): Tracker {
       pl.fold.pieces.map((v) => {
         const core = pl.core.byHash.get(v.piece.hash) ?? v;
         const traces = tracesKept(core, receipts, blobLength);
-        // QX-20 section 3: a record piece's seams are between its standing readings, with nothing set aside, and its grade is over them.
+        // QX-20 section 3: a record piece's seams are between its standing readings, with nothing set aside, and its
+        // grade is over them.
         const record = pl.byHash.get(v.piece.hash)?.record ?? null;
         const over = record
           ? { seams: recordSeams(pl.fold, v, record, receipts, traces, passageOf), aside: [] as Hash[] }
@@ -1255,7 +1362,10 @@ export function createTracker(options: TrackerOptions): Tracker {
   /** The seams `next` hands over with a piece: the same as the state shows (`tracesOf`). */
   const seamsOf = (pl: ProblemLayer, hash: Hash): Seam[] => tracesOf(pl.problem, pl).get(hash)?.seams ?? [];
 
-  /** The newest envelope here by the same owner whose `prev` is this problem: the version that replaced it, or null. The state says so, and `next` hands nothing on a replaced problem. */
+  /**
+   * The newest envelope here by the same owner whose `prev` is this problem: the version that replaced it, or null. The
+   * state says so, and `next` hands nothing on a replaced problem.
+   */
   function supersededBy(hash: Hash): Hash | null {
     const owner = store.getEnvelope(hash)?.envelope.problem.owner;
     if (!owner) return null;
@@ -1265,7 +1375,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     );
   }
 
-  /** The problems here their owners have replaced with a newer version, left out of the index and the offer: the work is on the versions that replaced them. */
+  /**
+   * The problems here their owners have replaced with a newer version, left out of the index and the offer: the work is
+   * on the versions that replaced them.
+   */
   function replaced(): Set<Hash> {
     const out = new Set<Hash>();
     const byHash = new Map(store.listEnvelopes().map((e) => [e.hash, e] as const));
@@ -1281,7 +1394,9 @@ export function createTracker(options: TrackerOptions): Tracker {
     return (a) => pl.fold.names.get(a as Address)?.name ?? null;
   }
 
-  /** A problem's challenges as the tracker computes them at now: the seats, each verdict with its judge, the outcome. */
+  /**
+   * A problem's challenges as the tracker computes them at now: the seats, each verdict with its judge, the outcome.
+   */
   function challenges(pl: ProblemLayer, name: (a: string) => string | null) {
     return pl.challenges.map((c) => ({
       id: c.id,
@@ -1314,7 +1429,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     }));
   }
 
-  /** A problem's judge panels as the tracker computes them at now: the candidates by digest (their signers named once the panel has decided), the seats, each rank, the outcome. */
+  /**
+   * A problem's judge panels as the tracker computes them at now: the candidates by digest (their signers named once
+   * the panel has decided), the seats, each rank, the outcome.
+   */
   function panels(pl: ProblemLayer, name: (a: string) => string | null) {
     return pl.panels.map((p) => ({
       piece: p.piece,
@@ -1344,7 +1462,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     }));
   }
 
-  /** The problems here, each in summary with its topics (QX-13), those matching `q` when one is given; hidden ones left out. */
+  /**
+   * The problems here, each in summary with its topics (QX-13), those matching `q` when one is given; hidden ones left
+   * out.
+   */
   function index(query: URLSearchParams) {
     const q = (query.get('q') ?? '').trim().toLowerCase();
     const topicsByProblem = new Map<Hash, Set<string>>();
@@ -1390,7 +1511,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     return line && line.seq === seq && typeof line.hash === 'string' ? { seq: line.seq, hash: line.hash } : null;
   }
 
-  /** The coin log's head a listing stands under: the head itself, or the line at the query's `upto` when that is earlier. */
+  /**
+   * The coin log's head a listing stands under: the head itself, or the line at the query's `upto` when that is
+   * earlier.
+   */
   function headUpto(
     c: CoinLayer,
     query: URLSearchParams,
@@ -1402,7 +1526,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     return { head, upto: n ?? undefined };
   }
 
-  /** The key and the client a next or an offer is asked for: `key` with its checksum, `can` from the capabilities, `model` as declared. */
+  /**
+   * The key and the client a next or an offer is asked for: `key` with its checksum, `can` from the capabilities,
+   * `model` as declared.
+   */
   function clientFrom(query: URLSearchParams): { key: Address; client: Client } {
     const key = query.get('key');
     if (!isAddress(key)) throw new Refusal(400, 'key: an address with its checksum');
@@ -1450,7 +1577,8 @@ export function createTracker(options: TrackerOptions): Tracker {
     const pl = layered.problems.get(hash);
     if (!pl) throw new Refusal(404, 'no such problem here');
     if (hidden().has(hash)) throw new Refusal(410, 'this problem is taken down here');
-    // A problem its owner has replaced with a newer version hands out nothing: the work is on the version that replaced it.
+    // A problem its owner has replaced with a newer version hands out nothing: the work is on the version that replaced
+    // it.
     const superseded = supersededBy(hash);
     if (superseded) {
       json(res, 200, { piece: null, unaffordable: [], superseded });
@@ -1459,13 +1587,14 @@ export function createTracker(options: TrackerOptions): Tracker {
     const state = pl.fold;
     const at = now();
     const { exclude, unaffordable } = excludedFor(layered, pl, inputFor(hash)!, key, client, at);
-    // The second reader's pool (QX-19 section 5): asked with only=verify, the pick is from the pieces in needs_verify or
-    // disputed alone, in this layer's fold. The core's order puts open pieces first wherever they outnumber those, so
-    // without this a key whose reading was set aside would be handed an open piece, and its own fold would not hand it
-    // the piece back, since the reading still stands there.
+    // The second reader's pool (QX-19 section 5): asked with only=verify, the pick is from the pieces in needs_verify
+    // or disputed alone, in this layer's fold. The core's order puts open pieces first wherever they outnumber those,
+    // so without this a key whose reading was set aside would be handed an open piece, and its own fold would not hand
+    // it the piece back, since the reading still stands there.
     const only = query.get('only');
     if (only !== null && only !== 'verify') throw new Refusal(400, 'only: verify, or left out');
-    // A record piece (QX-20) is outside that pool: a second reader confirms or disagrees, and a record takes no second opinion, only another reading.
+    // A record piece (QX-20) is outside that pool: a second reader confirms or disagrees, and a record takes no second
+    // opinion, only another reading.
     if (only === 'verify')
       for (const v of state.pieces)
         if ((v.state !== 'needs_verify' && v.state !== 'disputed') || pl.byHash.get(v.piece.hash)?.record)
@@ -1477,9 +1606,11 @@ export function createTracker(options: TrackerOptions): Tracker {
     }
     const { kind, stake, state: layerState } = pl.byHash.get(pick.piece.hash)!;
     holdFor(hash, pick.piece.hash, key, at);
-    // QX-19 section 4: a piece whose readings differ goes out with its seams between the readings that stand, whether the layer still calls it disputed or has set one reading aside, so the next reader sees what each rests on.
+    // QX-19 section 4: a piece whose readings differ goes out with its seams between the readings that stand, whether
+    // the layer still calls it disputed or has set one reading aside, so the next reader sees what each rests on.
     const seams = seamsOf(pl, pick.piece.hash);
-    // The state is the layer's word: the fold's, except `recording` where the fold holds a record piece under needs_verify (QX-20).
+    // The state is the layer's word: the fold's, except `recording` where the fold holds a record piece under
+    // needs_verify (QX-20).
     json(res, 200, {
       piece: pick.piece.hash,
       name: pick.piece.name,
@@ -1503,7 +1634,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     });
   }
 
-  /** QX-5: the problems here with a piece for the key, in the order they are offered, each piece the one assisted next would name; the first is held as assisted next holds. */
+  /**
+   * QX-5: the problems here with a piece for the key, in the order they are offered, each piece the one assisted next
+   * would name; the first is held as assisted next holds.
+   */
   function offer(res: ServerResponse, query: URLSearchParams): void {
     const { key, client } = clientFrom(query);
     const at = now();
@@ -1599,7 +1733,8 @@ export function createTracker(options: TrackerOptions): Tracker {
         }
         if (sub === 'scrape') {
           const chain = verifyChain(store.lines(hash), hash);
-          // With the topics every announce gave it, as the index shows them, so the owner's turn can announce again with the same (QX-13 section 3).
+          // With the topics every announce gave it, as the index shows them, so the owner's turn can announce again
+          // with the same (QX-13 section 3).
           const topics = [
             ...new Set(
               store
@@ -1611,7 +1746,8 @@ export function createTracker(options: TrackerOptions): Tracker {
           return;
         }
         if (sub === 'record') {
-          // QX-20 section 4: the record document, once the layer calls the problem complete; its hash is the state's `record_output`.
+          // QX-20 section 4: the record document, once the layer calls the problem complete; its hash is the state's
+          // `record_output`.
           const pl = view(hash);
           const doc = pl ? recordOf(hash, pl) : null;
           if (!doc)
@@ -1664,7 +1800,10 @@ export function createTracker(options: TrackerOptions): Tracker {
         return;
       }
       if ((m = /^\/k\/(0x[0-9a-fA-F]{40})\/work$/.exec(path)) && method === 'GET') {
-        // The directory's hot list (APP.md, "The window"): a key's latest readings, newest first, each with its state and grade as this tracker holds them, and `aside` where the layer set this key's reading aside (QX-19 section 4). Receipts are by key, so a delegate's readings sit under the delegate's address; the root is said beside it.
+        // The directory's hot list (APP.md, "The window"): a key's latest readings, newest first, each with its state
+        // and grade as this tracker holds them, and `aside` where the layer set this key's reading aside
+        // (QX-19 section 4). Receipts are by key, so a delegate's readings sit under the delegate's address; the root
+        // is said beside it.
         const address = m[1]!;
         if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
         const asked = Number(u.searchParams.get('limit') ?? 20);
@@ -1740,7 +1879,8 @@ export function createTracker(options: TrackerOptions): Tracker {
         json(res, 200, { hidden: [...hidden().values()] });
         return;
       }
-      // The launch funnel by the UTC day (JOURNEY-AUDIT.md section 3, item 9): counts with nobody in them, so the route is public.
+      // The launch funnel by the UTC day (JOURNEY-AUDIT.md section 3, item 9): counts with nobody in them, so the route
+      // is public.
       if (path === '/counts' && method === 'GET') {
         const days = daysFrom(u.searchParams.get('days'));
         if (days === null) throw new Refusal(400, `days: a whole number from 1 to ${DAYS_MAX}`);
@@ -1792,14 +1932,16 @@ export function createTracker(options: TrackerOptions): Tracker {
           return;
         }
         if (path === '/coin/redeems') {
-          // The door out: the redeem lines the layer kept, each the chain line's hash the ERC-20 mints against once, under the head they stand under.
+          // The door out: the redeem lines the layer kept, each the chain line's hash the ERC-20 mints against once,
+          // under the head they stand under.
           const c = coin()!;
           const { head, upto } = headUpto(c, u.searchParams);
           json(res, 200, { head, at: c.now, redeems: c.redeems(upto) });
           return;
         }
         if (path === '/coin/credits') {
-          // The way back: the credit lines the layer kept, each a deposit burned on the chain, under the head they stand under; what the mirror checks against the chain.
+          // The way back: the credit lines the layer kept, each a deposit burned on the chain, under the head they
+          // stand under; what the mirror checks against the chain.
           const c = coin()!;
           const { head, upto } = headUpto(c, u.searchParams);
           json(res, 200, { head, at: c.now, reader: options.coin?.reader ?? null, credits: c.credits(upto) });

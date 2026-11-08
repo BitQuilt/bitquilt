@@ -135,7 +135,8 @@ describe('a trace at the door, and the grade of a square', () => {
     const rb = await returned(piece, B, 'openai/gpt-5', 'supports');
     expect(await pieceOf(piece)).toMatchObject({ state: 'accepted_provisional', traces: 0, traced: 'none', seams: [] });
     const rest = { field: 'verdict', read: 0, span: span(PAGE, HOLDS) };
-    // Not the key that revealed; a reveal the piece does not have; a read not held; spans outside the read and past the limit; a field the return lacks; no reads.
+    // Not the key that revealed; a reveal the piece does not have; a read not held; spans outside the read and past the
+    // limit; a field the return lacks; no reads.
     expect(await refused(`/p/${p}/events`, trace(C, piece, ra, [read(page)], [rest]))).toBe(
       "body.reveal: the id of this key's reveal on the piece",
     );
@@ -172,7 +173,8 @@ describe('a trace at the door, and the grade of a square', () => {
     expect(await refused(`/p/${p}/events`, trace(A, piece, ra, [read(page)], [rest]))).toBe(
       'a trace already names this reveal',
     );
-    // B's trace rests the quote and not the agreed field: kept, and the square still one-sided until the verdict rests on something.
+    // B's trace rests the quote and not the agreed field: kept, and the square still one-sided until the verdict rests
+    // on something.
     await accepted(`/p/${p}/events`, trace(B, piece, rb, [read(page)], [{ field: 'quote', read: 0, span: [0, 9] }]));
     expect(await pieceOf(piece)).toMatchObject({ traces: 2, traced: 'one' });
   });
@@ -327,7 +329,8 @@ describe('a seam decides itself (section 4)', () => {
   });
 
   it('lifts the set-aside when the trace arrives, and sets nothing aside where neither side rests on anything', async () => {
-    // First, so that afterwards every piece of the problem needs a second reading and next hands statement/1 and nothing open.
+    // First, so that afterwards every piece of the problem needs a second reading and next hands statement/1 and
+    // nothing open.
     const x = ps['statement/2']!;
     const ra = await returnedOn(pa, x, A, 'anthropic/claude', 'supports');
     const rb = await returnedOn(pa, x, B, 'openai/gpt-5', 'contradicts');
@@ -383,7 +386,8 @@ describe('a seam decides itself (section 4)', () => {
     };
     expect(handed).toMatchObject({ piece: x, state: 'needs_verify' });
     expect(handed.seams[0]!.sides.map((side) => side.aside)).toEqual([false, true]);
-    // B reads again and agrees: the set is A's reading and B's second; the square is graded one; the core still calls the piece disputed.
+    // B reads again and agrees: the set is A's reading and B's second; the square is graded one; the core still calls
+    // the piece disputed.
     await returnedOn(pa, x, B, 'openai/gpt-5', 'supports');
     expect(await stateOf(pa, x)).toMatchObject({
       state: 'accepted_provisional',
@@ -421,8 +425,8 @@ describe('a seam decides itself (section 4)', () => {
     expect(pooled.seams[0]!.sides.map((side) => side.aside)).toEqual([false, true]);
     // A word other than verify is refused.
     expect((await fetch(`${t.base}/p/${pp}/next?key=${addr(B)}&can=web&model=openai/gpt-5&only=all`)).status).toBe(400);
-    // B reads again with the seam in hand, rests the reading on the record this time, and still differs: the layer calls
-    // the piece disputed between the two readings that stand, and the seam is theirs, B's first still set aside.
+    // B reads again with the seam in hand, rests the reading on the record this time, and still differs: the layer
+    // calls the piece disputed between the two readings that stand, and the seam is theirs, B's first still set aside.
     const rb = await returnedOn(pp, x, B, 'openai/gpt-5', 'contradicts');
     await accepted(`/p/${pp}/events`, rested(B, pp, x, rb, span(PAGE, NOT_AT_SCALE)));
     const s = await stateOf(pp, x);
@@ -537,7 +541,8 @@ describe('a seam decides itself (section 4)', () => {
         ],
       },
     ]);
-    // And the shape the core decides on its own: a third reading that agrees with the other vendor's is the set, no layer needed.
+    // And the shape the core decides on its own: a third reading that agrees with the other vendor's is the set, no
+    // layer needed.
     const z = named.find((v) => v.name === 'statement/3')!.hash;
     await returnedOn(pt, z, A, 'anthropic/claude', 'supports');
     await returnedOn(pt, z, B, 'openai/gpt-5', 'contradicts');

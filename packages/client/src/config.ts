@@ -32,7 +32,8 @@ export interface Config {
 }
 
 export const DEFAULT_CONFIG: Config = {
-  // The public tracker (docs/LAUNCH.md step 5, 28 October 2026); a config file or QUILT_TRACKERS says otherwise, as the examples do for a tracker on this machine.
+  // The public tracker (docs/LAUNCH.md step 5, 28 October 2026); a config file or QUILT_TRACKERS says otherwise, as the
+  // examples do for a tracker on this machine.
   trackers: ['https://tracker.bitquilt.org/'],
   mirrors: [],
   relays: [],
@@ -65,7 +66,8 @@ export function loadConfig(home = quiltHome()): Config {
   if (!Array.isArray(config.relays)) config.relays = [];
   if (process.env.QUILT_PORT_PAGE) config.port = Number(process.env.QUILT_PORT_PAGE);
   if (process.env.QUILT_MODEL) config.model = process.env.QUILT_MODEL;
-  // A run while away (away.ts, QUILT_AWAY): nobody is at the keyboard, so the claims leave out the person capability and a piece that wants one is not offered.
+  // A run while away (away.ts, QUILT_AWAY): nobody is at the keyboard, so the claims leave out the person capability
+  // and a piece that wants one is not offered.
   if (process.env.QUILT_AWAY) config.can = config.can.filter((c) => c !== 'person');
   return config;
 }
@@ -111,7 +113,8 @@ export function createKey(
   }
   writeFileSync(file, secretToHex(secret) + '\n', { mode: 0o600 });
   chmodSync(file, 0o600);
-  // A key made at first use, with nobody at a terminal to read the phrase: the words wait beside the key for the page to show once (`Resolver.takeWords`). They are the key, which is beside them already.
+  // A key made at first use, with nobody at a terminal to read the phrase: the words wait beside the key for the page
+  // to show once (`Resolver.takeWords`). They are the key, which is beside them already.
   if (phrase && from.keepWords) writeFileSync(join(home, 'words'), phrase + '\n', { mode: 0o600 });
   return { identity: { secret, address: addressOf(secret) }, phrase };
 }

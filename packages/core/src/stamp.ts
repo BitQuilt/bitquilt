@@ -28,7 +28,9 @@ export function stampOk(e: Unsigned, difficulty: number): boolean {
   return leadingZeroBits(eventId(e)) >= difficulty;
 }
 
-/** The event with a nonce that meets the difficulty, found by counting; or null within `maxTries`. Sign after stamping. */
+/**
+ * The event with a nonce that meets the difficulty, found by counting; or null within `maxTries`. Sign after stamping.
+ */
 export function stamp(e: Unsigned, difficulty: number, maxTries = 1 << 22): Unsigned | null {
   for (let i = 0; i < maxTries; i++) {
     const nonce = i.toString(16).padStart(32, '0');

@@ -30,7 +30,10 @@ export function baseOf(server: Server): string {
   return typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}/` : '';
 }
 
-/** A reference tracker on a free port, with an in-memory store and the name http://tracker.test/ unless `options` says another; the rest of `options` are the tracker's. */
+/**
+ * A reference tracker on a free port, with an in-memory store and the name http://tracker.test/ unless `options` says
+ * another; the rest of `options` are the tracker's.
+ */
 export async function startTracker(
   options: Omit<Parameters<typeof createTracker>[0], 'store' | 'url' | 'ipSalt'> & { url?: string } = {},
 ): Promise<{ server: Server; base: string }> {
@@ -78,7 +81,10 @@ export async function mcpPair(
   };
 }
 
-/** The call made with the house second opinion's switch set (QUILT_NEXT_ONLY=verify), and the switch unset again whatever happens. */
+/**
+ * The call made with the house second opinion's switch set (QUILT_NEXT_ONLY=verify), and the switch unset again
+ * whatever happens.
+ */
 export async function verifying<T>(f: () => Promise<T>): Promise<T> {
   process.env.QUILT_NEXT_ONLY = 'verify';
   try {

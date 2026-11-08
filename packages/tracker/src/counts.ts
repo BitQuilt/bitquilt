@@ -3,11 +3,11 @@
  * with nobody in them: the addresses the hosted on-ramp handed out, first used and taken home, from the times the
  * members table keeps; the keys whose first event on a problem log here fell on the day, through the hosted connector
  * or on a key of their own by the receipt's custody mark; the claims and reveals received, and the declines by their
- * reason, a model's refusal among them, so what nobody would read is counted beside what was done; the sets accepted, from the
- * layer's fold with struck events left out; the squares the owner's gold verified (QX-16), by the reveal's receipt. No
- * address, name, token or hash goes into the answer, so the route that serves it is public: the counts say how the
- * launch is going and nothing about anyone. Each is a function of the store at now and is computed on request, as the
- * layer is.
+ * reason, a model's refusal among them, so what nobody would read is counted beside what was done; the sets accepted,
+ * from the layer's fold with struck events left out; the squares the owner's gold verified (QX-16), by the reveal's
+ * receipt. No address, name, token or hash goes into the answer, so the route that serves it is public: the counts say
+ * how the launch is going and nothing about anyone. Each is a function of the store at now and is computed on request,
+ * as the layer is.
  */
 import { DECLINE_REASONS, type DeclineReason, type Receipt } from '@bitquilt/core';
 import type { Layer } from './challenge.js';
@@ -42,7 +42,10 @@ export interface FunnelCounts {
   addresses_first_used: number;
   /** Members by the day they took the key home. */
   keys_taken_home: number;
-  /** Keys by the day of their earliest receipt on any problem log here: through the hosted connector, or on a key of their own. */
+  /**
+   * Keys by the day of their earliest receipt on any problem log here: through the hosted connector, or on a key of
+   * their own.
+   */
   keys_first_event: { hosted: number; own: number };
   claims: number;
   reveals: number;
@@ -64,7 +67,10 @@ export interface Funnel {
   totals: FunnelCounts;
 }
 
-/** The days a `days` query asks for: the default when it says nothing, null when it is not a whole number from 1 to DAYS_MAX. */
+/**
+ * The days a `days` query asks for: the default when it says nothing, null when it is not a whole number from 1 to
+ * DAYS_MAX.
+ */
 export function daysFrom(raw: string | null): number | null {
   if (raw === null || raw.trim() === '') return DAYS_DEFAULT;
   const n = Number(raw);
@@ -116,7 +122,8 @@ export function funnel(input: FunnelInput): Funnel {
       c.keys_taken_home += 1;
     });
   }
-  // Each key's earliest receipt across every problem log, and whose custody it was in then; the keys themselves stay here.
+  // Each key's earliest receipt across every problem log, and whose custody it was in then; the keys themselves stay
+  // here.
   const first = new Map<string, { at: string; hosted: boolean }>();
   for (const log of logs)
     for (const r of log) {
@@ -144,7 +151,8 @@ export function funnel(input: FunnelInput): Funnel {
     on(f.at, (c) => {
       c.keys_first_event[f.hosted ? 'hosted' : 'own'] += 1;
     });
-  // The layer's fold: a set a held challenge or a miss struck is not in it. A piece two versions of a problem share counts once.
+  // The layer's fold: a set a held challenge or a miss struck is not in it. A piece two versions of a problem share
+  // counts once.
   const sets = new Set<string>();
   const squares = new Set<string>();
   for (const pl of layer.problems.values()) {

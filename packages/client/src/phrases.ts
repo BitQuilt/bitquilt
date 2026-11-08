@@ -16,11 +16,16 @@ import { makeLink } from './link.js';
 import type { AttentionItem } from './quilt.js';
 import type { Library } from './resolver.js';
 
-/** What a phrase takes to be said whole: a link to a problem, words to search for, a file's path, a number of units, a price per square, an address. */
+/**
+ * What a phrase takes to be said whole: a link to a problem, words to search for, a file's path, a number of units, a
+ * price per square, an address.
+ */
 export type PhraseArg = 'link' | 'words' | 'path' | 'amount' | 'per_square' | 'to' | 'name';
 
 export interface PhraseSpec {
-  /** The prompt's name in the chat, a verb phrase: distinct from the tools' names, which say what the connector does. */
+  /**
+   * The prompt's name in the chat, a verb phrase: distinct from the tools' names, which say what the connector does.
+   */
   name: string;
   title: string;
   /** What saying it leads the AI to do, in one sentence; a prompt's description. */
@@ -197,19 +202,30 @@ export function say(name: string, args: Partial<Record<PhraseArg, string>> = {})
   return phrase(name).say({ link: '', words: '', path: '', amount: '', per_square: '', to: '', name: '', ...args });
 }
 
-/** The first thing to say once the connector is in, and the test of the connection: the AI that answers it has arrived. */
+/**
+ * The first thing to say once the connector is in, and the test of the connection: the AI that answers it has arrived.
+ */
 export const FIRST_PHRASE = 'who_am_i';
 
-/** The phrases the coin moves with: offered in the chat as prompts, and named on the sheet, not spelled out with amounts. */
+/**
+ * The phrases the coin moves with: offered in the chat as prompts, and named on the sheet, not spelled out with
+ * amounts.
+ */
 export const COIN_PHRASES: readonly string[] = ['pay_workers', 'transfer_coin', 'redeem_coin'];
 
-/** One phrase on the sheet, ready to copy: the sentence, what it leads to, and the problem it is about where there is one. */
+/**
+ * One phrase on the sheet, ready to copy: the sentence, what it leads to, and the problem it is about where there is
+ * one.
+ */
 export interface SheetPhrase {
   name: string;
   title: string;
   say: string;
   about: string;
-  /** The problem the phrase names, by hash, with the title the library remembers for it; the title is for the person reading the sheet and is in no phrase. */
+  /**
+   * The problem the phrase names, by hash, with the title the library remembers for it; the title is for the person
+   * reading the sheet and is in no phrase.
+   */
   problem?: { hash: Hash; title: string };
 }
 
@@ -218,7 +234,10 @@ export interface SheetGroup {
   phrases: SheetPhrase[];
 }
 
-/** Which of three states the home is in: no key made yet; a key, and no AI has connected through the connector; an AI has connected. */
+/**
+ * Which of three states the home is in: no key made yet; a key, and no AI has connected through the connector; an AI
+ * has connected.
+ */
 export type HomeState = 'no_key' | 'no_connector' | 'connected';
 
 /** The record a connecting AI leaves in the library: its host's name, the first time, the latest time. */
@@ -233,14 +252,20 @@ export interface Sheet {
   address: Address | null;
   name: string | null;
   connector: ConnectorSeen | null;
-  /** Whether Claude Desktop's config names the quilt connector, and where that file is, and whether Claude is running now. */
+  /**
+   * Whether Claude Desktop's config names the quilt connector, and where that file is, and whether Claude is running
+   * now.
+   */
   claude: { installed: boolean; config: string; running: boolean };
   /** The one phrase to say first: it tests the connection, and the record it leaves moves the state to connected. */
   first: SheetPhrase;
   groups: SheetGroup[];
   /** 'due' while the key's twelve words, kept at first use, wait on the page to be written down; null otherwise. */
   backup: 'due' | null;
-  /** Every prompt the connector offers, by name, with what each takes, so the sheet can name the ones it does not spell out. */
+  /**
+   * Every prompt the connector offers, by name, with what each takes, so the sheet can name the ones it does not spell
+   * out.
+   */
   prompts: { name: string; title: string; about: string; args: PhraseArg[] }[];
   /** Each phrase with its arguments in braces, by name, so the menu bar can say one about a problem it found itself. */
   templates: Record<string, string>;
@@ -251,7 +276,10 @@ export interface SheetInput {
   name: string | null;
   library: Library;
   attention: AttentionItem[];
-  /** The key's standing as a tracker computes it, where one answered; the name is offered once it is above the point every root starts with. */
+  /**
+   * The key's standing as a tracker computes it, where one answered; the name is offered once it is above the point
+   * every root starts with.
+   */
   standing?: number | null;
   /** Whether the key's twelve words, kept at first use, still wait to be written down. */
   wordsDue?: boolean;

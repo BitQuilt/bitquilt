@@ -6,10 +6,10 @@ import { type Pattern, Quilt } from '../src/quilt.js';
 import { instructs, json, mcpPair, quiltOver, startTracker } from './helpers.js';
 
 /**
- * Stake at the door (QX-15) from the client's side: an owner publishes a pattern with a stake and the tracker shows it on
- * every piece; a fresh key is handed nothing it cannot cover; a key with standing is handed a piece after a lock of that
- * much standing, posted before the claim in one step; quilt_me says what is locked and what is free; the owner changes
- * the rule later and nobody else can; the tools describe and never instruct.
+ * Stake at the door (QX-15) from the client's side: an owner publishes a pattern with a stake and the tracker shows it
+ * on every piece; a fresh key is handed nothing it cannot cover; a key with standing is handed a piece after a lock of
+ * that much standing, posted before the claim in one step; quilt_me says what is locked and what is free; the owner
+ * changes the rule later and nobody else can; the tools describe and never instruct.
  */
 let server: Server;
 let base: string;

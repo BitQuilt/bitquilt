@@ -11,7 +11,10 @@ import { type ToolInput, type ToolName, type ToolResult, type ToolRunner } from 
 
 export type NodeProbe = { found: 'mine' } | { found: 'other'; address: string | null } | { found: 'none' };
 
-/** Whether a node answers on the port, and whether it signs with this address. A tracker or anything else there is 'other'. */
+/**
+ * Whether a node answers on the port, and whether it signs with this address. A tracker or anything else there is
+ * 'other'.
+ */
 export async function probeNode(
   port: number,
   address: Address | null,
@@ -29,7 +32,10 @@ export async function probeNode(
   }
 }
 
-/** A fetch that never reached the node: the connection refused or reset, or nothing listening. A tool's own error is not one. */
+/**
+ * A fetch that never reached the node: the connection refused or reset, or nothing listening. A tool's own error is not
+ * one.
+ */
 function unreachable(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   if (err.name === 'TimeoutError' || err.name === 'AbortError') return true;

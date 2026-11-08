@@ -9,7 +9,10 @@ import { canonical } from './canonical.js';
 import { type Hash, hashHex, sha256Hex } from './hash.js';
 import type { Receipt } from './events.js';
 
-/** The hash of a line: sha256 over seq, a newline, prev, a newline, and the canonical JSON of the wrapper without the chain fields. */
+/**
+ * The hash of a line: sha256 over seq, a newline, prev, a newline, and the canonical JSON of the wrapper without the
+ * chain fields.
+ */
 export function lineHash(seq: number, prev: string, r: Pick<Receipt, 'event' | 'received'>): string {
   const body = canonical({ event: r.event, received: r.received });
   return sha256Hex(new TextEncoder().encode(`${seq}\n${prev}\n${body}`));
@@ -46,7 +49,9 @@ export interface ChainCheck {
   head: { seq: number; hash: string; short: string } | null;
 }
 
-/** The chain checked from its first line: each seq one more than the last, each prev the hash before, each hash its own. */
+/**
+ * The chain checked from its first line: each seq one more than the last, each prev the hash before, each hash its own.
+ */
 export function verifyChain(lines: Receipt[], problem: Hash): ChainCheck {
   const problems: string[] = [];
   let prev = hashHex(problem);

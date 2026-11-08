@@ -166,7 +166,8 @@ describe('the connector over MCP', () => {
       seen = host;
     });
     expect(seen).toBe('claude-test');
-    // The server's instructions open with the plain account of how Quilt works (about.ts), and describe like everything else.
+    // The server's instructions open with the plain account of how Quilt works (about.ts), and describe like everything
+    // else.
     const instructions = client.getInstructions() ?? '';
     expect(instructions).toMatch(/^How Quilt works, in plain words\./);
     expect(instructions).toContain('Anyone can add a problem, big or small');

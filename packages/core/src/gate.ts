@@ -14,8 +14,8 @@
 
 /**
  * Section 11 identifies the gate by the hash of its source; this constant is only its name. `gate/2` (30 October 2026,
- * CORE.md section 12) replaced `gate/1`'s phone rule, which refused honest runs of figures: a bill of mortality's totals, a
- * specimen's barcode, an item number beside a year. A phone number now needs the shape of one.
+ * CORE.md section 12) replaced `gate/1`'s phone rule, which refused honest runs of figures: a bill of mortality's
+ * totals, a specimen's barcode, an item number beside a year. A phone number now needs the shape of one.
  */
 export const GATE_VERSION = 'gate/2';
 
@@ -62,7 +62,10 @@ function linkish(text: string): boolean {
 }
 
 const EMAIL = /[\w.+-]+@[\w-]+\.[\w.]+/;
-/** A run of digits with the separators a phone number uses, not attached to a letter or another digit: an identifier like K000123456 is not one. */
+/**
+ * A run of digits with the separators a phone number uses, not attached to a letter or another digit: an identifier
+ * like K000123456 is not one.
+ */
 const PHONE = /(?<![A-Za-z\d])\+?(?:\(\d{2,4}\)|\d)[\d\s().-]{5,}\d/g;
 /** Dates, times and a year in brackets, which read as when and not as whom to call. */
 const WHEN = /\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}:\d{2}\b|\(\s*(?:1\d{3}|20\d{2})\s*\)/g;

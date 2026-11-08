@@ -35,7 +35,10 @@ import type {
 } from './listings.js';
 import type { Posted } from './resolver.js';
 
-/** Each state in the words the legend uses, in the legend's order: the core's ten, then the two the layer adds, then the mark for a kind nobody here implements. */
+/**
+ * Each state in the words the legend uses, in the legend's order: the core's ten, then the two the layer adds, then the
+ * mark for a kind nobody here implements.
+ */
 export const STATE_WORDS: Record<string, string> = {
   open: 'open',
   in_flight: 'in flight',
@@ -181,7 +184,10 @@ export function layerByHash(layer: LayerPiece[] | null | undefined): Map<Hash, L
   return new Map((layer ?? []).map((l) => [l.hash, l] as const));
 }
 
-/** The map as a strip of marks, one per piece in file order, and the counts; the tracker's states where it answered, the core's otherwise. */
+/**
+ * The map as a strip of marks, one per piece in file order, and the counts; the tracker's states where it answered, the
+ * core's otherwise.
+ */
 export function mapText(state: State, layer: LayerPiece[] | null = null): string {
   const over = layerByHash(layer);
   const shown = (v: PieceView): string => over.get(v.piece.hash)?.state ?? v.state;
@@ -204,7 +210,10 @@ export function kindsText(state: State): string {
     .join('; ')}.`;
 }
 
-/** The stake the problem asks (QX-15), as the tracker that answered holds it: one line, or nothing where nothing is asked. */
+/**
+ * The stake the problem asks (QX-15), as the tracker that answered holds it: one line, or nothing where nothing is
+ * asked.
+ */
 export function stakeText(layer: LayerPiece[] | null): string {
   const staked = (layer ?? []).filter((l) => (l.stake ?? 0) > 0);
   if (staked.length === 0) return '';
@@ -267,7 +276,10 @@ export function summary(opened: Opened, fallbackTrackers: string[]): string {
   return lines.filter(Boolean).join('\n');
 }
 
-/** The piece said as text: its kind and how strongly that kind earns a square, the brief as the author's quoted words, the schema, what it requires, the lease, and the stake where one is asked. */
+/**
+ * The piece said as text: its kind and how strongly that kind earns a square, the brief as the author's quoted words,
+ * the schema, what it requires, the lease, and the stake where one is asked.
+ */
 export function pieceText(hash: Hash, pick: Pick, owner: string, stake = 0): string {
   const k = kindWords(pick.piece.verifier);
   const lines = [
@@ -318,14 +330,20 @@ export function witnessesOf(receipts: Receipt[]): Map<string, Witness> {
   return out;
 }
 
-/** A witness in words after a signer's name: "witnessed by claude.ai" for a product, the client's own name quoted for another, the empty string where none. */
+/**
+ * A witness in words after a signer's name: "witnessed by claude.ai" for a product, the client's own name quoted for
+ * another, the empty string where none.
+ */
 export function witnessWords(w: Witness | null | undefined): string {
   if (!w) return '';
   if (w.via !== 'other') return `witnessed by ${w.via}`;
   return w.client ? `through a client that calls itself "${w.client}"` : 'through a client that gave no name';
 }
 
-/** QX-18 for `quilt_me`: the witness this session's token carries, as the tracker writes it on each event it posts for the key. */
+/**
+ * QX-18 for `quilt_me`: the witness this session's token carries, as the tracker writes it on each event it posts for
+ * the key.
+ */
 export function sessionWitnessText(w: Witness): string {
   if (w.via !== 'other') {
     const bound =
@@ -415,7 +433,9 @@ const SEAM_WHY: Record<Seam['why'], string> = {
   unknown: 'one side rests on nothing kept',
 };
 
-/** One side of a seam as words: who, and the passage quoted where it passes the plain-text gate, else where to fetch it. */
+/**
+ * One side of a seam as words: who, and the passage quoted where it passes the plain-text gate, else where to fetch it.
+ */
 function sideWords(x: SeamSide, name: (key: string) => string): string {
   const who = x.name ?? name(x.key);
   if (!x.read || !x.span)
@@ -427,7 +447,10 @@ function sideWords(x: SeamSide, name: (key: string) => string): string {
     : `${who} rests it on "${x.passage}" at ${where}`;
 }
 
-/** QX-19: the seams of a disputed piece, one line each: the field, why the two readings differ, and what each side rests on, quoted with its signer named. */
+/**
+ * QX-19: the seams of a disputed piece, one line each: the field, why the two readings differ, and what each side rests
+ * on, quoted with its signer named.
+ */
 export function seamsText(seams: readonly Seam[], name: (key: string) => string): string[] {
   return seams.map(
     (s) => `On ${s.field}, ${SEAM_WHY[s.why]}: ${sideWords(s.sides[0], name)}; ${sideWords(s.sides[1], name)}.`,
@@ -509,7 +532,8 @@ export function disputedText(state: State, layer: LayerPiece[] | null = null, me
     const layered = l?.state ?? v.state;
     if ((layered !== 'disputed' && v.state !== 'disputed') || v.reveals.length === 0) continue;
     const returns = `${v.reveals.length} ${v.reveals.length === 1 ? 'return' : 'returns'}`;
-    // QX-19 section 4: the tracker may have set one reading aside, so the core's dispute stands while the tracker calls the piece something else.
+    // QX-19 section 4: the tracker may have set one reading aside, so the core's dispute stands while the tracker calls
+    // the piece something else.
     const lines = [
       layered === 'disputed'
         ? `${v.piece.name} is disputed, with ${returns}.`
@@ -533,7 +557,10 @@ export function disputedText(state: State, layer: LayerPiece[] | null = null, me
   return blocks.length ? blocks.join('\n\n') : 'No piece is disputed.';
 }
 
-/** The challenges said as text: the ground as the challenger's quoted words, the seats, each verdict with the judge named and its return quoted. */
+/**
+ * The challenges said as text: the ground as the challenger's quoted words, the seats, each verdict with the judge
+ * named and its return quoted.
+ */
 export function challengesText(list: ChallengeListing[], state: State): string {
   if (list.length === 0) return 'No challenge on this problem.';
   const outcome: Record<ChallengeListing['outcome'], string> = {
@@ -563,7 +590,10 @@ export function challengesText(list: ChallengeListing[], state: State): string {
     .join('\n\n');
 }
 
-/** The panels said as text: each candidate's return quoted, its signer named once the panel has decided and "a candidate" while the judges rank blind, the seats, each rank, the outcome. */
+/**
+ * The panels said as text: each candidate's return quoted, its signer named once the panel has decided and "a
+ * candidate" while the judges rank blind, the seats, each rank, the outcome.
+ */
 export function panelsText(list: PanelListing[], state: State): string {
   if (list.length === 0) return 'No judge panel on this problem.';
   const outcome: Record<PanelListing['outcome'], string> = {
@@ -592,10 +622,16 @@ export function panelsText(list: PanelListing[], state: State): string {
     .join('\n\n');
 }
 
-/** What a problem's accepted squares found: for each agreed field whose schema is a list of choices, how many accepted squares agreed on each choice. */
+/**
+ * What a problem's accepted squares found: for each agreed field whose schema is a list of choices, how many accepted
+ * squares agreed on each choice.
+ */
 export type FoundCounts = Record<string, Record<string, number>>;
 
-/** The same count the tracker's row carries, from the fold this client reduced and the layer's states where a tracker answered. */
+/**
+ * The same count the tracker's row carries, from the fold this client reduced and the layer's states where a tracker
+ * answered.
+ */
 export function foundIn(state: State, layer: LayerPiece[] | null): FoundCounts {
   const byHash = new Map((layer ?? []).map((l) => [l.hash, l.state as string]));
   const out: FoundCounts = {};

@@ -65,7 +65,10 @@ async function page(path: string): Promise<{ status: number; headers: Headers; h
   return { status: r.status, headers: r.headers, html: await r.text() };
 }
 
-/** What a page served whole is held to: its own script and style allowed by hash, and nothing else loaded, posted or framed. */
+/**
+ * What a page served whole is held to: its own script and style allowed by hash, and nothing else loaded, posted or
+ * framed.
+ */
 function heldToItsPolicy({ headers, html }: { headers: Headers; html: string }): void {
   const policy = headers.get('content-security-policy') ?? '';
   const d = directives(policy);

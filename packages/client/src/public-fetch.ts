@@ -17,7 +17,8 @@ import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib';
 /** The most redirects one request follows. */
 export const REDIRECTS_MAX = 5;
 
-// One list for each family: a BlockList checks an IPv4 address against its IPv6 rules as the mapped form, which `::ffff:0:0/96` would refuse whole.
+// One list for each family: a BlockList checks an IPv4 address against its IPv6 rules as the mapped form, which
+// `::ffff:0:0/96` would refuse whole.
 const BLOCKED4 = new BlockList();
 const BLOCKED6 = new BlockList();
 const V4: [string, number][] = [
@@ -37,7 +38,8 @@ const V4: [string, number][] = [
   ['224.0.0.0', 4],
   ['240.0.0.0', 4],
 ];
-// `::/96` holds the unspecified address, loopback and the old IPv4-compatible form; the rest carry IPv4 inside (mapped, NAT64, 6to4, Teredo) or are not public.
+// `::/96` holds the unspecified address, loopback and the old IPv4-compatible form; the rest carry IPv4 inside (mapped,
+// NAT64, 6to4, Teredo) or are not public.
 const V6: [string, number][] = [
   ['::', 96],
   ['::ffff:0:0', 96],
@@ -55,7 +57,10 @@ const V6: [string, number][] = [
 for (const [net, prefix] of V4) BLOCKED4.addSubnet(net, prefix, 'ipv4');
 for (const [net, prefix] of V6) BLOCKED6.addSubnet(net, prefix, 'ipv6');
 
-/** Whether an IP address is on the public internet, outside every range above. A name, or anything that is not an address, is not. */
+/**
+ * Whether an IP address is on the public internet, outside every range above. A name, or anything that is not an
+ * address, is not.
+ */
 export function publicAddress(ip: string): boolean {
   const family = isIP(ip);
   if (family === 0) return false;
@@ -74,7 +79,10 @@ export class Refused extends Error {
 }
 const PRIVATE = 'a private address, which this connector does not fetch';
 
-/** The lookup a guarded connection dials through: every address the name answers is public, or the connection is refused. */
+/**
+ * The lookup a guarded connection dials through: every address the name answers is public, or the connection is
+ * refused.
+ */
 function guardedLookup(isPublic: (ip: string) => boolean): LookupFunction {
   return (hostname, options, callback) => {
     dnsLookup(
@@ -91,7 +99,10 @@ function guardedLookup(isPublic: (ip: string) => boolean): LookupFunction {
   };
 }
 
-/** Whether the connector is shared, so what it fetches on a stranger's word goes through the guard: `QUILT_READS=public`. */
+/**
+ * Whether the connector is shared, so what it fetches on a stranger's word goes through the guard:
+ * `QUILT_READS=public`.
+ */
 export function shared(): boolean {
   return process.env.QUILT_READS === 'public';
 }

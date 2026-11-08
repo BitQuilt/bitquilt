@@ -119,7 +119,10 @@ export interface State {
   chain: Envelope[];
   pieces: PieceView[];
   byHash: Map<Hash, PieceView>;
-  /** Pieces an ancestor had and this version does not (section 6, Envelopes): no state, offered to nobody, their events folded and counted toward weights. */
+  /**
+   * Pieces an ancestor had and this version does not (section 6, Envelopes): no state, offered to nobody, their events
+   * folded and counted toward weights.
+   */
   ancestral: Map<Hash, PieceView>;
   names: Map<Address, { name: string; agent: boolean }>;
   versions: Map<string, Hash>;
@@ -142,7 +145,10 @@ export interface ReduceInput {
   now: string;
 }
 
-/** The receipts in the order the reducer folds them (section 6, Order): receipted first, by earliest receipt then id; the rest by ts then id. */
+/**
+ * The receipts in the order the reducer folds them (section 6, Order): receipted first, by earliest receipt then id;
+ * the rest by ts then id.
+ */
 export function orderReceipts(receipts: Receipt[]): { receipt: Receipt; at: string; id: Hash }[] {
   const items = receipts.map((receipt) => ({ receipt, at: earliestReceipt(receipt), id: eventId(receipt.event) }));
   const received = items.filter((x) => x.at !== null) as { receipt: Receipt; at: string; id: Hash }[];
@@ -158,9 +164,15 @@ export function orderReceipts(receipts: Receipt[]): { receipt: Receipt; at: stri
 class Roots {
   readonly delegations: Delegation[] = [];
   readonly rotations = new Map<Address, Address>();
-  /** Old roots whose new root has revoked them (section 4: "the old root is a delegate of the new until revoked"); what they did stays the new root's. */
+  /**
+   * Old roots whose new root has revoked them (section 4: "the old root is a delegate of the new until revoked"); what
+   * they did stays the new root's.
+   */
   readonly rotationRevoked = new Set<Address>();
-  /** Every key with a prior event (section 4): one whose core event passed shape, signature and standing, and one a kept rotate named as `to`. */
+  /**
+   * Every key with a prior event (section 4): one whose core event passed shape, signature and standing, and one a kept
+   * rotate named as `to`.
+   */
   readonly prior = new Set<Address>();
 
   hasPrior(key: Address): boolean {
@@ -241,7 +253,9 @@ interface Checked {
   chainHashes: Set<Hash>;
 }
 
-/** What the fold leaves for `settle`: the roots as they stand at its end, the names, the versions, and what was dropped. */
+/**
+ * What the fold leaves for `settle`: the roots as they stand at its end, the names, the versions, and what was dropped.
+ */
 interface Folded {
   roots: Roots;
   names: State['names'];
@@ -511,7 +525,8 @@ function fold(
             d.revokedAt = at;
             any = true;
           }
-        // Section 4: "the old root is a delegate of the new until revoked". The root the old key now counts for revokes it.
+        // Section 4: "the old root is a delegate of the new until revoked". The root the old key now counts for revokes
+        // it.
         const rotatedTo = roots.rotations.get(of);
         if (rotatedTo !== undefined && roots.final(rotatedTo) === e.key && !roots.rotationRevoked.has(of)) {
           roots.rotationRevoked.add(of);
@@ -569,7 +584,8 @@ function settle(
   const settings = envelope.problem.settings;
   const ownerRoot = envelope.problem.owner as Address;
 
-  // Every piece of the chain has its accepting set decided, since weights count "in this chain"; only this problem's pieces have states.
+  // Every piece of the chain has its accepting set decided, since weights count "in this chain"; only this problem's
+  // pieces have states.
   const every = new Map([...views, ...ancestral]);
   for (const v of every.values()) decideAccepting(v, roots, ownerRoot, settings.challenge_window_h);
   const weights = computeWeights(every, roots);
@@ -631,7 +647,10 @@ function settle(
   };
 }
 
-/** The piece's accepting set by its verifier's rule, its frontier for a score piece, and its window from the set's completion. */
+/**
+ * The piece's accepting set by its verifier's rule, its frontier for a score piece, and its window from the set's
+ * completion.
+ */
 function decideAccepting(v: PieceView, roots: Roots, owner: Address, windowH: number): void {
   const p = v.piece;
   if (PATCH_VERIFIERS.includes(p.verifier)) {
@@ -640,11 +659,15 @@ function decideAccepting(v: PieceView, roots: Roots, owner: Address, windowH: nu
   } else if (p.verifier === 'agree' && p.schema) {
     v.accepting = acceptingReveals(v, roots, owner);
   }
-  // Section 6: "A window runs from the receipt c of the event that completed the set while now < c + challenge_window_h."
+  // Section 6: "A window runs from the receipt c of the event that completed the set while
+  // now < c + challenge_window_h."
   v.windowEnd = v.accepting ? plusHours(v.accepting.completedAt, windowH) : null;
 }
 
-/** A pair of runs that could accept a check or score piece, with the patch they ran and, for a score piece, the pair's score by `better`. */
+/**
+ * A pair of runs that could accept a check or score piece, with the patch they ran and, for a score piece, the pair's
+ * score by `better`.
+ */
 interface RunPair {
   patch: Reveal;
   a: Run;
@@ -742,7 +765,10 @@ function acceptingReveals(v: PieceView, roots: Roots, owner: Address): Accepting
   return null;
 }
 
-/** Section 6: "disputed: two reveals from unrelated roots that differ on an agree field, and no accepting set." The set is the caller's question. */
+/**
+ * Section 6: "disputed: two reveals from unrelated roots that differ on an agree field, and no accepting set." The set
+ * is the caller's question.
+ */
 function hasDispute(v: PieceView, roots: Roots): boolean {
   const p = v.piece;
   if (p.verifier !== 'agree' || !p.schema) return false;
@@ -756,7 +782,10 @@ function hasDispute(v: PieceView, roots: Roots): boolean {
   return false;
 }
 
-/** Section 6: "where the accepting set's first reveal has the value unreachable in an agree field whose schema is an enum that lists it". */
+/**
+ * Section 6: "where the accepting set's first reveal has the value unreachable in an agree field whose schema is an
+ * enum that lists it".
+ */
 function isUnreachable(v: PieceView): boolean {
   if (!v.accepting || v.accepting.kind !== 'agree' || !v.piece.schema) return false;
   const fields = agreeFields(v.piece.schema, v.piece.agree);
@@ -767,7 +796,10 @@ function isUnreachable(v: PieceView): boolean {
   });
 }
 
-/** Section 6: "A root's weight is (its reveals in accepting sets in this chain + 1) / (its claims in this chain + 1), bounded to [0.1, 1]." */
+/**
+ * Section 6: "A root's weight is (its reveals in accepting sets in this chain + 1) / (its claims in this chain + 1),
+ * bounded to [0.1, 1]."
+ */
 function computeWeights(views: Map<Hash, PieceView>, roots: Roots): Map<Address, number> {
   const claims = new Map<Address, number>();
   const accepted = new Map<Address, number>();
