@@ -31,7 +31,7 @@
  * write an hour from an address takes a peer's four events from one key at once. The well-known fields the page names
  * are in the well-known document, `peers` said as QX-21 says it; each rule the page repeats from PROTOCOL.md's "What
  * the door answers" cites it beside the rule and says what it says; its links reach a file and a heading, and it has no
- * U+2014.
+ * U+2014. docs/README.md says it by its six steps, and names beside it the sections its reading list links.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -1222,6 +1222,31 @@ describe('CLIENT.md, what it names and links', () => {
         .map((l) => slug(l.replace(/^#+ /, '')));
       expect(headings, link).toContain(fragment);
     }
+  });
+
+  it('is said in docs/README.md by its steps, and named there with what its reading list names', () => {
+    const readme = readFileSync(join(DOCS, 'README.md'), 'utf8');
+    // Two entries: the first step of the path for someone writing a client, and the page in the list of every document.
+    const entries = readme.split('\n').filter((l) => l.includes('[CLIENT.md](CLIENT.md)'));
+    expect(entries).toHaveLength(2);
+    const steps = /^## A first return, in (\w+) steps$/m.exec(DOC)?.[1];
+    expect(steps).toBe('six');
+    for (const e of entries) expect(e).toContain(`a first return in ${steps} steps`);
+    // The reading list's items, and the headings each links in a document.
+    const list = section('## What to read')
+      .split('\n')
+      .filter((l) => /^\d+\. /.test(l));
+    expect(list).toHaveLength(4);
+    const anchors = (item: string, file: string): string[] =>
+      [...item.matchAll(/\]\(([^)#]+)#([^)]+)\)/g)].filter((m) => m[1] === file).map((m) => m[2]!);
+    const sections = (item: string, file: string): string => {
+      const n = anchors(item, file).map((a) => /^(\d+)-/.exec(a)![1]!);
+      return n.length < 2 ? n.join('') : `${n.slice(0, -1).join(', ')} and ${n.at(-1)}`;
+    };
+    expect(anchors(list[3]!, 'PROTOCOL.md')).toEqual(['routes', 'what-the-door-answers', 'the-piece-next-hands-over']);
+    expect(entries.find((e) => e.startsWith('- '))).toContain(
+      `Read it with CORE.md sections ${sections(list[0]!, 'CORE.md')}, QX-19 sections ${sections(list[2]!, 'ext/QX-19.md')}, and PROTOCOL.md's routes, what the door answers and the piece next hands over.`,
+    );
   });
 
   it('has no em-dash, U+2014', () => {
