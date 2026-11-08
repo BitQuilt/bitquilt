@@ -75,7 +75,8 @@ interface Named {
 
 /**
  * The tests a line names, in its order. A name alone takes the package of the last path under `packages/` the line
- * gave before it, of a test or of anything else in that package.
+ * gave before it, of a test or of anything else in that package. A helper beside the tests, as `helpers.ts`, is named
+ * by its path.
  */
 function namedIn(line: string): Named[] {
   const out: Named[] = [];
@@ -84,6 +85,8 @@ function namedIn(line: string): Named[] {
     const token = m[1]!;
     const under = /^packages\/([\w-]+)(?:\/|$)/.exec(token);
     const name = token.split('/').at(-1)!;
+    if (under && !TEST.test(name) && /^packages\/[\w-]+\/test\/[\w.-]+\.ts$/.test(token))
+      out.push({ written: token, path: token, name });
     if (TEST.test(name)) {
       if (under) out.push({ written: token, path: token, name });
       else if (!token.includes('/'))

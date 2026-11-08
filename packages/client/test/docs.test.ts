@@ -1,7 +1,9 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, posix, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { markdownFiles, rootFolders } from './helpers.js';
 
 /**
  * The documents' links (AGENTS.md, "The words"; docs/README.md): every relative link in the repository's Markdown, the
@@ -19,28 +21,12 @@ import { describe, expect, it } from 'vitest';
  */
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Where the repository keeps Markdown: the two files at its root, and the folders walked for more. */
-const ROOT_FILES = ['README.md', 'AGENTS.md'];
-const FOLDERS = ['docs', 'examples', 'deploy', 'apps', 'impl', 'packages', 'site'];
-
 /** A file by its path from the root, with forward slashes on every system, its line ends as LF. */
 const read = (path: string): string => readFileSync(join(root, path), 'utf8').replace(/\r\n/g, '\n');
 const exists = (path: string): boolean => existsSync(join(root, path));
 
-/** Every Markdown file under a folder, by its path from the root; dependencies, builds and hidden folders left out. */
-function markdownUnder(folder: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(join(root, folder), { withFileTypes: true })) {
-    const path = `${folder}/${entry.name}`;
-    if (entry.isDirectory()) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist') continue;
-      out.push(...markdownUnder(path));
-    } else if (entry.name.endsWith('.md')) out.push(path);
-  }
-  return out;
-}
-
-const files = [...ROOT_FILES, ...FOLDERS.flatMap(markdownUnder)].sort();
+/** Where the repository keeps Markdown: its root's files and every one under a folder it keeps there (helpers.ts). */
+const files = markdownFiles();
 
 /** A file's text with its fenced blocks taken out: a heading or a link written there is an example. */
 function unfenced(text: string): string {
@@ -126,15 +112,6 @@ const TOP = [
   'site',
 ];
 
-/** The folders at the root the repository keeps: every one but a dot folder and those .gitignore names. */
-function rootFolders(): string[] {
-  const ignored = new Set([...read('.gitignore').matchAll(/^([\w.-]+)\/$/gm)].map((m) => m[1]!));
-  return readdirSync(root)
-    .filter((name) => !name.startsWith('.') && !ignored.has(name))
-    .filter((name) => statSync(join(root, name)).isDirectory())
-    .sort();
-}
-
 /** The files at the root, by name. */
 const ROOT_NAMES = new Set(
   readdirSync(root, { withFileTypes: true })
@@ -175,14 +152,16 @@ const bareIn = (mark: string): string[] =>
     .map((word) => word.replace(/[:#].*$/, '').replace(/[.,;]+$/, ''));
 
 /** A path opens with a folder at the root, with no letter, slash, dot or `@` before it, as a site's address has. */
-const OPENS = new RegExp(`(?<![\\w./@-])(?:${TOP.map((t) => t.replace('.', '\\.')).join('|')})/[^\\s\`'"(),;]*`, 'g');
+const opens = (folders: readonly string[]): RegExp =>
+  new RegExp(`(?<![\\w./@-])(?:${folders.map((t) => t.replace('.', '\\.')).join('|')})/[^\\s\`'"(),;]*`, 'g');
+const OPENS = opens(TOP);
 
 /**
  * The repository paths one code mark writes, from the root, the root's files given by name: a line after a colon and a
  * heading after `#` set aside, and a trailing slash with them. A pattern is no path.
  */
-function pathsOf(mark: string, names: ReadonlySet<string> = ROOT_NAMES): string[] {
-  const words = [...mark.matchAll(OPENS)].map((m) => m[0]);
+function pathsOf(mark: string, names: ReadonlySet<string> = ROOT_NAMES, folders: readonly string[] = TOP): string[] {
+  const words = [...mark.matchAll(folders === TOP ? OPENS : opens(folders))].map((m) => m[0]);
   for (const name of bareIn(mark)) if (atRoot(name, names)) words.push(name);
   return words
     .filter((word) => !/[<>{}*]/.test(word))
@@ -325,11 +304,23 @@ describe("the documents' paths in code marks", () => {
     for (const name of BARE) expect(present(name), name).toBe(true);
   });
 
-  it('opens a path with every folder the repository keeps at the root, and still reads one that is gone', () => {
+  it('opens a path with every folder the repository keeps at the root, dot folders among them', () => {
+    expect(rootFolders()).toContain('.github');
     expect(rootFolders().filter((f) => !TOP.includes(f))).toEqual([]);
-    expect(TOP).toContain('.github');
-    expect(pathsOf('contracts/src/Gone.sol')).toEqual(['contracts/src/Gone.sol']);
-    expect(present('contracts/src/Gone.sol')).toBe(false);
+  });
+
+  it('reads a path by the folders written out, so one under a listed folder the disk lacks is read and found missing', () => {
+    expect(pathsOf('gone/x.ts')).toEqual([]);
+    expect(pathsOf('gone/x.ts', ROOT_NAMES, [...TOP, 'gone'])).toEqual(['gone/x.ts']);
+    expect(present('gone/x.ts')).toBe(false);
+  });
+
+  it('reads every Markdown file git keeps, so a README added under any folder is held', () => {
+    const tracked = execFileSync('git', ['ls-files', '*.md'], { cwd: root, encoding: 'utf8' })
+      .split('\n')
+      .filter(Boolean);
+    expect(tracked.length).toBeGreaterThan(30);
+    expect(tracked.filter((f) => !files.includes(f))).toEqual([]);
   });
 
   it('finds a path that names nothing, and one whose case differs', () => {

@@ -15,7 +15,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
-import { codeFiles, repoRoot as root } from './helpers.js';
+import { codeFiles, repoRoot as root, rootFolders } from './helpers.js';
 
 /** A file by its path from the root, its line ends as LF. */
 const read = (path: string): string => readFileSync(join(root, path), 'utf8').replace(/\r\n/g, '\n');
@@ -427,18 +427,6 @@ describe('one return, end to end (AGENTS.md)', () => {
     expect(wrong).toEqual([]);
   });
 });
-
-/**
- * The folders at the root the repository keeps: every one but a dot folder and those .gitignore names, as a checkout
- * leaves dependencies, builds and coverage there.
- */
-function rootFolders(): string[] {
-  const ignored = new Set([...read('.gitignore').matchAll(/^([\w.-]+)\/$/gm)].map((m) => m[1]!));
-  return readdirSync(root)
-    .filter((name) => !name.startsWith('.') && !ignored.has(name))
-    .filter((name) => statSync(join(root, name)).isDirectory())
-    .sort();
-}
 
 /** The names "Around the packages" gives a line each, by the bold code marks that open the line. */
 function aroundLines(): string[] {
