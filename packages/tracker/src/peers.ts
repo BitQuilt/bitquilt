@@ -22,7 +22,7 @@ import { Refusal } from './http.js';
 import type { Store } from './store.js';
 import { readsNamed } from './trace.js';
 import { personSeatIn } from './verifiers.js';
-import type { Admitted, Log } from './admit.js';
+import { type Admitted, type Log, eventHoursOver, stampsUnlike } from './admit.js';
 import type { Tracker } from './tracker.js';
 
 /** QX-21: doors fold each other's chains. */
@@ -131,6 +131,13 @@ async function pullLog(door: PullDoor, peer: string, target: string, log: Log, o
     }
     const id = eventId(event);
     if (store.hasEvent(chain, id)) continue;
+    // What this door holds the line to beyond the core's shape: its bound on hours, as a post's shape is held to it,
+    // and the peer's wrapper times (PROTOCOL.md, What the door answers).
+    const unlike = [...eventHoursOver(event), ...stampsUnlike(line.received)];
+    if (unlike.length) {
+      out.refused.push({ id, why: unlike[0]! });
+      continue;
+    }
     if (!eventSignedByKey(event)) {
       out.refused.push({ id, why: "signature is not the key's" });
       continue;
