@@ -5,7 +5,8 @@
  * refuse, omit and hide. Admission (the gate, rate limits, the stamp) lives here and not in the reducer.
  *
  * The file runs in the order a request does: the options and the shared readers, publishing, the door (what is checked
- * before an event is appended), the views (what is served), then the routes that tie the two to paths.
+ * before an event is appended), the views (what is served), then the table of routes that ties the two to paths, one
+ * row each (routes.ts says what a row holds), and `handle`, which finds a request's row in it.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import {
@@ -95,6 +96,7 @@ import { type Store, reduceInputOf } from './store.js';
 import { Refusal, json } from './http.js';
 import { hostedPost, witnessOf, witnessedReveals } from './witness.js';
 import { PEER_PULL, PEER_PULL_EVERY_MS, type PeerPull, type PullDoor, pullPeers } from './peers.js';
+import { type Handler, type Route, handlerOf, routeOf } from './routes.js';
 
 /**
  * The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under.
@@ -179,6 +181,8 @@ export interface TrackerOptions {
 export interface Tracker {
   handle(req: IncomingMessage, res: ServerResponse): Promise<void>;
   listen(port: number, host?: string): Promise<Server>;
+  /** The door's routes, one row each, in the order `handle` tries them; the well-known document lists their paths. */
+  routes: readonly Route[];
   /** The core's fold of a problem this tracker holds. */
   reduceProblem(hash: Hash): ReturnType<typeof reduce> | null;
   /**
@@ -342,8 +346,8 @@ export function createTracker(options: TrackerOptions): Tracker {
 
   // Publishing
 
+  /** A problem published: its envelope and blobs, once the route has held the post to its address's hourly limit. */
   async function publish(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    limit(ipBucket(req), limits.ipPerHour);
     const body = parseJson(await readBody(req)) as { envelope?: unknown; blobs?: Record<string, string> };
     const envelope = body.envelope;
     const problems = envelopeProblems(envelope);
@@ -413,11 +417,11 @@ export function createTracker(options: TrackerOptions): Tracker {
   // The door
 
   /**
-   * Takes an event for a log: the network address's limit, the parse, the shape, the signature, the key's limit, then
-   * the log's own admission, the dedupe, the append, and what the append changes beside the chain.
+   * Takes an event for a log, once the route has held the post to its network address's hourly limit: the parse, the
+   * shape, the signature, the key's limit, then the log's own admission, the dedupe, the append, and what the append
+   * changes beside the chain.
    */
   async function postEvent(req: IncomingMessage, res: ServerResponse, log: Log): Promise<void> {
-    limit(ipBucket(req), limits.ipPerHour);
     const event = parseJson(await readBody(req)) as Event;
     const shape = eventProblems(event);
     if (shape.length) throw new Refusal(400, shape[0]!);
@@ -865,38 +869,11 @@ export function createTracker(options: TrackerOptions): Tracker {
       trace: { extension: TRACE, blob_max: BLOB_MAX },
       record: { extension: RECORD },
       coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
-      // The list a client reads, in the order `handle` tests the paths; test/routes.test.ts holds the two together.
-      routes: [
-        '/p',
-        '/p/<hash>',
-        '/p/<hash>/events',
-        '/p/<hash>/state',
-        '/p/<hash>/scrape',
-        '/p/<hash>/next',
-        '/p/<hash>/challenges',
-        '/p/<hash>/panels',
-        '/p/<hash>/record',
-        '/k/events',
-        '/k/<address>/standing',
-        '/k/<address>/work',
-        '/b/<hash>',
-        '/n/<owner>/<slug>',
-        '/search',
-        '/offer',
-        '/hidden',
-        '/counts',
-        ...(options.coin
-          ? [
-              '/coin/events',
-              '/coin/lock/<id>',
-              '/coin/balance/<root>',
-              '/coin/epochs',
-              '/coin/redeems',
-              '/coin/credits',
-              '/coin/state',
-            ]
-          : []),
-      ],
+      // The paths a client reads: the listed rows of the door's table, in the order `handle` tries them, and the coin's
+      // only where this tracker carries the coin.
+      routes: routes
+        .filter((r) => r.listed !== false && (r.guard !== 'coin' || Boolean(options.coin)))
+        .map((r) => r.path),
     };
   }
 
@@ -1082,6 +1059,33 @@ export function createTracker(options: TrackerOptions): Tracker {
     };
   }
 
+  /**
+   * A problem in one line with its chain checked, and with the topics every announce gave it, as the index shows them,
+   * so the owner's turn can announce again with the same (QX-13 section 3).
+   */
+  function scrape(hash: Hash) {
+    const chain = verifyChain(store.lines(hash), hash);
+    const topics = [
+      ...new Set(
+        store
+          .announcements(hash)
+          .flatMap((a) => ((a.event.body as { topics?: string[] }).topics ?? []).map((x) => x.toLowerCase())),
+      ),
+    ];
+    return { ...summary(hash), topics, chain_ok: chain.ok };
+  }
+
+  /**
+   * QX-20 section 4: the record document, once the layer calls the problem complete; its hash is the state's
+   * `record_output`.
+   */
+  function recordOf(hash: Hash) {
+    const pl = view(hash);
+    const doc = pl ? recordOutput(pl) : null;
+    if (!doc) throw new Refusal(404, 'no record document yet: the problem is not complete, or has no record piece');
+    return { hash: doc.hash, ...(doc.document as Record<string, unknown>) };
+  }
+
   /** QX-19: how long a blob here is, or null. */
   const blobLength = (h: Hash): number | null => store.blobLength(h);
 
@@ -1208,6 +1212,18 @@ export function createTracker(options: TrackerOptions): Tracker {
     }));
   }
 
+  /** A problem's challenges at now, with the problem and the time. */
+  function challengesOf(hash: Hash) {
+    const pl = view(hash)!;
+    return { problem: hash, now: now(), challenges: challenges(pl, nameIn(pl)) };
+  }
+
+  /** A problem's judge panels at now, with the problem and the time. */
+  function panelsOf(hash: Hash) {
+    const pl = view(hash)!;
+    return { problem: hash, now: now(), panels: panels(pl, nameIn(pl)) };
+  }
+
   /**
    * The problems here, each in summary with its topics (QX-13), those matching `q` when one is given; hidden ones left
    * out.
@@ -1234,6 +1250,102 @@ export function createTracker(options: TrackerOptions): Tracker {
       if (s) out.push({ ...s, topics });
     }
     return out;
+  }
+
+  /** QX-15: a key's standing, what is locked behind its claims, what is free, and the locks themselves. */
+  function standingOf(address: string) {
+    if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
+    const layered = layer();
+    const root = layered.rootOf(address);
+    return {
+      address,
+      root,
+      standing: layered.standing(root),
+      locked: layered.locked(root),
+      free: layered.free(root),
+      founding: founding.get(root.toLowerCase()) ?? 0,
+      locks: layered.liveLocks(root).map((l) => ({ problem: l.problem, piece: l.piece, amount: l.amount, at: l.at })),
+      at: layered.now,
+    };
+  }
+
+  /**
+   * The directory's hot list (APP.md, "The window"): a key's latest readings, newest first, each with its state and
+   * grade as this tracker holds them, and `aside` where the layer set this key's reading aside (QX-19 section 4).
+   * Receipts are by key, so a delegate's readings sit under the delegate's address; the root is said beside it.
+   */
+  function workBy(address: string, query: URLSearchParams) {
+    if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
+    const asked = Number(query.get('limit') ?? 20);
+    const limit = Math.min(50, Math.max(1, Number.isFinite(asked) ? Math.floor(asked) : 20));
+    const layered = layer();
+    const root = layered.rootOf(address);
+    const readings = store.revealsBy(address, limit).flatMap((r) => {
+      const pl = layered.problems.get(r.problem);
+      const l = pl?.byHash.get(r.piece);
+      if (!pl || !l) return [];
+      return [
+        {
+          problem: r.problem,
+          title: pl.fold.envelope.problem.title,
+          piece: r.piece,
+          name: l.name,
+          at: r.at,
+          state: l.state,
+          aside: l.aside.includes(address),
+          verified: l.verified,
+          traced: tracesOf(pl).get(r.piece)?.traced ?? null,
+        },
+      ];
+    });
+    const first = layered.problems.values().next().value as ProblemLayer | undefined;
+    return {
+      address,
+      root,
+      name: first ? nameIn(first)(root) : null,
+      standing: layered.standing(root),
+      readings,
+      at: layered.now,
+    };
+  }
+
+  /** QX-19 section 2: a read kept under its hash, so a trace can rest on it. */
+  async function keepBlob(req: IncomingMessage, res: ServerResponse, hash: Hash): Promise<void> {
+    const bytes = await readBytes(req, BLOB_MAX);
+    if (hashBytes(bytes) !== hash) throw new Refusal(400, 'the bytes do not match the hash');
+    store.putBlob(hash, bytes);
+    json(res, 202, { hash, bytes: bytes.length });
+  }
+
+  /** A blob's bytes as this store keeps them. */
+  function blob(res: ServerResponse, hash: Hash): void {
+    const bytes = store.getBlob(hash);
+    if (!bytes) throw new Refusal(404, 'no such blob here');
+    res.writeHead(200, { 'content-type': 'application/octet-stream', 'access-control-allow-origin': '*' });
+    res.end(Buffer.from(bytes));
+  }
+
+  /** The problem an owner's slug names here, as the owner's version events set it. */
+  function named(owner: string, slug: string) {
+    const hash = store.getName(owner, slug);
+    if (!hash) throw new Refusal(404, 'no such name here');
+    return { hash };
+  }
+
+  /**
+   * The launch funnel by the UTC day (JOURNEY-AUDIT.md section 3, item 9): counts with nobody in them, so the route is
+   * public.
+   */
+  function countsOf(query: URLSearchParams) {
+    const days = daysFrom(query.get('days'));
+    if (days === null) throw new Refusal(400, `days: a whole number from 1 to ${DAYS_MAX}`);
+    return funnel({
+      members: store.memberTimes(),
+      logs: store.listEnvelopes().map((e) => store.lines(e.hash)),
+      layer: layer(),
+      now: now(),
+      days,
+    });
   }
 
   /** A chain's lines after `since`, a page at a time, as newline-delimited JSON; the header names the next page. */
@@ -1270,6 +1382,62 @@ export function createTracker(options: TrackerOptions): Tracker {
     if (n !== null && (!Number.isInteger(n) || n < 0)) throw new Refusal(400, 'upto: a whole number');
     const head = n === null || c.head === null || n >= c.head.seq ? c.head : headAt(COIN_LOG, n);
     return { head, upto: n ?? undefined };
+  }
+
+  /** QX-17 section 5: a lock on the coin log, under the head it stands under, with the burn rate in force. */
+  function coinLock(id: Hash) {
+    const c = coin()!;
+    const lock = c.lock(id);
+    if (!lock) throw new Refusal(404, 'no such lock on the coin log');
+    return { ...lock, head: c.head, at: c.now, rate: c.burnRateAt(c.now) };
+  }
+
+  /** QX-17: a root's balance and what is pending for it, under the coin log's head. */
+  function coinBalance(address: string) {
+    if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
+    const layered = layer();
+    const c = coin(layered)!;
+    const root = layered.rootOf(address, c.now);
+    return { ...c.balance(root), pending: c.pending(root), at: c.now, head: c.head };
+  }
+
+  /** QX-17: the epochs from `since` on, under the coin log's head. */
+  function coinEpochs(query: URLSearchParams) {
+    const since = Number(query.get('since') ?? 0);
+    const c = coin()!;
+    return { epochs: c.epochs().filter((e) => e.epoch >= since), at: c.now, head: c.head };
+  }
+
+  /**
+   * The door out: the redeem lines the layer kept, each the chain line's hash the ERC-20 mints against once, under the
+   * head they stand under.
+   */
+  function coinRedeems(query: URLSearchParams) {
+    const c = coin()!;
+    const { head, upto } = headUpto(c, query);
+    return { head, at: c.now, redeems: c.redeems(upto) };
+  }
+
+  /**
+   * The way back: the credit lines the layer kept, each a deposit burned on the chain, under the head they stand under;
+   * what the mirror checks against the chain.
+   */
+  function coinCredits(query: URLSearchParams) {
+    const c = coin()!;
+    const { head, upto } = headUpto(c, query);
+    return { head, at: c.now, reader: options.coin?.reader ?? null, credits: c.credits(upto) };
+  }
+
+  /** QX-17: the coin as this tracker computes it at now: the parameters, every balance, and what was dropped. */
+  function coinState() {
+    const c = coin()!;
+    return {
+      head: c.head,
+      at: c.now,
+      params: { extension: COIN, ...options.coin, home: coinHome() },
+      balances: Object.fromEntries(c.balances()),
+      dropped: c.dropped,
+    };
   }
 
   /**
@@ -1430,8 +1598,150 @@ export function createTracker(options: TrackerOptions): Tracker {
     });
   }
 
-  // The routes, in the order the well-known document lists them.
+  // The routes
 
+  /**
+   * A write held to its network address's hourly limit before it runs, after the row's guard and before the body is
+   * read. Each row's own POST and PUT is one, and routes.test.ts holds that.
+   */
+  const limited =
+    (run: Handler): Handler =>
+    (asked) => {
+      limit(ipBucket(asked.req), limits.ipPerHour);
+      return run(asked);
+    };
+  const noRoute = (): never => {
+    throw new Refusal(404, 'no such route');
+  };
+
+  /**
+   * The door's routes, one row each, in the order `handle` tries them; the well-known document lists their paths in the
+   * same order. What a row holds is in routes.ts.
+   */
+  const routes: Route[] = [
+    { path: '/.well-known/quilt', listed: false, GET: ({ res }) => json(res, 200, wellKnown()) },
+    // The problems: published, served by hash, their events, states and what the extensions compute. A path naming a
+    // problem not held here is 404 whatever the method; under one held here, a method the row does not take is 405.
+    { path: '/p', POST: limited(({ req, res }) => publish(req, res)) },
+    {
+      path: '/p/<hash>',
+      guard: 'problem',
+      GET: ({ res, hash }) => json(res, 200, store.getEnvelope(hash!)!.envelope),
+      otherwise: 405,
+    },
+    {
+      path: '/p/<hash>/events',
+      guard: 'problem',
+      GET: ({ res, query, hash }) => events(res, hash!, Number(query.get('since') ?? 0)),
+      POST: limited(({ req, res, hash }) => postEvent(req, res, { kind: 'problem', hash: hash! })),
+      otherwise: 405,
+    },
+    {
+      path: '/p/<hash>/state',
+      guard: 'problem',
+      GET: ({ res, hash }) => json(res, 200, state(hash!, view(hash!)!)),
+      otherwise: 405,
+    },
+    {
+      path: '/p/<hash>/scrape',
+      guard: 'problem',
+      GET: ({ res, hash }) => json(res, 200, scrape(hash!)),
+      otherwise: 405,
+    },
+    {
+      path: '/p/<hash>/next',
+      guard: 'problem',
+      GET: ({ res, query, hash }) => assisted(res, hash!, query),
+      otherwise: 405,
+    },
+    {
+      path: '/p/<hash>/challenges',
+      guard: 'problem',
+      GET: ({ res, hash }) => json(res, 200, challengesOf(hash!)),
+      otherwise: 405,
+    },
+    {
+      path: '/p/<hash>/panels',
+      guard: 'problem',
+      GET: ({ res, hash }) => json(res, 200, panelsOf(hash!)),
+      otherwise: 405,
+    },
+    {
+      path: '/p/<hash>/record',
+      guard: 'problem',
+      GET: ({ res, hash }) => json(res, 200, recordOf(hash!)),
+      otherwise: 405,
+    },
+    // The identity log, which any method but POST lists, and a key's standing and work.
+    {
+      path: '/k/events',
+      GET: ({ res, query }) => events(res, IDENTITY, Number(query.get('since') ?? 0)),
+      POST: limited(({ req, res }) => postEvent(req, res, { kind: 'identity' })),
+      otherwise: 'GET',
+    },
+    { path: '/k/<address>/standing', GET: ({ res, address }) => json(res, 200, standingOf(address!)) },
+    { path: '/k/<address>/work', GET: ({ res, query, address }) => json(res, 200, workBy(address!, query)) },
+    // Blobs and names.
+    {
+      path: '/b/<hash>',
+      PUT: limited(({ req, res, hash }) => keepBlob(req, res, hash!)),
+      GET: ({ res, hash }) => blob(res, hash!),
+    },
+    { path: '/n/<owner>/<slug>', GET: ({ res, owner, slug }) => json(res, 200, named(owner!, slug!)) },
+    // The index: the front page and the search, the offer, what is taken down, and the launch funnel.
+    {
+      path: '/',
+      listed: false,
+      GET: ({ res, query }) => json(res, 200, { quilt: 1, tracker: url, problems: index(query) }),
+    },
+    { path: '/search', GET: ({ res, query }) => json(res, 200, { problems: index(query) }) },
+    { path: '/offer', GET: ({ res, query }) => offer(res, query) },
+    { path: '/hidden', GET: ({ res }) => json(res, 200, { hidden: [...hidden().values()] }) },
+    { path: '/counts', GET: ({ res, query }) => json(res, 200, countsOf(query)) },
+    // The coin (QX-17): its log, which any method but POST lists, and what the layer computes from it. Every path under
+    // /coin is the coin's, 404 on a tracker that carries none; on one that does, a method a row does not take is 405.
+    {
+      path: '/coin/events',
+      guard: 'coin',
+      GET: ({ res, query }) => events(res, COIN_LOG, Number(query.get('since') ?? 0)),
+      POST: limited(({ req, res }) => postEvent(req, res, { kind: 'coin' })),
+      otherwise: 'GET',
+    },
+    {
+      path: '/coin/lock/<id>',
+      guard: 'coin',
+      GET: ({ res, id }) => json(res, 200, coinLock(id!)),
+      otherwise: 405,
+    },
+    {
+      path: '/coin/balance/<root>',
+      guard: 'coin',
+      GET: ({ res, root }) => json(res, 200, coinBalance(root!)),
+      otherwise: 405,
+    },
+    { path: '/coin/epochs', guard: 'coin', GET: ({ res, query }) => json(res, 200, coinEpochs(query)), otherwise: 405 },
+    {
+      path: '/coin/redeems',
+      guard: 'coin',
+      GET: ({ res, query }) => json(res, 200, coinRedeems(query)),
+      otherwise: 405,
+    },
+    {
+      path: '/coin/credits',
+      guard: 'coin',
+      GET: ({ res, query }) => json(res, 200, coinCredits(query)),
+      otherwise: 405,
+    },
+    { path: '/coin/state', guard: 'coin', GET: ({ res }) => json(res, 200, coinState()), otherwise: 405 },
+    // Any other path under /coin: a GET finds no route, and any other method is told GET.
+    { path: '/coin*', listed: false, guard: 'coin', GET: noRoute, otherwise: 405 },
+  ];
+
+  /**
+   * Answers a request: OPTIONS on every path; then the first row whose path takes the request's, its guard asked
+   * before its method; then the routes mounted beside the tracker; then 404. A refusal is written as `{ error }` with
+   * its status, and anything else that fails as 500.
+   */
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
       const u = new URL(req.url ?? '/', url);
@@ -1446,268 +1756,18 @@ export function createTracker(options: TrackerOptions): Tracker {
         res.end();
         return;
       }
-      if (path === '/.well-known/quilt' && method === 'GET') {
-        json(res, 200, wellKnown());
-        return;
-      }
-      // The problems: published, served by hash, their events, states and what the extensions compute.
-      if (path === '/p' && method === 'POST') {
-        await publish(req, res);
-        return;
-      }
-      let m: RegExpExecArray | null;
-      if ((m = /^\/p\/(sha256:[0-9a-f]{64})(?:\/(events|state|scrape|next|challenges|panels|record))?$/.exec(path))) {
-        const hash = m[1] as Hash;
-        const sub = m[2];
-        if (!store.getEnvelope(hash)) throw new Refusal(404, 'no such problem here');
-        if (sub === 'events' && method === 'POST') {
-          await postEvent(req, res, { kind: 'problem', hash });
-          return;
-        }
-        if (method !== 'GET') throw new Refusal(405, 'GET');
-        if (sub === undefined) {
-          json(res, 200, store.getEnvelope(hash)!.envelope);
-          return;
-        }
-        if (sub === 'events') {
-          events(res, hash, Number(u.searchParams.get('since') ?? 0));
-          return;
-        }
-        if (sub === 'state') {
-          json(res, 200, state(hash, view(hash)!));
-          return;
-        }
-        if (sub === 'scrape') {
-          const chain = verifyChain(store.lines(hash), hash);
-          // With the topics every announce gave it, as the index shows them, so the owner's turn can announce again
-          // with the same (QX-13 section 3).
-          const topics = [
-            ...new Set(
-              store
-                .announcements(hash)
-                .flatMap((a) => ((a.event.body as { topics?: string[] }).topics ?? []).map((x) => x.toLowerCase())),
-            ),
-          ];
-          json(res, 200, { ...summary(hash), topics, chain_ok: chain.ok });
-          return;
-        }
-        if (sub === 'record') {
-          // QX-20 section 4: the record document, once the layer calls the problem complete; its hash is the state's
-          // `record_output`.
-          const pl = view(hash);
-          const doc = pl ? recordOutput(pl) : null;
-          if (!doc)
-            throw new Refusal(404, 'no record document yet: the problem is not complete, or has no record piece');
-          json(res, 200, { hash: doc.hash, ...(doc.document as Record<string, unknown>) });
-          return;
-        }
-        if (sub === 'next') {
-          assisted(res, hash, u.searchParams);
-          return;
-        }
-        if (sub === 'challenges') {
-          const pl = view(hash)!;
-          json(res, 200, { problem: hash, now: now(), challenges: challenges(pl, nameIn(pl)) });
-          return;
-        }
-        if (sub === 'panels') {
-          const pl = view(hash)!;
-          json(res, 200, { problem: hash, now: now(), panels: panels(pl, nameIn(pl)) });
-          return;
-        }
-      }
-      // The identity log, and a key's standing.
-      if (path === '/k/events') {
-        if (method === 'POST') {
-          await postEvent(req, res, { kind: 'identity' });
-          return;
-        }
-        events(res, IDENTITY, Number(u.searchParams.get('since') ?? 0));
-        return;
-      }
-      if ((m = /^\/k\/(0x[0-9a-fA-F]{40})\/standing$/.exec(path)) && method === 'GET') {
-        // QX-15: a key's standing, what is locked behind its claims, what is free, and the locks themselves.
-        const address = m[1]!;
-        if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
-        const layered = layer();
-        const root = layered.rootOf(address);
-        json(res, 200, {
-          address,
-          root,
-          standing: layered.standing(root),
-          locked: layered.locked(root),
-          free: layered.free(root),
-          founding: founding.get(root.toLowerCase()) ?? 0,
-          locks: layered
-            .liveLocks(root)
-            .map((l) => ({ problem: l.problem, piece: l.piece, amount: l.amount, at: l.at })),
-          at: layered.now,
-        });
-        return;
-      }
-      if ((m = /^\/k\/(0x[0-9a-fA-F]{40})\/work$/.exec(path)) && method === 'GET') {
-        // The directory's hot list (APP.md, "The window"): a key's latest readings, newest first, each with its state
-        // and grade as this tracker holds them, and `aside` where the layer set this key's reading aside
-        // (QX-19 section 4). Receipts are by key, so a delegate's readings sit under the delegate's address; the root
-        // is said beside it.
-        const address = m[1]!;
-        if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
-        const asked = Number(u.searchParams.get('limit') ?? 20);
-        const limit = Math.min(50, Math.max(1, Number.isFinite(asked) ? Math.floor(asked) : 20));
-        const layered = layer();
-        const root = layered.rootOf(address);
-        const readings = store.revealsBy(address, limit).flatMap((r) => {
-          const pl = layered.problems.get(r.problem);
-          const l = pl?.byHash.get(r.piece);
-          if (!pl || !l) return [];
-          return [
-            {
-              problem: r.problem,
-              title: pl.fold.envelope.problem.title,
-              piece: r.piece,
-              name: l.name,
-              at: r.at,
-              state: l.state,
-              aside: l.aside.includes(address),
-              verified: l.verified,
-              traced: tracesOf(pl).get(r.piece)?.traced ?? null,
-            },
-          ];
-        });
-        const first = layered.problems.values().next().value as ProblemLayer | undefined;
-        json(res, 200, {
-          address,
-          root,
-          name: first ? nameIn(first)(root) : null,
-          standing: layered.standing(root),
-          readings,
-          at: layered.now,
-        });
-        return;
-      }
-      // Blobs and names.
-      if ((m = /^\/b\/(sha256:[0-9a-f]{64})$/.exec(path)) && method === 'PUT') {
-        // QX-19 section 2: a read kept under its hash, so a trace can rest on it; counted against the address's limit.
-        limit(ipBucket(req), limits.ipPerHour);
-        const bytes = await readBytes(req, BLOB_MAX);
-        if (hashBytes(bytes) !== m[1]) throw new Refusal(400, 'the bytes do not match the hash');
-        store.putBlob(m[1] as Hash, bytes);
-        json(res, 202, { hash: m[1], bytes: bytes.length });
-        return;
-      }
-      if ((m = /^\/b\/(sha256:[0-9a-f]{64})$/.exec(path)) && method === 'GET') {
-        const bytes = store.getBlob(m[1] as Hash);
-        if (!bytes) throw new Refusal(404, 'no such blob here');
-        res.writeHead(200, { 'content-type': 'application/octet-stream', 'access-control-allow-origin': '*' });
-        res.end(Buffer.from(bytes));
-        return;
-      }
-      if ((m = /^\/n\/(0x[0-9a-fA-F]{40})\/([a-z0-9-]{1,64})$/.exec(path)) && method === 'GET') {
-        const hash = store.getName(m[1]!, m[2]!);
-        if (!hash) throw new Refusal(404, 'no such name here');
-        json(res, 200, { hash });
-        return;
-      }
-      // The index: the front page and the search, the offer, and what is taken down.
-      if (path === '/' && method === 'GET') {
-        json(res, 200, { quilt: 1, tracker: url, problems: index(u.searchParams) });
-        return;
-      }
-      if (path === '/search' && method === 'GET') {
-        json(res, 200, { problems: index(u.searchParams) });
-        return;
-      }
-      if (path === '/offer' && method === 'GET') {
-        offer(res, u.searchParams);
-        return;
-      }
-      if (path === '/hidden' && method === 'GET') {
-        json(res, 200, { hidden: [...hidden().values()] });
-        return;
-      }
-      // The launch funnel by the UTC day (JOURNEY-AUDIT.md section 3, item 9): counts with nobody in them, so the route
-      // is public.
-      if (path === '/counts' && method === 'GET') {
-        const days = daysFrom(u.searchParams.get('days'));
-        if (days === null) throw new Refusal(400, `days: a whole number from 1 to ${DAYS_MAX}`);
-        json(
-          res,
-          200,
-          funnel({
-            members: store.memberTimes(),
-            logs: store.listEnvelopes().map((e) => store.lines(e.hash)),
-            layer: layer(),
-            now: now(),
-            days,
-          }),
-        );
-        return;
-      }
-      // The coin (QX-17): its log, and what the layer computes from it.
-      if (path.startsWith('/coin')) {
-        if (!options.coin) throw new Refusal(404, 'this tracker carries no coin');
-        if (path === '/coin/events') {
-          if (method === 'POST') {
-            await postEvent(req, res, { kind: 'coin' });
-            return;
-          }
-          events(res, COIN_LOG, Number(u.searchParams.get('since') ?? 0));
-          return;
-        }
-        if (method !== 'GET') throw new Refusal(405, 'GET');
-        let cm: RegExpExecArray | null;
-        if ((cm = /^\/coin\/lock\/(sha256:[0-9a-f]{64})$/.exec(path))) {
-          const c = coin()!;
-          const lock = c.lock(cm[1] as Hash);
-          if (!lock) throw new Refusal(404, 'no such lock on the coin log');
-          json(res, 200, { ...lock, head: c.head, at: c.now, rate: c.burnRateAt(c.now) });
-          return;
-        }
-        if ((cm = /^\/coin\/balance\/(0x[0-9a-fA-F]{40})$/.exec(path))) {
-          if (!isAddress(cm[1])) throw new Refusal(400, 'an address with its checksum');
-          const layered = layer();
-          const c = coin(layered)!;
-          const root = layered.rootOf(cm[1], c.now);
-          json(res, 200, { ...c.balance(root), pending: c.pending(root), at: c.now, head: c.head });
-          return;
-        }
-        if (path === '/coin/epochs') {
-          const since = Number(u.searchParams.get('since') ?? 0);
-          const c = coin()!;
-          json(res, 200, { epochs: c.epochs().filter((e) => e.epoch >= since), at: c.now, head: c.head });
-          return;
-        }
-        if (path === '/coin/redeems') {
-          // The door out: the redeem lines the layer kept, each the chain line's hash the ERC-20 mints against once,
-          // under the head they stand under.
-          const c = coin()!;
-          const { head, upto } = headUpto(c, u.searchParams);
-          json(res, 200, { head, at: c.now, redeems: c.redeems(upto) });
-          return;
-        }
-        if (path === '/coin/credits') {
-          // The way back: the credit lines the layer kept, each a deposit burned on the chain, under the head they
-          // stand under; what the mirror checks against the chain.
-          const c = coin()!;
-          const { head, upto } = headUpto(c, u.searchParams);
-          json(res, 200, { head, at: c.now, reader: options.coin?.reader ?? null, credits: c.credits(upto) });
-          return;
-        }
-        if (path === '/coin/state') {
-          const c = coin()!;
-          json(res, 200, {
-            head: c.head,
-            at: c.now,
-            params: { extension: COIN, ...options.coin, home: coinHome() },
-            balances: Object.fromEntries(c.balances()),
-            dropped: c.dropped,
-          });
-          return;
-        }
-        throw new Refusal(404, 'no such route');
+      const found = routeOf(routes, path);
+      if (found) {
+        const { route, segments } = found;
+        if (route.guard === 'problem' && !store.getEnvelope(segments.hash!))
+          throw new Refusal(404, 'no such problem here');
+        if (route.guard === 'coin' && !options.coin) throw new Refusal(404, 'this tracker carries no coin');
+        const run = handlerOf(route, method);
+        if (run) return await run({ req, res, query: u.searchParams, ...segments });
+        if (route.otherwise === 405) throw new Refusal(405, 'GET');
       }
       if (options.extra && (await options.extra(req, res, u))) return;
-      throw new Refusal(404, 'no such route');
+      noRoute();
     } catch (err) {
       if (err instanceof Refusal) json(res, err.status, { error: err.message });
       else {
@@ -1722,5 +1782,14 @@ export function createTracker(options: TrackerOptions): Tracker {
     return new Promise((resolve) => server.listen(port, host, () => resolve(server)));
   }
 
-  return { handle, listen, reduceProblem, layer, view, coin: () => coin(), pullPeers: () => pullPeers(pullDoor) };
+  return {
+    handle,
+    listen,
+    routes,
+    reduceProblem,
+    layer,
+    view,
+    coin: () => coin(),
+    pullPeers: () => pullPeers(pullDoor),
+  };
 }
