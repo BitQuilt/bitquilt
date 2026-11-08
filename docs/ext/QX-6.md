@@ -1,6 +1,6 @@
 # QX-6: the hide event and a maintainer's key
 
-Status: Draft. Written and first implemented 27 October 2026 in the reference tracker (`packages/tracker/src/hide.ts`), the Quilt client and the mirror job. [EXTENSIONS.md](../EXTENSIONS.md) says what an extension may do; [PROTOCOL.md](../PROTOCOL.md), Events and Governance, names this one.
+Status: Draft. Written and first implemented 27 October 2026 in the reference tracker, the Quilt client and the mirror job; [AGENTS.md](../../AGENTS.md#the-shape-of-it) names the files that carry it out. [EXTENSIONS.md](../EXTENSIONS.md) says what an extension may do; [PROTOCOL.md](../PROTOCOL.md), Events and Governance, names this one.
 
 **Abstract.** A tracker is someone's, and what it serves is their word as much as their ledger. The protocol gives a tracker's keeper one power over what they show and none over what happened: a signed `hide` names a problem or an event and says why, and the tracker leaves that thing out of its own pages. The reducer never sees the event, the chain keeps every line, the mirror copies the hide with everything else, and another tracker honours it or does not. A person who wants the problem anyway asks for it by hash and gets it.
 
@@ -39,4 +39,4 @@ A hidden event changes nothing the tracker serves: the chain carries it. A rende
 
 ## 6. Tests
 
-`packages/tracker/test/hide.test.ts` holds the door (a non-maintainer, a malformed body, a link in the reason, the wrong log), the hidden problem's absence from index, search and offer, the 410 on next and on events, the envelope and chain still served, the lift, the hide of a single event and its listing. `packages/client/test/hide.test.ts` holds the verb and the summary. `packages/mirror/test/hidden.test.ts` holds the index entry.
+`packages/tracker/test/hide.test.ts` holds the door (a non-maintainer, a malformed body, a link in the reason, the wrong log), the hidden problem's absence from index, search and offer, the 410 on next and on events, the envelope and chain still served, the lift, the hide of a single event and its listing. `packages/client/test/hide.test.ts` holds the verb and the summary. `packages/mirror/test/identity.test.ts` holds the index entry.

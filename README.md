@@ -60,6 +60,8 @@ The first real problem ran on 25 October 2026 ([docs/history/FIRST-RUN.md](docs/
 
 ## Packages
 
+Each folder in a line; [AGENTS.md](AGENTS.md#the-shape-of-it) gives every source file in them a row, with the documents it carries out, and follows one return through them.
+
 | Folder | Package | What |
 | --- | --- | --- |
 | `packages/core` | `@bitquilt/core` | Canonical forms, keys and signatures, the envelope and piece hashes, events, the reducer and `next`, the gate, and the conformance fixtures: the frozen core, and nothing else |
