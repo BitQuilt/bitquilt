@@ -8,5 +8,6 @@ export * from './keys.js';
 export * from './events.js';
 export * from './chain.js';
 export * from './stamp.js';
+export type { Delegation } from './roots.js';
 export * from './reduce.js';
 export * from './next.js';
