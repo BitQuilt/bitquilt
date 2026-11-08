@@ -1,7 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Address, type Envelope, type Hash, commitHash, newNonce, problemHash, signEvent } from '@bitquilt/core';
+import {
+  type Address,
+  type Envelope,
+  type Hash,
+  type Receipt,
+  IDENTITY_LOG,
+  commitHash,
+  newNonce,
+  problemHash,
+  signEvent,
+} from '@bitquilt/core';
 import { challengeLayer } from '../src/challenge.js';
 import { coinEventRefusal, coinLayer } from '../src/coin.js';
+import { reduceInputOf } from '../src/store.js';
 import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
@@ -11,8 +22,10 @@ import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js
  * or not, and paid per square to the credited roots; a burn credited as standing; a forfeit taking the lock and as much
  * again from the unvested, and a held challenge restoring both; a transfer and a redeem from vested free coin, the
  * redeem listed under the head for the bridge, and a credit from the reader for a deposit burned on the chain; every
- * balance under the head. An event of another type, or one naming a problem, is refused in one set of words at the
- * door and in the fold (`coinEventRefusal`).
+ * balance under the head, with what the balances were folded over (QX-17 section 6): the kept layer's time, each
+ * problem in the layer's order with its chain's head, and the identity log's head, so the chains as the tracker serves
+ * them, cut at those heads and folded at those times, give the same balances. An event of another type, or one naming
+ * a problem, is refused in one set of words at the door and in the fold (`coinEventRefusal`).
  */
 const ownerP = key(9),
   ownerQ = key(8),
@@ -458,5 +471,57 @@ describe('the coin as a layer', () => {
     expect(s.balances[addr(B)]).toMatchObject({ balance: 560, credited: 100 });
     const lines = (await (await fetch(`${t.base}/coin/events`)).text()).trim().split('\n');
     expect(lines).toHaveLength(6);
+  });
+
+  it('names what the balances were folded over, and the chains as served, cut there, fold the same balances', async () => {
+    // The layer is kept for five seconds of the clock (tracker.ts): built at the start of a span and read a second
+    // later, so the layer's time is not the coin's.
+    clock.tick = (Math.floor(clock.tick / 5000) + 1) * 5000;
+    const kept = t.tracker.layer();
+    clock.tick += 1000;
+    type Head = { seq: number; hash: string } | null;
+    const s = (await get('/coin/state')) as {
+      head: Head;
+      at: string;
+      params: Record<string, unknown>;
+      balances: Record<string, Balance>;
+      folded: { at: string; problems: { problem: Hash; head: Head }[]; identity: Head };
+    };
+    expect(Object.keys(s)).toEqual(['head', 'at', 'params', 'balances', 'dropped', 'folded']);
+    expect(s.folded.at).toBe(kept.now);
+    expect(s.at).toBe(new Date(clock.tick).toISOString());
+    expect(s.folded.problems.map((x) => x.problem)).toEqual([...kept.problems.keys()]);
+    expect(s.folded.problems.map((x) => x.problem).sort()).toEqual([p, q].sort());
+    const served = async (path: string): Promise<Receipt[]> =>
+      (await (await fetch(`${t.base}${path}`)).text())
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => JSON.parse(l) as Receipt);
+    const cut = (lines: Receipt[], head: Head): Receipt[] => {
+      const at = head ? lines.findIndex((l) => l.seq === head.seq && l.hash === head.hash) : -1;
+      if (head) expect(at, `line ${head.seq}`).toBe(head.seq - 1);
+      return lines.slice(0, at + 1);
+    };
+    const identity = cut(await served('/k/events'), s.folded.identity);
+    expect(identity).toEqual([]);
+    const coinLines = cut(await served('/coin/events'), s.head);
+    const chains = new Map<Hash, Receipt[]>();
+    for (const x of s.folded.problems) chains.set(x.problem, cut(await served(`/p/${x.problem}/events`), x.head));
+    const envelopes = new Map<Hash, Envelope>([
+      [p, P],
+      [q, Q],
+    ]);
+    const reader = {
+      envelopeOf: (h: Hash) => envelopes.get(h) ?? null,
+      getBlob: () => null,
+      lines: (log: Hash) => (log === IDENTITY_LOG ? identity : (chains.get(log) ?? [])),
+    };
+    const layered = challengeLayer({
+      problems: s.folded.problems.map((x) => reduceInputOf(reader, envelopes.get(x.problem)!, s.folded.at)),
+      now: s.folded.at,
+      coin: coinLines,
+    });
+    const folded = coinLayer({ layer: layered, params: coin, receipts: coinLines, now: s.at });
+    expect(JSON.parse(JSON.stringify(Object.fromEntries(folded.balances())))).toEqual(s.balances);
   });
 });

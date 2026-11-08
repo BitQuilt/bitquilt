@@ -118,6 +118,8 @@ export {
   epochAmount,
   type CoinParams,
   type CoinLayer,
+  type CoinFolded,
+  type LogHead,
   type CoinLockView,
   type BalanceView,
   type EpochView,

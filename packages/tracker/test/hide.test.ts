@@ -76,6 +76,8 @@ describe("hide and a maintainer's key (QX-6)", () => {
     expect(scrape.chain_ok).toBe(true);
     const env = (await get(`/p/${P}`)) as { problem: { slug: string } };
     expect(env.problem.slug).toBe('p');
+    // Its chain too, which the coin's home names among what its balances were folded over (QX-17 section 6).
+    expect((await fetch(`${t.base}/p/${P}/events`)).status).toBe(200);
     const claim = await post(`/p/${P}/events`, ev(A, 'claim', { by }, P, state.pieces[0]!.hash));
     expect(claim.status).toBe(410);
     const hidden = (await get('/hidden')) as { hidden: { id: string; by: string }[] };

@@ -18,11 +18,14 @@
  * No `.head` file is written: the head is the ledger file's last line, stamped under `anchors/`. The mirror reads no
  * chain itself; the bin hands it one when the environment names it.
  *
- * The coin (QX-17) is held to the same rule as a chain: the mirror recomputes every balance from the receipts it holds
- * and the parameters the tracker publishes, with the tracker's own layer code, so what it checks is the receipts and
- * the head, not the arithmetic; a second implementation of coin.ts would check that. The tracker's balances are kept
- * only where the mirror's own agree, and only where every credit is what the chain holds; with no chain to ask, a
- * ledger with credits keeps no balances, and the credits alone refuse nothing.
+ * The coin (QX-17) is held to the same rule as a chain: the mirror recomputes every balance with the tracker's own
+ * layer code, so what it checks is the receipts and the heads, not the arithmetic; a second implementation of coin.ts
+ * would check that. It folds what the home's `/coin/state` says its balances were folded over, the home's own chains
+ * as the home serves them, cut at the heads the state names, with the parameters and the founding standing the home
+ * publishes, and not the mirror's own chains, whose lines carry the mirror's hashes and so draw other panels
+ * (QX-1 section 4). The tracker's balances are kept only where the mirror's own agree, and only where every credit is
+ * what the chain holds; with no chain to ask, a ledger with credits keeps no balances, and the credits alone refuse
+ * nothing.
  *
  * The keeping is over a store (files.ts: envelopes, blobs and the lines of each log), the mirror's layout under its
  * folder here and a tracker's store in a node (NODE.md section 5): `keep()` is the pull alone, which a node with `keep`
@@ -46,6 +49,8 @@ import {
   eventProblems,
   eventSignedByKey,
   hashBytes,
+  isHash,
+  isRecord,
   isSlug,
   nextLine,
   onlyAppends,
@@ -57,9 +62,12 @@ import {
 } from '@bitquilt/core';
 import {
   type BalanceView,
+  type ChainReader,
+  type CoinFolded,
   type CoinParams,
   type CreditLine,
   type Layer,
+  type LogHead,
   COIN_LOG,
   challengeLayer,
   coinLayer,
@@ -146,8 +154,8 @@ export interface MirrorReport {
   kept: Hash[];
   identity: { lines: number; added: number };
   /**
-   * QX-17: the coin log held, whether the tracker's balances at its head reproduced here (null where the head moved
-   * between reads or the state could not be read, and where they reproduce but the ledger has credits and no chain to
+   * QX-17: the coin log held, whether the tracker's balances reproduced here (null where its state could not be read
+   * or did not say what they were folded over, and where they reproduce but the ledger has credits and no chain to
    * check them against), how many credits were checked against the chain, and, in that last case, why the balances
    * were not kept.
    */
@@ -170,11 +178,32 @@ export interface MirrorReport {
  */
 const MAX_PAGES = 10_000;
 
-/** What `/coin/state` answers: the head the balances are of, the time they were computed at, and the balances. */
+/**
+ * What `/coin/state` answers (QX-17 section 6): the coin log's head the balances are of, the time they were computed
+ * at, the balances, and what they were folded over.
+ */
 interface CoinState {
-  head: { seq: number; hash: string } | null;
+  head: LogHead;
   at: string;
   balances: Record<string, BalanceView>;
+  folded: CoinFolded;
+}
+
+/** A head as a state names one: null, or a line's sequence from 1 and its hash. */
+const isHead = (h: unknown): h is LogHead =>
+  h === null || (isRecord(h) && Number.isInteger(h.seq) && (h.seq as number) >= 1 && typeof h.hash === 'string');
+
+/**
+ * A `/coin/state` answer read as one, or null where it is not: where it does not say what its balances were folded
+ * over, as a home that does not name it.
+ */
+function stateOf(answer: unknown): CoinState | null {
+  if (!isRecord(answer) || !isHead(answer.head) || typeof answer.at !== 'string' || !isRecord(answer.balances))
+    return null;
+  const f = answer.folded;
+  if (!isRecord(f) || typeof f.at !== 'string' || !isHead(f.identity) || !Array.isArray(f.problems)) return null;
+  if (!f.problems.every((p) => isRecord(p) && isHash(p.problem) && isHead(p.head))) return null;
+  return answer as unknown as CoinState;
 }
 
 /**
@@ -194,6 +223,11 @@ interface Context {
   tried: Set<Hash>;
   /** What this keeper's own wrapper says. */
   by: string;
+  /**
+   * Each chain this run read and verified, by the address it was read at and as that place served it, for the coin's
+   * check, which folds the home's chains as served (`servedTo`); null where the coin is not asked for.
+   */
+  served: Map<string, Receipt[]> | null;
 }
 
 function contextFor(options: KeepOptions): Context {
@@ -207,6 +241,7 @@ function contextFor(options: KeepOptions): Context {
     index: new Map(),
     tried: new Set(),
     by: options.by ?? 'mirror',
+    served: options.coin === false ? null : new Map(),
   };
 }
 
@@ -392,6 +427,7 @@ async function takeChain(
     ctx.report.refused.push(`${label}: chain from ${url} does not verify: ${check.problems[0]}`);
     return null;
   }
+  ctx.served?.set(url, lines);
   const held = ctx.store.lines(log);
   const before = held.length;
   if (mode === 'whole') {
@@ -427,12 +463,19 @@ async function takeChain(
 async function takeBlobs(ctx: Context, tracker: string, envelope: Envelope): Promise<Map<Hash, Uint8Array> | null> {
   const blobs = new Map<Hash, Uint8Array>();
   for (const h of Object.values(envelope.problem.data)) {
-    let bytes = ctx.store.getBlob(h);
-    if (!bytes || hashBytes(bytes) !== h) bytes = await getBytes(ctx, `${tracker}b/${h}`);
-    if (!bytes || hashBytes(bytes) !== h) return null;
+    const bytes = await blobAt(ctx, tracker, h);
+    if (!bytes) return null;
     blobs.set(h, bytes);
   }
   return blobProblems(envelope.problem, blobs).length ? null : blobs;
+}
+
+/** A blob by its hash: the file held here where it hashes right, else the tracker's where it does; null otherwise. */
+async function blobAt(ctx: Context, tracker: string, h: Hash): Promise<Uint8Array | null> {
+  const held = ctx.store.getBlob(h);
+  if (held && hashBytes(held) === h) return held;
+  const bytes = await getBytes(ctx, `${tracker}b/${h}`);
+  return bytes && hashBytes(bytes) === h ? bytes : null;
 }
 
 /**
@@ -517,22 +560,28 @@ async function takeIdentity(ctx: Context, tracker: string): Promise<void> {
 
 /**
  * QX-17: the coin log of the tracker that is the coin's home, taken like a chain, and the balances it says it computed.
- * The tracker's balances are its word. They are kept only where the mirror computes the same from the receipts it
- * holds and the parameters the tracker publishes, and, since the ledger admits a credit on the reader's signature
- * alone, only where every credit is what the chain holds at that deposit: "the mirror checks every credit against the
- * chain and keeps no balances where one differs or where it has no chain to ask" (AGENTS.md, rule 10). A credit that
- * is not what the chain holds is refused, and so are balances that do not reproduce, which needs no chain to say. With
- * no chain to ask, a ledger with credits is kept and its balances are not, and the credits alone refuse nothing, so a
- * run that refuses nothing else keeps the problems, the coin log and the rest (NODE.md section 6); where the balances
- * reproduce, `notKept` says why. A head that moved between the two reads, or a state that cannot be read, is left for
- * the next run (`reproduced: null`), with no reason given.
+ * The tracker's balances are its word. They are kept only where the mirror computes the same over what the home's
+ * state says they were folded over, as the home serves it (`servedOver`), with the parameters and the founding
+ * standing the home publishes, and, since the ledger admits a credit on the reader's signature alone, only where every
+ * credit is what the chain holds at that deposit: "the mirror checks every credit against the chain and keeps no
+ * balances where one differs or where it has no chain to ask" (AGENTS.md, rule 10). A chain the state names that the
+ * home does not serve as named is refused, since the balances then rest on receipts it does not serve as it says; a
+ * credit that is not what the chain holds is refused, and so are balances that do not reproduce, which needs no chain
+ * to say.
+ * With no chain to ask, a ledger with credits is kept and its balances are not, and the credits alone refuse nothing,
+ * so a run that refuses nothing else keeps the problems, the coin log and the rest (NODE.md section 6); where the
+ * balances reproduce, `notKept` says why. The state is read before the coin log, so the log taken after it holds every
+ * line the state names. A state that cannot be read, or does not say what it was folded over, is left for the next
+ * run (`reproduced: null`), with no reason given.
  */
 async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | null): Promise<void> {
   const wellKnown = (await getJson(ctx, `${tracker}.well-known/quilt`)) as {
     coin?: (CoinParams & { home?: string | null; extension?: string }) | null;
+    founding?: unknown;
   } | null;
   const published = wellKnown?.coin ?? null;
   if (!published || !(published.home === 'here' || published.home === undefined || published.home === null)) return;
+  const state = stateOf(await getJson(ctx, `${tracker}coin/state`));
   const log = await takeChain(ctx, `${tracker}coin/events`, COIN_LOG, COIN_LOG, 'coin', 'whole');
   if (!log) return;
   const held = log.lines[log.lines.length - 1];
@@ -543,15 +592,17 @@ async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | nu
     reproduced: null,
   };
   ctx.report.coin = coin;
-  const state = (await getJson(ctx, `${tracker}coin/state`)) as CoinState | null;
-  const same =
-    state &&
-    ((state.head === null && !held) ||
-      (state.head !== null && held !== undefined && state.head.seq === held.seq && state.head.hash === held.hash));
-  if (!state || !same) return;
+  if (!state) return;
   const { home: _home, extension: _extension, ...params } = published;
   try {
-    const { differs, credits } = reproduceBalances(ctx, params as CoinParams, log.lines, state);
+    const served = await servedOver(ctx, tracker, state);
+    if (typeof served === 'string') {
+      ctx.report.refused.push(`coin: ${served}`);
+      coin.reproduced = false;
+      return;
+    }
+    const founding = foundingOf(wellKnown?.founding);
+    const { differs, credits } = reproduceBalances(served, params as CoinParams, founding, state);
     const wrongCredit = chain ? await checkCredits(chain, credits) : null;
     coin.credits = chain ? credits.length : 0;
     if (wrongCredit !== null) {
@@ -583,20 +634,145 @@ async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | nu
   }
 }
 
+/** What the coin's balances are recomputed over: the home's own chains as it serves them, cut where its state says. */
+interface Served {
+  /** Each problem the state names, in its order, as the reducer takes it at the time the state says it was folded. */
+  problems: ReduceInput[];
+  /** The coin log to the state's head. */
+  coin: Receipt[];
+  /** Each read a trace on those chains names, measured by its bytes (QX-19 section 2), or null where neither has it. */
+  blobLength: (hash: Hash) => number | null;
+}
+
 /**
- * The balances recomputed here from the receipts held and the parameters published, with the tracker's own layer code:
- * the first root whose balance is not the tracker's, and the credits the ledger kept.
+ * What the home's state says its balances were folded over (QX-17 section 6), as the home serves it. Each chain the
+ * state names, each problem's, the identity log and the coin log, is the home's as served, read whole, verified from
+ * its log's hash and cut at the named head, whose line must carry the named hash (`servedTo`). Each envelope and data
+ * blob is the one held here or the home's, by its hash, and each read a trace on those chains names is measured by its
+ * bytes, held here or the home's, as the home measures the reads it holds. The problems are the home's, hidden and
+ * replaced ones among them, which it serves by hash (QX-6 section 3), whatever this run took from other sources. Why
+ * not, where a chain or an envelope the state names is not served as named.
+ */
+async function servedOver(ctx: Context, tracker: string, state: CoinState): Promise<Served | string> {
+  const { folded } = state;
+  const coin = await servedTo(ctx, `${tracker}coin/events`, COIN_LOG, state.head, `the coin log from ${tracker}`);
+  if (typeof coin === 'string') return coin;
+  const identity = await servedTo(
+    ctx,
+    `${tracker}k/events`,
+    IDENTITY_LOG,
+    folded.identity,
+    `the identity log from ${tracker}`,
+  );
+  if (typeof identity === 'string') return identity;
+  const envelopes = new Map<Hash, Envelope>();
+  const chains = new Map<Hash, Receipt[]>();
+  for (const { problem, head } of folded.problems) {
+    const envelope = ctx.store.envelopeOf(problem) ?? (await envelopeAt(ctx, tracker, problem));
+    if (!envelope) return `the envelope of ${problem} from ${tracker} does not check`;
+    envelopes.set(problem, envelope);
+    const lines = await servedTo(
+      ctx,
+      `${tracker}p/${problem}/events`,
+      problem,
+      head,
+      `the chain of ${problem} from ${tracker}`,
+    );
+    if (typeof lines === 'string') return lines;
+    chains.set(problem, lines);
+  }
+  const blobs = new Map<Hash, Uint8Array>();
+  for (const e of envelopes.values())
+    for (const h of Object.values(e.problem.data))
+      if (!blobs.has(h)) {
+        const bytes = await blobAt(ctx, tracker, h);
+        if (bytes) blobs.set(h, bytes);
+      }
+  const lengths = new Map<Hash, number | null>();
+  for (const lines of chains.values())
+    for (const l of lines)
+      for (const h of readsNamed(l.event))
+        if (!lengths.has(h)) lengths.set(h, (await blobAt(ctx, tracker, h))?.length ?? null);
+  const reader: ChainReader = {
+    envelopeOf: (h) => envelopes.get(h) ?? null,
+    getBlob: (h) => blobs.get(h) ?? null,
+    lines: (log) => (log === IDENTITY_LOG ? identity : (chains.get(log) ?? [])),
+  };
+  return {
+    problems: folded.problems.map(({ problem }) => reduceInputOf(reader, envelopes.get(problem)!, folded.at)),
+    coin,
+    blobLength: (h) => lengths.get(h) ?? null,
+  };
+}
+
+/**
+ * A chain the coin's state names, as its home serves it, to the named head: the lines this run already read from that
+ * address where their line at the head's sequence carries the head's hash, else the chain read again whole and
+ * verified from its log's hash. Why not, where it cannot be read whole, does not verify, or has no such line.
+ */
+async function servedTo(
+  ctx: Context,
+  url: string,
+  genesis: Hash,
+  head: LogHead,
+  label: string,
+): Promise<Receipt[] | string> {
+  const cached = ctx.served?.get(url);
+  const cut = cached ? cutAt(cached, head) : null;
+  if (cut) return cut;
+  const lines = await getLines(ctx, url);
+  if (!lines) return `${label} cannot be read whole`;
+  const check = verifyChain(lines, genesis);
+  if (!check.ok) return `${label} does not verify: ${check.problems[0]}`;
+  return cutAt(lines, head) ?? `${label} has no line ${head!.seq} with the hash the coin state names`;
+}
+
+/** A verified chain's lines to a head, or null where its line at the head's sequence is not the head. */
+function cutAt(lines: Receipt[], head: LogHead): Receipt[] | null {
+  if (head === null) return [];
+  const line = lines[head.seq - 1];
+  return line && line.seq === head.seq && line.hash === head.hash ? lines.slice(0, head.seq) : null;
+}
+
+/** An envelope the tracker serves by hash, where it checks, hashes to the hash and is its owner's; null otherwise. */
+async function envelopeAt(ctx: Context, tracker: string, hash: Hash): Promise<Envelope | null> {
+  const answer = await getJson(ctx, `${tracker}p/${hash}`);
+  if (!answer || envelopeProblems(answer).length || problemHash(answer as Envelope) !== hash) return null;
+  const envelope = answer as Envelope;
+  return signedBy(envelope as unknown as Record<string, unknown>, envelope.problem.owner) ? envelope : null;
+}
+
+/**
+ * The founding standing a tracker's well-known document publishes, by root in lower case as its layer counts it
+ * (QX-1 section 2); none where it publishes none.
+ */
+function foundingOf(published: unknown): Map<string, number> {
+  const out = new Map<string, number>();
+  if (isRecord(published))
+    for (const [root, n] of Object.entries(published)) if (typeof n === 'number') out.set(root.toLowerCase(), n);
+  return out;
+}
+
+/**
+ * The balances recomputed here with the tracker's own layer code over what the home's state says they were folded
+ * over, as the home serves it, with the parameters and the founding standing it publishes: the layer at the time the
+ * state says it was folded at, and the coin at the state's own time. The first root whose balance is not the home's,
+ * and the credits the ledger kept.
  */
 function reproduceBalances(
-  ctx: Context,
+  served: Served,
   params: CoinParams,
-  lines: Receipt[],
+  founding: Map<string, number>,
   state: CoinState,
 ): { differs: string | undefined; credits: CreditLine[] } {
-  const inputs: ReduceInput[] = [];
-  for (const { envelope } of ctx.index.values()) inputs.push(reduceInputOf(ctx.store, envelope, state.at));
-  const layer = challengeLayer({ problems: inputs, now: state.at, coin: lines });
-  const folded = coinLayer({ layer, params, receipts: lines, now: state.at });
+  const layer = challengeLayer({
+    problems: served.problems,
+    now: state.folded.at,
+    coin: served.coin,
+    founding,
+    blobLength: served.blobLength,
+  });
+  const folded = coinLayer({ layer, params, receipts: served.coin, now: state.at });
   const mine = Object.fromEntries(folded.balances());
   const roots = [...new Set([...Object.keys(mine), ...Object.keys(state.balances)])].sort();
   const differs = roots.find((r) => JSON.stringify(mine[r] ?? null) !== JSON.stringify(state.balances[r] ?? null));

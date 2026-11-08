@@ -6,6 +6,8 @@
  * their events, and writes the mirror's files; with --anchor, stamps every chain's head through OpenTimestamps (QX-12).
  * Each flag has a variable of the repository job's: BITQUILT_TRACKERS, BITQUILT_MIRROR, BITQUILT_MIRROR_BY (what the
  * mirror's own wrapper says), BITQUILT_PEERS (0 to follow none), BITQUILT_CALENDARS and BITQUILT_ANCHOR (set to 1).
+ * At the coin's home, the balances are checked over the home's own chains as it serves them, cut at the heads its
+ * /coin/state names (QX-17 section 7), and a chain it names that it does not serve as named is refused.
  * QUILT_CHAIN_RPC, QUILT_CHAIN_ID and QUILT_CONTRACTS are shared with the coin's jobs: set, the bin opens the
  * connection and the mirror checks every credit line on the coin log against the deposit the chain holds (the way
  * back); without them the balances of a ledger with credits are not kept and the credits alone refuse nothing, and a

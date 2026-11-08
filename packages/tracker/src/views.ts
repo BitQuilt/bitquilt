@@ -19,7 +19,7 @@ import {
   PANEL,
   countsAsAccepted,
 } from './challenge.js';
-import { type CoinLayer, COIN, COIN_LOG } from './coin.js';
+import { type CoinFolded, type CoinLayer, type LogHead, COIN, COIN_LOG } from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
 import { GOLD, windowOpen } from './gold.js';
 import { HIDE } from './hide.js';
@@ -617,14 +617,38 @@ export function coinCredits({ store, options, coin }: Reads, query: URLSearchPar
   return { head, at: c.now, reader: options.coin?.reader ?? null, credits: c.credits(upto) };
 }
 
-/** QX-17: the coin as this tracker computes it at now: the parameters, every balance, and what was dropped. */
-export function coinState({ options, coin, coinHome }: Reads) {
-  const c = coin()!;
+/**
+ * QX-17 section 6: the coin as this tracker computes it at now, the parameters, every balance and what was dropped,
+ * with what the balances were folded over (`foldedOver`), for the mirror.
+ */
+export function coinState({ store, options, layer, coin, coinHome }: Reads) {
+  const layered = layer();
+  const c = coin(layered)!;
   return {
     head: c.head,
     at: c.now,
     params: { extension: COIN, ...options.coin, home: coinHome() },
     balances: Object.fromEntries(c.balances()),
     dropped: c.dropped,
+    folded: foldedOver(store, layered),
+  };
+}
+
+/**
+ * What the coin's balances were folded over (QX-17 section 6): the time the layer was folded at, each problem it
+ * folded in its order with its chain's head, and the identity log's head. The layer is the kept one, folded at the
+ * store's version now and up to five seconds before the coin's `at` (tracker.ts); nothing is written between reading
+ * it and reading the heads, so they are the heads it folded. Every problem here is folded, hidden and replaced ones
+ * too, and each is still served by hash (QX-6 section 3).
+ */
+function foldedOver(store: Store, layered: Layer): CoinFolded {
+  const headOf = (log: Hash): LogHead => {
+    const h = store.head(log);
+    return h ? { seq: h.seq, hash: h.hash } : null;
+  };
+  return {
+    at: layered.now,
+    problems: [...layered.problems.keys()].map((problem) => ({ problem, head: headOf(problem) })),
+    identity: headOf(IDENTITY_LOG),
   };
 }

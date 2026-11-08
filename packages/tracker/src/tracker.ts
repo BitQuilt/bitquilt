@@ -243,15 +243,16 @@ function contextOf(options: TrackerOptions): Context {
     return built;
   }
 
+  /**
+   * The clock is read once, so every problem is reduced at the time the layer is folded at, and a reader given that
+   * time and the chains the coin's state names folds the same (QX-17 section 6).
+   */
   function buildLayer(): Layer {
-    const problems: ReduceInput[] = [];
-    for (const e of store.listEnvelopes()) {
-      const input = inputFor(e.hash);
-      if (input) problems.push(input);
-    }
+    const at = now();
+    const problems: ReduceInput[] = store.listEnvelopes().map((e) => reduceInputOf(store, e.envelope, at));
     return challengeLayer({
       problems,
-      now: now(),
+      now: at,
       blobLength: (h) => store.blobLength(h),
       ...(options.coin ? { coin: store.lines(COIN_LOG) } : {}),
       ...(founding.size ? { founding } : {}),
