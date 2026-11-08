@@ -1,9 +1,9 @@
 /**
  * The resolver: given a link or a hash, fetch the envelope, its ancestors, their blobs, their receipts and the identity
  * log from the places that answer, in the link's order, then the config's, then the cache; check every hash; keep a
- * copy; reduce. Posting goes to every tracker known; an event no tracker takes waits in the queue. This is the
- * client's side of PROTOCOL.md's resolvers: it asks them and keeps what they answer; the node in page.ts is the part
- * of Quilt that is a resolver.
+ * copy; reduce. Posting tries the trackers in order and stops at the first that takes the event or refuses it; an
+ * event no tracker answers waits in the queue. This is the client's side of PROTOCOL.md's resolvers: it asks them and
+ * keeps what they answer; the node in page.ts is the part of Quilt that is a resolver.
  */
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

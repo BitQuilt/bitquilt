@@ -60,7 +60,7 @@ The first real problem ran on 25 October 2026 ([docs/history/FIRST-RUN.md](docs/
 
 ## Packages
 
-Each folder in a line; [AGENTS.md](AGENTS.md#the-shape-of-it) gives every source file in them a row, with the documents it carries out, and follows one return through them.
+Each folder has a line here. [AGENTS.md](AGENTS.md#the-shape-of-it) gives every source file of the packages, the scripts and the workers a row, with the documents it carries out, and each other folder a line; it also follows one return through the code.
 
 | Folder | Package | What |
 | --- | --- | --- |

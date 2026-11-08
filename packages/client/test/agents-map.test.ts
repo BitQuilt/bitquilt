@@ -4,9 +4,11 @@
  * the example workers; and no row names a file that is not there, or one twice. A name a row gives in code marks is
  * one its file declares, and each document and section a row says its file carries out is a part that document has.
  * Each stop of the return names a file and a function that file declares, and each name a stop gives beside them is
- * declared in the code. Everywhere else in AGENTS.md, a path names a file or a folder that exists, a name in code
- * marks is a word of the code, and an environment name is one .env.example lists. So a file added, moved or renamed,
- * or a function renamed, fails here until the map says so. What the map says of a file is held by review.
+ * declared in the code. Each folder at the root has a line around the packages, as the image and the workflows do,
+ * but the packages and the scripts, which have tables of their own. Everywhere else in AGENTS.md, a path names a file
+ * or a folder that exists, a name in code marks is a word of the code, and an environment name is one .env.example
+ * lists. So a file or a folder added, moved or renamed, or a function renamed, fails here until the map says so. What
+ * the map says of a file is held by review.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -422,6 +424,38 @@ describe('one return, end to end (AGENTS.md)', () => {
       }),
     );
     expect(wrong).toEqual([]);
+  });
+});
+
+/**
+ * The folders at the root the repository keeps: every one but a dot folder and those .gitignore names, as a checkout
+ * leaves dependencies, builds and coverage there.
+ */
+function rootFolders(): string[] {
+  const ignored = new Set([...read('.gitignore').matchAll(/^([\w.-]+)\/$/gm)].map((m) => m[1]!));
+  return readdirSync(root)
+    .filter((name) => !name.startsWith('.') && !ignored.has(name))
+    .filter((name) => statSync(join(root, name)).isDirectory())
+    .sort();
+}
+
+/** The names "Around the packages" gives a line each, by the bold code marks that open the line. */
+function aroundLines(): string[] {
+  return under('### Around the packages').flatMap((line) => {
+    const m = /^- \*\*`([^`]+)`\*\*/.exec(line);
+    return m ? [m[1]!.replace(/\/$/, '')] : [];
+  });
+}
+
+describe('what runs around the packages (AGENTS.md, Around the packages)', () => {
+  it('gives each folder at the root a line, and the image and the workflows one each', () => {
+    const lines = aroundLines();
+    const tabled = new Set(['packages', 'scripts']);
+    const folders = rootFolders().filter((f) => !tabled.has(f));
+    expect(folders.length).toBeGreaterThan(5);
+    expect(folders.filter((f) => !lines.some((l) => l.split('/')[0] === f))).toEqual([]);
+    for (const named of ['Dockerfile', '.github/workflows', 'deploy', 'mirror']) expect(lines).toContain(named);
+    expect(lines.filter((l) => !located(l))).toEqual([]);
   });
 });
 
