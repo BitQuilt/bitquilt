@@ -1,4 +1,7 @@
-/** The door out and the way back, for the bins, the mirror and the tests. */
+/**
+ * The door out and the way back as one export, which the mirror's binary imports; the bins and the tests import the
+ * files themselves.
+ */
 
 // The jobs: the poster, the holder's claim, the reader and the holder's deposit, with their options, reports and doors.
 export {
@@ -48,5 +51,6 @@ export {
 export * as merkle from './merkle.js';
 export type { Hex } from './merkle.js';
 
-// For a deployment script and the anvil test, kept here because viem is imported in chain.ts alone.
+// For a deployment script outside the repository, kept beside the other chain functions since viem is imported in
+// chain.ts alone.
 export { deploy, bond, balanceOf, ANCHORS_ABI, QUILT_ABI, type Abi } from './chain.js';

@@ -1,16 +1,8 @@
 /**
- * The tracker as a library: Quilt and the mirror import the store and `createTracker` to run one in their tests, and
- * the mirror imports `reduceInputOf`, `challengeLayer`, `coinLayer` and `COIN_LOG` to fold a tracker's chains as the
- * tracker does and recompute its balances from them.
- * The files, by extension: tracker.ts (the options, the context the door's jobs share, and the table of its routes),
- * admit.ts (the door as it takes a post, with a map for the identity log and one for a problem's log from each event
- * type to the check that admits it), views.ts (the answers to a read), hand.ts (assisted next and the offer),
- * routes.ts (what a row of the table holds, and how a request's path finds its row), http.ts (the refusal and the JSON
- * writer, which the hosted on-ramp writes its own routes' JSON answers with too), store.ts, challenge.ts (QX-1, with
- * standing.ts and sortition.ts), verifiers.ts (QX-2, QX-3, QX-10, QX-20), trace.ts (QX-19, and QX-20's grade and
- * document), seeding.ts (QX-4, QX-5), hide.ts (QX-6), stake.ts (QX-15), gold.ts (QX-16), coin.ts (QX-17), witness.ts
- * (QX-18's door side), peers.ts (QX-21), env.ts (the binaries' environment). The body checks, the constants and the
- * view types are exported for the tests, which enter through `createTracker` and `challengeLayer`.
+ * The tracker as a library: what the package exports, which hosted, the mirror and the node import in their sources
+ * and Quilt in its tests. Each export is listed below with the file that holds it, and the map of the code
+ * (AGENTS.md, The shape of it) says what each file holds and which extension it carries out. The tracker's own tests
+ * import its files themselves.
  */
 export {
   Store,

@@ -1,10 +1,10 @@
 /**
  * The Door (door.ts): the narrow set of effects a Quilt builds from its own signing, posting and reading and hands to
  * the files that work through it. The files door.ts's header names are the files that take it, and AGENTS.md names the
- * same, so a reader who asks where the home's key is used beyond quilt.ts finds every place. Both once said two files
- * where three took it. Each act of those files that a caller reaches through the Quilt keeps a method of its own name
- * on the Quilt, one line that hands over the door, so the work reads in the extension's file and no caller changes
- * when it moves there.
+ * same, in the client's paragraph and in door.ts's row of its map, so a reader who asks where the home's key is used
+ * beyond quilt.ts finds every place. Both once said two files where three took it. Each act of those files that a
+ * caller reaches through the Quilt keeps a method of its own name on the Quilt, one line that hands over the door, so
+ * the work reads in the extension's file and no caller changes when it moves there.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -55,8 +55,11 @@ describe('the Door', () => {
     const header = readFileSync(join(src, 'door.ts'), 'utf8');
     expect(named(header.slice(0, header.indexOf(': ')), /\((\w+\.ts)\)/g)).toEqual(taking);
     const agents = readFileSync(join(here, '..', '..', '..', 'AGENTS.md'), 'utf8');
+    // The client's paragraph says it in one sentence, and door.ts's row of the map says it again.
     const clause = agents.slice(0, agents.indexOf('through the `Door` in `door.ts`'));
-    expect(named(clause.slice(clause.lastIndexOf(';')), /`(\w+\.ts)`/g)).toEqual(taking);
+    expect(named(clause.slice(clause.lastIndexOf('. ')), /`(\w+\.ts)`/g)).toEqual(taking);
+    const row = agents.split('\n').find((line) => line.startsWith('| `src/door.ts` |')) ?? '';
+    expect(named(row.split(' | ')[1] ?? '', /`(\w+\.ts)`/g)).toEqual(taking);
   });
 
   it('leaves the Quilt a one-line method of the same name for each act a caller reaches through it', () => {

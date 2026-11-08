@@ -539,7 +539,7 @@ describe('a citation names a part its document has', () => {
       '// the root (QX-11, The vanished part)',
       'docs/ext/QX-11.md has no part named "The vanished part"',
     ],
-    ['a rule past the last', '// (AGENTS.md, rule 11)', 'AGENTS.md has no rule 11'],
+    ['a rule past the last', '// (AGENTS.md, rule 12)', 'AGENTS.md has no rule 12'],
     ['a step of the wrong heading', '// (docs/DEPLOY.md, "The walk", step 10)', 'has no step 10'],
     ['a document moved away', '// the default (docs/LAUNCH.md step 5)', 'no document is at docs/LAUNCH.md'],
     [

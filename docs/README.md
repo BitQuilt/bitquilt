@@ -21,7 +21,7 @@ Each kind of reader has a path through the documents, in order, with what each o
 
 ## A contributor to the code
 
-1. [AGENTS.md](../AGENTS.md): the layout, the names, where the words live, and what a change keeps true, with the test behind each rule.
+1. [AGENTS.md](../AGENTS.md): the map of the code, a row per source file with the documents it carries out; one return followed through the code, stop by stop; the names, where the words live, and what a change keeps true, with the test behind each rule.
 2. [LAYERS.md](LAYERS.md): the layers the packages are cut along.
 3. [CORE.md](CORE.md): the frozen core, and why `packages/core` changes only in a version-2 conversation.
 4. [EXTENSIONS.md](EXTENSIONS.md), then the document under [ext/](ext/) for the area: what an extension may do, and exactly what this one does. The code cites their section numbers.

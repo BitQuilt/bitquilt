@@ -1,7 +1,7 @@
 // Builds Quilt and the tracker as single executables for the platform this runs on, with Node's single-executable
-// applications: each entry is bundled into one CommonJS file with esbuild, wrapped into a blob with the page's HTML as
-// an asset, and injected into a copy of this Node binary with postject. The release workflow runs this on a runner per
-// platform; locally it builds for the host.
+// applications: each entry is bundled into one CommonJS file with esbuild, wrapped into a blob, Quilt's with the page's
+// HTML as an asset, and injected into a copy of this Node binary with postject. The release workflow runs this on a
+// runner per platform; locally it builds for the host.
 //
 //   node scripts/build-binaries.mjs            -> dist/bin/quilt-<platform>-<arch>,
 //                                                 dist/bin/bitquilt-tracker-<platform>-<arch>
