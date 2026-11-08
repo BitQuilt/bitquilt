@@ -1,3 +1,4 @@
+import { request } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash, commitHash, hashBytes, newNonce, problemHash } from '@bitquilt/core';
 import { type Route as TableRow, handlerOf, segmentsOf } from '../src/routes.js';
@@ -12,7 +13,8 @@ import { type Booted, addr, boot, envelope, key } from './helpers.js';
  * names in their order, each row's path is checked against the name it is listed under, and each path these rows ask
  * finds its own row of the table, in the table's order, with every row of the table found. The address's hourly limit:
  * the five writes the table takes are the ones it counts, each spends one address's budget and is refused once it is
- * spent, before its body is read; a read, a listing, a 405 and a guard's 404 spend nothing. And the table's own words:
+ * spent, before its body is read; a read, a listing, a 405 and a guard's 404 spend nothing. A path the URL reader
+ * cannot read, such as `//`, is answered as an unknown path is. And the table's own words:
  * a row's path takes a request's path whole, each placeholder one segment of its kind and a final `*` the rest, and a
  * method the row has no handler for is answered by its GET only where the row says so.
  */
@@ -216,6 +218,27 @@ async function answer(
   return { status: r.status };
 }
 
+/**
+ * What the door answers a request whose target is sent as written: fetch reads a URL before it sends it, and would
+ * send `/\` as `//`.
+ */
+function sentAsWritten(t: Booted, method: string, target: string): Promise<Answer> {
+  return new Promise((resolve, reject) => {
+    const req = request({ host: '127.0.0.1', port: new URL(t.base).port, method, path: target }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk: string) => (body += chunk));
+      res.on('end', () => {
+        const status = res.statusCode ?? 0;
+        const json = status >= 400 && (res.headers['content-type'] ?? '').startsWith('application/json');
+        resolve(json ? { status, error: (JSON.parse(body) as { error: string }).error } : { status });
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 /** A commit and its reveal from one key on the record piece. */
 async function reading(t: Booted, k: Uint8Array, model: string, stance: string): Promise<void> {
   const ret = { stance };
@@ -313,6 +336,21 @@ describe("the door's routes", () => {
       expect((await answer(coined, 'OPTIONS', r.path)).status, `OPTIONS ${r.path}`).toBe(204);
     }
     expect(await answer(coined, 'GET', '/coin')).toEqual({ status: 404, error: NO_ROUTE });
+  });
+
+  it('answers a path the URL reader cannot read as an unknown path: OPTIONS as on every path, and 404 for the rest', async () => {
+    // Each of these makes `new URL(path, base)` throw: an empty host, a broken one, a port out of range, a backslash.
+    const unreadable = ['//', '///', '//[', '//a:b', '//:99999', '//%zz', '//a%2fb', '/\\'];
+    for (const t of [plain, coined]) {
+      for (const target of unreadable) {
+        for (const method of ['GET', 'POST', 'PUT'])
+          expect(await sentAsWritten(t, method, target), `${method} ${target}`).toEqual({
+            status: 404,
+            error: NO_ROUTE,
+          });
+        expect(await sentAsWritten(t, 'OPTIONS', target), `OPTIONS ${target}`).toEqual({ status: 204 });
+      }
+    }
   });
 
   it('answers 404 for a problem it does not hold before any of its sub-routes, whatever the method', async () => {

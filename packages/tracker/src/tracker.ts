@@ -183,6 +183,18 @@ export interface Context {
   homeRate: number | null;
 }
 
+/**
+ * A request's target read as a URL against this tracker's address, or null where the URL reader cannot read it, as
+ * `new URL` cannot read `//`, `//[` or `/\`.
+ */
+function readUrl(target: string, base: string): URL | null {
+  try {
+    return new URL(target, base);
+  } catch {
+    return null;
+  }
+}
+
 /** The context a tracker's jobs share, built once from its options. */
 function contextOf(options: TrackerOptions): Context {
   const { store } = options;
@@ -475,13 +487,12 @@ export function createTracker(options: TrackerOptions): Tracker {
 
   /**
    * Answers a request: OPTIONS on every path; then the first row whose path takes the request's, its guard asked
-   * before its method; then the routes mounted beside the tracker; then 404. A refusal is written as `{ error }` with
-   * its status, and anything else that fails as 500.
+   * before its method; then the routes mounted beside the tracker; then 404. A path the URL reader cannot read, such
+   * as `//`, is a route the door does not have: no row and no route beside it can read it either, so it is 404 as an
+   * unknown path is. A refusal is written as `{ error }` with its status, and anything else that fails as 500.
    */
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
-      const u = new URL(req.url ?? '/', url);
-      const path = u.pathname.replace(/\/+$/, '') || '/';
       const method = req.method ?? 'GET';
       if (method === 'OPTIONS') {
         res.writeHead(204, {
@@ -492,6 +503,9 @@ export function createTracker(options: TrackerOptions): Tracker {
         res.end();
         return;
       }
+      const u = readUrl(req.url ?? '/', url);
+      if (!u) return noRoute();
+      const path = u.pathname.replace(/\/+$/, '') || '/';
       const found = routeOf(routes, path);
       if (found) {
         const { route, segments } = found;
