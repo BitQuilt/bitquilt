@@ -104,6 +104,10 @@ describe('chained lines', () => {
     expect(check.ok).toBe(true);
     expect(check.head?.seq).toBe(3);
     expect(check.head?.short).toMatch(/^[0-9a-f]{8}:[0-9a-f]{8}$/);
+    // QX-11 section 4: the short form is the first sixteen hex characters, two groups of eight joined by a colon.
+    const last = lines[2]!.hash ?? '';
+    expect(check.head?.hash).toBe(last);
+    expect(check.head?.short).toBe(`${last.slice(0, 8)}:${last.slice(8, 16)}`);
     const more = [...lines, nextLine(lines, problem, receipts[0]!)];
     expect(verifyChain(more, problem).ok).toBe(true);
     expect(onlyAppends(lines, more)).toEqual({ ok: true, added: 1 });

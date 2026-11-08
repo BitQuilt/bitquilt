@@ -36,11 +36,11 @@ export const calendarBytes = new Uint8Array([
 
 /**
  * A tracker at `http://t.test/` with a store in memory, the test's clock and a fixed salt, listening on a free port,
- * with the peers or the coin a test gives it; `base` is where it answers, with its trailing slash.
+ * with the peers, the coin or the maintainers a test gives it; `base` is where it answers, with its trailing slash.
  */
 export async function startTracker(
   now: () => string,
-  options: Pick<TrackerOptions, 'peers' | 'coin'> = {},
+  options: Pick<TrackerOptions, 'peers' | 'coin' | 'maintainers'> = {},
 ): Promise<{ server: Server; base: string }> {
   const t = createTracker({ store: new Store(':memory:'), url: 'http://t.test/', now, ipSalt: 's', ...options });
   const server = await t.listen(0);

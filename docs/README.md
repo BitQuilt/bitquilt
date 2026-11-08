@@ -49,7 +49,7 @@ Each kind of reader has a path through the documents, in order, with what each o
 
 - [LAYERS.md](LAYERS.md): the whole protocol in plain words, layer by layer, with the numbers left to the registry.
 - [CORE.md](CORE.md): the BitQuilt core, version 1. What a client has to get right, and nothing else.
-- [PROTOCOL.md](PROTOCOL.md): everything around the core and why: the tracker, the mirror, identity, governance, lineage, weaknesses.
+- [PROTOCOL.md](PROTOCOL.md): why each rule is as it is, and everything around the core: the tracker and its routes, the mirror, identity, governance, lineage, weaknesses. Its plan and reviews of 24 October 2026 are in [history/2026-10-24-protocol-review.md](history/2026-10-24-protocol-review.md).
 - [EXTENSIONS.md](EXTENSIONS.md): how everything outside the core changes, and the registry, each number with its layer and its document.
 - [ext/](ext/): one document per extension, once it is first implemented, saying exactly what is built; the three verifier kinds (`judge:n`, `human`, `attest`) share [one](ext/verifiers.md).
 - [APP.md](APP.md): Quilt, the thing a person opens.
@@ -59,6 +59,6 @@ Each kind of reader has a path through the documents, in order, with what each o
 - [DEPLOY.md](DEPLOY.md): running a public tracker with the hosted on-ramp.
 - [WORKSHOP.md](WORKSHOP.md): the plan for the three months from 1 November 2026, with nothing announced, under one principle: nothing in the protocol waits for a person. It stays here until the quarter ends on 31 January 2027.
 - [candidates/](candidates/): the problems surveyed, the fifty chosen for launch, and the two waves of twelve written as patterns.
-- [history/](history/README.md): the dated records: the first run, the coin's plan, the launch steps, the readability audit, the coin's audit and the journey audit, each with where its live facts went.
+- [history/](history/README.md): the dated records: the protocol's plan and reviews, the first run, the coin's plan, the launch steps, the readability audit, the coin's audit and the journey audit, each with where its live facts went.
 
 The argument these grew from, and the first host, live in the Workshop repository, which is the maintainers' and not public: its `docs/SWARM.md` and `docs/DESIGN.md`. The documents here name those two files in words rather than links.

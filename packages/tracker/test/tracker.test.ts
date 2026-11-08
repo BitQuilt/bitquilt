@@ -134,11 +134,15 @@ describe('the reference tracker', () => {
       .map((l) => JSON.parse(l) as Receipt);
     expect(lines).toHaveLength(2);
     expect(verifyChain(lines, P).ok).toBe(true);
-    const scrape = await get<{ chain_ok: boolean; head: { seq: number }; counts: Record<string, number> }>(
-      `/p/${P}/scrape`,
-    );
+    const scrape = await get<{
+      chain_ok: boolean;
+      head: { seq: number; hash: string; short: string };
+      counts: Record<string, number>;
+    }>(`/p/${P}/scrape`);
     expect(scrape.chain_ok).toBe(true);
     expect(scrape.head.seq).toBe(2);
+    // QX-11 section 4: the scrape states the head as the core reads it from the chain, its short form included.
+    expect(scrape.head).toEqual(verifyChain(lines, P).head);
     expect(scrape.counts.in_flight).toBe(1);
   });
   it('refuses a reveal with no commit, a return outside the schema, and a return the gate refuses', async () => {
