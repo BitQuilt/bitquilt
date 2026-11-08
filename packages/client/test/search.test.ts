@@ -3,13 +3,15 @@ import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Hash } from '@bitquilt/core';
 import type { Pattern, Quilt } from '../src/quilt.js';
+import { runTool } from '../src/tools.js';
 import { quiltOver, startTracker } from './helpers.js';
 
 /**
  * APP.md, Search, on forks: Quilt's search puts a fork under the problem it forks, the problem first and its forks
  * after it by the work on each, and the groups in the order of their latest reading, a fork's readings counted in its
  * group; a problem alike in name with no `from` between them is a group of its own. The envelope section of
- * PROTOCOL.md points there. The tracker's clock moves a millisecond at least between two readings, so their order is
+ * PROTOCOL.md points there. quilt_search says that order on the problem's own line, where a fork can have more work
+ * than the problem it forks. The tracker's clock moves a millisecond at least between two readings, so their order is
  * the order they were written in.
  */
 const APP = readFileSync(new URL('../../../docs/APP.md', import.meta.url), 'utf8');
@@ -89,5 +91,16 @@ describe('APP.md, Search: forks under the problem they fork', () => {
     // A later reading on the problem alike in name puts its group first.
     await returned(other, Q);
     expect((await worker.search('lighthouse')).map((f) => f.problem)).toEqual([Q, P, more, less]);
+  });
+
+  it("says the order on the problem's line, where a fork has more work than the problem", async () => {
+    const text = (await runTool(worker, 'quilt_search', { query: 'lighthouse' })).text;
+    const lines = text.split('\n');
+    expect(lines.filter((l) => !l.startsWith(' '))).toEqual([Q, P, more, less]);
+    const stands = lines[lines.indexOf(P) + 2]!;
+    expect(stands).toContain(
+      '3 proposals of this problem, this one listed first and its forks after it by the work on each;',
+    );
+    expect(text).not.toContain('the most work');
   });
 });
