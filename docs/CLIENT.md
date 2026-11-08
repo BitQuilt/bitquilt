@@ -58,7 +58,7 @@ The fields a worker reads, by name:
 - `limits.keyPerHour` and `limits.ipPerHour`: the posts an hour from one key, and the writes from one network address.
 - `stamp.name`: the bits of proof of work a name event carries here, 0 for none (CORE.md section 11).
 - `trace.blob_max`: the most bytes a read weighs.
-- `peers`: the trackers whose chains this one pulls through its own door (QX-21 section 1). An event a peer admits on a problem both hold reaches this tracker at its next pull, where this door admits it too (QX-21 section 2).
+- `peers`: the trackers whose chains this one pulls through its own door (QX-21 section 1). An event a peer admits on a problem both hold reaches this tracker at its next pull, where it goes through this door's own admission: the checks a post meets, without the hourly limits (QX-21 section 2). An event this door holds already is passed over. This door refuses what its own rules refuse though the peer took it, as on a problem taken down here (QX-6) or a piece under a stake rule in force here and not at the peer (QX-15). The pull's report names each event it refused, with the sentence a post gets.
 - `coin`: null where the tracker carries no coin.
 
 The numbers are each tracker's to set, so a worker reads them and assumes none.
@@ -92,7 +92,7 @@ GET /p/<problem>/next?key=<key>&can=web,files&model=<model>
 
 The answer is the piece's hash, its rendered `brief`, its `schema`, its `agree` fields, its `lease_h` and the rest of [the piece next hands over](PROTOCOL.md#the-piece-next-hands-over). Next, and the offer for the first piece it names, holds the piece for this key for 60 seconds, until its reveal or decline, so two workers at one tracker are not handed it at once. The 60 seconds are the reference tracker's choice ([What the door answers](PROTOCOL.md#what-the-door-answers)). A hold is a courtesy, not a lease: another client may still claim the piece, and a second worker on it is how the piece gets its second production.
 
-Where there is nothing for this key, next answers `{ piece: null, unaffordable }`, with `superseded` where the owner replaced the problem, and the offer answers `offers: []`. Neither says why. A piece is left out where:
+Where there is nothing for this key, next answers `{ piece: null, unaffordable }`, and the offer answers `offers: []`. Next's answer says why in two cases: `superseded`, beside it, names the version that replaced the problem, where the work now is; and `unaffordable` lists the pieces kept back for a stake the key cannot cover. The offer says neither. For every other reason below, neither answer says why. A piece is left out where:
 
 - its state is none of the five next takes (CORE.md section 7, step 1): it is done, `accepted_provisional`, `accepted` or `unreachable`, or, for a record piece, `recorded` (QX-20); it waits on another, `locked`; or its kind is one this tracker does not define, `unknown` (CORE.md section 6);
 - its `requires` is not within `can`, as `files` is not within `web`. The examples' first problem, [`examples/first-pattern.json`](../examples/first-pattern.json), asks `files`;

@@ -11,19 +11,27 @@
  * next hands nothing: a piece whose `requires` is not within `can`, one held for another key until the hold's 60
  * seconds pass, one on the key's own problem, one the key has read, one two vendors have made `accepted_provisional`, a
  * record piece whose readings are in, one of a kind this tracker does not define and one that waits on it; the offer's
- * fields and its count. What a 202 does not say: the gate at the reveal and not the commit, with a second commit taking
- * the clean return and no claim needed; `by` held to its lengths and four words and no more, the vendor read before the
- * slash; a name that names no problem; a read put twice and a path that is no hash; a trace on a file; the state's
- * `pieces` and `dropped`; the log's lines, with no id, bare hex and the first `prev` the problem's. The door's checks:
- * each row of the table under "What the door checks, in order" is met by a post that fails that check, with the row's
- * status and one of its sentences; a post that fails several is refused for the earliest, row by row as each is put
- * right; a reveal posted again meets its commit's row rather than 409 where that commit was the key's only one on the
- * piece, and is answered 409 where a commit the key never revealed stays, abandoned or not; and every row is met.
- * Beside the table: the door leaves a reveal's `h` to the reducer, whose drop shows in the state, and next refuses the
- * three sentences the page names. A client that reduces: the problem's log alone leaves out a return posted under an
- * ancestor, and with the ancestor's log it reaches the tracker's state. The well-known fields the page names are in the
- * well-known document, `peers` said as QX-21 says it; each rule the page repeats from PROTOCOL.md's "What the door
- * answers" cites it beside the rule and says what it says; its links reach a file and a heading, and it has no U+2014.
+ * fields and its count; and the two cases next's answer says why, `superseded` on a problem its owner replaced and
+ * `unaffordable` on a piece staked beyond the key's free standing, with the offer naming neither. What a 202 does not
+ * say: the gate at the reveal and not the commit, with a second commit taking the clean return and no claim needed;
+ * `by` held to its lengths and four words and no more, the vendor read before the slash; a name that names no problem;
+ * a read put twice and a path that is no hash; a trace on a file; the state's `pieces` and `dropped`; the log's lines,
+ * with no id, bare hex and the first `prev` the problem's. The door's checks: each row of the table under "What the
+ * door checks, in order" is met by a post that fails that check, with the row's status and one of its sentences; a post
+ * that fails several is refused for the earliest, row by row as each is put right, and the bodies hold the order: each
+ * post keeps every fault but the one the door named at the post before, so the door's answer is the earliest of the
+ * checks it fails; a reveal posted again meets its commit's row rather than 409 where that commit was the key's only
+ * one on the piece, and is answered 409 where a commit the key never revealed stays, abandoned or not; and every row is
+ * met. Beside the table: the door leaves a reveal's `h` to the reducer, whose drop shows in the state, and next refuses
+ * the three sentences the page names. A client that reduces: the problem's log alone leaves out a return posted under
+ * an ancestor, and with the ancestor's log it reaches the tracker's state. A peer's events: what a peer admitted is
+ * pulled through this door's admission; an event this door's rules refuse, on a problem taken down here or a piece
+ * under a stake rule the peer lacks, is named in the pull's report with the sentence a post of it gets here, which is
+ * its row's; a second pull passes over what this door holds; and a pull meets no hourly limit, so a door that takes one
+ * write an hour from an address takes a peer's four events from one key at once. The well-known fields the page names
+ * are in the well-known document, `peers` said as QX-21 says it; each rule the page repeats from PROTOCOL.md's "What
+ * the door answers" cites it beside the rule and says what it says; its links reach a file and a heading, and it has no
+ * U+2014.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -210,7 +218,12 @@ interface NextAnswer {
   piece: Hash | null;
   state?: string;
   unaffordable: Hash[];
+  superseded?: Hash;
 }
+
+/** The well-known field `peers` as the page says it, after its name. */
+const PEERS =
+  "the trackers whose chains this one pulls through its own door (QX-21 section 1). An event a peer admits on a problem both hold reaches this tracker at its next pull, where it goes through this door's own admission: the checks a post meets, without the hourly limits (QX-21 section 2). An event this door holds already is passed over. This door refuses what its own rules refuse though the peer took it, as on a problem taken down here (QX-6) or a piece under a stake rule in force here and not at the peer (QX-15). The pull's report names each event it refused, with the sentence a post gets.";
 
 describe("CLIENT.md, fixture 04's first claim, worked", () => {
   const fixture = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Omit<ReduceInput, 'blobs'> & {
@@ -542,6 +555,34 @@ describe('CLIENT.md, when next hands nothing', () => {
     expect(await t.get<NextAnswer>(`/p/${k}/next?key=${addr(E)}&can=web,files&model=meta/llama`)).toEqual(nothing);
     expect((await offer(E)).offers).toEqual([]);
   });
+
+  it('says why in two cases: superseded names the version that replaced the problem, unaffordable a staked piece', async () => {
+    expect(DOC).toContain(
+      "Next's answer says why in two cases: `superseded`, beside it, names the version that replaced the problem, where the work now is; and `unaffordable` lists the pieces kept back for a stake the key cannot cover. The offer says neither. For every other reason below, neither answer says why.",
+    );
+    const first = envelope(owner, 'versions', { cite: cite('Does the page support the claim?') });
+    const old = problemHash(first);
+    const second = envelope(
+      owner,
+      'versions',
+      { cite: cite('Does the page support the claim? Give the verdict and the passage.') },
+      { prev: old },
+    );
+    const S = envelope(owner, 'stakes', { cite: cite('Does the staked page support the claim?') });
+    const [replacing, s] = [problemHash(second), problemHash(S)];
+    for (const e of [first, second, S]) expect((await t.post('/p', { envelope: e })).status).toBe(201);
+    // A fresh root's free standing is 1 (QX-1 section 2), so a stake of 2 is beyond it.
+    await t.accepted(`/p/${s}/events`, t.ev(owner, 'stake_rule', { min: 2, pieces: ['cite'] }, s));
+    const staked = (await t.get<StateAnswer>(`/p/${s}/state`)).pieces[0]!.hash;
+    const on = (h: Hash) => t.get<NextAnswer>(`/p/${h}/next?key=${addr(E)}&can=web,files&model=meta/llama`);
+    expect(await on(old)).toEqual({ piece: null, unaffordable: [], superseded: replacing });
+    expect(await on(s)).toEqual({ piece: null, unaffordable: [staked] });
+    // The offer has no field for either: it leaves the replaced problem and the staked piece out, and offers the
+    // version that replaced the first.
+    const { offers } = await offer(E);
+    expect(offers.map((o) => o.problem)).toEqual([replacing]);
+    for (const field of ['superseded', 'unaffordable']) expect(Object.keys(offers[0]!)).not.toContain(field);
+  });
 });
 
 describe('CLIENT.md, what a 202 does not say', () => {
@@ -735,6 +776,10 @@ describe('CLIENT.md, what the door checks, in order', () => {
   });
 
   it('refuses a post that fails several checks for the earliest, row by row as each is put right', async () => {
+    // The bodies hold the order. Up to row 16, each post puts right the fault the door named at the one before and
+    // keeps the others, so it carries the faults the steps after it name, and the door answers the earliest. The first
+    // fails rows 1 and 4; the reveal at the third fails rows 5, 6, 8, 9, 11, 14, 15 and 16 at once; the eighth trades
+    // row 11's fault for row 12's.
     const ret = { verdict: 'maybe', quote: 'Read it at https://example.org/page' };
     const nonce = newNonce();
     const now = () => new Date((door.clock.tick += 1000)).toISOString();
@@ -749,11 +794,7 @@ describe('CLIENT.md, what the door checks, in order', () => {
     };
     const signed = (k: Uint8Array): string =>
       JSON.stringify(signEvent({ ...u, body: { ...u.body, return: { ...ret } } }, k));
-    const seen: number[] = [];
-    const step = async (n: number, path: string, body: string): Promise<void> => {
-      meets(n, await raw(door, path, body));
-      seen.push(n);
-    };
+    const step = async (n: number, path: string, body: string): Promise<void> => meets(n, await raw(door, path, body));
     await step(1, `/p/${hashText('no such problem')}/events`, 'not JSON');
     await step(4, events, 'not JSON');
     await step(5, events, signed(B));
@@ -775,7 +816,6 @@ describe('CLIENT.md, what the door checks, in order', () => {
     const commit = JSON.stringify(door.ev(A, 'commit', { h: commitHash(ret, nonce) }, p, pieces.cite));
     expect((await raw(door, events, commit)).status).toBe(202);
     await step(20, events, commit);
-    expect(seen).toEqual([...seen].sort((a, b) => a - b));
     // The door admits before it dedupes: the reveal posted again meets row 16, the key's one commit now revealed.
     expect(DOC).toContain(
       "Where the reveal's commit is the key's only one on the piece, the repeat is refused there, `no unrevealed commit by this key on the piece`, and is not answered `409`.",
@@ -998,6 +1038,103 @@ describe('CLIENT.md, what a client that reduces reads', () => {
   });
 });
 
+describe("CLIENT.md, a peer's events at this door", () => {
+  const limits = { keyPerHour: 1000, ipPerHour: 10000 };
+  const peer = boot(T0, { limits });
+  let here: Booted;
+  const Shown = envelope(owner, 'shown', {
+    cite: cite('Does the shown page support the claim? Give the verdict and the passage.'),
+    staked: cite('Does the staked page support the claim? Give the verdict and the passage.'),
+  });
+  const Taken = envelope(owner, 'taken', {
+    cite: cite('Does the page taken down support the claim? Give the verdict and the passage.'),
+  });
+  const [shown, taken] = [problemHash(Shown), problemHash(Taken)];
+  beforeAll(async () => {
+    await peer.listen();
+    // This door names M as a maintainer and the peer as its peer; the peer names neither.
+    here = boot(T0, { limits, maintainers: [addr(M)], peers: [`${peer.base}/`] });
+    await here.listen();
+    for (const t of [peer, here])
+      for (const e of [Shown, Taken]) expect((await t.post('/p', { envelope: e })).status).toBe(201);
+  });
+  afterAll(async () => {
+    await peer.close();
+    await here.close();
+  });
+
+  it("takes a peer's events through this door's admission, refuses what its own rules refuse with a post's sentence, and passes over what it holds", async () => {
+    expect(DOC).toContain(PEERS);
+    // The two rules this door has and the peer does not: a stake on one piece, and the second problem taken down.
+    await here.accepted(`/p/${shown}/events`, here.ev(owner, 'stake_rule', { min: 1, pieces: ['staked'] }, shown));
+    await here.accepted('/k/events', here.ev(M, 'hide', { id: taken, why: 'Taken down for the test.' }));
+    const hashOf = async (problem: Hash, name: string): Promise<Hash> =>
+      (await peer.get<StateAnswer>(`/p/${problem}/state`)).pieces.find((x) => x.name === name)!.hash;
+    const ret = { verdict: 'supports', quote: 'The page says the claim holds.' };
+    const worked: Record<string, { problem: Hash; events: Event[] }> = {};
+    for (const [name, problem, piece] of [
+      ['cite', shown, 'cite'],
+      ['staked', shown, 'staked'],
+      ['taken', taken, 'cite'],
+    ] as const) {
+      const at = await hashOf(problem, piece);
+      const nonce = newNonce();
+      const events = [
+        peer.ev(A, 'commit', { h: commitHash(ret, nonce) }, problem, at),
+        peer.ev(A, 'reveal', { return: ret, nonce, by: by('anthropic/claude') }, problem, at),
+      ];
+      for (const e of events) await peer.accepted(`/p/${problem}/events`, e);
+      worked[name] = { problem, events };
+    }
+    here.clock.tick = peer.clock.tick + 60_000;
+    const pull = async () => {
+      const [report] = await here.tracker.pullPeers();
+      return report!;
+    };
+    const first = await pull();
+    expect(first).toMatchObject({ peer: `${peer.base}/`, added: 2, errors: [] });
+    const why = new Map(first.refused.map((r) => [r.id, r.why]));
+    expect(why.size).toBe(4);
+    // Each refusal is the one a post of the same event gets here, and its row's in the table.
+    for (const [name, n] of [
+      ['staked', 12],
+      ['taken', 10],
+    ] as const) {
+      const { problem, events } = worked[name]!;
+      for (const e of events) {
+        const said = why.get(eventId(e))!;
+        expect(
+          rows.find((r) => r.n === n)!.sentences.some((s) => s.test(said)),
+          `${name}: ${said}`,
+        ).toBe(true);
+        expect((await raw(here, `/p/${problem}/events`, JSON.stringify(e))).error).toBe(said);
+      }
+    }
+    const state = await here.get<StateAnswer>(`/p/${shown}/state`);
+    expect(state.pieces.find((x) => x.name === 'cite')!.reveals).toBe(1);
+    expect(state.pieces.find((x) => x.name === 'staked')!.reveals).toBe(0);
+    // Pulled again, what this door holds is passed over and what it refused is refused again.
+    const again = await pull();
+    expect(again).toMatchObject({ added: 0, errors: [] });
+    expect(new Map(again.refused.map((r) => [r.id, r.why]))).toEqual(why);
+  });
+
+  it('takes a pull without the hourly limits, past what a post from one key or one address may do', async () => {
+    const tight = boot(T0, { limits: { keyPerHour: 1, ipPerHour: 1 }, peers: [`${peer.base}/`] });
+    await tight.listen();
+    try {
+      expect((await tight.post('/p', { envelope: Shown })).status).toBe(201);
+      tight.clock.tick = peer.clock.tick + 60_000;
+      // Four events from one key in one pull: the commits and reveals the test before posted at the peer on the
+      // first problem's two pieces.
+      expect((await tight.tracker.pullPeers())[0]).toMatchObject({ added: 4, refused: [], errors: [] });
+      expect((await raw(tight, `/p/${shown}/events`, 'not JSON')).status).toBe(429);
+    } finally {
+      await tight.close();
+    }
+  });
+});
+
 describe('CLIENT.md, what it names and links', () => {
   it('names well-known fields the well-known document has, the coin included', async () => {
     const t = boot(T0);
@@ -1024,13 +1161,17 @@ describe('CLIENT.md, what it names and links', () => {
         at = (at as Record<string, unknown>)[part];
       }
     }
-    // Peers are the trackers whose chains this door pulls (QX-21 section 1); peers.test.ts holds the pull.
-    expect(list.find((l) => l.startsWith('- `peers`'))).toBe(
-      '- `peers`: the trackers whose chains this one pulls through its own door (QX-21 section 1). An event a peer admits on a problem both hold reaches this tracker at its next pull, where this door admits it too (QX-21 section 2).',
-    );
-    expect(readFileSync(join(DOCS, 'ext', 'QX-21.md'), 'utf8')).toContain(
+    // Peers are the trackers whose chains this door pulls (QX-21 section 1); "a peer's events at this door" holds the
+    // pull the line says.
+    expect(list.find((l) => l.startsWith('- `peers`'))).toBe(`- \`peers\`: ${PEERS}`);
+    const qx21 = readFileSync(join(DOCS, 'ext', 'QX-21.md'), 'utf8');
+    expect(qx21).toContain(
       "A tracker's peers are the trackers it names (`QUILT_PEERS`, published as `peers` in its well-known document",
     );
+    expect(qx21).toContain(
+      "Every other event goes through this door's own admission, the same code a `POST` goes through",
+    );
+    expect(qx21).toContain("What the door refuses is said in the pull's report with the reason, not folded");
   });
 
   it("cites PROTOCOL.md's What the door answers beside each rule it repeats from there, and says what it says", () => {
@@ -1043,7 +1184,8 @@ describe('CLIENT.md, what it names and links', () => {
       protocol.indexOf('### The piece next hands over'),
     );
     const cited = '([What the door answers](PROTOCOL.md#what-the-door-answers))';
-    // Each pair: the words on this page, and the same rule's words in its home. The page writes a paragraph on one line.
+    // Each pair: the words on this page, and the same rule's words in its home.
+    // The page writes a paragraph on one line.
     for (const [here, there] of [
       ['`0x` and 130 lower-case hex characters', '`0x` and 130 lower-case hex characters'],
       ['`202 { id, seq, hash, at }`', '`202 { id, seq, hash, at }`'],
