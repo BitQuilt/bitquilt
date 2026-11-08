@@ -316,8 +316,9 @@ export function createPage(options: PageOptions): {
         return json(res, 200, await quilt.publish(b));
       }
       if (path === '/api/flush' && method === 'POST') return json(res, 200, await resolver.flush());
-      // The node: what this client holds, served to anyone who asks.
-      if (path === '/.well-known/quilt')
+      // The node: what this client holds, served to anyone who asks. Its well-known answers a GET, as the tracker's
+      // does, and another method falls to the last 404, `no such route` (PROTOCOL.md, The node's routes).
+      if (path === '/.well-known/quilt' && method === 'GET')
         return json(
           res,
           200,
@@ -330,7 +331,7 @@ export function createPage(options: PageOptions): {
           true,
         );
       // What this node holds, listed, and the identity log as it holds it: a mirror or another node learns and pulls
-      // from here with no tracker between (PROTOCOL.md, The mirror).
+      // from here with no tracker between (PROTOCOL.md, The node's routes).
       if (path === '/held' && method === 'GET')
         return json(res, 200, { quilt: 1, node: true, problems: resolver.heldProblems() }, true);
       if (path === '/k/events' && method === 'GET') {
@@ -360,7 +361,7 @@ export function createPage(options: PageOptions): {
       if ((m = /^\/b\/(sha256:[0-9a-f]{64})$/.exec(path)) && method === 'GET' && isHash(m[1])) {
         const b = resolver.cachedBlob(m[1] as Hash);
         if (!b) return json(res, 404, { error: 'not held here' }, true);
-        res.writeHead(200, { 'content-type': 'application/octet-stream' });
+        res.writeHead(200, { 'content-type': 'application/octet-stream', 'access-control-allow-origin': '*' });
         res.end(Buffer.from(b));
         return;
       }

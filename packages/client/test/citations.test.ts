@@ -587,3 +587,31 @@ describe('a citation names a part its document has', () => {
     expect(wrong).toEqual([]);
   });
 });
+
+// The node's routes left PROTOCOL.md's The mirror for NODE.md section 4 on 7 November 2026, and came back the next
+// day under a heading of their own with the route table; a comment that cited the old place is followed to the new.
+describe('a citation names the part that states it now', () => {
+  /** The lines of a document under a heading, to the next heading of its level or above. */
+  function under(doc: string, heading: string): string {
+    const lines = doc.split('\n');
+    const at = lines.indexOf(heading);
+    if (at < 0) throw new Error(`no heading ${heading}`);
+    const level = heading.indexOf(' ');
+    const end = lines.findIndex((l, i) => i > at && /^#+ /.test(l) && l.indexOf(' ') <= level);
+    return lines.slice(at + 1, end < 0 ? undefined : end).join('\n');
+  }
+
+  it("cites PROTOCOL.md's node's routes where page.ts serves them, and not The mirror, which no longer says them", () => {
+    const protocol = readFileSync(join(root, 'docs/PROTOCOL.md'), 'utf8');
+    for (const route of ['/held', '/k/events']) {
+      expect(under(protocol, '## The mirror')).not.toContain(route);
+      expect(under(protocol, "### The node's routes")).toContain(`\`${route}\``);
+    }
+    const page = readFileSync(join(root, 'packages/client/src/page.ts'), 'utf8');
+    expect(page).not.toContain('PROTOCOL.md, The mirror');
+    const held = page.indexOf("if (path === '/held'");
+    expect(page.slice(page.lastIndexOf('// What this node holds', held), held)).toContain(
+      "(PROTOCOL.md, The node's routes)",
+    );
+  });
+});

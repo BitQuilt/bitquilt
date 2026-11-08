@@ -141,8 +141,9 @@ function announcedText(p: SearchResult): string {
 /**
  * One problem as quilt_search says it (APP.md, Search), in three lines: its hash; who titled it and what, with its
  * topics; then how much is done and how well it stands, what the accepted squares found, the problem it was proposed
- * from, how many proposals of it there are (`forks` counts the others in the same answer), where it is held, and where
- * it opens. The clauses of a line are joined by "; ".
+ * from, how many proposals of it there are (`forks` counts the others in the same answer) in the order `search` puts
+ * them, the problem first and its forks after it by the work on each, where it is held, and where it opens. The clauses
+ * of a line are joined by "; ".
  */
 function searchLine(p: SearchResult, forks: number): string {
   const w = p.work;
@@ -161,7 +162,9 @@ function searchLine(p: SearchResult, forks: number): string {
     ...(w?.declined ? [`${w.declined} declined`] : []),
     ...(said ? [said] : []),
     ...(p.from ? [`proposed from ${p.from}`] : []),
-    ...(forks ? [`${forks + 1} proposals of this problem; the first has the most work`] : []),
+    ...(forks
+      ? [`${forks + 1} proposals of this problem, this one listed first and its forks after it by the work on each`]
+      : []),
     `held at ${plural(p.held.length, 'place')} (${p.held.join(', ')})`,
     ...(p.via === 'relay' ? [announcedText(p)] : []),
     `opens at ${p.tracker}`,

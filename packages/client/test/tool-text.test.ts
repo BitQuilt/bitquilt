@@ -1514,7 +1514,7 @@ describe('quilt_search', () => {
       [
         A64,
         '  titled by Ada (0xowner): "Does the paper say so?" (says); topics: history, law',
-        '  4 pieces (3 agree, 1 attest, the weakest kind): 9 returned, 4 accepted, 2 of them verified by the owner\'s gold, 1 disputed, 1 recorded; of the accepted, 2 rest on kept reads on both sides, 1 on one, 1 on none; 3 readers from 2 vendors; last worked 2026-11-06; 2 declined; the accepted squares agreed on verdict: 3 "supports", 1 "contradicts"; 2 proposals of this problem; the first has the most work; held at 2 places (https://t.example/, https://u.example/); opens at https://t.example/',
+        '  4 pieces (3 agree, 1 attest, the weakest kind): 9 returned, 4 accepted, 2 of them verified by the owner\'s gold, 1 disputed, 1 recorded; of the accepted, 2 rest on kept reads on both sides, 1 on one, 1 on none; 3 readers from 2 vendors; last worked 2026-11-06; 2 declined; the accepted squares agreed on verdict: 3 "supports", 1 "contradicts"; 2 proposals of this problem, this one listed first and its forks after it by the work on each; held at 2 places (https://t.example/, https://u.example/); opens at https://t.example/',
         B64,
         '  titled by 0xowner: "Does the paper say so? A fork" (says-fork)',
         `  4 pieces: 1 returned, 0 accepted; 1 reader from 1 vendor; proposed from ${A64}; held at 1 place (https://t.example/); opens at https://t.example/`,
