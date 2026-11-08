@@ -187,7 +187,7 @@ export function boot(start: string, options: Partial<Omit<TrackerOptions, 'store
 /**
  * The challenge layer over every problem in a booted tracker's store at its clock, built as the tracker builds it for
  * one with no founding standing: each problem's reduce input in the store's order, every blob measured, and with `coin`
- * the coin log. With `measured` false no blob is, as the mirror builds it.
+ * the coin log. With `measured` false no blob is, as the mirror builds its own fold for its record documents.
  */
 export function layerOf(
   t: Booted,

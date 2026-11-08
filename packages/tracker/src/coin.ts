@@ -169,6 +169,22 @@ export interface EpochView {
   minted: number;
 }
 
+/** A log's head: its last line's sequence and hash (QX-11), or null for a log with no line. */
+export type LogHead = { seq: number; hash: string } | null;
+
+/**
+ * What `GET /coin/state` names beside the balances (QX-17 section 6), what they were folded over: `at`, the time the
+ * layer under them was folded at; `problems`, each problem it folded, in the order it folded them, with its chain's
+ * head; and `identity`, the identity log's head. With the coin log to the state's own `head`, these are every chain
+ * the fold read, so a reader who folds them as the tracker serves them, cut at these heads, folds what the tracker
+ * folded.
+ */
+export interface CoinFolded {
+  at: string;
+  problems: { problem: Hash; head: LogHead }[];
+  identity: LogHead;
+}
+
 /** A root's share of the open epoch so far, and when the epoch ends and pays. */
 export interface PendingView {
   amount: number;

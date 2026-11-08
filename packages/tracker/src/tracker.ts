@@ -173,8 +173,11 @@ export interface Context {
   readonly view: (hash: Hash) => ProblemLayer | null;
   /** QX-6: what the maintainers have taken down here. */
   readonly hidden: () => Map<string, Hidden>;
-  /** QX-17: the coin over the layer given, or over the layer at now; null where this tracker carries none. */
-  readonly coin: (layered?: Layer) => CoinLayer | null;
+  /**
+   * QX-17: the coin over the layer given, or over the layer at now, computed at the time given or at now; null where
+   * this tracker carries none.
+   */
+  readonly coin: (layered?: Layer, at?: string) => CoinLayer | null;
   /** QX-17: where the coin's log is kept: `here`, another tracker's address, or null where there is no coin. */
   readonly coinHome: () => string | null;
   /** QX-19: each piece's traces, grade and seams on a problem, read once per layer. */
@@ -243,15 +246,16 @@ function contextOf(options: TrackerOptions): Context {
     return built;
   }
 
+  /**
+   * The clock is read once, so every problem is reduced at the time the layer is folded at, and a reader given that
+   * time and the chains the coin's state names folds the same (QX-17 section 6).
+   */
   function buildLayer(): Layer {
-    const problems: ReduceInput[] = [];
-    for (const e of store.listEnvelopes()) {
-      const input = inputFor(e.hash);
-      if (input) problems.push(input);
-    }
+    const at = now();
+    const problems: ReduceInput[] = store.listEnvelopes().map((e) => reduceInputOf(store, e.envelope, at));
     return challengeLayer({
       problems,
-      now: now(),
+      now: at,
       blobLength: (h) => store.blobLength(h),
       ...(options.coin ? { coin: store.lines(COIN_LOG) } : {}),
       ...(founding.size ? { founding } : {}),
@@ -268,10 +272,13 @@ function contextOf(options: TrackerOptions): Context {
     }
   }
 
-  /** QX-17: the coin over the layer, from the coin log and the parameters; null where this tracker carries none. */
-  function coin(layered: Layer = layer()): CoinLayer | null {
+  /**
+   * QX-17: the coin over the layer, from the coin log and the parameters, at the time given or at now; null where this
+   * tracker carries none.
+   */
+  function coin(layered: Layer = layer(), at: string = now()): CoinLayer | null {
     return options.coin
-      ? coinLayer({ layer: layered, params: options.coin, receipts: store.lines(COIN_LOG), now: now() })
+      ? coinLayer({ layer: layered, params: options.coin, receipts: store.lines(COIN_LOG), now: at })
       : null;
   }
   const coinHome = (): string | null => (options.coin ? (options.coin.home ?? 'here') : null);

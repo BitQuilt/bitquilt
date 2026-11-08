@@ -1,7 +1,19 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Address, type Envelope, type Hash, commitHash, newNonce, problemHash, signEvent } from '@bitquilt/core';
+import {
+  type Address,
+  type Envelope,
+  type Hash,
+  type Receipt,
+  IDENTITY_LOG,
+  commitHash,
+  newNonce,
+  problemHash,
+  reduce,
+  signEvent,
+} from '@bitquilt/core';
 import { challengeLayer } from '../src/challenge.js';
 import { coinEventRefusal, coinLayer } from '../src/coin.js';
+import { reduceInputOf } from '../src/store.js';
 import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
@@ -11,8 +23,12 @@ import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js
  * or not, and paid per square to the credited roots; a burn credited as standing; a forfeit taking the lock and as much
  * again from the unvested, and a held challenge restoring both; a transfer and a redeem from vested free coin, the
  * redeem listed under the head for the bridge, and a credit from the reader for a deposit burned on the chain; every
- * balance under the head. An event of another type, or one naming a problem, is refused in one set of words at the
- * door and in the fold (`coinEventRefusal`).
+ * balance under the head, with what the balances were folded over (QX-17 section 6): the kept layer's time, each
+ * problem in the layer's order with its chain's head, and the identity log's head, so the chains as the tracker serves
+ * them, cut at those heads and folded at those times, give the same balances; the coin computed no later than five
+ * seconds after the layer's time, however long the fold took; and every problem reduced at the one time the layer is
+ * folded at, with a clock that moves on every read. An event of another type, or one naming a problem, is refused in
+ * one set of words at the door and in the fold (`coinEventRefusal`).
  */
 const ownerP = key(9),
   ownerQ = key(8),
@@ -125,6 +141,52 @@ const q = problemHash(Q);
 let p1: Hash, p2: Hash, p3: Hash, p4: Hash;
 let q1: Hash, q2: Hash, q3: Hash, q4: Hash, q5: Hash, q6: Hash;
 let coinLockId: Hash;
+
+type Head = { seq: number; hash: string } | null;
+/** A `/coin/state` answer, with what its balances were folded over (QX-17 section 6). */
+type CoinState = {
+  head: Head;
+  at: string;
+  params: Record<string, unknown>;
+  balances: Record<string, Balance>;
+  folded: { at: string; problems: { problem: Hash; head: Head }[]; identity: Head };
+};
+/**
+ * The balances a reader computes from a state with the tracker's own layer code: each chain it names as the tracker
+ * serves it, cut at the named head, the layer folded at `folded.at` and the coin at the state's `at`.
+ */
+async function foldServed(s: CoinState): Promise<unknown> {
+  const served = async (path: string): Promise<Receipt[]> =>
+    (await (await fetch(`${t.base}${path}`)).text())
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => JSON.parse(l) as Receipt);
+  const cut = (lines: Receipt[], head: Head): Receipt[] => {
+    const at = head ? lines.findIndex((l) => l.seq === head.seq && l.hash === head.hash) : -1;
+    if (head) expect(at, `line ${head.seq}`).toBe(head.seq - 1);
+    return lines.slice(0, at + 1);
+  };
+  const identity = cut(await served('/k/events'), s.folded.identity);
+  const coinLines = cut(await served('/coin/events'), s.head);
+  const chains = new Map<Hash, Receipt[]>();
+  for (const x of s.folded.problems) chains.set(x.problem, cut(await served(`/p/${x.problem}/events`), x.head));
+  const envelopes = new Map<Hash, Envelope>([
+    [p, P],
+    [q, Q],
+  ]);
+  const reader = {
+    envelopeOf: (h: Hash) => envelopes.get(h) ?? null,
+    getBlob: () => null,
+    lines: (log: Hash) => (log === IDENTITY_LOG ? identity : (chains.get(log) ?? [])),
+  };
+  const layered = challengeLayer({
+    problems: s.folded.problems.map((x) => reduceInputOf(reader, envelopes.get(x.problem)!, s.folded.at)),
+    now: s.folded.at,
+    coin: coinLines,
+  });
+  const folded = coinLayer({ layer: layered, params: coin, receipts: coinLines, now: s.at });
+  return JSON.parse(JSON.stringify(Object.fromEntries(folded.balances())));
+}
 
 describe('the coin as a layer', () => {
   it('publishes the parameters, names itself the home, and answers empty balances', async () => {
@@ -458,5 +520,107 @@ describe('the coin as a layer', () => {
     expect(s.balances[addr(B)]).toMatchObject({ balance: 560, credited: 100 });
     const lines = (await (await fetch(`${t.base}/coin/events`)).text()).trim().split('\n');
     expect(lines).toHaveLength(6);
+  });
+
+  it('names what the balances were folded over, and the chains as served, cut there, fold the same balances', async () => {
+    // The layer is kept for five seconds of the clock (tracker.ts): built at the start of a span and read a second
+    // later, so the layer's time is not the coin's.
+    clock.tick = (Math.floor(clock.tick / 5000) + 1) * 5000;
+    const kept = t.tracker.layer();
+    clock.tick += 1000;
+    const s = (await get('/coin/state')) as CoinState;
+    expect(Object.keys(s)).toEqual(['head', 'at', 'params', 'balances', 'dropped', 'folded']);
+    expect(s.folded.at).toBe(kept.now);
+    expect(s.at).toBe(new Date(clock.tick).toISOString());
+    expect(s.folded.problems.map((x) => x.problem)).toEqual([...kept.problems.keys()]);
+    expect(s.folded.problems.map((x) => x.problem).sort()).toEqual([p, q].sort());
+    expect(s.folded.identity).toBeNull();
+    expect(await foldServed(s)).toEqual(s.balances);
+  });
+
+  it('computes the coin no later than five seconds after the layer, however long the fold took', async () => {
+    // From a span of its own, the clock moves six seconds on every read: the layer is built afresh for the state, and
+    // the clock the coin would be computed at is six seconds past the layer's time.
+    let at = (Math.floor(clock.tick / 5000) + 1) * 5000;
+    Object.defineProperty(clock, 'tick', {
+      get: () => {
+        at += 6000;
+        return at;
+      },
+      set: (v: number) => {
+        at = v;
+      },
+      configurable: true,
+      enumerable: true,
+    });
+    let s: CoinState;
+    try {
+      s = (await get('/coin/state')) as CoinState;
+    } finally {
+      Object.defineProperty(clock, 'tick', { value: at, writable: true, configurable: true, enumerable: true });
+    }
+    expect(clock.tick - Date.parse(s.folded.at)).toBeGreaterThan(5000);
+    expect(Date.parse(s.at) - Date.parse(s.folded.at)).toBe(5000);
+    expect(await foldServed(s)).toEqual(s.balances);
+  });
+
+  it('reduces every problem at the time the layer is folded at, with a clock that moves on every read', async () => {
+    const m = boot(new Date(Date.parse(T0) + HOUR).toISOString(), {
+      limits: { keyPerHour: 1000, ipPerHour: 10000 },
+      coin,
+    });
+    await m.listen();
+    try {
+      // Two problems, each with a square whose window closes two days after it was made.
+      const problems: Hash[] = [];
+      for (const [owner, slug] of [
+        [ownerP, 'moving-one'],
+        [ownerQ, 'moving-two'],
+      ] as const) {
+        const e = envelope(owner, slug, 1);
+        const h = problemHash(e);
+        expect((await m.post('/p', { envelope: e })).status).toBe(201);
+        const piece = ((await m.get(`/p/${h}/state`)) as { pieces: { hash: Hash }[] }).pieces[0]!.hash;
+        for (const [k, model] of [
+          [A, 'anthropic/claude'],
+          [B, 'openai/gpt'],
+        ] as const) {
+          const ret = { verdict: 'supports', quote: `as ${addr(k).slice(0, 6)} read it` };
+          const nonce = newNonce();
+          await m.accepted(`/p/${h}/events`, m.ev(k, 'commit', { h: commitHash(ret, nonce) }, h, piece));
+          await m.accepted(`/p/${h}/events`, m.ev(k, 'reveal', { return: ret, nonce, by: by(model) }, h, piece));
+        }
+        problems.push(h);
+      }
+      const made = Date.parse(m.store.lines(problems[0]!).at(-1)!.received[0]!.at);
+      const first = made + 48 * HOUR;
+      // From here the clock moves an hour on every read, from two hours less a minute before the first window closes:
+      // the layer's first read of it is the span it is kept for, and its second, a minute before that window closes,
+      // the time it is folded at. Were each problem reduced at a read of its own, the first would be reduced a minute
+      // before its window closes and the layer folded two hours later, after both windows closed.
+      let at = first - 2 * HOUR - 60_000;
+      Object.defineProperty(m.clock, 'tick', {
+        get: () => {
+          at += HOUR;
+          return at;
+        },
+        set: (v: number) => {
+          at = v;
+        },
+      });
+      const layer = m.tracker.layer();
+      for (const [hash, pl] of layer.problems) {
+        const atFold = reduce(reduceInputOf(m.store, m.store.envelopeOf(hash)!, layer.now));
+        expect(
+          pl.core.pieces.map((v) => v.state),
+          hash,
+        ).toEqual(atFold.pieces.map((v) => v.state));
+        expect(pl.core.pieces.map((v) => v.state)).toEqual(['accepted_provisional']);
+      }
+      expect([...layer.problems.keys()].sort()).toEqual([...problems].sort());
+      expect(layer.now).toBe(new Date(first - 60_000).toISOString());
+    } finally {
+      await m.close();
+    }
   });
 });
