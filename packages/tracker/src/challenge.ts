@@ -778,6 +778,22 @@ function keepChallenge(f: Folding, c: LayerEvent, verdicts: Verdict[]): void {
 }
 
 /**
+ * Why the core refuses a problem's input, or null where it does not: CORE.md section 6, Envelopes, "An envelope that
+ * fails its checks makes the input invalid: `reduce` refuses it and produces no state." What makes it so is the
+ * envelopes and the blobs, an envelope that does not check, is not its owner's or lacks a data blob, or a data blob
+ * its pieces cannot be read from, so the input is reduced again with no receipt: where that is refused, the refusal
+ * is the input's, and where it is not, what failed was a receipt, which is no refusal of the core's.
+ */
+export function inputRefused(p: ReduceInput): string | null {
+  try {
+    reduce({ ...p, receipts: [] });
+    return null;
+  } catch (err) {
+    return (err as Error).message;
+  }
+}
+
+/**
  * The layer over every problem a reader holds, at `now`: the time lapses, windows and liveness are judged at; roots are
  * resolved at `now` throughout, moves are dated at the receipts that made them. `coin` is the coin log's receipts, read
  * for burn credits (QX-17 section 4).
@@ -793,16 +809,17 @@ export function challengeLayer(input: {
   const f = newFolding(now, input.founding);
 
   // 1. Every problem reduced by the core, once each by hash, and the kinds decided over it with no credits yet. A
-  // problem whose input the core refuses, an envelope that does not check or a data blob not held, is left out with the
-  // core's reason, so one problem a store cannot fold leaves the others folded.
+  // problem whose input the core refuses is left out with the core's reason (`inputRefused`), so one problem a store
+  // cannot fold leaves the others folded; anything else that fails is the failure it was.
   const refused = new Map<Hash, string>();
   for (const p of input.problems) {
     let core: State;
     try {
       core = reduce(p);
     } catch (err) {
-      const first = p.envelopes[0];
-      if (first) refused.set(problemHash(first), (err as Error).message);
+      const why = inputRefused(p);
+      if (why === null || !p.envelopes[0]) throw err;
+      refused.set(problemHash(p.envelopes[0]), why);
       continue;
     }
     if (f.entries.has(core.problem)) continue;

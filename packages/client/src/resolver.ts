@@ -260,15 +260,27 @@ export class Resolver {
   }
 
   /**
-   * An envelope kept once the core would fold it, as CORE.md section 6 checks one: "Each is checked against its hash and
-   * its owner's signature; each blob against its hash." Its hash is checked where it is read; here its signature, and
-   * each data blob it names fetched and kept first, so the store never holds a problem without its data. A node with
-   * `work` beside `admit` keeps in the door's store, whose layer folds every problem there (NODE.md section 2).
+   * An envelope kept once the core folds it, as CORE.md section 6 checks one: "Each is checked against its hash and its
+   * owner's signature; each blob against its hash." Its hash is checked where it is read; here its signature, so a
+   * forged one fetches nothing, and then each data blob it names, fetched and kept first, and the core's reduce of the
+   * envelope over them with no receipt, which reads its pieces from them. So the store never holds a problem the core
+   * refuses for its envelope or its data. A node with `work` beside `admit` keeps in the door's store, whose layer
+   * folds every problem there (NODE.md section 2).
    */
   private async keepEnvelope(hash: Hash, envelope: Envelope, link: Link): Promise<void> {
     if (this.chains.envelopeOf(hash)) return;
     if (!signedBy(envelope as unknown as Record<string, unknown>, envelope.problem.owner)) return;
-    for (const h of Object.values(envelope.problem.data)) if (!(await this.blob(h, link))) return;
+    const blobs = new Map<Hash, Uint8Array>();
+    for (const h of Object.values(envelope.problem.data)) {
+      const bytes = await this.blob(h, link);
+      if (!bytes) return;
+      blobs.set(h, bytes);
+    }
+    try {
+      reduce({ envelopes: [envelope], blobs, receipts: [], now: new Date().toISOString() });
+    } catch {
+      return;
+    }
     this.chains.putEnvelope(hash, envelope, new Date().toISOString());
   }
 

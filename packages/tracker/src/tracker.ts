@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto';
 import { type Address, type Hash, type ReduceInput, reduce, withSlash, IDENTITY_LOG } from '@bitquilt/core';
 import { keepBlob, limit, postEvent, publish, pullDoorOf } from './admit.js';
 import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
-import { type Layer, type ProblemLayer, challengeLayer } from './challenge.js';
+import { type Layer, type ProblemLayer, challengeLayer, inputRefused } from './challenge.js';
 import { type CoinLayer, type CoinParams, COIN_LOG, coinLayer } from './coin.js';
 import { assisted, offer } from './hand.js';
 import { type Hidden, hiddenNow } from './hide.js';
@@ -214,14 +214,19 @@ function contextOf(options: TrackerOptions): Context {
     return envelope ? reduceInputOf(store, envelope, now()) : null;
   }
 
-  /** The core's state of a problem held here, or null; one whose input the core refuses is refused with its reason. */
+  /**
+   * The core's state of a problem held here, or null; one whose input the core refuses is refused with its reason, as
+   * the layer leaves it out (`inputRefused`), and anything else that fails is the failure it was.
+   */
   function reduceProblem(hash: Hash) {
     const input = inputFor(hash);
     if (!input) return null;
     try {
       return reduce(input);
     } catch (err) {
-      throw cannotFold((err as Error).message);
+      const why = inputRefused(input);
+      if (why === null) throw err;
+      throw cannotFold(why);
     }
   }
 

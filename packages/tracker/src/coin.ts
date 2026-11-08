@@ -175,13 +175,16 @@ export type LogHead = { seq: number; hash: string } | null;
 /**
  * What `GET /coin/state` names beside the balances (QX-17 section 6), what they were folded over: `at`, the time the
  * layer under them was folded at; `problems`, each problem it folded, in the order it folded them, with its chain's
- * head; and `identity`, the identity log's head. With the coin log to the state's own `head`, these are every chain
- * the fold read, so a reader who folds them as the tracker serves them, cut at these heads, folds what the tracker
- * folded.
+ * head; `refused`, each problem held whose input the core refuses, with its chain's head, since a later version's fold
+ * reads an earlier one's chain; and `identity`, the identity log's head. With the coin log to the state's own `head`,
+ * these are every chain the fold read, so a reader who folds them as the tracker serves them, cut at these heads, folds
+ * what the tracker folded and refuses what it refused.
  */
 export interface CoinFolded {
   at: string;
   problems: { problem: Hash; head: LogHead }[];
+  /** The problems held whose input the core refuses (CORE.md section 6), which the fold reads and does not fold. */
+  refused: { problem: Hash; head: LogHead }[];
   identity: LogHead;
 }
 

@@ -25,10 +25,12 @@
  * publishes, and not the mirror's own chains, whose lines carry the mirror's hashes and so draw other panels
  * (QX-1 section 4). A state is refused where it is not what the run already had from the home (a problem the home
  * listed or served left out, a chain named below the lines read or off them, a fold outside the five seconds before its
- * time), or where a chain, an envelope, a data blob or a read it rests on is not served as named; a read the home
- * answers it does not hold, which no line the home wrote names, is left out of the fold, as the home's own fold leaves
- * it out. The tracker's balances are kept only where the mirror's own agree, and only where every credit is what the
- * chain holds; with no chain to ask, a ledger with credits keeps no balances, and the credits alone refuse nothing.
+ * time), where a chain, an envelope, a data blob or a read it rests on is not served as named, or where the core
+ * refuses here other problems than the state names as refused (CORE.md section 6); a read the home answers it does not
+ * hold, which no line the home wrote names, is left out of the fold, as the home's own fold leaves it out, and so is a
+ * data blob only problems the state names as refused name. The tracker's balances are kept only where the mirror's own
+ * agree, and only where every credit is what the chain holds; with no chain to ask, a ledger with credits keeps no
+ * balances, and the credits alone refuse nothing.
  *
  * The keeping is over a store (files.ts: envelopes, blobs and the lines of each log), the mirror's layout under its
  * folder here and a tracker's store in a node (NODE.md section 5): `keep()` is the pull alone, which a node with `keep`
@@ -205,8 +207,12 @@ function stateOf(answer: unknown): CoinState | null {
     return null;
   const f = answer.folded;
   if (!isRecord(f) || typeof f.at !== 'string' || !isHead(f.identity) || !Array.isArray(f.problems)) return null;
-  if (!f.problems.every((p) => isRecord(p) && isHash(p.problem) && isHead(p.head))) return null;
-  return answer as unknown as CoinState;
+  // A home from before `refused` was named names none, and refuses none.
+  const refused = f.refused ?? [];
+  if (!Array.isArray(refused)) return null;
+  for (const list of [f.problems, refused])
+    if (!list.every((p) => isRecord(p) && isHash(p.problem) && isHead(p.head))) return null;
+  return { ...(answer as unknown as CoinState), folded: { ...(f as unknown as CoinFolded), refused } };
 }
 
 /**
@@ -610,10 +616,13 @@ async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | nu
       return;
     }
     const founding = foundingOf(wellKnown?.founding);
-    const { differs, credits } = reproduceBalances(served, params as CoinParams, founding, state);
+    const { unlike, differs, credits } = reproduceBalances(served, params as CoinParams, founding, state);
     const wrongCredit = chain ? await checkCredits(chain, credits) : null;
     coin.credits = chain ? credits.length : 0;
-    if (wrongCredit !== null) {
+    if (unlike !== null) {
+      ctx.report.refused.push(`coin: ${unlike}, from ${tracker}`);
+      coin.reproduced = false;
+    } else if (wrongCredit !== null) {
       ctx.report.refused.push(`coin: ${wrongCredit}, at head ${state.head?.seq ?? 0} from ${tracker}`);
       coin.reproduced = false;
     } else if (differs === undefined && !chain && credits.length) {
@@ -644,7 +653,10 @@ async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | nu
 
 /** What the coin's balances are recomputed over: the home's own chains as it serves them, cut where its state says. */
 interface Served {
-  /** Each problem the state names, in its order, as the reducer takes it at the time the state says it was folded. */
+  /**
+   * Each problem the state names, those it folded in its order and then those it says the core refuses, as the reducer
+   * takes it at the time the state says it was folded.
+   */
   problems: ReduceInput[];
   /** The coin log to the state's head. */
   coin: Receipt[];
@@ -683,23 +695,25 @@ const FOLDED_BEFORE_MS = 5000;
 /**
  * What the home's state says its balances were folded over (QX-17 section 6), as the home serves it. The state is held
  * first to what this run already had from the home (`readBefore`): its fold's time is its own `at` or up to five
- * seconds before it; it names every problem the home listed or served this run, "every one the tracker holds"; and it
- * names each chain this run read from the home at a head no earlier than the lines read, since a chain only grows.
- * Then each chain the state names, each problem's, the identity log and the coin log, is the home's as served, cut at
- * the named head, whose line must carry the named hash: cut from the lines this run read of it where they reach the
- * head, and otherwise read whole, verified from its log's hash and held to extend what this run read (`servedTo`), so
- * a head off the chain the run read does not pass.
- * Each envelope is the one held here or the home's, by its hash. Each data blob and each read a trace on those chains
- * names is the home's as it serves it (`servedAtHome`), and each read is measured by its bytes, as the home measures
- * the reads it holds (QX-19 section 2); a read the home answers it does not hold is left out, as the home's fold leaves
- * it out, where no line the home wrote names it, and where the home's well-known document publishes no `url` no read is
- * left out. The wrapper is not signed, and the check holds a home's chains to what this run read: so it binds a home
- * that serves its lines as it wrote them, under the `url` it publishes now, as QX-11 section 6 says a chain proves what
- * a reader saw; and a home with `work` beside `admit` that keeps from elsewhere a line whose wrapper carries its `url`
- * is refused until it holds the read that line names. The problems are the home's, hidden and replaced ones among them,
- * since the home serves every problem it holds by hash, a hidden one too (QX-6 section 3), whatever this run took from
- * other sources. Why not, where the state is not what this run had from the home, or a chain, an envelope, a data blob
- * or a read it rests on is not served as named.
+ * seconds before it; it names every problem the home listed or served this run, folded or refused, since it names
+ * "every one the tracker holds"; and it names each chain this run read from the home at a head no earlier than the
+ * lines read, since a chain only grows. Then each chain the state names, each problem's, the identity log and the coin
+ * log, is the home's as served, cut at the named head, whose line must carry the named hash: cut from the lines this
+ * run read of it where they reach the head, and otherwise read whole, verified from its log's hash and held to extend
+ * what this run read (`servedTo`), so a head off the chain the run read does not pass. Each envelope is the one held
+ * here or the home's, by its hash, and its owner's, but for a problem the state says the core refuses, whose signature
+ * is the fold's to judge. Each data blob and each read a trace on those chains names is the home's as it serves it
+ * (`servedAtHome`), and each read is measured by its bytes, as the home measures the reads it holds (QX-19 section 2);
+ * a data blob the home answers it does not hold is left out where only problems the state says the core refuses name
+ * it, so the fold refuses them as the home's did; a read the home answers it does not hold is left out, as the home's
+ * fold leaves it out, where no line the home wrote names it, and where the home's well-known document publishes no
+ * `url` no read is left out. The wrapper is not signed, and the check holds a home's chains to what this run read: so
+ * it binds a home that serves its lines as it wrote them, under the `url` it publishes now, as QX-11 section 6 says a
+ * chain proves what a reader saw; and a home with `work` beside `admit` that keeps from elsewhere a line whose wrapper
+ * carries its `url` is refused until it holds the read that line names. The problems are the home's, hidden and
+ * replaced ones among them, since the home serves every problem it holds by hash, a hidden one too (QX-6 section 3),
+ * whatever this run took from other sources. Why not, where the state is not what this run had from the home, or a
+ * chain, an envelope, a data blob or a read it rests on is not served as named.
  */
 async function servedOver(
   ctx: Context,
@@ -712,7 +726,8 @@ async function servedOver(
   const lag = Date.parse(state.at) - Date.parse(folded.at);
   if (!(lag >= 0 && lag <= FOLDED_BEFORE_MS))
     return `the coin state from ${tracker} was folded at ${folded.at}, not at its time ${state.at} or in the five seconds before it`;
-  const named = new Map(folded.problems.map(({ problem, head }) => [problem, head]));
+  const named = new Map([...folded.problems, ...folded.refused].map(({ problem, head }) => [problem, head]));
+  const refused = new Set(folded.refused.map(({ problem }) => problem));
   for (const [problem, read] of before.problems) {
     if (!named.has(problem)) return `the coin state from ${tracker} does not name ${problem}, which it served this run`;
     const short = belowRead(named.get(problem)!, read);
@@ -732,8 +747,8 @@ async function servedOver(
   if (typeof identity === 'string') return identity;
   const envelopes = new Map<Hash, Envelope>();
   const chains = new Map<Hash, Receipt[]>();
-  for (const { problem, head } of folded.problems) {
-    const envelope = ctx.store.envelopeOf(problem) ?? (await envelopeAt(ctx, tracker, problem));
+  for (const { problem, head } of [...folded.problems, ...folded.refused]) {
+    const envelope = ctx.store.envelopeOf(problem) ?? (await envelopeAt(ctx, tracker, problem, !refused.has(problem)));
     if (!envelope) return `the envelope of ${problem} from ${tracker} does not check`;
     envelopes.set(problem, envelope);
     const lines = await servedTo(
@@ -746,14 +761,21 @@ async function servedOver(
     if (typeof lines === 'string') return lines;
     chains.set(problem, lines);
   }
-  const blobs = new Map<Hash, Uint8Array | null>();
+  // Each data blob, with the problem it is first named by and whether a problem the state says it folded names it: a
+  // problem the core refuses can lack its data, and one the home folded cannot.
+  const data = new Map<Hash, { problem: Hash; folds: boolean }>();
   for (const [problem, e] of envelopes)
-    for (const h of Object.values(e.problem.data))
-      if (!blobs.has(h)) {
-        const bytes = await servedAtHome(ctx, tracker, h, `the data blob ${h} of ${problem} from ${tracker}`, false);
-        if (typeof bytes === 'string') return bytes;
-        blobs.set(h, bytes);
-      }
+    for (const h of Object.values(e.problem.data)) {
+      const folds = !refused.has(problem);
+      const first = data.get(h);
+      if (!first || (folds && !first.folds)) data.set(h, { problem, folds });
+    }
+  const blobs = new Map<Hash, Uint8Array | null>();
+  for (const [h, { problem, folds }] of data) {
+    const bytes = await servedAtHome(ctx, tracker, h, `the data blob ${h} of ${problem} from ${tracker}`, !folds);
+    if (typeof bytes === 'string') return bytes;
+    blobs.set(h, bytes);
+  }
   // Each read a trace names, with where it is first named and whether a line the home wrote names it: the home's own
   // wrapper, `by` its well-known `url`, says the home took that line, and with it the read.
   const reads = new Map<Hash, { problem: Hash; tookIt: boolean }>();
@@ -784,7 +806,9 @@ async function servedOver(
     lines: (log) => (log === IDENTITY_LOG ? identity : (chains.get(log) ?? [])),
   };
   return {
-    problems: folded.problems.map(({ problem }) => reduceInputOf(reader, envelopes.get(problem)!, folded.at)),
+    problems: [...folded.problems, ...folded.refused].map(({ problem }) =>
+      reduceInputOf(reader, envelopes.get(problem)!, folded.at),
+    ),
     coin,
     blobLength: (h) => lengths.get(h) ?? null,
   };
@@ -793,11 +817,13 @@ async function servedOver(
 /**
  * A data blob or a read the home's fold reads, as the home serves it at `/b/<hash>`: its bytes, which must hash to the
  * name, whatever is held here, since the balances rest on what the home serves. Null, for a read the home's fold
- * measured as absent, only where `mayLack` and the home answers that it holds none (`404`): a node with `work` beside
- * `admit` keeps in the door's store chains its door did not take (NODE.md section 2), and can lack a read a trace on
- * them names. A data blob is never absent, since the core refuses a problem without one and a home that lacks one
- * cannot fold; nor is a read a line the home wrote names, since its door takes no trace whose read it lacks and a
- * store keeps a blob for good. Why not, where the home cannot be asked, does not serve it, or serves other bytes.
+ * measured as absent or a data blob only problems the core refuses there name, only where `mayLack` and the home
+ * answers that it holds none (`404`): a node with `work` beside `admit` keeps in the door's store chains its door did
+ * not take (NODE.md section 2), and can lack a read a trace on them names, and a store can hold a problem without its
+ * data, which the core refuses (CORE.md section 6). A data blob of a problem the home folded is never absent, since
+ * the core refuses a problem without one; nor is a read a line the home wrote names, since its door takes no trace
+ * whose read it lacks and a store keeps a blob for good. Why not, where the home cannot be asked, does not serve it,
+ * or serves other bytes.
  */
 async function servedAtHome(
   ctx: Context,
@@ -870,11 +896,11 @@ function cutAt(lines: Receipt[], head: LogHead): Receipt[] | null {
 }
 
 /** An envelope the tracker serves by hash, where it checks, hashes to the hash and is its owner's; null otherwise. */
-async function envelopeAt(ctx: Context, tracker: string, hash: Hash): Promise<Envelope | null> {
+async function envelopeAt(ctx: Context, tracker: string, hash: Hash, signed = true): Promise<Envelope | null> {
   const answer = await getJson(ctx, `${tracker}p/${hash}`);
   if (!answer || envelopeProblems(answer).length || problemHash(answer as Envelope) !== hash) return null;
   const envelope = answer as Envelope;
-  return signedBy(envelope as unknown as Record<string, unknown>, envelope.problem.owner) ? envelope : null;
+  return !signed || signedBy(envelope as unknown as Record<string, unknown>, envelope.problem.owner) ? envelope : null;
 }
 
 /**
@@ -899,7 +925,7 @@ function reproduceBalances(
   params: CoinParams,
   founding: Map<string, number>,
   state: CoinState,
-): { differs: string | undefined; credits: CreditLine[] } {
+): { unlike: string | null; differs: string | undefined; credits: CreditLine[] } {
   const layer = challengeLayer({
     problems: served.problems,
     now: state.folded.at,
@@ -911,7 +937,23 @@ function reproduceBalances(
   const mine = Object.fromEntries(folded.balances());
   const roots = [...new Set([...Object.keys(mine), ...Object.keys(state.balances)])].sort();
   const differs = roots.find((r) => JSON.stringify(mine[r] ?? null) !== JSON.stringify(state.balances[r] ?? null));
-  return { differs, credits: folded.credits() };
+  return { unlike: refusalsUnlike(layer, state.folded), differs, credits: folded.credits() };
+}
+
+/**
+ * Where the fold here and the home's state differ on which problems the core refuses (CORE.md section 6), what they
+ * differ on, or null: the inputs are the home's as served, so the core refuses here what it refused there.
+ */
+function refusalsUnlike(layer: Layer, folded: CoinFolded): string | null {
+  for (const { problem } of folded.problems) {
+    const why = layer.refused.get(problem);
+    if (why !== undefined)
+      return `the coin state names ${problem} as folded, and the core refuses it as served: ${why}`;
+  }
+  for (const { problem } of folded.refused)
+    if (!layer.refused.has(problem))
+      return `the coin state names ${problem} as refused, and the core folds it as served`;
+  return null;
 }
 
 /**

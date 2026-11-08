@@ -247,7 +247,7 @@ function summary(cx: Reads, hash: Hash, layered: Layer = cx.layer()) {
  * reveal of the owner's gold is taken on the piece at `now`, which `state` does not say under an open challenge
  * (QX-16).
  */
-export function state({ store, now, hidden, tracesOf }: Reads, hash: Hash, pl: ProblemLayer) {
+export function state({ store, now, hidden, tracesOf, layer }: Reads, hash: Hash, pl: ProblemLayer) {
   const s = pl.fold;
   const at = now();
   const witnessed = witnessedReveals(store, hash);
@@ -295,7 +295,7 @@ export function state({ store, now, hidden, tracesOf }: Reads, hash: Hash, pl: P
     output: s.output?.hash ?? null,
     record_output: recordOutput(pl)?.hash ?? null,
     dropped: [...s.dropped, ...pl.dropped],
-    superseded: supersededBy(store, hash),
+    superseded: supersededBy(store, hash, layer()),
   };
 }
 
@@ -331,26 +331,31 @@ export function recordOf({ view }: Reads, hash: Hash) {
 
 /**
  * The newest envelope here by the same owner whose `prev` is this problem: the version that replaced it, or null. The
- * state says so, and `next` hands nothing on a replaced problem.
+ * state says so, and `next` hands nothing on a replaced problem. A version the core refuses has no state
+ * (CORE.md section 6), so it replaces nothing: the work stays on the version before it.
  */
-export function supersededBy(store: Store, hash: Hash): Hash | null {
+export function supersededBy(store: Store, hash: Hash, layered: Layer): Hash | null {
   const owner = store.getEnvelope(hash)?.envelope.problem.owner;
   if (!owner) return null;
   return (
-    store.listEnvelopes().find((e) => e.envelope.problem.prev === hash && e.envelope.problem.owner === owner)?.hash ??
-    null
+    store
+      .listEnvelopes()
+      .find(
+        (e) => e.envelope.problem.prev === hash && e.envelope.problem.owner === owner && !layered.refused.has(e.hash),
+      )?.hash ?? null
   );
 }
 
 /**
  * The problems here their owners have replaced with a newer version, left out of the index and the offer: the work is
- * on the versions that replaced them.
+ * on the versions that replaced them. A version the core refuses replaces nothing, as `supersededBy` says.
  */
-export function replaced(store: Store): Set<Hash> {
+export function replaced(store: Store, layered: Layer): Set<Hash> {
   const out = new Set<Hash>();
   const byHash = new Map(store.listEnvelopes().map((e) => [e.hash, e] as const));
   for (const e of byHash.values()) {
     const prev = e.envelope.problem.prev;
+    if (layered.refused.has(e.hash)) continue;
     if (prev && byHash.get(prev)?.envelope.problem.owner === e.envelope.problem.owner) out.add(prev);
   }
   return out;
@@ -455,7 +460,7 @@ export function index(cx: Reads, query: URLSearchParams) {
   const out: unknown[] = [];
   const layered = layer();
   const hid = hidden();
-  const gone = replaced(store);
+  const gone = replaced(store, layered);
   for (const e of store.listEnvelopes()) {
     if (hid.has(e.hash) || gone.has(e.hash)) continue;
     const topics = [...(topicsByProblem.get(e.hash) ?? [])];
@@ -676,8 +681,8 @@ function coinAt(folded: string, clock: string): string {
  * from an earlier read or built for this answer, at the store's version now; nothing is written between reading it
  * and reading the heads, so they are the heads it folded, and the coin is computed no later than five seconds after
  * its time (`coinAt`). Every problem here is folded, hidden and replaced ones too, and each is still served by hash,
- * a hidden one as QX-6 section 3 says; one whose input the core refuses has no state (CORE.md section 6), so the layer
- * left it out and it is not named.
+ * a hidden one as QX-6 section 3 says. One whose input the core refuses has no state (CORE.md section 6), so the layer
+ * left it out; it is named among the refused with its chain's head, since a later version's fold reads its chain.
  */
 function foldedOver(store: Store, layered: Layer): CoinFolded {
   const headOf = (log: Hash): LogHead => {
@@ -687,6 +692,7 @@ function foldedOver(store: Store, layered: Layer): CoinFolded {
   return {
     at: layered.now,
     problems: [...layered.problems.keys()].map((problem) => ({ problem, head: headOf(problem) })),
+    refused: [...layered.refused.keys()].map((problem) => ({ problem, head: headOf(problem) })),
     identity: headOf(IDENTITY_LOG),
   };
 }
