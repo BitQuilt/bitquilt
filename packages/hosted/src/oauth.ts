@@ -45,7 +45,7 @@ import {
   UnsupportedResponseTypeError,
 } from '@modelcontextprotocol/sdk/server/auth/errors.js';
 import { textIssues } from '@bitquilt/core';
-import { CLIENT_NAME_MAX, type GrantRow, type Store, inRanges, rangesOf } from '@bitquilt/tracker';
+import { CLIENT_NAME_MAX, type GrantRow, type Store, inRanges, json, rangesOf } from '@bitquilt/tracker';
 import type { Witness } from 'quilt';
 import { AUTHORIZE_PAGE } from './authorize-page.js';
 import { ASSERTION_TYPE, type ClientDocument, DocumentError, Documents, clientIdProblem } from './cimd.js';
@@ -163,15 +163,6 @@ type Bound = 'address' | 'key' | null;
 
 const sha = (s: string): string => createHash('sha256').update(s).digest('hex');
 const str = (p: Params, k: string): string | undefined => (typeof p[k] === 'string' ? (p[k] as string) : undefined);
-
-function json(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
-  res.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'access-control-allow-origin': '*',
-    ...headers,
-  });
-  res.end(JSON.stringify(body));
-}
 
 async function readText(req: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];

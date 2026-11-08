@@ -9,7 +9,8 @@ quietSqliteWarning();
 
 async function main(): Promise<void> {
   const { Store } = await import('./store.js');
-  const { createTracker, schedulePeerPulls } = await import('./tracker.js');
+  const { createTracker } = await import('./tracker.js');
+  const { schedulePeerPulls } = await import('./peers.js');
   const { port, host, dbPath, options } = trackerOptionsFromEnv(process.env);
   const store = new Store(dbPath);
   const tracker = createTracker({ store, ...options });

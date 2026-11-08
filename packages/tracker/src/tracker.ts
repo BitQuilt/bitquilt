@@ -95,26 +95,14 @@ import {
   tracesKept,
 } from './trace.js';
 import type { Store } from './store.js';
+import { Refusal, json } from './http.js';
+import { hostedPost, witnessOf, witnessedReveals } from './witness.js';
+import { PEER_PULL, PEER_PULL_EVERY_MS, type PeerPull, type PullDoor, pullPeers } from './peers.js';
 
 /**
  * The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under.
  */
 export const IDENTITY: Hash = IDENTITY_LOG;
-/** QX-21: doors fold each other's chains. */
-export const PEER_PULL = 'QX-21';
-/** How often a tracker with peers pulls their chains, in milliseconds; the first pull a minute after start. */
-export const PEER_PULL_EVERY_MS = 300_000;
-
-/**
- * QX-21: what one pull from one peer did: the lines added here, the events this door refused with why, and what could
- * not be read.
- */
-export interface PeerPull {
-  peer: string;
-  added: number;
-  refused: { id: Hash; why: string }[];
-  errors: string[];
-}
 const PIECE_EVENTS: ReadonlySet<string> = new Set(['claim', 'commit', 'reveal', 'decline', 'run']);
 const IDENTITY_EVENTS: ReadonlySet<string> = new Set(['name', 'delegate', 'revoke', 'rotate', 'hide']);
 const PROBLEM_EVENTS: ReadonlySet<string> = new Set(['version', 'output', 'announce', 'seed']);
@@ -135,18 +123,6 @@ const MAX_BODY = 4 * 1024 * 1024;
  * piece in the same minute.
  */
 const HOLD_SECONDS = 60;
-/** QX-18: a witness is a product's host name in lower case, or `other`. */
-export const WITNESS_VIA = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
-/** QX-18: the most characters of a client's own name the receipt carries. */
-export const CLIENT_NAME_MAX = 80;
-/**
- * QX-18: how a product's mark was bound to the product: the token exchange came from its published addresses, or was
- * signed with its published key.
- */
-export const WITNESS_BOUND_BY: readonly string[] = ['address', 'key'];
-/** QX-18: what the wrapper of a hosted post carries beside custody, when the on-ramp named a witness. */
-type Witnessed = { via?: string; via_by?: string; via_client?: string };
-
 export interface TrackerOptions {
   store: Store;
   /** This tracker's own address, written into every receipt. */
@@ -224,29 +200,6 @@ export interface Tracker {
   pullPeers(): Promise<PeerPull[]>;
 }
 
-/**
- * What the door answers a request with when it refuses: a status and one sentence saying why, which `handle` writes as
- * `{ error }`.
- */
-class Refusal extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-function json(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
-  const text = JSON.stringify(body);
-  res.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'access-control-allow-origin': '*',
-    ...headers,
-  });
-  res.end(text);
-}
-
 async function readBody(req: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
   let size = 0;
@@ -279,12 +232,12 @@ function parseJson(text: string): unknown {
 }
 
 /** Which log a post goes to: a problem's, the identity log, or the coin log (QX-17). */
-type Log = { kind: 'problem'; hash: Hash } | { kind: 'identity' } | { kind: 'coin' };
+export type Log = { kind: 'problem'; hash: Hash } | { kind: 'identity' } | { kind: 'coin' };
 /**
  * What the door read of an event it admits: the chain it is appended to, and the word it vouches for in the receipt's
  * wrapper (QX-17).
  */
-interface Admitted {
+export interface Admitted {
   chain: Hash;
   word?: Record<string, unknown>;
 }
@@ -479,7 +432,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     if (!eventSignedByKey(event)) throw new Refusal(400, "signature is not the key's");
     limit(`key:${event.key}`, limits.keyPerHour);
     const id = eventId(event);
-    const hosted = hostedPost(req);
+    const hosted = hostedPost(req, options.custodySecret);
     exact += 1;
     let admitted: Admitted;
     try {
@@ -517,166 +470,27 @@ export function createTracker(options: TrackerOptions): Tracker {
   }
 
   /**
-   * QX-21: a chain read whole from a peer, page by page along `x-quilt-next-since`; null where the peer does not hold
-   * it, did not answer, or did not end its pages.
+   * QX-21: what the peer pull reaches of this tracker. A peer's event is admitted as a post's is, with the layer built
+   * afresh at now while it is (`exact`); the coin log is not pulled.
    */
-  async function linesFrom(target: string): Promise<Receipt[] | null> {
-    const lines: Receipt[] = [];
-    let since = 0;
-    for (let page = 0; page < 10_000; page += 1) {
-      let r: Response;
-      try {
-        r = await fetchImpl(`${target}?since=${since}`, { signal: AbortSignal.timeout(30_000) });
-      } catch {
-        return null;
-      }
-      if (!r.ok) return null;
-      lines.push(
-        ...(await r.text())
-          .split('\n')
-          .filter(Boolean)
-          .map((l) => JSON.parse(l) as Receipt),
-      );
-      const next = r.headers.get('x-quilt-next-since');
-      if (!next) return lines;
-      since = Number(next);
-    }
-    return null;
-  }
-
-  /**
-   * QX-21 section 2: the reads a peer's trace names that this door lacks, fetched from the peer under their hashes and
-   * kept where they check; one that does not is left to the trace's own refusal.
-   */
-  async function takeReads(peer: string, event: Event): Promise<void> {
-    for (const read of (event.body as { reads?: { hash?: unknown }[] }).reads ?? []) {
-      const hash = read.hash;
-      if (!isHash(hash) || store.getBlob(hash)) continue;
-      try {
-        const r = await fetchImpl(`${peer}b/${hash}`, { signal: AbortSignal.timeout(30_000) });
-        if (!r.ok) continue;
-        const bytes = new Uint8Array(await r.arrayBuffer());
-        if (hashBytes(bytes) === hash) store.putBlob(hash, bytes);
-      } catch {
-        /* the trace says what is missing */
-      }
-    }
-  }
-
-  /**
-   * QX-21 section 2: one log of a peer's, pulled and folded through this door. The chain is taken whole and left whole
-   * where it does not verify; each event this tracker lacks is admitted as a post would be, in the peer's order, with
-   * the peer's wrappers kept and this door's added (CORE.md section 5: the union of `received`, the earliest deciding
-   * the time), so a lock a stake rule asks or a gold rule this door keeps refuses here what the peer admitted, and the
-   * pull says so rather than folding it: two doors converge on everything both admit.
-   */
-  async function pullLog(peer: string, target: string, log: Log, out: PeerPull): Promise<void> {
-    const chain: Hash = log.kind === 'identity' ? IDENTITY_LOG : log.kind === 'problem' ? log.hash : COIN_LOG;
-    const lines = await linesFrom(target);
-    if (!lines) return;
-    const check = verifyChain(lines, chain);
-    if (!check.ok) {
-      out.errors.push(`${target}: chain does not verify: ${check.problems[0]}`);
-      return;
-    }
-    for (const line of lines) {
-      const event = line.event;
-      const shape = eventProblems(event);
-      if (shape.length) {
-        out.refused.push({ id: eventId(event), why: shape[0]! });
-        continue;
-      }
-      const id = eventId(event);
-      if (store.hasEvent(chain, id)) continue;
-      if (!eventSignedByKey(event)) {
-        out.refused.push({ id, why: "signature is not the key's" });
-        continue;
-      }
-      const hosted = line.received.some((w) => w.custody === 'hosted');
-      // QX-19 section 2: a trace is admitted where its reads are held, so the reads it names are taken from the peer
-      // under their hashes first, as the mirror and a node's keep take them.
-      if (event.type === 'trace') await takeReads(peer, event);
+  const pullDoor: PullDoor = {
+    store,
+    url,
+    now,
+    fetchImpl,
+    peers: options.peers ?? [],
+    async admit(log, event, hosted) {
       exact += 1;
       try {
-        const admitted =
-          log.kind === 'identity'
-            ? admitIdentityEvent(event)
-            : await admitProblemEvent(event, (log as { hash: Hash }).hash, hosted);
-        const appended = store.appendPulled(admitted.chain, event, id, [
-          ...line.received,
-          { by: url, at: now(), ...(admitted.word ?? {}) },
-        ]);
-        noteAppended(log, event, appended.received.map((w) => w.at).sort()[0]!);
-        out.added += 1;
-      } catch (err) {
-        if (err instanceof Refusal) out.refused.push({ id, why: err.message });
-        else out.errors.push(`${target}: ${(err as Error).message}`);
+        return log.kind === 'identity'
+          ? admitIdentityEvent(event)
+          : await admitProblemEvent(event, (log as { hash: Hash }).hash, hosted);
       } finally {
         exact -= 1;
       }
-    }
-  }
-
-  /**
-   * QX-21: every peer in turn, its identity log first and then its chain for every problem held here; the coin log is
-   * one sequence and is not pulled (QX-17).
-   */
-  async function pullPeers(): Promise<PeerPull[]> {
-    const out: PeerPull[] = [];
-    for (const peer of (options.peers ?? []).map(withSlash)) {
-      if (peer === url) continue;
-      const report: PeerPull = { peer, added: 0, refused: [], errors: [] };
-      let known: unknown = null;
-      try {
-        const r = await fetchImpl(`${peer}.well-known/quilt`, { signal: AbortSignal.timeout(15_000) });
-        known = r.ok ? await r.json() : null;
-      } catch {
-        known = null;
-      }
-      if (!known) {
-        report.errors.push(`${peer}: no answer`);
-        out.push(report);
-        continue;
-      }
-      await pullLog(peer, `${peer}k/events`, { kind: 'identity' }, report);
-      for (const e of store.listEnvelopes())
-        await pullLog(peer, `${peer}p/${e.hash}/events`, { kind: 'problem', hash: e.hash }, report);
-      out.push(report);
-    }
-    return out;
-  }
-
-  /**
-   * Whether a post was made by the connector mounted beside this tracker, for a key it holds: a seat this tracker
-   * opened for a person.
-   */
-  function hostedPost(req: IncomingMessage): boolean {
-    return options.custodySecret !== undefined && req.headers['x-quilt-custody'] === options.custodySecret;
-  }
-
-  /**
-   * QX-18: the witness the hosted on-ramp names on a post it made, written beside custody: the product whose OAuth
-   * callback the session's token came through, or `other` with the client's own name through the gate. Read only on a
-   * post `hostedPost` recognised, so nobody else can set it; a mark that is not well formed is left out.
-   */
-  function witnessOf(req: IncomingMessage): Witnessed {
-    const via = req.headers['x-quilt-via'];
-    if (typeof via !== 'string' || via.length > 64 || !WITNESS_VIA.test(via)) return {};
-    if (via !== 'other') {
-      const by = req.headers['x-quilt-via-by'];
-      return typeof by === 'string' && WITNESS_BOUND_BY.includes(by) ? { via, via_by: by } : { via };
-    }
-    const raw = req.headers['x-quilt-via-client'];
-    let name: string | null = null;
-    try {
-      name = typeof raw === 'string' ? decodeURIComponent(raw).trim() : null;
-    } catch {
-      name = null;
-    }
-    return name && name.length <= CLIENT_NAME_MAX && textIssues(name).length === 0
-      ? { via, via_client: name }
-      : { via };
-  }
+    },
+    noteAppended,
+  };
 
   /** QX-17: the coin log, admitted against the layer's balances at now; a burn's word is the standing it credits. */
   function admitCoinEvent(event: Event): Admitted {
@@ -1225,7 +1039,7 @@ export function createTracker(options: TrackerOptions): Tracker {
   function state(hash: Hash, pl: ProblemLayer) {
     const s = pl.fold;
     const at = now();
-    const witnessed = witnessedReveals(hash);
+    const witnessed = witnessedReveals(store, hash);
     const traced = tracesOf(hash, pl);
     return {
       problem: hash,
@@ -1282,30 +1096,6 @@ export function createTracker(options: TrackerOptions): Tracker {
     const records = new Map(pl.pieces.filter((p) => p.record).map((p) => [p.hash, p.record!] as const));
     if (records.size === 0 || !pl.fold.complete) return null;
     return recordDocument(hash, pl.fold, records, pl.receipts);
-  }
-
-  /**
-   * QX-18: the reveals on a problem's chain whose receipt names a witness, by piece: the key that revealed, the root it
-   * counts for, the product or `other`, and the client's own name with `other`. The tracker's word, as custody is.
-   */
-  function witnessedReveals(
-    hash: Hash,
-  ): Map<Hash, { key: string; via: string; via_by?: string; via_client?: string }[]> {
-    const out = new Map<Hash, { key: string; via: string; via_by?: string; via_client?: string }[]>();
-    for (const envelope of store.chain(hash))
-      for (const r of store.witnessedReveals(problemHash(envelope))) {
-        const w = r.received.find((x) => typeof (x as Witnessed).via === 'string') as Witnessed | undefined;
-        if (!w?.via) continue;
-        const list = out.get(r.piece) ?? [];
-        list.push({
-          key: r.key,
-          via: w.via,
-          ...(w.via_by ? { via_by: w.via_by } : {}),
-          ...(w.via_client ? { via_client: w.via_client } : {}),
-        });
-        out.set(r.piece, list);
-      }
-    return out;
   }
 
   /** QX-19: how long a blob here is, or null. */
@@ -1976,37 +1766,5 @@ export function createTracker(options: TrackerOptions): Tracker {
     return new Promise((resolve) => server.listen(port, host, () => resolve(server)));
   }
 
-  return { handle, listen, reduceProblem, layer, view, coin: () => coin(), pullPeers };
-}
-
-/**
- * QX-21: the peers' chains pulled and folded every `PEER_PULL_EVERY_MS`, the first a minute after start, one pull at a
- * time; `say` gets one line per peer per pull. Nothing is scheduled where there is no peer. What both binaries run.
- */
-export function schedulePeerPulls(
-  tracker: Pick<Tracker, 'pullPeers'>,
-  peers: readonly string[],
-  say: (line: string) => void,
-): void {
-  if (peers.length === 0) return;
-  say(
-    `peers: ${peers.join(', ')}; their chains are pulled and folded through this door every ${Math.round(PEER_PULL_EVERY_MS / 60_000)} minutes (QX-21)`,
-  );
-  let pulling = false;
-  const pull = async (): Promise<void> => {
-    if (pulling) return;
-    pulling = true;
-    try {
-      for (const p of await tracker.pullPeers())
-        say(
-          `peer ${p.peer}: ${p.added} added, ${p.refused.length} refused${p.errors.length ? `; ${p.errors.join('; ')}` : ''}`,
-        );
-    } catch (err) {
-      say(`peers: not pulled (${(err as Error).message})`);
-    } finally {
-      pulling = false;
-    }
-  };
-  setTimeout(() => void pull(), 60_000).unref();
-  setInterval(() => void pull(), PEER_PULL_EVERY_MS).unref();
+  return { handle, listen, reduceProblem, layer, view, coin: () => coin(), pullPeers: () => pullPeers(pullDoor) };
 }
