@@ -51,5 +51,6 @@ export {
 export * as merkle from './merkle.js';
 export type { Hex } from './merkle.js';
 
-// For a deployment script and the anvil test, kept here because viem is imported in chain.ts alone.
+// For a deployment script outside the repository, kept beside the other chain functions since viem is imported in
+// chain.ts alone.
 export { deploy, bond, balanceOf, ANCHORS_ABI, QUILT_ABI, type Abi } from './chain.js';

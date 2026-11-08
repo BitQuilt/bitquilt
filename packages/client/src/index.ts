@@ -1,3 +1,8 @@
+/**
+ * What quilt exports, which hosted and the node import: the Quilt with its resolver, the connector and the tools'
+ * runners, the page, the card and its reader, the phrases, the pattern checks, the away record's name and the owner's
+ * turn. Which file holds what is mapped in one table, the map of the code (AGENTS.md, The shape of it).
+ */
 export { HOW_QUILT_WORKS } from './about.js';
 export * from './config.js';
 export * from './link.js';

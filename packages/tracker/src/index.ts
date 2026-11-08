@@ -1,9 +1,10 @@
 /**
- * The tracker as a library: Quilt and the mirror import the store and `createTracker` to run one in their tests, and
- * the mirror imports `reduceInputOf`, `challengeLayer`, `coinLayer` and `COIN_LOG` to fold a tracker's chains as the
- * tracker does and recompute its balances from them. Which file holds what, and which extension each carries out, is
- * mapped in one table, the map of the code (AGENTS.md, The shape of it). The body checks, the constants and the view
- * types are exported for the tests, which enter through `createTracker` and `challengeLayer`.
+ * The tracker as a library: what the package exports. Hosted, the mirror and the node import it in their sources:
+ * hosted and the node run a tracker over a store, and the mirror folds a tracker's chains with the tracker's own layer
+ * code and recomputes its balances from them. Quilt imports it in its tests alone, to run a tracker beside a client.
+ * Which file holds what, and which extension each carries out, is mapped in one table, the map of the code
+ * (AGENTS.md, The shape of it). The body checks are exported for the tests, which enter through `createTracker` and
+ * `challengeLayer`; the constants and the view types for the tests and for the packages that read them.
  */
 export {
   Store,

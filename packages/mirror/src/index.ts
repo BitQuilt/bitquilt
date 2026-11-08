@@ -1,6 +1,6 @@
 /**
- * The mirror job as one export: the run, the keeper's pull over a store, which the node imports, the anchoring, and
- * the folds over the identity log.
+ * The mirror job as one export: the run, which Quilt's tests import, the keeper's pull over a store, which the node
+ * imports, the anchoring, and the folds over the identity log.
  */
 export { keep, mirror, type DepositReader, type KeepOptions, type MirrorOptions, type MirrorReport } from './mirror.js';
 export { MirrorFiles, type KeptStore } from './files.js';
