@@ -2,11 +2,11 @@
  * NODE.md section 6, the binary and the repository's job, and PROTOCOL.md, The mirror: a run commits only where it
  * refused nothing. bitquilt-mirror exits 0 where it refused nothing and 1 where it refused anything, and the run that
  * exits 1 has written what it took to its folder all the same. A coin log with a credit on it and no chain to check it
- * against is no refusal: the job sets none of the chain's variables, so the binary run without them exits 0 with the
- * problems and the coin log written and the balances left out, and prints why. In `.github/workflows/mirror.yml` the
- * step that commits comes after the step that runs the mirror, and nothing in the file sets a condition on a step or
- * lets a failed step pass. GitHub runs a step with no condition only where every step before it succeeded, so what a
- * run that refused anything took never reaches `main`.
+ * against is no refusal of its own: the job sets none of the chain's variables, so the binary run without them over
+ * balances that reproduce exits 0 with the problems and the coin log written and the balances left out, and prints
+ * why. In `.github/workflows/mirror.yml` the step that commits comes after the step that runs the mirror, and nothing
+ * in the file sets a condition on a step or lets a failed step pass. GitHub runs a step with no condition only where
+ * every step before it succeeded, so what a run that refused anything took never reaches `main`.
  */
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';

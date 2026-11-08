@@ -22,7 +22,7 @@
  * and the parameters the tracker publishes, with the tracker's own layer code, so what it checks is the receipts and
  * the head, not the arithmetic; a second implementation of coin.ts would check that. The tracker's balances are kept
  * only where the mirror's own agree, and only where every credit is what the chain holds; with no chain to ask, a
- * ledger with credits keeps no balances, and nothing is refused for it.
+ * ledger with credits keeps no balances, and the credits alone refuse nothing.
  *
  * The keeping is over a store (files.ts: envelopes, blobs and the lines of each log), the mirror's layout under its
  * folder here and a tracker's store in a node (NODE.md section 5): `keep()` is the pull alone, which a node with `keep`
@@ -93,8 +93,8 @@ export interface MirrorOptions {
   coin?: boolean;
   /**
    * The way back: what the chain holds at a deposit number, for checking every credit line the ledger kept. Absent,
-   * the balances of a ledger with credits on it are not kept, since nothing here can check them, and the report says
-   * why in `coin.notKept`.
+   * the balances of a ledger with credits on it are not kept, since nothing here can check them; where they reproduce,
+   * the report says why in `coin.notKept`.
    */
   chain?: DepositReader | null;
 }
@@ -146,8 +146,9 @@ export interface MirrorReport {
   identity: { lines: number; added: number };
   /**
    * QX-17: the coin log held, whether the tracker's balances at its head reproduced here (null where the head moved
-   * between reads, or where the ledger has credits and there is no chain to check them against), how many credits were
-   * checked against the chain, and, where the balances were not kept and nothing was refused for it, why.
+   * between reads or the state could not be read, and where they reproduce but the ledger has credits and no chain to
+   * check them against), how many credits were checked against the chain, and, in that last case, why the balances
+   * were not kept.
    */
   coin?: {
     lines: number;
@@ -506,9 +507,10 @@ async function takeIdentity(ctx: Context, tracker: string): Promise<void> {
  * alone, only where every credit is what the chain holds at that deposit: "the mirror checks every credit against the
  * chain and keeps no balances where one differs or where it has no chain to ask" (AGENTS.md, rule 10). A credit that
  * is not what the chain holds is refused, and so are balances that do not reproduce, which needs no chain to say. With
- * no chain to ask, a ledger with credits is kept and its balances are not, and nothing is refused for it, so the run
- * keeps the problems, the coin log and the rest (NODE.md section 6); `notKept` says why. A head that moved between the
- * two reads is left for the next run (`reproduced: null`).
+ * no chain to ask, a ledger with credits is kept and its balances are not, and the credits alone refuse nothing, so a
+ * run that refuses nothing else keeps the problems, the coin log and the rest (NODE.md section 6); where the balances
+ * reproduce, `notKept` says why. A head that moved between the two reads, or a state that cannot be read, is left for
+ * the next run (`reproduced: null`), with no reason given.
  */
 async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | null): Promise<void> {
   const wellKnown = (await getJson(ctx, `${tracker}.well-known/quilt`)) as {

@@ -1,7 +1,8 @@
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   type Envelope,
@@ -25,8 +26,10 @@ import { VERDICT, addr, by, calendarBytes, key, startTracker } from './helpers.j
  * the receipts it holds and the parameters the tracker publishes; a tracker whose balances differ is refused, as are
  * the balances where a problem the tracker folded was not taken by the time it was read (NODE.md section 6); and every
  * credit line on the coin log (the way back) is checked against the deposit the chain holds, and the balances refused
- * where one is not what the chain holds. With no chain to ask, the balances are not kept and nothing is refused for
- * it: the problems and the coin log are kept, and the report says why (AGENTS.md, rule 10).
+ * where one is not what the chain holds. With no chain to ask, the balances are not kept and the credits alone refuse
+ * nothing (AGENTS.md, rule 10): the problems and the coin log are kept, and where the balances reproduce the report
+ * says why; balances that do not reproduce are refused all the same, and a head that moved between the two reads is
+ * left for the next run with no reason given. NODE.md section 6 and PROTOCOL.md, The mirror, say no more than that.
  */
 const owner = key(9),
   A = key(1),
@@ -269,5 +272,54 @@ describe('the coin at the mirror', () => {
     expect(report.refused).toEqual([`coin: the balances at head 2 from ${base} do not reproduce here (${addr(A)})`]);
     expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: false, credits: 0 });
     expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
+  });
+
+  it('with no chain to ask, leaves a head that moved between the two reads for the next run, and gives no reason', async () => {
+    const moved = (state: Record<string, unknown>) => {
+      const head = state.head as { seq: number; hash: string };
+      return { ...state, head: { ...head, seq: head.seq + 1 } };
+    };
+    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-blind-moved-'));
+    const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(moved) });
+    expect(report.refused).toEqual([]);
+    expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: null });
+    expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
+    expect(readFileSync(join(out, 'ledger', 'coin.jsonl'), 'utf8')).toContain('"type":"credit"');
+  });
+});
+
+describe('the documents on a coin log with credits and no chain to ask', () => {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+  const read = (...path: string[]): string => readFileSync(join(root, ...path), 'utf8').replace(/\r\n/g, '\n');
+  /** The sentences of a paragraph that opens with `opening`, under the heading `title`. */
+  function sentences(doc: string, title: string, opening: string): string[] {
+    const start = doc.indexOf(`\n## ${title}\n`);
+    expect(start, title).toBeGreaterThan(-1);
+    const paragraph = doc
+      .slice(start + 1)
+      .split('\n## ')[0]!
+      .split('\n\n')
+      .find((p) => p.startsWith(opening));
+    expect(paragraph, opening).toBeDefined();
+    return paragraph!.split(/(?<=\.) (?=[A-Z`])/);
+  }
+
+  it('say the reason is given where the balances reproduce and the head did not move, and the credits refuse nothing', () => {
+    const node = read('docs', 'NODE.md');
+    const coin = sentences(node, '6. The mirror job', "**The coin's balances.**");
+    expect(coin).toContain('With no chain to ask, credits on the ledger are no refusal of their own.');
+    expect(coin.find((s) => s.includes('(`notKept`)'))).toMatch(/^Where the balances reproduce, /);
+    expect(coin.find((s) => s.includes('A head that moved'))).toContain('no reason is given');
+    const binary = sentences(node, '6. The mirror job', '**The binary.**');
+    expect(binary.find((s) => s.includes('`coin:` line'))).toContain(
+      'the balances reproduce and the head did not move',
+    );
+    const job = sentences(node, '6. The mirror job', "**The repository's job.**");
+    expect(job.find((s) => s.includes('commits the coin log'))).toContain('a run that refuses nothing else');
+    const protocol = sentences(read('docs', 'PROTOCOL.md'), 'The mirror', 'The ledger job');
+    const blind = protocol.find((s) => s.includes('no chain to check them against'))!;
+    expect(blind).toContain('no refusal of its own');
+    expect(blind).toContain('a run that refuses nothing else');
+    expect(blind).toContain('a line that says why where they reproduce');
   });
 });
