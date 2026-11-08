@@ -8,6 +8,8 @@
  * never wrong. The accepting set this layer records has the shape of the core's `agree` set with one more field, `via`,
  * naming the kind, so code that reads the core's shapes (`next`, the brief's slots, the challenge window) reads it;
  * `viaOf` tells the two apart. A record piece has no accepting set at all: what it has is its standing readings.
+ * QX-2's admission, what the door asks the layer before it takes a rank, sits here beside the checks it makes
+ * (`judgeAdmissions`), and challengeLayer binds it into the one Layer.
  */
 import {
   type AcceptingSet,
@@ -31,6 +33,8 @@ import {
   returnsAgree,
 } from '@bitquilt/core';
 import { drawOrder, offerSeats } from './sortition.js';
+import type { Folding } from './standing.js';
+import type { Admission, Layer } from './challenge.js';
 
 export const EXTENSIONS = { human: 'QX-3', judge: 'QX-2', attest: 'QX-10', record: 'QX-20' } as const;
 export const RANK_EVENTS: ReadonlySet<string> = new Set(['rank']);
@@ -329,6 +333,39 @@ export function rankingProblem(panel: PanelView, ranking: unknown): string | nul
   if (ranking.length !== digests.size || !ranking.every((d) => digests.has(d as Hash)))
     return `body.ranking: the ${digests.size} candidate digests, each once`;
   return null;
+}
+
+/**
+ * QX-2's part of the layer (verifiers.md section 2, `judge:n`), over the record `f` challengeLayer folded at `now`:
+ * whether a rank by this key on this judge piece would count if received now, and why not.
+ */
+export function judgeAdmissions(f: Folding, now: string): Pick<Layer, 'admitRank'> {
+  const admitRank = (problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>): Admission => {
+    const home = f.entries.get(problem);
+    if (!home) return { ok: false, why: 'no such problem here' };
+    if (!home.fold.byHash.has(piece)) return { ok: false, why: 'names a piece this problem does not have' };
+    const shape = rankBodyProblems(body);
+    if (shape.length) return { ok: false, why: shape[0]! };
+    const panel = home.decided.byPiece.get(piece);
+    if (!panel)
+      return {
+        ok: false,
+        why:
+          home.decided.kinds.get(piece)?.kind === 'judge'
+            ? 'the candidates for this piece are not in yet'
+            : 'no panel sits on this piece',
+      };
+    if (panel.outcome === 'decided') return { ok: false, why: 'the panel has decided' };
+    if (panel.outcome === 'void') return { ok: false, why: 'the panel ran out' };
+    if (panel.seats.length === 0) return { ok: false, why: 'no seats drawn yet' };
+    const root = rootFor(home.fold, key, 'rank', now);
+    if (!root) return { ok: false, why: 'the key may not sign a rank' };
+    const why = panelSeatProblem(panel, root);
+    if (why) return { ok: false, why };
+    const rp = rankingProblem(panel, body.ranking);
+    return rp ? { ok: false, why: rp } : { ok: true };
+  };
+  return { admitRank };
 }
 
 /**

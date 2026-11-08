@@ -27,7 +27,9 @@
  *   6. The events the layer keeps, read once each in receipt order across every problem: locks (QX-15 section 1),
  *      golds (QX-16 section 1), gold reveals (QX-16 section 3) and challenges with their verdicts
  *      (QX-1 sections 3 to 6; against a gold miss, QX-16 section 4).
- *   7. The views a reader is handed, and the admissions the door asks before it takes an event.
+ *   7. The views a reader is handed, and the admissions the door asks before it takes an event, each built beside the
+ *      checks it makes: QX-1's here (challengeAdmissions), QX-2's in verifiers.ts, QX-15's in stake.ts and QX-16's in
+ *      gold.ts.
  *
  * The record the phases write into, and standing, locked and free over it, are in standing.ts; the draw and the seats
  * both panels share are in sortition.ts.
@@ -58,11 +60,9 @@ import {
   type PanelView,
   type RecordView,
   applyVerifiers,
+  judgeAdmissions,
   leaseOf,
   ownerOf,
-  panelSeatProblem,
-  rankBodyProblems,
-  rankingProblem,
   rootFor,
   viaOf,
   windowOf,
@@ -71,13 +71,10 @@ import {
   type CoinLockWord,
   type LockView,
   checkLock,
-  hasLock,
   keepStakeRules,
-  lockEnd,
   lockReleasedAt,
-  liveAt,
   ruleAt,
-  ruleProblem,
+  stakeAdmissions,
   stakeAsked,
 } from './stake.js';
 import {
@@ -87,6 +84,7 @@ import {
   type GoldView,
   checkGold,
   checkGoldReveal,
+  goldAdmissions,
   goldCount,
   goldMatches,
   goldOn,
@@ -225,6 +223,11 @@ export interface ProblemLayer {
 /** A layer's answer before the door admits an event: yes, or no with the sentence that says why. */
 export type Admission = { ok: true } | { ok: false; why: string };
 
+/**
+ * What a reader is handed: the views, standing over them, and the admissions the door asks before it takes an event.
+ * challengeLayer builds it whole, each extension's part in the file of the checks it makes (the header's phase 7 names
+ * the files).
+ */
 export interface Layer {
   /**
    * The time the layer is read at; lapses, windows and liveness are judged against it and every `at` below defaults
@@ -298,11 +301,6 @@ interface Verdict {
   event: Event;
   at: string;
 }
-
-/**
- * The states a piece still takes work in (QX-15 section 2): what `unaffordable` measures a key's free standing against.
- */
-const UNDONE: ReadonlySet<string> = new Set(['open', 'in_flight', 'sealed', 'needs_verify', 'disputed', 'recording']);
 
 /** Why this is not a well-formed challenge body, or nothing. */
 export function challengeBodyProblems(body: unknown): string[] {
@@ -917,7 +915,25 @@ export function challengeLayer(input: {
   }
   all.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
 
-  // The admissions: what the door asks before it takes an event, each the check the fold would make at now.
+  // The layer: the views, standing, and each extension's part, built beside its checks.
+  return {
+    now,
+    problems,
+    challenges: all,
+    rootOf: (key, at = now) => rootOf(f, key, at),
+    standing: f.standing,
+    ...challengeAdmissions(f, now),
+    ...judgeAdmissions(f, now),
+    ...stakeAdmissions(f, problems, now),
+    ...goldAdmissions(f, now),
+  };
+}
+
+/**
+ * QX-1's part of the layer (QX-1 section 1), over the record `f` challengeLayer folded at `now`: whether a challenge or
+ * a verdict by this key would count if received now, and why not.
+ */
+function challengeAdmissions(f: Folding, now: string): Pick<Layer, 'admitChallenge' | 'admitVerdict'> {
   const admitChallenge = (problem: Hash, piece: Hash, key: Address, stake: number): Admission => {
     const home = f.entries.get(problem);
     if (!home) return { ok: false, why: 'no such problem here' };
@@ -949,103 +965,7 @@ export function challengeLayer(input: {
     const rp = returnProblem(view, body.return);
     return rp ? { ok: false, why: rp } : { ok: true };
   };
-  const admitRank = (problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>): Admission => {
-    const home = f.entries.get(problem);
-    if (!home) return { ok: false, why: 'no such problem here' };
-    if (!home.fold.byHash.has(piece)) return { ok: false, why: 'names a piece this problem does not have' };
-    const shape = rankBodyProblems(body);
-    if (shape.length) return { ok: false, why: shape[0]! };
-    const panel = home.decided.byPiece.get(piece);
-    if (!panel)
-      return {
-        ok: false,
-        why:
-          home.decided.kinds.get(piece)?.kind === 'judge'
-            ? 'the candidates for this piece are not in yet'
-            : 'no panel sits on this piece',
-      };
-    if (panel.outcome === 'decided') return { ok: false, why: 'the panel has decided' };
-    if (panel.outcome === 'void') return { ok: false, why: 'the panel ran out' };
-    if (panel.seats.length === 0) return { ok: false, why: 'no seats drawn yet' };
-    const root = rootFor(home.fold, key, 'rank', now);
-    if (!root) return { ok: false, why: 'the key may not sign a rank' };
-    const why = panelSeatProblem(panel, root);
-    if (why) return { ok: false, why };
-    const rp = rankingProblem(panel, body.ranking);
-    return rp ? { ok: false, why: rp } : { ok: true };
-  };
-  const admitStakeRule = (problem: Hash, key: Address, body: Record<string, unknown>): Admission => {
-    const home = f.entries.get(problem);
-    if (!home) return { ok: false, why: 'no such problem here' };
-    const why = ruleProblem(home, key, body, now);
-    return why ? { ok: false, why } : { ok: true };
-  };
-  const admitLock = (
-    problem: Hash,
-    piece: Hash,
-    key: Address,
-    body: Record<string, unknown>,
-    word: CoinLockWord | null = null,
-  ): Admission => {
-    const home = f.entries.get(problem);
-    if (!home) return { ok: false, why: 'no such problem here' };
-    const r = checkLock(f, home, piece, key, body, now, word);
-    return r.ok ? { ok: true } : r;
-  };
-  const admitProduction = (problem: Hash, piece: Hash, key: Address): Admission => {
-    const home = f.entries.get(problem);
-    if (!home) return { ok: false, why: 'no such problem here' };
-    const view = home.fold.byHash.get(piece);
-    if (!view) return { ok: false, why: 'names a piece this problem does not have' };
-    const asked = stakeAsked(ruleAt(home, now), view.piece);
-    if (asked === 0 || hasLock(f, home, piece, home.fold.rootOf(key, now), now)) return { ok: true };
-    return { ok: false, why: `this piece asks for a stake of ${asked}; lock first` };
-  };
-  const unaffordable = (problem: Hash, key: Address): Set<Hash> => {
-    const out = new Set<Hash>();
-    const home = f.entries.get(problem);
-    const pl = problems.get(problem);
-    if (!home || !pl) return out;
-    const root = home.fold.rootOf(key, now);
-    const free = f.free(root, now);
-    for (const p of pl.pieces)
-      if (UNDONE.has(p.state) && p.stake > free && !hasLock(f, home, p.hash, root, now)) out.add(p.hash);
-    return out;
-  };
-  const liveLocks = (root: Address): LockView[] => f.locks.filter((l) => l.root === root && liveAt(f, l, now));
-  const admitGold = (problem: Hash, key: Address, body: Record<string, unknown>): Admission => {
-    const home = f.entries.get(problem);
-    if (!home) return { ok: false, why: 'no such problem here' };
-    const r = checkGold(f, home, key, body, now);
-    return r.ok ? { ok: true } : r;
-  };
-  const admitGoldReveal = (problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>): Admission => {
-    const home = f.entries.get(problem);
-    if (!home) return { ok: false, why: 'no such problem here' };
-    const r = checkGoldReveal(home, piece, key, body, now);
-    return r.ok ? { ok: true } : r;
-  };
-
-  return {
-    now,
-    problems,
-    challenges: all,
-    rootOf: (key, at = now) => rootOf(f, key, at),
-    standing: f.standing,
-    admitChallenge,
-    admitVerdict,
-    admitRank,
-    locked: f.locked,
-    free: f.free,
-    liveLocks,
-    admitStakeRule,
-    admitLock,
-    lockEndsAt: (l) => lockEnd(f, l),
-    admitProduction,
-    unaffordable,
-    admitGold,
-    admitGoldReveal,
-  };
+  return { admitChallenge, admitVerdict };
 }
 
 /** Why a root has no live seat on a challenge, or null when it has one. */

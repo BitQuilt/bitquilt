@@ -578,7 +578,8 @@ export function createTracker(options: TrackerOptions): Tracker {
     const view = event.piece ? state.byHash.get(event.piece) : undefined;
     if (!view) throw new Refusal(400, 'names a piece this problem does not have');
     if (PRODUCTION_EVENTS.has(event.type)) {
-      // QX-15: on a staked piece, work is admitted only from a root with a live lock.
+      // QX-15: on a staked piece, work is admitted only from a root with a live lock. The layer's admission is in
+      // stake.ts.
       const a = layer().admitProduction(under, event.piece!, event.key);
       if (!a.ok) throw new Refusal(400, a.why);
       // QX-20 section 2: a record is fixed once its readings are in; no claim, commit, reveal or run is taken on it
@@ -667,7 +668,7 @@ export function createTracker(options: TrackerOptions): Tracker {
 
   /**
    * The door for QX-1: a challenge from a root with standing, inside the window, with a panel to seat; a verdict from a
-   * judge drawn.
+   * judge drawn. The layer's admissions are in challenge.ts (challengeAdmissions).
    */
   function checkChallengeEvent(event: Event, under: Hash): void {
     if (!event.piece) throw new Refusal(400, `a ${event.type} names a problem and a piece`);
@@ -693,7 +694,10 @@ export function createTracker(options: TrackerOptions): Tracker {
     if (!a.ok) throw new Refusal(400, a.why);
   }
 
-  /** The door for QX-2's rank: from a judge drawn to the piece's panel, naming every candidate once. */
+  /**
+   * The door for QX-2's rank: from a judge drawn to the piece's panel, naming every candidate once. The layer's
+   * admission is in verifiers.ts.
+   */
   function checkRankEvent(event: Event, under: Hash): void {
     if (!event.piece) throw new Refusal(400, 'a rank names a problem and a piece');
     const shape = rankBodyProblems(event.body);
@@ -705,7 +709,7 @@ export function createTracker(options: TrackerOptions): Tracker {
   /**
    * The door for QX-15: a stake rule from the owner naming pieces the problem has; a lock a root can cover, on a piece
    * that asks one. A coin-kind lock is checked against the coin log (QX-17), and what the door read is its word for the
-   * receipt.
+   * receipt. The layer's admissions are in stake.ts.
    */
   async function checkStakeEvent(
     event: Event,
@@ -735,7 +739,7 @@ export function createTracker(options: TrackerOptions): Tracker {
 
   /**
    * The door for QX-16: the owner's gold, kept whole or refused naming the piece; the owner's reveal on an accepted
-   * piece inside its window.
+   * piece inside its window. The layer's admissions are in gold.ts.
    */
   function checkGoldEvent(event: Event, under: Hash): void {
     if (event.type === 'gold') {
