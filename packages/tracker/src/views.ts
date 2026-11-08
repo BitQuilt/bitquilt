@@ -126,7 +126,7 @@ function workOf(
   found: Record<string, Record<string, number>>;
 } {
   const traced = { both: 0, one: 0, none: 0 };
-  const found: Record<string, Record<string, number>> = {};
+  const found: Record<string, Record<string, number>> = Object.create(null);
   let declined = 0;
   let returned = 0;
   let accepted = 0;
@@ -151,7 +151,7 @@ function workOf(
           const choices = (v.piece.schema?.properties?.[field] as { enum?: unknown[] } | undefined)?.enum;
           const value = (v.accepting.reveals[0].return as Record<string, unknown>)[field];
           if (!Array.isArray(choices) || typeof value !== 'string' || !choices.includes(value)) continue;
-          const byValue = (found[field] ??= {});
+          const byValue = (found[field] ??= Object.create(null) as Record<string, number>);
           byValue[value] = (byValue[value] ?? 0) + 1;
         }
       }
@@ -212,7 +212,7 @@ function summary(cx: Reads, hash: Hash, layered: Layer = cx.layer()) {
   const s = pl.fold;
   const counts: Record<string, number> = {};
   for (const v of pl.pieces) counts[v.state] = (counts[v.state] ?? 0) + 1;
-  const kinds: Record<string, number> = {};
+  const kinds: Record<string, number> = Object.create(null);
   for (const v of s.pieces) kinds[v.piece.verifier] = (kinds[v.piece.verifier] ?? 0) + 1;
   const head = store.head(hash);
   const seed = seedInfo(pl.receipts, pl.fold, layered.now);

@@ -637,7 +637,7 @@ export type FoundCounts = Record<string, Record<string, number>>;
  */
 export function foundIn(state: State, layer: LayerPiece[] | null): FoundCounts {
   const byHash = new Map((layer ?? []).map((l) => [l.hash, l.state as string]));
-  const out: FoundCounts = {};
+  const out: FoundCounts = Object.create(null);
   for (const v of state.pieces) {
     const s = byHash.get(v.piece.hash) ?? v.state;
     if (!ACCEPTED_STATES.includes(s) || v.accepting?.kind !== 'agree') continue;
@@ -645,7 +645,7 @@ export function foundIn(state: State, layer: LayerPiece[] | null): FoundCounts {
       const choices = (v.piece.schema?.properties?.[field] as { enum?: unknown[] } | undefined)?.enum;
       const value = (v.accepting.reveals[0].return as Record<string, unknown>)[field];
       if (!Array.isArray(choices) || typeof value !== 'string' || !choices.includes(value)) continue;
-      const by = (out[field] ??= {});
+      const by = (out[field] ??= Object.create(null) as Record<string, number>);
       by[value] = (by[value] ?? 0) + 1;
     }
   }

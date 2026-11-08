@@ -22,7 +22,7 @@ import { Refusal } from './http.js';
 import type { Store } from './store.js';
 import { readsNamed } from './trace.js';
 import { personSeatIn } from './verifiers.js';
-import { type Admitted, type Log, eventHoursOver, stampsUnlike } from './admit.js';
+import { type Admitted, type Log, bodyOver, eventHoursOver, stampsUnlike } from './admit.js';
 import type { Tracker } from './tracker.js';
 
 /** QX-21: doors fold each other's chains. */
@@ -73,12 +73,7 @@ async function linesFrom(door: PullDoor, target: string): Promise<Receipt[] | nu
       return null;
     }
     if (!r.ok) return null;
-    lines.push(
-      ...(await r.text())
-        .split('\n')
-        .filter(Boolean)
-        .map((l) => JSON.parse(l) as Receipt),
-    );
+    for (const l of (await r.text()).split('\n')) if (l) lines.push(JSON.parse(l) as Receipt);
     const next = r.headers.get('x-quilt-next-since');
     if (!next) return lines;
     since = Number(next);
@@ -117,7 +112,15 @@ async function pullLog(door: PullDoor, peer: string, target: string, log: Log, o
   const chain: Hash = log.kind === 'identity' ? IDENTITY_LOG : log.kind === 'problem' ? log.hash : COIN_LOG;
   const lines = await linesFrom(door, target);
   if (!lines) return;
-  const check = verifyChain(lines, chain);
+  // Verifying reads every line through the core's recursive canonical form; a line too deep for it leaves the chain
+  // unverified, and the pull says so.
+  let check: ReturnType<typeof verifyChain>;
+  try {
+    check = verifyChain(lines, chain);
+  } catch (err) {
+    out.errors.push(`${target}: chain cannot be verified: ${(err as Error).message}`);
+    return;
+  }
   if (!check.ok) {
     out.errors.push(`${target}: chain does not verify: ${check.problems[0]}`);
     return;
@@ -131,9 +134,14 @@ async function pullLog(door: PullDoor, peer: string, target: string, log: Log, o
     }
     const id = eventId(event);
     if (store.hasEvent(chain, id)) continue;
-    // What this door holds the line to beyond the core's shape: its bound on hours, as a post's shape is held to it,
-    // and the peer's wrapper times (PROTOCOL.md, What the door answers).
-    const unlike = [...eventHoursOver(event), ...stampsUnlike(line.received)];
+    // What this door holds the line to beyond the core's shape, as a post's shape is held to it: its bounds on bodies
+    // and on hours, and the peer's wrapper, its bodies and its times (PROTOCOL.md, What the door answers).
+    const unlike = [
+      ...bodyOver(event, 'event'),
+      ...bodyOver(line.received, 'received'),
+      ...eventHoursOver(event),
+      ...stampsUnlike(line.received),
+    ];
     if (unlike.length) {
       out.refused.push({ id, why: unlike[0]! });
       continue;
@@ -184,9 +192,14 @@ export async function pullPeers(door: PullDoor): Promise<PeerPull[]> {
       out.push(report);
       continue;
     }
-    await pullLog(door, peer, `${peer}k/events`, { kind: 'identity' }, report);
-    for (const e of store.listEnvelopes())
-      await pullLog(door, peer, `${peer}p/${e.hash}/events`, { kind: 'problem', hash: e.hash }, report);
+    // A pull that fails on one peer is noted in its report, and the other peers are pulled all the same.
+    try {
+      await pullLog(door, peer, `${peer}k/events`, { kind: 'identity' }, report);
+      for (const e of store.listEnvelopes())
+        await pullLog(door, peer, `${peer}p/${e.hash}/events`, { kind: 'problem', hash: e.hash }, report);
+    } catch (err) {
+      report.errors.push(`${peer}: ${(err as Error).message}`);
+    }
     out.push(report);
   }
   return out;

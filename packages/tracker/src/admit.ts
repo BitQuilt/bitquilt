@@ -145,6 +145,69 @@ export function limit({ store, now }: Reads, bucket: string, max: number): void 
 }
 
 /**
+ * The most a body a door takes nests (PROTOCOL.md, What the door answers). The fold reads a body through recursive
+ * code, the core's canonical form among it, deeper in the stack than the door that took it, so a body the door could
+ * read and the fold could not would fail the fold on every read; sixty-four levels is many more than any event or
+ * envelope has.
+ */
+export const DEPTH_MAX = 64;
+
+/**
+ * Why a body is not one the fold can take, an event, an envelope or a data blob read as JSON: nested deeper than
+ * `DEPTH_MAX`, or holding a field named `__proto__`. JSON makes such a field the object's own, and an assignment by
+ * that name sets an object's prototype, so the core's output and the views would build objects that are not plain.
+ */
+export function bodyOver(value: unknown, label: string): string[] {
+  const left: [unknown, number][] = [[value, 1]];
+  while (left.length) {
+    const [v, depth] = left.pop()!;
+    if (v === null || typeof v !== 'object') continue;
+    if (depth > DEPTH_MAX) return [`${label}: nested deeper than ${DEPTH_MAX}`];
+    if (Array.isArray(v)) for (const x of v) left.push([x, depth + 1]);
+    else
+      for (const [k, x] of Object.entries(v)) {
+        if (k === '__proto__') return [`${label}: a field named __proto__`];
+        left.push([x, depth + 1]);
+      }
+  }
+  return [];
+}
+
+/**
+ * The most pieces a problem a door takes expands to (PROTOCOL.md, What the door answers). The owner's budget is the
+ * core's bound (CORE.md section 2), and the owner sets it; every read folds every problem's pieces, so a few hundred
+ * thousand pieces from an envelope of a few hundred bytes would slow every page and outgrow the heap.
+ */
+export const PIECES_MAX = 10_000;
+
+/** Why a problem expands to more pieces than `PIECES_MAX`, counted before it is expanded, or nothing. */
+export function piecesOver(p: Envelope['problem']): string[] {
+  let n = 0;
+  for (const d of Object.values(p.pieces)) n += typeof d.count === 'number' ? d.count : 1;
+  return n > PIECES_MAX ? [`problem.pieces: ${n} pieces after expansion, over the ${PIECES_MAX} a door takes`] : [];
+}
+
+/**
+ * Each name a problem looks a field or a blob up by that is not one it has: an `agree` field or a schema's `required`
+ * field that is not one of the schema's own properties, or a data slot's blob that is not one of the problem's own
+ * blobs. The core asks with `in`, which also finds what every object has, such as `constructor`, so a name like that
+ * would pass its check and put a function where the fold writes a value.
+ */
+export function namesNotOwn(p: Envelope['problem']): string[] {
+  const out: string[] = [];
+  for (const [name, d] of Object.entries(p.pieces)) {
+    const at = `problem.pieces.${name}`;
+    const props = d.schema?.properties ?? {};
+    if ((d.agree ?? []).some((f) => !Object.hasOwn(props, f))) out.push(`${at}.agree: names fields the schema has`);
+    for (const r of d.schema?.required ?? [])
+      if (!Object.hasOwn(props, r)) out.push(`${at}.schema: required names ${r}, which is not a property`);
+    for (const blob of Object.values(d.data ?? {}))
+      if (!Object.hasOwn(p.data, blob)) out.push(`${at}.data: ${blob} is not a blob of this problem`);
+  }
+  return out;
+}
+
+/**
  * The most hours a door takes for a lease or a challenge window (PROTOCOL.md, What the door answers). The fold adds
  * them to a receipt's time (CORE.md section 6): a claim is live for its lease, a commit unabandoned for twice the
  * piece's, and a window runs from the receipt that completed a set. A date is written only up to the year 275760, so
@@ -196,6 +259,15 @@ export function stampsUnlike(received: unknown): string[] {
   );
 }
 
+/** A blob read as JSON, which a family's data slots draw on (CORE.md section 2), or null where it is not JSON. */
+function jsonOf(bytes: Uint8Array): unknown {
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+}
+
 /** A problem published: its envelope and blobs, once the route has held the post to its address's hourly limit. */
 export async function publish(
   { store, options, now, coinHome }: Reads,
@@ -204,11 +276,13 @@ export async function publish(
 ): Promise<void> {
   const body = parseJson(await readBody(req)) as { envelope?: unknown; blobs?: Record<string, string> };
   const envelope = body.envelope;
+  const over = bodyOver(envelope, 'envelope');
+  if (over.length) throw new Refusal(400, over[0]!);
   const problems = envelopeProblems(envelope);
   if (problems.length) throw new Refusal(400, problems[0]!);
   const e = envelope as Envelope;
-  const hours = envelopeHoursOver(e.problem);
-  if (hours.length) throw new Refusal(400, hours[0]!);
+  const named = [...envelopeHoursOver(e.problem), ...namesNotOwn(e.problem), ...piecesOver(e.problem)];
+  if (named.length) throw new Refusal(400, named[0]!);
   if (!signedBy(e as unknown as Record<string, unknown>, e.problem.owner))
     throw new Refusal(400, 'envelope: not signed by its owner');
   const blobs = new Map<Hash, Uint8Array>();
@@ -223,6 +297,12 @@ export async function publish(
       const stored = store.getBlob(h);
       if (stored) blobs.set(h, stored);
     }
+  // Each data blob the problem names, sent with it or held already, read as JSON where it is.
+  for (const h of Object.values(e.problem.data)) {
+    const bytes = blobs.get(h);
+    const over = bytes ? bodyOver(jsonOf(bytes), `blob ${h}`) : [];
+    if (over.length) throw new Refusal(400, over[0]!);
+  }
   const bp = blobProblems(e.problem, blobs);
   if (bp.length) throw new Refusal(400, bp[0]!);
   // Admission: the gate on what a thousand AIs will read.
@@ -287,7 +367,8 @@ export async function keepBlob(store: Store, req: IncomingMessage, res: ServerRe
 export async function postEvent(cx: Reads, req: IncomingMessage, res: ServerResponse, log: Log): Promise<void> {
   const { store, url, now, limits, options, exactly } = cx;
   const event = parseJson(await readBody(req)) as Event;
-  const shape = [...eventProblems(event), ...eventHoursOver(event)];
+  const over = bodyOver(event, 'event');
+  const shape = over.length ? over : [...eventProblems(event), ...eventHoursOver(event)];
   if (shape.length) throw new Refusal(400, shape[0]!);
   if (!eventSignedByKey(event)) throw new Refusal(400, "signature is not the key's");
   limit(cx, `key:${event.key}`, limits.keyPerHour);
@@ -484,7 +565,13 @@ function checkPieceEvent(
   if (event.type === 'reveal') {
     const ret = (event.body as { return: Record<string, unknown> }).return;
     if (view.piece.schema) {
-      const rp = returnProblems(view.piece.schema, ret);
+      // The core asks a return's fields with `in`, which also finds what every object has; a field is one of the
+      // schema's own properties.
+      const own = Object.keys(ret ?? {}).filter((k) => !Object.hasOwn(view.piece.schema!.properties, k));
+      const rp = [
+        ...returnProblems(view.piece.schema, ret),
+        ...own.map((k) => `return.${k}: not a field of the schema`),
+      ];
       if (rp.length) throw new Refusal(400, rp[0]!);
     }
     for (const s of returnStrings(ret)) {

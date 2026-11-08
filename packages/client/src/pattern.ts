@@ -79,12 +79,41 @@ export function draftEnvelope(
 }
 
 /**
+ * What a door refuses beyond the core's checks, in the door's words (PROTOCOL.md, What the door answers), so a pattern
+ * the checker passes is one a door takes: a lease or a challenge window over a million hours, a family that expands
+ * past ten thousand pieces, and a name the core looks up with `in` that is not the problem's own. The door's own
+ * bounds are in `packages/tracker/src/admit.ts`; a client imports the core alone, so they are said again here.
+ */
+function doorProblems(p: Envelope['problem']): string[] {
+  const out: string[] = [];
+  const hours: [string, unknown][] = [
+    ['problem.settings.lease_h', p.settings?.lease_h],
+    ['problem.settings.challenge_window_h', p.settings?.challenge_window_h],
+  ];
+  let count = 0;
+  for (const [name, d] of Object.entries(p.pieces ?? {})) {
+    const at = `problem.pieces.${name}`;
+    hours.push([`${at}.lease_h`, d.lease_h]);
+    count += typeof d.count === 'number' ? d.count : 1;
+    const props = d.schema?.properties ?? {};
+    if ((d.agree ?? []).some((f) => !Object.hasOwn(props, f))) out.push(`${at}.agree: names fields the schema has`);
+    for (const r of d.schema?.required ?? [])
+      if (!Object.hasOwn(props, r)) out.push(`${at}.schema: required names ${r}, which is not a property`);
+    for (const blob of Object.values(d.data ?? {}))
+      if (!Object.hasOwn(p.data ?? {}, blob)) out.push(`${at}.data: ${blob} is not a blob of this problem`);
+  }
+  for (const [at, h] of hours) if (typeof h === 'number' && h > 1_000_000) out.push(`${at}: at most 1000000 hours`);
+  if (count > 10_000) out.push(`problem.pieces: ${count} pieces after expansion, over the 10000 a door takes`);
+  return out;
+}
+
+/**
  * Every fault in the pattern as drafted, in the order a reader fixes them: fields that are not a pattern's, the
  * envelope's and the blobs' own checks, the title and the statement of done through the plain-text gate, the topics,
- * each family's rows against its count and its brief's slots against its data and inputs, then, where the pieces
- * expand, every brief through the gate, an unfilled slot, a brief long for one piece, a stake rule naming what the
- * problem has not, and a gold answer naming no piece, a piece with no agreed fields, or lacking one. Empty when the
- * pattern would publish.
+ * each family's rows against its count and its brief's slots against its data and inputs, then what a door refuses
+ * beyond them, then, where the pieces expand, every brief through the gate, an unfilled slot, a brief long for one
+ * piece, a stake rule naming what the problem has not, and a gold answer naming no piece, a piece with no agreed
+ * fields, or lacking one. Empty when the pattern would publish.
  */
 export function patternProblems(pattern: Pattern, drafted: Drafted): string[] {
   const out: string[] = [];
@@ -133,6 +162,7 @@ export function patternProblems(pattern: Pattern, drafted: Drafted): string[] {
         out.push(`pieces.${name}.brief: slot {${slot}} names no data slot and no input`);
     }
   }
+  out.push(...doorProblems(problem));
   let pieces: ReturnType<typeof expandPieces> = [];
   if (out.length === 0) {
     try {
