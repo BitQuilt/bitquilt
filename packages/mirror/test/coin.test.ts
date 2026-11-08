@@ -15,6 +15,7 @@ import {
   eventId,
   hashBytes,
   newNonce,
+  nextLine,
   problemHash,
   signEvent,
   signObject,
@@ -34,7 +35,11 @@ import { VERDICT, addr, by, calendarBytes, key, startTracker } from './helpers.j
  * identity event another source gave the mirror and the tracker lacks moves nothing, where folding the mirror's own
  * chains would give another root the coin. A state that is not what the run already read from the tracker is refused,
  * though its balances are refolded to match: one that leaves out a problem the tracker served, names a chain at a head
- * below the lines read, or was folded at a time after its own or more than five seconds before it. The layer is folded
+ * below the lines read, or was folded at a time after its own or more than five seconds before it. So is one that
+ * names a head off a chain the run read, the identity log's, the coin log's or a problem's, though the tracker serves
+ * the fork to every later read: a head within the lines read is cut from them with no second read, and a head past
+ * them is read again, and refused where what is read again does not extend them or does not verify. A tracker that
+ * takes an event on a problem and one on the coin log after the run read the problem reproduces. The layer is folded
  * at the time the state names, which can be before its own: in a home of its own, a window that closes between the two
  * would release a lock and give back an escrow. Each read a trace names is measured by its bytes, so a reading the home
  * set aside in a dispute is set aside here, and the gold's match and its coin follow. A chain the state names that
@@ -217,23 +222,34 @@ async function servedLines(url: string, head?: Head): Promise<Receipt[]> {
   return head === undefined ? lines : lines.slice(0, head?.seq ?? 0);
 }
 /**
- * The balances the tracker's own layer code gives over a home's chains as it serves them, cut at the heads a state
- * names, the layer at its `folded.at` and the coin at its `at`, each read measured by `blobLength` or by none: what a
- * doctored state is refolded to, so that it is false only in what it names.
+ * The balances the tracker's own layer code gives over a home's chains as it serves them, or as `forks` gives one by
+ * its address, cut at the heads a state names, the layer at its `folded.at` and the coin at its `at`, with `params` or
+ * the coin's parameters, and each read measured by `blobLength` or by none: what a doctored state is refolded to, so
+ * that it is false only in what it names.
  */
 async function balancesOver(
   at: string,
   state: State,
-  blobLength?: (hash: Hash) => number | null,
+  {
+    blobLength,
+    forks = new Map(),
+    params = coin,
+  }: {
+    blobLength?: (hash: Hash) => number | null;
+    forks?: Map<string, Receipt[]>;
+    params?: typeof coin;
+  } = {},
 ): Promise<Record<string, unknown>> {
+  const linesAt = async (url: string, head: Head): Promise<Receipt[]> =>
+    forks.get(url)?.slice(0, head?.seq ?? 0) ?? (await servedLines(url, head));
   const envelopes = new Map<Hash, Envelope>();
   const chains = new Map<Hash, Receipt[]>();
   for (const { problem, head } of state.folded.problems) {
     envelopes.set(problem, (await (await fetch(`${at}p/${problem}`)).json()) as Envelope);
-    chains.set(problem, await servedLines(`${at}p/${problem}/events`, head));
+    chains.set(problem, await linesAt(`${at}p/${problem}/events`, head));
   }
-  const identity = await servedLines(`${at}k/events`, state.folded.identity);
-  const coinLines = await servedLines(`${at}coin/events`, state.head);
+  const identity = await linesAt(`${at}k/events`, state.folded.identity);
+  const coinLines = await linesAt(`${at}coin/events`, state.head);
   const reader = {
     envelopeOf: (h: Hash) => envelopes.get(h) ?? null,
     getBlob: () => null,
@@ -247,7 +263,7 @@ async function balancesOver(
     coin: coinLines,
     ...(blobLength ? { blobLength } : {}),
   });
-  const folded = coinLayer({ layer, params: coin, receipts: coinLines, now: state.at });
+  const folded = coinLayer({ layer, params, receipts: coinLines, now: state.at });
   return JSON.parse(JSON.stringify(Object.fromEntries(folded.balances()))) as Record<string, unknown>;
 }
 
@@ -637,7 +653,9 @@ describe("the fold at the time the home's state names, with each read a trace na
     // Measured, the fold is the home's; measuring no read, the dispute stands, the gold's reveal finds no accepted
     // piece, and the epoch mints nothing.
     const state = await stateAt();
-    expect(await balancesOver(home, state, (h) => (h === read ? page.length : null))).toEqual(state.balances);
+    expect(await balancesOver(home, state, { blobLength: (h) => (h === read ? page.length : null) })).toEqual(
+      state.balances,
+    );
     const unmeasured = await balancesOver(home, state);
     expect(unmeasured[addr(A)]).toBeUndefined();
     expect(unmeasured[addr(B)]).toBeUndefined();
@@ -691,6 +709,231 @@ describe("the fold at the time the home's state names, with each read a trace na
   });
 });
 
+describe('the state held to the chains the run read from the home', () => {
+  // A home of its own, its coin's genesis at the start of its own day: two identity lines from keys that hold no coin,
+  // the verified square on P and A's coin lock after the epoch's end.
+  let heldServer: Server;
+  let home: string;
+  const start = Date.parse(T0) + 20 * 24 * HOUR;
+  const params = { ...coin, genesis: new Date(start).toISOString() };
+  const pEvents = () => `${home}p/${P}/events`;
+  /**
+   * The home, but each chain in `forks` is served as it is on the run's first read of it and as the fork on every
+   * later read, and `/coin/state` is answered as `doctor` makes it; `reads` counts the reads of each chain.
+   */
+  function forking(forks: Map<string, Receipt[]>, doctor: Doctor | null, reads = new Map<string, number>()) {
+    const inner = fetchWith(doctor);
+    return (async (input: string | URL | Request, init?: RequestInit) => {
+      const path = String(input).split('?')[0]!;
+      if (path.endsWith('/events')) reads.set(path, (reads.get(path) ?? 0) + 1);
+      const fork = forks.get(path);
+      if (fork && reads.get(path)! > 1)
+        return new Response(fork.map((l) => `${JSON.stringify(l)}\n`).join(''), { status: 200 });
+      return inner(input, init);
+    }) as typeof fetch;
+  }
+  const run = (fetchImpl: typeof fetch, out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-coin-held-'))) =>
+    mirror({ trackers: [home], out, now, fetchImpl });
+  /** A chain's lines chained again from its log's hash, each with the event and the wrappers `edit` gives it. */
+  function rechained(lines: Receipt[], genesis: Hash, edit: (l: Receipt) => Pick<Receipt, 'event' | 'received'>) {
+    const out: Receipt[] = [];
+    for (const l of lines) out.push(nextLine(out, genesis, edit(l)));
+    return out;
+  }
+  /** B's reveal on P, by its place on P's chain. */
+  const isBsReveal = (l: Receipt) => l.event.type === 'reveal' && l.event.key === addr(B);
+  /** P's chain as the home serves it, with B's reveal received after the epoch's end, which needs no one's key. */
+  async function laterReveal(): Promise<Receipt[]> {
+    const after = new Date(start + 24 * HOUR + 500).toISOString();
+    return rechained(await servedLines(pEvents()), P, (l) => ({
+      event: l.event,
+      received: isBsReveal(l) ? [{ ...l.received[0]!, at: after }] : l.received,
+    }));
+  }
+  /** The state, but naming the last line of each fork as its chain's head, with its balances refolded over them. */
+  async function naming(state: Record<string, unknown>, forks: Map<string, Receipt[]>): Promise<State> {
+    const s = state as unknown as State;
+    const headOf = (url: string, head: Head): Head => {
+      const last = forks.get(url)?.at(-1);
+      return last ? { seq: last.seq!, hash: last.hash! } : head;
+    };
+    const named: State = {
+      ...s,
+      head: headOf(`${home}coin/events`, s.head),
+      folded: {
+        ...s.folded,
+        identity: headOf(`${home}k/events`, s.folded.identity),
+        problems: s.folded.problems.map((x) => ({
+          problem: x.problem,
+          head: headOf(`${home}p/${x.problem}/events`, x.head),
+        })),
+      },
+    };
+    return { ...named, balances: await balancesOver(home, named, { forks, params }) };
+  }
+  const output = () => ev(B, 'output', { hash: hashBytes(new TextEncoder().encode('an output')) }, P);
+
+  beforeAll(async () => {
+    ({ server: heldServer, base: home } = await startTracker(now, { coin: params }));
+    tick = start + HOUR;
+    for (const [from, to] of [
+      [30, 31],
+      [32, 33],
+    ] as const)
+      await accepted(
+        'k/events',
+        ev(key(from), 'delegate', { to: addr(key(to)), scope: ['claim'], expires: '2027-01-01T00:00:00Z' }),
+        home,
+      );
+    await verifiedAt(home);
+    tick = start + 24 * HOUR + 1000;
+    await accepted('coin/events', ev(A, 'lock', { problem: P, piece: p1, amount: 100 }), home);
+  });
+  afterAll(async () => {
+    await new Promise<void>((r) => heldServer.close(() => r()));
+  });
+
+  it('refuses a head within the lines the run read that is not on them, with no second read, though the state is refolded over its fork', async () => {
+    const honest = await run(fetchWith(null));
+    expect(honest.refused).toEqual([]);
+    expect(honest.coin).toEqual({ lines: 1, added: 1, head: 1, reproduced: true, credits: 0 });
+    const truth = (await (await fetch(`${home}coin/state`)).json()) as State;
+    expect(truth.balances[addr(A)]).toMatchObject({ balance: 450, locked: 100 });
+    // The coin log with its one line another lock of A's, of 50.
+    const lock = ev(A, 'lock', { problem: P, piece: p1, amount: 50 });
+    const coinFork = new Map([
+      [
+        `${home}coin/events`,
+        rechained(await servedLines(`${home}coin/events`), COIN_LOG, (l) => ({ ...l, event: lock })),
+      ],
+    ]);
+    const doctored: State[] = [];
+    const reads = new Map<string, number>();
+    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-coin-held-fork-'));
+    const forkedCoin = await run(
+      forking(coinFork, async (s) => doctored[doctored.push(await naming(s, coinFork)) - 1]!, reads),
+      out,
+    );
+    expect(doctored[0]!.balances[addr(A)]).toMatchObject({ balance: 450, locked: 50 });
+    expect(forkedCoin.refused).toEqual([
+      `coin: the coin log from ${home} has no line 1 with the hash the coin state names`,
+    ]);
+    expect(forkedCoin.coin).toMatchObject({ reproduced: false });
+    expect(reads.get(`${home}coin/events`)).toBe(1);
+    expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
+    const kept = readFileSync(join(out, 'ledger', 'coin.jsonl'), 'utf8')
+      .split('\n')
+      .filter(Boolean);
+    expect(kept.map((l) => (JSON.parse(l) as Receipt).event.body.amount)).toEqual([100]);
+    // P's chain with B's reveal received after the epoch's end: the square falls in an epoch that has not ended.
+    const later = await laterReveal();
+    const pFork = new Map([[pEvents(), later]]);
+    const pReads = new Map<string, number>();
+    const forkedP = await run(
+      forking(pFork, async (s) => doctored[doctored.push(await naming(s, pFork)) - 1]!, pReads),
+    );
+    expect(doctored[1]!.balances).not.toEqual(truth.balances);
+    expect(doctored[1]!.balances[addr(A)]).toBeUndefined();
+    expect(forkedP.refused).toEqual([
+      `coin: the chain of ${P} from ${home} has no line ${later.length} with the hash the coin state names`,
+    ]);
+    expect(pReads.get(pEvents())).toBe(1);
+  });
+
+  it('refuses a head past the lines the run read on a chain that does not extend them, or does not verify', async () => {
+    const lines = await servedLines(pEvents());
+    const at = new Date(Date.parse(lines.at(-1)!.received[0]!.at) + 1000).toISOString();
+    const by = lines[0]!.received[0]!.by;
+    // P's chain one line longer as the check reads it again, with B's reveal received after the epoch's end.
+    const later = await laterReveal();
+    const extend = new Map([[pEvents(), [...later, nextLine(later, P, { event: output(), received: [{ by, at }] })]]]);
+    const reads = new Map<string, number>();
+    const forked = await run(forking(extend, (s) => naming(s, extend), reads));
+    expect(forked.refused).toEqual([
+      `coin: the chain of ${P} from ${home} served to the check does not extend what this run read: line ${lines.findIndex(isBsReveal) + 1} changed`,
+    ]);
+    expect(forked.coin).toMatchObject({ reproduced: false });
+    expect(reads.get(pEvents())).toBe(2);
+    // P's chain one line longer as the check reads it again, that line's wrapper changed after its hash was taken.
+    const extra = nextLine(lines, P, { event: output(), received: [{ by, at }] });
+    const broken = [...lines, { ...extra, received: [{ by, at: new Date(Date.parse(at) + 1000).toISOString() }] }];
+    const breaks = new Map([[pEvents(), broken]]);
+    const doctored: State[] = [];
+    const unverified = await run(forking(breaks, async (s) => doctored[doctored.push(await naming(s, breaks)) - 1]!));
+    const truth = (await (await fetch(`${home}coin/state`)).json()) as State;
+    expect(doctored[0]!.folded.problems.find((x) => x.problem === P)!.head).toEqual({
+      seq: extra.seq,
+      hash: extra.hash,
+    });
+    expect(doctored[0]!.balances).toEqual(truth.balances);
+    expect(unverified.refused).toEqual([
+      `coin: the chain of ${P} from ${home} does not verify: ${verifyChain(broken, P).problems[0]}`,
+    ]);
+    expect(unverified.coin).toMatchObject({ reproduced: false });
+  });
+
+  it('refuses a state that names the identity log below the lines read, or off them', async () => {
+    const identity = await servedLines(`${home}k/events`);
+    expect(identity).toHaveLength(2);
+    const below = await run(
+      fetchWith(async (state) => {
+        const s = state as unknown as State;
+        const named = { ...s, folded: { ...s.folded, identity: { seq: 1, hash: identity[0]!.hash! } } };
+        return { ...named, balances: await balancesOver(home, named, { params }) };
+      }),
+    );
+    expect(below.refused).toEqual([
+      `coin: the identity log from ${home} was read to line 2 this run, and the coin state names line 1`,
+    ]);
+    expect(below.coin).toMatchObject({ reproduced: false });
+    // The identity log with its second line received a second later, served to every later read.
+    const fork = new Map([
+      [
+        `${home}k/events`,
+        rechained(identity, IDENTITY_LOG, (l) => ({
+          event: l.event,
+          received:
+            l.seq === 2
+              ? [{ ...l.received[0]!, at: new Date(Date.parse(l.received[0]!.at) + 1000).toISOString() }]
+              : l.received,
+        })),
+      ],
+    ]);
+    const off = await run(forking(fork, (s) => naming(s, fork)));
+    expect(off.refused).toEqual([
+      `coin: the identity log from ${home} has no line 2 with the hash the coin state names`,
+    ]);
+    expect(off.coin).toMatchObject({ reproduced: false });
+  });
+
+  it('reproduces the balances of a home that took an event on P and one on the coin log after the run read P', async () => {
+    const read = (await servedLines(pEvents())).length;
+    const reads = new Map<string, number>();
+    let grown = false;
+    const growing: typeof fetch = async (input, init) => {
+      if (String(input) === `${home}coin/state` && !grown) {
+        grown = true;
+        await accepted(`p/${P}/events`, output(), home);
+        await accepted('coin/events', ev(B, 'lock', { problem: P, piece: p1, amount: 10 }), home);
+      }
+      return forking(new Map(), null, reads)(input, init);
+    };
+    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-coin-held-grown-'));
+    const report = await run(growing, out);
+    expect(grown).toBe(true);
+    expect(report.refused).toEqual([]);
+    expect(report.errors).toEqual([]);
+    expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: true, credits: 0 });
+    // P was read before the state and again for the head the state names past it.
+    const state = (await (await fetch(`${home}coin/state`)).json()) as State;
+    expect(state.folded.problems.find((x) => x.problem === P)!.head!.seq).toBe(read + 1);
+    expect(reads.get(pEvents())).toBe(2);
+    const kept = balancesIn(out);
+    expect(kept.balances).toEqual(state.balances);
+    expect(kept.balances[addr(B)]).toMatchObject({ balance: 450, locked: 10 });
+  });
+});
+
 describe('the documents on the coin at the mirror', () => {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
   const read = (...path: string[]): string => readFileSync(join(root, ...path), 'utf8').replace(/\r\n/g, '\n');
@@ -741,8 +984,15 @@ describe('the documents on the coin at the mirror', () => {
       'A problem the home holds is folded whether or not the mirror took it, hidden and replaced ones among them, which the home still serves by hash (QX-6 section 3).',
     );
     expect(coin).toContain('Nothing another source gave the mirror is in it.');
-    expect(coin.find((s) => s.startsWith('The state is held to what the run already had from the home'))).toContain(
+    const held = coin.find((s) => s.startsWith('The state is held to what the run already had from the home'));
+    expect(held).toContain(
       'it names every problem the home listed or served that run, since the home folds every problem it holds',
+    );
+    expect(held).toContain(
+      'at a head no earlier than the lines read and on those lines or on a chain that extends them',
+    );
+    expect(coin.find((s) => s.startsWith('Each of those chains is the home'))).toContain(
+      'a chain this run already read from the home is cut from the lines it read where they reach the head, with no second read, and read again only for a head past them, where what is read again must hold every line read before as it was read (`servedTo`)',
     );
     expect(
       coin.find((s) => s.startsWith('A state that is not what the run already had from the home is refused')),
@@ -766,6 +1016,9 @@ describe('the documents on the coin at the mirror', () => {
     expect(route).toContain('with `folded`, what the balances were folded over');
     expect(route).toContain('`problems`, each problem the layer folded, every one the tracker holds');
     expect(route).toContain("`identity`, the identity log's head");
+    expect(route).toContain(
+      "computes the coin at its clock's time held to `folded.at` and the five seconds after it, however long the fold took",
+    );
     const mirrored = sentences(qx17, '7. The mirror', 'The mirror pulls the coin log');
     expect(mirrored).toContain(
       "It folds the tracker's chains and not its own, since its own lines carry its own hashes and would draw other panels (QX-1 section 4).",
@@ -773,10 +1026,13 @@ describe('the documents on the coin at the mirror', () => {
     expect(mirrored.find((s) => s.startsWith('It reads `/coin/state` after the tracker'))).toContain(
       'and before the coin log, so the log it takes holds every line the state names',
     );
-    expect(mirrored.find((s) => s.startsWith('The state must agree with what the mirror already read'))).toContain(
-      'it was folded at its own `at` or up to five seconds before it',
+    const agree = mirrored.find((s) => s.startsWith('The state must agree with what the mirror already read'));
+    expect(agree).toContain('it was folded at its own `at` or up to five seconds before it');
+    expect(agree).toContain(
+      'at a head no earlier than the lines read and on those lines or on a chain that extends them',
     );
-    expect(mirrored.find((s) => s.startsWith('The mirror then computes the layer itself'))).toContain(
+    const computes = mirrored.find((s) => s.startsWith('The mirror then computes the layer itself'));
+    expect(computes).toContain(
       "as the tracker serves it, read whole, verified from its log's hash and cut at the named head",
     );
     const protocol = sentences(read('docs', 'PROTOCOL.md'), 'The mirror', 'The ledger job');

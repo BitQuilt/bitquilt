@@ -618,12 +618,12 @@ export function coinCredits({ store, options, coin }: Reads, query: URLSearchPar
 }
 
 /**
- * QX-17 section 6: the coin as this tracker computes it at now, the parameters, every balance and what was dropped,
+ * QX-17 section 6: the coin as this tracker computes it (`coinAt`), the parameters, every balance and what was dropped,
  * with what the balances were folded over (`foldedOver`), for the mirror.
  */
-export function coinState({ store, options, layer, coin, coinHome }: Reads) {
+export function coinState({ store, options, layer, coin, coinHome, now }: Reads) {
   const layered = layer();
-  const c = coin(layered)!;
+  const c = coin(layered, coinAt(layered.now, now()))!;
   return {
     head: c.head,
     at: c.now,
@@ -634,12 +634,30 @@ export function coinState({ store, options, layer, coin, coinHome }: Reads) {
   };
 }
 
+/** How long after the layer's time the coin's state can be computed at (QX-17 section 6). */
+const FOLDED_WITHIN_MS = 5000;
+
+/**
+ * QX-17 section 6: the state's `at`, where folded `at` "is the state's own `at` or up to five seconds before it". The
+ * coin is computed at the clock's time, held to that span after the time the layer was folded at: a layer kept from
+ * the start of its five seconds and read as they turn, or one built for this answer by a fold that took longer than
+ * five seconds, gives the time five seconds after the layer's, and a clock set back gives the layer's own. Nothing is
+ * written between building the layer and computing the coin, so the coin reads the coin log the layer folded.
+ */
+function coinAt(folded: string, clock: string): string {
+  const from = Date.parse(folded);
+  const at = Date.parse(clock);
+  if (at < from) return folded;
+  return at - from <= FOLDED_WITHIN_MS ? clock : new Date(from + FOLDED_WITHIN_MS).toISOString();
+}
+
 /**
  * What the coin's balances were folded over (QX-17 section 6): the time the layer was folded at, each problem it
- * folded in its order with its chain's head, and the identity log's head. The layer is the kept one, folded at the
- * store's version now and up to five seconds before the coin's `at` (tracker.ts); nothing is written between reading
- * it and reading the heads, so they are the heads it folded. Every problem here is folded, hidden and replaced ones
- * too, and each is still served by hash (QX-6 section 3).
+ * folded in its order with its chain's head, and the identity log's head. The layer is the one `layer()` gives, kept
+ * from an earlier read or built for this answer, at the store's version now; nothing is written between reading it
+ * and reading the heads, so they are the heads it folded, and the coin is computed no later than five seconds after
+ * its time (`coinAt`). Every problem here is folded, hidden and replaced ones too, and each is still served by hash
+ * (QX-6 section 3).
  */
 function foldedOver(store: Store, layered: Layer): CoinFolded {
   const headOf = (log: Hash): LogHead => {

@@ -24,10 +24,10 @@
  * the home serves them, cut at the heads the state names, with the parameters and the founding standing the home
  * publishes, and not the mirror's own chains, whose lines carry the mirror's hashes and so draw other panels
  * (QX-1 section 4). A state is refused where it is not what the run already had from the home (a problem the home
- * listed or served left out, a chain named below the lines read, a fold outside the five seconds before its time) or
- * where a chain, a data blob or a read it rests on is not served as named. The tracker's balances are kept only where
- * the mirror's own agree, and only where every credit is what the chain holds; with no chain to ask, a ledger with
- * credits keeps no balances, and the credits alone refuse nothing.
+ * listed or served left out, a chain named below the lines read or off them, a fold outside the five seconds before
+ * its time) or where a chain, a data blob or a read it rests on is not served as named. The tracker's balances are
+ * kept only where the mirror's own agree, and only where every credit is what the chain holds; with no chain to ask, a
+ * ledger with credits keeps no balances, and the credits alone refuse nothing.
  *
  * The keeping is over a store (files.ts: envelopes, blobs and the lines of each log), the mirror's layout under its
  * folder here and a tracker's store in a node (NODE.md section 5): `keep()` is the pull alone, which a node with `keep`
@@ -227,7 +227,8 @@ interface Context {
   by: string;
   /**
    * Each chain this run read and verified, by the address it was read at and as that place served it, for the coin's
-   * check, which folds the home's chains as served (`servedTo`); null where the coin is not asked for.
+   * check, which folds the home's chains as served and holds the heads its state names to these lines (`servedTo`);
+   * null where the coin is not asked for.
    */
   served: Map<string, Receipt[]> | null;
 }
@@ -680,8 +681,10 @@ const FOLDED_BEFORE_MS = 5000;
  * first to what this run already had from the home (`readBefore`): its fold's time is its own `at` or up to five
  * seconds before it; it names every problem the home listed or served this run, "every one the tracker holds"; and it
  * names each chain this run read from the home at a head no earlier than the lines read, since a chain only grows.
- * Then each chain the state names, each problem's, the identity log and the coin log, is the home's as served, read
- * whole, verified from its log's hash and cut at the named head, whose line must carry the named hash (`servedTo`).
+ * Then each chain the state names, each problem's, the identity log and the coin log, is the home's as served, cut at
+ * the named head, whose line must carry the named hash: cut from the lines this run read of it where they reach the
+ * head, and otherwise read whole, verified from its log's hash and held to extend what this run read (`servedTo`), so
+ * a head off the chain the run read does not pass.
  * Each envelope and data blob is the one held here or the home's, by its hash, and each read a trace on those chains
  * names is measured by its bytes, held here or the home's, as the home measures the reads it holds: the home holds
  * every data blob, since it takes no problem without them, and every read a trace on its chains names, since its door
@@ -764,9 +767,12 @@ async function servedOver(
 }
 
 /**
- * A chain the coin's state names, as its home serves it, to the named head: the lines this run already read from that
- * address where their line at the head's sequence carries the head's hash, else the chain read again whole and
- * verified from its log's hash. Why not, where it cannot be read whole, does not verify, or has no such line.
+ * A chain the coin's state names, as its home serves it, to the named head. Where this run already read the chain from
+ * that address, the head lies on the lines it read or past them, on a chain that extends them: a head within them is
+ * cut from them with no second read, and for a head past them the chain is read again whole, verified from its log's
+ * hash, and must hold every line this run read as it was read, since a chain only grows. Where this run read none of
+ * it, the chain is read whole and verified. Why not, where it cannot be read whole, does not verify, does not extend
+ * what this run read, or has no line at the head's sequence with the head's hash.
  */
 async function servedTo(
   ctx: Context,
@@ -775,14 +781,16 @@ async function servedTo(
   head: LogHead,
   label: string,
 ): Promise<Receipt[] | string> {
+  const noLine = () => `${label} has no line ${head!.seq} with the hash the coin state names`;
   const cached = ctx.served?.get(url);
-  const cut = cached ? cutAt(cached, head) : null;
-  if (cut) return cut;
+  if (cached && (head?.seq ?? 0) <= cached.length) return cutAt(cached, head) ?? noLine();
   const lines = await getLines(ctx, url);
   if (!lines) return `${label} cannot be read whole`;
   const check = verifyChain(lines, genesis);
   if (!check.ok) return `${label} does not verify: ${check.problems[0]}`;
-  return cutAt(lines, head) ?? `${label} has no line ${head!.seq} with the hash the coin state names`;
+  const growth = cached ? onlyAppends(cached, lines) : null;
+  if (growth && !growth.ok) return `${label} served to the check does not extend what this run read: ${growth.problem}`;
+  return cutAt(lines, head) ?? noLine();
 }
 
 /**
