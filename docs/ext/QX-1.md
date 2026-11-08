@@ -50,7 +50,7 @@ The reference tracker's reader is its own store: every problem it carries. With 
 - **The order** is the pool sorted ascending by `sha256(canonical([seed, address]))`.
 - **The panel** is the first three in the order. A challenge whose receipt carries no chain hash has no panel yet and stays open.
 
-The draw is recomputable by anyone holding the chain, which the mirror copies line for line. Two trackers that carry the same challenge hold different chains, so a challenge is judged on the chain of the tracker it was posted to, and its verdicts go there.
+The draw is recomputable by anyone holding the chains of the tracker the challenge was posted to, as that tracker serves them: the seed from the challenge's line on its problem's log (`GET /p/<hash>/events`), and the pool from that log, the log of every other problem it carries and its identity log (`GET /k/events`), as section 3 says. A chain is a resolver's own (QX-11 section 2), and the mirror keeps one of its own: each event it lacks is a new line with the source's wrappers kept and its own added, under its own hashes ([NODE.md](../NODE.md) section 5), so a draw computed over the mirror's chains is not the tracker's. Two trackers that carry the same challenge hold different chains, so a challenge is judged on the chain of the tracker it was posted to, and its verdicts go there.
 
 ## 5. Seats
 
@@ -90,4 +90,4 @@ Where this layer says a piece is accepted, the core says accepted; the core's `a
 
 ## 10. Tests
 
-`packages/tracker/test/challenge.test.ts` holds the rules: a challenge that holds and strikes the set, one that fails and costs the stake, one refused for standing, a verdict refused from a root not drawn, a challenge refused after the window, and the pure fold's lapse, replacement and void. `packages/client/test/challenge.test.ts` holds the verbs and the tools' text.
+`packages/tracker/test/challenge.test.ts` holds the rules: a challenge that holds and strikes the set, one that fails and costs the stake, one refused for standing, a verdict refused from a root not drawn, a challenge refused after the window, and the pure fold's lapse, replacement and void. `packages/client/test/challenge.test.ts` holds the verbs and the tools' text. `packages/mirror/test/seed.test.ts` holds section 4 at the mirror: the tracker's chains as it serves them give the tracker's seed and seats, the challenge's problem's log alone seats no panel, and the mirror's own chain seeds another draw, so a challenge the tracker decided can stay open in the mirror's fold ([NODE.md](../NODE.md) section 6).

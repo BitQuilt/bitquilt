@@ -8,7 +8,8 @@
  * mirror's own wrapper says), BITQUILT_PEERS (0 to follow none), BITQUILT_CALENDARS and BITQUILT_ANCHOR (set to 1).
  * QUILT_CHAIN_RPC, QUILT_CHAIN_ID and QUILT_CONTRACTS are shared with the coin's jobs: set, the bin opens the
  * connection and the mirror checks every credit line on the coin log against the deposit the chain holds (the way
- * back); without them a ledger with credits is refused. Exits 1 when a tracker's chain is refused, so a job notices.
+ * back); without them the balances of a ledger with credits are not kept and the credits alone refuse nothing, and a
+ * `coin:` line says why where the balances reproduce. Exits 1 when anything is refused, so a job notices.
  */
 import { chainFromEnv, depositAt } from '@bitquilt/coin';
 import { type DepositReader, mirror } from './mirror.js';
@@ -44,6 +45,7 @@ mirror({ trackers, out, anchor, chain, peers, ...(by ? { by } : {}) }).then((rep
   console.log(`sources: ${report.sources.join(', ')}`);
   if (report.coin?.credits)
     console.log(`coin: ${report.coin.credits} credit${report.coin.credits === 1 ? '' : 's'} checked against the chain`);
+  if (report.coin?.notKept) console.log(`coin: ${report.coin.notKept}`);
   for (const p of report.problems)
     console.log(`${p.hash}: ${p.lines} lines, ${p.added} new${p.complete ? ', complete' : ''}`);
   console.log(`identity: ${report.identity.lines} lines, ${report.identity.added} new`);

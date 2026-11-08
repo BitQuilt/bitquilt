@@ -1,10 +1,12 @@
 /**
  * NODE.md section 6, the binary and the repository's job, and PROTOCOL.md, The mirror: a run commits only where it
  * refused nothing. bitquilt-mirror exits 0 where it refused nothing and 1 where it refused anything, and the run that
- * exits 1 has written what it took to its folder all the same. In `.github/workflows/mirror.yml` the step that commits
- * comes after the step that runs the mirror, and nothing in the file sets a condition on a step or lets a failed step
- * pass. GitHub runs a step with no condition only where every step before it succeeded, so what a run that refused
- * anything took never reaches `main`.
+ * exits 1 has written what it took to its folder all the same. A coin log with a credit on it and no chain to check it
+ * against is no refusal of its own: the job sets none of the chain's variables, so the binary run without them over
+ * balances that reproduce exits 0 with the problems and the coin log written and the balances left out, and prints
+ * why. In `.github/workflows/mirror.yml` the step that commits comes after the step that runs the mirror, and nothing
+ * in the file sets a condition on a step or lets a failed step pass. GitHub runs a step with no condition only where
+ * every step before it succeeded, so what a run that refused anything took never reaches `main`.
  */
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -13,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Envelope, hashBytes, problemHash, signObject } from '@bitquilt/core';
+import { type Envelope, type Unsigned, hashBytes, problemHash, signEvent, signObject } from '@bitquilt/core';
 import { VERDICT, addr, key, startTracker } from './helpers.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -21,6 +23,7 @@ const bin = join(root, 'packages', 'mirror', 'src', 'bin.ts');
 const read = (...path: string[]): string => readFileSync(join(root, ...path), 'utf8').replace(/\r\n/g, '\n');
 
 const owner = key(9);
+const reader = key(5);
 const cites = new TextEncoder().encode(JSON.stringify([{ s: 'one' }]));
 const citesHash = hashBytes(cites);
 
@@ -56,17 +59,53 @@ const P = problemHash(env);
 const unserved = hashBytes(new TextEncoder().encode('a problem nobody serves'));
 
 const now = () => '2026-11-07T09:00:00.000Z';
+/** The coin's parameters at a home whose coin log holds one credit from the reader they name. */
+const coin = {
+  genesis: '2026-11-01T00:00:00.000Z',
+  epoch_h: 24,
+  emission: { per_epoch: 1000, decline_bp: 5000, period_epochs: 2 },
+  vesting_h: 48,
+  infra_bp: 1000,
+  treasury: addr(key(7)),
+  unit: 1000,
+  weights: { cross_vendor: 2, same_vendor: 1, attest: 0 },
+  burn_rate: 100,
+  transfers_from: null,
+  redeem_from: null,
+  reader: addr(reader),
+};
 let good: { server: Server; base: string };
 let bad: { server: Server; base: string };
+let home: { server: Server; base: string };
 
-beforeAll(async () => {
-  good = await startTracker(now);
-  const published = await fetch(`${good.base}p`, {
+/** The owner's problem published at `base`, with the blob it reads. */
+async function publish(base: string): Promise<void> {
+  const published = await fetch(`${base}p`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ envelope: env, blobs: { [citesHash]: Buffer.from(cites).toString('base64') } }),
   });
   expect(published.status).toBe(201);
+}
+
+beforeAll(async () => {
+  good = await startTracker(now);
+  await publish(good.base);
+  home = await startTracker(now, { coin });
+  await publish(home.base);
+  const credit: Unsigned = {
+    quilt: 1,
+    type: 'credit',
+    key: addr(reader),
+    ts: now(),
+    body: { deposit: 1, root: addr(owner), amount: 100 },
+  };
+  const credited = await fetch(`${home.base}coin/events`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(signEvent(credit, reader)),
+  });
+  expect(credited.status, await credited.clone().text()).toBe(202);
   const server = createServer((req, res) => {
     if (req.url === '/') {
       res.writeHead(200, { 'content-type': 'application/json' });
@@ -81,7 +120,7 @@ beforeAll(async () => {
   bad = { server, base: typeof a === 'object' && a ? `http://127.0.0.1:${a.port}/` : '' };
 });
 afterAll(async () => {
-  for (const s of [good, bad]) await new Promise<void>((r) => s.server.close(() => r()));
+  for (const s of [good, bad, home]) await new Promise<void>((r) => s.server.close(() => r()));
 });
 
 /**
@@ -135,6 +174,20 @@ describe('bitquilt-mirror', () => {
     expect(code).toBe(1);
     expect(existsSync(join(out, 'problems', `${P}.json`))).toBe(true);
   });
+
+  it('exits 0 where the coin log holds a credit and no chain is named, with the balances left out and why', async () => {
+    const { code, stdout, out } = await run([home.base]);
+    expect(stdout).toContain(
+      `coin: the balances at head 1 from ${home.base} are not kept: 1 credit on the ledger and no chain to check it against\n`,
+    );
+    expect(stdout).not.toContain('refused:');
+    expect(stdout).not.toContain('checked against the chain');
+    expect(code).toBe(0);
+    expect(existsSync(join(out, 'problems', `${P}.json`))).toBe(true);
+    expect(existsSync(join(out, 'ledger', `${P}.jsonl`))).toBe(true);
+    expect(readFileSync(join(out, 'ledger', 'coin.jsonl'), 'utf8')).toContain('"type":"credit"');
+    expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
+  });
 });
 
 describe("the repository's job (.github/workflows/mirror.yml)", () => {
@@ -157,6 +210,10 @@ describe("the repository's job (.github/workflows/mirror.yml)", () => {
     expect(commitStep).toBe(steps.length - 1);
     expect(steps[mirrorStep]).toContain('--out "$GITHUB_WORKSPACE/mirror"');
     expect(steps[commitStep]).toContain('git add mirror');
+  });
+
+  it("sets none of the chain's variables, so the run is the binary's with no chain to ask", () => {
+    for (const name of ['QUILT_CHAIN_RPC', 'QUILT_CHAIN_ID', 'QUILT_CONTRACTS']) expect(yml).not.toContain(name);
   });
 
   it('sets no condition on a step and lets no failed step pass, so a run that exits 1 commits nothing', () => {

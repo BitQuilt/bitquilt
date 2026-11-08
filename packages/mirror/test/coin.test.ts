@@ -1,7 +1,8 @@
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   type Envelope,
@@ -24,8 +25,11 @@ import { VERDICT, addr, by, calendarBytes, key, startTracker } from './helpers.j
  * beside the problems'; the balances the tracker says it computed are kept only where the mirror reproduces them from
  * the receipts it holds and the parameters the tracker publishes; a tracker whose balances differ is refused, as are
  * the balances where a problem the tracker folded was not taken by the time it was read (NODE.md section 6); and every
- * credit line on the coin log (the way back) is checked against the deposit the chain holds, or the balances are
- * refused.
+ * credit line on the coin log (the way back) is checked against the deposit the chain holds, and the balances refused
+ * where one is not what the chain holds. With no chain to ask, the balances are not kept and the credits alone refuse
+ * nothing (AGENTS.md, rule 10): the problems and the coin log are kept, and where the balances reproduce the report
+ * says why; balances that do not reproduce are refused all the same, and a head that moved between the two reads is
+ * left for the next run with no reason given. NODE.md section 6 and PROTOCOL.md, The mirror, say no more than that.
  */
 const owner = key(9),
   A = key(1),
@@ -205,39 +209,126 @@ describe('the coin at the mirror', () => {
     expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
   });
 
-  it('checks every credit on the coin log against the chain, and refuses the balances where a credit is not what the chain holds or there is no chain to ask', async () => {
-    await accepted('coin/events', ev(reader, 'credit', { deposit: 1, root: addr(B), amount: 100 }));
-    const chainOf = (amount: number) => ({
-      depositAt: async (n: number) => ({ root: addr(B), amount, made: n === 1 }),
+  describe('with a credit on the coin log', () => {
+    // The credit is posted once for the tests below, after the tests above have read a coin log of one line, so
+    // each of these holds whether it runs alone or in order.
+    beforeAll(async () => {
+      await accepted('coin/events', ev(reader, 'credit', { deposit: 1, root: addr(B), amount: 100 }));
     });
-    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-'));
-    const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(null), chain: chainOf(100) });
-    expect(report.refused).toEqual([]);
-    expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: true, credits: 1 });
-    const balances = JSON.parse(readFileSync(join(out, 'coin', 'balances.json'), 'utf8')) as {
-      balances: Record<string, { balance: number; credited: number }>;
-    };
-    expect(balances.balances[addr(B)]).toMatchObject({ balance: 550, credited: 100 });
-    const wrong = await mirror({
-      trackers: [base],
-      out: mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-wrong-')),
-      now,
-      fetchImpl: fetchWith(null),
-      chain: chainOf(99),
+
+    it('checks every credit on the coin log against the chain, and refuses the balances where a credit is not what the chain holds', async () => {
+      const chainOf = (amount: number) => ({
+        depositAt: async (n: number) => ({ root: addr(B), amount, made: n === 1 }),
+      });
+      const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-'));
+      const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(null), chain: chainOf(100) });
+      expect(report.refused).toEqual([]);
+      expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: true, credits: 1 });
+      const balances = JSON.parse(readFileSync(join(out, 'coin', 'balances.json'), 'utf8')) as {
+        balances: Record<string, { balance: number; credited: number }>;
+      };
+      expect(balances.balances[addr(B)]).toMatchObject({ balance: 550, credited: 100 });
+      const wrong = await mirror({
+        trackers: [base],
+        out: mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-wrong-')),
+        now,
+        fetchImpl: fetchWith(null),
+        chain: chainOf(99),
+      });
+      expect(wrong.refused).toEqual([
+        `coin: the credit for deposit 1 (100 to ${addr(B)}) is not what the chain holds, at head 2 from ${base}`,
+      ]);
+      expect(wrong.coin).toMatchObject({ reproduced: false, credits: 1 });
     });
-    expect(wrong.refused).toEqual([
-      `coin: the credit for deposit 1 (100 to ${addr(B)}) is not what the chain holds, at head 2 from ${base}`,
-    ]);
-    expect(wrong.coin).toMatchObject({ reproduced: false, credits: 1 });
-    const blind = await mirror({
-      trackers: [base],
-      out: mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-blind-')),
-      now,
-      fetchImpl: fetchWith(null),
+
+    it('with no chain to ask, keeps the problems and the coin log, refuses nothing, and leaves the balances out with a line that says why', async () => {
+      const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-blind-'));
+      const blind = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(null) });
+      expect(blind.refused).toEqual([]);
+      expect(blind.errors).toEqual([]);
+      expect(blind.coin).toEqual({
+        lines: 2,
+        added: 2,
+        head: 2,
+        reproduced: null,
+        credits: 0,
+        notKept: `the balances at head 2 from ${base} are not kept: 1 credit on the ledger and no chain to check it against`,
+      });
+      expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
+      const coinLines = readFileSync(join(out, 'ledger', 'coin.jsonl'), 'utf8')
+        .split('\n')
+        .filter(Boolean);
+      expect(coinLines.map((l) => (JSON.parse(l) as Receipt).event.type)).toEqual(['lock', 'credit']);
+      for (const h of [P, Q]) {
+        expect(existsSync(join(out, 'problems', `${h}.json`))).toBe(true);
+        expect(existsSync(join(out, 'ledger', `${h}.jsonl`))).toBe(true);
+      }
+      const index = JSON.parse(readFileSync(join(out, 'index.json'), 'utf8')) as { problems: { hash: Hash }[] };
+      expect(index.problems.map((p) => p.hash).sort()).toEqual([P, Q].sort());
     });
-    expect(blind.refused).toEqual([
-      `coin: 1 credit on the ledger and no chain to check them against, at head 2 from ${base}`,
-    ]);
-    expect(blind.coin).toMatchObject({ reproduced: false, credits: 1 });
+
+    it('with no chain to ask, still refuses balances that do not reproduce', async () => {
+      const doctor = (state: Record<string, unknown>) => {
+        const balances = state.balances as Record<string, { balance: number }>;
+        balances[addr(A)] = { ...balances[addr(A)]!, balance: balances[addr(A)]!.balance + 1 };
+        return state;
+      };
+      const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-blind-bad-'));
+      const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(doctor) });
+      expect(report.refused).toEqual([`coin: the balances at head 2 from ${base} do not reproduce here (${addr(A)})`]);
+      expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: false, credits: 0 });
+      expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
+    });
+
+    it('with no chain to ask, leaves a head that moved between the two reads for the next run, and gives no reason', async () => {
+      const moved = (state: Record<string, unknown>) => {
+        const head = state.head as { seq: number; hash: string };
+        return { ...state, head: { ...head, seq: head.seq + 1 } };
+      };
+      const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-blind-moved-'));
+      const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(moved) });
+      expect(report.refused).toEqual([]);
+      expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: null });
+      expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
+      expect(readFileSync(join(out, 'ledger', 'coin.jsonl'), 'utf8')).toContain('"type":"credit"');
+    });
+  });
+});
+
+describe('the documents on a coin log with credits and no chain to ask', () => {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+  const read = (...path: string[]): string => readFileSync(join(root, ...path), 'utf8').replace(/\r\n/g, '\n');
+  /** The sentences of a paragraph that opens with `opening`, under the heading `title`. */
+  function sentences(doc: string, title: string, opening: string): string[] {
+    const start = doc.indexOf(`\n## ${title}\n`);
+    expect(start, title).toBeGreaterThan(-1);
+    const paragraph = doc
+      .slice(start + 1)
+      .split('\n## ')[0]!
+      .split('\n\n')
+      .find((p) => p.startsWith(opening));
+    expect(paragraph, opening).toBeDefined();
+    return paragraph!.split(/(?<=\.) (?=[A-Z`])/);
+  }
+
+  it('say the reason is given where the balances reproduce and the head did not move, and the credits refuse nothing', () => {
+    const node = read('docs', 'NODE.md');
+    const coin = sentences(node, '6. The mirror job', "**The coin's balances.**");
+    expect(coin).toContain('With no chain to ask, credits on the ledger are no refusal of their own.');
+    const notKept = coin.find((s) => s.includes('(`notKept`)'));
+    expect(notKept).toMatch(/^Where the balances reproduce, /);
+    expect(notKept).toContain('a run that refuses nothing else still commits the coin log');
+    expect(coin.find((s) => s.includes('A head that moved'))).toContain('no reason is given');
+    const binary = sentences(node, '6. The mirror job', '**The binary.**');
+    expect(binary.find((s) => s.includes('`coin:` line'))).toContain(
+      'the balances reproduce and the head did not move',
+    );
+    const job = sentences(node, '6. The mirror job', "**The repository's job.**");
+    expect(job.find((s) => s.includes('commits the coin log'))).toContain('a run that refuses nothing else');
+    const protocol = sentences(read('docs', 'PROTOCOL.md'), 'The mirror', 'The ledger job');
+    const blind = protocol.find((s) => s.includes('no chain to check them against'))!;
+    expect(blind).toContain('no refusal of its own');
+    expect(blind).toContain('a run that refuses nothing else');
+    expect(blind).toContain('a line that says why where they reproduce');
   });
 });
