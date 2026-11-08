@@ -1,9 +1,10 @@
 /**
  * What the tracker's door answers with (PROTOCOL.md, The tracker): a refusal, which `handle` writes as `{ error }` with
- * its status, and the JSON writer every JSON answer goes through. The hosted on-ramp and its authorization server write
- * their JSON answers with the same writer and keep their own body readers, since each caps and parses a body its own
- * way. An answer that is not JSON, such as a page of a chain's lines, the preflight, a blob's bytes or one of the
- * on-ramp's pages, is written by its own route.
+ * its status, and the JSON writer the door's JSON answers go through. The hosted on-ramp and its authorization server
+ * write the JSON answers of their own routes with the same writer and keep their own body readers, since each caps and
+ * parses a body its own way. An answer the writer does not write is written where it is made: a page of a chain's
+ * lines, the preflight, a blob's bytes, one of the on-ramp's pages, or the connector's JSON-RPC, which the MCP SDK's
+ * transport writes.
  */
 import type { ServerResponse } from 'node:http';
 
