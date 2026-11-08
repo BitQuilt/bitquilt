@@ -8,7 +8,7 @@ Paste a quilt link into a chat whose connector runs locally. It resolves through
 
 ## Building it
 
-The plan as it was written on 24 October 2026, kept as it was; [LAUNCH.md](LAUNCH.md) says what of it stands.
+The plan as it was written on 24 October 2026, kept as it was; [LAUNCH.md](LAUNCH.md) says what of it stood on 26 October.
 
 Three things ship together or not at all, as every primitive that stuck shipped them: a short spec, a reference implementation, and a first use people wanted. CORE.md is the spec. The core library with its fixtures is the implementation, published as a package whose fixtures are the conformance test. The first problem is the use, and it is the product: a public that wants the answer, thousands of pieces, and a map that is itself the thing to publish.
 

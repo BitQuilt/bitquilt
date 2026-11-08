@@ -214,17 +214,19 @@ Quilt's page on localhost is a node (`packages/client/src/page.ts`) whose well-k
 
 ### The on-ramp's routes
 
-Where a tracker hosts the on-ramp (`hosted: true`), these answer beside its own (`packages/hosted/src/hosted.ts`, and `oauth.ts` for the authorization server), unlisted in its `routes`. `onramp-table.test.ts` in `packages/hosted/test` holds each row's methods; nothing reads the refusals column.
+Where a tracker hosts the on-ramp (`hosted: true`), these answer beside its own (`packages/hosted/src/hosted.ts`, and `oauth.ts` for the authorization server), unlisted in its `routes`. `onramp-table.test.ts` in `packages/hosted/test` holds each row's methods, and the refusals of the connector's two rows.
 
 | Route | Methods | What it answers | Refused with |
 | --- | --- | --- | --- |
 | `/join` | GET, POST | The page that makes an address; `201 { address, url }` | 429 |
-| `/mcp/<token>` | GET, POST, DELETE | The connector over MCP's HTTP transport, posting with `custody: hosted` | 400, 403, 404 |
+| `/mcp/<token>` | GET, POST, DELETE | The connector over MCP's HTTP transport, posting with `custody: hosted` | 400, 403, 404, 405, 406, 409, 415 |
 | `/mcp/<token>/key`, `/mcp/<token>/sheet` | GET | The key itself; the person's sheet | 404, 405 |
 | `/r/<problem>/<piece>` | GET | One square's page | 404, 429 |
 | `/window`, `/window/io` | GET | The directory window, and its reader | 400, 401, 404, 405, 429 |
-| `/mcp` | GET, POST, DELETE | With `QUILT_OAUTH_SECRET`, the connector for a bearer token, as at `/mcp/<token>` (QX-18 section 1) | 400, 401, 403 |
+| `/mcp` | GET, POST, DELETE | With `QUILT_OAUTH_SECRET`, the connector for a bearer token, as at `/mcp/<token>` (QX-18 section 1) | 400, 401, 403, 405, 406, 409, 415 |
 | `/oauth/…`, `/.well-known/oauth-…` | GET, POST | With `QUILT_OAUTH_SECRET`, the authorization server and its metadata (QX-18 section 1), refusing as OAuth does | 400, 401, 405, 429 |
+
+The connector's 405, 406, 409 and 415 are the MCP transport's own: another method in a session, an `accept` without the event stream (and for a `POST` without JSON), a second stream in one session, and a body not typed as JSON.
 
 ### Governance: what a tracker decides
 

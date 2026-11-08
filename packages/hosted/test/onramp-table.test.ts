@@ -4,9 +4,14 @@
  * on-ramp takes at every path the row names, answered neither 405 nor the tracker's `no such route`. The row of the
  * authorization server, whose paths end in an ellipsis, stands for the endpoints QX-18 section 1 lists, and those
  * include every endpoint the server's metadata names; across them the methods taken are the row's, no more and no
- * fewer. The refusals column is not read. The tracker's own table is protocol-table.test.ts's.
+ * fewer. The connector's two rows are held inside an MCP session, since outside one only an initialize reaches the
+ * transport and the on-ramp answers the rest itself. At `/mcp/<token>` the token in the path names the address, and at
+ * `/mcp` a bearer token from the authorization server does. Their methods are the ones the transport names in `Allow`
+ * when it refuses another, and each is answered in the session, DELETE last. Their refusals are the statuses the
+ * on-ramp and the transport give, each provoked here and held to its status. The other rows' refusals are not read.
+ * The tracker's own table is protocol-table.test.ts's.
  */
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -28,11 +33,35 @@ const OAUTH = [
   '/oauth/token',
   '/oauth/revoke',
 ];
+/** The connector's paths, whose methods the MCP transport answers once a session is open. */
+const CONNECTOR = ['/mcp/<token>', '/mcp'];
 const NO_SQUARE = `sha256:${'0'.repeat(64)}`;
+/** A token that names no address here. */
+const NO_ADDRESS = '0'.repeat(64);
+/** A client's callback, registered as its own. */
+const CALLBACK = 'https://agent.example/callback';
+/** What the transport asks a POST to accept. */
+const ACCEPT = 'application/json, text/event-stream';
 
 let server: Server;
 let base: string;
-let token: string;
+/** The address the table's paths are filled with, and a second one whose session is not the first's. */
+let mine: { url: string; token: string };
+let theirs: { url: string; token: string };
+
+const rpc = (id: number, method: string, params?: unknown): string =>
+  JSON.stringify({ jsonrpc: '2.0', id, method, ...(params ? { params } : {}) });
+const INITIALIZE = rpc(1, 'initialize', {
+  protocolVersion: '2025-06-18',
+  capabilities: {},
+  clientInfo: { name: 'onramp-table', version: '1' },
+});
+
+/** An address made at the join, with its token. */
+async function joinOnce(): Promise<{ url: string; token: string }> {
+  const { url } = (await (await fetch(`${base}/join`, { method: 'POST' })).json()) as { url: string };
+  return { url, token: /\/mcp\/([0-9a-f]{64})$/.exec(url)![1]! };
+}
 
 beforeAll(async () => {
   const store = new Store(':memory:');
@@ -56,8 +85,8 @@ beforeAll(async () => {
   }).listen(0);
   const a = server.address();
   base = typeof a === 'object' && a ? `http://127.0.0.1:${a.port}` : '';
-  const joined = (await (await fetch(`${base}/join`, { method: 'POST' })).json()) as { url: string };
-  token = /\/mcp\/([0-9a-f]{64})$/.exec(joined.url)![1]!;
+  mine = await joinOnce();
+  theirs = await joinOnce();
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
@@ -81,17 +110,21 @@ function rows(): string[][] {
   return out.slice(2);
 }
 
-/** A row: the paths it names in backticks, and its methods. */
-const routes = (): { paths: string[]; methods: string[] }[] =>
-  rows().map(([paths, methods]) => ({
+/** A row: the paths it names in backticks, its methods, and the statuses it is refused with. */
+const routes = (): { paths: string[]; methods: string[]; refusals: number[] }[] =>
+  rows().map(([paths, methods, , refusals]) => ({
     paths: [...paths!.matchAll(/`([^`]+)`/g)].map((m) => m[1]!),
     methods: methods!.split(',').map((m) => m.trim()),
+    refusals: refusals!.split(',').map((s) => Number(s.trim())),
   }));
+
+/** Whether a row is one of the connector's. */
+const isConnector = (r: { paths: string[] }): boolean => r.paths.some((p) => CONNECTOR.includes(p));
 
 /** The paths a row's path stands for: an ellipsis for the authorization server's, a placeholder filled. */
 function concrete(path: string): string[] {
   if (path.endsWith('…')) return OAUTH.filter((p) => p.startsWith(path.slice(0, -1)));
-  return [path.replace('<token>', token).replace('<problem>', NO_SQUARE).replace('<piece>', NO_SQUARE)];
+  return [path.replace('<token>', mine.token).replace('<problem>', NO_SQUARE).replace('<piece>', NO_SQUARE)];
 }
 
 /** Whether the on-ramp takes a method at a path: an answer that is neither 405 nor the tracker's `no such route`. */
@@ -100,6 +133,60 @@ async function takes(method: string, path: string): Promise<boolean> {
   const json = (r.headers.get('content-type') ?? '').startsWith('application/json');
   const error = json ? ((await r.json()) as { error?: string }).error : (await r.arrayBuffer(), undefined);
   return r.status !== 405 && !(r.status === 404 && error === 'no such route');
+}
+
+/** A bearer token for an address, as a client registered here gets one: registered, approved, exchanged with PKCE. */
+async function bearerFor(address: string): Promise<string> {
+  const post = (path: string, body: unknown): Promise<Response> =>
+    fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const client = (await (
+    await post('/oauth/register', {
+      client_name: 'Table',
+      redirect_uris: [CALLBACK],
+      token_endpoint_auth_method: 'none',
+    })
+  ).json()) as { client_id: string };
+  const verifier = randomBytes(32).toString('base64url');
+  const approved = (await (
+    await post('/oauth/authorize', {
+      response_type: 'code',
+      client_id: client.client_id,
+      redirect_uri: CALLBACK,
+      code_challenge: createHash('sha256').update(verifier).digest('base64url'),
+      code_challenge_method: 'S256',
+      allow: true,
+      address,
+    })
+  ).json()) as { redirect: string };
+  const exchanged = await fetch(`${base}/oauth/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: new URL(approved.redirect).searchParams.get('code')!,
+      code_verifier: verifier,
+      client_id: client.client_id,
+    }).toString(),
+  });
+  return ((await exchanged.json()) as { access_token: string }).access_token;
+}
+
+/** Where a connector path is reached: its URL and the headers that name the address there. */
+interface Door {
+  url: string;
+  headers: Record<string, string>;
+}
+
+/** A session opened at a door with an initialize, and its id. */
+async function session(door: Door): Promise<string> {
+  const r = await fetch(door.url, {
+    method: 'POST',
+    headers: { ...door.headers, accept: ACCEPT, 'content-type': 'application/json' },
+    body: INITIALIZE,
+  });
+  await r.text();
+  expect(r.status, `an initialize at ${door.url}`).toBe(200);
+  return r.headers.get('mcp-session-id')!;
 }
 
 describe("PROTOCOL.md, the on-ramp's route table", () => {
@@ -124,8 +211,8 @@ describe("PROTOCOL.md, the on-ramp's route table", () => {
     for (const p of endpoints) expect(OAUTH, `${p} is listed`).toContain(p);
   });
 
-  it('names for each row only methods the on-ramp takes, and every one it takes at its endpoints', async () => {
-    for (const r of routes()) {
+  it("names for each row but the connector's only methods the on-ramp takes, and every one it takes at its endpoints", async () => {
+    for (const r of routes().filter((r) => !isConnector(r))) {
       const taken = new Set<string>();
       for (const p of r.paths) {
         const paths = concrete(p);
@@ -139,5 +226,106 @@ describe("PROTOCOL.md, the on-ramp's route table", () => {
       if (r.paths.some((p) => p.endsWith('…')))
         expect([...taken].sort(), `the methods taken under ${r.paths.join(', ')}`).toEqual([...r.methods].sort());
     }
+  });
+
+  it("names for the connector's rows the methods the MCP transport takes in a session, and every status the connector refuses with", async () => {
+    // How each path names the address, and how it names none, with the status that none is refused with.
+    const doors: Record<string, { as: Door; nobody: Door; none: number }> = {
+      '/mcp/<token>': {
+        as: { url: `${base}/mcp/${mine.token}`, headers: {} },
+        nobody: { url: `${base}/mcp/${NO_ADDRESS}`, headers: {} },
+        none: 404,
+      },
+      '/mcp': {
+        as: { url: `${base}/mcp`, headers: { authorization: `Bearer ${await bearerFor(mine.url)}` } },
+        nobody: { url: `${base}/mcp`, headers: {} },
+        none: 401,
+      },
+    };
+    const other: Door = { url: `${base}/mcp/${theirs.token}`, headers: {} };
+    const another = await session(other);
+    for (const path of CONNECTOR) {
+      const row = routes().find((r) => r.paths.includes(path));
+      expect(row, `a row names ${path}`).toBeDefined();
+      const { as, nobody, none } = doors[path]!;
+      const sid = await session(as);
+      const typed = { accept: ACCEPT, 'content-type': 'application/json' };
+      const inside = { ...as.headers, ...typed, 'mcp-session-id': sid };
+      const answered = new Set<string>();
+      const refused = new Set<number>();
+      /** A request the connector refuses, held to the status it is refused with. */
+      const refuses = async (status: number, what: string, url: string, init: RequestInit): Promise<Response> => {
+        const r = await fetch(url, init);
+        await r.arrayBuffer();
+        expect(r.status, `${path}: ${what}`).toBe(status);
+        refused.add(status);
+        return r;
+      };
+      // Another method in the session is the transport's 405, and its Allow names the methods it takes.
+      const put = await refuses(405, 'another method in a session', as.url, { method: 'PUT', headers: inside });
+      const allow = (put.headers.get('allow') ?? '').split(',').map((m) => m.trim());
+      expect([...row!.methods].sort(), `${path}: the methods the transport takes`).toEqual(allow.sort());
+      // Each is answered in the session: GET opens the stream, which refuses a second while it is open, POST
+      // answers a ping, and DELETE, sent last, ends the session.
+      const open = new AbortController();
+      const stream = await fetch(as.url, {
+        method: 'GET',
+        headers: { ...inside, accept: 'text/event-stream' },
+        signal: open.signal,
+      });
+      expect(stream.status, `GET ${path} in a session`).toBe(200);
+      answered.add('GET');
+      await refuses(409, 'a second stream in one session', as.url, {
+        method: 'GET',
+        headers: { ...inside, accept: 'text/event-stream' },
+      });
+      open.abort();
+      const ping = await fetch(as.url, { method: 'POST', headers: inside, body: rpc(2, 'ping') });
+      await ping.text();
+      expect(ping.status, `POST ${path} in a session`).toBe(200);
+      answered.add('POST');
+      await refuses(406, 'a GET in a session that does not accept the event stream', as.url, {
+        method: 'GET',
+        headers: { ...inside, accept: 'application/json' },
+      });
+      await refuses(400, 'a GET with no session', as.url, { method: 'GET', headers: as.headers });
+      await refuses(406, 'an initialize that does not accept the event stream', as.url, {
+        method: 'POST',
+        headers: { ...as.headers, ...typed, accept: 'application/json' },
+        body: INITIALIZE,
+      });
+      await refuses(406, 'an initialize that does not accept JSON', as.url, {
+        method: 'POST',
+        headers: { ...as.headers, ...typed, accept: 'text/event-stream' },
+        body: INITIALIZE,
+      });
+      await refuses(415, 'an initialize not typed as JSON', as.url, {
+        method: 'POST',
+        headers: { ...as.headers, ...typed, 'content-type': 'text/plain' },
+        body: INITIALIZE,
+      });
+      await refuses(403, "another address's session", as.url, {
+        method: 'POST',
+        headers: { ...inside, 'mcp-session-id': another },
+        body: rpc(3, 'ping'),
+      });
+      await refuses(none, 'an initialize for no address', nobody.url, {
+        method: 'POST',
+        headers: { ...nobody.headers, ...typed },
+        body: INITIALIZE,
+      });
+      const end = await fetch(as.url, { method: 'DELETE', headers: inside });
+      await end.arrayBuffer();
+      expect(end.status, `DELETE ${path} in a session`).toBe(200);
+      answered.add('DELETE');
+      expect([...answered].sort(), `${path}: the methods answered in a session`).toEqual([...row!.methods].sort());
+      expect(
+        [...refused].sort((a, b) => a - b),
+        `${path}: the statuses it is refused with`,
+      ).toEqual(row!.refusals);
+    }
+    const ended = await fetch(other.url, { method: 'DELETE', headers: { accept: ACCEPT, 'mcp-session-id': another } });
+    await ended.arrayBuffer();
+    expect(ended.status, 'the other address ends its session').toBe(200);
   });
 });
