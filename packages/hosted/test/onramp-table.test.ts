@@ -8,8 +8,10 @@
  * transport and the on-ramp answers the rest itself. At `/mcp/<token>` the token in the path names the address, and at
  * `/mcp` a bearer token from the authorization server does. Their methods are the ones the transport names in `Allow`
  * when it refuses another, and each is answered in the session, DELETE last. Their refusals are the statuses the
- * on-ramp and the transport give, each provoked here and held to its status. The other rows' refusals are not read.
- * The tracker's own table is protocol-table.test.ts's.
+ * on-ramp and the transport give, each provoked here and held to its status. Where a browser meets the person's sheet
+ * page and where the page reads its data are held from the rows' What it answers cells: the page at the address, the
+ * JSON at its `/sheet`, and no page at `/mcp`. The other rows' refusals are not read. The tracker's own table is
+ * protocol-table.test.ts's.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdtempSync, readFileSync } from 'node:fs';
@@ -110,13 +112,21 @@ function rows(): string[][] {
   return out.slice(2);
 }
 
-/** A row: the paths it names in backticks, its methods, and the statuses it is refused with. */
-const routes = (): { paths: string[]; methods: string[]; refusals: number[] }[] =>
-  rows().map(([paths, methods, , refusals]) => ({
+/** A row: the paths it names in backticks, its methods, what it answers, and the statuses it is refused with. */
+const routes = (): { paths: string[]; methods: string[]; answers: string; refusals: number[] }[] =>
+  rows().map(([paths, methods, answers, refusals]) => ({
     paths: [...paths!.matchAll(/`([^`]+)`/g)].map((m) => m[1]!),
     methods: methods!.split(',').map((m) => m.trim()),
+    answers: answers!,
     refusals: refusals!.split(',').map((s) => Number(s.trim())),
   }));
+
+/** The What it answers cell of the row that names a path. */
+function answer(path: string): string {
+  const row = routes().find((r) => r.paths.includes(path));
+  if (!row) throw new Error(`no row names ${path}`);
+  return row.answers;
+}
 
 /** Whether a row is one of the connector's. */
 const isConnector = (r: { paths: string[] }): boolean => r.paths.some((p) => CONNECTOR.includes(p));
@@ -327,5 +337,27 @@ describe("PROTOCOL.md, the on-ramp's route table", () => {
     const ended = await fetch(other.url, { method: 'DELETE', headers: { accept: ACCEPT, 'mcp-session-id': another } });
     await ended.arrayBuffer();
     expect(ended.status, 'the other address ends its session').toBe(200);
+  });
+
+  it('says where a browser meets the sheet page and where the page reads its data', async () => {
+    const browser = { headers: { accept: 'text/html,application/xhtml+xml' } };
+    // The address itself is the page to a browser, and the page reads the JSON at its /sheet.
+    expect(answer('/mcp/<token>')).toContain(
+      "To a browser (a `GET` whose `accept` names `text/html`), the person's sheet page",
+    );
+    const page = await fetch(`${base}/mcp/${mine.token}`, browser);
+    expect(page.status).toBe(200);
+    expect(page.headers.get('content-type')).toMatch(/^text\/html/);
+    expect(await page.text()).toContain("+ '/sheet'");
+    expect(answer('/mcp/<token>/sheet')).toContain('the sheet as JSON, which the sheet page reads');
+    const data = await fetch(`${base}/mcp/${mine.token}/sheet`, browser);
+    expect(data.status).toBe(200);
+    expect(data.headers.get('content-type')).toMatch(/^application\/json/);
+    expect(((await data.json()) as { url: string }).url).toBe(mine.url);
+    // At /mcp a browser meets the authorization server's challenge, not a page.
+    expect(answer('/mcp')).toContain('no sheet page');
+    const bare = await fetch(`${base}/mcp`, browser);
+    await bare.arrayBuffer();
+    expect(bare.status).toBe(401);
   });
 });
