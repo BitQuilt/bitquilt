@@ -34,6 +34,10 @@ import type { RecordView } from './verifiers.js';
 
 export const TRACE = 'QX-19';
 export const RECORD = 'QX-20';
+/**
+ * The types QX-19 adds to a problem's log. The door admits each through its own row of `problemDoor` in tracker.ts,
+ * and admit.test.ts holds those rows to this set.
+ */
 export const TRACE_EVENTS: ReadonlySet<string> = new Set(['trace']);
 export const READS_MAX = 16;
 export const RESTS_MAX = 64;

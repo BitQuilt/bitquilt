@@ -29,6 +29,10 @@ import type { Folding, ProblemEntry } from './standing.js';
 import type { Admission, Layer } from './challenge.js';
 
 export const GOLD = 'QX-16';
+/**
+ * The types QX-16 adds to a problem's log. The door admits each through its own row of `problemDoor` in tracker.ts,
+ * and admit.test.ts holds those rows to this set.
+ */
 export const GOLD_EVENTS: ReadonlySet<string> = new Set(['gold', 'gold_reveal']);
 export type GoldOutcome = 'pending' | 'match' | 'miss' | 'overruled' | 'lapsed' | 'dropped';
 /** What a piece's gold is to a reader: nothing revealed on it, or where it stands. */

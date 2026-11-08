@@ -5,8 +5,9 @@
  * refuse, omit and hide. Admission (the gate, rate limits, the stamp) lives here and not in the reducer.
  *
  * The file runs in the order a request does: the options and the shared readers, publishing, the door (what is checked
- * before an event is appended), the views (what is served), then the table of routes that ties the two to paths, one
- * row each (routes.ts says what a row holds), and `handle`, which finds a request's row in it.
+ * before an event is appended: what every event is asked, then, for the identity log and a problem's, a map from each
+ * event type to the one check that admits it), the views (what is served), then the table of routes that ties the two
+ * to paths, one row each (routes.ts says what a row holds), and `handle`, which finds a request's row in it.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import {
@@ -45,7 +46,6 @@ import {
   type Layer,
   type ProblemLayer,
   CHALLENGE,
-  CHALLENGE_EVENTS,
   CHALLENGE_SEED,
   GROUND_MAX,
   MAJORITY,
@@ -57,16 +57,9 @@ import {
 } from './challenge.js';
 import { HIDE, type Hidden, hideBodyProblems, hiddenNow } from './hide.js';
 import { RECIPROCITY, SEEDING, offerOrder, seedBodyProblems, seedInfo, watchExclusions } from './seeding.js';
-import { EXTENSIONS, JUDGE_SEED, RANK_EVENTS, kindOf, rankBodyProblems } from './verifiers.js';
-import {
-  type CoinLockWord,
-  PRODUCTION_EVENTS,
-  STAKE,
-  STAKE_EVENTS,
-  lockBodyProblems,
-  stakeRuleBodyProblems,
-} from './stake.js';
-import { GOLD, GOLD_EVENTS, goldBodyProblems, goldRevealBodyProblems, windowOpen } from './gold.js';
+import { EXTENSIONS, JUDGE_SEED, kindOf, rankBodyProblems } from './verifiers.js';
+import { PRODUCTION_EVENTS, STAKE, lockBodyProblems, stakeRuleBodyProblems } from './stake.js';
+import { GOLD, goldBodyProblems, goldRevealBodyProblems, windowOpen } from './gold.js';
 import {
   type CoinLayer,
   type CoinLockView,
@@ -85,7 +78,6 @@ import {
   type Seam,
   RECORD,
   TRACE,
-  TRACE_EVENTS,
   admitTrace,
   passageIn,
   problemTraces,
@@ -99,22 +91,11 @@ import { PEER_PULL, PEER_PULL_EVERY_MS, type PeerPull, type PullDoor, pullPeers 
 import { type Handler, type Route, handlerOf, routeOf } from './routes.js';
 
 /**
- * The identity log (CORE.md): the pseudo-problem that name, delegate, revoke, rotate and hide events are chained under.
+ * The identity log (CORE.md section 4): the pseudo-problem that name, delegate, revoke, rotate and hide events are
+ * chained under. It is the core's IDENTITY_LOG under the name this package exports, which tracker.test.ts reads; the
+ * door itself says IDENTITY_LOG.
  */
 export const IDENTITY: Hash = IDENTITY_LOG;
-const PIECE_EVENTS: ReadonlySet<string> = new Set(['claim', 'commit', 'reveal', 'decline', 'run']);
-const IDENTITY_EVENTS: ReadonlySet<string> = new Set(['name', 'delegate', 'revoke', 'rotate', 'hide']);
-const PROBLEM_EVENTS: ReadonlySet<string> = new Set(['version', 'output', 'announce', 'seed']);
-/** What the problem log takes: the core's piece and problem events, then one set per extension in registry order. */
-const PROBLEM_LOG_EVENTS: ReadonlySet<string> = new Set([
-  ...PIECE_EVENTS,
-  ...PROBLEM_EVENTS,
-  ...CHALLENGE_EVENTS,
-  ...RANK_EVENTS,
-  ...STAKE_EVENTS,
-  ...GOLD_EVENTS,
-  ...TRACE_EVENTS,
-]);
 /** The most a post may carry, 4 MB: room for an envelope with its blobs. */
 const MAX_BODY = 4 * 1024 * 1024;
 /**
@@ -243,6 +224,17 @@ export interface Admitted {
   word?: Record<string, unknown>;
 }
 /**
+ * What the door asks of one type of event on a problem's log, as a row of `problemDoor` in `createTracker` names it:
+ * given the event, the problem it is under, that problem's fold, and whether the connector posted it, it refuses by
+ * throwing a Refusal, and answers the word the receipt's wrapper carries where it has one.
+ */
+type ProblemCheck = (
+  event: Event,
+  under: Hash,
+  state: ReturnType<typeof reduce>,
+  hosted: boolean,
+) => void | Promise<Record<string, unknown> | undefined>;
+/**
  * A coin lock as the door read it (QX-17 section 5), with the rate it is read at and the coin log's head the reading
  * stood under.
  */
@@ -291,7 +283,7 @@ export function createTracker(options: TrackerOptions): Tracker {
   const founding = new Map(Object.entries(options.founding ?? {}).map(([a, n]) => [a.toLowerCase(), n]));
   /** QX-6: what the maintainers have taken down here, read from the identity log each time. */
   function hidden(): Map<string, Hidden> {
-    return maintainers.length ? hiddenNow(store.lines(IDENTITY), maintainers) : new Map();
+    return maintainers.length ? hiddenNow(store.lines(IDENTITY_LOG), maintainers) : new Map();
   }
 
   /**
@@ -328,6 +320,16 @@ export function createTracker(options: TrackerOptions): Tracker {
       ...(options.coin ? { coin: store.lines(COIN_LOG) } : {}),
       ...(founding.size ? { founding } : {}),
     });
+  }
+
+  /** Runs an admission with `exact` above zero, so every layer it reads is built afresh at now. */
+  async function exactly<T>(admit: () => T | Promise<T>): Promise<T> {
+    exact += 1;
+    try {
+      return await admit();
+    } finally {
+      exact -= 1;
+    }
   }
 
   /** QX-17: the coin over the layer, from the coin log and the parameters; null where this tracker carries none. */
@@ -429,19 +431,13 @@ export function createTracker(options: TrackerOptions): Tracker {
     limit(`key:${event.key}`, limits.keyPerHour);
     const id = eventId(event);
     const hosted = hostedPost(req, options.custodySecret);
-    exact += 1;
-    let admitted: Admitted;
-    try {
-      admitted =
-        log.kind === 'coin'
-          ? admitCoinEvent(event)
-          : log.kind === 'identity'
-            ? admitIdentityEvent(event)
-            : await admitProblemEvent(event, log.hash, hosted);
-    } finally {
-      exact -= 1;
-    }
-    const { chain, word } = admitted;
+    const { chain, word } = await exactly(() =>
+      log.kind === 'coin'
+        ? admitCoinEvent(event)
+        : log.kind === 'identity'
+          ? admitIdentityEvent(event)
+          : admitProblemEvent(event, log.hash, hosted),
+    );
     if (store.hasEvent(chain, id)) throw new Refusal(409, 'already here');
     const line = hosted
       ? store.appendReceipt(chain, event, id, url, now(), 'hosted', 'ai', { ...witnessOf(req), ...word })
@@ -475,20 +471,21 @@ export function createTracker(options: TrackerOptions): Tracker {
     now,
     fetchImpl,
     peers: options.peers ?? [],
-    async admit(log, event, hosted) {
-      exact += 1;
-      try {
-        return log.kind === 'identity'
+    admit: (log, event, hosted) =>
+      exactly(() =>
+        log.kind === 'identity'
           ? admitIdentityEvent(event)
-          : await admitProblemEvent(event, (log as { hash: Hash }).hash, hosted);
-      } finally {
-        exact -= 1;
-      }
-    },
+          : admitProblemEvent(event, (log as { hash: Hash }).hash, hosted),
+      ),
     noteAppended,
   };
 
-  /** QX-17: the coin log, admitted against the layer's balances at now; a burn's word is the standing it credits. */
+  /**
+   * QX-17: the coin log, admitted against the layer's balances at now; a burn's word is the standing it credits. The
+   * coin log has no map by type as the other two logs have below. Its six types are admitted by one rule, the coin
+   * layer's (QX-17 section 2), which the fold reads too, so what it takes is COIN_EVENTS in coin.ts, said once for
+   * both.
+   */
   function admitCoinEvent(event: Event): Admitted {
     if (!options.coin) throw new Refusal(404, 'this tracker carries no coin');
     const refused = coinEventRefusal(event);
@@ -501,67 +498,85 @@ export function createTracker(options: TrackerOptions): Tracker {
   }
 
   /**
-   * The identity log: its five kinds and no problem named; a name carries the stamp asked here; a hide (QX-6) is a
-   * maintainer's and well formed.
+   * The identity log's door by event type: the one check each type is admitted through once it names no problem, with
+   * where its rule is written. The keys are what the identity log takes, so a new type is one row; null where the
+   * shape the core checks before any log is asked is the whole of it.
    */
+  const identityDoor: Readonly<Record<string, ((event: Event) => void) | null>> = {
+    name: checkNameEvent, // CORE.md sections 4 and 11, the stamp
+    delegate: null, // CORE.md section 4
+    revoke: null, // CORE.md section 4
+    rotate: null, // CORE.md section 4
+    hide: checkHideEvent, // QX-6 section 1
+  };
+
+  /** The identity log: a type its door takes, naming no problem, then that type's own check. */
   function admitIdentityEvent(event: Event): Admitted {
-    const type = event.type;
-    if (!IDENTITY_EVENTS.has(type))
-      throw new Refusal(400, 'the identity log takes name, delegate, revoke, rotate and hide');
+    if (!Object.hasOwn(identityDoor, event.type)) {
+      const types = Object.keys(identityDoor);
+      throw new Refusal(400, `the identity log takes ${types.slice(0, -1).join(', ')} and ${types.at(-1)}`);
+    }
     if (event.problem !== undefined || event.piece !== undefined)
       throw new Refusal(400, 'an identity event names no problem');
-    if (type === 'name' && stampNeeded > 0 && !stampOk(event, stampNeeded))
+    identityDoor[event.type]?.(event);
+    return { chain: IDENTITY_LOG };
+  }
+
+  /** The door for a name: the stamp asked here, where one is (CORE.md section 11). */
+  function checkNameEvent(event: Event): void {
+    if (stampNeeded > 0 && !stampOk(event, stampNeeded))
       throw new Refusal(400, `a name event here carries a stamp of ${stampNeeded} bits`);
-    if (type === 'hide') {
-      const hp = hideBodyProblems(event.body);
-      if (hp.length) throw new Refusal(400, hp[0]!);
-      if (!maintainerSet.has(event.key.toLowerCase()))
-        throw new Refusal(403, "a hide is signed by one of this tracker's maintainers");
-    }
-    return { chain: IDENTITY };
+  }
+
+  /** The door for QX-6's hide: well formed, and signed by one of this tracker's maintainers. */
+  function checkHideEvent(event: Event): void {
+    const hp = hideBodyProblems(event.body);
+    if (hp.length) throw new Refusal(400, hp[0]!);
+    if (!maintainerSet.has(event.key.toLowerCase()))
+      throw new Refusal(403, "a hide is signed by one of this tracker's maintainers");
   }
 
   /**
-   * A problem's log: what the allow-list takes, under the problem it names, not taken down, then each kind's own check
-   * in the order the list reads.
+   * The problem log's door by event type: the one check each type is admitted through once it is under the problem it
+   * names, held here and not taken down, with where its rule is written. The keys are what a problem's log takes, so a
+   * new type is one row; null where the shape the core checks before any log is asked is the whole of it.
+   */
+  const problemDoor: Readonly<Record<string, ProblemCheck | null>> = {
+    // The core's.
+    claim: checkPieceEvent, // CORE.md sections 4 and 6; QX-15 section 2; QX-20 section 2
+    commit: checkPieceEvent, // CORE.md sections 4 and 6; QX-15 section 2; QX-20 section 2
+    reveal: checkPieceEvent, // CORE.md sections 4, 6 and 11; QX-15 section 2; QX-20 section 2; verifiers.md section 2
+    decline: checkPieceEvent, // CORE.md sections 4 and 6
+    run: checkPieceEvent, // CORE.md sections 4 and 6; QX-15 section 2; QX-20 section 2
+    version: null, // CORE.md section 4
+    output: null, // CORE.md section 4
+    // The extensions'.
+    announce: checkAnnounceEvent, // QX-13 sections 1 and 2
+    seed: checkSeedEvent, // QX-4 section 1
+    challenge: checkChallengeEvent, // QX-1 section 1, and QX-16 section 4 for a challenge on a miss
+    verdict: checkVerdictEvent, // QX-1 section 1
+    rank: checkRankEvent, // verifiers.md section 2, judge:n (QX-2)
+    stake_rule: checkStakeRuleEvent, // QX-15 section 1
+    lock: checkLockEvent, // QX-15 section 1, and QX-17 section 5 for a coin-kind lock
+    gold: checkGoldEvent, // QX-16 section 1
+    gold_reveal: checkGoldRevealEvent, // QX-16 section 1
+    trace: checkTraceEvent, // QX-19 section 1
+  };
+
+  /**
+   * A problem's log: a type its door takes, under the problem it names, held here and not taken down, then that type's
+   * own check, whose word, where it has one, the receipt's wrapper carries.
    */
   async function admitProblemEvent(event: Event, under: Hash, hosted: boolean): Promise<Admitted> {
     const type = event.type;
-    if (IDENTITY_EVENTS.has(type)) throw new Refusal(400, 'identity events go to the identity log');
-    if (!PROBLEM_LOG_EVENTS.has(type)) throw new Refusal(400, `this tracker does not carry ${type} events`);
+    if (Object.hasOwn(identityDoor, type)) throw new Refusal(400, 'identity events go to the identity log');
+    if (!Object.hasOwn(problemDoor, type)) throw new Refusal(400, `this tracker does not carry ${type} events`);
     if (event.problem !== under) throw new Refusal(400, 'post an event under the problem it names');
     if (hidden().has(under)) throw new Refusal(410, 'this problem is taken down here');
     const state = reduceProblem(under);
     if (!state) throw new Refusal(404, 'no such problem here');
-    if (PIECE_EVENTS.has(type)) checkPieceEvent(event, under, state, hosted);
-    if (type === 'seed') {
-      const sp = seedBodyProblems(event.body);
-      if (sp.length) throw new Refusal(400, sp[0]!);
-    }
-    if (type === 'announce') checkAnnounceEvent(event, state.envelope);
-    if (CHALLENGE_EVENTS.has(type)) checkChallengeEvent(event, under);
-    if (RANK_EVENTS.has(type)) checkRankEvent(event, under);
-    let word: Record<string, unknown> | undefined;
-    if (STAKE_EVENTS.has(type)) {
-      const w = await checkStakeEvent(event, under, state);
-      if (w) word = { stake: w };
-    }
-    if (GOLD_EVENTS.has(type)) checkGoldEvent(event, under);
-    if (TRACE_EVENTS.has(type)) checkTraceEvent(event, under, state);
+    const word = await problemDoor[type]?.(event, under, state, hosted);
     return word ? { chain: under, word } : { chain: under };
-  }
-
-  /**
-   * The door for QX-19: a trace from the key that revealed, naming reads this tracker holds, with every span inside its
-   * read (QX-19 section 1).
-   */
-  function checkTraceEvent(event: Event, under: Hash, state: ReturnType<typeof reduce>): void {
-    if (!event.piece) throw new Refusal(400, 'a trace names a problem and a piece');
-    const view = state.byHash.get(event.piece);
-    if (!view) throw new Refusal(400, 'names a piece this problem does not have');
-    const receipts = inputFor(under)!.receipts;
-    const a = admitTrace(view, receipts, event, tracesKept(view, receipts, blobLength), blobLength);
-    if (!a.ok) throw new Refusal(400, a.why);
   }
 
   /**
@@ -621,7 +636,7 @@ export function createTracker(options: TrackerOptions): Tracker {
    * The door for QX-13's announce: the title, slug and done_when are the envelope's, and the topics are few, short and
    * through the gate.
    */
-  function checkAnnounceEvent(event: Event, envelope: Envelope): void {
+  function checkAnnounceEvent(event: Event, _under: Hash, { envelope }: ReturnType<typeof reduce>): void {
     const b = event.body as Record<string, unknown>;
     if (
       b.title !== envelope.problem.title ||
@@ -660,23 +675,36 @@ export function createTracker(options: TrackerOptions): Tracker {
       throw new Refusal(400, 'announce: pieces, counts and work are whole numbers');
   }
 
+  /** The door for QX-4's seed: a well-formed body, and nothing more. */
+  function checkSeedEvent(event: Event): void {
+    const sp = seedBodyProblems(event.body);
+    if (sp.length) throw new Refusal(400, sp[0]!);
+  }
+
   /**
-   * The door for QX-1: a challenge from a root with standing, inside the window, with a panel to seat; a verdict from a
-   * judge drawn. The layer's admissions are in challenge.ts (challengeAdmissions).
+   * The door for QX-1's challenge: from a root with standing, inside the window, with a panel to seat. The layer's
+   * admission is in challenge.ts (challengeAdmissions).
    */
   function checkChallengeEvent(event: Event, under: Hash): void {
-    if (!event.piece) throw new Refusal(400, `a ${event.type} names a problem and a piece`);
+    if (!event.piece) throw new Refusal(400, 'a challenge names a problem and a piece');
     const layered = layer();
     const body = event.body;
-    if (event.type === 'challenge') {
-      const shape = challengeBodyProblems(body);
-      if (shape.length) throw new Refusal(400, shape[0]!);
-      const issues = plainTextProblems(body.ground as string, 'ground');
-      if (issues.length) throw new Refusal(400, issues[0]!);
-      const a = layered.admitChallenge(under, event.piece, event.key, body.stake as number);
-      if (!a.ok) throw new Refusal(400, a.why);
-      return;
-    }
+    const shape = challengeBodyProblems(body);
+    if (shape.length) throw new Refusal(400, shape[0]!);
+    const issues = plainTextProblems(body.ground as string, 'ground');
+    if (issues.length) throw new Refusal(400, issues[0]!);
+    const a = layered.admitChallenge(under, event.piece, event.key, body.stake as number);
+    if (!a.ok) throw new Refusal(400, a.why);
+  }
+
+  /**
+   * The door for QX-1's verdict: from a judge drawn, with any return it carries through the gate. The layer's admission
+   * is in challenge.ts (challengeAdmissions).
+   */
+  function checkVerdictEvent(event: Event, under: Hash): void {
+    if (!event.piece) throw new Refusal(400, 'a verdict names a problem and a piece');
+    const layered = layer();
+    const body = event.body;
     const shape = verdictBodyProblems(body);
     if (shape.length) throw new Refusal(400, shape[0]!);
     if (body.return !== undefined)
@@ -701,23 +729,26 @@ export function createTracker(options: TrackerOptions): Tracker {
   }
 
   /**
-   * The door for QX-15: a stake rule from the owner naming pieces the problem has; a lock a root can cover, on a piece
-   * that asks one. A coin-kind lock is checked against the coin log (QX-17), and what the door read is its word for the
-   * receipt. The layer's admissions are in stake.ts.
+   * The door for QX-15's stake rule: from the owner, naming pieces the problem has. The layer's admission is in
+   * stake.ts.
    */
-  async function checkStakeEvent(
+  function checkStakeRuleEvent(event: Event, under: Hash): void {
+    if (event.piece !== undefined) throw new Refusal(400, 'a stake rule names a problem and no piece');
+    const shape = stakeRuleBodyProblems(event.body);
+    if (shape.length) throw new Refusal(400, shape[0]!);
+    const a = layer().admitStakeRule(under, event.key, event.body);
+    if (!a.ok) throw new Refusal(400, a.why);
+  }
+
+  /**
+   * The door for QX-15's lock: one a root can cover, on a piece that asks one. A coin-kind lock is checked against the
+   * coin log (QX-17), and what the door read is its word for the receipt. The layer's admission is in stake.ts.
+   */
+  async function checkLockEvent(
     event: Event,
     under: Hash,
     state: ReturnType<typeof reduce>,
-  ): Promise<CoinLockWord | null> {
-    if (event.type === 'stake_rule') {
-      if (event.piece !== undefined) throw new Refusal(400, 'a stake rule names a problem and no piece');
-      const shape = stakeRuleBodyProblems(event.body);
-      if (shape.length) throw new Refusal(400, shape[0]!);
-      const a = layer().admitStakeRule(under, event.key, event.body);
-      if (!a.ok) throw new Refusal(400, a.why);
-      return null;
-    }
+  ): Promise<{ stake: CoinWord } | undefined> {
     if (!event.piece) throw new Refusal(400, 'a lock names a problem and a piece');
     const shape = lockBodyProblems(event.body);
     if (shape.length) throw new Refusal(400, shape[0]!);
@@ -728,26 +759,43 @@ export function createTracker(options: TrackerOptions): Tracker {
     }
     const a = layer().admitLock(under, event.piece, event.key, event.body, word);
     if (!a.ok) throw new Refusal(400, a.why);
-    return word;
+    return word ? { stake: word } : undefined;
   }
 
   /**
-   * The door for QX-16: the owner's gold, kept whole or refused naming the piece; the owner's reveal on an accepted
-   * piece inside its window. The layer's admissions are in gold.ts.
+   * The door for QX-16's gold: the owner's, kept whole or refused naming the piece. The layer's admission is in
+   * gold.ts.
    */
   function checkGoldEvent(event: Event, under: Hash): void {
-    if (event.type === 'gold') {
-      if (event.piece !== undefined) throw new Refusal(400, 'a gold names a problem and no piece');
-      const shape = goldBodyProblems(event.body);
-      if (shape.length) throw new Refusal(400, shape[0]!);
-      const a = layer().admitGold(under, event.key, event.body);
-      if (!a.ok) throw new Refusal(400, a.why);
-      return;
-    }
+    if (event.piece !== undefined) throw new Refusal(400, 'a gold names a problem and no piece');
+    const shape = goldBodyProblems(event.body);
+    if (shape.length) throw new Refusal(400, shape[0]!);
+    const a = layer().admitGold(under, event.key, event.body);
+    if (!a.ok) throw new Refusal(400, a.why);
+  }
+
+  /**
+   * The door for QX-16's gold reveal: the owner's, on an accepted piece inside its window. The layer's admission is in
+   * gold.ts.
+   */
+  function checkGoldRevealEvent(event: Event, under: Hash): void {
     if (!event.piece) throw new Refusal(400, 'a gold reveal names a problem and a piece');
     const shape = goldRevealBodyProblems(event.body);
     if (shape.length) throw new Refusal(400, shape[0]!);
     const a = layer().admitGoldReveal(under, event.piece, event.key, event.body);
+    if (!a.ok) throw new Refusal(400, a.why);
+  }
+
+  /**
+   * The door for QX-19: a trace from the key that revealed, naming reads this tracker holds, with every span inside its
+   * read (QX-19 section 1).
+   */
+  function checkTraceEvent(event: Event, under: Hash, state: ReturnType<typeof reduce>): void {
+    if (!event.piece) throw new Refusal(400, 'a trace names a problem and a piece');
+    const view = state.byHash.get(event.piece);
+    if (!view) throw new Refusal(400, 'names a piece this problem does not have');
+    const receipts = inputFor(under)!.receipts;
+    const a = admitTrace(view, receipts, event, tracesKept(view, receipts, blobLength), blobLength);
     if (!a.ok) throw new Refusal(400, a.why);
   }
 
@@ -859,7 +907,7 @@ export function createTracker(options: TrackerOptions): Tracker {
       hide: HIDE,
       maintainers,
       founding: options.founding ?? {},
-      identity: IDENTITY,
+      identity: IDENTITY_LOG,
       hosted: options.extra !== undefined,
       ...(options.extraWellKnown?.() ?? {}),
       // `stake.burn_rate` is the rate in force now, which with `burn_indexed` moves with the epochs; `coin.burn_rate`
@@ -1675,7 +1723,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     // The identity log, which any method but POST lists, and a key's standing and work.
     {
       path: '/k/events',
-      GET: ({ res, query }) => events(res, IDENTITY, Number(query.get('since') ?? 0)),
+      GET: ({ res, query }) => events(res, IDENTITY_LOG, Number(query.get('since') ?? 0)),
       POST: limited(({ req, res }) => postEvent(req, res, { kind: 'identity' })),
       otherwise: 'GET',
     },

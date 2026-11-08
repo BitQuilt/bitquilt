@@ -126,6 +126,10 @@ export function countsAsAccepted(state: string): boolean {
 export function carriesSet(state: string): boolean {
   return state === 'accepted' || state === 'accepted_provisional' || state === 'challenged';
 }
+/**
+ * The types QX-1 adds to a problem's log. The door admits each through its own row of `problemDoor` in tracker.ts,
+ * and admit.test.ts holds those rows to this set.
+ */
 export const CHALLENGE_EVENTS: ReadonlySet<string> = new Set(['challenge', 'verdict']);
 
 export interface VerdictView {
