@@ -2,9 +2,12 @@
  * AGENTS.md, The words, held to the tests that read the documents. Every test file of a package whose code names a
  * Markdown file, as a string it reads, is named in that section: a document under docs/, a README or AGENTS.md itself.
  * So a test added to pin a document's sentence or table is named there by what it holds, beside the document it
- * reads. And every test the section names is a file that exists. A test is named by its path from the root, or by its
- * name alone after a path under its package earlier in the same line, as "`packages/mirror/test/coin.test.ts` and
- * `seed.test.ts`" names two of the mirror's; a name alone with no such path before it names a test some package has.
+ * reads. A test that reads AGENTS.md is named in the item for AGENTS.md itself ("and this file") or in the item for
+ * every document, so a test that pins a sentence of AGENTS.md is found beside the others that do, whatever other
+ * document it holds. And every test the section names is a file that exists. A test is named by its path from the
+ * root, or by its name alone after a path under its package earlier in the same line, as
+ * "`packages/mirror/test/coin.test.ts` and `seed.test.ts`" names two of the mirror's; a name alone with no such path
+ * before it names a test some package has.
  * What the section says each test holds is held by review.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -117,6 +120,15 @@ describe('the tests that read the documents (AGENTS.md, The words)', () => {
   it('names each of them in The words', () => {
     const named = new Set(NAMED.flatMap((n) => (n.path ? [n.path] : anyOf(n.name).length === 1 ? anyOf(n.name) : [])));
     expect(readers.filter((t) => !named.has(t))).toEqual([]);
+  });
+
+  it('names each test that reads AGENTS.md in the item for AGENTS.md itself or the item for every document', () => {
+    const own = theWords().filter((l) => /^ {2}- (?:and this file:|every document and README)/.test(l));
+    expect(own).toHaveLength(2);
+    const named = new Set(own.flatMap(namedIn).flatMap((n) => (n.path ? [n.path] : [])));
+    const agents = readers.filter((t) => markdownNamed(t).some((m) => m.split('/').at(-1) === 'AGENTS.md'));
+    expect(agents).toContain('packages/tracker/test/client-doc.test.ts');
+    expect(agents.filter((t) => !named.has(t))).toEqual([]);
   });
 
   it('names only tests that exist', () => {
