@@ -9,9 +9,10 @@ import { baseOf, quiltOver, startTracker } from './helpers.js';
  * The client's node as keeper (WORKSHOP.md section 2, stage one; PROTOCOL.md, The mirror): a node that opened a
  * problem holds its chain, and `keep` pulls it again from where it is held, keeps the lines that came since, fetches
  * the read a trace names so the node serves it, and keeps the identity log; a second tracker's chain for the same
- * problem, the same events in its own order, is read for the state it gives and not kept, since a node follows one
- * place's chain per problem; a second keep adds nothing; and what waited in the queue while no tracker answered goes
- * out at the start of a keep (APP.md, the node).
+ * problem, with other events in another order, is read for the state it gives and not kept, since a node follows one
+ * place's chain per problem; the identity log is one place's too, so a name the second tracker holds alone is not kept
+ * (NODE.md section 4); a second keep adds nothing; and what waited in the queue while no tracker answered goes out at
+ * the start of a keep (APP.md, the node).
  */
 let one: Server, two: Server;
 let base: string, other: string;
@@ -163,6 +164,25 @@ describe('the node keeps what it holds', () => {
     expect(again.refused).toHaveLength(2);
     expect(again.refused.every((r) => r.includes(other) && r.includes('did not only grow'))).toBe(true);
     expect(node.resolver.cachedReceipts(problem)).toHaveLength(5);
+  });
+
+  it("keeps one place's identity log, the first whose log grows the one kept, and not a name another tracker holds alone", async () => {
+    const names = (lines: Receipt[]) =>
+      lines.filter((l) => l.event.type === 'name').map((l) => (l.event.body as { name: string }).name);
+    const logAt = async (tracker: string): Promise<Receipt[]> =>
+      (await (await fetch(`${tracker}k/events`)).text())
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => JSON.parse(l) as Receipt);
+    await quiltOver(other)(7).setName('Bea');
+    expect(names(await logAt(other))).toContain('Bea');
+    // The second tracker is first among the places for the identity log too, and its log does not grow the one kept.
+    const kept = await node.resolver.keep();
+    expect(kept.refused).toContainEqual(
+      expect.stringMatching(new RegExp(`^identity: log from ${other} did not only grow: `)),
+    );
+    expect(names(node.resolver.cachedIdentity())).toEqual(names(await logAt(base)));
+    expect(names(node.resolver.cachedIdentity())).not.toContain('Bea');
   });
 
   it('sends what waited in the queue before it pulls: an event posted while no tracker answered goes out on the next keep', async () => {

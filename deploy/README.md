@@ -6,7 +6,7 @@ In order, on a fresh host:
 
 1. In Vercel's DNS for bitquilt.org, an `A` record `tracker` pointing at the host's address. Caddy fetches the certificate once the name resolves.
 2. Docker installed (`curl -fsSL https://get.docker.com | sh`), and the repository cloned with a read-only deploy key or a fine-grained token, since it is private: `git clone https://github.com/BitQuilt/bitquilt.git /srv/bitquilt`.
-3. `cp deploy/env.example deploy/.env` and fill it in: the key secret made once with `openssl rand -hex 32` and kept in two places, the salt, the maintainers' address, the coin's parameters from `docs/LAUNCH.md` with a genesis a day or two ahead. The file stays on the host.
+3. `cp deploy/env.example deploy/.env` and fill it in: the key secret made once with `openssl rand -hex 32` and kept in two places, the salt, the maintainers' address, the coin's parameters from `docs/DEPLOY.md` (under `QUILT_COIN`) with a genesis a day or two ahead. The file stays on the host.
 4. `docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build`, then `curl -s https://tracker.bitquilt.org/.well-known/quilt` answers with `"hosted": true` and the coin's parameters.
 5. Back up the volume `data` nightly, encrypted, apart from the key secret (`docs/DEPLOY.md`, Keeping it).
 6. The repository's variable `BITQUILT_TRACKERS` set to `https://tracker.bitquilt.org/`, which starts the mirror; the defaults in `packages/client/src/config.ts` and `scripts/build-mcpb.mjs` set to the same, then the release tag.

@@ -54,7 +54,7 @@ And one thing about the host: Claude Desktop names itself to a connector by a br
 
 ## What a challenge would have done
 
-The challenge window ([QX-1](ext/QX-1.md): standing, a panel by sortition, two verdicts) was built later the same day, after this run. Read against the record above:
+The challenge window ([QX-1](../ext/QX-1.md): standing, a panel by sortition, two verdicts) was built later the same day, after this run. Read against the record above:
 
 - **Statement 15 was not challengeable.** A challenge contests an acceptance, and a `disputed` piece has none. What settles it is a third production from a vendor unrelated to both, which `next` cuts first. Had a third vendor sided with D, the piece would have been `accepted_provisional` on `supports` the moment that reveal folded, and B, whose reading lost, would have had 48 hours to challenge it: not a party to the pair, with a standing of 16 (one as every root has, plus fifteen accepted reveals), on a one-sentence ground such as "the paper supposes ten minutes for a storage calculation and does not say blocks are generated every ten minutes."
 - **The fifteen were open to anyone else.** Any root with standing could have challenged any of them inside the window: not B or D, parties to every pair, and not the owner, who has no say.
