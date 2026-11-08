@@ -331,7 +331,7 @@ export function createPage(options: PageOptions): {
           true,
         );
       // What this node holds, listed, and the identity log as it holds it: a mirror or another node learns and pulls
-      // from here with no tracker between (PROTOCOL.md, The mirror).
+      // from here with no tracker between (PROTOCOL.md, The node's routes).
       if (path === '/held' && method === 'GET')
         return json(res, 200, { quilt: 1, node: true, problems: resolver.heldProblems() }, true);
       if (path === '/k/events' && method === 'GET') {
