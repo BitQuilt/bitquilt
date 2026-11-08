@@ -26,7 +26,10 @@ import { VERDICT, addr, boot, envelope, key } from './helpers.js';
  * a name every object inherits among them. Before any type's check, the allow-list comes first, then the problem the
  * event names, then a problem taken down. On the identity log its five types are let past, a name to the stamp asked
  * here and a hide to the maintainers' keys; any other type is told what the log takes, and that comes before an event
- * naming a problem is told it names none.
+ * naming a problem is told it names none. A version's slug is held to the envelope's rule, "problem.slug: lower-case
+ * letters, digits and hyphens, at most 64", in the same words for `body.slug`: a slug that climbs out of a folder,
+ * names one, is in upper case, is empty or runs to 65 is refused, and a slug of one character, of 64 or with hyphens
+ * is taken and sets the owner's name.
  */
 const owner = key(9),
   A = key(1),
@@ -112,7 +115,11 @@ const problemRows: [type: string, event: () => Event, answered: { status: number
     () => ev(A, 'run', { digest: ANY, exit: 0, host: 'linux/amd64', by }, P, S),
     refusal('the digest is no revealed return of the piece'),
   ],
-  ['version', () => ev(owner, 'version', { slug: 'door', hash: P }, P), TAKEN],
+  [
+    'version',
+    () => ev(owner, 'version', { slug: '../door', hash: P }, P),
+    refusal('body.slug: lower-case letters, digits and hyphens, at most 64'),
+  ],
   ['output', () => ev(A, 'output', { hash: ANY }, P), TAKEN],
   [
     'announce',
@@ -252,5 +259,22 @@ describe('the identity log', () => {
     expect(await answer('/k/events', ev(A, 'name', { name: 'Ada' }, undefined, NO_PIECE))).toEqual(
       refusal('an identity event names no problem'),
     );
+  });
+});
+
+describe("a version's slug, by the envelope's rule (CORE.md section 2)", () => {
+  /** Slugs that are not slugs: each climbs out of a folder, names one, or breaks the rule some other way. */
+  const NOT_SLUGS = ['..', 'a/b', '../../x', 'Door', '', 'a'.repeat(65)];
+  const RULE = 'body.slug: lower-case letters, digits and hyphens, at most 64';
+
+  it.each(NOT_SLUGS)("refuses a version whose slug is %j, in the words of the envelope's rule", async (slug) => {
+    expect(await answer(`/p/${P}/events`, ev(owner, 'version', { slug, hash: P }, P))).toEqual(refusal(RULE));
+  });
+
+  it('takes a version whose slug is a slug, of one character, with hyphens, and of 64, and keeps the name it sets', async () => {
+    for (const slug of ['x', 'two-words', `a${'0'.repeat(62)}z`]) {
+      expect(await answer(`/p/${P}/events`, ev(owner, 'version', { slug, hash: P }, P)), slug).toEqual(TAKEN);
+      expect(await t.get<{ hash: Hash }>(`/n/${addr(owner)}/${slug}`), slug).toEqual({ hash: P });
+    }
   });
 });

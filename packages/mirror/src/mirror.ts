@@ -46,6 +46,7 @@ import {
   eventProblems,
   eventSignedByKey,
   hashBytes,
+  isSlug,
   nextLine,
   onlyAppends,
   problemHash,
@@ -321,12 +322,13 @@ function keepTheRest(ctx: Context): void {
 /**
  * QX-19: the reads a chain's traces name, each fetched from the source under its hash where it is not held here and
  * written beside the data blobs; one that does not hash right is refused and not written, and one the source does
- * not serve is passed over, since a trace is admitted at a door that held the read and a node may not.
+ * not serve is passed over, since a trace is admitted at a door that held the read and a node may not. As
+ * NODE.md section 5, the reads, says: "A read a trace names by anything but a hash, and reads that are not a list, are
+ * not fetched, and are no refusal" (`readsNamed`), so no file's path or store's query is made of a body's words.
  */
 async function takeReads(ctx: Context, source: string, lines: Receipt[], label: string): Promise<void> {
   const wanted = new Set<Hash>();
-  for (const l of lines)
-    for (const h of readsNamed(l.event)) if (h && !ctx.store.getBlob(h as Hash)) wanted.add(h as Hash);
+  for (const l of lines) for (const h of readsNamed(l.event)) if (!ctx.store.getBlob(h)) wanted.add(h);
   for (const h of wanted) {
     const bytes = await getBytes(ctx, `${source}b/${h}`);
     if (!bytes) continue;
@@ -466,12 +468,8 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
   // is one.
   if (ctx.out)
     for (const line of chain.lines)
-      if (line.event.type === 'version' && line.event.key === envelope.problem.owner) {
-        const { slug, hash: target } = line.event.body as { slug: string; hash: Hash };
-        const file = join(ctx.out, 'names', envelope.problem.owner, slug);
-        mkdirSync(dirname(file), { recursive: true });
-        writeFileSync(file, `${target}\n`);
-      }
+      if (line.event.type === 'version' && line.event.key === envelope.problem.owner)
+        writeName(ctx.out, envelope.problem.owner, line.event.body);
   let complete = false;
   try {
     const state = reduce(reduceInputOf(ctx.store, envelope, ctx.now()));
@@ -488,6 +486,23 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
     ctx.report.errors.push(`${hash}: ${(err as Error).message}`);
   }
   ctx.report.problems.push({ hash, lines: chain.lines.length, added: chain.added, complete });
+}
+
+/**
+ * NODE.md section 6: an owner's name, `names/<owner>/<slug>`, from a version the owner signed. It is written only for a
+ * slug by the envelope's rule, "problem.slug: lower-case letters, digits and hyphens, at most 64" (`isSlug`), and only
+ * at a path inside names/<owner>/. A version with any other slug is passed over, and is no refusal. CORE.md section 4
+ * gives a version `{ slug, hash }` and no form for the slug, and the core's shape (`eventProblems`) asks only that it
+ * is a string, so a core client holds it, and a refusal would fail every run and stop main growing.
+ */
+function writeName(out: string, owner: string, body: Record<string, unknown>): void {
+  const { slug, hash } = body;
+  if (!isSlug(slug)) return;
+  const dir = join(out, 'names', owner);
+  const file = join(dir, slug);
+  if (dirname(file) !== dir) return;
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(file, `${hash as Hash}\n`);
 }
 
 /**

@@ -24,9 +24,10 @@ import { addr, boot, envelope as signed, key, layerOf } from './helpers.js';
  * set aside where neither side rests on anything, every pair is judged where a piece has three readings, and a problem
  * its owner replaced hands out nothing and leaves the index. A body whose read time Date.parse cannot read, or whose
  * read or span is not a whole number from 0, is refused with the same words as one with no field at all. The reads a
- * trace names are read in its order as stated, one at a time, and no other event names any. What the state shows of
- * each piece's traces is `problemTraces` over the layer: the seams over the layer's fold for a piece it calls disputed
- * and over the core's for one where it set a reading aside.
+ * trace names are its hashes in its order, one at a time; a read that is not an object or whose hash is not a hash,
+ * and reads that are not a list, name none, and no other event names any. What the state shows of each piece's traces
+ * is `problemTraces` over the layer: the seams over the layer's fold for a piece it calls disputed and over the core's
+ * for one where it set a reading aside.
  */
 const owner = key(9),
   A = key(1),
@@ -170,19 +171,19 @@ describe('the trace body (section 1)', () => {
 describe('the reads a trace names', () => {
   const named = (type: string, body: Record<string, unknown>) =>
     readsNamed(signEvent({ quilt: 1, type, key: addr(A), ts: '2026-11-02T12:00:00Z', body }, A));
-  it('are the hashes in its order as the body states them, one at a time, and none on another event', () => {
+  it('are the hashes in its order, one at a time, each a hash, and none on another event', () => {
     const h = hashBytes(enc.encode(PAGE));
-    expect([...named('trace', { reads: [read(h), { ...read(h), hash: 'not a hash' }, {}] })]).toEqual([
-      h,
-      'not a hash',
-      undefined,
-    ]);
+    const g = hashBytes(enc.encode(`${PAGE} again`));
+    expect([...named('trace', { reads: [read(h), read(g), read(h)] })]).toEqual([h, g, h]);
+    // A read that is not an object, or whose hash is not a hash, names nothing, and the reads after it are named.
+    for (const hash of ['not a hash', '..', '../ledger', 7, { a: 1 }, null, undefined])
+      expect([...named('trace', { reads: [read(h), { ...read(g), hash }, read(g)] })]).toEqual([h, g]);
+    expect([...named('trace', { reads: [null, 7, 'x', [read(h)], read(g)] })]).toEqual([g]);
+    // Reads that are not a list name nothing, and nothing is thrown.
+    for (const reads of [5, 'reads', {}, { 0: read(h) }, null, true])
+      expect([...named('trace', { reads })]).toEqual([]);
     expect([...named('trace', {})]).toEqual([]);
     expect([...named('reveal', { reads: [read(h)] })]).toEqual([]);
-    // A read that does not parse fails where a loop over the reads would, after the ones before it.
-    const reads = named('trace', { reads: [read(h), null] });
-    expect(reads.next().value).toBe(h);
-    expect(() => reads.next()).toThrow(TypeError);
   });
 });
 

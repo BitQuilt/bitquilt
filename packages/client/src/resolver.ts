@@ -19,6 +19,7 @@ import {
   eventId,
   hashBytes,
   isHash,
+  isRecord,
   onlyAppends,
   problemHash,
   reduce,
@@ -349,14 +350,18 @@ export class Resolver {
 
   /**
    * QX-19: the reads the traces on a chain name, each fetched from the places and kept under its hash where it is not
-   * here yet; how many were fetched.
+   * here yet; how many were fetched. As NODE.md section 4, step 3, says: "A read a trace names by anything but a hash,
+   * and reads that are not a list, are not fetched." A chain that verifies may hold a trace with any body, since a core
+   * client ignores the event (EXTENSIONS.md, What an extension may do), so no body stops the loop.
    */
   private async fetchReads(lines: Receipt[], link: Link): Promise<number> {
     let fetched = 0;
     for (const l of lines) {
       if (l.event.type !== 'trace') continue;
-      for (const r of (l.event.body as { reads?: { hash?: Hash }[] }).reads ?? []) {
-        if (!r.hash || !isHash(r.hash) || this.chains.getBlob(r.hash)) continue;
+      const reads = (l.event.body as { reads?: unknown }).reads;
+      if (!Array.isArray(reads)) continue;
+      for (const r of reads) {
+        if (!isRecord(r) || !isHash(r.hash) || this.chains.getBlob(r.hash)) continue;
         if (await this.blob(r.hash, link)) fetched += 1;
       }
     }

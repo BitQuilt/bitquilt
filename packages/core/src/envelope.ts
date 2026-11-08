@@ -97,6 +97,18 @@ export type Blobs = ReadonlyMap<Hash, Uint8Array>;
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
 const FAMILY = /^(.+)\/\*$/;
 
+/** What the envelope's check holds a slug to, in the words a refusal says after the field it names. */
+export const SLUG_RULE = 'lower-case letters, digits and hyphens, at most 64';
+
+/**
+ * A slug as `envelopeProblems` holds `problem.slug` to one: "problem.slug: lower-case letters, digits and hyphens, at
+ * most 64", beginning and ending with a letter or a digit. Section 2 names the slug, a short name stable across
+ * versions. The export changes no check the core makes; it lets another slug be held to the same rule.
+ */
+export function isSlug(s: unknown): s is string {
+  return typeof s === 'string' && SLUG_RE.test(s);
+}
+
 /** The closed objects of section 2: what each may carry and nothing else. */
 const PROBLEM_FIELDS: readonly string[] = [
   'title',
@@ -155,8 +167,7 @@ export function envelopeProblems(e: unknown): string[] {
   if (typeof p.done_when !== 'string' || !p.done_when.trim() || p.done_when.length > 1000)
     out.push('problem.done_when: text of at most 1000 characters');
   if (!isAddress(p.owner)) out.push('problem.owner: an address with its checksum');
-  if (typeof p.slug !== 'string' || !SLUG_RE.test(p.slug))
-    out.push('problem.slug: lower-case letters, digits and hyphens, at most 64');
+  if (!isSlug(p.slug)) out.push(`problem.slug: ${SLUG_RULE}`);
   if (p.prev !== null && !isHash(p.prev)) out.push('problem.prev: a hash or null');
   if (p.from !== null && !isHash(p.from)) out.push('problem.from: a hash or null');
   const s = p.settings;
