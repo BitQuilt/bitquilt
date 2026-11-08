@@ -24,6 +24,7 @@ import {
   expandPieces,
   hashBytes,
   isHash,
+  isRecord,
   isSlug,
   plainTextProblems,
   problemHash,
@@ -143,6 +144,55 @@ export function limit({ store, now }: Reads, bucket: string, max: number): void 
   if (store.hit(bucket, now().slice(0, 13), max)) throw new Refusal(429, "over the hour's limit");
 }
 
+/**
+ * The most hours a door takes for a lease or a challenge window (PROTOCOL.md, What the door answers). The fold adds
+ * them to a receipt's time (CORE.md section 6): a claim is live for its lease, a commit unabandoned for twice the
+ * piece's, and a window runs from the receipt that completed a set. A date is written only up to the year 275760, so
+ * an hour count past it leaves the fold no time to say, and the fold fails on the receipt. A million hours is over a
+ * hundred years, and twice that from any time a door writes is still a date.
+ */
+export const HOURS_MAX = 1_000_000;
+
+/** Each hour count over `HOURS_MAX`, as a refusal says it, with where it is. */
+function hoursOver(counts: [string, unknown][]): string[] {
+  return counts
+    .filter(([, h]) => typeof h === 'number' && h > HOURS_MAX)
+    .map(([at]) => `${at}: at most ${HOURS_MAX} hours`);
+}
+
+/** A claim's lease over `HOURS_MAX`, checked with the event's shape, as a post or a peer's line (QX-21). */
+export function eventHoursOver(e: Event): string[] {
+  return e.type === 'claim' && isRecord(e.body) ? hoursOver([['body.lease_h', e.body.lease_h]]) : [];
+}
+
+/** A problem's lease and challenge window, and each piece's lease, over `HOURS_MAX`, checked at publish. */
+export function envelopeHoursOver(p: Envelope['problem']): string[] {
+  return hoursOver([
+    ['problem.settings.lease_h', p.settings.lease_h],
+    ['problem.settings.challenge_window_h', p.settings.challenge_window_h],
+    ...Object.entries(p.pieces).map(([name, d]): [string, unknown] => [`problem.pieces.${name}.lease_h`, d.lease_h]),
+  ]);
+}
+
+/**
+ * A time as a door writes it, `toISOString` of the receipt's time: the date, the time to the second or finer, and Z.
+ */
+const DOOR_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
+
+/**
+ * Each time in a wrapper a peer serves (QX-21 section 2) that is not a time in UTC as a door writes one: the earliest
+ * of a wrapper's times decides an event's order and a lease's start (CORE.md section 6), and the reference reducer
+ * compares them as text, which orders only times written alike, and adds hours to the earliest.
+ */
+export function stampsUnlike(received: unknown): string[] {
+  if (!Array.isArray(received)) return ['received: a list'];
+  return received.flatMap((w, i) =>
+    isRecord(w) && typeof w.at === 'string' && DOOR_TIME.test(w.at) && Number.isFinite(Date.parse(w.at))
+      ? []
+      : [`received[${i}].at: a time in UTC, as a door writes one`],
+  );
+}
+
 /** A problem published: its envelope and blobs, once the route has held the post to its address's hourly limit. */
 export async function publish(
   { store, options, now, coinHome }: Reads,
@@ -154,6 +204,8 @@ export async function publish(
   const problems = envelopeProblems(envelope);
   if (problems.length) throw new Refusal(400, problems[0]!);
   const e = envelope as Envelope;
+  const hours = envelopeHoursOver(e.problem);
+  if (hours.length) throw new Refusal(400, hours[0]!);
   if (!signedBy(e as unknown as Record<string, unknown>, e.problem.owner))
     throw new Refusal(400, 'envelope: not signed by its owner');
   const blobs = new Map<Hash, Uint8Array>();
@@ -232,7 +284,7 @@ export async function keepBlob(store: Store, req: IncomingMessage, res: ServerRe
 export async function postEvent(cx: Reads, req: IncomingMessage, res: ServerResponse, log: Log): Promise<void> {
   const { store, url, now, limits, options, exactly } = cx;
   const event = parseJson(await readBody(req)) as Event;
-  const shape = eventProblems(event);
+  const shape = [...eventProblems(event), ...eventHoursOver(event)];
   if (shape.length) throw new Refusal(400, shape[0]!);
   if (!eventSignedByKey(event)) throw new Refusal(400, "signature is not the key's");
   limit(cx, `key:${event.key}`, limits.keyPerHour);

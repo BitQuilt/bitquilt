@@ -22,7 +22,7 @@ import { Refusal } from './http.js';
 import type { Store } from './store.js';
 import { readsNamed } from './trace.js';
 import { personSeatIn } from './verifiers.js';
-import type { Admitted, Log } from './admit.js';
+import { type Admitted, type Log, eventHoursOver, stampsUnlike } from './admit.js';
 import type { Tracker } from './tracker.js';
 
 /** QX-21: doors fold each other's chains. */
@@ -124,7 +124,7 @@ async function pullLog(door: PullDoor, peer: string, target: string, log: Log, o
   }
   for (const line of lines) {
     const event = line.event;
-    const shape = eventProblems(event);
+    const shape = [...eventProblems(event), ...eventHoursOver(event), ...stampsUnlike(line.received)];
     if (shape.length) {
       out.refused.push({ id: eventId(event), why: shape[0]! });
       continue;
