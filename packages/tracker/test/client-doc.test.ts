@@ -17,36 +17,39 @@
  * not the commit, with a second commit taking the clean return and no claim needed; `by` held to its lengths and four
  * words and no more, the vendor read before the slash; a name that names no problem; a read put twice and a path that
  * is no hash; a trace on a file; the state's `pieces` and `dropped`; the log's lines, with no id, bare hex and the
- * first `prev` the problem's. The door's checks: each row of the table under "What the door checks, in order" is met by
- * a post that fails that check, with the row's status and one of its sentences; a post that fails several is refused
- * for the earliest, row by row as each is put right, and the bodies hold the order through row 16: each post keeps
- * every fault but the one the door named at the post before, and the third, the sixth and the eighth take on faults the
- * one before could not carry, so the door's answer is the earliest of the checks it fails; the commit and the reveal
- * posted again close the walk at rows 20 and 16; the address's writes are counted after the problem is found and before
- * the body is read, and the key's posts after the signature is checked, so another key's signature spends none of the
- * key's hour; the rows the walk does not reach keep the table's order with the rows they share a post with: on a
- * problem taken down, a type the log does not carry and another problem named are refused at rows 8 and 9 before
- * row 10, and a reveal is refused at row 12 before row 13 on a record piece whose readings are in once a stake rule
- * names it, and at row 16 before row 17 on a human piece where the key has no commit; a reveal posted again meets
- * rows 11 to 17 again before row 20, and is refused at row 16 where it counted and its commit was the key's only one on
- * the piece, at row 13 once a record piece's readings are in, the readings that put them in included, and at row 12
- * once a staked piece is accepted and the lock released; it is answered 409 where a commit by the key on the piece
- * stays unrevealed, an earlier one abandoned or not, or its own where the reveal came late; and every row is met.
- * Beside the table: the door leaves a reveal's `h` to the reducer, whose drop shows in the state, and the dropped
- * reveal posted again is answered 409 though its commit is the key's only one on the piece; and next refuses the three
- * sentences the page names. A client that reduces: the problem's log alone leaves out a return posted under an
- * ancestor, and with the ancestor's log it reaches the tracker's state. A peer's events: what a peer admitted is pulled
- * through this door's admission; an event this door's rules refuse, on a problem taken down here or a piece under a
- * stake rule the peer lacks, is named in the pull's report with the sentence a post of it gets here, which is its
- * row's; a second pull passes over what this door holds; and a pull meets no hourly limit, so a door that takes one
- * write an hour from an address takes a peer's four events from one key at once. The well-known fields the page names
- * are in the well-known document, `peers` said as QX-21 says it; each rule the page repeats from PROTOCOL.md's "What
- * the door answers" cites it beside the rule and says what it says; each function it names is defined in the file it
- * names, the limit's wrapper in tracker.ts and the door's checks in admit.ts, where the rows of `problemDoor` give each
- * of the two checks the page names the types it gives them; its links reach a file and a heading, and it has no U+2014.
- * docs/README.md says it by its six steps, and names beside it the sections its reading list links. AGENTS.md says what
- * holds each part, the worked example the core and fixture 04, the requests and the table a booted tracker, as the
- * describes here do.
+ * first `prev` the problem's. The door's checks: the paragraph before the table under "What the door checks, in order"
+ * names beside each part of the code the rows of its checks, and its clauses and their rows come in the table's order;
+ * each row of the table is met by a post that fails that check, with the row's status and one of its sentences, and
+ * row 8's two sentences and row 11's two each by a post of its own; a post that fails several is refused for the
+ * earliest, row by row as each is put right, and the bodies hold the order through row 16: each post keeps every fault
+ * but the one the door named at the post before, and the third, the sixth and the eighth take on faults the one before
+ * could not carry, so the door's answer is the earliest of the checks it fails; the commit and the reveal posted again
+ * close the walk at rows 20 and 16; the address's writes are counted after the problem is found and before the body is
+ * read, a read's put is held to the same limit, and the key's posts are counted after the signature is checked and
+ * before the type is asked, so another key's signature spends none of the key's hour; the rows the walk does not reach
+ * keep the table's order with the rows they share a post with: on a problem taken down, a type of the identity log's, a
+ * type the log does not carry and another problem named are refused at rows 8 and 9 before row 10, a reveal is refused
+ * at row 12 before row 13 on a record piece whose readings are in once a stake rule names it, and at row 16 before
+ * row 17 on a human piece where the key has no commit, a run at row 12 before row 18 on a staked piece, and a trace
+ * that names no piece, or one the problem lacks, at row 11 before row 19; a reveal posted again meets rows 11 to 17
+ * again before row 20, and is refused at row 16 where it counted and its commit was the key's only one on the piece, at
+ * row 13 once a record piece's readings are in, the readings that put them in included, and at row 12 once a staked
+ * piece is accepted and the lock released; it is answered 409 where a commit by the key on the piece stays unrevealed,
+ * an earlier one abandoned or not, or its own where the reveal came late; and every row is met. Beside the table: the
+ * door leaves a reveal's `h` to the reducer, whose drop shows in the state, and the dropped reveal posted again is
+ * answered 409 though its commit is the key's only one on the piece; and next refuses the three sentences the page
+ * names. A client that reduces: the problem's log alone leaves out a return posted under an ancestor, and with the
+ * ancestor's log it reaches the tracker's state. A peer's events: what a peer admitted is pulled through this door's
+ * admission; an event this door's rules refuse, on a problem taken down here or a piece under a stake rule the peer
+ * lacks, is named in the pull's report with the sentence a post of it gets here, which is its row's; a second pull
+ * passes over what this door holds; and a pull meets no hourly limit, so a door that takes one write an hour from an
+ * address takes a peer's four events from one key at once. The well-known fields the page names are in the well-known
+ * document, `peers` said as QX-21 says it; each rule the page repeats from PROTOCOL.md's "What the door answers" cites
+ * it beside the rule and says what it says; each function it names is defined in the file it names, the limit's wrapper
+ * in tracker.ts and the door's checks in admit.ts, where the rows of `problemDoor` give each of the two checks the page
+ * names the types it gives them; its links reach a file and a heading, and it has no U+2014. docs/README.md says it by
+ * its six steps, and names beside it the sections its reading list links. AGENTS.md says what holds each part, the
+ * worked example the core and fixture 04, the requests and the table a booted tracker, as the describes here do.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -813,6 +816,35 @@ describe('CLIENT.md, what the door checks, in order', () => {
     }
   });
 
+  it("says before the table where in the code each row's check runs, in the rows' order", () => {
+    const paragraph = section('## What the door checks, in order').trim().split('\n\n')[0]!;
+    // Each clause with the rows it names, in the order the code runs them. The posts in this file hold that order
+    // wherever one post can fail the checks of two clauses side by side, so a clause moved, or given another row,
+    // fails here.
+    const clauses = [
+      "Its route's guard asks first that the problem is held here (row 1)",
+      "then counts the post against the address's limit before the body is read (row 2)",
+      'then reads the body as JSON (rows 3 and 4)',
+      'checks its shape (row 5)',
+      'its signature (row 6)',
+      "the key's limit (row 7)",
+      "first that the type is not the identity log's and has a row in `problemDoor`, the map from each type a problem's log takes to the one check that admits it (row 8)",
+      'then that the event names the problem it is posted under (row 9)',
+      'and that the problem is not taken down (row 10)',
+      "and last the check the type's row names (rows 11 to 19)",
+      '`postEvent` looks for a copy after that (row 20).',
+    ];
+    const at = clauses.map((c) => paragraph.indexOf(c));
+    for (const [i, c] of clauses.entries()) expect(at[i], c).toBeGreaterThanOrEqual(0);
+    expect(at).toEqual([...at].sort((a, b) => a - b));
+    // The rows the paragraph names, read in its order, are the table's, each once.
+    const numbered = [...paragraph.matchAll(/\(rows? (\d+)(?: (and|to) (\d+))?\)/g)].flatMap((m) => {
+      const [from, to] = [Number(m[1]), Number(m[3] ?? m[1])];
+      return m[2] === 'and' ? [from, to] : Array.from({ length: to - from + 1 }, (_, i) => from + i);
+    });
+    expect(numbered).toEqual(rows.map((r) => r.n));
+  });
+
   it('refuses a post that fails several checks for the earliest, row by row as each is put right', async () => {
     // The bodies hold the order. Through row 16, each post puts right the fault the door named at the one before and
     // keeps the others, so the door answers the earliest check it fails. Three posts also take on faults the one before
@@ -844,46 +876,49 @@ describe('CLIENT.md, what the door checks, in order', () => {
       expect(answer.error, `row ${n}`).toBe(sentence);
     };
     // A body that is not JSON, under a problem this tracker does not hold: row 1, the `problem` guard of the
-    // `/p/<hash>/events` route in tracker.ts, asked before the route's `limited` and before the body is read.
+    // `/p/<hash>/events` route in tracker.ts, which `handle` asks before the route's `limited` and before the body is
+    // read.
     await step(1, `/p/${hashText('no such problem')}/events`, 'not JSON', 'no such problem here');
-    // The same body under the problem: row 4, as `postEvent` in admit.ts parses it.
+    // The same body under the problem: row 4, `parseJson`, which `postEvent` in admit.ts asks of the body it read.
     await step(4, events, 'not JSON', 'not JSON');
     // An event typed `Reveal`, timed `yesterday`, signed by B for A's key, naming the other problem and a piece no
-    // problem has: row 5, its time, the shape `postEvent` checks. It fails rows 6, 8 and 9 too, and none from row 11.
-    // The piece and the return are read only by the check a type's row of `problemDoor` names, and `problemDoor` has
-    // no row for `Reveal`.
+    // problem has: row 5, its time, the shape `postEvent` checks with the core's `eventProblems`. It fails rows 6, 8
+    // and 9 too, and none from row 11. The piece and the return are read only by the check a type's row of
+    // `problemDoor` names, and `problemDoor` has no row for `Reveal`.
     await step(5, events, signed(B), 'event.ts: a time, ISO 8601 with a zone');
-    // Timed now: row 6, the signature `postEvent` checks against the key, B's on A's key.
+    // Timed now: row 6, `eventSignedByKey`, the signature `postEvent` checks against the key, B's on A's key.
     u.ts = now();
     await step(6, events, signed(B), "signature is not the key's");
-    // Signed by A: row 8, the type, which `admitProblemEvent` asks first: `Reveal` is no type of the identity log's,
-    // and `problemDoor` has no row for it.
+    // Signed by A: row 8, the type, which `admitProblemEvent` asks before anything else: `Reveal` has no row in
+    // `identityDoor`, the identity log's map, and none in `problemDoor`.
     await step(8, events, signed(A), 'this tracker does not carry Reveal events');
-    // Typed `reveal`: row 9, the problem named, the next check before the map. The `reveal` row of `problemDoor` names
-    // `checkPieceEvent`, so from here the post also fails row 11, its piece; and once it names a piece the problem has,
-    // its return and its key fail rows 14, 15 and 16.
+    // Typed `reveal`: row 9, the problem named, which `admitProblemEvent` asks next, before the hide and before the
+    // map's check. The `reveal` row of `problemDoor` names `checkPieceEvent`, so from here the post also fails row 11,
+    // its piece; and once it names a piece the problem has, its return and its key fail rows 14, 15 and 16.
     u.type = 'reveal';
     await step(9, events, signed(A), 'post an event under the problem it names');
-    // Under the problem: row 11, the first check of `checkPieceEvent`, a piece the problem does not have.
+    // Under the problem: row 11, the first check of `checkPieceEvent`, the check the `reveal` row of `problemDoor`
+    // names, a piece the problem does not have.
     u.problem = p;
     await step(11, events, signed(A), 'names a piece this problem does not have');
     // On the staked piece: row 12, the layer's `admitProduction` that `checkPieceEvent` asks, since A's root holds no
     // lock. A piece the problem lacks asks no stake, so this post trades row 11's fault for row 12's.
     u.piece = pieces.staked!;
     await step(12, events, signed(A), 'this piece asks for a stake of 1; lock first');
-    // On the open piece: row 14, the schema `checkPieceEvent` holds a reveal's return to, since `maybe` is no verdict
-    // the schema names.
+    // On the open piece: row 14, `returnProblems`, the schema `checkPieceEvent` holds a reveal's return to, since
+    // `maybe` is no verdict the schema names.
     u.piece = pieces.cite!;
     await step(14, events, signed(A), 'return.verdict: one of supports, contradicts, unreachable');
-    // With a verdict the schema names: row 15, the gate on each of the return's strings, the link in the quote.
+    // With a verdict the schema names: row 15, `plainTextProblems`, the gate `checkPieceEvent` runs on each of the
+    // return's strings, here the link in the quote.
     ret.verdict = 'supports';
     await step(15, events, signed(A), 'return: no links or markup');
     // With a clean quote: row 16, the unrevealed commit `checkPieceEvent` asks of the key, since A has no commit on
     // the piece.
     ret.quote = 'The page says the claim holds.';
     await step(16, events, signed(A), 'no unrevealed commit by this key on the piece');
-    // The commit is taken, and posted again it is held already: row 20, the copy `postEvent` looks for once the log's
-    // admission has passed it.
+    // The commit is taken, and posted again it is held already: row 20, `store.hasEvent`, the copy `postEvent` looks
+    // for once the log's admission has passed it.
     const commit = JSON.stringify(door.ev(A, 'commit', { h: commitHash(ret, nonce) }, p, pieces.cite));
     expect((await raw(door, events, commit)).status).toBe(202);
     await step(20, events, commit, 'already here');
@@ -987,11 +1022,11 @@ describe('CLIENT.md, what the door checks, in order', () => {
     }
   });
 
-  it("counts the address's writes after it finds the problem and before it reads the body, and the key's posts after it checks the signature", async () => {
+  it("counts the address's writes after it finds the problem and before it reads the body, and the key's posts after it checks the signature and before it asks the type", async () => {
     expect(DOC).toContain(
       "A post spends one of the address's writes once it passes row 1, and one of its key's posts once it passes row 6, whatever the door answers after, so a post another key signed spends none of the key's hour.",
     );
-    const tight = boot(T0, { limits: { keyPerHour: 1, ipPerHour: 7 } });
+    const tight = boot(T0, { limits: { keyPerHour: 1, ipPerHour: 8 } });
     await tight.listen();
     try {
       expect((await tight.post('/p', { envelope: P })).status).toBe(201);
@@ -1009,16 +1044,21 @@ describe('CLIENT.md, what the door checks, in order', () => {
       await tight.accepted(events, claim(A, pieces.cite!));
       // A's hour is spent, and B's signature on A's claim is still row 6: the door checks the signature first.
       meets(6, await raw(tight, events, forged(hashText('no such piece'))));
-      // A's own claim on a piece the problem lacks: row 7, the key's limit, which `postEvent` holds it to before
-      // `checkPieceEvent`, the check of the `claim` row of `problemDoor`, reads the piece.
+      // A's own claim on a piece the problem lacks, and A's `Claim` naming the other problem: row 7, the key's limit,
+      // which `postEvent` holds them to before it hands them to `admitProblemEvent`, so before the type (row 8), the
+      // problem named (row 9) and the piece that `checkPieceEvent`, the check of the `claim` row of `problemDoor`,
+      // reads (row 11).
       meets(7, await raw(tight, events, JSON.stringify(claim(A, hashText('no such piece')))));
+      meets(7, await raw(tight, events, JSON.stringify(tight.ev(A, 'Claim', { by: model }, q, pieces.cite))));
       // B's hour is B's own: row 11. That refusal spent B's hour, so B's claim on the problem's piece is row 7.
       meets(11, await raw(tight, events, JSON.stringify(claim(B, hashText('no such piece')))));
       meets(7, await raw(tight, events, JSON.stringify(claim(B, pieces.cite!))));
-      // The publish and the six posts have spent the address's seven writes: row 2, the route's `limited`, which runs
-      // before `postEvent` reads or parses the body.
+      // The publish and the seven posts have spent the address's eight writes: row 2, the route's `limited`, which
+      // runs before `postEvent` reads or parses the body. A read's put is a write the routes hold to the same limit.
       meets(2, await raw(tight, events, 'not JSON'));
       meets(2, await raw(tight, events, 'x'.repeat(4 * 1024 * 1024 + 1)));
+      const read = await fetch(`${tight.base}/b/${hashText('a read')}`, { method: 'PUT', body: 'a read' });
+      expect([read.status, await read.json()]).toEqual([429, { error: "over the hour's limit" }]);
       // A post under a problem this tracker does not hold: row 1, the route's guard, asked before its `limited`, though
       // the address's hour is spent.
       meets(1, await raw(tight, `/p/${hashText('no such problem')}/events`, 'not JSON'));
@@ -1037,8 +1077,15 @@ describe('CLIENT.md, what the door checks, in order', () => {
     const under = async (type: string, problem: Hash): Promise<Answer> =>
       raw(door, `/p/${h}/events`, JSON.stringify(door.ev(A, type, body, problem, hashText('no such piece'))));
     // `admitProblemEvent` asks the type and the problem named before the hide, and all three before the check the
-    // type's row of `problemDoor` names reads the piece.
-    meets(8, await under('Reveal', h));
+    // type's row of `problemDoor` names reads the piece. Of the type it asks first whether `identityDoor`, the
+    // identity log's map, has a row for it, so a name posted here naming the other problem is row 8's first sentence,
+    // and a type neither map has a row for is its second.
+    const name = await raw(door, `/p/${h}/events`, JSON.stringify(door.ev(A, 'name', { name: 'A worker' }, q)));
+    meets(8, name);
+    expect(name.error).toBe('identity events go to the identity log');
+    const type = await under('Reveal', h);
+    meets(8, type);
+    expect(type.error).toBe('this tracker does not carry Reveal events');
     meets(9, await under('reveal', q));
     meets(10, await under('reveal', h));
   });
@@ -1089,24 +1136,40 @@ describe('CLIENT.md, what the door checks, in order', () => {
     meets(17, await raw(door, events, JSON.stringify(reveal)));
   });
 
-  it('refuses a run that names no revealed return', async () => {
+  it('refuses a run that names no revealed return, after the stake its piece asks', async () => {
     const run = {
       digest: hashText('no such patch'),
       exit: 0,
       host: 'linux/x64',
       by: by('anthropic/claude', ['shell']),
     };
+    // On the staked piece, where A's root holds no lock: row 12, which `checkPieceEvent` asks of a run before its
+    // digest.
+    meets(12, await raw(door, events, JSON.stringify(door.ev(A, 'run', run, p, pieces.staked))));
     meets(18, await raw(door, events, JSON.stringify(door.ev(A, 'run', run, p, pieces.lint))));
   });
 
-  it('refuses a trace that names a read the tracker does not hold', async () => {
+  it('refuses a trace that names no piece or one the problem lacks before it reads the trace, and one naming a read the tracker does not hold', async () => {
     const id = await returned(door, p, C, 'google/gemini', pieces.cite!, {
       verdict: 'supports',
       quote: 'The page says so.',
     });
     const read = { url: 'https://example.org/page', hash: hashText('a read not put'), at: T0, media: 'text/plain' };
     const trace = { reveal: id, reads: [read], rests: [{ field: 'quote', read: 0, span: [0, 10] }] };
-    meets(19, await raw(door, events, JSON.stringify(door.ev(C, 'trace', trace, p, pieces.cite))));
+    const traced = (piece?: Hash): Promise<Answer> =>
+      raw(door, events, JSON.stringify(door.ev(C, 'trace', trace, p, piece)));
+    // `checkTraceEvent`, the check the `trace` row of `problemDoor` names, asks first that the trace names a piece and
+    // then that the problem has it, both row 11, since the core's shape asks a piece only of a claim, commit, reveal,
+    // decline or run (row 5); and last `admitTrace`, which finds the read not put (row 19).
+    for (const [piece, sentence] of [
+      [undefined, 'a trace names a problem and a piece'],
+      [hashText('no such piece'), 'names a piece this problem does not have'],
+    ] as const) {
+      const answer = await traced(piece);
+      meets(11, answer);
+      expect(answer.error).toBe(sentence);
+    }
+    meets(19, await traced(pieces.cite));
   });
 
   it('meets every row', () => {
@@ -1386,7 +1449,7 @@ describe('CLIENT.md, what it names and links', () => {
     for (const [name, file] of cited) expect(defines(file, name), `${name} in ${file}`).toBe(true);
     // The door's checks: the route's limit in tracker.ts, where its table of routes is, and the rest in admit.ts.
     const door = section('## What the door checks, in order').trim().split('\n\n')[0]!;
-    expect(door).toContain('(`limited` in `packages/tracker/src/tracker.ts`)');
+    expect(door).toContain('`limited` in `packages/tracker/src/tracker.ts`, which wraps each write the routes take');
     expect(door).toContain('`postEvent` in `packages/tracker/src/admit.ts`');
     const runs = [...new Set(named(door).filter((n) => /^[a-z]+(?:[A-Z][a-z]+)*$/.test(n)))];
     expect(runs).toEqual([
@@ -1401,7 +1464,7 @@ describe('CLIENT.md, what it names and links', () => {
       expect(defines('packages/tracker/src/admit.ts', name), `${name} in admit.ts`).toBe(true);
     // The rows of problemDoor: the types whose row names each of the two checks, as the page gives them.
     expect(door).toContain(
-      "the check the type's row names: `checkPieceEvent` for a claim, commit, reveal, decline or run, and `checkTraceEvent` for a trace.",
+      "the check the type's row names (rows 11 to 19): `checkPieceEvent` for a claim, commit, reveal, decline or run, and `checkTraceEvent` for a trace.",
     );
     const admit = source('packages/tracker/src/admit.ts');
     const start = admit.indexOf('const problemDoor');
