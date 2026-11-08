@@ -11,10 +11,13 @@
  * transport and the on-ramp answers the rest itself. At `/mcp/<token>` the token in the path names the address, and at
  * `/mcp` a bearer token from the authorization server does. Their methods are the ones the transport names in `Allow`
  * when it refuses another, and each is answered in the session, DELETE last. Their refusals are the statuses the
- * on-ramp and the transport give, each provoked here and held to its status. Where a browser meets the person's sheet
- * page and where the page reads its data are held from the rows' What it answers cells: the page at the address, the
- * JSON at its `/sheet`, and no page at `/mcp`. The other rows' refusals are not read. The tracker's own table is
- * protocol-table.test.ts's, and the node's is packages/client/test/node-table.test.ts's.
+ * on-ramp and the transport give, each provoked here and held to its status, and a body that is not JSON, at a
+ * session's start or inside one, is refused with the transport's own parse error, as PROTOCOL.md says under the
+ * table: inside a session after the transport's checks of the headers, and at a session's start before them. Where a
+ * browser meets the person's sheet page and where the page reads its data are held from the rows' What it answers
+ * cells: the page at the address, the JSON at its `/sheet`, and no page at `/mcp`. The other rows' refusals are not
+ * read. The tracker's own table is protocol-table.test.ts's, and the node's is
+ * packages/client/test/node-table.test.ts's.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdtempSync, readFileSync } from 'node:fs';
@@ -47,6 +50,8 @@ const NO_ADDRESS = '0'.repeat(64);
 const CALLBACK = 'https://agent.example/callback';
 /** What the transport asks a POST to accept. */
 const ACCEPT = 'application/json, text/event-stream';
+/** The transport's parse error, as the SDK's transport writes it: JSON-RPC's -32700 with no id. */
+const PARSE_ERROR = '{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error: Invalid JSON"},"id":null}';
 
 let server: Server;
 let base: string;
@@ -304,6 +309,9 @@ describe("PROTOCOL.md, the on-ramp's route table", () => {
         none: 401,
       },
     };
+    expect(DOC).toContain(
+      "A body that is not JSON is the caller's fault, and the connector refuses it with 400 and the transport's own parse error, a JSON-RPC error -32700. Inside a session the transport gives it after its checks of the `accept` and the body's type, so a header it refuses meets its 406 or 415 first; at a session's start the on-ramp gives it before those checks, as it gives its own 400 to any body that is not an initialize.",
+    );
     const other: Door = { url: `${base}/mcp/${theirs.token}`, headers: {} };
     const another = await session(other);
     for (const path of CONNECTOR) {
@@ -366,6 +374,40 @@ describe("PROTOCOL.md, the on-ramp's route table", () => {
         headers: { ...as.headers, ...typed, 'content-type': 'text/plain' },
         body: INITIALIZE,
       });
+      // A body that is not JSON is refused as the transport refuses one, at a session's start and inside one: the
+      // transport's own answer to a body it reads empty in a session, the same status, type and words.
+      const own = await fetch(as.url, { method: 'POST', headers: inside, body: '' });
+      const parseError = { status: own.status, type: own.headers.get('content-type'), body: await own.text() };
+      expect(parseError, `${path}: the transport's parse error`).toEqual({
+        status: 400,
+        type: 'application/json',
+        body: PARSE_ERROR,
+      });
+      const broken = '{"jsonrpc": "2.0", "id": 4,';
+      for (const [what, headers] of [
+        ['a session begun with a body that is not JSON', { ...as.headers, ...typed }],
+        ['a session begun with a body neither JSON nor typed as JSON', { ...as.headers, accept: ACCEPT }],
+        ['a body that is not JSON in a session', inside],
+      ] as const) {
+        const r = await fetch(as.url, { method: 'POST', headers, body: broken });
+        const got = { status: r.status, type: r.headers.get('content-type'), body: await r.text() };
+        expect(got, `${path}: ${what}`).toEqual(parseError);
+        refused.add(r.status);
+      }
+      // Inside a session the transport checks the headers before it reads the body, so a body that is not JSON
+      // under a header the transport refuses meets that header's refusal, as a ping under it does.
+      for (const [what, status, headers] of [
+        ['not typed as JSON', 415, { ...inside, 'content-type': 'text/plain' }],
+        ['under an accept without the event stream', 406, { ...inside, accept: 'application/json' }],
+      ] as const) {
+        const answer = async (body: string): Promise<unknown> => {
+          const r = await fetch(as.url, { method: 'POST', headers, body });
+          return { status: r.status, type: r.headers.get('content-type'), body: await r.text() };
+        };
+        const ping = (await answer(rpc(5, 'ping'))) as { status: number };
+        expect(ping.status, `${path}: a ping in a session ${what}`).toBe(status);
+        expect(await answer(broken), `${path}: a body that is not JSON in a session ${what}`).toEqual(ping);
+      }
       await refuses(403, "another address's session", as.url, {
         method: 'POST',
         headers: { ...inside, 'mcp-session-id': another },

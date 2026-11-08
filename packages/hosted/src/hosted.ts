@@ -14,7 +14,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
+import { ErrorCode, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { appendFileSync } from 'node:fs';
 import {
   type Address,
@@ -158,11 +158,57 @@ function decrypt(keySecret: string, stored: string): string {
 
 const tokenHash = (token: string): string => createHash('sha256').update(token).digest('hex');
 
+/** A body that does not parse as JSON, which the connector refuses with the transport's parse error. */
+const NOT_JSON: unique symbol = Symbol('not JSON');
+
+/** A request's body as JSON: nothing where it is empty, and NOT_JSON where it does not parse. */
 async function readJson(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   for await (const c of req) chunks.push(c as Buffer);
   const text = Buffer.concat(chunks).toString('utf8');
-  return text ? JSON.parse(text) : undefined;
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return NOT_JSON;
+  }
+}
+
+/**
+ * A body that is not JSON is the caller's fault, so the connector answers it as MCP's HTTP transport answers one: 400
+ * with JSON-RPC's parse error, "Invalid JSON was received by the server", written as the SDK's transport writes it.
+ * Inside a session the transport writes it itself; this writes it at a session's start, where no transport is made
+ * yet, and before the transport's checks of the headers, as the on-ramp's 400 for a body that is not an initialize is.
+ */
+function parseError(res: ServerResponse): void {
+  res.writeHead(400, { 'content-type': 'application/json' });
+  res.end(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      error: { code: ErrorCode.ParseError, message: 'Parse error: Invalid JSON' },
+      id: null,
+    }),
+  );
+}
+
+/**
+ * The refusal of a redeem for a member, which gives COIN.md's reason (What it is not): "A tracker keeps a record and
+ * never money; a custodial root holds coin as a record like any other and redeems it after taking the key home."
+ */
+const CUSTODIAL_REDEEM =
+  'the on-ramp refused the redeem: a tracker keeps a record and not money, so a custodial root redeems its coin after taking the key home; the sheet at its long address says how';
+
+/**
+ * The Quilt the on-ramp signs with for a member: every act of Quilt's own but a redeem, which it refuses before
+ * anything is signed, for COIN.md's reason above. A redeem that names `to` is refused as well, since the rule is the
+ * custodial root's and not the address's: a redeem takes coin off the record for the chain, and this tracker, which
+ * holds the root's key, keeps a record and never money, wherever the chain mints the line. A pay and a transfer stay
+ * on the ledger, and go through as Quilt's do.
+ */
+class CustodialQuilt extends Quilt {
+  override redeem(): Promise<never> {
+    return Promise.reject(new Error(CUSTODIAL_REDEEM));
+  }
 }
 
 export function createHosted(options: HostedOptions): Hosted {
@@ -267,7 +313,7 @@ export function createHosted(options: HostedOptions): Hosted {
 
   /**
    * The Quilt that signs for a member, by the hash of their address token, posting to this tracker with the custody
-   * secret and the session's witness, and to any other with neither.
+   * secret and the session's witness, and to any other with neither; a custodial one, which signs no redeem.
    */
   function quiltFor(hash: string, hostName: string | undefined, witness: Witness | null = null): Quilt | null {
     const member = store.getMember(hash);
@@ -284,7 +330,7 @@ export function createHosted(options: HostedOptions): Hosted {
       to: trackerUrl(),
       headers: custodyHeaders(custodySecret, witness),
     });
-    return new Quilt(config, { secret, address: addressOf(secret) }, resolver, hostName, witness);
+    return new CustodialQuilt(config, { secret, address: addressOf(secret) }, resolver, hostName, witness);
   }
 
   // QX-19 section 4, QX-16: the owners' turn. A person who runs nothing has no node to reveal their gold or sharpen
@@ -337,8 +383,10 @@ export function createHosted(options: HostedOptions): Hosted {
         return;
       }
       s.last = Date.now();
+      // A body that is not JSON goes to the transport as no body. The stream is read, so the transport reads it
+      // empty and writes its own parse error, after its own checks of the accept and the body's type.
       const body = method === 'POST' ? await readJson(req) : undefined;
-      await s.transport.handleRequest(req, res, body);
+      await s.transport.handleRequest(req, res, body === NOT_JSON ? undefined : body);
       return;
     }
     if (method !== 'POST') {
@@ -346,6 +394,7 @@ export function createHosted(options: HostedOptions): Hosted {
       return;
     }
     const body = await readJson(req);
+    if (body === NOT_JSON) return parseError(res);
     if (!isInitializeRequest(body)) {
       json(res, 400, { error: 'no session with that id; begin with an initialize request' });
       return;

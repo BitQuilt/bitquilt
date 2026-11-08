@@ -44,7 +44,7 @@ pre{font-family:ui-monospace,Menlo,monospace;font-size:.9rem;background:#e3e6eb;
 <p class="q" id="mark"></p>
 </div>
 <h2>What the token lets it do</h2>
-<p class="q">It uses Quilt's tools on this tracker as you, the same tools your long address gives: it reads problems, your standing and your coin, takes a piece and hands a return back in your name, publishes a problem, and pays, moves or redeems your coin, each when you say so in the chat. It cannot fetch your key or open your sheet. The token lasts an hour and the client renews it until it gives the token up; your long address goes on working beside it.</p>
+<p class="q">It uses Quilt's tools on this tracker as you, the same tools your long address gives: it reads problems, your standing and your coin, takes a piece and hands a return back in your name, publishes a problem, and pays or moves your coin, each when you say so in the chat. It cannot fetch your key or open your sheet, and it redeems no coin to the chain: this tracker holds your key, so a redeem waits until the key is on your own machine. The token lasts an hour and the client renews it until it gives the token up; your long address goes on working beside it.</p>
 <h2>Your address</h2>
 <p class="q">Paste the long address the join page gave you, or its last part. It is the proof that the address is yours; this page is at <code id="host"></code>, and only this tracker reads it.</p>
 <input id="address" type="password" autocomplete="off" spellcheck="false" aria-label="Your address on this tracker">
