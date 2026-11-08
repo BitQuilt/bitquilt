@@ -153,8 +153,8 @@ describe("PROTOCOL.md, the tracker's route table", () => {
         .map((r) => r.path)
         .filter((p) => p !== last.path),
     );
-    // The last row is the fallback: its path ends in `*`, so it takes every path that starts with what comes before.
-    expect(last.path).toBe('/coin*');
+    // The last row is the fallback: its path ends in `/*`, so it takes `/coin` and every path under it.
+    expect(last.path).toBe('/coin/*');
     expect(DOC).toContain(
       'Its last row is left out here: it takes every other path under `/coin`, where a `GET` is `404`, `no such route`.',
     );

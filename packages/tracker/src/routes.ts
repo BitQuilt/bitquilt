@@ -3,8 +3,9 @@
  * request's path finds its row. tracker.ts writes the rows in the order `handle` tries them, and the well-known
  * document lists the rows' paths in that order, so each route is written once. A row's path is written as the
  * well-known lists it and matched whole against a request's path with its trailing slashes cut: a placeholder stands
- * for one segment of its kind, and a `*` at the end takes every path that starts with what comes before it. The file
- * holds no handler: each row's handlers are the tracker's, written beside the row.
+ * for one segment of its kind, and a `/*` at the end takes the path before it and every path under it, so `/coin/*`
+ * takes `/coin` and `/coin/state` and not `/coinage`. The file holds no handler: each row's handlers are the
+ * tracker's, written beside the row.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Hash } from '@bitquilt/core';
@@ -64,16 +65,19 @@ const SEGMENT: Readonly<Record<keyof Segments, string>> = {
   slug: '[a-z0-9-]{1,64}',
 };
 
-/** A row's path as a pattern: its literal text escaped, each placeholder a named group of its kind. */
+/**
+ * A row's path as a pattern: its literal text escaped, each placeholder a named group of its kind, and a final `/*`
+ * the path before it or any path under it.
+ */
 function patternOf(path: string): RegExp {
-  const prefix = path.endsWith('*');
-  const parts = (prefix ? path.slice(0, -1) : path).split(/(<[a-z]+>)/).map((part) => {
+  const under = path.endsWith('/*');
+  const parts = (under ? path.slice(0, -2) : path).split(/(<[a-z]+>)/).map((part) => {
     const name = /^<([a-z]+)>$/.exec(part)?.[1];
     if (name === undefined) return part.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
     if (!Object.hasOwn(SEGMENT, name)) throw new Error(`a route's path names <${name}>, which is no kind of segment`);
     return `(?<${name}>${SEGMENT[name as keyof Segments]})`;
   });
-  return new RegExp(`^${parts.join('')}${prefix ? '' : '$'}`);
+  return new RegExp(`^${parts.join('')}${under ? '(?:/.*)?' : ''}$`);
 }
 
 /** Each path's pattern, made the first time a request is matched against it. */

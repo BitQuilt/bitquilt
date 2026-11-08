@@ -8,15 +8,16 @@ import { type Booted, addr, boot, envelope, key } from './helpers.js';
  * The door's routes (PROTOCOL.md, The tracker; QX-17 for the coin's): the status each route the well-known document
  * lists answers, for every method it takes and for a method it refuses, beside the two paths it answers unlisted and
  * OPTIONS on every path; the 404 an unknown problem gets before any of its sub-routes; the coin's routes on a tracker
- * that carries the coin, its fallbacks there, and the 404 every path under /coin gets on a tracker that does not. These
- * rows are held to the door's table (routes.ts), whose rows the well-known document lists: the list is these rows'
- * names in their order, each row's path is checked against the name it is listed under, and each path these rows ask
- * finds its own row of the table, in the table's order, with every row of the table found. The address's hourly limit:
- * the five writes the table takes are the ones it counts, each spends one address's budget and is refused once it is
- * spent, before its body is read; a read, a listing, a 405 and a guard's 404 spend nothing. A path the URL reader
- * cannot read, such as `//`, is answered as an unknown path is. And the table's own words:
- * a row's path takes a request's path whole, each placeholder one segment of its kind and a final `*` the rest, and a
- * method the row has no handler for is answered by its GET only where the row says so.
+ * that carries the coin, its fallbacks there, and the 404 every path under /coin gets on a tracker that does not,
+ * with a path that only opens with /coin answered as an unknown path on both. These rows are held to the door's table
+ * (routes.ts), whose rows the well-known document lists: the list is these rows' names in their order, each row's
+ * path is checked against the name it is listed under, and each path these rows ask finds its own row of the table,
+ * in the table's order, with every row of the table found. The address's hourly limit: the five writes the table
+ * takes are the ones it counts, each spends one address's budget and is refused once it is spent, before its body is
+ * read; a read, a listing, a 405 and a guard's 404 spend nothing. A path the URL reader cannot read, such as `//`, is
+ * answered as an unknown path is. And the table's own words: a row's path takes a request's path whole, each
+ * placeholder one segment of its kind and a final `/*` the path before it and every path under it, and a method the
+ * row has no handler for is answered by its GET only where the row says so.
  */
 const owner = key(9),
   A = key(1),
@@ -192,7 +193,6 @@ function routes(t: Booted): Route[] {
     { listed: '/coin/state', coin: true, path: '/coin/state', asks: [get(200), post(405, 'GET')] },
     // Under /coin the method is asked before the path: a GET finds no route, any other method is told GET.
     { listed: null, coin: true, path: '/coin/nope', asks: [get(404, NO_ROUTE), post(405, 'GET')] },
-    { listed: null, coin: true, path: '/coins', asks: [get(404, NO_ROUTE), post(405, 'GET')] },
   ];
 }
 
@@ -319,7 +319,7 @@ describe("the door's routes", () => {
         });
       expect((await answer(plain, 'OPTIONS', r.path)).status, `OPTIONS ${r.path}`).toBe(204);
     }
-    for (const path of ['/coin/events', '/coin/state', '/coin/nope', '/coins', '/coin']) {
+    for (const path of ['/coin/events', '/coin/state', '/coin/nope', '/coin']) {
       for (const method of ['GET', 'POST'])
         expect(await answer(plain, method, path), `${method} ${path}`).toEqual({ status: 404, error: NO_COIN });
     }
@@ -336,6 +336,13 @@ describe("the door's routes", () => {
       expect((await answer(coined, 'OPTIONS', r.path)).status, `OPTIONS ${r.path}`).toBe(204);
     }
     expect(await answer(coined, 'GET', '/coin')).toEqual({ status: 404, error: NO_ROUTE });
+  });
+
+  it('answers a path that opens with /coin and is not under it as an unknown path, with the coin or without', async () => {
+    for (const t of [plain, coined])
+      for (const path of ['/coins', '/coinage', '/coin-state', '/coin.json'])
+        for (const method of ['GET', 'POST', 'PUT'])
+          expect(await answer(t, method, path), `${method} ${path}`).toEqual({ status: 404, error: NO_ROUTE });
   });
 
   it('answers a path the URL reader cannot read as an unknown path: OPTIONS as on every path, and 404 for the rest', async () => {
@@ -508,10 +515,10 @@ describe("the door's table", () => {
     expect(segmentsOf('/', '/search')).toBeNull();
   });
 
-  it('takes every path that starts with what comes before a final *', () => {
-    for (const path of ['/coin', '/coins', '/coin/nope', '/coin/lock/x'])
-      expect(segmentsOf('/coin*', path)).toEqual({});
-    for (const path of ['/coi', '/x/coin', '/']) expect(segmentsOf('/coin*', path)).toBeNull();
+  it('takes the path before a final /* and every path under it, and no path that only opens with it', () => {
+    for (const path of ['/coin', '/coin/nope', '/coin/lock/x', '/coin//x'])
+      expect(segmentsOf('/coin/*', path)).toEqual({});
+    for (const path of ['/coins', '/coinage', '/coi', '/x/coin', '/']) expect(segmentsOf('/coin/*', path)).toBeNull();
   });
 
   it('refuses a placeholder that is no kind of segment', () => {

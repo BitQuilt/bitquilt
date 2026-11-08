@@ -482,7 +482,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     },
     { path: '/coin/state', guard: 'coin', GET: ({ res }) => json(res, 200, coinState(cx)), otherwise: 405 },
     // Any other path under /coin: a GET finds no route, and any other method is told GET.
-    { path: '/coin*', listed: false, guard: 'coin', GET: noRoute, otherwise: 405 },
+    { path: '/coin/*', listed: false, guard: 'coin', GET: noRoute, otherwise: 405 },
   ];
 
   /**
