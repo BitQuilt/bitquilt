@@ -9,11 +9,12 @@ import { VERDICT, addr, boot, envelope, key, line } from './helpers.js';
  * signed by its owner; the layer leaves that problem out with the core's reason and folds every other. The index, the
  * search and the offer go on without it; a version the core refuses replaces nothing, so the version before it stays
  * listed and offered; `/coin/state` names it among the refused with its chain's head (QX-17 section 6); its envelope
- * and its log are served by hash; a read of its state, scrape, challenges, panels, record or next, and a post on its
- * log, is refused with 503 and the core's reason, after a problem taken down is refused with 410, and a coin lock or
- * pay naming it with the same words (QX-17 section 2); and once the blob is held it folds. A fold that fails on a
- * receipt, not on the envelopes and blobs, is no refusal of the core's and fails as it did. A problem published through
- * the door has its blobs kept before its envelope, so the door's own write never leaves one without its data.
+ * and its log are served by hash; a read of its state, scrape, challenges, panels or record is refused with 503 and the
+ * core's reason, taken down or not, and so are next and a post on its log, after a problem taken down is refused with
+ * 410, and a coin lock or pay naming it with the same words (QX-17 section 2); and once the blob is held it folds. A
+ * fold that fails on a receipt, not on the envelopes and blobs, is no refusal of the core's and fails as it did. A
+ * problem published through the door has its blobs kept before its envelope, so the door's own write never leaves one
+ * without its data.
  */
 const owner = key(9),
   worker = key(1),

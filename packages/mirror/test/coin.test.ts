@@ -1159,18 +1159,17 @@ describe('a problem the home holds and the core refuses', () => {
   const unreadable = withData('not-a-list', notAList);
   const Y = problemHash(unreadable);
   /**
-   * A run over the home into a folder that holds Y and its blob, as an earlier run that took Y left it, and X and its
-   * blob too where `withX`, as a run that took X from another door would.
+   * A run over the home into a folder that holds Y and its blob, as an earlier run that took Y left it; and X's blob
+   * too where `x` is 'blob', as a run that took another problem naming the same blob would, or X and its blob where
+   * `x` is 'problem', as a run that took X from another door would.
    */
-  const run = (doctor: Doctor | null = null, withX = false) => {
+  const run = (doctor: Doctor | null = null, x: 'none' | 'blob' | 'problem' = 'none') => {
     const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-coin-refused-'));
     const files = new MirrorFiles(out);
     files.putBlob(hashBytes(notAList), notAList);
     files.putEnvelope(Y, unreadable);
-    if (withX) {
-      files.putBlob(hashBytes(cites), cites);
-      files.putEnvelope(X, withoutData);
-    }
+    if (x !== 'none') files.putBlob(hashBytes(cites), cites);
+    if (x === 'problem') files.putEnvelope(X, withoutData);
     return mirror({ trackers: [home], out, now, fetchImpl: fetchWith(doctor) });
   };
   type Named = { problem: Hash; head: Head };
@@ -1216,11 +1215,11 @@ describe('a problem the home holds and the core refuses', () => {
     const asFolded = await run(moved(Y, 'problems'));
     expect(asFolded.refused).toHaveLength(1);
     expect(asFolded.refused[0]).toMatch(
-      new RegExp(`^coin: the coin state names ${Y} as folded, and the core refuses it as served: .+, from `),
+      new RegExp(`^coin: the coin state names ${Y} as folded, and the core refuses it here: .+, from `),
     );
     const asRefused = await run(moved(G, 'refused'));
     expect(asRefused.refused).toEqual([
-      `coin: the coin state names ${G} as refused, and the core folds it as served, from ${home}`,
+      `coin: the coin state names ${G} as refused, and the core folds it here, from ${home}`,
     ]);
     const listed = await run(moved(F, 'refused'));
     expect(listed.refused).toEqual([
@@ -1235,12 +1234,79 @@ describe('a problem the home holds and the core refuses', () => {
     ]);
   });
 
-  it('refuses a state whose refused problem lacks a data blob the mirror holds', async () => {
-    const held = await run(null, true);
-    expect(held.refused).toEqual([
+  it('refuses a state whose refused problem lacks a data blob the mirror holds, or folds over what the mirror holds', async () => {
+    const blob = await run(null, 'blob');
+    expect(blob.refused).toEqual([
       `coin: the data blob ${hashBytes(cites)} of ${X} from ${home} is not served, and this mirror holds it`,
     ]);
-    expect(held.coin).toMatchObject({ reproduced: false });
+    expect(blob.coin).toMatchObject({ reproduced: false });
+    const problem = await run(null, 'problem');
+    expect(problem.refused).toEqual([
+      `coin: the coin state from ${home} names ${X} as refused, and it folds over what this mirror holds`,
+    ]);
+  });
+});
+
+describe('an earlier version the home adds that the core refuses', () => {
+  // A home lists a version P whose earlier version Q it does not hold, so P folds alone, and the mirror takes P. Then
+  // the home puts in its store Q, signed by P's owner, whose data blob its pieces cannot be read from: no line on any
+  // chain changes, and the core refuses P's input with Q in it (CORE.md section 6), so the home's fold leaves P out and
+  // its state names P and Q among the refused. The mirror holds P, which folds over what it holds, so the state is
+  // refused: an earlier version the home adds does not take with it the later one the mirror took.
+  let homeServer: Server;
+  let home: string;
+  const notAList = new TextEncoder().encode('not a list');
+  function version(slug: string, prev: Hash | null, data: Record<string, Hash>): Envelope {
+    const plain = envelope(owner, slug);
+    const problem: Envelope['problem'] = {
+      ...plain.problem,
+      prev,
+      data,
+      pieces:
+        Object.keys(data).length === 0
+          ? plain.problem.pieces
+          : {
+              'cite/*': {
+                count: 1,
+                verifier: 'agree',
+                brief: 'Citation {n}: {cite.s}',
+                data: { cite: 'cites.json' },
+                schema: VERDICT,
+                agree: ['verdict'],
+              },
+            },
+    };
+    const unsigned = { quilt: 1 as const, problem, hints: { trackers: [], mirrors: [] } };
+    return { ...unsigned, sig: signObject(unsigned, owner) };
+  }
+  const earlier = version('the-earlier', null, { 'cites.json': hashBytes(notAList) });
+  const Qe = problemHash(earlier);
+  const later = version('the-later', Qe, {});
+  const Pl = problemHash(later);
+  let homeStore: Awaited<ReturnType<typeof startTracker>>['store'];
+
+  beforeAll(async () => {
+    ({ server: homeServer, base: home, store: homeStore } = await startTracker(now, { coin }));
+    homeStore.putEnvelope(Pl, later, now());
+  });
+  afterAll(async () => {
+    await new Promise<void>((r) => homeServer.close(() => r()));
+  });
+
+  it('refuses a state that names as refused a later version the mirror took, once the home adds the earlier', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-coin-earlier-'));
+    const first = await mirror({ trackers: [home], out, now, fetchImpl: fetchWith(null) });
+    expect(first.refused).toEqual([]);
+    expect(first.problems.map((p) => p.hash)).toEqual([Pl]);
+    homeStore.putBlob(hashBytes(notAList), notAList);
+    homeStore.putEnvelope(Qe, earlier, now());
+    const state = (await (await fetch(`${home}coin/state`)).json()) as { folded: { refused: { problem: Hash }[] } };
+    expect(state.folded.refused.map((x) => x.problem).sort()).toEqual([Pl, Qe].sort());
+    const second = await mirror({ trackers: [home], out, now, fetchImpl: fetchWith(null) });
+    expect(second.refused).toEqual([
+      `coin: the coin state from ${home} names ${Pl} as refused, and it folds over what this mirror holds`,
+    ]);
+    expect(second.coin).toMatchObject({ reproduced: false });
   });
 });
 

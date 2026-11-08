@@ -20,6 +20,7 @@ export { PRIVATE_RANGES, clientAddress, clientAddressOf, inRanges, plainAddress,
 export { trackerOptionsFromEnv, quietSqliteWarning, type TrackerEnv } from './env.js';
 export {
   challengeLayer,
+  inputRefused,
   challengeBodyProblems,
   verdictBodyProblems,
   countsAsAccepted,
