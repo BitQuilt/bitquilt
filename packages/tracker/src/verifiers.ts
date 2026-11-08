@@ -19,6 +19,7 @@ import {
   type PieceState,
   type PieceView,
   type Receipt,
+  type Received,
   type Return,
   type Reveal,
   type State,
@@ -373,12 +374,24 @@ export function judgeAdmissions(f: Folding, now: string): Pick<Layer, 'admitRank
 }
 
 /**
- * Whether a reveal came from a person's seat: the receipt says `seat: person` or `custody: hosted`, or the client
- * declared the model `human`.
+ * verifiers.md section 2: a reveal came from a person's seat when "the receipt's wrapper says `seat: "person"`; the
+ * wrapper says `custody: "hosted"`, whatever `seat` it says beside (...); or the reveal's `by.model` is `human`".
  */
 export function fromPersonSeat(reveal: Reveal, receipt: Receipt | undefined): boolean {
   if (reveal.by.model === 'human') return true;
-  return receipt?.received.some((r) => r.seat === 'person' || r.custody === 'hosted') ?? false;
+  return receipt ? personSeatIn(receipt.received) : false;
+}
+
+/**
+ * Whether a line's wrappers say its seat is a person's: one says `seat: person`, or one says `custody: hosted`
+ * whatever `seat` it names beside. The on-ramp writes `seat: ai` beside its custody on everything it posts: through
+ * the connector a member's product makes the calls, and the on-ramp's own hourly turn makes the rest
+ * (PROTOCOL.md, Events). The seat is still the member's, a person who took an address at its door
+ * (verifiers.md section 2). The door reads a post's seat here from the wrapper it will write, and a pulled line's
+ * from the peer's wrappers, as the layer reads every line's (QX-21 section 2).
+ */
+export function personSeatIn(received: readonly Pick<Received, 'custody' | 'seat'>[]): boolean {
+  return received.some((r) => r.seat === 'person' || r.custody === 'hosted');
 }
 
 interface Line {

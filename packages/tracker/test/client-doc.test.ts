@@ -1544,12 +1544,12 @@ describe("CLIENT.md, a peer's events at this door", () => {
         'why: shape[0]',
         'eventSignedByKey(',
         'why: "signature is not the key\'s"',
-        'admit(log, event, hosted)',
+        'admit(log, event, personSeat)',
       ],
       'pullLog',
     );
     const admit = definition('admit.ts', 'pullDoorOf');
-    inOrder(admit, ['admit: (log, event, hosted) =>', 'exactly(', 'admitProblemEvent('], 'pullDoorOf');
+    inOrder(admit, ['admit: (log, event, personSeat) =>', 'exactly(', 'admitProblemEvent('], 'pullDoorOf');
     for (const [name, body] of [
       ['pullLog', pull],
       ['pullDoorOf', admit],

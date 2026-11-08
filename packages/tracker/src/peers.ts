@@ -22,6 +22,7 @@ import { COIN_LOG } from './coin.js';
 import { Refusal } from './http.js';
 import type { Store } from './store.js';
 import { readsNamed } from './trace.js';
+import { personSeatIn } from './verifiers.js';
 import type { Admitted, Log } from './admit.js';
 import type { Tracker } from './tracker.js';
 
@@ -44,7 +45,8 @@ export interface PeerPull {
 /**
  * What the peer pull reaches of the tracker that runs it: its store, its own address, its clock, its fetch and the
  * peers it names; `admit`, the door's admission of an event for a log, run as a post's is, with the layer built afresh
- * at now while it runs; and `noteAppended`, what the door keeps beside a chain once a line is on it.
+ * at now while it runs, told whether the peer's wrappers say the seat is a person's; and `noteAppended`, what the door
+ * keeps beside a chain once a line is on it.
  */
 export interface PullDoor {
   store: Store;
@@ -52,7 +54,7 @@ export interface PullDoor {
   now: () => string;
   fetchImpl: typeof fetch;
   peers: readonly string[];
-  admit: (log: Log, event: Event, hosted: boolean) => Promise<Admitted>;
+  admit: (log: Log, event: Event, personSeat: boolean) => Promise<Admitted>;
   noteAppended: (log: Log, event: Event, at: string) => void;
 }
 
@@ -134,12 +136,13 @@ async function pullLog(door: PullDoor, peer: string, target: string, log: Log, o
       out.refused.push({ id, why: "signature is not the key's" });
       continue;
     }
-    const hosted = line.received.some((w) => w.custody === 'hosted');
+    // QX-3: a human piece's seat, read from the peer's wrappers as the layer reads it (verifiers.md section 2).
+    const personSeat = personSeatIn(line.received);
     // QX-19 section 2: a trace is admitted where its reads are held, so the reads it names are taken from the peer
     // under their hashes first, as the mirror and a node's keep take them.
     if (event.type === 'trace') await takeReads(door, peer, event);
     try {
-      const admitted = await admit(log, event, hosted);
+      const admitted = await admit(log, event, personSeat);
       const appended = store.appendPulled(admitted.chain, event, id, [
         ...line.received,
         { by: url, at: now(), ...(admitted.word ?? {}) },

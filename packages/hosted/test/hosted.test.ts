@@ -24,7 +24,8 @@ import { answerText, sentenceVendor, vendorSentence } from '../src/sentence.js';
  * earlier version that holds a piece the later one keeps only from it, what each reading rests on (QX-19), read from
  * the same chain as the readings, and where the piece stands after the owner replaced it. And the owners' turn
  * (QX-19 section 4, QX-16): the on-ramp sharpens a hosted owner's brief where two grounded readings read it apart,
- * with the sentence from the vendor its environment names, and passes over a member with nothing to do.
+ * with the sentence from the vendor its environment names, its posts marked `custody: hosted` and `seat: ai` with no
+ * `via`, as PROTOCOL.md says, and passes over a member with nothing to do.
  */
 let server: Server;
 let base: string;
@@ -614,8 +615,18 @@ describe("the owners' turn", () => {
       .trim()
       .split('\n')
       .map((l) => JSON.parse(l) as Receipt);
-    expect(receipts.filter((r) => r.event.key === made.address).every((r) => r.received[0]!.custody === 'hosted')).toBe(
-      true,
+    // What the turn posted, the version and its announce, is marked as everything the on-ramp posts to its door,
+    // `custody: hosted` and `seat: ai`, and carries no `via`, since no product made those calls: the on-ramp made them
+    // on its own timer. PROTOCOL.md's receipts paragraph says who makes the calls on every hosted post.
+    const turned = receipts.filter((r) => r.event.key === made.address);
+    expect(turned.map((r) => r.event.type).sort()).toEqual(['announce', 'version']);
+    for (const r of turned) {
+      expect(r.received).toHaveLength(1);
+      expect(r.received[0]).toMatchObject({ custody: 'hosted', seat: 'ai' });
+      expect(r.received[0]).not.toHaveProperty('via');
+    }
+    expect(readFileSync(new URL('../../../docs/PROTOCOL.md', import.meta.url), 'utf8')).toContain(
+      "The reference writes `hosted` and `ai` on everything its on-ramp posts to it, and `self` with no seat on every other post (`postEvent` in `packages/tracker/src/admit.ts`). Through the connector a member's product makes the calls; the on-ramp's own hourly turn makes the rest, the gold due revealed (QX-16), the briefs sharpened (QX-19 section 4) and the problems announced (QX-13 section 3), and those carry no `via`, since no product made them.",
     );
     const memberHash = createHash('sha256')
       .update(/\/mcp\/([0-9a-f]{64})$/.exec(made.url)![1]!)

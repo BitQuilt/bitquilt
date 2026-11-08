@@ -12,9 +12,10 @@ import { addr, boot, envelope, key } from './helpers.js';
  * them; the scrape's row names every field the scrape answers, and `/` and `/search` give each problem the same
  * without `chain_ok`. Then what the door answers, as the prose names it: a method a row has no handler for, 405 under
  * a problem and the coin, the log at the two logs that read it so, the fallback's 404, and the routes mounted beside
- * the tracker asked once no row answered; any origin allowed on every answer the tracker writes itself, and nothing
- * added to what the routes beside it write; a post asked in the prose's order, its guard first and its address's limit
- * before its body is read; the fields of the piece next hands over, the rows under "### The piece next hands over";
+ * the tracker asked once no row answered, and not for a path that cannot be read as a URL; any origin allowed on
+ * every answer the tracker writes itself, and nothing added to what the routes beside it write; a post asked in the
+ * prose's order, its guard first and its address's limit before its body is read; the fields of the piece next hands
+ * over, the rows under "### The piece next hands over";
  * a post's answer, and 409 for it again; the signature's text form, with a `v` of 0 or 1 taken and any other
  * refused; the limits as published, the address's counting every write and the key's every post; and the hold, on
  * the piece next hands over and on the first the offer names, for 60 seconds. And The problem envelope's checks at
@@ -152,8 +153,8 @@ describe("PROTOCOL.md, the tracker's route table", () => {
         .map((r) => r.path)
         .filter((p) => p !== last.path),
     );
-    // The last row is the fallback: its path ends in `*`, so it takes every path that starts with what comes before.
-    expect(last.path).toBe('/coin*');
+    // The last row is the fallback: its path ends in `/*`, so it takes `/coin` and every path under it.
+    expect(last.path).toBe('/coin/*');
     expect(DOC).toContain(
       'Its last row is left out here: it takes every other path under `/coin`, where a `GET` is `404`, `no such route`.',
     );
@@ -252,6 +253,11 @@ describe('PROTOCOL.md, what the door answers', () => {
       expect(await asked('POST', `/p/${unheld}`)).toEqual({ status: 404, body: { error: 'no such problem here' } });
       expect(await asked('POST', `/p/${P}`)).toEqual({ status: 405, body: { error: 'GET' } });
       expect(await asked('GET', '/declined')).toEqual({ status: 404, body: { error: 'no such route' } });
+      // A path that cannot be read as a URL reaches no route beside the tracker, which would answer anything else.
+      expect(DOC).toContain(
+        'A path that cannot be read as a URL, such as `//`, is `404`, `no such route`, with none of them asked, since none of them could read it either.',
+      );
+      expect(await asked('GET', '//')).toEqual({ status: 404, body: { error: 'no such route' } });
     } finally {
       await beside.close();
     }
