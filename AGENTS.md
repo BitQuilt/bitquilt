@@ -49,7 +49,7 @@ The reference tracker. Its door is `tracker.ts` and three jobs, `admit.ts`, `vie
 | `src/hand.ts` | What the tracker hands a key: assisted next with its seams, and the offer across the problems, each held a minute for that key (`assisted`, `offer`) | CORE.md section 7; QX-4 section 4; QX-5; QX-19 section 4; PROTOCOL.md, The piece next hands over |
 | `src/hide.ts` | The hide event, and what a hidden problem loses at this tracker (`hiddenNow`) | QX-6 sections 1 to 3 |
 | `src/http.ts` | The refusal and the JSON writer the door answers with, which the hosted on-ramp's routes write with too (`Refusal`, `json`) | PROTOCOL.md, What the door answers |
-| `src/index.ts` | The tracker as a library for hosted, the mirror and the node, and for Quilt's tests: the store, the tracker, the layers, and what the tests read (`createTracker`, `challengeLayer`) | |
+| `src/index.ts` | What the package exports, which hosted, the mirror and the node import in their sources and Quilt in its tests: the store and the tracker (`Store`, `createTracker`), the layers, and the helpers the on-ramp's routes and the mirror read; the tracker's own tests import its files themselves | |
 | `src/peers.ts` | The pull of each peer's identity log and chains through this door, every five minutes (`pullPeers`, `schedulePeerPulls`, `PullDoor`) | QX-21 sections 2 and 5 |
 | `src/routes.ts` | What a row of the route table holds, and how a request's path finds its row (`Route`, `routeOf`, `handlerOf`) | PROTOCOL.md, Routes |
 | `src/seeding.ts` | Seeders and the last seed, watch pieces offered to seeders first, and the order problems are offered in (`seedInfo`, `offerOrder`) | QX-4; QX-5 section 2 |
@@ -147,7 +147,7 @@ The keeper and the mirror job. `mirror.ts` imports the core and the tracker, and
 | `src/bin.ts` | `bitquilt-mirror`: one run from the flags or the job's variables, with the chain opened to check the credits | NODE.md section 6; QX-12 |
 | `src/files.ts` | The store a keeper keeps in, the shape of the client's chains, and the mirror's layout under its folder (`KeptStore`, `MirrorFiles`) | NODE.md section 2 |
 | `src/identity.ts` | The identity log folded into each problem's hides and, for keys.json, each address's name and delegations (`hiddenFromIdentity`, `keysFromIdentity`) | QX-6 section 4 |
-| `src/index.ts` | What the package exports: the run (`mirror`), which Quilt's tests import, the keep (`keep`), which the node imports, the anchoring and the identity's folds | |
+| `src/index.ts` | What the package exports: the run (`mirror`), which Quilt's tests import, the keep (`keep`), which the node imports, the store a keeper keeps in (`MirrorFiles`), the anchoring and the identity's folds | |
 | `src/mirror.ts` | The pull over a store, and the same pull over the files with the publication after it, the balances reproduced and each head anchored (`keep`, `mirror`) | NODE.md sections 5 and 6; QX-6; QX-12; QX-17 section 7; QX-19; QX-20 section 4 |
 
 ### `packages/coin` (`@bitquilt/coin`)
