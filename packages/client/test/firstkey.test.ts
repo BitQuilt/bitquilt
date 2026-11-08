@@ -3,7 +3,7 @@ import type { Server } from 'node:http';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { isPhrase } from '@bitquilt/core';
-import { DEFAULT_CONFIG, type Config } from '../src/config.js';
+import { DEFAULT_CONFIG, type Config, createKey, takeWords, wordsDue } from '../src/config.js';
 import { createPage } from '../src/page.js';
 import { Quilt } from '../src/quilt.js';
 import { Resolver } from '../src/resolver.js';
@@ -13,7 +13,8 @@ import { baseOf, startTracker, tempHome } from './helpers.js';
 /**
  * A key at first use (JOURNEY-AUDIT.md, fix 2): a home with no key signs when first asked, making the key then and
  * keeping its twelve words for the page to show once; quilt_me says where they wait; the page shows them one time
- * and the sheet calls the backup due until it has; a second Quilt over the same home sees the key the first made.
+ * and the sheet calls the backup due until it has; a second Quilt over the same home sees the key the first made. The
+ * words are written and read in config.ts, beside the key.
  */
 let tracker: Server;
 let base: string;
@@ -78,5 +79,14 @@ describe('a key at first use', () => {
     expect(existsSync(join(home, 'words'))).toBe(false);
     expect((await api('/api/phrases')).backup).toBeNull();
     expect(quilt.me().wordsDue).toBe(false);
+  });
+  it('keeps the words beside the key, due until taken, and taken once', () => {
+    const elsewhere = tempHome('quilt-firstkey-words-');
+    expect(wordsDue(elsewhere)).toBe(false);
+    const { phrase } = createKey(elsewhere, { keepWords: true });
+    expect(wordsDue(elsewhere)).toBe(true);
+    expect(takeWords(elsewhere)).toBe(phrase);
+    expect(takeWords(elsewhere)).toBeNull();
+    expect(wordsDue(elsewhere)).toBe(false);
   });
 });

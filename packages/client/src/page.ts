@@ -12,6 +12,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type Hash, IDENTITY_LOG, isHash } from '@bitquilt/core';
 import { awayState, awaySwitch, readSummary, recordSummary } from './away.js';
+import { takeWords, wordsDue } from './config.js';
 import { goldDue } from './gold.js';
 import { claudeDesktopConfigPath, claudeHasQuilt, claudeRunning, entryHere, installHere } from './install.js';
 import { makeLink } from './link.js';
@@ -19,8 +20,10 @@ import { sheetOf } from './phrases.js';
 import { kept } from './pool.js';
 import { type Pattern, Quilt } from './quilt.js';
 import { goldText, handedJson, kindWords, kindsText, layerByHash, stakeText } from './render.js';
-import { type Resolver, publicLibrary, KEEP_EVERY_MS } from './resolver.js';
+import { publicLibrary } from './library.js';
+import { type Resolver, KEEP_EVERY_MS } from './resolver.js';
 import { isToolName, runTool } from './tools.js';
+import type { PagePiece } from './window-answers.js';
 
 /** The page's HTML: an asset of the single executable when this runs as one, else the file beside the source. */
 function pageHtml(): string {
@@ -161,7 +164,7 @@ export function createPage(options: PageOptions): {
           done_when: state.envelope.problem.done_when,
           owner: state.envelope.problem.owner,
           complete: state.complete,
-          pieces: state.pieces.map((v) => {
+          pieces: state.pieces.map((v): PagePiece => {
             const l = over.get(v.piece.hash);
             const k = kindWords(v.piece.verifier);
             return {
@@ -221,10 +224,10 @@ export function createPage(options: PageOptions): {
         return json(res, 200, await person.rank(b.problem, b.piece, b.ranking));
       }
       if (path === '/api/words' && method === 'POST') {
-        // The key's twelve words, kept at first use, shown this once: read and removed (resolver.ts, takeWords).
-        return json(res, 200, { words: resolver.takeWords() });
+        // The key's twelve words, kept at first use, shown this once: read and removed (config.ts, takeWords).
+        return json(res, 200, { words: takeWords(resolver.home) });
       }
-      // Names and counts, and what the node serves; the gold's answers stay in the home (resolver.ts, publicLibrary).
+      // Names and counts, and what the node serves; the gold's answers stay in the home (library.ts, publicLibrary).
       if (path === '/api/library') return json(res, 200, publicLibrary(quilt.library, quilt.resolver.serving()));
       if (path === '/api/attention')
         return json(res, 200, (await wanted.get(8_000).catch(() => null))?.[0] ?? (await person.attention()));
@@ -246,7 +249,7 @@ export function createPage(options: PageOptions): {
             library: quilt.library,
             attention,
             standing,
-            wordsDue: resolver.wordsDue(),
+            wordsDue: wordsDue(resolver.home),
             claude: { installed: claudeHasQuilt(file), config: file, running: claudeRunning() },
           }),
         );

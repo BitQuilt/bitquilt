@@ -14,6 +14,7 @@ import { foundIn, foundText, kindWords, recordedText, seamsText, sessionWitnessT
 import type { Posted } from './resolver.js';
 import { type RestAsked, traceText } from './trace.js';
 import { windowAnswer } from './window.js';
+import type { Handle } from './window-answers.js';
 
 export interface ToolResult {
   text: string;
@@ -263,7 +264,7 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
             view: 'search',
             query: query || null,
             link: link || null,
-          },
+          } satisfies Handle,
         },
       };
     }

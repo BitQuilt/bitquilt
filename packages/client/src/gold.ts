@@ -8,7 +8,8 @@ import { type Hash, type Piece, agreeFields, commitHash, eventId, isHash, newNon
 import type { Door } from './door.js';
 import type { LayerPiece } from './listings.js';
 import { layerByHash } from './render.js';
-import type { Library, Posted } from './resolver.js';
+import type { Library } from './library.js';
+import type { Posted } from './resolver.js';
 
 /**
  * The owner's gold on a problem, posted after publishing or at it: each answer projected to the piece's agreed fields

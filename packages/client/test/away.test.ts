@@ -5,13 +5,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Hash } from '@bitquilt/core';
+import { NEEDS_AGENT, codexModel, findAgent, searchDirs } from '../src/agents.js';
 import {
   AWAY_FILE,
   AWAY_LOG,
   AWAY_TOOLS,
-  LAUNCHD_LABEL,
-  NEEDS_AGENT,
-  awayCommand,
   awayPrompt,
   awayStatus,
   awaySummary,
@@ -20,37 +18,39 @@ import {
   capText,
   claudeInvocation,
   codexInvocation,
-  codexModel,
-  crontabLine,
-  findAgent,
-  installSchedule,
-  launchAgentFile,
-  launchdLabel,
   localDay,
-  plistText,
   readAway,
   recordReturn,
   recordRun,
   rolledOver,
-  scheduleEnv,
-  scheduleOf,
-  searchDirs,
   setCap,
-  uninstallSchedule,
   writeAway,
 } from '../src/away.js';
+import {
+  LAUNCHD_LABEL,
+  awayCommand,
+  crontabLine,
+  installSchedule,
+  launchAgentFile,
+  launchdLabel,
+  plistText,
+  scheduleEnv,
+  scheduleOf,
+  uninstallSchedule,
+} from '../src/schedule.js';
 import { DEFAULT_CONFIG, loadConfig } from '../src/config.js';
 import { awayInstructions } from '../src/mcp.js';
 import type { Pattern, Quilt } from '../src/quilt.js';
 import { instructs, json, mcpPair, quiltOver, startTracker, tempHome } from './helpers.js';
 
 /**
- * `quilt away` (away.ts): one piece an hour while nobody is at the keyboard, through an agent CLI on the person's own
- * plan. The agent is found on a PATH and the usual places, claude before codex; each gets its headless invocation with
- * the connector, the vendor it declares and the record under QUILT_AWAY; the record rolls over by the local day and
- * keeps a week; the connector itself offers only the tools a run may call and stops quilt_next and quilt_return at the
- * cap, in words that describe; the driver refuses to start at the cap, and otherwise runs the agent and records the
- * run; the launchd plist runs this program's `away` every hour; the switch writes and removes it.
+ * `quilt away` (away.ts, over agents.ts and schedule.ts): one piece an hour while nobody is at the keyboard, through
+ * an agent CLI on the person's own plan. The agent is found on a PATH and the usual places, claude before codex; each
+ * gets its headless invocation with the connector, the vendor it declares and the record under QUILT_AWAY; the record
+ * rolls over by the local day and keeps a week; the connector itself offers only the tools a run may call and stops
+ * quilt_next and quilt_return at the cap, in words that describe; the driver refuses to start at the cap, and
+ * otherwise runs the agent and records the run; the launchd plist runs this program's `away` every hour, the same
+ * text for the same input, so an installed schedule keeps running; the switch writes and removes it.
  */
 // The run while away is for a Mac or Linux: launchd or cron, a shell, posix paths. The tests that lean on those are
 // skipped on Windows.
@@ -343,6 +343,101 @@ describe('the schedule', () => {
       expect(crontabLine('/opt/q', ['away'], "/Users/o'b/h")).toContain(`'/Users/o'\\''b/h'`);
     },
   );
+  posix('writes the plist and the crontab line byte for byte as an installed schedule carries them', async () => {
+    // An installed schedule runs this command with this environment under this label, so the switch writes the same
+    // text for the same input: the plist and the crontab line are pinned whole, with the label they are installed
+    // under and the launchctl calls that load them.
+    const file = join(tempHome('quilt-away-pinned-'), 'agent.plist');
+    const calls: string[][] = [];
+    const home = '/Users/x/.config/quilt-maintainers';
+    const have = new Set(['/Users/x/.local/bin/claude', '/Users/x/.nvm/versions/node/v24.11.0/bin/pnpm']);
+    const common = {
+      home,
+      env: { PATH: '/usr/bin' },
+      entry: {
+        command: 'pnpm',
+        args: ['-s', '--filter', 'quilt', '--dir', '/Users/x/src/bitquilt', 'start', 'mcp'],
+        env: {
+          QUILT_HOME: home,
+          QUILT_MODEL: 'anthropic/claude',
+          QUILT_TRACKERS: 'https://tracker.bitquilt.org/',
+          QUILT_RELAYS: 'wss://r&<x>',
+        },
+      },
+      dirs: ['/Users/x/.local/bin', '/Users/x/.nvm/versions/node/v24.11.0/bin', '/usr/bin'],
+      exists: (p: string) => have.has(p),
+      quilt: {} as Quilt,
+      summary: async () => ({
+        today: { runs: 0, returned: 0, accepted: 0 },
+        week: { runs: 0, returned: 0, accepted: 0 },
+        days: [],
+      }),
+      uid: 501,
+      ctl: (args: string[]) => {
+        calls.push(args);
+        return true;
+      },
+    };
+    const on = await awaySwitch({ ...common, platform: 'darwin', file, on: true });
+    const label = 'org.bitquilt.quilt.away.d22a867f';
+    expect(launchdLabel(home)).toBe(label);
+    expect(readFileSync(file, 'utf8')).toBe(
+      [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+        '<plist version="1.0">',
+        '<dict>',
+        '  <key>Label</key>',
+        `  <string>${label}</string>`,
+        '  <key>ProgramArguments</key>',
+        '  <array>',
+        '    <string>/Users/x/.nvm/versions/node/v24.11.0/bin/pnpm</string>',
+        '    <string>-s</string>',
+        '    <string>--filter</string>',
+        '    <string>quilt</string>',
+        '    <string>--dir</string>',
+        '    <string>/Users/x/src/bitquilt</string>',
+        '    <string>start</string>',
+        '    <string>away</string>',
+        '  </array>',
+        '  <key>StartInterval</key>',
+        '  <integer>3600</integer>',
+        '  <key>RunAtLoad</key>',
+        '  <false/>',
+        '  <key>EnvironmentVariables</key>',
+        '  <dict>',
+        '    <key>QUILT_HOME</key>',
+        '    <string>/Users/x/.config/quilt-maintainers</string>',
+        '    <key>QUILT_TRACKERS</key>',
+        '    <string>https://tracker.bitquilt.org/</string>',
+        '    <key>QUILT_RELAYS</key>',
+        '    <string>wss://r&amp;&lt;x&gt;</string>',
+        '    <key>PATH</key>',
+        '    <string>/Users/x/.local/bin:/Users/x/.nvm/versions/node/v24.11.0/bin:/usr/bin</string>',
+        '  </dict>',
+        '  <key>StandardOutPath</key>',
+        '  <string>/Users/x/.config/quilt-maintainers/away.out</string>',
+        '  <key>StandardErrorPath</key>',
+        '  <string>/Users/x/.config/quilt-maintainers/away.err</string>',
+        '</dict>',
+        '</plist>',
+        '',
+      ].join('\n'),
+    );
+    expect(calls).toEqual([
+      ['bootout', `gui/501/${label}`],
+      ['bootstrap', 'gui/501', file],
+      ['print', `gui/501/${label}`],
+    ]);
+    expect(on.note).toBe(`Installed: claude runs one piece an hour, up to 5 a day. The agent is at ${file}.`);
+    const linux = await awaySwitch({ ...common, platform: 'linux', on: true });
+    expect(linux.note).toBe(
+      [
+        'No launchd here. The crontab line to add:',
+        '0 * * * * QUILT_HOME=/Users/x/.config/quilt-maintainers /Users/x/.nvm/versions/node/v24.11.0/bin/pnpm -s --filter quilt --dir /Users/x/src/bitquilt start away >> /Users/x/.config/quilt-maintainers/away.out 2>> /Users/x/.config/quilt-maintainers/away.err',
+      ].join('\n'),
+    );
+  });
   it("gives the usual home the plain label and any other home its own, from the home's path, so two homes on one Mac each keep their turn", () => {
     expect(launchdLabel('/Users/x/.config/quilt', '/Users/x/.config/quilt')).toBe(LAUNCHD_LABEL);
     expect(launchdLabel('/Users/x/.config/quilt/', '/Users/x/.config/quilt')).toBe(LAUNCHD_LABEL);

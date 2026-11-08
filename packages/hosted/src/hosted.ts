@@ -36,6 +36,7 @@ import {
   WINDOW_HTML,
   WINDOW_OPS,
   WINDOW_READ_OPS,
+  type WindowAnswer,
   type Witness,
   createMcpServer,
   localRunner,
@@ -207,9 +208,9 @@ export function createHosted(options: HostedOptions): Hosted {
     }
     return readerQuilt;
   };
-  const readerKept = new Map<string, { at: number; answer: Promise<Record<string, unknown>> }>();
+  const readerKept = new Map<string, { at: number; answer: Promise<WindowAnswer> }>();
 
-  function readerAnswer(op: string, input: Record<string, string>): Promise<Record<string, unknown>> {
+  function readerAnswer(op: string, input: Record<string, string>): Promise<WindowAnswer> {
     const key = JSON.stringify([op, input]);
     const t = Date.now();
     const had = readerKept.get(key);

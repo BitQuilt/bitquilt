@@ -5,7 +5,7 @@
     "types": [],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "rootDir": ".",
+    "rootDir": "..",
     "noEmit": true,
     "declaration": false,
     "sourceMap": false

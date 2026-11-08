@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +11,7 @@ import { buildWindow } from '../../../scripts/build-window.mjs';
 import { createMcpServer } from '../src/mcp.js';
 import { say } from '../src/phrases.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
-import { type Library, publicLibrary } from '../src/resolver.js';
+import { type Library, publicLibrary } from '../src/library.js';
 import { localRunner } from '../src/tools.js';
 import { WINDOW_HTML } from '../src/window.generated.js';
 import {
@@ -29,8 +29,9 @@ import { instructs, mcpPair, quiltOver, startTracker, tempHome } from './helpers
  * document at a ui:// resource whose address carries its hash, named by the tools that show it and by no other; the
  * app-only reader behind it is hidden from the model by its visibility and answers each op as JSON text with nothing
  * in structuredContent; the model-visible tools' text passes the words' rule; the document loads nothing from another
- * server and its sources set text with textContent; the generated file matches its sources; and a run while away
- * offers neither the window nor its reader.
+ * server and its sources set text with textContent; the generated file matches its sources; the card takes the
+ * reader's answers as types alone, from the one file that declares them; and a run while away offers neither the
+ * window nor its reader.
  */
 let server: Server;
 let base: string;
@@ -138,6 +139,26 @@ describe('the directory window', () => {
       text: WINDOW_HTML,
     });
     await close();
+  });
+
+  it("takes the reader's answers from the one file that declares them, as types alone", () => {
+    // A value import from the server's side would bring its code into the card; the answers come as types, which the
+    // build erases, from a file that imports nothing, so the card's own program has neither Node nor the core. Every
+    // module the card's sources name is read, after `from`, a bare `import`, `import(` or `require(`, so a namespace,
+    // default, side-effect or dynamic import and an export from another file are each seen.
+    const dir = join(root, 'packages', 'client', 'window');
+    const card = readdirSync(dir)
+      .filter((name) => name.endsWith('.ts'))
+      .map((name) => readFileSync(join(dir, name), 'utf8'))
+      .join('\n');
+    const named = (text: string) =>
+      [...text.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)['"]([^'"]+)['"]/g)].map((m) => m[1] ?? '');
+    expect(named(card).filter((path) => /^[./]/.test(path))).toEqual(['../src/window-answers.js']);
+    expect(named(card).filter((path) => /^(@bitquilt\/|quilt(\/|$))/.test(path))).toEqual([]);
+    expect(card.match(/^import type \{[^}]*\} from '\.\.\/src\/window-answers\.js';$/gm)).toHaveLength(1);
+    const answers = readFileSync(join(root, 'packages', 'client', 'src', 'window-answers.ts'), 'utf8');
+    expect(named(answers)).toEqual([]);
+    expect(answers).not.toMatch(/^export (default|async|abstract|const|let|var|function|class|enum) /m);
   });
 
   it('answers quilt_window with who this client is as text and a handle, the same text in both places', async () => {

@@ -30,7 +30,7 @@ import {
 } from '@bitquilt/core';
 import * as coin from './coin.js';
 import type { CoinBalance } from './coin.js';
-import { type Config, type Identity, createKey, loadKey } from './config.js';
+import { type Config, type Identity, createKey, loadKey, wordsDue } from './config.js';
 import { draftEnvelope, patternProblems, patternProblemsText } from './pattern.js';
 import type { Door } from './door.js';
 import * as gold from './gold.js';
@@ -52,7 +52,8 @@ import {
   type Witness,
 } from './listings.js';
 import { type AnnouncedWork, NO_WORK, announcementEvent, postToRelays, searchRelays } from './relay.js';
-import { type Library, type Posted, type Resolver, askJson } from './resolver.js';
+import type { Library } from './library.js';
+import { type Posted, type Resolver, askJson } from './resolver.js';
 import { inParallel } from './pool.js';
 import * as sharpen from './sharpen.js';
 import type { Sharpened } from './sharpen.js';
@@ -75,7 +76,8 @@ import {
 
 export type { CoinBalance } from './coin.js';
 export type { Door } from './door.js';
-export type { Library, Posted } from './resolver.js';
+export type { Library } from './library.js';
+export type { Posted } from './resolver.js';
 export type { Sharpened } from './sharpen.js';
 
 /** The vendor and model a host declares, from the name it gives at connection. */
@@ -322,8 +324,8 @@ export class Quilt {
 
   /**
    * The key, made at first use where the home has none: nobody sits at a terminal when a bundle is first asked to sign,
-   * so the key is made then and its twelve words kept for the page to show once (`Resolver.takeWords`); `quilt_me` says
-   * so until they are seen.
+   * so the key is made then and its twelve words kept for the page to show once (`takeWords` in config.ts); `quilt_me`
+   * says so until they are seen.
    */
   private needKey(): Identity {
     if (!this.identity) this.held = createKey(this.resolver.home, { keepWords: true }).identity;
@@ -409,7 +411,7 @@ export class Quilt {
       relays: this.config.relays,
       queued: this.resolver.queued(),
       problems: Object.keys(this.library.problems).length,
-      wordsDue: this.resolver.wordsDue(),
+      wordsDue: wordsDue(this.resolver.home),
       witness: this.witness,
     };
   }

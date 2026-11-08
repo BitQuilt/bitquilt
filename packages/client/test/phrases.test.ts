@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { textIssues } from '@bitquilt/core';
 import { HOW_QUILT_WORKS } from '../src/about.js';
 import { ARG_WORDS, COIN_PHRASES, FIRST_PHRASE, PHRASES, phrase, say, sheetOf } from '../src/phrases.js';
-import type { Library } from '../src/resolver.js';
+import type { Library } from '../src/library.js';
 import { instructs } from './helpers.js';
 
 const link = 'quilt:sha256:' + 'ab'.repeat(32) + '?dn=report&tr=http%3A%2F%2Flocalhost%3A3977%2F';

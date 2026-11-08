@@ -29,146 +29,34 @@ import {
   applyHostStyleVariables,
   type McpUiHostContext,
 } from '@modelcontextprotocol/ext-apps/app-with-deps';
+// The reader's answers, declared once in src/window-answers.ts and taken as types alone. The build erases them, but the
+// minifier picks its short names by how often each letter appears in this file's code, types included, so a type edit
+// here can still change the card's bytes and so its hashed address.
+import type {
+  Handle,
+  Hot,
+  Lib,
+  Me,
+  PieceRow,
+  Phrases,
+  ProblemMap,
+  Row,
+  Searched,
+  Totals,
+  Work,
+} from '../src/window-answers.js';
 
 /** packages/client/package.json's version, put in by scripts/build-window.mjs at build time. */
 declare const __QUILT_VERSION__: string;
 
 type View = 'search' | 'problem' | 'hot' | 'library' | 'me';
-interface Work {
-  returned: number;
-  accepted: number;
-  verified: number;
-  disputed: number;
-  traced: { both: number; one: number; none: number };
-  readers: number;
-  vendors: number;
-  last: string | null;
-}
-interface Row {
-  problem: string;
-  title: string;
-  slug: string;
-  owner: string;
-  owner_name?: string | null;
-  from?: string | null;
-  root?: string;
-  pieces: number;
-  counts: Record<string, number>;
-  work?: Work | null;
-  topics: string[];
-  tracker: string;
-  via: 'tracker' | 'relay';
-  held?: string[];
-  announced?: string | null;
-  link: string;
-}
-interface Searched {
-  op: 'search';
-  query: string;
-  rows: Row[];
-}
-interface PieceRow {
-  hash: string;
-  name: string;
-  verifier: string;
-  kind: string | null;
-  strength: string | null;
-  weakest: boolean;
-  attested: boolean;
-  state: string;
-  core: string;
-  stake: number;
-  gold: string | null;
-  verified: boolean;
-  traced: 'both' | 'one' | 'none' | null;
-  traces: number;
-  reveals: number;
-  claims: number;
-  seams: number;
-}
-interface Opened {
-  op: 'open';
-  problem: string;
-  link: string;
-  title: string;
-  done_when: string;
-  slug: string;
-  owner: string;
-  owner_name: string | null;
-  tracker: string | null;
-  complete: boolean;
-  superseded: string | null;
-  hidden: { by: string; why: string; at: string } | null;
-  seeders: number;
-  seeding: boolean;
-  gold: { committed: number; pending: number; verified: number; missed: number } | null;
-  readers: number;
-  vendors: string[];
-  pieces: PieceRow[];
-}
-interface Hot {
-  op: 'hot';
-  keys: { key: string; name: string | null; since: string; standing: number | null }[];
-}
-interface Lib {
-  op: 'library';
-  problems: Record<
-    string,
-    { title: string; slug: string; trackers: string[]; first: string; last: string; next?: string; link: string }
-  >;
-  pieces: Record<
-    string,
-    { problem: string; name: string; when: string; what: 'claimed' | 'returned'; verifier?: string }
-  >;
-  seeding: Record<string, string>;
-  gold: Record<string, { committed: number; revealed: number }>;
-  serving: { problems: number; ledgers: number; blobs: number; bytes: number };
-  queued: number;
-}
-interface Me {
-  op: 'me';
-  address: string | null;
-  name: string | null;
-  model: string;
-  trackers: string[];
-  relays: string[];
-  queued: number;
-  problems: number;
-  standing: { tracker: string; standing: number; locked: number; free: number } | null;
-  coin: { balance: number; free: number; home: string } | null;
-  witness: string | null;
-  /** The person's own phrases, each with {link} where a problem's link goes. */
-  phrases: Record<string, string>;
-}
-interface Totals {
-  op: 'totals';
-  problems: number;
-  pieces: number;
-  counts: Record<string, number>;
-  trackers: { tracker: string; problems: number | null }[];
-}
-/** The phrase templates alone, for the card on a site, where there is no person to be. */
-interface Phrases {
-  op: 'phrases';
-  phrases: Record<string, string>;
-}
-/** What the tool that showed this card handed it: who the client is and what to open on. No one's words. */
-interface Handle {
-  address?: string | null;
-  name?: string | null;
-  trackers?: string[];
-  host?: string | null;
-  view?: string;
-  query?: string | null;
-  link?: string | null;
-}
 
 const root = document.getElementById('window') as HTMLElement;
 const state = {
   view: 'search' as View,
   query: '',
   rows: null as Row[] | null,
-  opened: null as Opened | null,
+  opened: null as ProblemMap | null,
   /** The problem to open once the reader is reachable: a hash from the tool result's handles. */
   wanted: '',
   hot: null as Hot | null,
@@ -363,7 +251,7 @@ const search = () =>
   });
 const openProblem = (link: string) => {
   state.view = 'problem';
-  return reading<Opened>('open', { link }, (r) => {
+  return reading<ProblemMap>('open', { link }, (r) => {
     state.opened = r;
   });
 };
@@ -507,7 +395,7 @@ function drawResults(): void {
     h('th', {}, ''),
   );
   const body = rows.map((r) => {
-    const w = r.work ?? {
+    const w: Work = r.work ?? {
       ...workOf(r.counts),
       verified: 0,
       traced: { both: 0, one: 0, none: 0 },

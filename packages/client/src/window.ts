@@ -7,7 +7,8 @@
  * `quilt_window_io` over the same session, so the server knows who asks and the card loads nothing from anywhere
  * else; what the card hands the person's AI is one of the person's own phrases (phrases.ts) with a link filled in,
  * never anyone else's words. The model-visible tools' structuredContent is unchanged: the owners' titles the reader
- * returns are data for the card, as the page shows them, and the same words quilt_search and quilt_open quote.
+ * returns are data for the card, as the page shows them, and the same words quilt_search and quilt_open quote. What
+ * the reader answers is declared once, in window-answers.ts, which the card imports as types alone.
  */
 import { createHash } from 'node:crypto';
 import { type Address, type Hash, isAddress } from '@bitquilt/core';
@@ -16,7 +17,9 @@ import { say } from './phrases.js';
 import { inParallel } from './pool.js';
 import type { Quilt } from './quilt.js';
 import { kindWords, layerByHash, nameOf } from './render.js';
-import { type Library, askJson, publicLibrary } from './resolver.js';
+import { type Library, publicLibrary } from './library.js';
+import { askJson } from './resolver.js';
+import type { Hot, WindowAnswer } from './window-answers.js';
 import { WINDOW_HTML } from './window.generated.js';
 
 export const WINDOW_URI = 'ui://quilt/window.html';
@@ -41,7 +44,7 @@ export const WINDOW_PHRASES = [
 ] as const;
 
 /** The keys this person follows, as the card lists them: the hot list is a choice at the edge that no rule reads. */
-async function hot(quilt: Quilt, library: Library): Promise<Record<string, unknown>> {
+async function hot(quilt: Quilt, library: Library): Promise<Hot> {
   const follows = Object.entries(library.follows ?? {});
   const standings = await inParallel(follows, 4, ([key]) => quilt.standingOf(key as Address).catch(() => null));
   return {
@@ -67,7 +70,7 @@ async function hot(quilt: Quilt, library: Library): Promise<Record<string, unkno
 const phrasesOf = (): Record<string, string> =>
   Object.fromEntries(WINDOW_PHRASES.map((name) => [name, say(name, { link: '{link}' })]));
 
-export async function windowAnswer(quilt: Quilt, input: Record<string, unknown>): Promise<Record<string, unknown>> {
+export async function windowAnswer(quilt: Quilt, input: Record<string, unknown>): Promise<WindowAnswer> {
   const op = String(input.op ?? '');
   const str = (k: string): string => (typeof input[k] === 'string' ? (input[k] as string) : '');
   switch (op) {
