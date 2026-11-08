@@ -8,9 +8,11 @@ import { VERDICT, boot, envelope, key } from './helpers.js';
  * fold adds it to a receipt's time (CORE.md section 6) and a count past the last date that can be written leaves the
  * fold no time, so it fails on the receipt and every page of the door with it. A claim whose `lease_h` is over is
  * refused with the event's shape, and an envelope whose lease, challenge window or piece's lease is over is refused at
- * publish, each naming the field; a claim at the limit is taken, and the door folds it. A peer's line (QX-21) is held
- * to the same: a claim over the limit is not taken, nor a line whose wrapper carries a time that is not one in UTC as
- * a door writes it, and the pull says why for each while the door goes on answering.
+ * publish, each naming the field; a claim at the limit is taken, and the door folds it; a body that is not an event is
+ * refused with the shape first. A peer's line (QX-21) is held to the same: a claim over the limit is not taken, nor a
+ * line whose wrapper carries a time that is not one in UTC as a door writes it, to the millisecond and a date that is
+ * one, and the pull says why for each while the door goes on answering; an event the door holds already is passed
+ * over, whatever the peer's wrapper says.
  */
 const owner = key(9),
   worker = key(1);
@@ -84,6 +86,15 @@ describe('a lease or a window over a million hours', () => {
   });
 });
 
+describe('a post whose body is not an event', () => {
+  it('is refused with the shape, before any bound on hours is asked', async () => {
+    for (const path of [`/p/${p}/events`, '/k/events'])
+      expect(
+        await t.post(path, null).then(async (r) => [r.status, ((await r.json()) as { error: string }).error]),
+      ).toEqual([400, 'event: not an object']);
+  });
+});
+
 describe("a peer's line (QX-21)", () => {
   it('is not taken where its claim is over the limit, or its wrapper carries a time not written as a door writes it', async () => {
     const long = peer.ev(worker, 'claim', { by, lease_h: 1e12 }, p, piece);
@@ -92,11 +103,25 @@ describe("a peer's line (QX-21)", () => {
     peer.store.appendPulled(p, stamped, eventId(stamped), [
       { by: 'http://peer.test/', at: '+275760-09-13T00:00:00.000Z', custody: 'self' },
     ]);
+    // Times a door does not write: a date that is not one, and a time to the second alone.
+    const odd = ['2026-09-31T12:00:00.000Z', '2026-11-08T12:00:00Z'].map((at, i) => {
+      const e = peer.ev(key(3 + i), 'claim', { by }, p, piece);
+      peer.store.appendPulled(p, e, eventId(e), [{ by: 'http://peer.test/', at, custody: 'self' }]);
+      return e;
+    });
+    // An event this door holds already is passed over, whatever the peer's wrapper says of it.
+    const both = t.ev(key(5), 'claim', { by }, p, piece);
+    await t.accepted(`/p/${p}/events`, both);
+    peer.store.appendPulled(p, both, eventId(both), [
+      { by: 'http://peer.test/', at: '2026-11-08T12:00:00+00:00', custody: 'self' },
+    ]);
     t.clock.tick = peer.clock.tick + 60_000;
     const [pull] = await t.tracker.pullPeers();
+    const stampWhy = 'received[0].at: a time in UTC, as a door writes one';
     expect(pull!.refused).toEqual([
       { id: eventId(long), why: 'body.lease_h: at most 1000000 hours' },
-      { id: eventId(stamped), why: 'received[0].at: a time in UTC, as a door writes one' },
+      { id: eventId(stamped), why: stampWhy },
+      ...odd.map((e) => ({ id: eventId(e), why: stampWhy })),
     ]);
     const held = (await (await fetch(`${t.base}/p/${p}/events`)).text()).trim().split('\n');
     expect(held.map((l) => (JSON.parse(l) as { event: { sig: string } }).event.sig)).not.toContain(long.sig);

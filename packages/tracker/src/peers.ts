@@ -124,13 +124,20 @@ async function pullLog(door: PullDoor, peer: string, target: string, log: Log, o
   }
   for (const line of lines) {
     const event = line.event;
-    const shape = [...eventProblems(event), ...eventHoursOver(event), ...stampsUnlike(line.received)];
+    const shape = eventProblems(event);
     if (shape.length) {
       out.refused.push({ id: eventId(event), why: shape[0]! });
       continue;
     }
     const id = eventId(event);
     if (store.hasEvent(chain, id)) continue;
+    // What this door holds the line to beyond the core's shape: its bound on hours, as a post's shape is held to it,
+    // and the peer's wrapper times (PROTOCOL.md, What the door answers).
+    const unlike = [...eventHoursOver(event), ...stampsUnlike(line.received)];
+    if (unlike.length) {
+      out.refused.push({ id, why: unlike[0]! });
+      continue;
+    }
     if (!eventSignedByKey(event)) {
       out.refused.push({ id, why: "signature is not the key's" });
       continue;

@@ -162,7 +162,7 @@ function hoursOver(counts: [string, unknown][]): string[] {
 
 /** A claim's lease over `HOURS_MAX`, checked with the event's shape, as a post or a peer's line (QX-21). */
 export function eventHoursOver(e: Event): string[] {
-  return e.type === 'claim' && isRecord(e.body) ? hoursOver([['body.lease_h', e.body.lease_h]]) : [];
+  return isRecord(e) && e.type === 'claim' && isRecord(e.body) ? hoursOver([['body.lease_h', e.body.lease_h]]) : [];
 }
 
 /** A problem's lease and challenge window, and each piece's lease, over `HOURS_MAX`, checked at publish. */
@@ -175,9 +175,14 @@ export function envelopeHoursOver(p: Envelope['problem']): string[] {
 }
 
 /**
- * A time as a door writes it, `toISOString` of the receipt's time: the date, the time to the second or finer, and Z.
+ * Whether a wrapper's time is one as a door writes it, `toISOString` of the receipt's time, which reads back as itself:
+ * a date that is one, the time to the millisecond and Z, in a year of four digits, so times compare as text.
  */
-const DOOR_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
+function doorTime(at: unknown): boolean {
+  if (typeof at !== 'string' || !/^\d{4}-/.test(at)) return false;
+  const t = Date.parse(at);
+  return Number.isFinite(t) && new Date(t).toISOString() === at;
+}
 
 /**
  * Each time in a wrapper a peer serves (QX-21 section 2) that is not a time in UTC as a door writes one: the earliest
@@ -187,9 +192,7 @@ const DOOR_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 export function stampsUnlike(received: unknown): string[] {
   if (!Array.isArray(received)) return ['received: a list'];
   return received.flatMap((w, i) =>
-    isRecord(w) && typeof w.at === 'string' && DOOR_TIME.test(w.at) && Number.isFinite(Date.parse(w.at))
-      ? []
-      : [`received[${i}].at: a time in UTC, as a door writes one`],
+    isRecord(w) && doorTime(w.at) ? [] : [`received[${i}].at: a time in UTC, as a door writes one`],
   );
 }
 
