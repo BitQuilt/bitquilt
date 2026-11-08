@@ -11,12 +11,13 @@ Each kind of reader has a path through the documents, in order, with what each o
 
 ## Someone writing a client
 
-1. [LAYERS.md](LAYERS.md): what a client has to get right, and what it may leave aside and still compute the same map.
-2. [CORE.md](CORE.md), sections 1 to 8 and 11: the forms (canonical JSON, hashes, keys and signatures), the envelope, the piece hash, the event line, the receipt wrapper, the reducer, `next`, the link a client resolves and checks, and the gate a return passes at the door. The fixtures hold sections 6 and 7 (section 9), so a client computes the map and the pick itself; a tracker's `GET /p/<hash>/state` is that tracker's view, a convenience.
-3. [PROTOCOL.md](PROTOCOL.md#the-tracker), "The tracker": the routes a client calls.
-4. [EXTENSIONS.md](EXTENSIONS.md): the registry, for the extension behind a verifier kind or a refusal the client meets; each number links its document.
-5. [impl/python](../impl/python/README.md): the core written a second time from CORE.md and the fixtures alone, the reference for the forms in another language, and [its findings](../impl/python/FINDINGS.md), where the two readings of the document parted.
-6. [The fixtures](../packages/core/fixtures/README.md): a client is a client when it reproduces every one: the states, the count of dropped events, `complete`, the output hash and the picks.
+1. [CLIENT.md](CLIENT.md): the wire for a worker, a program that works pieces with no person at it: the forms with one claim worked byte for byte, a first return in six steps, the door's checks in the order it runs them, and what a worker may leave aside. It names what to read beside it.
+2. [LAYERS.md](LAYERS.md): what a client has to get right, and what it may leave aside and still compute the same map.
+3. [CORE.md](CORE.md), sections 1 to 8 and 11: the forms (canonical JSON, hashes, keys and signatures), the envelope, the piece hash, the event line, the receipt wrapper, the reducer, `next`, the link a client resolves and checks, and the gate a return passes at the door. The fixtures hold sections 6 and 7 (section 9), so a client computes the map and the pick itself; a tracker's `GET /p/<hash>/state` is that tracker's view, a convenience.
+4. [PROTOCOL.md](PROTOCOL.md#the-tracker), "The tracker": the routes a client calls.
+5. [EXTENSIONS.md](EXTENSIONS.md): the registry, for the extension behind a verifier kind or a refusal the client meets; each number links its document.
+6. [impl/python](../impl/python/README.md): the core written a second time from CORE.md and the fixtures alone, the reference for the forms in another language, and [its findings](../impl/python/FINDINGS.md), where the two readings of the document parted.
+7. [The fixtures](../packages/core/fixtures/README.md): a client is a client when it reproduces every one: the states, the count of dropped events, `complete`, the output hash and the picks.
 
 ## A contributor to the code
 
@@ -49,6 +50,7 @@ Each kind of reader has a path through the documents, in order, with what each o
 
 - [LAYERS.md](LAYERS.md): the whole protocol in plain words, layer by layer, with the numbers left to the registry.
 - [CORE.md](CORE.md): the BitQuilt core, version 1. What a client has to get right, and nothing else.
+- [CLIENT.md](CLIENT.md): writing a client. The forms with one claim worked byte for byte, a first return in six steps, the second reading that makes a square, what the state and the log say after, the door's checks in the order it runs them, and what a worker may leave aside. Read it with CORE.md sections 1, 2, 4 and 11, QX-19 sections 1 and 2, and PROTOCOL.md's routes, what the door answers and the piece next hands over.
 - [PROTOCOL.md](PROTOCOL.md): why each rule is as it is, and everything around the core: the tracker and its routes, the mirror, identity, governance, lineage, weaknesses. Its plan and reviews of 24 October 2026 are in [history/2026-10-24-protocol-review.md](history/2026-10-24-protocol-review.md).
 - [EXTENSIONS.md](EXTENSIONS.md): how everything outside the core changes, and the registry, each number with its layer and its document.
 - [ext/](ext/): one document per extension, once it is first implemented, saying exactly what is built; the three verifier kinds (`judge:n`, `human`, `attest`) share [one](ext/verifiers.md).
