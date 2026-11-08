@@ -2,7 +2,8 @@
  * The tracker as a library: Quilt and the mirror import the store and `createTracker` to run one in their tests, and
  * the mirror imports `reduceInputOf`, `challengeLayer`, `coinLayer` and `COIN_LOG` to fold a tracker's chains as the
  * tracker does and recompute its balances from them.
- * The files, by extension: tracker.ts (the door and the table of its routes), routes.ts (what a row of that table
+ * The files, by extension: tracker.ts (the door, with a map for the identity log and one for a problem's log from
+ * each event type to the check that admits it, and the table of its routes), routes.ts (what a row of that table
  * holds, and how a request's path finds its row), http.ts (the refusal and the JSON writer, which the hosted on-ramp
  * writes its own routes' JSON answers with too), store.ts, challenge.ts (QX-1, with standing.ts and sortition.ts),
  * verifiers.ts (QX-2, QX-3, QX-10, QX-20), trace.ts (QX-19, and QX-20's grade and document), seeding.ts (QX-4, QX-5),

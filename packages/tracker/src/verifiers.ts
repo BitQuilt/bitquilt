@@ -37,6 +37,10 @@ import type { Folding } from './standing.js';
 import type { Admission, Layer } from './challenge.js';
 
 export const EXTENSIONS = { human: 'QX-3', judge: 'QX-2', attest: 'QX-10', record: 'QX-20' } as const;
+/**
+ * The types QX-2 adds to a problem's log. The door admits each through its own row of `problemDoor` in tracker.ts,
+ * and admit.test.ts holds those rows to this set.
+ */
 export const RANK_EVENTS: ReadonlySet<string> = new Set(['rank']);
 /** Candidates a judge piece takes when its definition names no count. */
 export const DEFAULT_CANDIDATES = 2;

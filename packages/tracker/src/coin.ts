@@ -30,6 +30,7 @@ import { leaseOf, viaOf } from './verifiers.js';
 export const COIN = 'QX-17';
 /** The pseudo-problem the coin log is chained from, as the identity log is from quilt:identity. */
 export const COIN_LOG: Hash = hashText('quilt:coin');
+/** What the coin log takes (QX-17 section 2): the one list the door and the fold both ask, through coinEventRefusal. */
 export const COIN_EVENTS: ReadonlySet<string> = new Set(['lock', 'pay', 'burn', 'transfer', 'redeem', 'credit']);
 
 /** The parameters a tracker that carries the coin publishes: the coin's constitution (QX-17 section 1). */
