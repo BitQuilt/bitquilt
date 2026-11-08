@@ -308,7 +308,9 @@ describe('the documents on a coin log with credits and no chain to ask', () => {
     const node = read('docs', 'NODE.md');
     const coin = sentences(node, '6. The mirror job', "**The coin's balances.**");
     expect(coin).toContain('With no chain to ask, credits on the ledger are no refusal of their own.');
-    expect(coin.find((s) => s.includes('(`notKept`)'))).toMatch(/^Where the balances reproduce, /);
+    const notKept = coin.find((s) => s.includes('(`notKept`)'));
+    expect(notKept).toMatch(/^Where the balances reproduce, /);
+    expect(notKept).toContain('a run that refuses nothing else still commits the coin log');
     expect(coin.find((s) => s.includes('A head that moved'))).toContain('no reason is given');
     const binary = sentences(node, '6. The mirror job', '**The binary.**');
     expect(binary.find((s) => s.includes('`coin:` line'))).toContain(
