@@ -145,6 +145,35 @@ export function limit({ store, now }: Reads, bucket: string, max: number): void 
 }
 
 /**
+ * The most a body a door takes nests (PROTOCOL.md, What the door answers). The fold reads a body through recursive
+ * code, the core's canonical form among it, deeper in the stack than the door that took it, so a body the door could
+ * read and the fold could not would fail the fold on every read; sixty-four levels is many more than any event or
+ * envelope has.
+ */
+export const DEPTH_MAX = 64;
+
+/**
+ * Why a body is not one the fold can take, an event, an envelope or a data blob read as JSON: nested deeper than
+ * `DEPTH_MAX`, or holding a field named `__proto__`. JSON makes such a field the object's own, and an assignment by
+ * that name sets an object's prototype, so the core's output and the views would build objects that are not plain.
+ */
+export function bodyOver(value: unknown, label: string): string[] {
+  const left: [unknown, number][] = [[value, 1]];
+  while (left.length) {
+    const [v, depth] = left.pop()!;
+    if (v === null || typeof v !== 'object') continue;
+    if (depth > DEPTH_MAX) return [`${label}: nested deeper than ${DEPTH_MAX}`];
+    if (Array.isArray(v)) for (const x of v) left.push([x, depth + 1]);
+    else
+      for (const [k, x] of Object.entries(v)) {
+        if (k === '__proto__') return [`${label}: a field named __proto__`];
+        left.push([x, depth + 1]);
+      }
+  }
+  return [];
+}
+
+/**
  * The most hours a door takes for a lease or a challenge window (PROTOCOL.md, What the door answers). The fold adds
  * them to a receipt's time (CORE.md section 6): a claim is live for its lease, a commit unabandoned for twice the
  * piece's, and a window runs from the receipt that completed a set. A date is written only up to the year 275760, so
@@ -196,6 +225,15 @@ export function stampsUnlike(received: unknown): string[] {
   );
 }
 
+/** A blob read as JSON, which a family's data slots draw on (CORE.md section 2), or null where it is not JSON. */
+function jsonOf(bytes: Uint8Array): unknown {
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+}
+
 /** A problem published: its envelope and blobs, once the route has held the post to its address's hourly limit. */
 export async function publish(
   { store, options, now, coinHome }: Reads,
@@ -204,6 +242,8 @@ export async function publish(
 ): Promise<void> {
   const body = parseJson(await readBody(req)) as { envelope?: unknown; blobs?: Record<string, string> };
   const envelope = body.envelope;
+  const over = bodyOver(envelope, 'envelope');
+  if (over.length) throw new Refusal(400, over[0]!);
   const problems = envelopeProblems(envelope);
   if (problems.length) throw new Refusal(400, problems[0]!);
   const e = envelope as Envelope;
@@ -216,6 +256,8 @@ export async function publish(
     if (!isHash(h)) throw new Refusal(400, `blob ${h}: not a hash`);
     const bytes = Uint8Array.from(Buffer.from(b64, 'base64'));
     if (hashBytes(bytes) !== h) throw new Refusal(400, `blob ${h}: does not match its hash`);
+    const blobOver = bodyOver(jsonOf(bytes), `blob ${h}`);
+    if (blobOver.length) throw new Refusal(400, blobOver[0]!);
     blobs.set(h, bytes);
   }
   for (const h of Object.values(e.problem.data))
@@ -287,7 +329,8 @@ export async function keepBlob(store: Store, req: IncomingMessage, res: ServerRe
 export async function postEvent(cx: Reads, req: IncomingMessage, res: ServerResponse, log: Log): Promise<void> {
   const { store, url, now, limits, options, exactly } = cx;
   const event = parseJson(await readBody(req)) as Event;
-  const shape = [...eventProblems(event), ...eventHoursOver(event)];
+  const over = bodyOver(event, 'event');
+  const shape = over.length ? over : [...eventProblems(event), ...eventHoursOver(event)];
   if (shape.length) throw new Refusal(400, shape[0]!);
   if (!eventSignedByKey(event)) throw new Refusal(400, "signature is not the key's");
   limit(cx, `key:${event.key}`, limits.keyPerHour);

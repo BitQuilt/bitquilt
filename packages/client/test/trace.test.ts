@@ -7,7 +7,7 @@ import { HOW_QUILT_WORKS } from '../src/about.js';
 import { NEEDS_AGENT } from '../src/agents.js';
 import { AWAY_LOG, awayTurn } from '../src/away.js';
 import { ownerTurn } from '../src/owner-turn.js';
-import { type SentenceAsk, foundText, sentenceAsk } from '../src/render.js';
+import { type SentenceAsk, foundIn, foundText, sentenceAsk } from '../src/render.js';
 import { runTool } from '../src/tools.js';
 import { type Pattern, Quilt } from '../src/quilt.js';
 import { publicAddress, publicFetch } from '../src/public-fetch.js';
@@ -23,14 +23,14 @@ import { join } from 'node:path';
  * is not on it or whose field the return lacks is left out and said, and with nothing left nothing is posted; the
  * square's grade and the seams of a disputed piece reach the model as text with each side's passage quoted and its
  * signer named, through quilt_read and quilt_next; what the accepted squares found is said in quilt_search and
- * quilt_read, each choice quoted and counted; the tools' words describe. And the seam decides itself (section 4):
- * a reading that rests on nothing is set aside, said as such, and the same key is handed the piece again and read a
- * second time; the owner's node sharpens a brief two grounded readings read apart, the sentence asked with both
- * passages, the version published with it and `prev` set, the gold carried, the old problem said to be replaced and
- * handing nothing, and the away turn's line counting it; a brief the owner froze in this home is not sharpened until
- * thawed. Where the connector is shared, no page is fetched at a
- * private address, by number, by name or on a redirect's hop; a body is read to READ_MAX and no further; and why a page
- * was left out names the kind of failure and nothing the server said.
+ * quilt_read, each choice quoted and counted, a field named constructor among them; the tools' words describe. And the
+ * seam decides itself (section 4): a reading that rests on nothing is set aside, said as such, and the same key is
+ * handed the piece again and read a second time; the owner's node sharpens a brief two grounded readings read apart,
+ * the sentence asked with both passages, the version published with it and `prev` set, the gold carried, the old
+ * problem said to be replaced and handing nothing, and the away turn's line counting it; a brief the owner froze in
+ * this home is not sharpened until thawed. Where the connector is shared, no page is fetched at a private address, by
+ * number, by name or on a redirect's hop; a body is read to READ_MAX and no further; and why a page was left out names
+ * the kind of failure and nothing the server said.
  */
 let server: Server;
 let base: string;
@@ -271,6 +271,23 @@ describe('a return with rests', () => {
       foundText({ status: { proved: 3, open: 6, 'see https://example.org': 2 }, 'see https://example.org': { x: 1 } }),
     ).toBe('the accepted squares agreed on status: 6 "open", 3 "proved"');
     expect(foundText({})).toBe('');
+    // A field named constructor is counted as any other, in objects with no prototype, and nothing is written outside
+    // the count.
+    const named = {
+      pieces: [
+        {
+          piece: {
+            hash: `sha256:${'a'.repeat(64)}`,
+            agree: ['constructor'],
+            schema: { properties: { constructor: { enum: ['constructor', 'other'] } } },
+          },
+          state: 'accepted_provisional',
+          accepting: { kind: 'agree', reveals: [{ return: { constructor: 'constructor' } }] },
+        },
+      ],
+    } as unknown as Parameters<typeof foundIn>[0];
+    expect(foundIn(named, null)).toEqual({ constructor: { constructor: 1 } });
+    expect(Object.hasOwn(Object, 'constructor')).toBe(false);
   });
 
   it('fetches nothing at a private address where the connector is shared (QUILT_READS=public), by number or by name, and says so', async () => {

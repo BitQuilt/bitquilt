@@ -413,7 +413,7 @@ export class Resolver {
         .split('\n')
         .filter(Boolean)
         .map((l) => JSON.parse(l) as Receipt);
-      out.push(...lines);
+      for (const l of lines) out.push(l);
       const next = r.headers.get('x-quilt-next-since');
       if (!next) break;
       since = Number(next);
@@ -475,11 +475,12 @@ export class Resolver {
           const b = await this.blob(h, link);
           if (b) blobs.set(h, b);
         }
-      receipts.push(...(await this.receipts(cur, link)));
+      for (const l of await this.receipts(cur, link)) receipts.push(l);
       cur = got.envelope.problem.prev;
     }
     if (envelopes.length === 0) return null;
-    receipts.push(...(await this.identity(link)));
+    // Line by line, not spread into one call, which a log of more than about a hundred thousand lines would overflow.
+    for (const l of await this.identity(link)) receipts.push(l);
     const bp = blobProblems(envelopes[0]!.problem, blobs);
     if (bp.length) throw new Error(bp[0]);
     return { hash, envelopes, blobs, receipts, tracker };

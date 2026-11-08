@@ -694,7 +694,8 @@ export function reduceInputOf(store: ChainReader, envelope: Envelope, at: string
         if (b) blobs.set(h, b);
       }
   const receipts: Receipt[] = [];
-  for (const e of chainEnvelopes) receipts.push(...store.lines(problemHash(e)));
-  receipts.push(...store.lines(IDENTITY_LOG));
+  // Line by line, not spread into one call, which a log of more than about a hundred thousand lines would overflow.
+  for (const e of chainEnvelopes) for (const l of store.lines(problemHash(e))) receipts.push(l);
+  for (const l of store.lines(IDENTITY_LOG)) receipts.push(l);
   return { envelopes: chainEnvelopes, blobs, receipts, now: at };
 }

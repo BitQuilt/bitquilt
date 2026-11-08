@@ -217,7 +217,7 @@ A post to `/p/<problem>/events` meets these checks in the order the reference tr
 | 2 | The network address's writes this hour are within `limits.ipPerHour` | 429 | `over the hour's limit` |
 | 3 | The body is at most 4 MB | 413 | `body over 4 MB` |
 | 4 | The body is JSON | 400 | `not JSON` |
-| 5 | The event's shape (CORE.md section 4), with a claim's `lease_h` at most a million hours ([What the door answers](PROTOCOL.md#what-the-door-answers)) | 400 | Its first fault, such as `event.ts: a time, ISO 8601 with a zone` or `body.lease_h: at most 1000000 hours` |
+| 5 | The event's shape (CORE.md section 4), nested at most 64 levels with no field named `__proto__`, and a claim's `lease_h` at most a million hours ([What the door answers](PROTOCOL.md#what-the-door-answers)) | 400 | Its first fault, such as `event.ts: a time, ISO 8601 with a zone`, `event: nested deeper than 64` or `body.lease_h: at most 1000000 hours` |
 | 6 | The signature is the key's | 400 | `signature is not the key's` |
 | 7 | The key's posts this hour are within `limits.keyPerHour` | 429 | `over the hour's limit` |
 | 8 | The type is not the identity log's, and a problem's log carries it | 400 | `identity events go to the identity log`, or `this tracker does not carry <type> events` |

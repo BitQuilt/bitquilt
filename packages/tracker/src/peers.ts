@@ -22,7 +22,7 @@ import { Refusal } from './http.js';
 import type { Store } from './store.js';
 import { readsNamed } from './trace.js';
 import { personSeatIn } from './verifiers.js';
-import { type Admitted, type Log, eventHoursOver, stampsUnlike } from './admit.js';
+import { type Admitted, type Log, bodyOver, eventHoursOver, stampsUnlike } from './admit.js';
 import type { Tracker } from './tracker.js';
 
 /** QX-21: doors fold each other's chains. */
@@ -73,12 +73,7 @@ async function linesFrom(door: PullDoor, target: string): Promise<Receipt[] | nu
       return null;
     }
     if (!r.ok) return null;
-    lines.push(
-      ...(await r.text())
-        .split('\n')
-        .filter(Boolean)
-        .map((l) => JSON.parse(l) as Receipt),
-    );
+    for (const l of (await r.text()).split('\n')) if (l) lines.push(JSON.parse(l) as Receipt);
     const next = r.headers.get('x-quilt-next-since');
     if (!next) return lines;
     since = Number(next);
@@ -124,7 +119,8 @@ async function pullLog(door: PullDoor, peer: string, target: string, log: Log, o
   }
   for (const line of lines) {
     const event = line.event;
-    const shape = eventProblems(event);
+    const over = bodyOver(event, 'event');
+    const shape = over.length ? over : eventProblems(event);
     if (shape.length) {
       out.refused.push({ id: eventId(event), why: shape[0]! });
       continue;
