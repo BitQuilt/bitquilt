@@ -28,9 +28,9 @@
  * time), where a chain, an envelope, a data blob or a read it rests on is not served as named, or where the core
  * refuses here other problems than the state names as refused (CORE.md section 6); a read the home answers it does not
  * hold, which no line the home wrote names, is left out of the fold, as the home's own fold leaves it out, and so is a
- * data blob only problems the state names as refused name. The tracker's balances are kept only where the mirror's own
- * agree, and only where every credit is what the chain holds; with no chain to ask, a ledger with credits keeps no
- * balances, and the credits alone refuse nothing.
+ * data blob only problems the state names as refused name, where the mirror holds no copy of it. The tracker's balances
+ * are kept only where the mirror's own agree, and only where every credit is what the chain holds; with no chain to
+ * ask, a ledger with credits keeps no balances, and the credits alone refuse nothing.
  *
  * The keeping is over a store (files.ts: envelopes, blobs and the lines of each log), the mirror's layout under its
  * folder here and a tracker's store in a node (NODE.md section 5): `keep()` is the pull alone, which a node with `keep`
@@ -666,11 +666,12 @@ interface Served {
 
 /**
  * What this run had from the home before it read the home's state: each problem the home listed or whose chain it
- * served, with how many lines of that chain this run read (none where it read none), and how many of the identity
- * log's it read, or null where it read none.
+ * served, with how many lines of that chain this run read (none where it read none), the problems it listed, and how
+ * many of the identity log's lines it read, or null where it read none.
  */
 interface ReadBefore {
   problems: Map<Hash, number>;
+  listed: Set<Hash>;
   identity: number | null;
 }
 
@@ -683,7 +684,7 @@ function readBefore(ctx: Context, tracker: string, listed: Hash[]): ReadBefore {
     const hash = url.slice(prefix.length, -'/events'.length);
     if (isHash(hash)) problems.set(hash, lines.length);
   }
-  return { problems, identity: ctx.served?.get(`${tracker}k/events`)?.length ?? null };
+  return { problems, listed: new Set(listed), identity: ctx.served?.get(`${tracker}k/events`)?.length ?? null };
 }
 
 /**
@@ -695,25 +696,29 @@ const FOLDED_BEFORE_MS = 5000;
 /**
  * What the home's state says its balances were folded over (QX-17 section 6), as the home serves it. The state is held
  * first to what this run already had from the home (`readBefore`): its fold's time is its own `at` or up to five
- * seconds before it; it names every problem the home listed or served this run, folded or refused, since it names
- * "every one the tracker holds"; and it names each chain this run read from the home at a head no earlier than the
- * lines read, since a chain only grows. Then each chain the state names, each problem's, the identity log and the coin
- * log, is the home's as served, cut at the named head, whose line must carry the named hash: cut from the lines this
- * run read of it where they reach the head, and otherwise read whole, verified from its log's hash and held to extend
- * what this run read (`servedTo`), so a head off the chain the run read does not pass. Each envelope is the one held
- * here or the home's, by its hash, and its owner's, but for a problem the state says the core refuses, whose signature
- * is the fold's to judge. Each data blob and each read a trace on those chains names is the home's as it serves it
- * (`servedAtHome`), and each read is measured by its bytes, as the home measures the reads it holds (QX-19 section 2);
- * a data blob the home answers it does not hold is left out where only problems the state says the core refuses name
- * it, so the fold refuses them as the home's did; a read the home answers it does not hold is left out, as the home's
- * fold leaves it out, where no line the home wrote names it, and where the home's well-known document publishes no
- * `url` no read is left out. The wrapper is not signed, and the check holds a home's chains to what this run read: so
- * it binds a home that serves its lines as it wrote them, under the `url` it publishes now, as QX-11 section 6 says a
- * chain proves what a reader saw; and a home with `work` beside `admit` that keeps from elsewhere a line whose wrapper
- * carries its `url` is refused until it holds the read that line names. The problems are the home's, hidden and
- * replaced ones among them, since the home serves every problem it holds by hash, a hidden one too (QX-6 section 3),
- * whatever this run took from other sources. Why not, where the state is not what this run had from the home, or a
- * chain, an envelope, a data blob or a read it rests on is not served as named.
+ * seconds before it; it names every problem the home listed or served this run, among those it folded or those the core
+ * refuses there, and names none it listed among the refused, since its index lists none the core refuses; and it names
+ * each chain this run read from the home at a head no earlier than the lines read, since a chain only grows. Then each
+ * chain the state names, each problem's, the identity log and the coin log, is the home's as served, cut at the named
+ * head, whose line must carry the named hash: cut from the lines this run read of it where they reach the head, and
+ * otherwise read whole, verified from its log's hash and held to extend what this run read (`servedTo`), so a head off
+ * the chain the run read does not pass. Each envelope is the one held here or the home's, by its hash, and its owner's,
+ * but for a problem the state says the core refuses, whose signature is the fold's to judge: the hash does not cover
+ * the signature, so a copy held here with its owner's signature is folded over the home's word. Each data blob and each
+ * read a trace on those chains names is the home's as it serves it (`servedAtHome`), and each read is measured by its
+ * bytes, as the home measures the reads it holds (QX-19 section 2). A data blob the home answers it does not hold is
+ * left out where only problems the state says the core refuses name it and this mirror holds no copy, so the fold
+ * refuses them as the home's did; where this mirror holds a copy, which a home's store would keep for good once it had
+ * it, the state is refused, since a home that withholds the blob and one that lacks it look the same, and the balances
+ * would rest on the withholding. A read the home answers it does not hold is left out, as the home's fold leaves it
+ * out, where no line the home wrote names it, and where the home's well-known document publishes no `url` no read is
+ * left out. The wrapper is not signed, and the check holds a home's chains to what this run read: so it binds a home
+ * that serves its lines as it wrote them, under the `url` it publishes now, as QX-11 section 6 says a chain proves what
+ * a reader saw; and a home with `work` beside `admit` that keeps from elsewhere a line whose wrapper carries its `url`
+ * is refused until it holds the read that line names. The problems are the home's, hidden and replaced ones among them,
+ * since the home serves every problem it holds by hash, a hidden one too (QX-6 section 3), whatever this run took from
+ * other sources. Why not, where the state is not what this run had from the home, or a chain, an envelope, a data blob
+ * or a read it rests on is not served as named.
  */
 async function servedOver(
   ctx: Context,
@@ -730,6 +735,8 @@ async function servedOver(
   const refused = new Set(folded.refused.map(({ problem }) => problem));
   for (const [problem, read] of before.problems) {
     if (!named.has(problem)) return `the coin state from ${tracker} does not name ${problem}, which it served this run`;
+    if (before.listed.has(problem) && refused.has(problem))
+      return `the coin state from ${tracker} names ${problem} as refused, which it listed this run`;
     const short = belowRead(named.get(problem)!, read);
     if (short) return `the chain of ${problem} from ${tracker} ${short}`;
   }
@@ -772,7 +779,8 @@ async function servedOver(
     }
   const blobs = new Map<Hash, Uint8Array | null>();
   for (const [h, { problem, folds }] of data) {
-    const bytes = await servedAtHome(ctx, tracker, h, `the data blob ${h} of ${problem} from ${tracker}`, !folds);
+    const lacking = folds ? "the home's fold rests on it" : ctx.store.getBlob(h) ? 'this mirror holds it' : null;
+    const bytes = await servedAtHome(ctx, tracker, h, `the data blob ${h} of ${problem} from ${tracker}`, lacking);
     if (typeof bytes === 'string') return bytes;
     blobs.set(h, bytes);
   }
@@ -795,7 +803,7 @@ async function servedOver(
       tracker,
       h,
       `the read ${h} of a trace on ${problem} from ${tracker}`,
-      !tookIt,
+      tookIt ? "the home's fold rests on it" : null,
     );
     if (typeof bytes === 'string') return bytes;
     lengths.set(h, bytes && bytes.length);
@@ -817,20 +825,20 @@ async function servedOver(
 /**
  * A data blob or a read the home's fold reads, as the home serves it at `/b/<hash>`: its bytes, which must hash to the
  * name, whatever is held here, since the balances rest on what the home serves. Null, for a read the home's fold
- * measured as absent or a data blob only problems the core refuses there name, only where `mayLack` and the home
- * answers that it holds none (`404`): a node with `work` beside `admit` keeps in the door's store chains its door did
- * not take (NODE.md section 2), and can lack a read a trace on them names, and a store can hold a problem without its
- * data, which the core refuses (CORE.md section 6). A data blob of a problem the home folded is never absent, since
- * the core refuses a problem without one; nor is a read a line the home wrote names, since its door takes no trace
- * whose read it lacks and a store keeps a blob for good. Why not, where the home cannot be asked, does not serve it,
- * or serves other bytes.
+ * measured as absent or a data blob only problems the core refuses there name, only where `lacking` is null and the
+ * home answers that it holds none (`404`): a node with `work` beside `admit` keeps in the door's store chains its door
+ * did not take (NODE.md section 2), and can lack a read a trace on them names, and a store can hold a problem without
+ * its data, which the core refuses (CORE.md section 6). Otherwise `lacking` says why a `404` is refused: a data blob
+ * of a problem the home folded is never absent, since the core refuses a problem without one, nor is a read a line
+ * the home wrote names, since its door takes no trace whose read it lacks and a store keeps a blob for good, nor a
+ * data blob this mirror holds. Why not, where the home cannot be asked, does not serve it, or serves other bytes.
  */
 async function servedAtHome(
   ctx: Context,
   tracker: string,
   h: Hash,
   label: string,
-  mayLack: boolean,
+  lacking: string | null,
 ): Promise<Uint8Array | null | string> {
   let r: Response;
   try {
@@ -841,7 +849,7 @@ async function servedAtHome(
   if (!r.ok) {
     await r.body?.cancel().catch(() => undefined);
     if (r.status !== 404) return `${label} cannot be read`;
-    return mayLack ? null : `${label} is not served, and the home's fold rests on it`;
+    return lacking === null ? null : `${label} is not served, and ${lacking}`;
   }
   try {
     const bytes = new Uint8Array(await r.arrayBuffer());

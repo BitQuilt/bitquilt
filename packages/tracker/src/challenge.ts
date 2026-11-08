@@ -778,8 +778,15 @@ function keepChallenge(f: Folding, c: LayerEvent, verdicts: Verdict[]): void {
 }
 
 /**
- * Why the core refuses a problem's input, or null where it does not: CORE.md section 6, Envelopes, "An envelope that
- * fails its checks makes the input invalid: `reduce` refuses it and produces no state." What makes it so is the
+ * What a refusal of a problem held here whose input the core refuses says, with the core's reason (CORE.md section 6).
+ */
+export function refusedHere(why: string): string {
+  return `the core refuses this problem as held here: ${why}`;
+}
+
+/**
+ * Why the core refuses a problem's input, or null where it does not: CORE.md section 6, "An envelope that fails its
+ * checks makes the input invalid: `reduce` refuses it and produces no state." What makes it so is the
  * envelopes and the blobs, an envelope that does not check, is not its owner's or lacks a data blob, or a data blob
  * its pieces cannot be read from, so the input is reduced again with no receipt: where that is refused, the refusal
  * is the input's, and where it is not, what failed was a receipt, which is no refusal of the core's.

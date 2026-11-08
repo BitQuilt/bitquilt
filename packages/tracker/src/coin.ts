@@ -21,7 +21,7 @@ import {
   plusHours,
   whole,
 } from '@bitquilt/core';
-import type { Admission, Layer } from './challenge.js';
+import { type Admission, type Layer, refusedHere } from './challenge.js';
 import { matchedCommitments } from './gold.js';
 import type { CoinLockWord } from './stake.js';
 import { creditedRoots } from './standing.js';
@@ -584,6 +584,15 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     );
   };
 
+  /**
+   * Why a lock or a pay naming a problem is refused where the layer has no view of it: the core's reason where the
+   * tracker holds the problem and the core refuses its input (CORE.md section 6), and otherwise that it is not held.
+   */
+  const unheld = (problem: Hash): string => {
+    const why = layer.refused.get(problem);
+    return why === undefined ? 'no such problem here' : refusedHere(why);
+  };
+
   type Check = { ok: true; root: Address; standing?: number } | { ok: false; why: string };
   /** Whether a posted event would be kept at `at`, by section 2 of QX-17. */
   const check = (e: Event, at: string): Check => {
@@ -597,14 +606,14 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
     switch (e.type) {
       case 'lock': {
         const pl = layer.problems.get(b.problem as Hash);
-        if (!pl) return { ok: false, why: 'no such problem here' };
+        if (!pl) return { ok: false, why: unheld(b.problem as Hash) };
         if (!pl.fold.byHash.has(b.piece as Hash)) return { ok: false, why: 'names a piece this problem does not have' };
         const f = freeOf(a);
         if (f < (b.amount as number)) return { ok: false, why: `free coin ${f} is below the lock of ${b.amount}` };
         return { ok: true, root };
       }
       case 'pay': {
-        if (!layer.problems.has(b.problem as Hash)) return { ok: false, why: 'no such problem here' };
+        if (!layer.problems.has(b.problem as Hash)) return { ok: false, why: unheld(b.problem as Hash) };
         const f = freeOf(a);
         if (f < (b.amount as number)) return { ok: false, why: `free coin ${f} is below the pay of ${b.amount}` };
         return { ok: true, root };

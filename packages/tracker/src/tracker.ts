@@ -402,7 +402,7 @@ export function createTracker(options: TrackerOptions): Tracker {
     {
       path: '/p/<hash>/state',
       guard: 'problem',
-      GET: ({ res, hash }) => json(res, 200, state(cx, hash!, view(hash!)!)),
+      GET: ({ res, hash }) => json(res, 200, state(cx, hash!, layer())),
       otherwise: 405,
     },
     {

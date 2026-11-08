@@ -9,11 +9,11 @@ import { VERDICT, addr, boot, envelope, key, line } from './helpers.js';
  * signed by its owner; the layer leaves that problem out with the core's reason and folds every other. The index, the
  * search and the offer go on without it; a version the core refuses replaces nothing, so the version before it stays
  * listed and offered; `/coin/state` names it among the refused with its chain's head (QX-17 section 6); its envelope
- * is served by hash; a read of its state, scrape, challenges, panels, record or next, and a post on its log, is
- * refused with 503 and the core's reason, after a problem taken down is refused with 410; and once the blob is held it
- * folds. A fold that fails on a receipt, not on the envelopes and blobs, is no refusal of the core's and fails as it
- * did. A problem published through the door has its blobs kept before its envelope, so the door's own write never
- * leaves one without its data.
+ * and its log are served by hash; a read of its state, scrape, challenges, panels, record or next, and a post on its
+ * log, is refused with 503 and the core's reason, after a problem taken down is refused with 410, and a coin lock or
+ * pay naming it with the same words (QX-17 section 2); and once the blob is held it folds. A fold that fails on a
+ * receipt, not on the envelopes and blobs, is no refusal of the core's and fails as it did. A problem published through
+ * the door has its blobs kept before its envelope, so the door's own write never leaves one without its data.
  */
 const owner = key(9),
   worker = key(1),
@@ -136,8 +136,11 @@ describe('a problem held here that the core refuses (CORE.md section 6)', () => 
     expect(state.folded.refused.find((x) => x.problem === r)!.head).toBeNull();
   });
 
-  it('serves its envelope by hash and refuses every read of its fold with 503 and the core reason', async () => {
+  it('serves its envelope and its log by hash and refuses every read of its fold with 503 and the core reason', async () => {
     expect(await t.get(`/p/${q}`)).toEqual(Q);
+    const log = await fetch(`${t.base}/p/${q}/events`);
+    expect(log.status).toBe(200);
+    expect((await log.text()).trim().split('\n')).toHaveLength(1);
     for (const path of ['state', 'scrape', 'challenges', 'panels', 'record', `next?key=${addr(worker)}`])
       expect(await refusal(`/p/${q}/${path}`)).toEqual({ status: 503, error: noBlob });
     expect(await refusal(`/p/${r}/state`)).toEqual({
@@ -150,6 +153,16 @@ describe('a problem held here that the core refuses (CORE.md section 6)', () => 
     const res = await t.post(`/p/${q}/events`, t.ev(worker, 'claim', { by }, q, qPiece));
     expect(res.status).toBe(503);
     expect(((await res.json()) as { error: string }).error).toBe(noBlob);
+  });
+
+  it('refuses a coin lock or pay naming it with the core reason (QX-17 section 2)', async () => {
+    const pay = await t.post('/coin/events', t.ev(worker, 'pay', { problem: r, amount: 1, per_square: 1 }));
+    expect(pay.status).toBe(400);
+    expect(((await pay.json()) as { error: string }).error).toBe(
+      'the core refuses this problem as held here: envelope: not signed by its owner',
+    );
+    const lock = await t.post('/coin/events', t.ev(worker, 'lock', { problem: q, piece: qPiece, amount: 1 }));
+    expect(((await lock.json()) as { error: string }).error).toBe(noBlob);
   });
 
   it('is taken down before its fold is read: next and a post are 410, and its state 503', async () => {

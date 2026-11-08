@@ -20,7 +20,7 @@ For a reader holding an identity log and a list of maintainers: the hide events 
 
 - Leaves it out of `/`, `/search` and `/offer`.
 - Answers `410` to `/p/<hash>/next` and to any event posted under it: taken down here.
-- Still serves `/p/<hash>`, `/p/<hash>/events`, `/p/<hash>/state` and `/p/<hash>/scrape`, the last two carrying `hidden: { by, why, at }`, so a person who has the hash sees the problem and sees that this tracker took it down and why.
+- Still serves `/p/<hash>`, `/p/<hash>/events`, `/p/<hash>/state` and `/p/<hash>/scrape`, the last two carrying `hidden: { by, why, at }`, so a person who has the hash sees the problem and sees that this tracker took it down and why. A problem whose input the core refuses has no state to serve (CORE.md section 6), so for one taken down the last two are `503` with the core's reason, and `/hidden` says the takedown.
 - Lists every hide in force at `GET /hidden`, events and problems alike, for renderers that honour this tracker's word.
 
 A hidden event changes nothing the tracker serves: the chain carries it. A renderer that trusts the maintainer shows it as taken down, with the reason, and a core client shows it as it is.

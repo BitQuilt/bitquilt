@@ -18,6 +18,7 @@ import {
   MAJORITY,
   PANEL,
   countsAsAccepted,
+  refusedHere,
 } from './challenge.js';
 import { type CoinFolded, type CoinLayer, type LogHead, COIN, COIN_LOG } from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
@@ -197,7 +198,7 @@ export function viewIn(layered: Layer, hash: Hash): ProblemLayer | null {
 
 /** The refusal of a problem held here whose input the core refuses (CORE.md section 6), with the core's reason. */
 export function cannotFold(why: string): Refusal {
-  return new Refusal(503, `the core refuses this problem as held here: ${why}`);
+  return new Refusal(503, refusedHere(why));
 }
 
 /**
@@ -247,7 +248,8 @@ function summary(cx: Reads, hash: Hash, layered: Layer = cx.layer()) {
  * reveal of the owner's gold is taken on the piece at `now`, which `state` does not say under an open challenge
  * (QX-16).
  */
-export function state({ store, now, hidden, tracesOf, layer }: Reads, hash: Hash, pl: ProblemLayer) {
+export function state({ store, now, hidden, tracesOf }: Reads, hash: Hash, layered: Layer) {
+  const pl = viewIn(layered, hash)!;
   const s = pl.fold;
   const at = now();
   const witnessed = witnessedReveals(store, hash);
@@ -295,7 +297,7 @@ export function state({ store, now, hidden, tracesOf, layer }: Reads, hash: Hash
     output: s.output?.hash ?? null,
     record_output: recordOutput(pl)?.hash ?? null,
     dropped: [...s.dropped, ...pl.dropped],
-    superseded: supersededBy(store, hash, layer()),
+    superseded: supersededBy(store, hash, layered),
   };
 }
 
@@ -680,9 +682,10 @@ function coinAt(folded: string, clock: string): string {
  * folded in its order with its chain's head, and the identity log's head. The layer is the one `layer()` gives, kept
  * from an earlier read or built for this answer, at the store's version now; nothing is written between reading it
  * and reading the heads, so they are the heads it folded, and the coin is computed no later than five seconds after
- * its time (`coinAt`). Every problem here is folded, hidden and replaced ones too, and each is still served by hash,
- * a hidden one as QX-6 section 3 says. One whose input the core refuses has no state (CORE.md section 6), so the layer
- * left it out; it is named among the refused with its chain's head, since a later version's fold reads its chain.
+ * its time (`coinAt`). Every problem here is named, hidden and replaced ones too, and each is still served by hash,
+ * a hidden one as QX-6 section 3 says: those the layer folded among the problems, and those whose input the core
+ * refuses, which have no state (CORE.md section 6), among the refused, since a later version's fold reads their
+ * chains.
  */
 function foldedOver(store: Store, layered: Layer): CoinFolded {
   const headOf = (log: Hash): LogHead => {
