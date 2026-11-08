@@ -209,82 +209,89 @@ describe('the coin at the mirror', () => {
     expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
   });
 
-  it('checks every credit on the coin log against the chain, and refuses the balances where a credit is not what the chain holds', async () => {
-    await accepted('coin/events', ev(reader, 'credit', { deposit: 1, root: addr(B), amount: 100 }));
-    const chainOf = (amount: number) => ({
-      depositAt: async (n: number) => ({ root: addr(B), amount, made: n === 1 }),
+  describe('with a credit on the coin log', () => {
+    // The credit is posted once for the tests below, after the tests above have read a coin log of one line, so
+    // each of these holds whether it runs alone or in order.
+    beforeAll(async () => {
+      await accepted('coin/events', ev(reader, 'credit', { deposit: 1, root: addr(B), amount: 100 }));
     });
-    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-'));
-    const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(null), chain: chainOf(100) });
-    expect(report.refused).toEqual([]);
-    expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: true, credits: 1 });
-    const balances = JSON.parse(readFileSync(join(out, 'coin', 'balances.json'), 'utf8')) as {
-      balances: Record<string, { balance: number; credited: number }>;
-    };
-    expect(balances.balances[addr(B)]).toMatchObject({ balance: 550, credited: 100 });
-    const wrong = await mirror({
-      trackers: [base],
-      out: mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-wrong-')),
-      now,
-      fetchImpl: fetchWith(null),
-      chain: chainOf(99),
+
+    it('checks every credit on the coin log against the chain, and refuses the balances where a credit is not what the chain holds', async () => {
+      const chainOf = (amount: number) => ({
+        depositAt: async (n: number) => ({ root: addr(B), amount, made: n === 1 }),
+      });
+      const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-'));
+      const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(null), chain: chainOf(100) });
+      expect(report.refused).toEqual([]);
+      expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: true, credits: 1 });
+      const balances = JSON.parse(readFileSync(join(out, 'coin', 'balances.json'), 'utf8')) as {
+        balances: Record<string, { balance: number; credited: number }>;
+      };
+      expect(balances.balances[addr(B)]).toMatchObject({ balance: 550, credited: 100 });
+      const wrong = await mirror({
+        trackers: [base],
+        out: mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-wrong-')),
+        now,
+        fetchImpl: fetchWith(null),
+        chain: chainOf(99),
+      });
+      expect(wrong.refused).toEqual([
+        `coin: the credit for deposit 1 (100 to ${addr(B)}) is not what the chain holds, at head 2 from ${base}`,
+      ]);
+      expect(wrong.coin).toMatchObject({ reproduced: false, credits: 1 });
     });
-    expect(wrong.refused).toEqual([
-      `coin: the credit for deposit 1 (100 to ${addr(B)}) is not what the chain holds, at head 2 from ${base}`,
-    ]);
-    expect(wrong.coin).toMatchObject({ reproduced: false, credits: 1 });
-  });
 
-  it('with no chain to ask, keeps the problems and the coin log, refuses nothing, and leaves the balances out with a line that says why', async () => {
-    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-blind-'));
-    const blind = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(null) });
-    expect(blind.refused).toEqual([]);
-    expect(blind.errors).toEqual([]);
-    expect(blind.coin).toEqual({
-      lines: 2,
-      added: 2,
-      head: 2,
-      reproduced: null,
-      credits: 0,
-      notKept: `the balances at head 2 from ${base} are not kept: 1 credit on the ledger and no chain to check it against`,
+    it('with no chain to ask, keeps the problems and the coin log, refuses nothing, and leaves the balances out with a line that says why', async () => {
+      const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-blind-'));
+      const blind = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(null) });
+      expect(blind.refused).toEqual([]);
+      expect(blind.errors).toEqual([]);
+      expect(blind.coin).toEqual({
+        lines: 2,
+        added: 2,
+        head: 2,
+        reproduced: null,
+        credits: 0,
+        notKept: `the balances at head 2 from ${base} are not kept: 1 credit on the ledger and no chain to check it against`,
+      });
+      expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
+      const coinLines = readFileSync(join(out, 'ledger', 'coin.jsonl'), 'utf8')
+        .split('\n')
+        .filter(Boolean);
+      expect(coinLines.map((l) => (JSON.parse(l) as Receipt).event.type)).toEqual(['lock', 'credit']);
+      for (const h of [P, Q]) {
+        expect(existsSync(join(out, 'problems', `${h}.json`))).toBe(true);
+        expect(existsSync(join(out, 'ledger', `${h}.jsonl`))).toBe(true);
+      }
+      const index = JSON.parse(readFileSync(join(out, 'index.json'), 'utf8')) as { problems: { hash: Hash }[] };
+      expect(index.problems.map((p) => p.hash).sort()).toEqual([P, Q].sort());
     });
-    expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
-    const coinLines = readFileSync(join(out, 'ledger', 'coin.jsonl'), 'utf8')
-      .split('\n')
-      .filter(Boolean);
-    expect(coinLines.map((l) => (JSON.parse(l) as Receipt).event.type)).toEqual(['lock', 'credit']);
-    for (const h of [P, Q]) {
-      expect(existsSync(join(out, 'problems', `${h}.json`))).toBe(true);
-      expect(existsSync(join(out, 'ledger', `${h}.jsonl`))).toBe(true);
-    }
-    const index = JSON.parse(readFileSync(join(out, 'index.json'), 'utf8')) as { problems: { hash: Hash }[] };
-    expect(index.problems.map((p) => p.hash).sort()).toEqual([P, Q].sort());
-  });
 
-  it('with no chain to ask, still refuses balances that do not reproduce', async () => {
-    const doctor = (state: Record<string, unknown>) => {
-      const balances = state.balances as Record<string, { balance: number }>;
-      balances[addr(A)] = { ...balances[addr(A)]!, balance: balances[addr(A)]!.balance + 1 };
-      return state;
-    };
-    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-blind-bad-'));
-    const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(doctor) });
-    expect(report.refused).toEqual([`coin: the balances at head 2 from ${base} do not reproduce here (${addr(A)})`]);
-    expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: false, credits: 0 });
-    expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
-  });
+    it('with no chain to ask, still refuses balances that do not reproduce', async () => {
+      const doctor = (state: Record<string, unknown>) => {
+        const balances = state.balances as Record<string, { balance: number }>;
+        balances[addr(A)] = { ...balances[addr(A)]!, balance: balances[addr(A)]!.balance + 1 };
+        return state;
+      };
+      const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-blind-bad-'));
+      const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(doctor) });
+      expect(report.refused).toEqual([`coin: the balances at head 2 from ${base} do not reproduce here (${addr(A)})`]);
+      expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: false, credits: 0 });
+      expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
+    });
 
-  it('with no chain to ask, leaves a head that moved between the two reads for the next run, and gives no reason', async () => {
-    const moved = (state: Record<string, unknown>) => {
-      const head = state.head as { seq: number; hash: string };
-      return { ...state, head: { ...head, seq: head.seq + 1 } };
-    };
-    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-blind-moved-'));
-    const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(moved) });
-    expect(report.refused).toEqual([]);
-    expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: null });
-    expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
-    expect(readFileSync(join(out, 'ledger', 'coin.jsonl'), 'utf8')).toContain('"type":"credit"');
+    it('with no chain to ask, leaves a head that moved between the two reads for the next run, and gives no reason', async () => {
+      const moved = (state: Record<string, unknown>) => {
+        const head = state.head as { seq: number; hash: string };
+        return { ...state, head: { ...head, seq: head.seq + 1 } };
+      };
+      const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-credit-blind-moved-'));
+      const report = await mirror({ trackers: [base], out, now, fetchImpl: fetchWith(moved) });
+      expect(report.refused).toEqual([]);
+      expect(report.coin).toEqual({ lines: 2, added: 2, head: 2, reproduced: null });
+      expect(existsSync(join(out, 'coin', 'balances.json'))).toBe(false);
+      expect(readFileSync(join(out, 'ledger', 'coin.jsonl'), 'utf8')).toContain('"type":"credit"');
+    });
   });
 });
 
