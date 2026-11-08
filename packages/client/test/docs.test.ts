@@ -10,7 +10,10 @@ import { describe, expect, it } from 'vitest';
  * strands no link. A link to another site is not followed, and text inside code is not a link. The registry in
  * docs/EXTENSIONS.md links each document under docs/ext/ from its number's row. A path the same Markdown writes in code
  * marks, outside the dated records under docs/history/, which are kept as written, names a file or a folder that
- * exists, its letters' case as written: a path that opens with a folder at the root, or a file at the root. A line
+ * exists, its letters' case as written: a path that opens with a folder at the root, or a file at the root. A name
+ * alone is a file at the root where it is one of the root's files or one the documents write bare, which the test
+ * lists, so a file moved from the root fails where a document still writes it; any other dot and a word, as `.mcpb`,
+ * is a file's extension, and any other name alone may be a file below the root, which only its path names. A line
  * after a colon or a heading after `#` is not part of the path, and a pattern with `<...>`, `{...}` or `*` is not a
  * path. A path written on purpose that the repository does not keep is excepted by name, with the reason beside it.
  */
@@ -130,24 +133,37 @@ const NOT_KEPT: Record<string, string> = {
 };
 
 /**
- * Whether a name with no slash is a file at the root: one of the root's files, or a dot file's name, a dot and a word
- * of four letters or more or a dot name with a second part, as `.gitignore` and `.env.example` are. A dot and a short
- * word alone, as `.p8` or `.md`, is a file's extension.
+ * The files at the root the documents write by name alone. A name here is read as a path whether or not the root has
+ * it, so a file moved from the root fails where a document still writes it bare, until the document or this list
+ * changes. A test below holds the list to the root files the documents write bare, no more and no less.
  */
-const atRoot = (name: string): boolean =>
-  ROOT_NAMES.has(name) || /^\.[A-Za-z][\w-]{3,}$/.test(name) || /^\.[A-Za-z][\w-]*(?:\.[\w-]+)+$/.test(name);
+const BARE = ['.env.example', 'Dockerfile', 'README.md', 'vitest.config.ts'];
+
+/**
+ * Whether a name with no slash is a file at the root: one the documents write bare, or one of the root's files, its dot
+ * files among them. Any other dot and a word, as `.p8`, `.mcpb` or `.d.ts`, is a file's extension, and any other name
+ * alone may be a file below the root, which only its path names.
+ */
+const atRoot = (name: string, names: ReadonlySet<string> = ROOT_NAMES): boolean =>
+  BARE.includes(name) || names.has(name);
+
+/** The names a code mark writes alone, with no slash: a line after a colon and a heading after `#` set aside. */
+const bareIn = (mark: string): string[] =>
+  mark
+    .split(/\s+/)
+    .filter((word) => word !== '' && !word.includes('/'))
+    .map((word) => word.replace(/[:#].*$/, '').replace(/[.,;]+$/, ''));
 
 /** A path opens with a folder at the root, with no letter, slash, dot or `@` before it, as a site's address has. */
 const OPENS = new RegExp(`(?<![\\w./@-])(?:${TOP.map((t) => t.replace('.', '\\.')).join('|')})/[^\\s\`'"(),;]*`, 'g');
 
 /**
- * The repository paths one code mark writes, from the root: a line after a colon and a heading after `#` set aside,
- * and a trailing slash with them. A pattern is no path.
+ * The repository paths one code mark writes, from the root, the root's files given by name: a line after a colon and a
+ * heading after `#` set aside, and a trailing slash with them. A pattern is no path.
  */
-function pathsOf(mark: string): string[] {
+function pathsOf(mark: string, names: ReadonlySet<string> = ROOT_NAMES): string[] {
   const words = [...mark.matchAll(OPENS)].map((m) => m[0]);
-  for (const word of mark.split(/\s+/))
-    if (!word.includes('/') && atRoot(word.replace(/[:#].*$/, ''))) words.push(word);
+  for (const name of bareIn(mark)) if (atRoot(name, names)) words.push(name);
   return words
     .filter((word) => !/[<>{}*]/.test(word))
     .map((word) =>
@@ -165,12 +181,12 @@ interface Named {
   path: string;
 }
 
-/** Every repository path a file writes in code marks outside its fenced blocks, which hold commands and examples. */
-function pathsIn(file: string): Named[] {
-  return [...unfenced(read(file)).matchAll(/`([^`\n]+)`/g)].flatMap((m) =>
-    pathsOf(m[1]!).map((path) => ({ from: file, path })),
-  );
-}
+/** A file's code marks outside its fenced blocks, which hold commands and examples. */
+const marksIn = (file: string): string[] => [...unfenced(read(file)).matchAll(/`([^`\n]+)`/g)].map((m) => m[1]!);
+
+/** Every repository path a file writes in code marks. */
+const pathsIn = (file: string): Named[] =>
+  marksIn(file).flatMap((mark) => pathsOf(mark).map((path) => ({ from: file, path })));
 
 /** Whether a path names a file or a folder here, each part's case as written, as a checkout on Linux reads it. */
 function present(path: string): boolean {
@@ -182,7 +198,8 @@ function present(path: string): boolean {
   return true;
 }
 
-const named = files.filter((f) => !f.startsWith('docs/history/')).flatMap(pathsIn);
+const kept = files.filter((f) => !f.startsWith('docs/history/'));
+const named = kept.flatMap(pathsIn);
 
 describe("the documents' links", () => {
   it('reads every document and README, the ones the documents name among them', () => {
@@ -266,8 +283,26 @@ describe("the documents' paths in code marks", () => {
     expect(pathsOf('vitest.config.ts')).toEqual(['vitest.config.ts']);
     for (const none of ['examples/<pattern>.json', 'packages/*/src', 'https://bitquilt.org/docs/x', '@bitquilt/core'])
       expect(pathsOf(none), none).toEqual([]);
-    for (const none of ['.p8', '.md', '...the', 'tools.ts', 'src/window.generated.ts'])
+    for (const none of ['.p8', '.md', '.mcpb', '.json', '.d.ts', '...the', 'tools.ts', 'src/window.generated.ts'])
       expect(pathsOf(none), none).toEqual([]);
+  });
+
+  it('reads a name alone as a file at the root where the root has it or the documents write it bare', () => {
+    expect(pathsOf('.gitignore')).toEqual(['.gitignore']);
+    expect(pathsOf('tsconfig.base.json')).toEqual(['tsconfig.base.json']);
+    expect(pathsOf('tsconfig.base.json', new Set())).toEqual([]);
+    expect(pathsOf('the Dockerfile', new Set())).toEqual(['Dockerfile']);
+  });
+
+  it('lists the root files the documents write bare, no more and no less, so a file moved from the root fails', () => {
+    const bare = new Set(
+      kept
+        .flatMap(marksIn)
+        .flatMap(bareIn)
+        .filter((name) => atRoot(name)),
+    );
+    expect([...bare].sort()).toEqual([...BARE].sort());
+    for (const name of BARE) expect(present(name), name).toBe(true);
   });
 
   it('finds a path that names nothing, and one whose case differs', () => {
