@@ -31,7 +31,9 @@
  * write an hour from an address takes a peer's four events from one key at once. The well-known fields the page names
  * are in the well-known document, `peers` said as QX-21 says it; each rule the page repeats from PROTOCOL.md's "What
  * the door answers" cites it beside the rule and says what it says; its links reach a file and a heading, and it has no
- * U+2014. docs/README.md says it by its six steps, and names beside it the sections its reading list links.
+ * U+2014. docs/README.md says it by its six steps, and names beside it the sections its reading list links. AGENTS.md
+ * says what holds each part, the worked example the core and fixture 04, the requests and the table a booted tracker,
+ * as the describes here do.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -776,10 +778,11 @@ describe('CLIENT.md, what the door checks, in order', () => {
   });
 
   it('refuses a post that fails several checks for the earliest, row by row as each is put right', async () => {
-    // The bodies hold the order. Up to row 16, each post puts right the fault the door named at the one before and
-    // keeps the others, so it carries the faults the steps after it name, and the door answers the earliest. The first
-    // fails rows 1 and 4; the reveal at the third fails rows 5, 6, 8, 9, 11, 14, 15 and 16 at once; the eighth trades
-    // row 11's fault for row 12's.
+    // The bodies hold the order. Through row 16, each post puts right the fault the door named at the one before and
+    // keeps every other, so the door answers the earliest check it fails. The first two are not JSON, the first under a
+    // problem this tracker does not hold. From the third, the reveal fails rows 5, 6, 8, 9, 11, 14, 15 and 16 at once,
+    // and each post after it puts one right; the eighth trades row 11's fault for row 12's, which only a staked piece
+    // carries.
     const ret = { verdict: 'maybe', quote: 'Read it at https://example.org/page' };
     const nonce = newNonce();
     const now = () => new Date((door.clock.tick += 1000)).toISOString();
@@ -1247,6 +1250,23 @@ describe('CLIENT.md, what it names and links', () => {
     expect(entries.find((e) => e.startsWith('- '))).toContain(
       `Read it with CORE.md sections ${sections(list[0]!, 'CORE.md')}, QX-19 sections ${sections(list[2]!, 'ext/QX-19.md')}, and PROTOCOL.md's routes, what the door answers and the piece next hands over.`,
     );
+  });
+
+  it('is named in AGENTS.md by what holds each part, as the describes here hold it', () => {
+    expect(readFileSync(join(DOCS, '..', 'AGENTS.md'), 'utf8')).toContain(
+      "`docs/CLIENT.md`'s worked example held to the core and fixture 04, and its requests and its table of the door's checks held to a booted tracker, by `packages/tracker/test/client-doc.test.ts`.",
+    );
+    const source = readFileSync(fileURLToPath(import.meta.url), 'utf8');
+    const block = (title: string): string => {
+      const start = source.indexOf(`describe(${title}, () => {`);
+      expect(start, title).toBeGreaterThan(0);
+      return source.slice(start, source.indexOf('\ndescribe(', start));
+    };
+    const worked = block(`"CLIENT.md, fixture 04's first claim, worked"`);
+    expect(worked).toContain('readFileSync(FIXTURE');
+    expect(worked).not.toContain('boot(');
+    for (const title of ["'CLIENT.md, a first return in six steps'", "'CLIENT.md, what the door checks, in order'"])
+      expect(block(title)).toContain('boot(T0');
   });
 
   it('has no em-dash, U+2014', () => {
