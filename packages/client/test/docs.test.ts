@@ -8,7 +8,11 @@ import { describe, expect, it } from 'vitest';
  * documents under docs/ and the READMEs beside the code, resolves to a file or a folder that exists, and a link that
  * names a heading (`#...`) names one the file has, by the anchor GitHub gives it. A document moved, renamed or retitled
  * strands no link. A link to another site is not followed, and text inside code is not a link. The registry in
- * docs/EXTENSIONS.md links each document under docs/ext/ from its number's row.
+ * docs/EXTENSIONS.md links each document under docs/ext/ from its number's row. A path the same Markdown writes in code
+ * marks, outside the dated records under docs/history/, which are kept as written, names a file or a folder that
+ * exists, its letters' case as written: a path that opens with a folder at the root, or a file at the root. A line
+ * after a colon or a heading after `#` is not part of the path, and a pattern with `<...>`, `{...}` or `*` is not a
+ * path. A path written on purpose that the repository does not keep is excepted by name, with the reason beside it.
  */
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -100,6 +104,86 @@ function linksIn(file: string): Link[] {
 const links = files.flatMap(linksIn);
 const where = (l: Link): string => `${l.from}: ${l.target}`;
 
+/** The folders at the root a path in code marks opens with: every one the repository keeps, and the workflows'. */
+const TOP = [
+  ...readdirSync(root, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !['node_modules', 'dist', 'coverage'].includes(e.name))
+    .map((e) => e.name),
+  '.github',
+].sort();
+
+/** The files at the root, by name. */
+const ROOT_NAMES = new Set(
+  readdirSync(root, { withFileTypes: true })
+    .filter((e) => e.isFile())
+    .map((e) => e.name),
+);
+
+/**
+ * The paths written on purpose that the repository does not keep, each with the reason. The documents name them as
+ * they are on the machine or in the repository that keeps them.
+ */
+const NOT_KEPT: Record<string, string> = {
+  'deploy/.env': 'the host writes it from deploy/env.example, and .gitignore keeps it out',
+  'docs/SWARM.md': "a file of the maintainers' Workshop repository, which docs/README.md names in words",
+  'docs/DESIGN.md': "a file of the maintainers' Workshop repository, which docs/README.md names in words",
+};
+
+/**
+ * Whether a name with no slash is a file at the root: one of the root's files, or a dot file's name, a dot and a word
+ * of four letters or more or a dot name with a second part, as `.gitignore` and `.env.example` are. A dot and a short
+ * word alone, as `.p8` or `.md`, is a file's extension.
+ */
+const atRoot = (name: string): boolean =>
+  ROOT_NAMES.has(name) || /^\.[A-Za-z][\w-]{3,}$/.test(name) || /^\.[A-Za-z][\w-]*(?:\.[\w-]+)+$/.test(name);
+
+/** A path opens with a folder at the root, with no letter, slash, dot or `@` before it, as a site's address has. */
+const OPENS = new RegExp(`(?<![\\w./@-])(?:${TOP.map((t) => t.replace('.', '\\.')).join('|')})/[^\\s\`'"(),;]*`, 'g');
+
+/**
+ * The repository paths one code mark writes, from the root: a line after a colon and a heading after `#` set aside,
+ * and a trailing slash with them. A pattern is no path.
+ */
+function pathsOf(mark: string): string[] {
+  const words = [...mark.matchAll(OPENS)].map((m) => m[0]);
+  for (const word of mark.split(/\s+/))
+    if (!word.includes('/') && atRoot(word.replace(/[:#].*$/, ''))) words.push(word);
+  return words
+    .filter((word) => !/[<>{}*]/.test(word))
+    .map((word) =>
+      word
+        .replace(/#.*$/, '')
+        .replace(/:\d+(?:-\d+)?$/, '')
+        .replace(/[.:]+$/, '')
+        .replace(/\/$/, ''),
+    );
+}
+
+/** A path in code marks: the file that writes it, and the path from the root. */
+interface Named {
+  from: string;
+  path: string;
+}
+
+/** Every repository path a file writes in code marks outside its fenced blocks, which hold commands and examples. */
+function pathsIn(file: string): Named[] {
+  return [...unfenced(read(file)).matchAll(/`([^`\n]+)`/g)].flatMap((m) =>
+    pathsOf(m[1]!).map((path) => ({ from: file, path })),
+  );
+}
+
+/** Whether a path names a file or a folder here, each part's case as written, as a checkout on Linux reads it. */
+function present(path: string): boolean {
+  let dir = root;
+  for (const part of path.split('/')) {
+    if (!existsSync(dir) || !statSync(dir).isDirectory() || !readdirSync(dir).includes(part)) return false;
+    dir = join(dir, part);
+  }
+  return true;
+}
+
+const named = files.filter((f) => !f.startsWith('docs/history/')).flatMap(pathsIn);
+
 describe("the documents' links", () => {
   it('reads every document and README, the ones the documents name among them', () => {
     const named = ['README.md', 'AGENTS.md', 'docs/README.md', 'docs/NODE.md', 'docs/ext/QX-11.md'];
@@ -142,5 +226,54 @@ describe("the documents' links", () => {
       const row = rows.find((r) => r.startsWith(`| ${number} |`));
       expect(row, name).toContain(`(ext/${name})`);
     }
+  });
+});
+
+describe("the documents' paths in code marks", () => {
+  it('reads every path in code marks outside the dated records, those of the code and the deploy among them', () => {
+    expect(named.length).toBeGreaterThan(300);
+    const paths = (from: string): string[] => named.filter((n) => n.from === from).map((n) => n.path);
+    expect(paths('AGENTS.md')).toContain('packages/tracker/src/admit.ts');
+    expect(paths('deploy/README.md')).toContain('deploy/house.sh');
+    expect(paths('docs/NODE.md')).toContain('.env.example');
+    expect(named.some((n) => n.from.startsWith('docs/history/'))).toBe(false);
+  });
+
+  it('names a file or a folder that exists, but where a path is written on purpose and not kept', () => {
+    const dead = named.filter((n) => !(n.path in NOT_KEPT) && !present(n.path)).map((n) => `${n.from}: ${n.path}`);
+    expect(dead).toEqual([]);
+  });
+
+  it('excepts only paths a document writes, each one git does not keep', () => {
+    for (const path of Object.keys(NOT_KEPT))
+      expect(
+        named.map((n) => n.path),
+        path,
+      ).toContain(path);
+    expect(read('.gitignore').split('\n'), 'deploy/.env').toContain('.env');
+    for (const path of ['docs/SWARM.md', 'docs/DESIGN.md']) expect(present(path), path).toBe(false);
+  });
+
+  it('reads a path as the documents write one, and a pattern, an address or an extension as none', () => {
+    expect(pathsOf('packages/client/src/tools.ts:12')).toEqual(['packages/client/src/tools.ts']);
+    expect(pathsOf('docs/NODE.md#6-the-mirror-job')).toEqual(['docs/NODE.md']);
+    expect(pathsOf('npx tsx scripts/check-pattern.ts examples/first-pattern.json')).toEqual([
+      'scripts/check-pattern.ts',
+      'examples/first-pattern.json',
+    ]);
+    expect(pathsOf('deploy/')).toEqual(['deploy']);
+    expect(pathsOf('.env.example')).toEqual(['.env.example']);
+    expect(pathsOf('vitest.config.ts')).toEqual(['vitest.config.ts']);
+    for (const none of ['examples/<pattern>.json', 'packages/*/src', 'https://bitquilt.org/docs/x', '@bitquilt/core'])
+      expect(pathsOf(none), none).toEqual([]);
+    for (const none of ['.p8', '.md', '...the', 'tools.ts', 'src/window.generated.ts'])
+      expect(pathsOf(none), none).toEqual([]);
+  });
+
+  it('finds a path that names nothing, and one whose case differs', () => {
+    expect(present('packages/client/src/tools.ts')).toBe(true);
+    expect(present('packages/client/src/gone.ts')).toBe(false);
+    expect(present('docs/node.md')).toBe(false);
+    expect(present('Docs/NODE.md')).toBe(false);
   });
 });
