@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { type Hash, eventId, hashBytes, problemHash } from '@bitquilt/core';
+import { type Hash, eventId, eventProblems, hashBytes, problemHash } from '@bitquilt/core';
 import type { Route } from '../src/routes.js';
 import { addr, boot, envelope, key } from './helpers.js';
 
@@ -16,7 +16,10 @@ import { addr, boot, envelope, key } from './helpers.js';
  * every answer the tracker writes itself, and nothing added to what the routes beside it write; a post asked in the
  * prose's order, its guard first and its address's limit before its body is read; the fields of the piece next hands
  * over, the rows under "### The piece next hands over";
- * a post's answer, and 409 for it again; the signature's text form, with a `v` of 0 or 1 taken and any other
+ * a post's answer, and 409 for it again; a version's slug held to the envelope's rule where the core's shape takes any
+ * string, refused in the prose's words, which are the envelope's check's after the field each names, and a slug that
+ * is one taken and named; the signature's
+ * text form, with a `v` of 0 or 1 taken and any other
  * refused; the limits as published, the address's counting every write and the key's every post; and the hold, on
  * the piece next hands over and on the first the offer names, for 60 seconds. And The problem envelope's checks at
  * publish: the gate on the title, done_when and briefs, a prev held and by the same owner, a from by another owner
@@ -340,6 +343,31 @@ describe('PROTOCOL.md, what the door answers', () => {
     expect(DOC).toContain('`409`, `already here`');
     expect(again.status).toBe(409);
     expect(await again.json()).toEqual({ error: 'already here' });
+  });
+
+  it("holds a version's slug to the envelope's rule in the words the prose gives, and takes a slug that is one", async () => {
+    const said = /A version's slug\*\* is held to .* is refused as `([^`]+)`/.exec(DOC);
+    expect(said, "the prose names the version's refusal").not.toBeNull();
+    expect(DOC).toContain(
+      "CORE.md section 4 gives a version `{ slug, hash }`, and the core's shape asks only that the slug is a string (`eventProblems` in `packages/core/src/events.ts`), so a core client folds any. The door asks more because an owner's name is one segment of a path, `/n/<owner>/<slug>` here and `names/<owner>/<slug>` in a mirror's folder (NODE.md section 6)",
+    );
+    for (const slug of ['..', 'a/b', '../../x', 'Table', '', 'a'.repeat(65)]) {
+      const event = plain.ev(owner, 'version', { slug, hash: P }, P);
+      // The core's shape takes it, and the door refuses it.
+      expect(eventProblems(event), slug).toEqual([]);
+      const r = await plain.post(`/p/${P}/events`, event);
+      expect([r.status, ((await r.json()) as { error: string }).error], slug).toEqual([400, said![1]]);
+    }
+    expect(eventProblems(plain.ev(owner, 'version', { slug: 7, hash: P }, P))).toEqual(['body.slug: a slug']);
+    // The same words the envelope's check says of a problem's slug, after the field each names.
+    const published = await plain.post('/p', { envelope: { ...env, problem: { ...env.problem, slug: 'a/b' } } });
+    expect([published.status, ((await published.json()) as { error: string }).error]).toEqual([
+      400,
+      said![1]!.replace(/^body\./, 'problem.'),
+    ]);
+    const r = await plain.post(`/p/${P}/events`, plain.ev(owner, 'version', { slug: 'table', hash: P }, P));
+    expect(r.status).toBe(202);
+    expect(await plain.get(`/n/${addr(owner)}/table`)).toEqual({ hash: P });
   });
 
   it("asks a post in the prose's order: the guard, the address's limit before the body is read, then the JSON, the shape, the signature, the key's limit, the log and what it holds", async () => {

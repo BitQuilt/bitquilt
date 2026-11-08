@@ -1,6 +1,7 @@
 /**
  * CORE.md sections 2 and 3: the envelope's validity, the problem's hash over `problem` alone, and the expansion of a
- * family to pieces named by hash with their data slots filled and their return slots left as written.
+ * family to pieces named by hash with their data slots filled and their return slots left as written. The slug's rule
+ * is exported as `isSlug` with its words, and the envelope's check reads it.
  */
 import { describe, expect, it } from 'vitest';
 import { hashBytes } from '../src/hash.js';
@@ -9,8 +10,10 @@ import {
   envelopeProblems,
   expandPieces,
   inputPieces,
+  isSlug,
   problemHash,
   renderBrief,
+  SLUG_RULE,
   type Envelope,
 } from '../src/envelope.js';
 
@@ -122,6 +125,20 @@ describe('the envelope', () => {
       'problem.owner: an address with its checksum',
     );
     expect(blobProblems(p, new Map())).toEqual([`blob cites.json: ${citesHash} not present`]);
+  });
+  it("says a slug is one by the rule the envelope holds its own to, and refuses the envelope in the rule's words", () => {
+    const p = envelope.problem;
+    for (const slug of ['x', 'report-2026', `a${'0'.repeat(62)}z`]) {
+      expect(isSlug(slug), slug).toBe(true);
+      expect(envelopeProblems({ ...envelope, problem: { ...p, slug } }), slug).toEqual([]);
+    }
+    for (const slug of ['', '..', 'a/b', '../../x', 'Bad', '-a', 'a-', 'a b', 'a'.repeat(65), 7, null]) {
+      expect(isSlug(slug), String(slug)).toBe(false);
+      expect(envelopeProblems({ ...envelope, problem: { ...p, slug: slug as string } }), String(slug)).toEqual([
+        `problem.slug: ${SLUG_RULE}`,
+      ]);
+    }
+    expect(SLUG_RULE).toBe('lower-case letters, digits and hyphens, at most 64');
   });
   it('expands families to pieces named by hash, fills data slots and leaves return slots as written', () => {
     const pieces = expandPieces(envelope.problem, blobs);

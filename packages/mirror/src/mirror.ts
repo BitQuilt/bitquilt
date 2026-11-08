@@ -46,6 +46,7 @@ import {
   eventProblems,
   eventSignedByKey,
   hashBytes,
+  isSlug,
   nextLine,
   onlyAppends,
   problemHash,
@@ -466,12 +467,8 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
   // is one.
   if (ctx.out)
     for (const line of chain.lines)
-      if (line.event.type === 'version' && line.event.key === envelope.problem.owner) {
-        const { slug, hash: target } = line.event.body as { slug: string; hash: Hash };
-        const file = join(ctx.out, 'names', envelope.problem.owner, slug);
-        mkdirSync(dirname(file), { recursive: true });
-        writeFileSync(file, `${target}\n`);
-      }
+      if (line.event.type === 'version' && line.event.key === envelope.problem.owner)
+        writeName(ctx.out, envelope.problem.owner, line.event.body);
   let complete = false;
   try {
     const state = reduce(reduceInputOf(ctx.store, envelope, ctx.now()));
@@ -488,6 +485,23 @@ async function takeProblem(ctx: Context, tracker: string, hash: Hash): Promise<v
     ctx.report.errors.push(`${hash}: ${(err as Error).message}`);
   }
   ctx.report.problems.push({ hash, lines: chain.lines.length, added: chain.added, complete });
+}
+
+/**
+ * NODE.md section 6: an owner's name, `names/<owner>/<slug>`, from a version the owner signed. It is written only for a
+ * slug by the envelope's rule, "problem.slug: lower-case letters, digits and hyphens, at most 64" (`isSlug`), and only
+ * at a path inside names/<owner>/. A version with any other slug is passed over, and is no refusal: the core's shape
+ * asks only that a version's slug is a string (CORE.md section 4), so a core client holds it, and a refusal would fail
+ * every run and stop main growing.
+ */
+function writeName(out: string, owner: string, body: Record<string, unknown>): void {
+  const { slug, hash } = body;
+  if (!isSlug(slug)) return;
+  const dir = join(out, 'names', owner);
+  const file = join(dir, slug);
+  if (dirname(file) !== dir) return;
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(file, `${hash as Hash}\n`);
 }
 
 /**

@@ -27,7 +27,9 @@ import { VERDICT, addr, boot, envelope, key } from './helpers.js';
  * reason, so the two differ there and nowhere else; and a peer that does not answer is noted while the rest is pulled.
  * A human piece's seat is read from the peer's wrappers as the layer reads it (verifiers.md section 2): a reveal whose
  * wrapper says `seat: person` or `custody: hosted` is pulled, and one that says neither is refused. The stamp a door
- * asks of a name (CORE.md section 11) is asked of a pulled name as of a posted one, as QX-21 section 2 says.
+ * asks of a name (CORE.md section 11) is asked of a pulled name as of a posted one, as QX-21 section 2 says, and so is
+ * the envelope's rule a door holds a version's slug to: a version the peer took under a slug that climbs out of a
+ * folder is refused with the words a post of it gets, and the owner's version after it is pulled and names the problem.
  * The pull reaches the tracker that runs it through the `PullDoor` it is handed (peers.ts): the door's admission
  * decides each event, a refusal is said with its reason and a failure is noted, and a line admitted carries the peer's
  * wrapper with the door's after it.
@@ -274,6 +276,45 @@ describe("a human piece's seat, read from the peer's wrappers (QX-21 section 2)"
       });
       // The two seats a person's are the accepting set, as the layer counts them.
       expect((await here.get<State>(`/p/${PH}/state`)).pieces[0]!.state).toBe('accepted_provisional');
+    } finally {
+      await here.close();
+    }
+  });
+});
+
+describe("a pulled version's slug, by the envelope's rule (QX-21 section 2, CORE.md section 2)", () => {
+  it('refuses a version its peer took whose slug is not a slug, with the reason a post of it gets, and pulls the rest', async () => {
+    const PEER = 'http://peer.test/';
+    const V = envelope(owner, 'versions', pieces, { title: 'Versions' });
+    const PV = problemHash(V);
+    let lines: Receipt[] = [];
+    const peerFetch = (async (input: string | URL | Request) => {
+      const u = String(input);
+      if (u === `${PEER}.well-known/quilt`) return Response.json({ quilt: 1 });
+      if (u.startsWith(`${PEER}p/${PV}/events`)) return new Response(lines.map((l) => JSON.stringify(l)).join('\n'));
+      if (u.startsWith(`${PEER}k/events`)) return new Response('');
+      return new Response('', { status: 404 });
+    }) as typeof fetch;
+    const here = boot(START, { limits, peers: [PEER], fetchImpl: peerFetch });
+    await here.listen();
+    try {
+      expect((await here.post('/p', { envelope: V })).status).toBe(201);
+      // The peer's chain: a version under a slug that climbs out of a folder, then one under the problem's own slug.
+      const climbs = here.ev(owner, 'version', { slug: '../../x', hash: PV }, PV);
+      const good = here.ev(owner, 'version', { slug: 'versions', hash: PV }, PV);
+      lines = chainLines(
+        [climbs, good].map((event) => ({ event, received: [{ by: PEER, at: event.ts, custody: 'self' }] })),
+        PV,
+      );
+      here.clock.tick += 60_000;
+      const said = 'body.slug: lower-case letters, digits and hyphens, at most 64';
+      const [pull] = await here.tracker.pullPeers();
+      expect(pull).toEqual({ peer: PEER, added: 1, refused: [{ id: eventId(climbs), why: said }], errors: [] });
+      expect(here.store.lines(PV).map((l) => l.event.sig)).toEqual([good.sig]);
+      expect(await here.get<{ hash: Hash }>(`/n/${addr(owner)}/versions`)).toEqual({ hash: PV });
+      // The same words a post of it gets at this door.
+      const direct = await here.post(`/p/${PV}/events`, climbs);
+      expect([direct.status, ((await direct.json()) as { error: string }).error]).toEqual([400, said]);
     } finally {
       await here.close();
     }
