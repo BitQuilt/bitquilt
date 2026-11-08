@@ -24,22 +24,23 @@
  * fails; the commit and the reveal posted again close the walk at rows 20 and 16; the address's writes are counted
  * after the problem is found and before the body is read, and the key's posts after the signature is checked, so
  * another key's signature spends none of the key's hour; a reveal posted again meets rows 11 to 17 again before row 20,
- * and is refused at row 16 where its commit was the key's only one on the piece, at row 13 once a record piece's
- * readings are in, the reveal that put them in among them, and at row 12 once a staked piece is accepted and the lock
- * released, and is answered 409 where a commit the key never revealed stays, abandoned or not; and every row is met.
- * Beside the table: the door leaves a reveal's `h` to the reducer, whose drop shows in the state, and next refuses the
- * three sentences the page names. A client that reduces: the problem's log alone leaves out a return posted under an
- * ancestor, and with the ancestor's log it reaches the tracker's state. A peer's events: what a peer admitted is pulled
- * through this door's admission; an event this door's rules refuse, on a problem taken down here or a piece under a
- * stake rule the peer lacks, is named in the pull's report with the sentence a post of it gets here, which is its
- * row's; a second pull passes over what this door holds; and a pull meets no hourly limit, so a door that takes one
- * write an hour from an address takes a peer's four events from one key at once. The well-known fields the page names
- * are in the well-known document, `peers` said as QX-21 says it; each rule the page repeats from PROTOCOL.md's "What
- * the door answers" cites it beside the rule and says what it says; each function it names is defined in the file it
- * names, the door's checks in tracker.ts; its links reach a file and a heading, and it has no U+2014. docs/README.md
- * says it by its six steps, and names beside it the sections its reading list links. AGENTS.md says what holds each
- * part, the worked example the core and fixture 04, the requests and the table a booted tracker, as the describes here
- * do.
+ * and is refused at row 16 where it counted and its commit was the key's only one on the piece, at row 13 once a record
+ * piece's readings are in, the readings that put them in included, and at row 12 once a staked piece is accepted and
+ * the lock released; it is answered 409 where a commit by the key on the piece stays unrevealed, an earlier one
+ * abandoned or not, or its own where the reveal came late; and every row is met. Beside the table: the door leaves a
+ * reveal's `h` to the reducer, whose drop shows in the state, and the dropped reveal posted again is answered 409
+ * though its commit is the key's only one on the piece; and next refuses the three sentences the page names. A client
+ * that reduces: the problem's log alone leaves out a return posted under an ancestor, and with the ancestor's log it
+ * reaches the tracker's state. A peer's events: what a peer admitted is pulled through this door's admission; an event
+ * this door's rules refuse, on a problem taken down here or a piece under a stake rule the peer lacks, is named in the
+ * pull's report with the sentence a post of it gets here, which is its row's; a second pull passes over what this door
+ * holds; and a pull meets no hourly limit, so a door that takes one write an hour from an address takes a peer's four
+ * events from one key at once. The well-known fields the page names are in the well-known document, `peers` said as
+ * QX-21 says it; each rule the page repeats from PROTOCOL.md's "What the door answers" cites it beside the rule and
+ * says what it says; each function it names is defined in the file it names, the door's checks in tracker.ts; its links
+ * reach a file and a heading, and it has no U+2014. docs/README.md says it by its six steps, and names beside it the
+ * sections its reading list links. AGENTS.md says what holds each part, the worked example the core and fixture 04, the
+ * requests and the table a booted tracker, as the describes here do.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -746,6 +747,12 @@ async function log(t: Booted, problem: Hash): Promise<(Receipt & { seq: number; 
     .map((l) => JSON.parse(l) as Receipt & { seq: number; prev: string; hash: string });
 }
 
+/** How many commits the key has on the piece, as the problem's log holds them. */
+async function commitsBy(t: Booted, problem: Hash, k: Uint8Array, piece: Hash): Promise<number> {
+  const lines = await log(t, problem);
+  return lines.filter((l) => l.event.type === 'commit' && l.event.key === addr(k) && l.event.piece === piece).length;
+}
+
 describe('CLIENT.md, what the door checks, in order', () => {
   const door = boot(T0, { limits: { keyPerHour: 1000, ipPerHour: 10000 }, maintainers: [addr(M)] });
   const P = envelope(owner, 'door', {
@@ -849,43 +856,64 @@ describe('CLIENT.md, what the door checks, in order', () => {
     expect((await raw(door, events, commit)).status).toBe(202);
     await step(20, events, commit, 'already here');
     // The door admits before it dedupes, so the reveal posted again meets rows 11 to 17 again. The open piece asks no
-    // stake and keeps no record, so the repeat passes rows 11 to 15 as it did and meets row 16, its commit revealed.
+    // stake and keeps no record, so the repeat passes rows 11 to 15 as it did. The reveal counted, and its commit is
+    // A's only one on the piece, so the reducer has marked it revealed and the repeat meets row 16.
     expect(DOC).toContain(
       'The door admits before it dedupes, so an event posted again meets the checks again, and row 20 answers it only where no check before it now refuses it. A reveal posted again meets rows 11 to 17 before row 20. Rows 11, 14 and 15 read the piece and the return, which are the same, and pass again; rows 12, 13, 16 and 17 may not.',
     );
     expect(DOC).toContain(
-      "Where the reveal's commit is the key's only one on the piece, the repeat is refused there, `no unrevealed commit by this key on the piece`, and is not answered `409`.",
+      'Otherwise row 16 asks for a commit by the key on the piece that the reducer has not marked revealed, and the reducer marks a commit revealed only for a reveal that counts.',
+    );
+    expect(DOC).toContain(
+      "Where the key has none, as where the reveal counted and its commit was the key's only one on the piece, the repeat is refused there, `no unrevealed commit by this key on the piece`, and is not answered `409`.",
     );
     u.ts = now();
     const reveal = signed(A);
     expect((await raw(door, events, reveal)).status).toBe(202);
+    const { dropped } = await door.get<StateAnswer>(`/p/${p}/state`);
+    expect(dropped.map((d) => d.id)).not.toContain(eventId(JSON.parse(reveal) as Event));
+    expect(await commitsBy(door, p, A, pieces.cite!)).toBe(1);
     await step(16, events, reveal, 'no unrevealed commit by this key on the piece');
   });
 
-  it('answers a reveal posted again 409 where the key has a commit on the piece it never revealed, abandoned or not', async () => {
+  it('answers a reveal posted again 409 where a commit by the key on the piece stays unrevealed, an earlier one abandoned or not, or its own where the reveal came late', async () => {
     expect(DOC).toContain(
-      'Where the key has another commit on the piece that it never revealed, as the first is after a second commit (step 4), that one stays unrevealed at the door, abandoned or not, so the repeat passes row 16 and is answered `409`, `already here`, unless row 17 now refuses it, as on a `judge:n` piece whose panel has sat since.',
+      "Where one stays, the repeat passes row 16 and is answered `409`, `already here`, unless row 17 now refuses it, as on a `judge:n` piece whose panel has sat since. One stays where the key has an earlier commit on the piece that it never revealed, as the first is after a second commit (step 4), abandoned or not. One stays as well where the reducer dropped the reveal, as a late one or one matching no commit's `h` (step 5), which leaves its commit unrevealed.",
     );
     const t = boot(T0);
     await t.listen();
     try {
       expect((await t.post('/p', { envelope: P })).status).toBe(201);
-      const reveal = (ret: Record<string, unknown>, nonce: string): string =>
-        JSON.stringify(t.ev(D, 'reveal', { return: ret, nonce, by: by('meta/llama') }, p, pieces.cite));
+      const reveal = (k: Uint8Array, model: string, ret: Record<string, unknown>, nonce: string): string =>
+        JSON.stringify(t.ev(k, 'reveal', { return: ret, nonce, by: by(model) }, p, pieces.cite));
       // Step 4: a commit whose reveal the gate refuses, then a second commit to a clean return, and its reveal.
       const bad = { verdict: 'supports', quote: 'Write to a.b@example.com for the page.' };
       const first = newNonce();
       await t.accepted(events, t.ev(D, 'commit', { h: commitHash(bad, first) }, p, pieces.cite));
-      meets(15, await raw(t, events, reveal(bad, first)));
+      meets(15, await raw(t, events, reveal(D, 'meta/llama', bad, first)));
       const good = { verdict: 'supports', quote: 'The page says so.' };
       const second = newNonce();
       await t.accepted(events, t.ev(D, 'commit', { h: commitHash(good, second) }, p, pieces.cite));
-      const again = reveal(good, second);
+      const again = reveal(D, 'meta/llama', good, second);
       expect((await raw(t, events, again)).status).toBe(202);
       meets(20, await raw(t, events, again));
-      // Two leases on, the first commit is abandoned, and the door still counts it unrevealed.
+      // E commits now and reveals two leases on, its one commit on the piece.
+      const nonce = newNonce();
+      await t.accepted(events, t.ev(E, 'commit', { h: commitHash(good, nonce) }, p, pieces.cite));
+      // Two leases on, D's first commit is abandoned, and the door still counts it unrevealed.
       t.clock.tick += 2 * SETTINGS.lease_h * 3_600_000 + 1000;
       meets(20, await raw(t, events, again));
+      // E's reveal comes after its commit is abandoned: taken, and dropped by the reducer, which leaves the commit
+      // unrevealed, so posted again it passes row 16 and is answered 409, the drop still in the state.
+      const late = reveal(E, 'google/gemini', good, nonce);
+      expect((await raw(t, events, late)).status).toBe(202);
+      expect(await commitsBy(t, p, E, pieces.cite!)).toBe(1);
+      meets(20, await raw(t, events, late));
+      const id = eventId(JSON.parse(late) as Event);
+      const { dropped } = await t.get<StateAnswer>(`/p/${p}/state`);
+      expect(dropped.filter((d) => d.id === id)).toEqual([
+        { id, type: 'reveal', why: 'the commit was abandoned before the reveal' },
+      ]);
     } finally {
       await t.close();
     }
@@ -987,9 +1015,9 @@ describe('CLIENT.md, what the door checks, in order', () => {
     );
   });
 
-  it('refuses work on a record piece whose readings are in, its readings posted again among it, before it reads the return', async () => {
+  it('refuses work on a record piece once its readings are in, the readings that put them in posted again included, before it reads the return', async () => {
     expect(DOC).toContain(
-      "Once a record piece's readings are in, row 13 refuses a reveal on it posted again, the one that put them in among them (QX-20 section 2).",
+      "Once a record piece's readings are in, row 13 refuses a reveal on it posted again, including the readings that put them in (QX-20 section 2).",
     );
     /** A commit and its reveal by the key on the record piece; the reveal as posted. */
     const reads = async (k: Uint8Array, model: string, ret: Record<string, unknown>): Promise<string> => {
@@ -1003,7 +1031,7 @@ describe('CLIENT.md, what the door checks, in order', () => {
     // The first reading posted again while the record waits for its second: row 16, its one commit revealed.
     meets(16, await raw(door, events, first));
     const second = await reads(B, 'openai/gpt-5', { verdict: 'contradicts', quote: 'The page reads it otherwise.' });
-    // The readings are in. Each posted again is row 13, the second among them, since its own receipt put them in.
+    // The readings are in. Each posted again is row 13, the second included, whose own receipt put them in.
     for (const again of [first, second]) {
       const answer = await raw(door, events, again);
       meets(13, answer);
@@ -1055,22 +1083,28 @@ describe('CLIENT.md, what the door checks, in order', () => {
     expect([...met].sort((a, b) => a - b)).toEqual(rows.map((r) => r.n));
   });
 
-  it("takes a reveal whose return and nonce miss the commit's h, and the reducer drops it, as the state shows", async () => {
+  it("takes a reveal whose return and nonce miss the commit's h, and the reducer drops it, as the state shows; posted again it is answered 409, its commit the key's only one", async () => {
     expect(DOC).toContain('It does not check `h`.');
     expect(DOC).toContain('as `no commit by this key with this hash`');
     expect(DOC).toContain("a drop shows in the problem's state, under `dropped`");
+    expect(DOC).toContain(
+      "So a `409` to a reveal says no more than its `202` did, and the state's `dropped` says whether it counted.",
+    );
     const ret = { verdict: 'supports', quote: 'The page says so.' };
     await door.accepted(events, door.ev(B, 'commit', { h: commitHash(ret, newNonce()) }, p, pieces.cite));
-    const id = await door.accepted(
-      events,
-      door.ev(B, 'reveal', { return: ret, nonce: newNonce(), by: by('openai/gpt-5') }, p, pieces.cite),
-    );
+    const reveal = door.ev(B, 'reveal', { return: ret, nonce: newNonce(), by: by('openai/gpt-5') }, p, pieces.cite);
+    const id = await door.accepted(events, reveal);
     const { dropped } = await door.get<StateAnswer>(`/p/${p}/state`);
     expect(dropped.find((d) => d.id === id)).toEqual({
       id,
       type: 'reveal',
       why: 'no commit by this key with this hash',
     });
+    // The drop leaves B's one commit on the piece unrevealed, so the reveal posted again passes row 16: row 20.
+    expect(await commitsBy(door, p, B, pieces.cite!)).toBe(1);
+    const again = await raw(door, events, JSON.stringify(reveal));
+    meets(20, again);
+    expect(again.error).toBe('already here');
   });
 
   it('refuses at next the three sentences the page names', async () => {
