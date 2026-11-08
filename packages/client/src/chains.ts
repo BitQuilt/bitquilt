@@ -1,9 +1,9 @@
 /**
- * The node's store of chained logs and what they name (WORKSHOP.md section 2, one peer): the envelopes it holds, the
- * blobs, and the lines of each log, a problem's under its hash and the identity log under IDENTITY_LOG. A home's cache
- * folder is one (`FileChains`, what a person's node keeps and serves); the tracker's store answers the same methods, so
- * a door and a node can be over one store, and what the door admits is what the node serves and keeps. Nothing here
- * reads the network: the resolver does, and keeps what it reads here.
+ * The node's store of chained logs and what they name (NODE.md section 2): the envelopes it holds, the blobs, and the
+ * lines of each log, a problem's under its hash and the identity log under IDENTITY_LOG. A home's cache folder is one
+ * (`FileChains`, what a person's node keeps and serves); the tracker's store answers the same methods, so a door and a
+ * node can be over one store, and what the door admits is what the node serves and keeps. Nothing here reads the
+ * network: the resolver does, and keeps what it reads here.
  */
 import {
   appendFileSync,

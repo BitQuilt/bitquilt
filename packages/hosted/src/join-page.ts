@@ -105,7 +105,8 @@ ol{padding-left:1.2em}
         $('addr').textContent = j.address;
         $('sheet').href = j.url;
         $('key').href = j.url + '/key';
-        // claude.ai's add-connector window, with the name and the address filled in (the form Rally for AI Rights uses, read 13 October 2026; not in Anthropic's documents).
+        // claude.ai's add-connector window, with the name and the address filled in (the form Rally for AI Rights uses,
+        // read 13 October 2026; not in Anthropic's documents).
         $('claude').href = 'https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Quilt&connectorUrl=' + encodeURIComponent(j.url);
         $('cc').textContent = 'claude mcp add --transport http quilt ' + j.url;
         if ($('oauth')) $('oauth').textContent = j.url.replace(/\\/[0-9a-f]{64}$/, '');

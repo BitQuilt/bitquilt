@@ -25,13 +25,13 @@ import {
 import { instructs, mcpPair, quiltOver, startTracker, tempHome } from './helpers.js';
 
 /**
- * The directory window (APP.md, "The window"), held to rules 3 and 6: the connector serves it as an MCP app, one
- * document at a ui:// resource whose address carries its hash, named by the tools that show it and by no other; the
- * app-only reader behind it is hidden from the model by its visibility and answers each op as JSON text with nothing
- * in structuredContent; the model-visible tools' text passes the words' rule; the document loads nothing from another
- * server and its sources set text with textContent; the generated file matches its sources; the card takes the
- * reader's answers as types alone, from the one file that declares them; and a run while away offers neither the
- * window nor its reader.
+ * The directory window (APP.md, "The window"), held to AGENTS.md rules 3 and 6: the connector serves it as an MCP app,
+ * one document at a ui:// resource whose address carries its hash, named by the tools that show it and by no other; the
+ * app-only reader behind it is hidden from the model by its visibility and answers each op as JSON text with nothing in
+ * structuredContent; the model-visible tools' text passes the words' rule; the document loads nothing from another
+ * server and its sources set text with textContent; the generated file matches its sources; the card takes the reader's
+ * answers as types alone, from the one file that declares them; and a run while away offers neither the window nor its
+ * reader.
  */
 let server: Server;
 let base: string;
@@ -82,8 +82,8 @@ describe('the directory window', () => {
       `ui://quilt/window.${createHash('sha256').update(WINDOW_HTML).digest('hex').slice(0, 10)}.html`,
     );
     expect(WINDOW_HTML).toContain('<title>Quilt</title>');
-    // Rule 6, as page.test.ts holds the page: nothing loaded from another server, and the sources set text and never
-    // markup.
+    // AGENTS.md rule 6, as page.test.ts holds the page: nothing loaded from another server, and the sources set text
+    // and never markup.
     expect(WINDOW_HTML).not.toMatch(/<(script|link|img)[^>]+(src|href)=["']https?:/i);
     expect(WINDOW_HTML).not.toMatch(/\bhref=["']https?:/i);
     for (const f of ['window.ts', 'window.css']) {

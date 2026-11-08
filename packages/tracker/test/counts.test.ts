@@ -8,13 +8,12 @@ import { Store } from '../src/store.js';
 import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**
- * The launch funnel counted by the UTC day (JOURNEY-AUDIT.md section 3, item 9) at GET /counts: every day of the
- * window with its zeros and the window's bounds, a window it cannot give refused; the claims, reveals, declines by
- * their reason, accepted sets
- * and verified squares by the day of the receipt, and each key's first event on a problem log, hosted apart from own,
- * with the identity log left out; the addresses the hosted on-ramp made, first used and took home, from the members
- * table and the two marks that fill it, each kept once; the totals over the window and the window cutting what is
- * before it; and no address, name or hash anywhere in the answer.
+ * The launch funnel counted by the UTC day (docs/DEPLOY.md, "Keeping it") at GET /counts: every day of the window with
+ * its zeros and the window's bounds, a window it cannot give refused; the claims, reveals, declines by their reason,
+ * accepted sets and verified squares by the day of the receipt, and each key's first event on a problem log, hosted
+ * apart from own, with the identity log left out; the addresses the hosted on-ramp made, first used and took home, from
+ * the members table and the two marks that fill it, each kept once; the totals over the window and the window cutting
+ * what is before it; and no address, name or hash anywhere in the answer.
  */
 const ownerP = key(9),
   ownerQ = key(8),

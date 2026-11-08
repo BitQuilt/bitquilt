@@ -11,10 +11,10 @@ import { runTool } from '../src/tools.js';
 import { baseOf, startTracker, tempHome } from './helpers.js';
 
 /**
- * A key at first use (JOURNEY-AUDIT.md, fix 2): a home with no key signs when first asked, making the key then and
- * keeping its twelve words for the page to show once; quilt_me says where they wait; the page shows them one time
- * and the sheet calls the backup due until it has; a second Quilt over the same home sees the key the first made. The
- * words are written and read in config.ts, beside the key.
+ * A key at first use (APP.md, "The shell on a Mac"): a home with no key signs when first asked, making the key then and
+ * keeping its twelve words for the page to show once; quilt_me says where they wait; the page shows them one time and
+ * the sheet calls the backup due until it has; a second Quilt over the same home sees the key the first made. The words
+ * are written and read in config.ts, beside the key.
  */
 let tracker: Server;
 let base: string;

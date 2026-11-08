@@ -71,8 +71,8 @@ export interface Resolved {
 }
 
 /**
- * What the keeper's loop did (WORKSHOP.md section 2, stage one): the problems held, the lines added to their chains and
- * the identity log, the reads fetched, the events sent from the queue, and the chains refused for not only growing.
+ * What the keeper's loop did (NODE.md section 4): the problems held, the lines added to their chains and the identity
+ * log, the reads fetched, the events sent from the queue, and the chains refused for not only growing.
  */
 export interface KeepReport {
   problems: number;
@@ -107,8 +107,8 @@ export class Resolver {
   private readonly homeLibrary: LibraryFile;
 
   /**
-   * The store this node keeps in and serves from (WORKSHOP.md section 2): the home's cache folder unless a store is
-   * given, as a node with a door gives the door's.
+   * The store this node keeps in and serves from (NODE.md section 2): the home's cache folder unless a store is given,
+   * as a node with a door gives the door's.
    */
   readonly chains: Chains;
 
@@ -314,12 +314,12 @@ export class Resolver {
   }
 
   /**
-   * The keeper's loop over this node's cache (WORKSHOP.md section 2, stage one): every problem held is pulled again
-   * from the places known for it, its chain kept where it only grew, the reads its traces name fetched under their
-   * hashes (QX-19), and the identity log the same; so what a person's node touched stays whole and current, and what
-   * it serves at `/held`, `/p/<hash>/events` and `/b/<hash>` is worth pulling. It begins by sending the queue, the
-   * events written while no tracker answered (APP.md, the node). The page runs it every half hour and the owner's turn
-   * once an hour; `quilt keep` runs it once.
+   * The keeper's loop over this node's cache (NODE.md section 4): every problem held is pulled again from the places
+   * known for it, its chain kept where it only grew, the reads its traces name fetched under their hashes (QX-19), and
+   * the identity log the same; so what a person's node touched stays whole and current, and what it serves at
+   * `/held`, `/p/<hash>/events` and `/b/<hash>` is worth pulling. It begins by sending the queue, the events written
+   * while no tracker answered (APP.md, the node). The page runs it every half hour and the owner's turn once an hour;
+   * `quilt keep` runs it once.
    */
   async keep(): Promise<KeepReport> {
     // APP.md, the node: an event written while no tracker answered waits in the queue and goes out when one does. This

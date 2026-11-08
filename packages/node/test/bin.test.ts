@@ -1,8 +1,8 @@
 /**
- * WORKSHOP.md section 2, one peer: bitquilt-node, the node from the environment. Its first imports are the tracker's
- * env.ts and the on-ramp's, which load no store, so Node's notice that its SQLite module is experimental is silenced
- * before the store loads, as the binary's header says. The test starts the binary with the admit role, and with admit
- * and host, waits for its first line, and reads what it wrote to stderr.
+ * NODE.md section 7: bitquilt-node, the node from the environment. Its first imports are the tracker's env.ts and the
+ * on-ramp's, which load no store, so Node's notice that its SQLite module is experimental is silenced before the store
+ * loads, as the binary's header says. The test starts the binary with the admit role, and with admit and host, waits
+ * for its first line, and reads what it wrote to stderr.
  */
 import { spawn } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';

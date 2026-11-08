@@ -4,12 +4,12 @@ import { epochAmount, epochLines, linesFromLayer } from '../src/coin.js';
 import { VERDICT_QUOTE, addr, boot, envelope as signed, key, layerOf } from './helpers.js';
 
 /**
- * The emission schedule's shape (QX-17 section 4, amended 28 October 2026): the curve's tail; the cap on what a unit
- * of verified weight earns in an epoch, the rest of the curve unminted; the burn rate indexed to what a reveal earned
- * in the latest ended epoch with the parameter as its floor, published in force under `stake` and with each lock; and
- * the home admitting no problem whose challenge window is longer than it says. What the coin folds from the problem
- * logs (QX-17 section 3) is `linesFromLayer`'s, and an epoch's mint is `epochLines`'s, one at the end of each ended
- * epoch.
+ * The emission schedule's shape (QX-17 section 4, as section 11 amended it on 28 October 2026): the curve's tail; the
+ * cap on what a unit of verified weight earns in an epoch, the rest of the curve unminted; the burn rate indexed to
+ * what a reveal earned in the latest ended epoch with the parameter as its floor, published in force under `stake` and
+ * with each lock; and the home admitting no problem whose challenge window is longer than it says. What the coin folds
+ * from the problem logs (QX-17 section 3) is `linesFromLayer`'s, and an epoch's mint is `epochLines`'s, one at the end
+ * of each ended epoch.
  */
 const ownerP = key(9),
   ownerQ = key(8),

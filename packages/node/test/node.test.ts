@@ -7,13 +7,12 @@ import { type Node, start } from '../src/node.js';
 import { freePort, hex, json, lines, pattern, readerOver, tempHome } from './helpers.js';
 
 /**
- * WORKSHOP.md section 2, one peer, stage three: one node with roles over one store. A node with admit, work and keep
- * publishes through its own door and serves the same lines from its page, since the door's store is the store the
- * node keeps in and serves from; a second node with admit and keep, naming the first as its peer, takes the problem
- * by its envelope and folds the first's readings through its own door (QX-21); a node with work alone has no door and
- * keeps what it opens in its own store; host is a role beside admit with a key secret, and a role that is not one is
- * refused at start; a node with host runs the owners' turn a minute after it starts and every hour, and close clears
- * the timers.
+ * NODE.md sections 1 and 2: one node with roles over one store. A node with admit, work and keep publishes through its
+ * own door and serves the same lines from its page, since the door's store is the store the node keeps in and serves
+ * from; a second node with admit and keep, naming the first as its peer, takes the problem by its envelope and folds
+ * the first's readings through its own door (QX-21); a node with work alone has no door and keeps what it opens in its
+ * own store; host is a role beside admit with a key secret, and a role that is not one is refused at start; a node with
+ * host runs the owners' turn a minute after it starts and every hour, and close clears the timers.
  */
 let a: Node, b: Node, c: Node;
 let urlA: string, urlB: string, pageA: number, pageC: number;
@@ -49,7 +48,7 @@ afterAll(async () => {
   await Promise.all([a.close(), b.close(), c.close()]);
 });
 
-describe('one node with roles (WORKSHOP.md section 2, stage three)', () => {
+describe('one node with roles (NODE.md sections 1 and 2)', () => {
   it('with admit, work and keep: publishes through its own door, and the page serves the same lines from the same store', async () => {
     expect(a.tracker).not.toBeNull();
     expect(a.quilt).not.toBeNull();

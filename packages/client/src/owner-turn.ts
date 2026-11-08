@@ -93,8 +93,8 @@ export async function ownerTurn(
   } catch (e) {
     log(`${now().toISOString()} announce: not run (${oneLine((e as Error).message, 200)})`);
   }
-  // The keeper's loop (WORKSHOP.md section 2, stage one): what waited in the queue sent, and what this node holds kept
-  // whole and current, once an hour with the turn; its own line in the log where it did anything.
+  // The keeper's loop (NODE.md section 4): what waited in the queue sent, and what this node holds kept whole and
+  // current, once an hour with the turn; its own line in the log where it did anything.
   let kept = { added: 0, reads: 0, sent: 0 };
   try {
     const k = await quilt.resolver.keep();

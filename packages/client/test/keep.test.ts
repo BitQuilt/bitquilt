@@ -6,11 +6,11 @@ import { type Pattern, Quilt } from '../src/quilt.js';
 import { baseOf, quiltOver, startTracker } from './helpers.js';
 
 /**
- * The client's node as keeper (WORKSHOP.md section 2, stage one; PROTOCOL.md, The mirror): a node that opened a
- * problem holds its chain, and `keep` pulls it again from where it is held, keeps the lines that came since, fetches
- * the read a trace names so the node serves it, and keeps the identity log; a second tracker's chain for the same
- * problem, with other events in another order, is read for the state it gives and not kept, since a node follows one
- * place's chain per problem; the identity log is one place's too, so a name the second tracker holds alone is not kept
+ * The client's node as keeper (NODE.md section 4; PROTOCOL.md, The mirror): a node that opened a problem holds its
+ * chain, and `keep` pulls it again from where it is held, keeps the lines that came since, fetches the read a trace
+ * names so the node serves it, and keeps the identity log; a second tracker's chain for the same problem, with other
+ * events in another order, is read for the state it gives and not kept, since a node follows one place's chain per
+ * problem; the identity log is one place's too, so a name the second tracker holds alone is not kept
  * (NODE.md section 4); a second keep adds nothing; and what waited in the queue while no tracker answered goes out at
  * the start of a keep (APP.md, the node).
  */
