@@ -298,7 +298,9 @@ export function pieceText(hash: Hash, pick: Pick, owner: string, stake = 0): str
   return lines.filter(Boolean).join('\n');
 }
 
-/** QX-18: a witness is a product's host name in lower case, or `other`, as the tracker's door holds it. */
+/**
+ * QX-18: a witness is a product's host name in lower case, or `other`, as the tracker's door holds it in witness.ts.
+ */
 const WITNESS_VIA = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
 
 /** Where a reveal's witness is kept in the map `witnessesOf` makes: the piece and the key that revealed. */

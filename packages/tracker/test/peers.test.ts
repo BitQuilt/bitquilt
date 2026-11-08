@@ -10,6 +10,9 @@ import {
   problemHash,
   verifyChain,
 } from '@bitquilt/core';
+import { Refusal } from '../src/http.js';
+import { type PullDoor, pullPeers } from '../src/peers.js';
+import { Store } from '../src/store.js';
 import { VERDICT, addr, boot, envelope, key } from './helpers.js';
 
 /**
@@ -18,6 +21,9 @@ import { VERDICT, addr, boot, envelope, key } from './helpers.js';
  * line carries both doors' wrappers and the chain verifies; a second pull adds nothing; a name on the first's identity
  * log is pulled; a hide the first admits from a maintainer it alone names is refused at the second's door with the
  * reason, so the two differ there and nowhere else; and a peer that does not answer is noted while the rest is pulled.
+ * The pull reaches the tracker that runs it through the `PullDoor` it is handed (peers.ts): the door's admission
+ * decides each event, a refusal is said with its reason and a failure is noted, and a line admitted carries the peer's
+ * wrapper with the door's after it.
  */
 const owner = key(9),
   A = key(1),
@@ -197,5 +203,44 @@ describe("doors fold each other's chains (QX-21)", () => {
       added: 0,
       refused: [{ why: "a hide is signed by one of this tracker's maintainers" }],
     });
+  });
+});
+
+describe('the pull through the door it is handed (peers.ts)', () => {
+  it("reaches the tracker that runs it through its PullDoor alone: the door's admission decides each event, a refusal is said with why, a failure is noted, and a line admitted carries both wrappers", async () => {
+    // One more name on the first's identity log, from a key whose event this door fails on.
+    await one.accepted('/k/events', one.ev(A, 'name', { name: 'Grace' }));
+    const store = new Store(':memory:');
+    const admitted: string[] = [];
+    const noted: string[] = [];
+    const door: PullDoor = {
+      store,
+      url: 'http://elsewhere.test/',
+      now: () => '2026-11-03T09:00:00.000Z',
+      fetchImpl: fetch,
+      peers: [one.base],
+      admit: async (log, event, hosted) => {
+        admitted.push(`${log.kind} ${event.type} ${hosted}`);
+        if (event.type === 'hide') throw new Refusal(403, 'not a maintainer here');
+        if (event.key === addr(A)) throw new Error('the door failed');
+        return { chain: IDENTITY_LOG, word: { seen: true } };
+      },
+      noteAppended: (log, event, at) => noted.push(`${log.kind} ${event.type} ${at}`),
+    };
+    const [report] = await pullPeers(door);
+    expect(admitted).toEqual(['identity name false', 'identity hide false', 'identity name false']);
+    expect(report).toEqual({
+      peer: `${one.base}/`,
+      added: 1,
+      refused: [{ id: expect.stringMatching(/^sha256:/), why: 'not a maintainer here' }],
+      errors: [`${one.base}/k/events: the door failed`],
+    });
+    const lines = store.lines(IDENTITY_LOG);
+    expect(lines.map((l) => [l.event.type, l.event.key])).toEqual([['name', addr(owner)]]);
+    const theirs = lines[0]!.received[0]!;
+    expect(theirs.by).toBe('http://tracker.test/');
+    expect(lines[0]!.received[1]).toEqual({ by: 'http://elsewhere.test/', at: '2026-11-03T09:00:00.000Z', seen: true });
+    expect(noted).toEqual([`identity name ${theirs.at}`]);
+    store.close();
   });
 });

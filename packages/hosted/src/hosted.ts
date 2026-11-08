@@ -26,7 +26,16 @@ import {
   secretToHex,
   withSlash,
 } from '@bitquilt/core';
-import { PRIVATE_RANGES, type Store, clientAddress, passageIn, rangesOf, restsOf } from '@bitquilt/tracker';
+import {
+  PRIVATE_RANGES,
+  type Store,
+  clientAddress,
+  custodyHeaders,
+  json,
+  passageIn,
+  rangesOf,
+  restsOf,
+} from '@bitquilt/tracker';
 import {
   AWAY_LOG,
   type Config,
@@ -134,19 +143,6 @@ interface Seat {
   witness: Witness | null;
 }
 
-/**
- * QX-18: the witness as the headers the tracker reads beside the custody secret; the client's own name is encoded,
- * since it is any text that passed the gate.
- */
-function witnessHeaders(w: Witness | null): Record<string, string> {
-  if (!w) return {};
-  return {
-    'x-quilt-via': w.via,
-    ...(w.by ? { 'x-quilt-via-by': w.by } : {}),
-    ...(w.client ? { 'x-quilt-via-client': encodeURIComponent(w.client) } : {}),
-  };
-}
-
 const SESSION_IDLE_MS = 60 * 60 * 1000;
 
 /**
@@ -171,11 +167,6 @@ function decrypt(keySecret: string, stored: string): string {
 }
 
 const tokenHash = (token: string): string => createHash('sha256').update(token).digest('hex');
-
-function json(res: ServerResponse, status: number, body: unknown): void {
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*' });
-  res.end(JSON.stringify(body));
-}
 
 async function readJson(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -410,7 +401,7 @@ export function createHosted(options: HostedOptions): Hosted {
     const home = join(options.home, hash);
     const resolver = new Resolver(config, home, outward, {
       to: trackerUrl(),
-      headers: { 'x-quilt-custody': custodySecret, ...witnessHeaders(witness) },
+      headers: custodyHeaders(custodySecret, witness),
     });
     return new Quilt(config, { secret, address: addressOf(secret) }, resolver, hostName, witness);
   }

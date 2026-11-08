@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { type Hash, type Receipt, commitHash, newNonce, problemHash } from '@bitquilt/core';
 import { PRIVATE_RANGES, clientAddressOf, inRanges, plainAddress, rangesOf } from '../src/address.js';
 import { Store } from '../src/store.js';
+import { custodyHeaders } from '../src/witness.js';
 import { VERDICT, addr, boot, envelope, key } from './helpers.js';
 
 /**
@@ -13,10 +14,11 @@ import { VERDICT, addr, boot, envelope, key } from './helpers.js';
  * `custody: hosted` on a post that carries the custody secret, and on no other, with `via_by` saying how a product's
  * mark was bound; a mark that is not a host name in lower case or `other` is left out, and so is a client's name that
  * does not pass the gate and a binding of another shape; `/p/<hash>/state` lists the witnessed reveals of each piece;
- * the routes mounted beside the tracker say their piece at the well-known document. The client's address behind a
- * proxy (address.ts): X-Forwarded-For believed only from a trusted peer, read from the right past the trusted hops.
- * And the store's schema for the authorization server: an older database gains the tables on open and keeps its
- * members, and a grant goes in, rotates and is revoked.
+ * the routes mounted beside the tracker say their piece at the well-known document. The headers' names are written
+ * once, in witness.ts: the on-ramp writes them with `custodyHeaders`, and the door reads back the mark they name. The
+ * client's address behind a proxy (address.ts): X-Forwarded-For believed only from a trusted peer, read from the right
+ * past the trusted hops. And the store's schema for the authorization server: an older database gains the tables on
+ * open and keeps its members, and a grant goes in, rotates and is revoked.
  */
 const owner = key(9),
   A = key(1),
@@ -150,6 +152,74 @@ describe('the witness at the door (QX-18)', () => {
     expect(of(pieces[3]!)).toEqual([
       { key: addr(key(6)), via: 'chatgpt.com' },
       { key: addr(key(5)), via: 'other' },
+    ]);
+  });
+});
+
+describe('the custody headers, written once (QX-18)', () => {
+  it('are the secret, then the witness, its binding and the encoded name, as the on-ramp sends them', () => {
+    expect(custodyHeaders('s', null)).toEqual({ 'x-quilt-custody': 's' });
+    expect(custodyHeaders('s', { via: 'claude.ai', by: 'address', client: null })).toEqual({
+      'x-quilt-custody': 's',
+      'x-quilt-via': 'claude.ai',
+      'x-quilt-via-by': 'address',
+    });
+    expect(custodyHeaders('s', { via: 'other', by: null, client: 'Acme Agent' })).toEqual({
+      'x-quilt-custody': 's',
+      'x-quilt-via': 'other',
+      'x-quilt-via-client': 'Acme%20Agent',
+    });
+  });
+
+  it('are read back by the door as the mark they name', async () => {
+    const e = envelope(owner, 'witness-headers', {
+      'statement/*': {
+        count: 2,
+        verifier: 'agree',
+        requires: ['web'],
+        brief: 'Statement {n}: does the paper say so?',
+        schema: VERDICT,
+      },
+    });
+    expect((await post('/p', { envelope: e })).status).toBe(201);
+    const q = problemHash(e);
+    const [first, second] = (await get<{ pieces: { hash: Hash }[] }>(`/p/${q}/state`)).pieces.map((x) => x.hash);
+    const G = key(7),
+      H = key(8);
+    await handIn(q, first!, G, 'openai/gpt', custodyHeaders(CUSTODY, { via: 'chatgpt.com', by: 'key', client: null }));
+    await handIn(q, second!, H, 'meta/llama', custodyHeaders(CUSTODY, { via: 'other', client: 'Acme Agent' }));
+    const lines = (await (await fetch(`${t.base}/p/${q}/events`)).text())
+      .trim()
+      .split('\n')
+      .map((l) => JSON.parse(l) as Receipt);
+    const of = (k: Uint8Array) => lines.filter((l) => l.event.key === addr(k)).map((l) => l.received[0]);
+    for (const w of of(G)) expect(w).toMatchObject({ custody: 'hosted', via: 'chatgpt.com', via_by: 'key' });
+    for (const w of of(H)) expect(w).toMatchObject({ custody: 'hosted', via: 'other', via_client: 'Acme Agent' });
+    expect(of(G).length + of(H).length).toBe(4);
+  });
+
+  it("are written in one place in the packages' source", () => {
+    const packages = join(import.meta.dirname, '..', '..');
+    const sites: string[] = [];
+    for (const pkg of readdirSync(packages)) {
+      const src = join(packages, pkg, 'src');
+      let files: string[];
+      try {
+        files = readdirSync(src, { recursive: true, encoding: 'utf8' });
+      } catch {
+        continue;
+      }
+      for (const f of files.filter((x) => x.endsWith('.ts') && !x.endsWith('.generated.ts')))
+        for (const m of readFileSync(join(src, f), 'utf8').matchAll(
+          /['"`]x-quilt-(?:custody|via(?:-by|-client)?)['"`]/g,
+        ))
+          sites.push(`${relative(packages, join(src, f)).split(sep).join('/')} ${m[0]}`);
+    }
+    expect(sites).toEqual([
+      "tracker/src/witness.ts 'x-quilt-custody'",
+      "tracker/src/witness.ts 'x-quilt-via'",
+      "tracker/src/witness.ts 'x-quilt-via-by'",
+      "tracker/src/witness.ts 'x-quilt-via-client'",
     ]);
   });
 });
