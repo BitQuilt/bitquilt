@@ -24,8 +24,9 @@ import { VERDICT, addr, by, key, startTracker } from './helpers.js';
  * problem's chain gains the second's events after the lines it holds. Where the first source's chain cannot be read
  * whole, the problem is taken from the next source that lists it, in the same run. A source whose list cannot be read
  * is passed over whole, so its identity log is not taken either. A problem its source hid or replaced before any run
- * listed it is not taken, since the index leaves it out though the door still serves it, and once the store holds it,
- * it is asked for by hash and taken (PROTOCOL.md, The mirror).
+ * took it is not taken, since the index leaves it out though the door still serves it: one no run listed, and one a
+ * run listed and passed over, its chain not read whole, with nothing refused, so that run would have committed. Once
+ * the store holds it, it is asked for by hash and taken (PROTOCOL.md, The mirror).
  */
 const owner = key(9),
   A = key(1),
@@ -170,6 +171,34 @@ describe('the source a keeper takes each log from (NODE.md section 5)', () => {
       expect(second.problems.map((p) => p.hash).sort()).toEqual([H, R, V].sort());
     } finally {
       await new Promise<void>((r) => three.server.close(() => r()));
+    }
+  });
+  it('takes no problem a run listed and did not take, once its source hides it, and refuses nothing in either run', async () => {
+    const four = await startTracker(now, { maintainers: [addr(maintainer)] });
+    try {
+      const late = envelope('Hidden later', 'hidden-later');
+      const L = problemHash(late);
+      expect((await publish(four.base, late)).status).toBe(201);
+      const store = new Store(':memory:');
+      // The first run lists the problem and cannot read its chain whole: it passes the problem over, refuses nothing,
+      // and holds nothing of it.
+      const failing: typeof fetch = async (input, init) =>
+        String(input).startsWith(`${four.base}p/${L}/events`) ? new Response('', { status: 503 }) : fetch(input, init);
+      const first = await keep({ store, sources: [four.base], peers: false, coin: false, now, fetchImpl: failing });
+      expect(first.refused).toEqual([]);
+      expect(first.problems).toEqual([]);
+      expect(store.envelopeOf(L)).toBeNull();
+      // Then the source hides it, and no later run takes it: the index leaves it out, and nothing held here names it.
+      const hide = ev(maintainer, 'hide', { id: L, why: 'Taken down after a run listed it.' });
+      expect((await post(four.base, 'k/events', hide)).status).toBe(202);
+      tick += 1000;
+      const second = await keep({ store, sources: [four.base], peers: false, coin: false, now });
+      expect(second.refused).toEqual([]);
+      expect(second.problems).toEqual([]);
+      expect(store.envelopeOf(L)).toBeNull();
+      expect((await fetch(`${four.base}p/${L}`)).status, 'it is still served by hash').toBe(200);
+    } finally {
+      await new Promise<void>((r) => four.server.close(() => r()));
     }
   });
 });
