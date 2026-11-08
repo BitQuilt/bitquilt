@@ -16,6 +16,7 @@ import {
   IDENTITY_LOG,
   blobProblems,
   envelopeProblems,
+  eventId,
   hashBytes,
   isHash,
   onlyAppends,
@@ -483,18 +484,36 @@ export class Resolver {
 
   /**
    * Posts an event to the trackers in order until one takes it or one refuses it; none answering, queues it. Returns
-   * where it went.
+   * where it went. A refusal after a tracker was down may be a door's answer to a repeat of what it took, and "a worker
+   * that lost the answer to its post looks for its event in the problem's log"
+   * (CLIENT.md, What the door checks, in order): the trackers offered it are asked for their logs, and the first whose
+   * log holds the event took it.
    */
   async post(event: Event, problem: Hash | null | 'coin', trackers: string[]): Promise<Posted> {
     let lastError = '';
+    const offered: string[] = [];
     for (const t of trackers.map(withSlash)) {
       const o = await this.offer(t, problem, event);
       if (o.status === 'taken') return { at: t, queued: false };
-      if (o.status === 'refused') return { at: null, queued: false, error: o.error };
+      offered.push(t);
+      if (o.status === 'refused') {
+        const at = offered.length > 1 ? await this.holder(event, problem, offered) : null;
+        return at ? { at, queued: false } : { at: null, queued: false, error: o.error };
+      }
       lastError = o.error;
     }
     appendFileSync(join(this.home, 'queue.jsonl'), JSON.stringify({ problem, event, trackers }) + '\n');
     return { at: null, queued: true, ...(lastError ? { error: lastError } : {}) };
+  }
+
+  /** The first of these trackers whose log holds the event, found by its id (CORE.md section 4); else null. */
+  private async holder(event: Event, log: Hash | null | 'coin', trackers: string[]): Promise<string | null> {
+    const id = eventId(event);
+    for (const t of new Set(trackers)) {
+      const lines = await this.getLines(this.logUrl(t, log));
+      if (lines?.some((l) => eventId(l.event) === id)) return t;
+    }
+    return null;
   }
 
   /** Tries the queue again; what a tracker takes, or refuses, leaves it. */
