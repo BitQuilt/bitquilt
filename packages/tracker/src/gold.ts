@@ -6,7 +6,9 @@
  * struck. This module holds what each rule says (the bodies, the shares, the match) and the lifecycle challengeLayer
  * runs over the record it folds into: when a problem has settled and a commitment is final (section 3), how long the
  * owner's stake stays locked (section 5), and whether a gold or a reveal would be kept (section 1). The strike a miss
- * makes, and the challenge that can undo it (section 4), are the challenge window's (challenge.ts).
+ * makes, and the challenge that can undo it (section 4), are the challenge window's (challenge.ts). QX-16's part of the
+ * one Layer is built here too, over that record: the admissions the door asks before it takes a gold or a gold reveal,
+ * beside the checks they make (`goldAdmissions`).
  */
 import {
   type Address,
@@ -24,6 +26,7 @@ import {
 import { ownerOf, rootFor, windowOf } from './verifiers.js';
 import { ruleAt, stakeAsked } from './stake.js';
 import type { Folding, ProblemEntry } from './standing.js';
+import type { Admission, Layer } from './challenge.js';
 
 export const GOLD = 'QX-16';
 export const GOLD_EVENTS: ReadonlySet<string> = new Set(['gold', 'gold_reveal']);
@@ -346,4 +349,24 @@ export function checkGoldReveal(
     return { ok: false, why: 'nothing accepted on this piece yet' };
   if (!windowOpen(view, at)) return { ok: false, why: 'the window has closed' };
   return { ok: true, gold: found.gold, commitment: found.commitment, view };
+}
+
+/**
+ * QX-16's part of the layer (QX-16 sections 1 and 3), over the record `f` challengeLayer folded at `now`: whether a
+ * gold or a gold reveal by this key would count if received now, and why not.
+ */
+export function goldAdmissions(f: Folding, now: string): Pick<Layer, 'admitGold' | 'admitGoldReveal'> {
+  const admitGold = (problem: Hash, key: Address, body: Record<string, unknown>): Admission => {
+    const home = f.entries.get(problem);
+    if (!home) return { ok: false, why: 'no such problem here' };
+    const r = checkGold(f, home, key, body, now);
+    return r.ok ? { ok: true } : r;
+  };
+  const admitGoldReveal = (problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>): Admission => {
+    const home = f.entries.get(problem);
+    if (!home) return { ok: false, why: 'no such problem here' };
+    const r = checkGoldReveal(home, piece, key, body, now);
+    return r.ok ? { ok: true } : r;
+  };
+  return { admitGold, admitGoldReveal };
 }
