@@ -112,17 +112,15 @@ async function pullLog(door: PullDoor, peer: string, target: string, log: Log, o
   const chain: Hash = log.kind === 'identity' ? IDENTITY_LOG : log.kind === 'problem' ? log.hash : COIN_LOG;
   const lines = await linesFrom(door, target);
   if (!lines) return;
-  // Each line's event and wrapper are held to the door's bound on bodies before any of it is read through the core's
-  // recursive canonical form, which verifying the chain does; a chain with a line over it is left whole, as one that
-  // does not verify, since it cannot be verified past that line.
-  for (const [i, line] of lines.entries()) {
-    const over = [...bodyOver(line.event, 'event'), ...bodyOver(line.received, 'received')];
-    if (over.length) {
-      out.errors.push(`${target}: line ${i + 1}: ${over[0]}`);
-      return;
-    }
+  // Verifying reads every line through the core's recursive canonical form; a line too deep for it leaves the chain
+  // unverified, and the pull says so.
+  let check: ReturnType<typeof verifyChain>;
+  try {
+    check = verifyChain(lines, chain);
+  } catch (err) {
+    out.errors.push(`${target}: chain cannot be verified: ${(err as Error).message}`);
+    return;
   }
-  const check = verifyChain(lines, chain);
   if (!check.ok) {
     out.errors.push(`${target}: chain does not verify: ${check.problems[0]}`);
     return;
@@ -136,9 +134,14 @@ async function pullLog(door: PullDoor, peer: string, target: string, log: Log, o
     }
     const id = eventId(event);
     if (store.hasEvent(chain, id)) continue;
-    // What this door holds the line to beyond the core's shape: its bound on hours, as a post's shape is held to it,
-    // and the peer's wrapper times (PROTOCOL.md, What the door answers).
-    const unlike = [...eventHoursOver(event), ...stampsUnlike(line.received)];
+    // What this door holds the line to beyond the core's shape, as a post's shape is held to it: its bounds on bodies
+    // and on hours, and the peer's wrapper, its bodies and its times (PROTOCOL.md, What the door answers).
+    const unlike = [
+      ...bodyOver(event, 'event'),
+      ...bodyOver(line.received, 'received'),
+      ...eventHoursOver(event),
+      ...stampsUnlike(line.received),
+    ];
     if (unlike.length) {
       out.refused.push({ id, why: unlike[0]! });
       continue;

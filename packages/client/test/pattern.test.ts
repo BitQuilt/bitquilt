@@ -7,7 +7,8 @@ import { secretFromHex, addressOf } from '@bitquilt/core';
 
 /**
  * A pattern's faults, all at once (pattern.ts): a draft with several things wrong is told every one of them in the
- * checker's words, a sound draft is told nothing, and `publish` refuses with the whole list rather than the first line.
+ * checker's words, a sound draft is told nothing, what a door refuses beyond the core's checks is told too, and
+ * `publish` refuses with the whole list rather than the first line.
  */
 const owner = { secret: secretFromHex(hex(7)), address: addressOf(secretFromHex(hex(7))) };
 const hints = { trackers: [], mirrors: [] };
@@ -62,6 +63,34 @@ describe("a pattern's faults", () => {
     expect(problems).toContain('gold.answers.statement/9: no such piece');
     expect(problems.length).toBeGreaterThanOrEqual(3);
     expect(patternProblemsText(problems)).toMatch(/^\d+ problems in the pattern, each to fix before it publishes:\n/);
+  });
+});
+
+describe("a door's bounds", () => {
+  it('are named by the checker in the door own words, so a pattern it passes is one a door takes', () => {
+    const big = {
+      ...sound,
+      settings: { ...sound.settings, budget: 1e9, lease_h: 2e6 },
+      data: undefined,
+      pieces: {
+        'statement/*': {
+          ...sound.pieces['statement/*']!,
+          count: 10_001,
+          data: { s: 'constructor' },
+          agree: ['toString'],
+        },
+      },
+      gold: undefined,
+    } as unknown as Pattern;
+    const problems = patternProblems(big, draftEnvelope(big, owner, hints));
+    expect(problems).toEqual(
+      expect.arrayContaining([
+        'problem.pieces.statement/*.agree: names fields the schema has',
+        'problem.pieces.statement/*.data: constructor is not a blob of this problem',
+        'problem.settings.lease_h: at most 1000000 hours',
+        'problem.pieces: 10001 pieces after expansion, over the 10000 a door takes',
+      ]),
+    );
   });
 });
 

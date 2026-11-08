@@ -198,8 +198,7 @@ export function namesNotOwn(p: Envelope['problem']): string[] {
   for (const [name, d] of Object.entries(p.pieces)) {
     const at = `problem.pieces.${name}`;
     const props = d.schema?.properties ?? {};
-    for (const f of d.agree ?? [])
-      if (!Object.hasOwn(props, f)) out.push(`${at}.agree: ${f} is not a field of the schema`);
+    if ((d.agree ?? []).some((f) => !Object.hasOwn(props, f))) out.push(`${at}.agree: names fields the schema has`);
     for (const r of d.schema?.required ?? [])
       if (!Object.hasOwn(props, r)) out.push(`${at}.schema: required names ${r}, which is not a property`);
     for (const blob of Object.values(d.data ?? {}))

@@ -9,8 +9,9 @@ import { VERDICT, addr, boot, envelope, key, line } from './helpers.js';
  * blob read as JSON that nests deeper than sixty-four levels (`DEPTH_MAX`), or holds a field named `__proto__`, is
  * refused with the body named, a blob held already as well as one sent, and an event ten thousand levels deep too,
  * since the fold reads a body through recursive code deeper in the stack than the door, and JSON makes `__proto__` an
- * own field that an assignment by its name turns into an object's prototype. A peer's chain (QX-21) with a line whose
- * event or wrapper is over the bound is left whole and said, a peer whose pull fails is noted and the next is pulled,
+ * own field that an assignment by its name turns into an object's prototype. A peer's line (QX-21) whose event or
+ * wrapper is over the bound is refused and the lines after it pulled, a chain too deep to verify is left whole and
+ * said, a peer whose pull fails is noted and the next is pulled,
  * and the door answers every page throughout. Where the core looks a name up with `in`, the door asks for the
  * problem's own: an `agree` or `required` field, a data slot's blob and a return's field that only every object has
  * are refused in the core's words. A family over ten thousand pieces (`PIECES_MAX`) is refused before it is expanded.
@@ -170,24 +171,32 @@ describe('a body nested too deep, or with a field named __proto__', () => {
     for (const path of ['/', '/search']) expect((await fetch(t.base + path)).status).toBe(200);
   });
 
-  it("leaves a peer's chain whole where a line's event or wrapper is over the bound, and the door answers (QX-21)", async () => {
+  it("refuses a peer's line whose event or wrapper is over the bound, pulls the lines after it, and the door answers (QX-21)", async () => {
     const deep = peer.ev(B, 'claim', { by: by('openai/gpt'), more: nested(DEPTH_MAX) }, p, piece);
     peer.store.appendPulled(p, deep, eventId(deep), [{ by: 'http://peer.test/', at: deep.ts, custody: 'self' }]);
+    const proto = peer.ev(key(4), 'claim', { by: by('openai/gpt') }, p, piece);
+    peer.store.appendPulled(p, proto, eventId(proto), [
+      { ['__proto__']: { seat: 'person' }, by: 'http://peer.test/', at: proto.ts, custody: 'self' } as never,
+    ]);
+    const honest = peer.ev(key(5), 'claim', { by: by('anthropic/claude') }, p, piece);
+    await peer.accepted(`/p/${p}/events`, honest);
     t.clock.tick = peer.clock.tick + 60_000;
     const [pull] = await t.tracker.pullPeers();
-    expect(pull!.refused).toEqual([]);
-    expect(pull!.errors).toEqual([`${peer.base}/p/${p}/events: line 1: event: nested deeper than 64`]);
+    expect(pull!.refused).toEqual([
+      { id: eventId(deep), why: 'event: nested deeper than 64' },
+      { id: eventId(proto), why: 'received: a field named __proto__' },
+    ]);
+    expect(pull!.errors).toEqual([]);
+    const held = (await (await fetch(`${t.base}/p/${p}/events`)).text()).trim().split('\n');
+    expect(held.map((l) => (JSON.parse(l) as { event: { sig: string } }).event.sig)).toContain(honest.sig);
     for (const path of ['/', '/search', `/p/${p}/state`]) expect((await fetch(t.base + path)).status).toBe(200);
   });
 
-  it('notes in its report a peer whose lines are too deep to verify, malformed, or more than a call takes, and pulls the next', async () => {
+  it('notes in its report a peer whose chain is too deep to verify, malformed, or more than a call takes, and pulls the next', async () => {
     const far = `{"event":{"type":"name","more":${'['.repeat(20_000)}"x"${']'.repeat(20_000)}},"received":[]}`;
-    const proto =
-      '{"event":{"type":"name"},"received":[{"__proto__":{"seat":"person"},"at":"2026-11-08T12:00:00.000Z"}]}';
     const many = Array.from({ length: 130_000 }, () => '{}').join('\n');
     const pages: Record<string, string> = {
       'http://deep.test/k/events?since=0': far,
-      'http://proto.test/k/events?since=0': proto,
       'http://broken.test/k/events?since=0': '{"event":',
       'http://many.test/k/events?since=0': many,
     };
@@ -196,14 +205,13 @@ describe('a body nested too deep, or with a field named __proto__', () => {
       if (url.endsWith('/.well-known/quilt')) return new Response('{}');
       return url in pages ? new Response(pages[url]) : new Response('', { status: 404 });
     }) as typeof fetch;
-    const peers = ['http://deep.test/', 'http://proto.test/', 'http://broken.test/', 'http://many.test/'];
+    const peers = ['http://deep.test/', 'http://broken.test/', 'http://many.test/'];
     const u = boot(START, { limits, peers, fetchImpl });
     const pulls = await u.tracker.pullPeers();
-    expect(pulls).toHaveLength(4);
-    expect(pulls[0]!.errors[0]).toBe('http://deep.test/k/events: line 1: event: nested deeper than 64');
-    expect(pulls[1]!.errors[0]).toBe('http://proto.test/k/events: line 1: received: a field named __proto__');
-    expect(pulls[2]!.errors[0]).toMatch(/^http:\/\/broken\.test\/: /);
-    expect(pulls[3]!.errors[0]).toMatch(/^http:\/\/many\.test\/k\/events: chain does not verify: /);
+    expect(pulls).toHaveLength(3);
+    expect(pulls[0]!.errors[0]).toMatch(/^http:\/\/deep\.test\/k\/events: chain cannot be verified: /);
+    expect(pulls[1]!.errors[0]).toMatch(/^http:\/\/broken\.test\/: /);
+    expect(pulls[2]!.errors[0]).toMatch(/^http:\/\/many\.test\/k\/events: chain does not verify: /);
   });
 });
 
@@ -217,7 +225,7 @@ describe('a name the core looks up with in', () => {
       ),
     ).toEqual({
       status: 400,
-      error: 'problem.pieces.q/*.agree: constructor is not a field of the schema',
+      error: 'problem.pieces.q/*.agree: names fields the schema has',
     });
     expect(
       await publishing(
