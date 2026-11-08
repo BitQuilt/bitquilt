@@ -1,15 +1,15 @@
 /**
- * One node, with roles (WORKSHOP.md section 2, one peer). `admit` is being a door: the reference tracker's routes over
- * the store, and its pull of the peers' chains through that door (QX-21). `work` is signing with the home's key: a
- * Quilt and its page on localhost, which the connector works through, and the keep of what the home opened from the
- * places it came from. `keep` is the keeper's pull over the store (the mirror's: every source's events the store
- * lacks, by id, with the source's wrappers kept and this node's added, the sources' peers one hop, the reads a trace
- * names), run every half hour; a node with a door keeps through the door instead, since the door's layer says what it
- * admits. `host` is custody for people who cannot run one: the hosted on-ramp mounted beside the door, with the owners'
- * turn every hour. The store is one, the tracker's, which answers the client's `Chains` and the mirror's store: what
- * the door admits is what the node serves and keeps, and a line on a node's chain is a line whether a door or a keep
- * wrote it. A tracker is a node with `admit`; a mirror a node with `keep`, with the files it publishes written beside;
- * a worker a node with `work`; the hosted on-ramp a node with `admit` and `host`.
+ * One node, with roles (NODE.md section 1). `admit` is being a door: the reference tracker's routes over the store, and
+ * its pull of the peers' chains through that door (QX-21). `work` is signing with the home's key: a Quilt and its page
+ * on localhost, which the connector works through, and the keep of what the home opened from the places it came from.
+ * `keep` is the keeper's pull over the store (the mirror's: every source's events the store lacks, by id, with the
+ * source's wrappers kept and this node's added, the sources' peers one hop, the reads a trace names), run every half
+ * hour; a node with a door keeps through the door instead, since the door's layer says what it admits. `host` is
+ * custody for people who cannot run one: the hosted on-ramp mounted beside the door, with the owners' turn every hour.
+ * The store is one, the tracker's, which answers the client's `Chains` and the mirror's store: what the door admits is
+ * what the node serves and keeps, and a line on a node's chain is a line whether a door or a keep wrote it. A tracker
+ * is a node with `admit`; a mirror a node with `keep`, with the files it publishes written beside; a worker a node with
+ * `work`; the hosted on-ramp a node with `admit` and `host`.
  *
  * The programs, and the roles each runs. bitquilt-node alone calls `start`; each of the others runs its roles through
  * the same parts `start` runs, and is a program of its own for the reason its row gives.

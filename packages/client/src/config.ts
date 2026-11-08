@@ -33,8 +33,8 @@ export interface Config {
 }
 
 export const DEFAULT_CONFIG: Config = {
-  // The public tracker (docs/LAUNCH.md step 5, 28 October 2026); a config file or QUILT_TRACKERS says otherwise, as the
-  // examples do for a tracker on this machine.
+  // The public tracker, the default since 28 October 2026 (docs/DEPLOY.md, "Bringing it up, in order", step 5); a
+  // config file or QUILT_TRACKERS says otherwise, as the examples do for a tracker on this machine.
   trackers: ['https://tracker.bitquilt.org/'],
   mirrors: [],
   relays: [],

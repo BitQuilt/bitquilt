@@ -1,9 +1,10 @@
 /**
- * What the tracker hands a key (CORE.md, assisted next; QX-5): the piece assisted next picks for it on one problem,
- * with the seams between the readings that stand (QX-19 section 4), and the offer across the problems here, each piece
- * the one next would name. Both leave out the pieces one rule keeps from the key, `excludedFor`, and hold what they
- * hand out for that key a minute, so two clients here are not handed the same piece at once. A function here takes
- * the hand-out's part of the tracker's context, `Reads`, the store alone, or the query alone.
+ * What the tracker hands a key (PROTOCOL.md, The tracker; CORE.md section 7; QX-5): the piece assisted next picks for
+ * it on one problem, with the seams between the readings that stand (QX-19 section 4), and the offer across the
+ * problems here, each piece the one next would name. Both leave out the pieces one rule keeps from the key,
+ * `excludedFor`, and hold what they hand out for that key a minute, so two clients here are not handed the same piece
+ * at once. A function here takes the hand-out's part of the tracker's context, `Reads`, the store alone, or the query
+ * alone.
  */
 import type { ServerResponse } from 'node:http';
 import {

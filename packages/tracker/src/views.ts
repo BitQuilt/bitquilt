@@ -521,8 +521,7 @@ export function named(store: Store, owner: string, slug: string) {
 }
 
 /**
- * The launch funnel by the UTC day (JOURNEY-AUDIT.md section 3, item 9): counts with nobody in them, so the route is
- * public.
+ * The launch funnel by the UTC day (docs/DEPLOY.md, "Keeping it"): counts with nobody in them, so the route is public.
  */
 export function countsOf({ store, layer, now }: Reads, query: URLSearchParams) {
   const days = daysFrom(query.get('days'));

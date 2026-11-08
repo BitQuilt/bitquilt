@@ -6,11 +6,11 @@ import { FileChains } from '../src/chains.js';
 import { tempHome } from './helpers.js';
 
 /**
- * The node's store of chained logs under a home (WORKSHOP.md section 2, one peer): its file names carry no colon, so a
- * Windows file system holds them where a listing finds them (a colon there writes an alternate stream that a read by
- * name finds and no listing shows); a cache written before 3 November 2026, with the colon in every name, is renamed
- * when the store opens, so a home made on a Mac or Linux keeps what it held; and the identity log keeps its own name.
- * On Windows the old names were never files, so that part of the test has nothing to set up there.
+ * The node's store of chained logs under a home (NODE.md section 2): its file names carry no colon, so a Windows file
+ * system holds them where a listing finds them (a colon there writes an alternate stream that a read by name finds and
+ * no listing shows); a cache written before 3 November 2026, with the colon in every name, is renamed when the store
+ * opens, so a home made on a Mac or Linux keeps what it held; and the identity log keeps its own name. On Windows the
+ * old names were never files, so that part of the test has nothing to set up there.
  */
 const hashOf = (byte: string): Hash => `sha256:${byte.repeat(32)}` as Hash;
 const envelopeOf = (title: string): Envelope => ({ problem: { title } }) as unknown as Envelope;

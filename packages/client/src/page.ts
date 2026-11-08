@@ -74,8 +74,8 @@ export interface PageOptions {
   person: Quilt;
   resolver: Resolver;
   /**
-   * The keeper's loop while the page is up (WORKSHOP.md section 2, stage one); on unless false, which a node that runs
-   * the loop itself passes.
+   * The keeper's loop while the page is up (NODE.md section 4); on unless false, which a node that runs the loop itself
+   * passes.
    */
   keep?: boolean;
 }
@@ -378,8 +378,8 @@ export function createPage(options: PageOptions): {
       server.once('error', reject);
       server.listen(port, '127.0.0.1', () => {
         server.off('error', reject);
-        // The keeper's loop while the page is up (WORKSHOP.md section 2, stage one): what this node holds kept whole
-        // and current, one loop at a time; a node that runs the loop itself passes keep: false.
+        // The keeper's loop while the page is up (NODE.md section 4): what this node holds kept whole and current, one
+        // loop at a time; a node that runs the loop itself passes keep: false.
         if (options.keep !== false) {
           let keeping = false;
           const keep = async (): Promise<void> => {

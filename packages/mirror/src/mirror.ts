@@ -5,11 +5,11 @@
  * and every chain from its problem's hash; and writes the layout a client reads raw. A problem it already holds files
  * for is taken by hash whether or not the source still lists it, so a problem hidden or replaced at its source stays
  * in the index and its chain keeps growing here; and the reads the chain's traces name (QX-19) are fetched under their
- * hashes beside the data blobs. A chain is a resolver's own, and the mirror's is its own (stage two of one peer,
- * WORKSHOP.md section 2): each source's chain is verified whole, and every event the mirror lacks, by id, whose shape
- * and signature hold, is appended in the source's order with the source's wrappers kept and the mirror's added, so the
- * mirror's chain is the union of its sources' events and only grows; the coin log alone is copied whole, one sequence,
- * and refused where it did anything but grow:
+ * hashes beside the data blobs. A chain is a resolver's own, and the mirror's is its own (NODE.md section 5): each
+ * source's chain is verified whole, and every event the mirror lacks, by id, whose shape and signature hold, is
+ * appended in the source's order with the source's wrappers kept and the mirror's added, so the mirror's chain is the
+ * union of its sources' events and only grows; the coin log alone is copied whole, one sequence, and refused where it
+ * did anything but grow:
  *
  *   problems/<hash>.json   blobs/<hash>   ledger/<hash>.jsonl   ledger/identity.jsonl   ledger/coin.jsonl (QX-17)
  *   names/<owner>/<slug>   outputs/<hash>/output.json   outputs/<hash>/record.json (QX-20)   keys.json   index.json
@@ -24,9 +24,9 @@
  * only where the mirror's own agree.
  *
  * The keeping is over a store (files.ts: envelopes, blobs and the lines of each log), the mirror's layout under its
- * folder here and a tracker's store in a node (WORKSHOP.md section 2, one peer): `keep()` is the pull alone, which a
- * node with the `keep` role runs over the store its door writes, and `mirror()` is the same pull over the files with
- * the publication after it, the names, the outputs, the index, the keys, the balances and the anchors.
+ * folder here and a tracker's store in a node (NODE.md section 5): `keep()` is the pull alone, which a node with the
+ * `keep` role runs over the store its door writes, and `mirror()` is the same pull over the files with the publication
+ * after it, the names, the outputs, the index, the keys, the balances and the anchors.
  *
  * A run is one context carrying what every step shares, and each step is a function below that says what it refuses.
  */
@@ -104,7 +104,7 @@ export interface DepositReader {
   depositAt(n: number): Promise<{ root: string; amount: bigint | number; made: boolean }>;
 }
 
-/** The pull alone, over a store given: what a node with the `keep` role runs (WORKSHOP.md section 2). */
+/** The pull alone, over a store given: what a node with the `keep` role runs (NODE.md section 5). */
 export interface KeepOptions {
   /** The store kept in: the mirror's files, or a node's store, each answering files.ts's methods. */
   store: KeptStore;

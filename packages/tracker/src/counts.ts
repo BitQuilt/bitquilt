@@ -1,13 +1,12 @@
 /**
- * The launch funnel, counted by the UTC day (docs/JOURNEY-AUDIT.md section 3, item 9), with no HTTP in it. Numbers
- * with nobody in them: the addresses the hosted on-ramp handed out, first used and taken home, from the times the
- * members table keeps; the keys whose first event on a problem log here fell on the day, through the hosted connector
- * or on a key of their own by the receipt's custody mark; the claims and reveals received, and the declines by their
- * reason, a model's refusal among them, so what nobody would read is counted beside what was done; the sets accepted,
- * from the layer's fold with struck events left out; the squares the owner's gold verified (QX-16), by the reveal's
- * receipt. No address, name, token or hash goes into the answer, so the route that serves it is public: the counts say
- * how the launch is going and nothing about anyone. Each is a function of the store at now and is computed on request,
- * as the layer is.
+ * The launch funnel, counted by the UTC day (docs/DEPLOY.md, "Keeping it"), with no HTTP in it. Numbers with nobody in
+ * them: the addresses the hosted on-ramp handed out, first used and taken home, from the times the members table keeps;
+ * the keys whose first event on a problem log here fell on the day, through the hosted connector or on a key of their
+ * own by the receipt's custody mark; the claims and reveals received, and the declines by their reason, a model's
+ * refusal among them, so what nobody would read is counted beside what was done; the sets accepted, from the layer's
+ * fold with struck events left out; the squares the owner's gold verified (QX-16), by the reveal's receipt. No address,
+ * name, token or hash goes into the answer, so the route that serves it is public: the counts say how the launch is
+ * going and nothing about anyone. Each is a function of the store at now and is computed on request, as the layer is.
  */
 import { DECLINE_REASONS, type DeclineReason, type Receipt } from '@bitquilt/core';
 import type { Layer } from './challenge.js';

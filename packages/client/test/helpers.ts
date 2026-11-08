@@ -1,12 +1,14 @@
 /**
  * What the client's tests set up again and again: a tracker on a free port, a temporary home with a key, a Quilt over
  * a tracker, the connector over an in-memory MCP pair, a call made under the second opinion's switch, and a JSON
- * fetch. Each test keeps its own pattern and its own assertions; only the scaffolding is here.
+ * fetch; and, for the tests that read the repository's own code, its files and their comments line by line. Each
+ * test keeps its own pattern and its own assertions; only the scaffolding is here.
  */
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readdirSync, statSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { Store, createTracker } from '@bitquilt/tracker';
@@ -127,3 +129,90 @@ export const LISTED_TOOLS = [
 
 /** The regex the tests hold tool descriptions and manifests to: text that describes and does not instruct. */
 export const instructs = /\b(you must|always|never|do not|important|ignore)\b/i;
+
+/** The repository's root, three folders above this one. */
+export const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+
+/**
+ * How a source writes a comment: `slash` with `//` and blocks, as TypeScript, JavaScript, CSS and Solidity do; `hash`
+ * with `#`, as a shell script, the compose file, the Caddyfile and an env example do; `html` with `<!--` blocks beside
+ * the slashes of its own script and style.
+ */
+export type CommentSyntax = 'slash' | 'hash' | 'html';
+
+/** A source's comment syntax by its file name, or null for a file the comment checks do not read. */
+export function syntaxOf(name: string): CommentSyntax | null {
+  if (/\.(ts|mts|mjs|js|css|sol)$/.test(name)) return 'slash';
+  if (/\.(sh|ya?ml|toml|conf)$/.test(name) || name === 'Caddyfile' || name === 'env.example') return 'hash';
+  if (name.endsWith('.html')) return 'html';
+  return null;
+}
+
+/** Every source under a folder whose syntax `syntaxOf` knows, past dependencies, builds and generated files. */
+export function sourcesUnder(dir: string, out: string[] = []): string[] {
+  if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return out;
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules' || name === 'dist' || name.endsWith('.generated.ts')) continue;
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) sourcesUnder(path, out);
+    else if (syntaxOf(name)) out.push(path);
+  }
+  return out;
+}
+
+/**
+ * The code whose comments cite the documents: each package's sources and tests, the client's page and card, the
+ * core's fixture writer, the deploy files, the contracts and their tests, the scripts and the examples.
+ */
+export function codeFiles(): string[] {
+  const dirs = ['deploy', 'contracts/src', 'contracts/test', 'scripts', 'examples'];
+  for (const pkg of readdirSync(join(repoRoot, 'packages')))
+    for (const sub of ['src', 'test', 'page', 'window', 'fixtures']) dirs.push(join('packages', pkg, sub));
+  return dirs.flatMap((dir) => sourcesUnder(join(repoRoot, dir)));
+}
+
+/** Where `//` or `#` opens a comment after code on a line, outside a quoted string, or -1 where nothing does. */
+function trailingAt(line: string, marker: '//' | '#'): number {
+  let quote: string | null = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]!;
+    if (quote) {
+      if (c === '\\') i++;
+      else if (c === quote) quote = null;
+    } else if (c === "'" || c === '"' || c === '`') quote = c;
+    else if (line.startsWith(marker, i) && /\s/.test(line[i - 1] ?? '') && /\s/.test(line[i + marker.length] ?? ' '))
+      return i;
+  }
+  return -1;
+}
+
+/**
+ * Each line's comment text with its marker set aside, or null where the line holds none. In a `hash` source `#` opens
+ * a comment; elsewhere `#` opens a private name and not a comment. A line that opens with `//` or a star is a comment,
+ * and so is every line of a block opened at the start of a line, up to the line that closes it, with or without a
+ * leading star, as in window.css, and an HTML comment the same. With `trailing`, a comment after code on its line is
+ * read too, as the door's map in admit.ts writes where each type's rule is.
+ */
+export function commentLines(text: string, syntax: CommentSyntax, trailing = false): (string | null)[] {
+  let inBlock = false;
+  return text.split('\n').map((line) => {
+    const trimmed = line.trim();
+    if (syntax === 'hash') {
+      if (trimmed.startsWith('#')) return trimmed.replace(/^#+\s*/, '');
+      const at = trailing ? trailingAt(line, '#') : -1;
+      return at < 0 ? null : line.slice(at + 1).trim();
+    }
+    const opens = trimmed.startsWith('/*') || (syntax === 'html' && trimmed.startsWith('<!--'));
+    if (!inBlock && !opens && !/^(\/\/|\*)/.test(trimmed)) {
+      const at = trailing ? trailingAt(line, '//') : -1;
+      return at < 0 ? null : line.slice(at + 2).trim();
+    }
+    const closes = (s: string) => s.includes('*/') || (syntax === 'html' && s.includes('-->'));
+    if (opens && !closes(trimmed.slice(trimmed.startsWith('<!--') ? 4 : 2))) inBlock = true;
+    else if (inBlock && closes(trimmed)) inBlock = false;
+    return trimmed
+      .replace(/^(\/\/+|\/\*+|<!--|\*(?!\/))\s*/, '')
+      .replace(/\s*(\*\/|-->)$/, '')
+      .trimEnd();
+  });
+}

@@ -24,12 +24,12 @@ import { VERDICT, addr, by, calendarBytes, key, startTracker } from './helpers.j
 
 /**
  * The mirror over two real trackers: it writes the layout from one, with chains that verify and names from version
- * events; only grows, and writes the output once the problem is complete; takes the events a second tracker has that
- * it lacks onto its own chain, the union of both (stage two of one peer); passes over a chain whose pages have no end,
- * keeping what it holds; anchors the head of every chain when asked, keeping a stamp it already has; writes the record
- * document of a problem with a record piece (QX-20) with the tracker's own layer code, the same hash as the tracker
- * states; and as the keeper, reads a node by its held list, keeps a problem its source no longer lists with its chain
- * still growing, and fetches the reads a trace names.
+ * events; only grows, and writes the output once the problem is complete; takes the events a second tracker has that it
+ * lacks onto its own chain, the union of both (NODE.md section 5); passes over a chain whose pages have no end, keeping
+ * what it holds; anchors the head of every chain when asked, keeping a stamp it already has; writes the record document
+ * of a problem with a record piece (QX-20) with the tracker's own layer code, the same hash as the tracker states; and
+ * as the keeper, reads a node by its held list, keeps a problem its source no longer lists with its chain still
+ * growing, and fetches the reads a trace names.
  */
 const owner = key(9),
   A = key(1),

@@ -286,9 +286,9 @@ export class Store {
     return this.last(problem);
   }
 
-  // The node's store of chained logs (the client's `Chains`; WORKSHOP.md section 2, one peer): the same methods a
-  // home's cache answers, so a door and a node are over this one store, and what the door admits is what the node
-  // serves and keeps.
+  // The node's store of chained logs (the client's `Chains`; NODE.md section 2): the same methods a home's cache
+  // answers, so a door and a node are over this one store, and what the door admits is what the node serves and
+  // keeps.
 
   envelopeOf(hash: Hash): Envelope | null {
     return this.getEnvelope(hash)?.envelope ?? null;
