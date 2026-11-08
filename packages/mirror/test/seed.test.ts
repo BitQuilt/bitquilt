@@ -4,7 +4,11 @@
  * tracker. The tracker's chain as it serves it gives the tracker's seed and the tracker's seats to anyone who folds it.
  * The mirror's line for the same challenge keeps the tracker's wrappers and adds its own, so its hash is the mirror's,
  * and the layer folded over the mirror's files seeds from that hash and not the tracker's. QX-1 section 4 says so, and
- * names the section that states the mirror's chain.
+ * names the section that states the mirror's chain. So the mirror's fold seats another panel: two verdicts decide the
+ * challenge at the tracker, the first from a seat the mirror's draw does not seat, and the mirror takes both, refuses
+ * nothing, and folds the challenge open. NODE.md section 6 names the draw among the ways the mirror's fold, which the
+ * coin's balances are checked over, differs from the home's. The nonces are fixed, so every hash and both draws are
+ * the same on every run.
  */
 import { mkdtempSync, readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
@@ -19,7 +23,6 @@ import {
   type Unsigned,
   commitHash,
   eventId,
-  newNonce,
   problemHash,
   signEvent,
   signObject,
@@ -34,7 +37,8 @@ const owner = key(9),
   A = key(1),
   B = key(2),
   C = key(3);
-const judges = [key(11), key(12), key(13), key(14)];
+const judges = [key(11), key(12), key(13), key(14), key(15), key(16)];
+const secretOf = new Map<string, Uint8Array>(judges.map((k) => [addr(k), k]));
 
 /** The owner's problem of `count` statements, each accepted where two vendors agree on the verdict. */
 function envelope(slug: string, count: number): Envelope {
@@ -78,9 +82,12 @@ async function accepted(path: string, event: unknown): Promise<void> {
   const r = await post(path, event);
   expect(r.status, await r.clone().text()).toBe(202);
 }
+let nonces = 0;
+/** A nonce of thirty-two hex characters, the next of a count, so the commits and their hashes are fixed. */
+const nextNonce = () => (nonces++).toString(16).padStart(32, '0');
 async function returnOn(problem: Hash, piece: Hash, k: Uint8Array, model: string) {
   const ret = { verdict: 'supports' };
-  const nonce = newNonce();
+  const nonce = nextNonce();
   await accepted(`p/${problem}/events`, ev(k, 'commit', { h: commitHash(ret, nonce) }, problem, piece));
   await accepted(`p/${problem}/events`, ev(k, 'reveal', { return: ret, nonce, by: by(model) }, problem, piece));
 }
@@ -97,7 +104,7 @@ async function served(path: string): Promise<Receipt[]> {
     .map((l) => JSON.parse(l) as Receipt);
 }
 
-const elsewhere = envelope('elsewhere', 2);
+const elsewhere = envelope('elsewhere', 3);
 const Q = problemHash(elsewhere);
 const challenged = envelope('challenged', 1);
 const P = problemHash(challenged);
@@ -107,12 +114,12 @@ beforeAll(async () => {
   ({ server, base } = await startTracker(now));
   expect((await post('p', { envelope: elsewhere })).status).toBe(201);
   expect((await post('p', { envelope: challenged })).status).toBe(201);
-  // The pool: four roots with an accepted return on another problem, unrelated to everyone on the challenged piece.
-  const [q1, q2] = await piecesOf(Q);
-  await returnOn(Q, q1!, judges[0]!, 'anthropic/claude');
-  await returnOn(Q, q1!, judges[1]!, 'openai/gpt');
-  await returnOn(Q, q2!, judges[2]!, 'anthropic/claude');
-  await returnOn(Q, q2!, judges[3]!, 'openai/gpt');
+  // The pool: six roots with an accepted return on another problem, unrelated to everyone on the challenged piece.
+  const pieces = await piecesOf(Q);
+  for (const [i, q] of pieces.entries()) {
+    await returnOn(Q, q, judges[2 * i]!, 'anthropic/claude');
+    await returnOn(Q, q, judges[2 * i + 1]!, 'openai/gpt');
+  }
   [p1] = (await piecesOf(P)) as [Hash];
   await returnOn(P, p1, A, 'anthropic/claude');
   await returnOn(P, p1, B, 'openai/gpt');
@@ -162,6 +169,49 @@ describe('the seed of a challenge at the mirror (QX-1 section 4)', () => {
     expect(mirrored.seed).toBe(kept.hash);
   });
 
+  it("leaves open in the mirror's fold a challenge the tracker decided, by a verdict on a seat its draw does not seat", async () => {
+    type Challenge = { id: Hash; outcome: string; seats: { root: string }[] };
+    const atTracker = async () =>
+      ((await (await fetch(`${base}p/${P}/challenges`)).json()) as { challenges: Challenge[] }).challenges[0]!;
+    const out = mkdtempSync(join(tmpdir(), 'bitquilt-mirror-draw-'));
+    const store = new MirrorFiles(out);
+    const atMirror = () =>
+      challengeLayer({
+        problems: [reduceInputOf(store, elsewhere, now()), reduceInputOf(store, challenged, now())],
+        now: now(),
+      }).problems.get(P)!.challenges[0]!;
+
+    // The first run keeps the challenge's line, and with it the mirror's own seed and seats.
+    expect((await mirror({ trackers: [base], out, now })).refused).toEqual([]);
+    const tracked = await atTracker();
+    const drawn = tracked.seats.map((s) => s.root);
+    const seated: string[] = atMirror().seats.map((s) => s.root);
+    const unseated = drawn.filter((r) => !seated.includes(r));
+    expect(unseated.length, 'the two draws seat the same panel').toBeGreaterThan(0);
+
+    // Two verdicts decide at the tracker, the first from a seat the mirror's draw does not seat.
+    const voters = [...unseated, ...drawn.filter((r) => seated.includes(r))].slice(0, 2);
+    for (const root of voters)
+      await accepted(
+        `p/${P}/events`,
+        ev(secretOf.get(root)!, 'verdict', { challenge: tracked.id, for: 'challenger' }, P, p1),
+      );
+    expect((await atTracker()).outcome).toBe('held');
+
+    // The second run takes both verdicts and refuses nothing, and its fold counts only a voter its draw seats.
+    const again = await mirror({ trackers: [base], out, now });
+    expect(again.refused).toEqual([]);
+    expect(again.problems.find((p) => p.hash === P)?.added).toBe(2);
+    const mirrored = atMirror();
+    expect(mirrored.outcome).toBe('open');
+    expect(mirrored.seats.filter((s) => s.verdict).map((s) => s.root)).toEqual(
+      voters.filter((r) => seated.includes(r)),
+    );
+    expect(mirrored.dropped.map((d) => d.why)).toEqual(
+      voters.filter((r) => !seated.includes(r)).map(() => 'not a judge drawn for this challenge'),
+    );
+  });
+
   it("says so in QX-1 section 4, and names the section that states the mirror's own chain", () => {
     const doc = readFileSync(join(root, 'docs', 'ext', 'QX-1.md'), 'utf8').replace(/\r\n/g, '\n');
     const start = doc.indexOf('\n## 4. The seed and the draw\n');
@@ -171,5 +221,21 @@ describe('the seed of a challenge at the mirror (QX-1 section 4)', () => {
     expect(section).toContain('the chain of the tracker the challenge was posted to, as that tracker serves it');
     expect(section).toContain('the mirror keeps one of its own');
     expect(section).toContain('[NODE.md](../NODE.md) section 5');
+  });
+
+  it("is named in NODE.md section 6 among the ways the mirror's fold, which the balances are checked over, differs", () => {
+    const doc = readFileSync(join(root, 'docs', 'NODE.md'), 'utf8').replace(/\r\n/g, '\n');
+    const start = doc.indexOf('\n## 6. The mirror job\n');
+    expect(start).toBeGreaterThan(-1);
+    const balances = doc
+      .slice(start + 1)
+      .split('\n## ')[0]!
+      .split('\n\n')
+      .find((p) => p.startsWith("**The coin's balances.**"))!;
+    expect(balances).not.toContain('so the balances reproduce where that is what the home folded');
+    expect(balances).toContain('What the mirror folds can differ from what the home folded in three ways.');
+    expect(balances).toContain("it folds them over its own chain and not the home's");
+    expect(balances).toContain('the chain it is folded over (QX-1 section 4)');
+    expect(balances).toContain('a challenge the home decided can stay open there or be decided otherwise');
   });
 });
