@@ -20,12 +20,14 @@
  *
  * The coin (QX-17) is held to the same rule as a chain: the mirror recomputes every balance with the tracker's own
  * layer code, so what it checks is the receipts and the heads, not the arithmetic; a second implementation of coin.ts
- * would check that. It folds what the home's `/coin/state` says its balances were folded over, the home's own chains
- * as the home serves them, cut at the heads the state names, with the parameters and the founding standing the home
+ * would check that. It folds what the home's `/coin/state` says its balances were folded over, the home's own chains as
+ * the home serves them, cut at the heads the state names, with the parameters and the founding standing the home
  * publishes, and not the mirror's own chains, whose lines carry the mirror's hashes and so draw other panels
- * (QX-1 section 4). The tracker's balances are kept only where the mirror's own agree, and only where every credit is
- * what the chain holds; with no chain to ask, a ledger with credits keeps no balances, and the credits alone refuse
- * nothing.
+ * (QX-1 section 4). A state is refused where it is not what the run already had from the home (a problem the home
+ * listed or served left out, a chain named below the lines read, a fold outside the five seconds before its time) or
+ * where a chain, a data blob or a read it rests on is not served as named. The tracker's balances are kept only where
+ * the mirror's own agree, and only where every credit is what the chain holds; with no chain to ask, a ledger with
+ * credits keeps no balances, and the credits alone refuse nothing.
  *
  * The keeping is over a store (files.ts: envelopes, blobs and the lines of each log), the mirror's layout under its
  * folder here and a tracker's store in a node (NODE.md section 5): `keep()` is the pull alone, which a node with `keep`
@@ -265,7 +267,7 @@ async function pull(ctx: Context, options: KeepOptions): Promise<void> {
     for (const hash of listed) await takeProblem(ctx, source, hash);
     await takeHeld(ctx, source);
     await takeIdentity(ctx, source);
-    if (options.coin !== false) await takeCoin(ctx, source, options.chain ?? null);
+    if (options.coin !== false) await takeCoin(ctx, source, options.chain ?? null, listed);
   }
   ctx.report.sources = sources;
   keepTheRest(ctx);
@@ -560,21 +562,22 @@ async function takeIdentity(ctx: Context, tracker: string): Promise<void> {
 
 /**
  * QX-17: the coin log of the tracker that is the coin's home, taken like a chain, and the balances it says it computed.
- * The tracker's balances are its word. They are kept only where the mirror computes the same over what the home's
- * state says they were folded over, as the home serves it (`servedOver`), with the parameters and the founding
- * standing the home publishes, and, since the ledger admits a credit on the reader's signature alone, only where every
- * credit is what the chain holds at that deposit: "the mirror checks every credit against the chain and keeps no
- * balances where one differs or where it has no chain to ask" (AGENTS.md, rule 10). A chain the state names that the
- * home does not serve as named is refused, since the balances then rest on receipts it does not serve as it says; a
- * credit that is not what the chain holds is refused, and so are balances that do not reproduce, which needs no chain
- * to say.
- * With no chain to ask, a ledger with credits is kept and its balances are not, and the credits alone refuse nothing,
- * so a run that refuses nothing else keeps the problems, the coin log and the rest (NODE.md section 6); where the
- * balances reproduce, `notKept` says why. The state is read before the coin log, so the log taken after it holds every
- * line the state names. A state that cannot be read, or does not say what it was folded over, is left for the next
- * run (`reproduced: null`), with no reason given.
+ * The tracker's balances are its word. They are kept only where the mirror computes the same over what the home's state
+ * says they were folded over, as the home serves it (`servedOver`), with the parameters and the founding standing the
+ * home publishes, and, since the ledger admits a credit on the reader's signature alone, only where every credit is
+ * what the chain holds at that deposit: "the mirror checks every credit against the chain and keeps no balances where
+ * one differs or where it has no chain to ask" (AGENTS.md, rule 10). A state that is not what this run already had from
+ * the home, or that rests on what the home does not serve as named, is refused (`servedOver` says each way), since the
+ * balances then rest on receipts the home does not serve as it says; a credit that is not what the chain holds is
+ * refused, and so are balances that do not reproduce, which needs no chain to say. With no chain to ask, a ledger with
+ * credits is kept and its balances are not, and the credits alone refuse nothing, so a run that refuses nothing else
+ * keeps the problems, the coin log and the rest (NODE.md section 6); where the balances reproduce, `notKept` says why.
+ * The state is read after the home's list, its problems' chains and its identity log (`readBefore`), and before the
+ * coin log, so the log taken after it holds every line the state names. A state that cannot be read, or does not say
+ * what it was folded over, is left for the next run (`reproduced: null`), with no reason given.
  */
-async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | null): Promise<void> {
+async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | null, listed: Hash[]): Promise<void> {
+  const before = readBefore(ctx, tracker, listed);
   const wellKnown = (await getJson(ctx, `${tracker}.well-known/quilt`)) as {
     coin?: (CoinParams & { home?: string | null; extension?: string }) | null;
     founding?: unknown;
@@ -595,7 +598,7 @@ async function takeCoin(ctx: Context, tracker: string, chain: DepositReader | nu
   if (!state) return;
   const { home: _home, extension: _extension, ...params } = published;
   try {
-    const served = await servedOver(ctx, tracker, state);
+    const served = await servedOver(ctx, tracker, state, before);
     if (typeof served === 'string') {
       ctx.report.refused.push(`coin: ${served}`);
       coin.reproduced = false;
@@ -640,21 +643,71 @@ interface Served {
   problems: ReduceInput[];
   /** The coin log to the state's head. */
   coin: Receipt[];
-  /** Each read a trace on those chains names, measured by its bytes (QX-19 section 2), or null where neither has it. */
+  /** Each read a trace on those chains names, measured by its bytes (QX-19 section 2). */
   blobLength: (hash: Hash) => number | null;
 }
 
 /**
- * What the home's state says its balances were folded over (QX-17 section 6), as the home serves it. Each chain the
- * state names, each problem's, the identity log and the coin log, is the home's as served, read whole, verified from
- * its log's hash and cut at the named head, whose line must carry the named hash (`servedTo`). Each envelope and data
- * blob is the one held here or the home's, by its hash, and each read a trace on those chains names is measured by its
- * bytes, held here or the home's, as the home measures the reads it holds. The problems are the home's, hidden and
- * replaced ones among them, which it serves by hash (QX-6 section 3), whatever this run took from other sources. Why
- * not, where a chain or an envelope the state names is not served as named.
+ * What this run had from the home before it read the home's state: each problem the home listed or whose chain it
+ * served, with how many lines of that chain this run read (none where it read none), and how many of the identity
+ * log's it read, or null where it read none.
  */
-async function servedOver(ctx: Context, tracker: string, state: CoinState): Promise<Served | string> {
+interface ReadBefore {
+  problems: Map<Hash, number>;
+  identity: number | null;
+}
+
+/** What this run had from the home so far, from its list and from the chains it served (`Context.served`). */
+function readBefore(ctx: Context, tracker: string, listed: Hash[]): ReadBefore {
+  const problems = new Map<Hash, number>(listed.map((h) => [h, 0]));
+  const prefix = `${tracker}p/`;
+  for (const [url, lines] of ctx.served ?? []) {
+    if (!url.startsWith(prefix) || !url.endsWith('/events')) continue;
+    const hash = url.slice(prefix.length, -'/events'.length);
+    if (isHash(hash)) problems.set(hash, lines.length);
+  }
+  return { problems, identity: ctx.served?.get(`${tracker}k/events`)?.length ?? null };
+}
+
+/**
+ * QX-17 section 6: "`at`, the time the layer under them was folded at, which is the state's own `at` or up to five
+ * seconds before it, since the tracker keeps its layer that long while nothing is written".
+ */
+const FOLDED_BEFORE_MS = 5000;
+
+/**
+ * What the home's state says its balances were folded over (QX-17 section 6), as the home serves it. The state is held
+ * first to what this run already had from the home (`readBefore`): its fold's time is its own `at` or up to five
+ * seconds before it; it names every problem the home listed or served this run, "every one the tracker holds"; and it
+ * names each chain this run read from the home at a head no earlier than the lines read, since a chain only grows.
+ * Then each chain the state names, each problem's, the identity log and the coin log, is the home's as served, read
+ * whole, verified from its log's hash and cut at the named head, whose line must carry the named hash (`servedTo`).
+ * Each envelope and data blob is the one held here or the home's, by its hash, and each read a trace on those chains
+ * names is measured by its bytes, held here or the home's, as the home measures the reads it holds: the home holds
+ * every data blob, since it takes no problem without them, and every read a trace on its chains names, since its door
+ * takes no trace whose read it lacks (QX-19 section 2). The problems are the home's, hidden and replaced ones among
+ * them, which it serves by hash (QX-6 section 3), whatever this run took from other sources. Why not, where the state
+ * is not what this run had from the home, or a chain, an envelope, a data blob or a read it rests on is not served as
+ * named.
+ */
+async function servedOver(
+  ctx: Context,
+  tracker: string,
+  state: CoinState,
+  before: ReadBefore,
+): Promise<Served | string> {
   const { folded } = state;
+  const lag = Date.parse(state.at) - Date.parse(folded.at);
+  if (!(lag >= 0 && lag <= FOLDED_BEFORE_MS))
+    return `the coin state from ${tracker} was folded at ${folded.at}, not at its time ${state.at} or in the five seconds before it`;
+  const named = new Map(folded.problems.map(({ problem, head }) => [problem, head]));
+  for (const [problem, read] of before.problems) {
+    if (!named.has(problem)) return `the coin state from ${tracker} does not name ${problem}, which it served this run`;
+    const short = belowRead(named.get(problem)!, read);
+    if (short) return `the chain of ${problem} from ${tracker} ${short}`;
+  }
+  const shortIdentity = before.identity === null ? null : belowRead(folded.identity, before.identity);
+  if (shortIdentity) return `the identity log from ${tracker} ${shortIdentity}`;
   const coin = await servedTo(ctx, `${tracker}coin/events`, COIN_LOG, state.head, `the coin log from ${tracker}`);
   if (typeof coin === 'string') return coin;
   const identity = await servedTo(
@@ -682,17 +735,22 @@ async function servedOver(ctx: Context, tracker: string, state: CoinState): Prom
     chains.set(problem, lines);
   }
   const blobs = new Map<Hash, Uint8Array>();
-  for (const e of envelopes.values())
+  for (const [problem, e] of envelopes)
     for (const h of Object.values(e.problem.data))
       if (!blobs.has(h)) {
         const bytes = await blobAt(ctx, tracker, h);
-        if (bytes) blobs.set(h, bytes);
+        if (!bytes) return `the data blob ${h} of ${problem} from ${tracker} does not check`;
+        blobs.set(h, bytes);
       }
-  const lengths = new Map<Hash, number | null>();
-  for (const lines of chains.values())
+  const lengths = new Map<Hash, number>();
+  for (const [problem, lines] of chains)
     for (const l of lines)
       for (const h of readsNamed(l.event))
-        if (!lengths.has(h)) lengths.set(h, (await blobAt(ctx, tracker, h))?.length ?? null);
+        if (!lengths.has(h)) {
+          const bytes = await blobAt(ctx, tracker, h);
+          if (!bytes) return `the read ${h} of a trace on ${problem} from ${tracker} does not check`;
+          lengths.set(h, bytes.length);
+        }
   const reader: ChainReader = {
     envelopeOf: (h) => envelopes.get(h) ?? null,
     getBlob: (h) => blobs.get(h) ?? null,
@@ -725,6 +783,16 @@ async function servedTo(
   const check = verifyChain(lines, genesis);
   if (!check.ok) return `${label} does not verify: ${check.problems[0]}`;
   return cutAt(lines, head) ?? `${label} has no line ${head!.seq} with the hash the coin state names`;
+}
+
+/**
+ * Why a head a state names is earlier than the lines this run read of that chain before the state, or null where it is
+ * not: a chain only grows, so a head below what was read is not the chain's.
+ */
+function belowRead(head: LogHead, read: number): string | null {
+  return (head?.seq ?? 0) < read
+    ? `was read to line ${read} this run, and the coin state names ${head ? `line ${head.seq}` : 'no line'}`
+    : null;
 }
 
 /** A verified chain's lines to a head, or null where its line at the head's sequence is not the head. */

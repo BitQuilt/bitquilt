@@ -8,6 +8,7 @@ import {
   commitHash,
   newNonce,
   problemHash,
+  reduce,
   signEvent,
 } from '@bitquilt/core';
 import { challengeLayer } from '../src/challenge.js';
@@ -24,8 +25,9 @@ import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js
  * redeem listed under the head for the bridge, and a credit from the reader for a deposit burned on the chain; every
  * balance under the head, with what the balances were folded over (QX-17 section 6): the kept layer's time, each
  * problem in the layer's order with its chain's head, and the identity log's head, so the chains as the tracker serves
- * them, cut at those heads and folded at those times, give the same balances. An event of another type, or one naming
- * a problem, is refused in one set of words at the door and in the fold (`coinEventRefusal`).
+ * them, cut at those heads and folded at those times, give the same balances; and every problem reduced at the one
+ * time the layer is folded at, with a clock that moves on every read. An event of another type, or one naming a
+ * problem, is refused in one set of words at the door and in the fold (`coinEventRefusal`).
  */
 const ownerP = key(9),
   ownerQ = key(8),
@@ -523,5 +525,65 @@ describe('the coin as a layer', () => {
     });
     const folded = coinLayer({ layer: layered, params: coin, receipts: coinLines, now: s.at });
     expect(JSON.parse(JSON.stringify(Object.fromEntries(folded.balances())))).toEqual(s.balances);
+  });
+
+  it('reduces every problem at the time the layer is folded at, with a clock that moves on every read', async () => {
+    const m = boot(new Date(Date.parse(T0) + HOUR).toISOString(), {
+      limits: { keyPerHour: 1000, ipPerHour: 10000 },
+      coin,
+    });
+    await m.listen();
+    try {
+      // Two problems, each with a square whose window closes two days after it was made.
+      const problems: Hash[] = [];
+      for (const [owner, slug] of [
+        [ownerP, 'moving-one'],
+        [ownerQ, 'moving-two'],
+      ] as const) {
+        const e = envelope(owner, slug, 1);
+        const h = problemHash(e);
+        expect((await m.post('/p', { envelope: e })).status).toBe(201);
+        const piece = ((await m.get(`/p/${h}/state`)) as { pieces: { hash: Hash }[] }).pieces[0]!.hash;
+        for (const [k, model] of [
+          [A, 'anthropic/claude'],
+          [B, 'openai/gpt'],
+        ] as const) {
+          const ret = { verdict: 'supports', quote: `as ${addr(k).slice(0, 6)} read it` };
+          const nonce = newNonce();
+          await m.accepted(`/p/${h}/events`, m.ev(k, 'commit', { h: commitHash(ret, nonce) }, h, piece));
+          await m.accepted(`/p/${h}/events`, m.ev(k, 'reveal', { return: ret, nonce, by: by(model) }, h, piece));
+        }
+        problems.push(h);
+      }
+      const made = Date.parse(m.store.lines(problems[0]!).at(-1)!.received[0]!.at);
+      const first = made + 48 * HOUR;
+      // From here the clock moves an hour on every read, from two hours less a minute before the first window closes:
+      // the layer's first read of it is the span it is kept for, and its second, a minute before that window closes,
+      // the time it is folded at. Were each problem reduced at a read of its own, the first would be reduced a minute
+      // before its window closes and the layer folded two hours later, after both windows closed.
+      let at = first - 2 * HOUR - 60_000;
+      Object.defineProperty(m.clock, 'tick', {
+        get: () => {
+          at += HOUR;
+          return at;
+        },
+        set: (v: number) => {
+          at = v;
+        },
+      });
+      const layer = m.tracker.layer();
+      for (const [hash, pl] of layer.problems) {
+        const atFold = reduce(reduceInputOf(m.store, m.store.envelopeOf(hash)!, layer.now));
+        expect(
+          pl.core.pieces.map((v) => v.state),
+          hash,
+        ).toEqual(atFold.pieces.map((v) => v.state));
+        expect(pl.core.pieces.map((v) => v.state)).toEqual(['accepted_provisional']);
+      }
+      expect([...layer.problems.keys()].sort()).toEqual([...problems].sort());
+      expect(layer.now).toBe(new Date(first - 60_000).toISOString());
+    } finally {
+      await m.close();
+    }
   });
 });

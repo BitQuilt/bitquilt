@@ -481,7 +481,9 @@ function strike(
  * piece is folded without that reveal, so it needs a second reading again, and the key whose reading was set aside may
  * read it again, its commit unrevealed in that fold. To a fixed point, since the fold without one pair may show
  * another. Nothing is docked: a disputed piece had no square. A trace that arrives later lifts it, since the layer is a
- * function of the receipts; a reader that measures no blob, as the mirror does not, sets nothing aside.
+ * function of the receipts; a reader that measures no blob sets nothing aside. The mirror's own fold, for its record
+ * documents, measures none; its check of the coin's balances measures each read a trace names by its bytes, as the
+ * home does, so it sets aside what the home sets aside (QX-17 section 7).
  */
 function setAsideUngrounded(f: Folding, blobLength: (hash: Hash) => number | null): void {
   for (const e of f.entries.values()) {

@@ -148,7 +148,7 @@ The keeper and the mirror job. `mirror.ts` imports the core and the tracker, and
 | `src/files.ts` | The store a keeper keeps in, the shape of the client's chains, and the mirror's layout under its folder (`KeptStore`, `MirrorFiles`) | NODE.md section 2 |
 | `src/identity.ts` | The identity log folded into each problem's hides and, for keys.json, each address's name and delegations (`hiddenFromIdentity`, `keysFromIdentity`) | QX-6 section 4 |
 | `src/index.ts` | What the package exports: the run (`mirror`), which Quilt's tests import, the keep (`keep`), which the node imports, the store a keeper keeps in (`MirrorFiles`), the anchoring and the identity's folds | |
-| `src/mirror.ts` | The pull over a store, and the same pull over the files with the publication after it, a name only for a slug by the envelope's rule, the balances reproduced over the home's chains as it serves them, cut where its state names, and each head anchored (`keep`, `mirror`, `writeName`, `servedOver`) | NODE.md sections 5 and 6; QX-6; QX-12; QX-17 sections 6 and 7; QX-19; QX-20 section 4 |
+| `src/mirror.ts` | The pull over a store, and the same pull over the files with the publication after it, a name only for a slug by the envelope's rule, the balances reproduced over the home's chains as it serves them, cut where its state names, the state held to what the run already read from the home, and each head anchored (`keep`, `mirror`, `writeName`, `readBefore`, `servedOver`) | NODE.md sections 5 and 6; QX-6; QX-12; QX-17 sections 6 and 7; QX-19; QX-20 section 4 |
 
 ### `packages/coin` (`@bitquilt/coin`)
 
