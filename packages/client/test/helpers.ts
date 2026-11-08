@@ -1,9 +1,11 @@
 /**
  * What the client's tests set up again and again: a tracker on a free port, a temporary home with a key, a Quilt over
  * a tracker, the connector over an in-memory MCP pair, a call made under the second opinion's switch, and a JSON
- * fetch; and, for the tests that read the repository's own code, its files and their comments line by line. Each
- * test keeps its own pattern and its own assertions; only the scaffolding is here.
+ * fetch; for the tests that read the repository's own code, its files and their comments line by line; and, for
+ * docs.test.ts, citations.test.ts and agents-map.test.ts, the folders the repository keeps at its root and the Markdown
+ * at the root and under them. Each test keeps its own pattern and its own assertions; only the scaffolding is here.
  */
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, statSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -132,6 +134,37 @@ export const instructs = /\b(you must|always|never|do not|important|ignore)\b/i;
 
 /** The repository's root, three folders above this one. */
 export const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+
+/**
+ * The folders at the root the repository keeps: the first folder of every path git tracks, so a folder only a checkout
+ * has, a dependency, a build or a tool's own, is none of them, whichever ignore file leaves it out. `.github` is among
+ * them, and a new folder is one once it is added.
+ */
+export function rootFolders(): string[] {
+  const tracked = execFileSync('git', ['ls-files'], { cwd: repoRoot, encoding: 'utf8' }).split('\n');
+  return [...new Set(tracked.filter((p) => p.includes('/')).map((p) => p.split('/')[0]!))].sort();
+}
+
+/** Every Markdown file under a folder, by its path from the root; dependencies, builds and dot folders left out. */
+function markdownUnder(folder: string, out: string[]): string[] {
+  for (const entry of readdirSync(join(repoRoot, folder), { withFileTypes: true })) {
+    const path = `${folder}/${entry.name}`;
+    if (entry.isDirectory()) {
+      if (!entry.name.startsWith('.') && entry.name !== 'node_modules' && entry.name !== 'dist')
+        markdownUnder(path, out);
+    } else if (entry.name.endsWith('.md')) out.push(path);
+  }
+  return out;
+}
+
+/**
+ * Where the repository keeps Markdown: the Markdown files at its root and every one under a folder it keeps there, so
+ * a README added under any folder is read with the rest. docs.test.ts and citations.test.ts both read this list.
+ */
+export function markdownFiles(): string[] {
+  const top = readdirSync(repoRoot).filter((name) => name.endsWith('.md') && statSync(join(repoRoot, name)).isFile());
+  return [...top, ...rootFolders().flatMap((folder) => markdownUnder(folder, []))].sort();
+}
 
 /**
  * How a source writes a comment: `slash` with `//` and blocks, as TypeScript, JavaScript, CSS and Solidity do; `hash`

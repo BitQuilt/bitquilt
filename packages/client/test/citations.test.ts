@@ -26,28 +26,13 @@
  * title a comment cites in lower case after a part is held while its heading keeps its name, as CORE.md's do, the
  * core being frozen.
  */
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { type CommentSyntax, codeFiles, commentLines, repoRoot as root, syntaxOf } from './helpers.js';
+import { type CommentSyntax, codeFiles, commentLines, markdownFiles, repoRoot as root, syntaxOf } from './helpers.js';
 
 /** A path from the root, with forward slashes on every system. */
 const fromRoot = (path: string): string => relative(root, path).split(sep).join('/');
-
-/** Where the repository keeps Markdown, as docs.test.ts reads it: the two files at its root, and the folders walked. */
-const FOLDERS = ['docs', 'examples', 'deploy', 'apps', 'impl', 'packages', 'site'];
-
-/** Every Markdown file under a folder, by its path from the root; dependencies, builds and hidden folders left out. */
-function markdownUnder(folder: string, out: string[] = []): string[] {
-  for (const entry of readdirSync(join(root, folder), { withFileTypes: true })) {
-    const path = `${folder}/${entry.name}`;
-    if (entry.isDirectory()) {
-      if (!entry.name.startsWith('.') && entry.name !== 'node_modules' && entry.name !== 'dist')
-        markdownUnder(path, out);
-    } else if (entry.name.endsWith('.md')) out.push(path);
-  }
-  return out;
-}
 
 /** A heading of a document: its level, its number where it is numbered, its name, and the lines it spans. */
 interface Heading {
@@ -103,9 +88,7 @@ function readDoc(path: string): Doc {
   return { path, lines, headings };
 }
 
-const DOCS = new Map(
-  ['README.md', 'AGENTS.md', ...FOLDERS.flatMap((folder) => markdownUnder(folder))].map((p) => [p, readDoc(p)]),
-);
+const DOCS = new Map(markdownFiles().map((p) => [p, readDoc(p)]));
 
 /**
  * The names a document gives its parts within lines [start, end): each heading, and the part of one before a colon,

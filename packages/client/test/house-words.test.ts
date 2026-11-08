@@ -8,9 +8,9 @@ import { describe, expect, it } from 'vitest';
  * `deploy/house.sh` as two services, `house` and `house-openai`, and sets no `HOUSE_EVERY`, so each waits house.sh's
  * default between passes. The default is held here at 300 seconds, since the documents also say it in words, five
  * minutes, which no pattern reads. The files that say how the houses run now name both services, give `HOUSE_EVERY` no
- * number but that default, and bring both up with every `up -d` that names one. These words drifted three times while
- * one house became two and the pass went from fifteen minutes to five; docs/history/JOURNEY-AUDIT.md is a dated record
- * of a walk and is not read.
+ * number but that default, and bring both up with every `up -d` that names one, as the root README.md does too. These
+ * words drifted three times while one house became two and the pass went from fifteen minutes to five;
+ * docs/history/JOURNEY-AUDIT.md is a dated record of a walk and is not read.
  */
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const read = (path: string): string => readFileSync(join(root, path), 'utf8');

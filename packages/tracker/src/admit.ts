@@ -312,7 +312,7 @@ function admitCoinEvent({ options, coin }: Reads, event: Event): Admitted {
  * where its rule is written. The keys are what the identity log takes, so a new type is one row; null where the
  * shape the core checks before any log is asked is the whole of it.
  */
-const identityDoor: Readonly<Record<string, ((cx: Reads, event: Event) => void) | null>> = {
+export const identityDoor: Readonly<Record<string, ((cx: Reads, event: Event) => void) | null>> = {
   name: checkNameEvent, // CORE.md sections 4 and 11, the stamp
   delegate: null, // CORE.md section 4
   revoke: null, // CORE.md section 4
@@ -353,9 +353,11 @@ function checkHideEvent({ maintainerSet }: Reads, event: Event): void {
 /**
  * The problem log's door by event type: the one check each type is admitted through once it is under the problem it
  * names, held here and not taken down, with where its rule is written. The keys are what a problem's log takes, so a
- * new type is one row; null where the shape the core checks before any log is asked is the whole of it.
+ * new type is one row; null where the shape the core checks before any log is asked is the whole of it. Its types
+ * beyond the core's, with identityDoor's and COIN_EVENTS in coin.ts, are the rows of the table in PROTOCOL.md, Events,
+ * and each row's rule is where the comment here names first (events-table.test.ts).
  */
-const problemDoor: Readonly<Record<string, ProblemCheck | null>> = {
+export const problemDoor: Readonly<Record<string, ProblemCheck | null>> = {
   // The core's.
   claim: checkPieceEvent, // CORE.md sections 4 and 6; QX-15 section 2; QX-20 section 2
   commit: checkPieceEvent, // CORE.md sections 4 and 6; QX-15 section 2; QX-20 section 2
