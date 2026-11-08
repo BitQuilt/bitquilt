@@ -1,10 +1,12 @@
 /**
  * What the client's tests set up again and again: a tracker on a free port, a temporary home with a key, a Quilt over
  * a tracker, the connector over an in-memory MCP pair, a call made under the second opinion's switch, and a JSON
- * fetch; and, for the tests that read the repository's own code, its files and their comments line by line. Each
- * test keeps its own pattern and its own assertions; only the scaffolding is here.
+ * fetch; for the tests that read the repository's own code, its files and their comments line by line; and, for
+ * docs.test.ts, citations.test.ts and agents-map.test.ts, the folders the repository keeps at its root and the Markdown
+ * at the root and under them. Each test keeps its own pattern and its own assertions; only the scaffolding is here.
  */
-import { mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readdirSync, statSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -134,16 +136,13 @@ export const instructs = /\b(you must|always|never|do not|important|ignore)\b/i;
 export const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 /**
- * The folders at the root the repository keeps: every one but git's own and those .gitignore names, as a checkout
- * leaves dependencies, builds, coverage and the tools' own folders there. `.github` is among them.
+ * The folders at the root the repository keeps: the first folder of every path git tracks, so a folder only a checkout
+ * has, a dependency, a build or a tool's own, is none of them, whichever ignore file leaves it out. `.github` is among
+ * them, and a new folder is one once it is added.
  */
 export function rootFolders(): string[] {
-  const gitignore = readFileSync(join(repoRoot, '.gitignore'), 'utf8');
-  const ignored = new Set([...gitignore.matchAll(/^([\w.-]+)\/$/gm)].map((m) => m[1]!));
-  return readdirSync(repoRoot)
-    .filter((name) => name !== '.git' && !ignored.has(name))
-    .filter((name) => statSync(join(repoRoot, name)).isDirectory())
-    .sort();
+  const tracked = execFileSync('git', ['ls-files'], { cwd: repoRoot, encoding: 'utf8' }).split('\n');
+  return [...new Set(tracked.filter((p) => p.includes('/')).map((p) => p.split('/')[0]!))].sort();
 }
 
 /** Every Markdown file under a folder, by its path from the root; dependencies, builds and dot folders left out. */
