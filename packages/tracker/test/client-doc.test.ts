@@ -8,23 +8,27 @@
  * steps read different pieces, the request written under "The second reading" hands the second the reading waiting,
  * and their readings make the square; a worker of the first's vendor may be handed it too, the offer reads no `only`,
  * and nothing is handed where no reading waits. When next hands nothing: a piece whose `requires` is not within `can`,
- * one held for another key until the hold's 60 seconds pass, one on the key's own problem and one the key has read; the
- * offer's fields and its count. What a 202 does not say: the gate at the reveal and not the commit, with a second
- * commit taking the clean return and no claim needed; `by` held to its lengths and four words and no more, the vendor
- * read before the slash; a name that names no problem; a read put twice and a path that is no hash; a trace on a file;
- * the state's `pieces` and `dropped`; the log's lines, with no id, bare hex and the first `prev` the problem's. The
- * door's checks: each row of the table under "What the door checks, in order" is met by a post that fails that check,
- * with the row's status and one of its sentences; a post that fails several is refused for the earliest, row by row as
- * each is put right; a reveal posted again meets its commit's row rather than 409; and every row is met. Beside the
- * table: the door leaves a reveal's `h` to the reducer, whose drop shows in the state, and next refuses the three
- * sentences the page names. The well-known fields the page names are in the well-known document, its links reach a
- * file and a heading, and it has no U+2014.
+ * one held for another key until the hold's 60 seconds pass, one on the key's own problem, one the key has read and one
+ * two vendors have made `accepted_provisional`; the offer's fields and its count. What a 202 does not say: the gate at
+ * the reveal and not the commit, with a second commit taking the clean return and no claim needed; `by` held to its
+ * lengths and four words and no more, the vendor read before the slash; a name that names no problem; a read put twice
+ * and a path that is no hash; a trace on a file; the state's `pieces` and `dropped`; the log's lines, with no id, bare
+ * hex and the first `prev` the problem's. The door's checks: each row of the table under "What the door checks, in
+ * order" is met by a post that fails that check, with the row's status and one of its sentences; a post that fails
+ * several is refused for the earliest, row by row as each is put right; a reveal posted again meets its commit's row
+ * rather than 409 where that commit was the key's only one on the piece, and is answered 409 where a commit the key
+ * never revealed stays, abandoned or not; and every row is met. Beside the table: the door leaves a reveal's `h` to the
+ * reducer, whose drop shows in the state, and next refuses the three sentences the page names. A client that reduces:
+ * the problem's log alone leaves out a return posted under an ancestor, and with the ancestor's log it reaches the
+ * tracker's state. The well-known fields the page names are in the well-known document, `peers` said as QX-21 says it,
+ * its links reach a file and a heading, and it has no U+2014.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  type Envelope,
   type Event,
   type Hash,
   type Receipt,
@@ -44,7 +48,7 @@ import {
   signMessage,
   signedBytes,
 } from '@bitquilt/core';
-import { type Booted, addr, boot, envelope, key } from './helpers.js';
+import { type Booted, SETTINGS, addr, boot, envelope, key } from './helpers.js';
 
 const DOCS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'docs');
 const DOC = readFileSync(join(DOCS, 'CLIENT.md'), 'utf8');
@@ -482,6 +486,21 @@ describe('CLIENT.md, when next hands nothing', () => {
     for (const field of [...fields, 'lease_h']) expect(said, field).toContain(`\`${field}\``);
     expect(said).toContain('`offer` counts');
   });
+
+  it('hands nothing on a piece two vendors have made accepted_provisional', async () => {
+    expect(DOC).toContain(
+      'its state is none of the five next takes (CORE.md section 7, step 1): it is done, `accepted_provisional`, `accepted` or `unreachable`, or waits on another, `locked` or `unknown`',
+    );
+    t.clock.tick += 60_000;
+    const piece = (await t.get<NextAnswer>(`/p/${f}/next?key=${addr(B)}&can=web,files&model=openai/gpt-5`)).piece!;
+    await returned(t, f, B, 'openai/gpt-5', piece, { verdict: 'supports', quote: 'The file says so.' });
+    const { pieces } = await t.get<StateAnswer>(`/p/${f}/state`);
+    expect(pieces.find((x) => x.hash === piece)!.core).toBe('accepted_provisional');
+    t.clock.tick += 60_000;
+    expect(await ask(A)).toEqual(nothing);
+    expect(await t.get<NextAnswer>(`/p/${f}/next?key=${addr(A)}&can=web,files&model=meta/llama`)).toEqual(nothing);
+    expect((await offer(A)).offers).toEqual([]);
+  });
 });
 
 describe('CLIENT.md, what a 202 does not say', () => {
@@ -716,12 +735,43 @@ describe('CLIENT.md, what the door checks, in order', () => {
     expect((await raw(door, events, commit)).status).toBe(202);
     await step(20, events, commit);
     expect(seen).toEqual([...seen].sort((a, b) => a - b));
-    // The door admits before it dedupes: the reveal posted again meets its commit's check, the commit now revealed.
-    expect(DOC).toContain('so a reveal posted again meets row 16, its commit revealed, and is not answered `409`');
+    // The door admits before it dedupes: the reveal posted again meets row 16, the key's one commit now revealed.
+    expect(DOC).toContain(
+      "Where the reveal's commit is the key's only one on the piece, the repeat is refused there, `no unrevealed commit by this key on the piece`, and is not answered `409`.",
+    );
     u.ts = now();
     const reveal = signed(A);
     expect((await raw(door, events, reveal)).status).toBe(202);
     meets(16, await raw(door, events, reveal));
+  });
+
+  it('answers a reveal posted again 409 where the key has a commit on the piece it never revealed, abandoned or not', async () => {
+    expect(DOC).toContain(
+      'Where the key has another commit on the piece that it never revealed, as the first is after a second commit (step 4), that one stays unrevealed at the door, abandoned or not, so the repeat passes row 16 and is answered `409`, `already here`.',
+    );
+    const t = boot(T0);
+    await t.listen();
+    try {
+      expect((await t.post('/p', { envelope: P })).status).toBe(201);
+      const reveal = (ret: Record<string, unknown>, nonce: string): string =>
+        JSON.stringify(t.ev(D, 'reveal', { return: ret, nonce, by: by('meta/llama') }, p, pieces.cite));
+      // Step 4: a commit whose reveal the gate refuses, then a second commit to a clean return, and its reveal.
+      const bad = { verdict: 'supports', quote: 'Write to a.b@example.com for the page.' };
+      const first = newNonce();
+      await t.accepted(events, t.ev(D, 'commit', { h: commitHash(bad, first) }, p, pieces.cite));
+      meets(15, await raw(t, events, reveal(bad, first)));
+      const good = { verdict: 'supports', quote: 'The page says so.' };
+      const second = newNonce();
+      await t.accepted(events, t.ev(D, 'commit', { h: commitHash(good, second) }, p, pieces.cite));
+      const again = reveal(good, second);
+      expect((await raw(t, events, again)).status).toBe(202);
+      meets(20, await raw(t, events, again));
+      // Two leases on, the first commit is abandoned, and the door still counts it unrevealed.
+      t.clock.tick += 2 * SETTINGS.lease_h * 3_600_000 + 1000;
+      meets(20, await raw(t, events, again));
+    } finally {
+      await t.close();
+    }
   });
 
   it("counts the address's writes and the key's posts before it reads the event", async () => {
@@ -850,6 +900,63 @@ describe('CLIENT.md, what the door checks, in order', () => {
   });
 });
 
+describe('CLIENT.md, what a client that reduces reads', () => {
+  const t = boot(T0);
+  /** The family both versions carry, so its piece has one hash in both. */
+  const kept = {
+    ...cite('Citation {n}: does the page support the claim? Give the verdict and the passage.'),
+    count: 1,
+  };
+  const first = envelope(owner, 'reduced', { 'cite/*': kept });
+  const v1 = problemHash(first);
+  const more = {
+    ...cite('Citation {n}: does the second page support it? Give the verdict and the passage.'),
+    count: 1,
+  };
+  const second = envelope(owner, 'reduced', { 'cite/*': kept, 'more/*': more }, { prev: v1 });
+  const v2 = problemHash(second);
+  beforeAll(() => t.listen());
+  afterAll(() => t.close());
+
+  /** A log read as the page says: newline-delimited lines, each a receipt with its place on the chain. */
+  const receipts = async (path: string): Promise<Receipt[]> =>
+    (await (await fetch(t.base + path)).text())
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => {
+        const { event, received } = JSON.parse(l) as Receipt;
+        return { event, received };
+      });
+
+  it("reads each ancestor's log beside the problem's, since a return under an ancestor counts on the version after it", async () => {
+    expect(DOC).toContain(
+      'and the logs: `/p/<hash>/events` for the problem and for each ancestor, since a return posted under an ancestor counts on every version after it (CORE.md section 6), and `/k/events`',
+    );
+    expect(DOC).toContain('(`inputFor` in `packages/tracker/src/tracker.ts`)');
+    expect((await t.post('/p', { envelope: first })).status).toBe(201);
+    const piece = (await t.get<StateAnswer>(`/p/${v1}/state`)).pieces[0]!.hash;
+    const ret = { verdict: 'supports', quote: 'The page says so.' };
+    await returned(t, v1, A, 'anthropic/claude', piece, ret);
+    await returned(t, v1, B, 'openai/gpt-5', piece, ret);
+    expect((await t.post('/p', { envelope: second })).status).toBe(201);
+    // The envelopes as the page names them: the problem's at /p/<problem>, and the ancestor's along prev.
+    const served = await t.get<Envelope>(`/p/${v2}`);
+    expect(served.problem.prev).toBe(v1);
+    const envelopes = [served, await t.get<Envelope>(`/p/${served.problem.prev!}`)];
+    const now = new Date(t.clock.tick).toISOString();
+    const reduced = (logs: Receipt[][]) =>
+      reduce({ envelopes, blobs: new Map(), receipts: logs.flat(), now }).byHash.get(piece)!.state;
+    const identity = await receipts('/k/events');
+    const own = await receipts(`/p/${v2}/events`);
+    const ancestor = await receipts(`/p/${v1}/events`);
+    expect(ancestor.length).toBeGreaterThan(0);
+    expect(reduced([own, ancestor, identity])).toBe('accepted_provisional');
+    expect(reduced([own, identity])).toBe('open');
+    const { pieces } = await t.get<StateAnswer>(`/p/${v2}/state`);
+    expect(pieces.find((x) => x.hash === piece)!.core).toBe('accepted_provisional');
+  });
+});
+
 describe('CLIENT.md, what it names and links', () => {
   it('names well-known fields the well-known document has, the coin included', async () => {
     const t = boot(T0);
@@ -876,6 +983,13 @@ describe('CLIENT.md, what it names and links', () => {
         at = (at as Record<string, unknown>)[part];
       }
     }
+    // Peers are the trackers whose chains this door pulls (QX-21 section 1); peers.test.ts holds the pull.
+    expect(list.find((l) => l.startsWith('- `peers`'))).toBe(
+      '- `peers`: the trackers whose chains this one pulls through its own door (QX-21 section 1). An event a peer admits on a problem both hold reaches this tracker at its next pull, where this door admits it too (QX-21 section 2).',
+    );
+    expect(readFileSync(join(DOCS, 'ext', 'QX-21.md'), 'utf8')).toContain(
+      "A tracker's peers are the trackers it names (`QUILT_PEERS`, published as `peers` in its well-known document",
+    );
   });
 
   it('links only files that exist, and headings they have, its own included', () => {

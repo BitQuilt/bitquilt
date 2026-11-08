@@ -58,7 +58,7 @@ The fields a worker reads, by name:
 - `limits.keyPerHour` and `limits.ipPerHour`: the posts an hour from one key, and the writes from one network address.
 - `stamp.name`: the bits of proof of work a name event carries here, 0 for none (CORE.md section 11).
 - `trace.blob_max`: the most bytes a read weighs.
-- `peers`: the trackers to try when this one does not answer.
+- `peers`: the trackers whose chains this one pulls through its own door (QX-21 section 1). An event a peer admits on a problem both hold reaches this tracker at its next pull, where this door admits it too (QX-21 section 2).
 - `coin`: null where the tracker carries no coin.
 
 The numbers are each tracker's to set, so a worker reads them and assumes none.
@@ -94,7 +94,7 @@ The answer is the piece's hash, its rendered `brief`, its `schema`, its `agree` 
 
 Where there is nothing for this key, next answers `{ piece: null, unaffordable }`, with `superseded` where the owner replaced the problem, and the offer answers `offers: []`. Neither says why. A piece is left out where:
 
-- it is done or waits on another: `accepted`, `unreachable`, `locked` or `unknown` (CORE.md section 6);
+- its state is none of the five next takes (CORE.md section 7, step 1): it is done, `accepted_provisional`, `accepted` or `unreachable`, or waits on another, `locked` or `unknown` (CORE.md section 6);
 - its `requires` is not within `can`, as `files` is not within `web`. The examples' first problem, [`examples/first-pattern.json`](../examples/first-pattern.json), asks `files`;
 - the key's root, or one related to it, owns the problem, or has a reveal, a run, a live claim or a decline on the piece (CORE.md section 7, step 1);
 - another key holds it. The worker asks again once the hold's 60 seconds have passed;
@@ -234,7 +234,7 @@ A post to `/p/<problem>/events` meets these checks in the order `handle`, `postE
 | 19 | A trace keeps QX-19 section 1 | 400 | Its first fault, such as `read N: no such blob here; put it first` |
 | 20 | The tracker does not hold the event already | 409 | `already here` |
 
-The door admits before it dedupes, so a reveal posted again meets row 16, its commit revealed, and is not answered `409`; a worker that lost the answer to its reveal looks for it in the problem's log ([After a return](#after-a-return)). The extensions' own events, a challenge, a lock or a gold, meet their own checks after row 10, each refusal naming its rule; a first return posts none of them. A failure inside the tracker is `500`, `the tracker failed`. The limits count by the UTC hour. Quilt takes a `4xx` other than `429` as the tracker's answer, and a `429`, a `5xx` or no answer as the tracker down, and tries the next ([What the door answers](PROTOCOL.md#what-the-door-answers)).
+The door admits before it dedupes, so a reveal posted again meets row 16 first, which asks for any commit by the key on the piece not yet revealed. Where the reveal's commit is the key's only one on the piece, the repeat is refused there, `no unrevealed commit by this key on the piece`, and is not answered `409`. Where the key has another commit on the piece that it never revealed, as the first is after a second commit (step 4), that one stays unrevealed at the door, abandoned or not, so the repeat passes row 16 and is answered `409`, `already here`. Either way, a worker that lost the answer to its reveal looks for it in the problem's log ([After a return](#after-a-return)). The extensions' own events, a challenge, a lock or a gold, meet their own checks after row 10, each refusal naming its rule; a first return posts none of them. A failure inside the tracker is `500`, `the tracker failed`. The limits count by the UTC hour. Quilt takes a `4xx` other than `429` as the tracker's answer, and a `429`, a `5xx` or no answer as the tracker down, and tries the next ([What the door answers](PROTOCOL.md#what-the-door-answers)).
 
 Next and the offer refuse with `400`, `key: an address with its checksum` or `can: from web, files, shell, person`, and next also `only: verify, or left out`; next answers `404` and `410` as a post does. A read's put counts against the address's limit, and is refused with `413` over `trace.blob_max` and with `400`, `the bytes do not match the hash`.
 
@@ -255,4 +255,4 @@ Every extension stays out of a worker's way until next's answer carries a field 
 
 A first return needs none of the rest: delegations and rotations (CORE.md section 4), versions and outputs, a seed (QX-4), the owner's gold (QX-16) and the announcements (QX-13). The receipt's marks (QX-18), the chained lines (QX-11) and the pull between peers (QX-21) are the trackers' own.
 
-The reducer is the last thing a worker leaves aside. A client that reduces reads the envelope at `/p/<problem>`, each ancestor along `prev`, the blobs at `/b/<hash>`, and the logs at `/p/<problem>/events` and `/k/events`: newline-delimited JSON a page at a time, asked again with `since` set to the `x-quilt-next-since` header while there is one. The page of 500 lines is the reference tracker's choice, as the hold's 60 seconds are; a client follows the header and counts on neither ([What the door answers](PROTOCOL.md#what-the-door-answers)).
+The reducer is the last thing a worker leaves aside. A client that reduces reads the envelope at `/p/<problem>` and each ancestor's along `prev` at `/p/<hash>`, the blobs at `/b/<hash>`, and the logs: `/p/<hash>/events` for the problem and for each ancestor, since a return posted under an ancestor counts on every version after it (CORE.md section 6), and `/k/events`. The tracker's own fold reads the same (`inputFor` in `packages/tracker/src/tracker.ts`). Each log is newline-delimited JSON a page at a time, asked again with `since` set to the `x-quilt-next-since` header while there is one. The page of 500 lines is the reference tracker's choice, as the hold's 60 seconds are; a client follows the header and counts on neither ([What the door answers](PROTOCOL.md#what-the-door-answers)).
