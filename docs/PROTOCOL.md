@@ -54,7 +54,7 @@ The envelope is CORE.md section 2 and the piece hash section 3. Why:
 - **Carry-over falls out of the names.** A version whose expansion holds a piece hash keeps every return made against it, with no rule for a site to apply.
 - **Forks.** A version sets `prev`; a fork sets `from` and inherits nothing, since the forker disputes the frame, not the facts, and the two maps are the argument. A directory groups forks on `from`, which the tracker's index row and the announce both carry (QX-13 section 1), and Quilt's search shows each fork under the problem it forks (APP.md, Search). Two problems alike in name with no `from` between them are two problems, shown side by side.
 
-At publish (`publish`) the reference tracker adds four checks: the gate on the title, `done_when` and briefs; a `prev` it holds, by the same owner; a `from` by another owner, where it holds the problem named; and, at the coin's home, a challenge window within `window_max_h` (QX-17 section 6). A `from` naming a problem it does not hold is taken on the forker's word, as the core takes it.
+At publish (`publish` in `packages/tracker/src/admit.ts`) the reference tracker adds four checks: the gate on the title, `done_when` and briefs; a `prev` it holds, by the same owner; a `from` by another owner, where it holds the problem named; and, at the coin's home, a challenge window within `window_max_h` (QX-17 section 6). A `from` naming a problem it does not hold is taken on the forker's word, as the core takes it.
 
 ## Verifiers
 
@@ -87,7 +87,7 @@ The event line and the core's types are CORE.md section 4. A claim is an intent,
 | `trace` | problem | What a reveal rests on | [QX-19](ext/QX-19.md) section 1 |
 | `lock`, `pay`, `burn`, `transfer`, `redeem`, `credit` | coin | The coin's own events | [QX-17](ext/QX-17.md) section 2 |
 
-**Receipts** are CORE.md section 5, which gives the wrapper's values and not what they mean. `custody` is `hosted` where the tracker signed with a key it holds for the member, and `self` where the signature arrived made. `seat` is `person` or `ai`, which only the tracker that opened the seat knows. The reference writes `hosted` and `ai` on what its on-ramp posts, and `self` with no seat on every other post (`postEvent` in `packages/tracker/src/tracker.ts`). These and QX-18's `via` are the tracker's word, not the ledger's, and a reader decides whose word to take.
+**Receipts** are CORE.md section 5, which gives the wrapper's values and not what they mean. `custody` is `hosted` where the tracker signed with a key it holds for the member, and `self` where the signature arrived made. `seat` is `person` or `ai`, which only the tracker that opened the seat knows. The reference writes `hosted` and `ai` on what its on-ramp posts, and `self` with no seat on every other post (`postEvent` in `packages/tracker/src/admit.ts`). These and QX-18's `via` are the tracker's word, not the ledger's, and a reader decides whose word to take.
 
 ## Identity: roots and delegates
 
@@ -121,7 +121,7 @@ Extensions refine the states: `challenged` (QX-1 section 7), `judging` (verifier
 
 `next(state, key, client, now)` is CORE.md section 7. In-flight and sealed pieces are candidates, since the second production is the point. Rarest first, with a claimant weighted by its accepted reveals over its claims, so a key that claims and never returns stops hiding pieces. Ties go first to the piece more pieces wait on, then to a hash of piece, key and hour, then file position, so keys spread out and a retry gets one answer an hour; with position before the hash, every key would get piece one. Verifies come first when they outnumber the open, so acceptance keeps pace, and in the endgame claims count for nothing, so stragglers get second workers.
 
-**Assisted.** A tracker runs the core's `next` over its layer's fold, leaving out what its extensions keep from the key (`excludedFor`), and holds the piece a minute for that key, so two clients there are not handed one piece at once: a courtesy, not a lease, since a claim excludes no one and a collision makes the verify.
+**Assisted.** A tracker runs the core's `next` over its layer's fold, leaving out what its extensions keep from the key (`excludedFor` in `packages/tracker/src/hand.ts`), and holds the piece a minute for that key, so two clients there are not handed one piece at once: a courtesy, not a lease, since a claim excludes no one and a collision makes the verify.
 
 ## Sealing: commit, then reveal
 
@@ -133,11 +133,13 @@ The link's three forms are CORE.md section 8: an exact version, an owner's slug,
 
 ## The tracker
 
-The site. What it serves is checkable from hashes and signatures; beyond serving it may stamp receipts, refuse, omit and hide. It stamps a problem's receipts strictly increasing, since events that share a time are ordered by id alone. The reference tracker is `packages/tracker/src/tracker.ts`.
+The site. What it serves is checkable from hashes and signatures; beyond serving it may stamp receipts, refuse, omit and hide. It stamps a problem's receipts strictly increasing, since events that share a time are ordered by id alone. The reference tracker is `packages/tracker/src/tracker.ts`, which builds the door's table of routes, and the door's jobs are three files beside it: `admit.ts` takes a post, `views.ts` answers a read, and `hand.ts` hands a key a piece.
 
 ### Routes
 
-In the order the well-known document lists them, with two it answers unlisted. A `<hash>` is `sha256:` and 64 lower-case hex characters; an address has its EIP-55 checksum. Every path answers `OPTIONS` with `204`, and every answer allows any origin. Another method is `405`, `GET`, under `/p/<hash>` and `/coin`, and `404`, `no such route`, elsewhere, except that at `/k/events` and `/coin/events` any method but `POST` reads the log. A failure inside is `500`.
+Below is the door's table (`Tracker.routes`) in its order, with paths that answer alike sharing a row. A row of the table holds a path, its guard, a handler for each method it takes, and what any other method gets (`packages/tracker/src/routes.ts`). Its last row is left out here: it takes every other path under `/coin`, where a `GET` is `404`, `no such route`. The well-known document lists the paths as `routes` in the table's order, all but the two it answers unlisted. A `<hash>` is `sha256:` and 64 lower-case hex characters; an address has its EIP-55 checksum.
+
+The door answers a request in four steps. `OPTIONS` is `204` on every path before any row is asked, and every answer allows any origin. Then the first row whose path takes the request's asks its guard, where it has one, whatever the method: a path naming a problem not held here is `404`, `no such problem here`, and every path under `/coin` on a tracker without the coin is `404`, `this tracker carries no coin`. Then the row runs its handler for the method. At `/k/events` and `/coin/events` any method but `POST` reads the log; elsewhere under `/p/<hash>` and `/coin`, a method the row has no handler for is `405`, `GET`. Last, a request no row answered goes to the routes mounted beside the tracker, such as the on-ramp's, and is `404`, `no such route`, where none of them takes it. A failure inside is `500`.
 
 | Route | Methods | What it answers | Refused with |
 | --- | --- | --- | --- |
@@ -163,13 +165,13 @@ In the order the well-known document lists them, with two it answers unlisted. A
 | `/coin/lock/<id>`, `/coin/balance/<root>` | GET | A coin lock; a root's balance (QX-17 section 6) | 400, 404 |
 | `/coin/epochs`, `/coin/redeems`, `/coin/credits`, `/coin/state` | GET | The epochs; redeem and credit lines; every balance (QX-17 section 6) | 400 |
 
-A tracker lists the `/coin` routes only where it carries the coin, and answers `404`, `this tracker carries no coin`, under `/coin` where it does not. A hidden problem is `410` to `next` and to a post, and still served (QX-6 section 3). `routes.test.ts` holds each route's statuses and the order `handle` tests the paths, and `protocol-table.test.ts` this section; neither reads the refusals column.
+A tracker lists the `/coin` routes only where it carries the coin. A hidden problem is `410` to `next` and to a post, and still served (QX-6 section 3). `routes.test.ts` holds each route's statuses, the guard asked before the method, each path finding its own row in the table's order, and the writes the address's limit counts. `protocol-table.test.ts` holds this section to the table and to the door. Neither reads the refusals column.
 
 ### What the door answers
 
-- **A post** is one event as JSON, at most 4 MB. The door checks the address's limit, the JSON, the shape (CORE.md section 4), the signature, the key's limit, the log's admission, and whether it holds the event (`postEvent`). Taken: `202 { id, seq, hash, at }`, the event's id, its line's number and hash, and the receipt time. Held already: `409`, `already here`, which Quilt counts as taken.
+- **A post** is one event as JSON, at most 4 MB. Its row's guard comes first, where it has one: the problem held, or the coin carried. Then the row counts the post against its address's hourly limit before the body is read (`limited` in `packages/tracker/src/tracker.ts`), and `postEvent` in `packages/tracker/src/admit.ts` reads the body and checks the JSON, the shape (CORE.md section 4), the signature, the key's limit, the log's admission, and whether it holds the event. The coin log's admission is one rule (QX-17 section 2), and the identity log's and a problem's are each a map from each event type to the one check that admits it, with where its rule is written (`identityDoor` and `problemDoor` in `packages/tracker/src/admit.ts`, held by `admit.test.ts`). The identity log first asks that it takes the type and that the event names no problem; a problem's log, that it takes the type, that the event names the problem it is posted under, and that the problem is not taken down here (`410`). Taken: `202 { id, seq, hash, at }`, the event's id, its line's number and hash, and the receipt time. Held already: `409`, `already here`, which Quilt counts as taken.
 - **A refusal** is `{ "error": "<one sentence>" }` naming the field or the rule. Quilt reads a 4xx but `429` as the answer, and no answer, a 5xx or `429` as a tracker down.
-- **Limits.** 120 posts an hour from a key, and 600 writes (posts, publishes and blob puts) from a network address, unless set otherwise, published as `limits`; over is `429`.
+- **Limits.** 120 posts an hour from a key, and 600 writes (posts, publishes and blob puts) from a network address, unless set otherwise, published as `limits`; over is `429`. A write is counted against its address before its body is read, and a post against its key once its signature checks.
 - **Pages.** A log reads as newline-delimited JSON, one line `{ event, received, seq, prev, hash }` a row, oldest first, after the `seq` in `since`, at most 500. Where more follow, `x-quilt-next-since` holds the `seq` to ask from.
 - **The hold.** `next` holds the piece it hands over, and `/offer` the first piece it offers, for that key for 60 seconds, released by its reveal or decline.
 - **A signature** is `0x` and 130 lower-case hex characters: `r`, `s`, then `v`. The reference writes `v` as 27 or 28, with RFC 6979 and a low `s` (`signMessage` in `packages/core/src/keys.ts`). Any other text is refused as `event.sig: a signature`. The door also recovers a `v` of 0 or 1, and refuses any other `v`, or another key's signature, as `signature is not the key's`.
@@ -215,7 +217,7 @@ Quilt's page on localhost is a node (`packages/client/src/page.ts`), and its `/a
 
 ### The on-ramp's routes
 
-Where a tracker hosts the on-ramp (`hosted: true`), these answer beside its own (`packages/hosted/src/hosted.ts`, and `oauth.ts` for the authorization server), unlisted in its `routes`. `onramp-table.test.ts` in `packages/hosted/test` holds a row for every path the two files' `routes` test, each row's methods, the refusals of the connector's two rows, and where a browser meets the sheet page and where the page reads its data.
+Where a tracker hosts the on-ramp (`hosted: true`), these answer beside its own, once no row of its table has answered (`packages/hosted/src/hosted.ts`, and `oauth.ts` for the authorization server), unlisted in its `routes`. `onramp-table.test.ts` in `packages/hosted/test` holds a row for every path the two files' `routes` test, each row's methods, the refusals of the connector's two rows, and where a browser meets the sheet page and where the page reads its data.
 
 | Route | Methods | What it answers | Refused with |
 | --- | --- | --- | --- |

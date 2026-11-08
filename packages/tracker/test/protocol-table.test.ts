@@ -1,23 +1,28 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash, eventId, hashBytes, problemHash } from '@bitquilt/core';
+import type { Route } from '../src/routes.js';
 import { addr, boot, envelope, key } from './helpers.js';
 
 /**
- * PROTOCOL.md, The tracker, held to the door: every path the well-known document lists, with the coin and without,
- * has a row in the table under "### Routes", in the list's order; every row names a listed path or one the door answers
- * unlisted, and a path listed only with the coin sits in a row that says QX-17; each method a row names is one the door
- * takes at that path; the scrape's row names every field the scrape answers, and `/` and `/search` give each problem
- * the same without `chain_ok`. Then what the door answers, as the prose names it: a log read for any method but POST at
- * the two logs that do so, and 405 at a problem's; the fields of the piece next hands over, the rows under "### The
- * piece next hands over"; a post's answer, and 409 for it again; the signature's text form, with a `v` of 0 or 1 taken
- * and any other refused; the limits as published, the address's counting every write and the key's every post; and the
- * hold, on the piece next hands over and on the first the offer names, for 60 seconds. And The problem envelope's
- * checks at publish: the gate on the title, done_when and briefs, a prev held and by the same owner, a from by another
- * owner where it is held and taken where it is not, and the coin's home's bound on the window. The refusals column is
- * not read.
+ * PROTOCOL.md, The tracker, held to the door's table (`Tracker.routes`) and to the door. The rows under "### Routes"
+ * name the table's paths in the table's order, all but its last row, the fallback under /coin that the prose says;
+ * a row says unlisted where its path's row is left out of the well-known document, and QX-17 where its path's row
+ * asks for the coin; each row's methods are the ones its table rows have handlers for, and the door takes each of
+ * them; the scrape's row names every field the scrape answers, and `/` and `/search` give each problem the same
+ * without `chain_ok`. Then what the door answers, as the prose names it: a method a row has no handler for, 405 under
+ * a problem and the coin, the log at the two logs that read it so, the fallback's 404, and the routes mounted beside
+ * the tracker asked once no row answered; a post asked in the prose's order, its guard first and its address's limit
+ * before its body is read; the fields of the piece next hands over, the rows under "### The piece next hands over";
+ * a post's answer, and 409 for it again; the signature's text form, with a `v` of 0 or 1 taken and any other
+ * refused; the limits as published, the address's counting every write and the key's every post; and the hold, on
+ * the piece next hands over and on the first the offer names, for 60 seconds. And The problem envelope's checks at
+ * publish: the gate on the title, done_when and briefs, a prev held and by the same owner, a from by another owner
+ * where it is held and taken where it is not, and the coin's home's bound on the window. Every name the document
+ * places in a file of the code (`name` in `packages/...`) is declared in that file. The refusals column is not read.
  * The on-ramp's table is packages/hosted/test/onramp-table.test.ts's, the node's is
- * packages/client/test/node-table.test.ts's, and the dispatcher's order is routes.test.ts's.
+ * packages/client/test/node-table.test.ts's, and the table's own words, each route's statuses and the address's limit
+ * are routes.test.ts's.
  */
 const DOC = readFileSync(new URL('../../../docs/PROTOCOL.md', import.meta.url), 'utf8');
 const owner = key(9),
@@ -126,31 +131,56 @@ afterAll(async () => {
   await coined.close();
 });
 
+/** The methods a row of the door's table has a handler for. */
+const handled = (row: Route): string[] => (['GET', 'POST', 'PUT'] as const).filter((m) => row[m] !== undefined);
+/** The door's table on the tracker that carries the coin, where every row of it is asked. */
+const doorTable = (): readonly Route[] => coined.tracker.routes;
+/** The row of the door's table a path of PROTOCOL.md's table names. */
+const rowOf = (path: string): Route => {
+  const row = doorTable().find((r) => r.path === path);
+  if (!row) throw new Error(`${path} is no row of the door's table`);
+  return row;
+};
+
 describe("PROTOCOL.md, the tracker's route table", () => {
-  it("has a row for every path the well-known document lists, in its order, the coin's included", () => {
+  it("names the door's table's paths in the table's order, all but its last row, which the prose says", () => {
     const paths = routes().flatMap((r) => r.paths);
+    const last = doorTable().at(-1)!;
+    expect(paths).toEqual(
+      doorTable()
+        .map((r) => r.path)
+        .filter((p) => p !== last.path),
+    );
+    // The last row is the fallback: its path ends in `*`, so it takes every path that starts with what comes before.
+    expect(last.path).toBe('/coin*');
+    expect(DOC).toContain(
+      'Its last row is left out here: it takes every other path under `/coin`, where a `GET` is `404`, `no such route`.',
+    );
     expect(listed.coined.length).toBeGreaterThan(listed.plain.length);
-    for (const p of listed.coined) expect(paths, `${p} has no row`).toContain(p);
     expect(paths.filter((p) => listed.coined.includes(p))).toEqual(listed.coined);
   });
 
-  it("names only listed paths and ones the door answers unlisted, and the coin's rows say QX-17", async () => {
+  it('says unlisted where the table leaves a row out of the well-known document, and QX-17 where a row asks for the coin', async () => {
     for (const r of routes()) {
       for (const p of r.paths) {
-        if (listed.coined.includes(p)) {
-          if (!listed.plain.includes(p)) expect(r.answers, `${p} is listed only with the coin`).toContain('QX-17');
-          continue;
-        }
-        expect(r.answers, `${p} is not listed, and its row says so`).toContain('unlisted');
-        expect((await answer(plain.base, 'GET', filled(p))).status, `${p} is answered`).toBe(200);
+        const row = rowOf(p);
+        expect(r.answers.includes('unlisted'), `${p} says unlisted as its row is`).toBe(row.listed === false);
+        expect(listed.coined.includes(p), `${p} is listed as its row says`).toBe(row.listed !== false);
+        expect(listed.plain.includes(p), `${p} is listed without the coin as its row says`).toBe(
+          row.listed !== false && row.guard !== 'coin',
+        );
+        if (row.guard === 'coin') expect(r.answers, `${p} is listed only with the coin`).toContain('QX-17');
+        if (row.listed === false)
+          expect((await answer(plain.base, 'GET', filled(p))).status, `${p} is answered`).toBe(200);
       }
     }
   });
 
-  it('names for each row only methods the door takes at its paths', async () => {
+  it('names for each row the methods its rows of the door have handlers for, and the door takes each of them', async () => {
     for (const r of routes()) {
       expect(r.methods.length, `${r.paths.join(', ')} names its methods`).toBeGreaterThan(0);
       for (const p of r.paths) {
+        expect([...r.methods].sort(), `the methods of ${p}`).toEqual(handled(rowOf(p)).sort());
         for (const method of r.methods) {
           const a = await answer(coined.base, method, filled(p));
           expect(a.status, `${method} ${p}`).not.toBe(405);
@@ -178,17 +208,52 @@ describe("PROTOCOL.md, the tracker's route table", () => {
 });
 
 describe('PROTOCOL.md, what the door answers', () => {
-  it('reads /k/events and /coin/events for any method but POST, and answers 405 under /p/<hash> or /coin', async () => {
-    expect(DOC).toContain('at `/k/events` and `/coin/events` any method but `POST` reads the log');
+  it('answers a method a row has no handler for as the prose says, and asks the routes beside the tracker once no row answered', async () => {
+    expect(DOC).toContain(
+      'At `/k/events` and `/coin/events` any method but `POST` reads the log; elsewhere under `/p/<hash>` and `/coin`, a method the row has no handler for is `405`, `GET`.',
+    );
     for (const path of ['/k/events', '/coin/events']) {
       const r = await fetch(coined.base + path, { method: 'PUT', body: '' });
       expect(r.status, `PUT ${path}`).toBe(200);
       expect(r.headers.get('content-type'), `PUT ${path}`).toContain('application/x-ndjson');
       await r.arrayBuffer();
     }
-    expect(DOC).toContain('Another method is `405`, `GET`, under `/p/<hash>` and `/coin`');
     expect(await answer(coined.base, 'PUT', `/p/${P}/events`)).toEqual({ status: 405, error: 'GET' });
     expect(await answer(coined.base, 'PUT', '/coin/epochs')).toEqual({ status: 405, error: 'GET' });
+    // The table's last row, under /coin: a GET there finds no route, and any other method is told GET.
+    expect(await answer(coined.base, 'GET', '/coin/nothing')).toEqual({ status: 404, error: 'no such route' });
+    expect(await answer(coined.base, 'POST', '/coin/nothing')).toEqual({ status: 405, error: 'GET' });
+    expect(DOC).toContain(
+      "Last, a request no row answered goes to the routes mounted beside the tracker, such as the on-ramp's, and is `404`, `no such route`, where none of them takes it.",
+    );
+    const beside = boot('2026-11-07T12:00:00Z', {
+      limits,
+      extra: async (req, res, u) => {
+        if (u.pathname === '/declined') return false;
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ beside: `${req.method} ${u.pathname}` }));
+        return true;
+      },
+    });
+    /** What the tracker with routes beside it answers: its status and its JSON. */
+    const asked = async (method: string, path: string): Promise<{ status: number; body: unknown }> => {
+      const r = await fetch(beside.base + path, { method, ...(method === 'GET' ? {} : { body: '' }) });
+      return { status: r.status, body: await r.json() };
+    };
+    await beside.listen();
+    try {
+      expect((await beside.post('/p', { envelope: env })).status).toBe(201);
+      // A path no row takes, and a method a row without a fallback has no handler for: the routes beside answer.
+      expect(await asked('GET', '/elsewhere')).toEqual({ status: 200, body: { beside: 'GET /elsewhere' } });
+      expect(await asked('POST', '/search')).toEqual({ status: 200, body: { beside: 'POST /search' } });
+      // A guard and a 405 are the door's own, and the routes beside are not asked; where they take nothing, 404.
+      const unheld = `sha256:${'0'.repeat(64)}`;
+      expect(await asked('POST', `/p/${unheld}`)).toEqual({ status: 404, body: { error: 'no such problem here' } });
+      expect(await asked('POST', `/p/${P}`)).toEqual({ status: 405, body: { error: 'GET' } });
+      expect(await asked('GET', '/declined')).toEqual({ status: 404, body: { error: 'no such route' } });
+    } finally {
+      await beside.close();
+    }
   });
 
   it('names every field of the piece next hands over, and no other', async () => {
@@ -215,6 +280,80 @@ describe('PROTOCOL.md, what the door answers', () => {
     expect(DOC).toContain('`409`, `already here`');
     expect(again.status).toBe(409);
     expect(await again.json()).toEqual({ error: 'already here' });
+  });
+
+  it("asks a post in the prose's order: the guard, the address's limit before the body is read, then the JSON, the shape, the signature, the key's limit, the log and what it holds", async () => {
+    expect(DOC).toContain(
+      "Its row's guard comes first, where it has one: the problem held, or the coin carried. Then the row counts the post against its address's hourly limit before the body is read (`limited` in `packages/tracker/src/tracker.ts`), and `postEvent` in `packages/tracker/src/admit.ts` reads the body and checks the JSON, the shape (CORE.md section 4), the signature, the key's limit, the log's admission, and whether it holds the event.",
+    );
+    const M = key(21),
+      B = key(2),
+      C = key(3);
+    const ordered = boot('2026-11-07T12:00:00Z', { limits: { keyPerHour: 2, ipPerHour: 1 }, maintainers: [addr(M)] });
+    let clients = 0;
+    /** An address no write has come from, so its hour's one write is whole. */
+    const fresh = () => `203.0.113.${++clients}`;
+    /** What the door answers a post of `body` to `path` from `from`: its status, and why where it refuses. */
+    const sent = async (path: string, body: string, from = fresh()): Promise<{ status: number; error?: string }> => {
+      const r = await fetch(ordered.base + path, { method: 'POST', body, headers: { 'x-forwarded-for': from } });
+      const { error } = (await r.json()) as { error?: string };
+      return error === undefined ? { status: r.status } : { status: r.status, error };
+    };
+    const over = { status: 429, error: "over the hour's limit" };
+    await ordered.listen();
+    try {
+      expect(await sent('/p', JSON.stringify({ envelope: env }))).toEqual({ status: 201 });
+      const at = (await ordered.get<{ pieces: { hash: Hash }[] }>(`/p/${P}/state`)).pieces[0]!.hash;
+      // The address's one write spent on a body over 4 MB: the body is read once the limit holds, and not after.
+      const spent = fresh();
+      const heavy = 'x'.repeat(4 * 1024 * 1024 + 1);
+      expect(await sent('/k/events', heavy, spent)).toEqual({ status: 413, error: 'body over 4 MB' });
+      expect(await sent('/k/events', heavy, spent)).toEqual(over);
+      // Each guard comes before the address's limit: the problem held, and the coin carried.
+      const unheld = `sha256:${'0'.repeat(64)}`;
+      expect(await sent(`/p/${unheld}/events`, 'not JSON', spent)).toEqual({
+        status: 404,
+        error: 'no such problem here',
+      });
+      expect(await sent('/coin/events', 'not JSON', spent)).toEqual({
+        status: 404,
+        error: 'this tracker carries no coin',
+      });
+      // The shape before the signature: an event dated in no form is refused for its date.
+      const undated = { ...ordered.ev(B, 'name', { name: 'Bo' }), ts: 'yesterday' };
+      expect(await sent('/k/events', JSON.stringify(undated))).toEqual({
+        status: 400,
+        error: 'event.ts: a time, ISO 8601 with a zone',
+      });
+      // B spends its two posts of the hour.
+      for (const name of ['Bo', 'Bea'])
+        expect(await sent('/k/events', JSON.stringify(ordered.ev(B, 'name', { name })))).toEqual({ status: 202 });
+      // The signature before the key's limit: past B's posts, another key's signature is refused for itself.
+      const forged = { ...ordered.ev(C, 'name', { name: 'Bo' }), key: addr(B) };
+      expect(await sent('/k/events', JSON.stringify(forged))).toEqual({
+        status: 400,
+        error: "signature is not the key's",
+      });
+      // The key's limit before the log's admission: past it, a type the log does not take is refused for the limit.
+      expect(await sent('/k/events', JSON.stringify(ordered.ev(B, 'bogus', {})))).toEqual(over);
+      // The log's admission before what it holds: once the problem is taken down, the same claim again is 410.
+      const claim = ordered.ev(
+        C,
+        'claim',
+        { by: { model: 'anthropic/claude', client: 'test/0', can: ['web'] } },
+        P,
+        at,
+      );
+      expect(await sent(`/p/${P}/events`, JSON.stringify(claim))).toEqual({ status: 202 });
+      const hide = ordered.ev(M, 'hide', { id: P, why: 'Taken down to test the order.' });
+      expect(await sent('/k/events', JSON.stringify(hide))).toEqual({ status: 202 });
+      expect(await sent(`/p/${P}/events`, JSON.stringify(claim))).toEqual({
+        status: 410,
+        error: 'this problem is taken down here',
+      });
+    } finally {
+      await ordered.close();
+    }
   });
 
   it('signs as the prose says, v 27 or 28, and takes a v of 0 or 1 where it refuses another v or form', async () => {
@@ -312,7 +451,7 @@ describe('PROTOCOL.md, what the door answers', () => {
 describe('PROTOCOL.md, The problem envelope, what the reference tracker adds at publish', () => {
   it("gates the text, takes a prev it holds by the same owner and a from it holds by another owner, takes a from it does not hold, and bounds the window at the coin's home", async () => {
     expect(DOC).toContain(
-      "At publish (`publish`) the reference tracker adds four checks: the gate on the title, `done_when` and briefs; a `prev` it holds, by the same owner; a `from` by another owner, where it holds the problem named; and, at the coin's home, a challenge window within `window_max_h` (QX-17 section 6). A `from` naming a problem it does not hold is taken on the forker's word, as the core takes it.",
+      "At publish (`publish` in `packages/tracker/src/admit.ts`) the reference tracker adds four checks: the gate on the title, `done_when` and briefs; a `prev` it holds, by the same owner; a `from` by another owner, where it holds the problem named; and, at the coin's home, a challenge window within `window_max_h` (QX-17 section 6). A `from` naming a problem it does not hold is taken on the forker's word, as the core takes it.",
     );
     const bare = boot('2026-11-07T12:00:00Z', { limits });
     const home = boot('2026-11-07T12:00:00Z', { limits, coin: { ...coin, window_max_h: 48 } });
@@ -355,6 +494,27 @@ describe('PROTOCOL.md, The problem envelope, what the reference tracker adds at 
     } finally {
       await bare.close();
       await home.close();
+    }
+  });
+});
+
+describe("PROTOCOL.md's names in the code", () => {
+  it('declares in each file of the code every name the document places there', () => {
+    const placed = [...DOC.matchAll(/((?:`[A-Za-z_][\w.]*`(?:, | and )?)+) in `(packages\/[\w./-]+\.ts)`/g)];
+    expect(placed.length).toBeGreaterThan(5);
+    for (const [, names, file] of placed) {
+      const source = readFileSync(new URL(`../../../${file}`, import.meta.url), 'utf8');
+      for (const name of named(names!)) {
+        // A name is declared as a function, a constant, a class, an interface or a type; a member after a dot, as a
+        // method or a field of the one before it.
+        const [first, ...members] = name.split('.');
+        const declared = new RegExp(`\\b(?:function\\*?|const|let|class|interface|type)\\s+${first}\\b`);
+        expect(declared.test(source), `${name} in ${file}`).toBe(true);
+        for (const member of members) {
+          const held = new RegExp(`^\\s*(?:readonly\\s+)?(?:async\\s+)?${member}\\s*[(:?<]`, 'm');
+          expect(held.test(source), `${name} in ${file}`).toBe(true);
+        }
+      }
     }
   });
 });

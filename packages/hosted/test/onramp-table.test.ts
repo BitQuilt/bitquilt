@@ -2,8 +2,8 @@
  * PROTOCOL.md, The on-ramp's routes, held to the on-ramp mounted beside a tracker with the authorization server on
  * (QX-18 section 1): every test the `routes` of hosted.ts and oauth.ts make of a path, a literal, a pattern or a
  * prefix, meets a row's path, and each word a pattern's alternatives take meets a row's path that ends in it, as
- * routes.test.ts holds the door's dispatcher; a path the source builds at run time, as it builds the metadata's, is not
- * among them. A row's Methods cell names methods and nothing else, and each method a row names is one the
+ * routes.test.ts holds the rows of the door's table; a path the source builds at run time, as it builds the metadata's,
+ * is not among them. A row's Methods cell names methods and nothing else, and each method a row names is one the
  * on-ramp takes at every path the row names, answered neither 405 nor the tracker's `no such route`. The row of the
  * authorization server, whose paths end in an ellipsis, stands for the endpoints QX-18 section 1 lists, and those
  * include every endpoint the server's metadata names; across them the methods taken are the row's, no more and no
