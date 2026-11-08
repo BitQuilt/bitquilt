@@ -1744,7 +1744,7 @@ describe('CLIENT.md, what it names and links', () => {
 
   it('is named in AGENTS.md by what holds each part, as the describes here hold it', () => {
     expect(readFileSync(join(DOCS, '..', 'AGENTS.md'), 'utf8')).toContain(
-      "`docs/CLIENT.md`'s worked example held to the core and fixture 04, its requests and its table of the door's checks held to a booted tracker, and the part of the code it names for each check held to that code in `packages/tracker/src`, by `packages/tracker/test/client-doc.test.ts`.",
+      "  - `docs/CLIENT.md`: its worked example held to the core and fixture 04, its requests and its table of the door's checks held to a booted tracker, and the part of the code it names for each check held to that code in `packages/tracker/src`, by `packages/tracker/test/client-doc.test.ts`,",
     );
     const own = readFileSync(fileURLToPath(import.meta.url), 'utf8');
     const block = (title: string): string => {
