@@ -4,7 +4,7 @@ This file is for contributors of every kind: a person with an editor, or an AI w
 
 ## The shape of it
 
-The repository is seven packages, and around them the contracts, a second implementation of the core, the Mac app, the site, the examples, the scripts, the deploy with its image, the workflows, the mirror's files and the documents. Each package below says what it is and what it imports, then gives a row to each of its source files: what the file holds, and the documents and sections it carries out, cited as the code cites them. This map is the one place that says which files carry out an extension. The registry in [docs/EXTENSIONS.md](docs/EXTENSIONS.md) gives each number its document, each document under [docs/ext/](docs/ext/) says what is built, and both point here for the files; a file's own header says what it keeps in its own words. `packages/client/test/agents-map.test.ts` holds the map both ways: every file and function this document names exists, each row's documents and sections are parts those documents have, and every source file under a package's `src`, the page, the card, the fixture writer, the scripts and the example workers has a row.
+The repository is seven packages, and around them the contracts, a second implementation of the core, the Mac app, the site, the examples, the scripts, the deploy with its image, the workflows, the mirror's files and the documents. Each package below says what it is and what it imports, then gives a row to each of its source files: what the file holds, and the documents and sections it carries out, cited as the code cites them. This map is the one table from file to extension. The registry in [docs/EXTENSIONS.md](docs/EXTENSIONS.md) gives each number its document, each document under [docs/ext/](docs/ext/) says what is built, and the registry and each document's status line point here for the files; a document's text names a file where a passage needs one, and a file's own header says what it keeps in its own words. `packages/client/test/agents-map.test.ts` holds the map both ways: every file and function this document names exists, each row's documents and sections are parts those documents have, and every source file under a package's `src`, the page, the card, the fixture writer, the scripts and the example workers has a row.
 
 The arrows: the core imports nothing; the tracker, the client and the coin import the core; hosted imports the tracker and the client; the mirror imports the tracker, and its binary the coin; the node imports the tracker, the client, hosted and the mirror. Nothing in the tracker or the core knows the coin package exists.
 
@@ -49,7 +49,7 @@ The reference tracker. Its door is `tracker.ts` and three jobs, `admit.ts`, `vie
 | `src/hand.ts` | What the tracker hands a key: assisted next with its seams, and the offer across the problems, each held a minute for that key (`assisted`, `offer`) | CORE.md section 7; QX-4 section 4; QX-5; QX-19 section 4; PROTOCOL.md, The piece next hands over |
 | `src/hide.ts` | The hide event, and what a hidden problem loses at this tracker (`hiddenNow`) | QX-6 sections 1 to 3 |
 | `src/http.ts` | The refusal and the JSON writer the door answers with, which the hosted on-ramp's routes write with too (`Refusal`, `json`) | PROTOCOL.md, What the door answers |
-| `src/index.ts` | The tracker as a library for Quilt, the mirror, hosted and the node: the store, the tracker, the layers, and what the tests read (`createTracker`, `challengeLayer`) | |
+| `src/index.ts` | The tracker as a library for hosted, the mirror and the node, and for Quilt's tests: the store, the tracker, the layers, and what the tests read (`createTracker`, `challengeLayer`) | |
 | `src/peers.ts` | The pull of each peer's identity log and chains through this door, every five minutes (`pullPeers`, `schedulePeerPulls`, `PullDoor`) | QX-21 sections 2 and 5 |
 | `src/routes.ts` | What a row of the route table holds, and how a request's path finds its row (`Route`, `routeOf`, `handlerOf`) | PROTOCOL.md, Routes |
 | `src/seeding.ts` | Seeders and the last seed, watch pieces offered to seeders first, and the order problems are offered in (`seedInfo`, `offerOrder`) | QX-4; QX-5 section 2 |
@@ -79,7 +79,7 @@ Quilt. The package and the executable share the name. `quilt.ts` is the one thin
 | `src/config.ts` | The home's folder: the key readable by the person alone, the config of trackers and mirrors, the queue, and the twelve words kept until shown (`quiltHome`, `loadConfig`, `loadKey`) | |
 | `src/door.ts` | The `Door` a Quilt hands `coin.ts`, `gold.ts`, `stake.ts`, `sharpen.ts` and `trace.ts`: the key, the signing and the posting, the trackers, and three acts of the Quilt's own | |
 | `src/gold.ts` | The owner's gold as a client keeps it: answers committed blind, revealed piece by piece, and the reveals due (`commitGold`, `revealGold`, `revealDue`) | QX-16 section 8 |
-| `src/index.ts` | What another package imports of quilt: the Quilt with its resolver, chains and fetch, the config, the link, the listings and the render; the connector and the tools' runners (`createMcpServer`, `runTool`, `localRunner`, `remoteRunner`), the page (`createPage`), the card and its reader (`WINDOW_HTML`, `windowAnswer`), the phrases and their sheet (`say`, `sheetOf`), the pattern checks (`patternProblems`), how Quilt works (`HOW_QUILT_WORKS`), the away record's name (`AWAY_LOG`) and the owner's turn (`ownerTurn`) | |
+| `src/index.ts` | What the package exports to the others: the Quilt with its resolver, chains and fetch, the config, the link, the listings and the render; the connector and the tools' runners (`createMcpServer`, `runTool`, `localRunner`, `remoteRunner`), the page (`createPage`), the card and its reader (`WINDOW_HTML`, `windowAnswer`), the phrases and their sheet (`say`, `sheetOf`), the pattern checks (`patternProblems`), how Quilt works (`HOW_QUILT_WORKS`), the away record's name (`AWAY_LOG`) and the owner's turn (`ownerTurn`) | |
 | `src/install.ts` | The connector written into Claude Desktop's config, for `quilt install claude` and the menu bar's button (`installClaude`, `quiltEntry`) | |
 | `src/library.ts` | The home's library, library.json: what a home has touched, read again whenever the file changed (`Library`, `publicLibrary`) | APP.md, The library; QX-4 section 5; QX-16 section 8 |
 | `src/link.ts` | The link a client resolves: a hash with hints, an owner's name, or a tracker's own page (`parseLink`, `makeLink`) | CORE.md section 8 |
@@ -117,7 +117,7 @@ The tracker and the client in one process: the connector mounted beside the trac
 | `src/cimd.ts` | Clients' metadata documents, fetched, held to the rules and kept, and the signed token requests checked against them (`Documents`) | QX-18 section 1 |
 | `src/env.ts` | What the on-ramp reads from the environment, loading no store (`hostedOptionsFromEnv`, `guardReads`, `onrampStartLines`) | NODE.md section 8 |
 | `src/hosted.ts` | The on-ramp: a root key made and held encrypted for each member, the connector at their address, the sheet, the key's way home, the join, the square pages, and the card on the site with its reader (`createHosted`) | APP.md, Three things in one process; PROTOCOL.md, Identity; QX-18 |
-| `src/index.ts` | What the node imports of hosted: the on-ramp, its environment and its mount (`createHosted`, `hostedDoor`, `scheduleOwnersTurn`) | |
+| `src/index.ts` | What the package exports: the on-ramp (`createHosted`), its environment (`hostedOptionsFromEnv`, exported alone too at the env subpath, which the node's binary reads) and its mount (`hostedDoor`, `scheduleOwnersTurn`), which the node imports | |
 | `src/join-page.ts` | The join page: one button that makes an address, then where it goes, the first sentences to say, and how the key comes home (`joinPage`) | QX-18 |
 | `src/mount.ts` | The on-ramp mounted beside a door with the one custody secret the two share, and the owners' turn every hour (`hostedDoor`, `scheduleOwnersTurn`) | QX-18 section 3; QX-19 section 4 |
 | `src/oauth.ts` | The authorization server: the metadata, the registration, the code with PKCE, the tokens, and the witness decided at the exchange (`createOAuth`) | QX-18 sections 1 and 3 |
@@ -147,7 +147,7 @@ The keeper and the mirror job. `mirror.ts` imports the core and the tracker, and
 | `src/bin.ts` | `bitquilt-mirror`: one run from the flags or the job's variables, with the chain opened to check the credits | NODE.md section 6; QX-12 |
 | `src/files.ts` | The store a keeper keeps in, the shape of the client's chains, and the mirror's layout under its folder (`KeptStore`, `MirrorFiles`) | NODE.md section 2 |
 | `src/identity.ts` | The identity log folded into each problem's hides and, for keys.json, each address's name and delegations (`hiddenFromIdentity`, `keysFromIdentity`) | QX-6 section 4 |
-| `src/index.ts` | What the node (`keep`), a script or a test imports of the mirror: the run, the keep, the anchoring and the identity's folds | |
+| `src/index.ts` | What the package exports: the run, the keep (`keep`), which the node imports, the anchoring and the identity's folds | |
 | `src/mirror.ts` | The pull over a store, and the same pull over the files with the publication after it, the balances reproduced and each head anchored (`keep`, `mirror`) | NODE.md sections 5 and 6; QX-6; QX-12; QX-17 section 7; QX-19; QX-20 section 4 |
 
 ### `packages/coin` (`@bitquilt/coin`)
@@ -162,7 +162,7 @@ The door out and the way back. `chain.ts` is the one file in the repository that
 | `src/cli.ts` | What the four commands share: the connection from the environment, a refusal printed as usage, and one job run to a line of JSON (`fromEnv`, `run`) | |
 | `src/deposit-bin.ts` | `bitquilt-deposit`: the holder's tokens burned on the chain for the ledger to credit | QX-11 section 7.4 |
 | `src/home.ts` | The coin's home as the jobs reach it, its address's slash taken off in one place (`homeUrl`, `fromHome`) | DEPLOY.md, The bridge |
-| `src/index.ts` | The door out and the way back, for the commands, the mirror and the tests | |
+| `src/index.ts` | The door out and the way back as one export, which the mirror's binary imports; the commands and the tests import the files themselves | |
 | `src/merkle.ts` | The Merkle tree over the redeem lines, the recipe `Merkle.sol` holds too (`leaf`, `root`, `proof`) | QX-11 section 7.1; COIN.md, The door out |
 | `src/post.ts` | The poster: the home's head and the root over its redeem lines put on the chain when the head is newer (`post`, `PosterDoor`) | QX-11 section 7.4 |
 | `src/poster-bin.ts` | `bitquilt-poster`: one run of the poster from the environment | QX-11 section 7.4 |

@@ -1,4 +1,7 @@
-/** The door out and the way back, for the bins, the mirror and the tests. */
+/**
+ * The door out and the way back as one export, which the mirror's binary imports; the bins and the tests import the
+ * files themselves.
+ */
 
 // The jobs: the poster, the holder's claim, the reader and the holder's deposit, with their options, reports and doors.
 export {
