@@ -15,7 +15,7 @@ import {
   blobProblems,
   envelopeProblems,
   expandPieces,
-  inputPieces,
+  inputsBy,
   problemHash,
 } from './envelope.js';
 import {
@@ -454,9 +454,10 @@ function settle(
   for (const v of every.values()) decideAccepting(v, roots, ownerRoot, settings.challenge_window_h);
   const weights = computeWeights(every, roots);
   const list = pieces.map((p) => views.get(p.hash)!);
+  const named = inputsBy(pieces);
   for (const v of list) v.dependents = 0;
   for (const v of list)
-    for (const entry of v.piece.inputs) for (const dep of inputPieces(entry, pieces)) views.get(dep.hash)!.dependents++;
+    for (const entry of v.piece.inputs) for (const dep of named(entry)) views.get(dep.hash)!.dependents++;
 
   const stateMemo = new Map<Hash, PieceState>();
   /** The state of one piece at `now`, its inputs' states first; memoised, and a cycle of inputs is locked. */
@@ -467,7 +468,7 @@ function settle(
     trail.add(v.piece.hash);
     let s: PieceState;
     const inputsDone = v.piece.inputs.every((entry) =>
-      inputPieces(entry, pieces).every((dep) => {
+      named(entry).every((dep) => {
         const ds = stateOf(views.get(dep.hash)!, trail);
         return ds === 'accepted' || ds === 'unreachable';
       }),

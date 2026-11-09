@@ -297,6 +297,8 @@ export function renderBrief(template: string, n: number, data: Record<string, un
 /** The pieces of a problem, expanded and named by hash (section 3). The blobs must already have been checked. */
 export function expandPieces(p: Problem, blobs: Blobs): Piece[] {
   const out: Piece[] = [];
+  // Each blob read once, however many families' slots draw on it.
+  const read = new Map<Hash, unknown>();
   for (const [name, d] of Object.entries(p.pieces)) {
     const fam = FAMILY.exec(name);
     const family = fam ? fam[1]! : name;
@@ -305,7 +307,8 @@ export function expandPieces(p: Problem, blobs: Blobs): Piece[] {
     for (const [slot, blobName] of Object.entries(d.data ?? {})) {
       const h = p.data[blobName];
       const bytes = h ? blobs.get(h) : undefined;
-      const parsed = bytes ? parseBlob(bytes) : undefined;
+      if (h && bytes && !read.has(h)) read.set(h, parseBlob(bytes));
+      const parsed = h && bytes ? read.get(h) : undefined;
       rows[slot] = Array.isArray(parsed) ? parsed : [parsed];
     }
     for (let n = 1; n <= count; n++) {
@@ -351,4 +354,25 @@ export function expandPieces(p: Problem, blobs: Blobs): Piece[] {
 export function inputPieces(entry: string, pieces: Piece[]): Piece[] {
   const fam = FAMILY.exec(entry);
   return fam ? pieces.filter((x) => x.family === fam[1]) : pieces.filter((x) => x.name === entry);
+}
+
+/**
+ * What `inputPieces` answers for each entry, over the pieces indexed once by family and by name, in their order: a
+ * problem whose every piece names an input then costs a lookup a piece, not a pass over every piece.
+ */
+export function inputsBy(pieces: Piece[]): (entry: string) => Piece[] {
+  const byFamily = new Map<string, Piece[]>();
+  const byName = new Map<string, Piece[]>();
+  for (const x of pieces) {
+    const family = byFamily.get(x.family);
+    if (family) family.push(x);
+    else byFamily.set(x.family, [x]);
+    const named = byName.get(x.name);
+    if (named) named.push(x);
+    else byName.set(x.name, [x]);
+  }
+  return (entry) => {
+    const fam = FAMILY.exec(entry);
+    return (fam ? byFamily.get(fam[1]!) : byName.get(entry)) ?? [];
+  };
 }

@@ -26,7 +26,7 @@ import {
   agreeFields,
   byAtThenId,
   eventSignedByKey,
-  inputPieces,
+  inputsBy,
   isHash,
   isRecord,
   orderReceipts,
@@ -474,7 +474,7 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
 
   // States: the core's for its own kinds where it had one; this layer's for its kinds and for what the core locked
   // behind them.
-  const pieces = views.map((v) => v.piece);
+  const named = inputsBy(views.map((v) => v.piece));
   const memo = new Map<Hash, LayerPieceState>();
   const stateOf = (v: PieceView, trail: Set<Hash>): LayerPieceState => {
     const hit = memo.get(v.piece.hash);
@@ -484,7 +484,7 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
     // A dependent unlocks on accepted or unreachable, as the core says, and on recorded (QX-20), which is the record
     // piece's done.
     const inputsDone = v.piece.inputs.every((entry) =>
-      inputPieces(entry, pieces).every((dep) => {
+      named(entry).every((dep) => {
         const ds = stateOf(byHash.get(dep.hash)!, trail);
         return ds === 'accepted' || ds === 'unreachable' || ds === 'recorded';
       }),

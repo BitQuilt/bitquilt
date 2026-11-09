@@ -1,7 +1,9 @@
 /**
  * CORE.md sections 2 and 3: the envelope's validity, the problem's hash over `problem` alone, and the expansion of a
  * family to pieces named by hash with their data slots filled and their return slots left as written. The slug's rule
- * is exported as `isSlug` with its words, and the envelope's check reads it.
+ * is exported as `isSlug` with its words, and the envelope's check reads it. What an `inputs` entry names is answered
+ * over pieces indexed once (`inputsBy`) as by a pass over every piece (`inputPieces`), and a blob that several
+ * families' slots draw on fills each of them from the same rows.
  */
 import { describe, expect, it } from 'vitest';
 import { hashBytes } from '../src/hash.js';
@@ -10,6 +12,7 @@ import {
   envelopeProblems,
   expandPieces,
   inputPieces,
+  inputsBy,
   isSlug,
   problemHash,
   renderBrief,
@@ -153,6 +156,42 @@ describe('the envelope', () => {
     expect(inputPieces('cite/*', pieces).map((x) => x.n)).toEqual([1, 2]);
     expect(inputPieces('lint', pieces).map((x) => x.name)).toEqual(['lint']);
     expect(pieces[3]!.requires).toEqual(['shell']);
+  });
+  it('answers each inputs entry over pieces indexed once as over every piece, in their order', () => {
+    const pieces = expandPieces(envelope.problem, blobs);
+    // A single piece whose name is a family's piece's, and one named as a family is, beside the envelope's own.
+    const lone = (name: string) => ({
+      ...pieces[2]!,
+      name,
+      family: name,
+      n: 1,
+      hash: hashBytes(new TextEncoder().encode(name)),
+    });
+    const all = [...pieces, lone('cite/2'), lone('cite')];
+    const named = inputsBy(all);
+    for (const entry of ['cite/*', 'cite/2', 'cite', 'summary', 'lint', 'nothing', 'nothing/*', 'constructor'])
+      expect(named(entry)).toEqual(inputPieces(entry, all));
+    expect(named('cite/*').map((x) => x.name)).toEqual(['cite/1', 'cite/2', 'cite']);
+  });
+  it('fills each family from the rows of the blob its slot names, one blob drawn on by several', () => {
+    const others = new TextEncoder().encode(JSON.stringify([{ source: 'Ito 2023' }, { source: 'Diaz 2022' }]));
+    const cite = envelope.problem.pieces['cite/*']!;
+    const more = {
+      ...envelope.problem,
+      pieces: {
+        ...envelope.problem.pieces,
+        'again/*': { ...cite, brief: 'Again {n}: {row.source}', data: { row: 'cites.json' } },
+        'other/*': { ...cite, brief: 'Other {n}: {cite.source}', data: { cite: 'others.json' } },
+      },
+      data: { ...envelope.problem.data, 'others.json': hashBytes(others) },
+    };
+    const pieces = expandPieces(more, new Map([...blobs, [hashBytes(others), others]]));
+    const briefs = (family: string) => pieces.filter((x) => x.family === family).map((x) => x.brief);
+    expect(briefs('again')).toEqual(['Again 1: Chen et al. 2025', 'Again 2: Okafor 2024']);
+    expect(briefs('other')).toEqual(['Other 1: Ito 2023', 'Other 2: Diaz 2022']);
+    expect(pieces.filter((x) => x.family === 'cite')).toEqual(
+      expandPieces(envelope.problem, blobs).filter((x) => x.family === 'cite'),
+    );
   });
   it('gives the same piece hash in a new version that keeps the piece, and a new one when the brief changes', () => {
     const v1 = expandPieces(envelope.problem, blobs);

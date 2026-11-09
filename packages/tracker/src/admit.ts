@@ -17,6 +17,7 @@ import {
   type Hash,
   type Received,
   blobProblems,
+  canonicalBytes,
   envelopeProblems,
   eventId,
   eventProblems,
@@ -187,6 +188,76 @@ export function piecesOver(p: Envelope['problem']): string[] {
   return n > PIECES_MAX ? [`problem.pieces: ${n} pieces after expansion, over the ${PIECES_MAX} a door takes`] : [];
 }
 
+/** The pieces a definition expands to: its count for a family, one for a single piece. */
+const piecesOf = (d: Envelope['problem']['pieces'][string] | undefined): number =>
+  d === undefined ? 0 : typeof d.count === 'number' ? d.count : 1;
+
+/**
+ * The most links a problem's `inputs` make (PROTOCOL.md, What the door answers): each piece to each piece an entry of
+ * its definition names, the whole family for a family and a repeated entry again. The fold walks every link when it
+ * counts a piece's dependents and decides its state, so a family that reads a family as large makes the square of its
+ * count, from an envelope of a few hundred bytes.
+ */
+export const INPUTS_MAX = 1_000_000;
+
+/** Why a problem's inputs make more links than `INPUTS_MAX`, counted from its definitions, or nothing. */
+export function inputsOver(p: Envelope['problem']): string[] {
+  let n = 0;
+  for (const d of Object.values(p.pieces))
+    for (const entry of d.inputs ?? []) n += piecesOf(d) * (entry.endsWith('/*') ? piecesOf(p.pieces[entry]) : 1);
+  return n > INPUTS_MAX ? [`problem.pieces: inputs that make ${n} links, over the ${INPUTS_MAX} a door takes`] : [];
+}
+
+/**
+ * The most bytes of data blobs a problem names, each blob once (PROTOCOL.md, What the door answers). The fold checks
+ * every blob against its hash and reads its rows each time it folds the problem.
+ */
+export const DATA_MAX = 16 * 1024 * 1024;
+
+/** Why a problem's data blobs weigh more than `DATA_MAX`, each held or sent blob once, or nothing. */
+export function dataOver(p: Envelope['problem'], blobLength: (h: Hash) => number | null): string[] {
+  let n = 0;
+  for (const h of new Set(Object.values(p.data))) n += blobLength(h) ?? 0;
+  return n > DATA_MAX ? [`problem.data: blobs of ${n} bytes, over the ${DATA_MAX} a door takes`] : [];
+}
+
+/**
+ * The most bytes a problem's pieces expand to, as bounded before they are expanded
+ * (PROTOCOL.md, What the door answers). Each piece is its definition with the brief filled from its row, and the fold
+ * fills and hashes every one each time it folds the problem, so a long brief over many pieces, or a slot written many
+ * times over a long row, costs far more than the envelope's bytes.
+ */
+export const EXPANDED_MAX = 32 * 1024 * 1024;
+
+/** A slot in a brief, as the core fills it (CORE.md section 3): a name, and a path into its row. */
+const SLOT = /\{([A-Za-z_][\w-]*)(?:\.([A-Za-z_][\w.-]*))?\}/g;
+
+/**
+ * The bytes a problem's pieces expand to at most: each definition's canonical bytes once a piece, and for each slot
+ * its brief writes that names one of its data slots, the bytes of that slot's blob, since each piece fills it from a
+ * row of it.
+ */
+export function expandedBytes(p: Envelope['problem'], blobLength: (h: Hash) => number | null): number {
+  let n = 0;
+  for (const d of Object.values(p.pieces)) {
+    n += piecesOf(d) * canonicalBytes(d).length;
+    for (const m of d.brief.matchAll(SLOT)) {
+      const blob = Object.hasOwn(d.data ?? {}, m[1]!) ? d.data![m[1]!]! : undefined;
+      const h = blob !== undefined && Object.hasOwn(p.data, blob) ? p.data[blob]! : undefined;
+      n += h ? (blobLength(h) ?? 0) : 0;
+    }
+  }
+  return n;
+}
+
+/** Why a problem's pieces may expand past `EXPANDED_MAX`, or nothing. */
+export function expandedOver(p: Envelope['problem'], blobLength: (h: Hash) => number | null): string[] {
+  const n = expandedBytes(p, blobLength);
+  return n > EXPANDED_MAX
+    ? [`problem.pieces: expand to as much as ${n} bytes, over the ${EXPANDED_MAX} a door takes`]
+    : [];
+}
+
 /**
  * Each name a problem looks a field or a blob up by that is not one it has: an `agree` field or a schema's `required`
  * field that is not one of the schema's own properties, or a data slot's blob that is not one of the problem's own
@@ -281,7 +352,12 @@ export async function publish(
   const problems = envelopeProblems(envelope);
   if (problems.length) throw new Refusal(400, problems[0]!);
   const e = envelope as Envelope;
-  const named = [...envelopeHoursOver(e.problem), ...namesNotOwn(e.problem), ...piecesOver(e.problem)];
+  const named = [
+    ...envelopeHoursOver(e.problem),
+    ...namesNotOwn(e.problem),
+    ...piecesOver(e.problem),
+    ...inputsOver(e.problem),
+  ];
   if (named.length) throw new Refusal(400, named[0]!);
   if (!signedBy(e as unknown as Record<string, unknown>, e.problem.owner))
     throw new Refusal(400, 'envelope: not signed by its owner');
@@ -292,6 +368,10 @@ export async function publish(
     if (hashBytes(bytes) !== h) throw new Refusal(400, `blob ${h}: does not match its hash`);
     blobs.set(h, bytes);
   }
+  // What the fold will read and fill, bounded by each blob's length before a held one is read or a piece expanded.
+  const lengthOf = (h: Hash): number | null => blobs.get(h)?.length ?? store.blobLength(h);
+  const weight = [...dataOver(e.problem, lengthOf), ...expandedOver(e.problem, lengthOf)];
+  if (weight.length) throw new Refusal(400, weight[0]!);
   for (const h of Object.values(e.problem.data))
     if (!blobs.has(h)) {
       const stored = store.getBlob(h);

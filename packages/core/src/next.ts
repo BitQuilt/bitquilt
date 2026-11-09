@@ -5,7 +5,7 @@
  * same answer for an hour; file position last. Verifies first when they outnumber the open; endgame when few remain.
  */
 import { canonical } from './canonical.js';
-import { type Capability, type Piece, inputPieces } from './envelope.js';
+import { type Capability, type Piece, inputsBy } from './envelope.js';
 import { vendorOf } from './events.js';
 import { hashCanonical } from './hash.js';
 import type { Address } from './keys.js';
@@ -117,12 +117,10 @@ export function next(state: State, key: Address, client: Client, now: string, op
  */
 export function renderInputs(v: PieceView, state: State): string {
   let brief = v.piece.brief;
+  const named = inputsBy(state.pieces.map((x) => x.piece));
   for (const entry of v.piece.inputs) {
     const lines: string[] = [];
-    for (const dep of inputPieces(
-      entry,
-      state.pieces.map((x) => x.piece),
-    )) {
+    for (const dep of named(entry)) {
       const dv = state.byHash.get(dep.hash);
       if (!dv?.accepting) continue;
       if (dv.accepting.kind === 'agree')

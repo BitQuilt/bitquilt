@@ -3,12 +3,13 @@ import type { Server } from 'node:http';
 import { draftEnvelope, patternProblems, patternProblemsText } from '../src/pattern.js';
 import type { Pattern } from '../src/quilt.js';
 import { hex, quiltOver, startTracker } from './helpers.js';
-import { secretFromHex, addressOf } from '@bitquilt/core';
+import { secretFromHex, addressOf, canonicalBytes } from '@bitquilt/core';
 
 /**
  * A pattern's faults, all at once (pattern.ts): a draft with several things wrong is told every one of them in the
- * checker's words, a sound draft is told nothing, what a door refuses beyond the core's checks is told too, and
- * `publish` refuses with the whole list rather than the first line.
+ * checker's words, a sound draft is told nothing, what a door refuses beyond the core's checks is told too, the
+ * bounds on what a fold costs counted as the door counts them, and `publish` refuses with the whole list rather than
+ * the first line.
  */
 const owner = { secret: secretFromHex(hex(7)), address: addressOf(secretFromHex(hex(7))) };
 const hints = { trackers: [], mirrors: [] };
@@ -90,6 +91,50 @@ describe("a door's bounds", () => {
         'problem.settings.lease_h: at most 1000000 hours',
         'problem.pieces: 10001 pieces after expansion, over the 10000 a door takes',
       ]),
+    );
+  });
+});
+
+describe("a door's bounds on what a fold costs", () => {
+  it('are named by the checker as the door counts them: links, data blobs and the bytes the pieces expand to', () => {
+    const MB = 1024 * 1024;
+    const long = { ...sound.pieces['statement/*']!, count: 10_000, brief: `${'Read it again. '.repeat(240)}{n}` };
+    const heavy = {
+      ...sound,
+      settings: { budget: 1e9 },
+      pieces: {
+        'statement/*': { ...long, data: undefined },
+        'a/*': { ...sound.pieces['statement/*']!, count: 1001, inputs: ['b/*'], brief: 'A {n}.', data: undefined },
+        'b/*': { ...sound.pieces['statement/*']!, count: 1000, brief: 'B {n}.', data: { s: 'statements' } },
+      },
+      data: { statements: Array.from({ length: 17 }, (_, i) => `${i}`.padEnd(MB, 'r')) },
+      gold: undefined,
+    } as unknown as Pattern;
+    const drafted = draftEnvelope(heavy, owner, hints);
+    const data = [...drafted.blobs.values()].reduce((n, b) => n + b.length, 0);
+    const pieces = drafted.problem.pieces;
+    const expanded =
+      10_000 * canonicalBytes(pieces['statement/*']!).length +
+      1001 * canonicalBytes(pieces['a/*']!).length +
+      1000 * canonicalBytes(pieces['b/*']!).length;
+    expect(patternProblems(heavy, drafted)).toEqual(
+      expect.arrayContaining([
+        'problem.pieces: inputs that make 1001000 links, over the 1000000 a door takes',
+        `problem.data: blobs of ${data} bytes, over the ${16 * MB} a door takes`,
+        `problem.pieces: expand to as much as ${expanded} bytes, over the ${32 * MB} a door takes`,
+      ]),
+    );
+    // A slot written many times counts its blob as many times.
+    const slots = {
+      ...sound,
+      pieces: { 'statement/*': { ...sound.pieces['statement/*']!, brief: '{s.text} '.repeat(17) } },
+      data: { statements: ['x'.padEnd(MB, 'r'), 'y'.padEnd(MB, 'r')] },
+      gold: undefined,
+    } as unknown as Pattern;
+    const blob = [...draftEnvelope(slots, owner, hints).blobs.values()][0]!.length;
+    const def = canonicalBytes(draftEnvelope(slots, owner, hints).problem.pieces['statement/*']!).length;
+    expect(patternProblems(slots, draftEnvelope(slots, owner, hints))).toContain(
+      `problem.pieces: expand to as much as ${2 * def + 17 * blob} bytes, over the ${32 * MB} a door takes`,
     );
   });
 });
