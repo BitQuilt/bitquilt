@@ -150,7 +150,8 @@ export interface Receipt {
  */
 const ids = new WeakMap<object, Hash>();
 const signers = new WeakMap<object, Address | null>();
-const frozenEvent = (e: Unsigned | Event): boolean => Object.isFrozen(e) && Object.isFrozen(e.body);
+const frozenEvent = (e: Unsigned | Event): boolean =>
+  typeof e === 'object' && e !== null && Object.isFrozen(e) && Object.isFrozen(e.body);
 
 /** The id of an event: the hash of the event without `sig` and `sig_to`. */
 export function eventId(e: Unsigned | Event): Hash {

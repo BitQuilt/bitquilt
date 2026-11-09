@@ -26,8 +26,9 @@ import { VERDICT, addr, boot, envelope, key, layerOf } from './helpers.js';
  * is the state kept; a kept fold is the same object until a line, a version or the clock moves it, and a line on one
  * problem folds that problem again and no other. At every step of a run of claims, commits, reveals, a decline, a
  * version, a name and the clock passing a lease, an abandon and a window, the layer the tracker builds over what it
- * keeps is the layer built afresh. The store hands out each log's lines and each envelope frozen, and catches up with
- * a commit another connection makes to its database.
+ * keeps is the layer built afresh. The store hands out each log's lines and each envelope frozen, each list a copy of
+ * the reader's own, and catches up with a commit another connection makes to its database; a store that does not keep
+ * reads afresh.
  */
 const owner = key(9),
   A = key(1),
@@ -285,6 +286,17 @@ describe("the store's own keeping", () => {
       expect(() => {
         (mine.getEnvelope(h)!.envelope.problem as { title: string }).title = 'Changed';
       }).toThrow(TypeError);
+      // Each list is the reader's own: sorting or adding to it changes nothing the store holds.
+      const mineAgain = mine.lines(h);
+      mineAgain.push(lines[0]!);
+      mine.listEnvelopes().sort();
+      expect(mine.lines(h)).toHaveLength(1);
+      // A log with no line is not kept, and a store that does not keep reads afresh, unfrozen, as it always did.
+      expect(mine.lines(problemHash(envelope(owner, 'no-such-log', {})))).toEqual([]);
+      const plain = new Store(path, { keep: false });
+      expect(Object.isFrozen(plain.lines(h)[0]!.event)).toBe(false);
+      expect(plain.lineCount(h)).toBe(1);
+      plain.close();
       // Written through the store itself, a line is read at once.
       theirs.close();
       const again = signEvent({ quilt: 1, type: 'name', key: addr(A), ts: START, body: { name: 'A again' } }, A);

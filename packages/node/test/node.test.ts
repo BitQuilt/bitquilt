@@ -14,7 +14,9 @@ import { freePort, hex, json, lines, pattern, readerOver, tempHome } from './hel
  * own store; host is a role beside admit with a key secret, and a role that is not one is refused at start; a node with
  * host runs the owners' turn a minute after it starts and every hour, and close clears the timers. A node with admit
  * and work keeps a problem it opens elsewhere in the door's store only once the data blob it names is held, so a blob
- * the other place does not serve leaves the door answering and the problem out of it until the blob is served.
+ * the other place does not serve leaves the door answering and the problem out of it until the blob is served. A node
+ * whose door keeps what its store reads lists two problems held and keeps over both, and a node with keep alone,
+ * started again over its store, pulls what a source added since onto the chain it kept.
  */
 let a: Node, b: Node, c: Node;
 let urlA: string, urlB: string, pageA: number, pageC: number;
@@ -251,6 +253,35 @@ describe('one node with roles (NODE.md sections 1 and 2)', () => {
       expect((await fetch(`${url}p/${elsewhere.hash}/state`)).status).toBe(200);
     } finally {
       await d.close();
+    }
+  });
+  it('with admit and work over two problems: the page lists both as held, by hash, and a keep runs over both', async () => {
+    const second = await a.quilt!.publish({ ...pattern, slug: 'paper-says-again' });
+    const held = await json<{ problems: { problem: Hash }[] }>(`http://127.0.0.1:${pageA}/held`);
+    expect(held.problems.map((x) => x.problem)).toEqual([problem, second.hash].sort());
+    const kept = await a.keep();
+    expect(kept.kept).toMatchObject({ problems: 2, refused: [] });
+  });
+  it('with keep alone, started again over its store: pulls what a source added since, onto the chain it kept', async () => {
+    const home = tempHome('quilt-node-again-');
+    const keeper = () => start({ home, roles: ['keep'], sources: [urlA], by: 'keeper', loops: false });
+    const k = await keeper();
+    await k.keep();
+    await k.close();
+    const reader = readerOver(urlA, 5, 'openai/gpt');
+    const piece = (await reader.open(problem)).state.pieces[1]!.piece.hash;
+    await reader.return(problem, piece, { verdict: 'supports', quote: 'q' });
+    const again = await keeper();
+    try {
+      const { swarm } = await again.keep();
+      expect(swarm!.refused).toEqual([]);
+      expect(swarm!.problems.find((x) => x.hash === problem)!.added).toBeGreaterThan(0);
+      const theirs = await lines(`${urlA}p/${problem}/events`);
+      expect(again.store.lines(problem).map((l) => l.event.sig)).toEqual(theirs.map((l) => l.event.sig));
+      // A node with no door folds no store whole, so its store keeps nothing it reads: each line is read afresh.
+      expect(Object.isFrozen(again.store.lines(problem)[0]!.event)).toBe(false);
+    } finally {
+      await again.close();
     }
   });
 });

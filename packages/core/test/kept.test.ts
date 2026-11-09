@@ -3,13 +3,23 @@
  * signer, an envelope's hash, faults and pieces, and a blob's hash for the bytes handed in. Each answer is the answer
  * computed afresh; what is not frozen is computed each time it is asked, so an event or an envelope written to after
  * it was asked about is answered as it now stands; and a frozen problem's pieces follow the blobs handed with it, a
- * blob held later filling the slots it left empty.
+ * blob held later filling the slots it left empty. A line whose event is not an object is answered as it was before
+ * anything was kept, and the fold passes over it; a blob's bytes rewritten after they were checked are checked again,
+ * unless their holder fixed them (`fixedBytes`).
  */
 import { describe, expect, it } from 'vitest';
 import { hashBytes, hashCanonical } from '../src/hash.js';
-import { blobProblems, envelopeProblems, expandPieces, problemHash, type Envelope } from '../src/envelope.js';
+import {
+  blobProblems,
+  envelopeProblems,
+  expandPieces,
+  fixedBytes,
+  problemHash,
+  type Envelope,
+} from '../src/envelope.js';
 import { eventId, eventSigner, signEvent, type Event } from '../src/events.js';
-import { addressOf } from '../src/keys.js';
+import { addressOf, signObject } from '../src/keys.js';
+import { reduce } from '../src/reduce.js';
 
 /** A copy made read-only through every level, as a store hands out what it keeps. */
 function frozen<T>(value: T): T {
@@ -89,6 +99,35 @@ describe('an event', () => {
   });
 });
 
+describe('a line whose event is not an object', () => {
+  it('has the id and signer it had before anything was kept, and the fold passes over it', () => {
+    // As before: the id of what is left of the value without `sig` and `sig_to`, and no signer.
+    for (const [e, rest] of [
+      [1, {}],
+      [true, {}],
+      ['x', { 0: 'x' }],
+    ] as const) {
+      expect(eventId(e as unknown as Event)).toBe(hashCanonical(rest));
+      expect(eventSigner(e as unknown as Event)).toBeNull();
+    }
+    const owner = new Uint8Array(32);
+    owner[31] = 9;
+    const unsigned = { ...sample, problem: { ...sample.problem, owner: addressOf(owner) } };
+    const { sig: _sig, ...rest } = unsigned;
+    const signed = frozen({ ...rest, sig: signObject(rest as Record<string, unknown>, owner) }) as Envelope;
+    for (const e of [1, 'x', true] as unknown as Event[]) {
+      const state = reduce({
+        envelopes: [signed],
+        blobs,
+        receipts: [{ event: e, received: [{ by: 'http://tracker.test/', at: '2026-11-09T12:00:00.000Z' }] }],
+        now: '2026-11-09T12:00:01.000Z',
+      });
+      expect(state.pieces).toHaveLength(2);
+      expect(state.dropped).toEqual([]);
+    }
+  });
+});
+
 describe('an envelope', () => {
   it('frozen, has the hash, faults and pieces computed afresh, the pieces once for the same blobs', () => {
     const e = frozen(sample);
@@ -123,6 +162,20 @@ describe('an envelope', () => {
 });
 
 describe("a blob's hash", () => {
+  it('is checked again for bytes rewritten after they were checked, unless their holder fixed them', () => {
+    const h = hashBytes(new TextEncoder().encode('[{"s":"one"}]'));
+    const p = { ...sample.problem, data: { 'rows.json': h } };
+    const buffer = new TextEncoder().encode('[{"s":"one"}]');
+    const given = new Map([[h, buffer]]);
+    expect(blobProblems(p, given)).toEqual([]);
+    buffer.set(new TextEncoder().encode('[{"s":"two"}]'));
+    expect(blobProblems(p, given)).toEqual(['blob rows.json: does not match its hash']);
+    const fixed = fixedBytes(new TextEncoder().encode('[{"s":"one"}]'));
+    expect(blobProblems(p, new Map([[h, fixed]]))).toEqual([]);
+    expect(blobProblems(p, new Map([[h, fixedBytes(new Uint8Array([1]))]]))).toEqual([
+      'blob rows.json: does not match its hash',
+    ]);
+  });
   it('is checked against the bytes handed in, once for the same bytes and again for others', () => {
     const e = frozen(sample);
     const h = Object.values(sample.problem.data)[0]!;

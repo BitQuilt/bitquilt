@@ -73,6 +73,9 @@ export interface StoredEnvelope {
   receivedAt: string;
 }
 
+/** The lines of a log with none, which no reader can add to. */
+const NO_LINES: readonly Receipt[] = Object.freeze([]);
+
 /**
  * A value made read-only through every level, as the store hands out what it keeps: every reader shares it, so a
  * reader that wrote to it would change what the next one reads. Iterative, since a body may nest as deep as the door
@@ -99,10 +102,11 @@ export class Store {
 
   /**
    * What the store keeps of what it has read, so a fold over the whole store, which every read and every admission
-   * makes, parses each line and each envelope once and not again each time: each log's lines read whole, each
-   * envelope by its hash, and the list of envelopes. Lines are only appended, and
-   * envelopes only added, so what is kept stays true; a write through this store, or a commit by another connection to
-   * its database, is caught up by reading what came after. What it hands out is frozen.
+   * makes, parses each line and each envelope once and not again each time: each log's lines read whole, each envelope
+   * by its hash, and the list of envelopes. Lines are only appended, and envelopes only added, so what is kept stays
+   * true; a write through this store, or a commit by another connection to its database, is caught up by reading what
+   * came after. Each line and envelope it hands out is frozen, since every reader shares it; each list is the reader's
+   * own, to sort or add to.
    */
   private readonly kept = {
     logs: new Map<Hash, { lines: readonly Receipt[]; stamp: string }>(),
@@ -127,7 +131,16 @@ export class Store {
     return `${this.version}:${this.dataVersion}`;
   }
 
-  constructor(path: string) {
+  /** Whether this store keeps what it reads (`kept`): a door's does, since its layer reads every log again. */
+  private readonly keep: boolean;
+
+  /**
+   * A store over the SQLite file at `path`, or in memory for `:memory:`. With `keep` false it reads every log and
+   * envelope afresh each time it is asked, as a node with no door does, which never folds the whole store and so has
+   * no use for holding all of it.
+   */
+  constructor(path: string, { keep = true }: { keep?: boolean } = {}) {
+    this.keep = keep;
     this.db = new DatabaseSync(path);
     this.db.exec(`
       pragma journal_mode = wal;
@@ -186,7 +199,7 @@ export class Store {
     this.version += 1;
   }
 
-  /** An envelope by its hash, read once and kept (`kept`), or null where this store holds none. */
+  /** An envelope by its hash, read once and kept frozen where this store keeps (`kept`), or null where none is held. */
   getEnvelope(hash: Hash): StoredEnvelope | null {
     const kept = this.kept.envelopes.get(hash);
     if (kept) return kept;
@@ -194,12 +207,9 @@ export class Store {
       | { hash: string; json: string; received_at: string }
       | undefined;
     if (!row) return null;
-    const stored = frozen({
-      hash: row.hash as Hash,
-      envelope: JSON.parse(row.json) as Envelope,
-      receivedAt: row.received_at,
-    });
-    this.kept.envelopes.set(hash, stored);
+    const stored = { hash: row.hash as Hash, envelope: JSON.parse(row.json) as Envelope, receivedAt: row.received_at };
+    if (!this.keep) return stored;
+    this.kept.envelopes.set(hash, frozen(stored));
     return stored;
   }
 
@@ -218,14 +228,17 @@ export class Store {
     return out;
   }
 
-  /** Every envelope, the latest received first, each read once and kept (`kept`). */
+  /**
+   * Every envelope, the latest received first, each read once and kept where this store keeps (`kept`): a list of its
+   * own for each reader, of envelopes they share.
+   */
   listEnvelopes(): StoredEnvelope[] {
     const stamp = this.stamp();
-    if (this.kept.list?.stamp === stamp) return this.kept.list.list as StoredEnvelope[];
+    if (this.kept.list?.stamp === stamp) return [...this.kept.list.list];
     const rows = this.db.prepare('select hash from envelopes order by received_at desc').all() as { hash: string }[];
-    const list = Object.freeze(rows.map((r) => this.getEnvelope(r.hash as Hash)!));
-    this.kept.list = { list, stamp };
-    return list as StoredEnvelope[];
+    const list = rows.map((r) => this.getEnvelope(r.hash as Hash)!);
+    if (this.keep) this.kept.list = { list: Object.freeze([...list]), stamp };
+    return list;
   }
 
   putBlob(hash: Hash, bytes: Uint8Array): void {
@@ -356,15 +369,29 @@ export class Store {
    * length folds the same at each.
    */
   lines(log: Hash): Receipt[] {
+    return this.keep ? [...this.keptLines(log)] : this.receipts(log, 0, Number.MAX_SAFE_INTEGER);
+  }
+
+  /** How many lines a log holds. */
+  lineCount(log: Hash): number {
+    if (this.keep) return this.keptLines(log).length;
+    return (this.db.prepare('select count(*) as n from receipts where problem = ?').get(log) as { n: number }).n;
+  }
+
+  /**
+   * A log's lines as this store keeps them (`kept`): a log is only appended to, so what is kept is caught up with the
+   * lines after its last. A log with no line is not kept, so asking after any hash keeps nothing.
+   */
+  private keptLines(log: Hash): readonly Receipt[] {
     const stamp = this.stamp();
     const kept = this.kept.logs.get(log);
-    if (kept?.stamp === stamp) return kept.lines as Receipt[];
-    // A log is only appended to, so what is kept is caught up with the lines after its last.
-    const before = kept?.lines ?? [];
+    if (kept?.stamp === stamp) return kept.lines;
+    const before = kept?.lines ?? NO_LINES;
     const after = this.receipts(log, before.length ? before[before.length - 1]!.seq! : 0, Number.MAX_SAFE_INTEGER);
+    if (!kept && after.length === 0) return NO_LINES;
     const lines = after.length ? Object.freeze([...before, ...after.map(frozen)]) : before;
     this.kept.logs.set(log, { lines, stamp });
-    return lines as Receipt[];
+    return lines;
   }
 
   /**

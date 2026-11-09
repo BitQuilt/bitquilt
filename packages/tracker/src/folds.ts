@@ -8,7 +8,7 @@
  * be read again. A fold is kept with the time it was made at and the first time after it at which the clock alone
  * turns a state (`turnsAt`); a fold asked for in between is the fold kept.
  */
-import { type Hash, type ReduceInput, type State, IDENTITY_LOG, reduce } from '@bitquilt/core';
+import { type Hash, type ReduceInput, type State, IDENTITY_LOG, fixedBytes, reduce } from '@bitquilt/core';
 import { type ChainReader, type Store, reduceInputOf } from './store.js';
 
 /** What a version and every version before it hold: versions, lines on their logs, and blobs not held. */
@@ -107,17 +107,18 @@ export function foldsOf(store: Store): Folds {
       const data = Object.values(store.getEnvelope(h)!.envelope.problem.data);
       below = {
         versions: below.versions + 1,
-        lines: below.lines + store.lines(h).length,
+        lines: below.lines + store.lineCount(h),
         missing: below.missing + data.filter((b) => !store.hasBlob(b)).length,
       };
       counted.of.set(h, below);
     }
-    return `${below.versions}:${below.lines}:${below.missing}:${store.lines(IDENTITY_LOG).length}`;
+    return `${below.versions}:${below.lines}:${below.missing}:${store.lineCount(IDENTITY_LOG)}`;
   }
 
   /**
-   * The data blobs the inputs read, each the same bytes for every version that names it, so the core checks a blob's
-   * hash once (envelope.ts). A data blob is never taken out of a store, and every kept input holds its blobs already.
+   * The data blobs the inputs read, each the same bytes for every version that names it and fixed (`fixedBytes`), so
+   * the core checks a blob's hash once. Nothing writes to them, a data blob is never taken out of a store, and every
+   * kept input holds its blobs already.
    */
   const bytes = new Map<Hash, Uint8Array>();
   const reader: ChainReader = {
@@ -127,7 +128,7 @@ export function foldsOf(store: Store): Folds {
       const known = bytes.get(h);
       if (known) return known;
       const read = store.getBlob(h);
-      if (read) bytes.set(h, read);
+      if (read) bytes.set(h, fixedBytes(read));
       return read;
     },
   };
