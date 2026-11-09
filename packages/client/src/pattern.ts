@@ -11,6 +11,7 @@ import {
   type Problem,
   agreeFields,
   blobProblems,
+  canonicalBytes,
   envelopeProblems,
   expandPieces,
   hashBytes,
@@ -81,20 +82,35 @@ export function draftEnvelope(
 /**
  * What a door refuses beyond the core's checks, in the door's words (PROTOCOL.md, What the door answers), so a pattern
  * the checker passes is one a door takes: a lease or a challenge window over a million hours, a family that expands
- * past ten thousand pieces, and a name the core looks up with `in` that is not the problem's own. The door's own
- * bounds are in `packages/tracker/src/admit.ts`; a client imports the core alone, so they are said again here.
+ * past ten thousand pieces, inputs that link more than a million pairs of pieces, data blobs over 16 MB, pieces that
+ * may expand past 32 MB, and a name the core looks up with `in` that is not the problem's own. The door's own bounds
+ * are in `packages/tracker/src/admit.ts`; a client imports the core alone, so they are said again here.
  */
-function doorProblems(p: Envelope['problem']): string[] {
+function doorProblems(p: Envelope['problem'], blobs: Map<Hash, Uint8Array>): string[] {
   const out: string[] = [];
   const hours: [string, unknown][] = [
     ['problem.settings.lease_h', p.settings?.lease_h],
     ['problem.settings.challenge_window_h', p.settings?.challenge_window_h],
   ];
+  const piecesOf = (d: (typeof p.pieces)[string] | undefined): number =>
+    d === undefined ? 0 : typeof d.count === 'number' ? d.count : 1;
+  const lengthOf = (blob: string | undefined): number => {
+    const h = blob !== undefined && Object.hasOwn(p.data ?? {}, blob) ? p.data[blob] : undefined;
+    return h ? (blobs.get(h)?.length ?? 0) : 0;
+  };
   let count = 0;
+  let links = 0;
+  let expanded = 0;
   for (const [name, d] of Object.entries(p.pieces ?? {})) {
     const at = `problem.pieces.${name}`;
     hours.push([`${at}.lease_h`, d.lease_h]);
-    count += typeof d.count === 'number' ? d.count : 1;
+    count += piecesOf(d);
+    for (const entry of d.inputs ?? [])
+      links += piecesOf(d) * (String(entry).endsWith('/*') ? piecesOf(p.pieces[entry]) : 1);
+    // Each piece's definition, and each slot naming a data slot filled from a row of that slot's blob.
+    expanded += piecesOf(d) * canonicalBytes(d).length;
+    for (const m of String(d.brief ?? '').matchAll(/\{([A-Za-z_][\w-]*)(?:\.([A-Za-z_][\w.-]*))?\}/g))
+      expanded += lengthOf(Object.hasOwn(d.data ?? {}, m[1]!) ? d.data![m[1]!] : undefined);
     const props = d.schema?.properties ?? {};
     if ((d.agree ?? []).some((f) => !Object.hasOwn(props, f))) out.push(`${at}.agree: names fields the schema has`);
     for (const r of d.schema?.required ?? [])
@@ -104,6 +120,13 @@ function doorProblems(p: Envelope['problem']): string[] {
   }
   for (const [at, h] of hours) if (typeof h === 'number' && h > 1_000_000) out.push(`${at}: at most 1000000 hours`);
   if (count > 10_000) out.push(`problem.pieces: ${count} pieces after expansion, over the 10000 a door takes`);
+  if (links > 1_000_000) out.push(`problem.pieces: inputs that make ${links} links, over the 1000000 a door takes`);
+  let data = 0;
+  for (const h of new Set(Object.values(p.data ?? {}))) data += blobs.get(h)?.length ?? 0;
+  const MB = 1024 * 1024;
+  if (data > 16 * MB) out.push(`problem.data: blobs of ${data} bytes, over the ${16 * MB} a door takes`);
+  if (expanded > 32 * MB)
+    out.push(`problem.pieces: expand to as much as ${expanded} bytes, over the ${32 * MB} a door takes`);
   return out;
 }
 
@@ -162,7 +185,7 @@ export function patternProblems(pattern: Pattern, drafted: Drafted): string[] {
         out.push(`pieces.${name}.brief: slot {${slot}} names no data slot and no input`);
     }
   }
-  out.push(...doorProblems(problem));
+  out.push(...doorProblems(problem, blobs));
   let pieces: ReturnType<typeof expandPieces> = [];
   if (out.length === 0) {
     try {
