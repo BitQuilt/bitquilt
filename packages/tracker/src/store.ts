@@ -73,6 +73,22 @@ export interface StoredEnvelope {
   receivedAt: string;
 }
 
+/**
+ * A value made read-only through every level, as the store hands out what it keeps: every reader shares it, so a
+ * reader that wrote to it would change what the next one reads. Iterative, since a body may nest as deep as the door
+ * takes.
+ */
+function frozen<T>(value: T): T {
+  const left: unknown[] = [value];
+  while (left.length) {
+    const v = left.pop();
+    if (v === null || typeof v !== 'object' || Object.isFrozen(v)) continue;
+    Object.freeze(v);
+    for (const x of Object.values(v)) left.push(x);
+  }
+  return value;
+}
+
 export class Store {
   readonly db: DatabaseSync;
   /**
@@ -80,6 +96,29 @@ export class Store {
    * on.
    */
   version = 0;
+
+  /**
+   * What the store keeps of what it has read, so a fold over the whole store, which every read and every admission
+   * makes, parses each line and each envelope once and not again each time: each log's lines read whole, each
+   * envelope by its hash, the list of envelopes, and the blobs known to be held. Lines are only appended, and
+   * envelopes and blobs only added, so what is kept stays true; a write through this store, or a commit by another
+   * connection to its database, is caught up by reading what came after. What it hands out is frozen.
+   */
+  private readonly kept = {
+    logs: new Map<Hash, { lines: readonly Receipt[]; stamp: string }>(),
+    envelopes: new Map<Hash, StoredEnvelope>(),
+    list: null as { list: readonly StoredEnvelope[]; stamp: string } | null,
+    blobs: new Set<Hash>(),
+  };
+
+  /**
+   * Where the database stands: this store's version, and SQLite's data version, which moves when another connection
+   * commits.
+   */
+  private stamp(): string {
+    const row = this.db.prepare('pragma data_version').get() as { data_version: number };
+    return `${this.version}:${row.data_version}`;
+  }
 
   constructor(path: string) {
     this.db = new DatabaseSync(path);
@@ -140,13 +179,21 @@ export class Store {
     this.version += 1;
   }
 
+  /** An envelope by its hash, read once and kept (`kept`), or null where this store holds none. */
   getEnvelope(hash: Hash): StoredEnvelope | null {
+    const kept = this.kept.envelopes.get(hash);
+    if (kept) return kept;
     const row = this.db.prepare('select hash, json, received_at from envelopes where hash = ?').get(hash) as
       | { hash: string; json: string; received_at: string }
       | undefined;
-    return row
-      ? { hash: row.hash as Hash, envelope: JSON.parse(row.json) as Envelope, receivedAt: row.received_at }
-      : null;
+    if (!row) return null;
+    const stored = frozen({
+      hash: row.hash as Hash,
+      envelope: JSON.parse(row.json) as Envelope,
+      receivedAt: row.received_at,
+    });
+    this.kept.envelopes.set(hash, stored);
+    return stored;
   }
 
   /** The envelope and every ancestor along prev that this store holds, nearest first. */
@@ -164,17 +211,14 @@ export class Store {
     return out;
   }
 
+  /** Every envelope, the latest received first, each read once and kept (`kept`). */
   listEnvelopes(): StoredEnvelope[] {
-    const rows = this.db.prepare('select hash, json, received_at from envelopes order by received_at desc').all() as {
-      hash: string;
-      json: string;
-      received_at: string;
-    }[];
-    return rows.map((r) => ({
-      hash: r.hash as Hash,
-      envelope: JSON.parse(r.json) as Envelope,
-      receivedAt: r.received_at,
-    }));
+    const stamp = this.stamp();
+    if (this.kept.list?.stamp === stamp) return this.kept.list.list as StoredEnvelope[];
+    const rows = this.db.prepare('select hash from envelopes order by received_at desc').all() as { hash: string }[];
+    const list = Object.freeze(rows.map((r) => this.getEnvelope(r.hash as Hash)!));
+    this.kept.list = { list, stamp };
+    return list as StoredEnvelope[];
   }
 
   putBlob(hash: Hash, bytes: Uint8Array): void {
@@ -187,6 +231,14 @@ export class Store {
       | { bytes: Uint8Array }
       | undefined;
     return row ? new Uint8Array(row.bytes) : null;
+  }
+
+  /** Whether this store holds a blob, kept once it is known, since a blob is never taken out. */
+  hasBlob(hash: Hash): boolean {
+    if (this.kept.blobs.has(hash)) return true;
+    if (this.db.prepare('select 1 from blobs where hash = ?').get(hash) === undefined) return false;
+    this.kept.blobs.add(hash);
+    return true;
   }
 
   /**
@@ -300,7 +352,15 @@ export class Store {
    * length folds the same at each.
    */
   lines(log: Hash): Receipt[] {
-    return this.receipts(log, 0, Number.MAX_SAFE_INTEGER);
+    const stamp = this.stamp();
+    const kept = this.kept.logs.get(log);
+    if (kept?.stamp === stamp) return kept.lines as Receipt[];
+    // A log is only appended to, so what is kept is caught up with the lines after its last.
+    const before = kept?.lines ?? [];
+    const after = this.receipts(log, before.length ? before[before.length - 1]!.seq! : 0, Number.MAX_SAFE_INTEGER);
+    const lines = after.length ? Object.freeze([...before, ...after.map(frozen)]) : before;
+    this.kept.logs.set(log, { lines, stamp });
+    return lines as Receipt[];
   }
 
   /**
