@@ -808,6 +808,8 @@ export function inputRefused(p: ReduceInput): string | null {
 export function challengeLayer(input: {
   problems: ReduceInput[];
   now: string;
+  /** The core's fold of a problem's input, as a tracker keeps it (folds.ts); `reduce` where none is given. */
+  reduce?: (p: ReduceInput) => State;
   coin?: Receipt[];
   founding?: Map<string, number>;
   blobLength?: (hash: Hash) => number | null;
@@ -822,7 +824,7 @@ export function challengeLayer(input: {
   for (const p of input.problems) {
     let core: State;
     try {
-      core = reduce(p);
+      core = (input.reduce ?? reduce)(p);
     } catch (err) {
       const why = inputRefused(p);
       if (why === null || !p.envelopes[0]) throw err;

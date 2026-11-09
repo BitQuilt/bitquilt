@@ -22,7 +22,8 @@ import { type Hidden, hiddenNow } from './hide.js';
 import { Refusal, json } from './http.js';
 import { type PeerPull, pullPeers } from './peers.js';
 import { type Handler, type Route, handlerOf, routeOf } from './routes.js';
-import { type Store, reduceInputOf } from './store.js';
+import { foldsOf } from './folds.js';
+import type { Store } from './store.js';
 import { type PieceTraces, passageIn, problemTraces } from './trace.js';
 import {
   blob,
@@ -205,13 +206,16 @@ function contextOf(options: TrackerOptions): Context {
   const { store } = options;
   const now = options.now ?? (() => new Date().toISOString());
 
+  /** Each problem's input and the core's fold of it, kept from one layer to the next (folds.ts). */
+  const folds = foldsOf(store);
+
   /**
    * What the reducer takes for a problem held here at now (`reduceInputOf`): its chain, the blobs, every line along the
-   * chain and the identity log, each read whole; null where this store holds no such problem.
+   * chain and the identity log, each read whole and kept while nothing it was read from has grown; null where this
+   * store holds no such problem.
    */
   function inputFor(hash: Hash): ReduceInput | null {
-    const envelope = store.envelopeOf(hash);
-    return envelope ? reduceInputOf(store, envelope, now()) : null;
+    return folds.inputAt(hash, now());
   }
 
   /**
@@ -222,7 +226,7 @@ function contextOf(options: TrackerOptions): Context {
     const input = inputFor(hash);
     if (!input) return null;
     try {
-      return reduce(input);
+      return folds.reduce(input);
     } catch (err) {
       const why = inputRefused(input);
       if (why === null) throw err;
@@ -240,9 +244,9 @@ function contextOf(options: TrackerOptions): Context {
 
   /**
    * The layer as last built, by the store's version and the five-second span of the tracker's clock it was built in. A
-   * read is answered from it while nothing has been written and the clock has not moved past that span: building it
-   * reduces every problem here, which costs as much as the whole store. While an event is being admitted (`exact`
-   * above zero), and for a coin lock another tracker admits against, the layer is built afresh at now.
+   * read is answered from it while nothing has been written and the clock has not moved past that span. While an event
+   * is being admitted (`exact` above zero), and for a coin lock another tracker admits against, the layer is built
+   * afresh at now. Building it folds again only the problems whose fold `folds` does not keep.
    */
   let kept: { version: number; span: number; layer: Layer } | null = null;
   let exact = 0;
@@ -265,10 +269,11 @@ function contextOf(options: TrackerOptions): Context {
    */
   function buildLayer(): Layer {
     const at = now();
-    const problems: ReduceInput[] = store.listEnvelopes().map((e) => reduceInputOf(store, e.envelope, at));
+    const problems = store.listEnvelopes().map((e) => folds.inputAt(e.hash, at)!);
     return challengeLayer({
       problems,
       now: at,
+      reduce: folds.reduce,
       blobLength: (h) => store.blobLength(h),
       ...(options.coin ? { coin: store.lines(COIN_LOG) } : {}),
       ...(founding.size ? { founding } : {}),

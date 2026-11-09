@@ -7,7 +7,7 @@
 import { canonical } from './canonical.js';
 import { type Hash, hashBytes, hashCanonical, isHash } from './hash.js';
 import { isAddress, isSignature } from './keys.js';
-import { isRecord, unknownKeys, whole } from './plain.js';
+import { frozenThrough, isRecord, unknownKeys, whole } from './plain.js';
 import { type Schema, schemaProblems } from './schema.js';
 
 export const CAPABILITIES = ['web', 'files', 'shell', 'person'] as const;
@@ -138,8 +138,41 @@ const PIECE_FIELDS: readonly string[] = [
 ];
 const CHECK_FIELDS: readonly string[] = ['file', 'image', 'tolerance', 'better'];
 
+/**
+ * What is computed once for an envelope frozen through every level as a store hands out what it keeps
+ * (`frozenThrough`), and once for a blob's bytes their
+ * holder fixed (`fixedBytes`): a tracker folds every version of a chain, and the fold of each version reads every
+ * version before it (CORE.md section 6), so a problem's hash, its checks, its pieces and its blobs' hashes are asked
+ * for again and again. An envelope that is not frozen, and bytes not fixed, may still be written to, so what is asked
+ * of them is computed each time.
+ */
+const kept = {
+  hashes: new WeakMap<object, Hash>(),
+  faults: new WeakMap<object, string[]>(),
+  pieces: new WeakMap<object, { blobs: (Uint8Array | undefined)[]; pieces: Piece[] }>(),
+  fixed: new WeakSet<Uint8Array>(),
+  blobs: new WeakMap<Uint8Array, Hash>(),
+};
+
+/**
+ * A blob's bytes, marked as bytes their holder will not write to, as a store keeps a blob: the core checks the hash of
+ * fixed bytes once, however many folds read them. A non-empty typed array cannot be frozen, so the holder says so.
+ */
+export function fixedBytes(bytes: Uint8Array): Uint8Array {
+  kept.fixed.add(bytes);
+  return bytes;
+}
+
+/** Whether an envelope is frozen through every level, as a store hands out what it keeps, so what it gives holds. */
+export const frozenEnvelope = (e: unknown): boolean => frozenThrough(e);
+
 export function problemHash(e: Envelope): Hash {
-  return hashCanonical(e.problem);
+  const keep = frozenEnvelope(e);
+  const known = keep ? kept.hashes.get(e) : undefined;
+  if (known !== undefined) return known;
+  const h = hashCanonical(e.problem);
+  if (keep) kept.hashes.set(e, h);
+  return h;
 }
 
 function positive(v: unknown): boolean {
@@ -152,6 +185,15 @@ function positive(v: unknown): boolean {
  * decision and not part of validity.
  */
 export function envelopeProblems(e: unknown): string[] {
+  const keep = frozenEnvelope(e);
+  const known = keep ? kept.faults.get(e as object) : undefined;
+  if (known !== undefined) return [...known];
+  const out = faultsOf(e);
+  if (keep) kept.faults.set(e as object, [...out]);
+  return out;
+}
+
+function faultsOf(e: unknown): string[] {
   if (!isRecord(e)) return ['envelope: not an object'];
   const out: string[] = [];
   if (e.quilt !== 1) out.push('envelope: quilt is 1');
@@ -265,9 +307,19 @@ export function blobProblems(p: Problem, blobs: Blobs): string[] {
   for (const [name, h] of Object.entries(p.data)) {
     const b = blobs.get(h);
     if (!b) out.push(`blob ${name}: ${h} not present`);
-    else if (hashBytes(b) !== h) out.push(`blob ${name}: does not match its hash`);
+    else if (blobHash(b) !== h) out.push(`blob ${name}: does not match its hash`);
   }
   return out;
+}
+
+/** A blob's hash, once for bytes their holder fixed (`fixedBytes`), and each time for any other. */
+function blobHash(b: Uint8Array): Hash {
+  if (!kept.fixed.has(b)) return hashBytes(b);
+  const known = kept.blobs.get(b);
+  if (known !== undefined) return known;
+  const h = hashBytes(b);
+  kept.blobs.set(b, h);
+  return h;
 }
 
 /**
@@ -294,8 +346,23 @@ export function renderBrief(template: string, n: number, data: Record<string, un
   });
 }
 
-/** The pieces of a problem, expanded and named by hash (section 3). The blobs must already have been checked. */
+/**
+ * The pieces of a problem, expanded and named by hash (section 3). The blobs must already have been checked. A problem
+ * frozen through every level is expanded once for the same blobs, and its pieces are frozen with it.
+ */
 export function expandPieces(p: Problem, blobs: Blobs): Piece[] {
+  if (!frozenThrough(p)) return expand(p, blobs);
+  const given = Object.values(p.data).map((h) => blobs.get(h));
+  const known = kept.pieces.get(p);
+  if (known && known.blobs.length === given.length && known.blobs.every((b, i) => b === given[i])) return known.pieces;
+  const pieces = expand(p, blobs);
+  for (const piece of pieces) Object.freeze(piece);
+  Object.freeze(pieces);
+  kept.pieces.set(p, { blobs: given, pieces });
+  return pieces;
+}
+
+function expand(p: Problem, blobs: Blobs): Piece[] {
   const out: Piece[] = [];
   // Each blob read once, however many families' slots draw on it.
   const read = new Map<Hash, unknown>();

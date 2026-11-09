@@ -117,7 +117,8 @@ export async function start(options: StartOptions): Promise<Node> {
   mkdirSync(options.home, { recursive: true });
   const say = options.say ?? (() => {});
   const fetchImpl = options.fetchImpl ?? fetch;
-  const store = new Store(options.store ?? join(options.home, 'node.db'));
+  // A door folds the whole store on every read and keeps what it reads; a node with no door reads each log afresh.
+  const store = new Store(options.store ?? join(options.home, 'node.db'), { keep: roles.has('admit') });
   const config: Config = {
     ...loadConfig(options.home),
     ...(options.page?.trackers ? { trackers: options.page.trackers } : {}),
