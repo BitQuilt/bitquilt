@@ -138,8 +138,28 @@ const PIECE_FIELDS: readonly string[] = [
 ];
 const CHECK_FIELDS: readonly string[] = ['file', 'image', 'tolerance', 'better'];
 
+/**
+ * What is computed once for an envelope frozen as a store hands out what it keeps, and once for the bytes of a blob as
+ * they were handed in: a tracker folds every version of a chain, and the fold of each version reads every version
+ * before it (CORE.md section 6), so a problem's hash, its checks, its pieces and its blobs' hashes are asked for again
+ * and again. An envelope that is not frozen may still be written to, so it is computed each time it is asked.
+ */
+const kept = {
+  hashes: new WeakMap<object, Hash>(),
+  faults: new WeakMap<object, string[]>(),
+  pieces: new WeakMap<object, { blobs: (Uint8Array | undefined)[]; pieces: Piece[] }>(),
+  blobs: new WeakMap<Uint8Array, Hash>(),
+};
+/** Whether an envelope is frozen as a store hands out what it keeps, so what is computed from it holds. */
+export const frozenEnvelope = (e: unknown): boolean => isRecord(e) && Object.isFrozen(e) && Object.isFrozen(e.problem);
+
 export function problemHash(e: Envelope): Hash {
-  return hashCanonical(e.problem);
+  const keep = frozenEnvelope(e);
+  const known = keep ? kept.hashes.get(e) : undefined;
+  if (known !== undefined) return known;
+  const h = hashCanonical(e.problem);
+  if (keep) kept.hashes.set(e, h);
+  return h;
 }
 
 function positive(v: unknown): boolean {
@@ -152,6 +172,15 @@ function positive(v: unknown): boolean {
  * decision and not part of validity.
  */
 export function envelopeProblems(e: unknown): string[] {
+  const keep = frozenEnvelope(e);
+  const known = keep ? kept.faults.get(e as object) : undefined;
+  if (known !== undefined) return [...known];
+  const out = faultsOf(e);
+  if (keep) kept.faults.set(e as object, [...out]);
+  return out;
+}
+
+function faultsOf(e: unknown): string[] {
   if (!isRecord(e)) return ['envelope: not an object'];
   const out: string[] = [];
   if (e.quilt !== 1) out.push('envelope: quilt is 1');
@@ -265,9 +294,18 @@ export function blobProblems(p: Problem, blobs: Blobs): string[] {
   for (const [name, h] of Object.entries(p.data)) {
     const b = blobs.get(h);
     if (!b) out.push(`blob ${name}: ${h} not present`);
-    else if (hashBytes(b) !== h) out.push(`blob ${name}: does not match its hash`);
+    else if (blobHash(b) !== h) out.push(`blob ${name}: does not match its hash`);
   }
   return out;
+}
+
+/** A blob's hash, once for the bytes as they were handed in (`kept`). */
+function blobHash(b: Uint8Array): Hash {
+  const known = kept.blobs.get(b);
+  if (known !== undefined) return known;
+  const h = hashBytes(b);
+  kept.blobs.set(b, h);
+  return h;
 }
 
 /**
@@ -294,8 +332,23 @@ export function renderBrief(template: string, n: number, data: Record<string, un
   });
 }
 
-/** The pieces of a problem, expanded and named by hash (section 3). The blobs must already have been checked. */
+/**
+ * The pieces of a problem, expanded and named by hash (section 3). The blobs must already have been checked. A problem
+ * frozen as a store hands out what it keeps is expanded once for the same blobs, and its pieces are frozen with it.
+ */
 export function expandPieces(p: Problem, blobs: Blobs): Piece[] {
+  if (!Object.isFrozen(p)) return expand(p, blobs);
+  const given = Object.values(p.data).map((h) => blobs.get(h));
+  const known = kept.pieces.get(p);
+  if (known && known.blobs.length === given.length && known.blobs.every((b, i) => b === given[i])) return known.pieces;
+  const pieces = expand(p, blobs);
+  for (const piece of pieces) Object.freeze(piece);
+  Object.freeze(pieces);
+  kept.pieces.set(p, { blobs: given, pieces });
+  return pieces;
+}
+
+function expand(p: Problem, blobs: Blobs): Piece[] {
   const out: Piece[] = [];
   // Each blob read once, however many families' slots draw on it.
   const read = new Map<Hash, unknown>();

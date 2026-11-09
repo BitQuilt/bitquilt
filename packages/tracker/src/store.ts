@@ -100,24 +100,31 @@ export class Store {
   /**
    * What the store keeps of what it has read, so a fold over the whole store, which every read and every admission
    * makes, parses each line and each envelope once and not again each time: each log's lines read whole, each
-   * envelope by its hash, the list of envelopes, and the blobs known to be held. Lines are only appended, and
-   * envelopes and blobs only added, so what is kept stays true; a write through this store, or a commit by another
-   * connection to its database, is caught up by reading what came after. What it hands out is frozen.
+   * envelope by its hash, and the list of envelopes. Lines are only appended, and
+   * envelopes only added, so what is kept stays true; a write through this store, or a commit by another connection to
+   * its database, is caught up by reading what came after. What it hands out is frozen.
    */
   private readonly kept = {
     logs: new Map<Hash, { lines: readonly Receipt[]; stamp: string }>(),
     envelopes: new Map<Hash, StoredEnvelope>(),
     list: null as { list: readonly StoredEnvelope[]; stamp: string } | null,
-    blobs: new Set<Hash>(),
   };
 
+  /** SQLite's data version as last read, until the code running now has run. */
+  private dataVersion: number | null = null;
+
   /**
-   * Where the database stands: this store's version, and SQLite's data version, which moves when another connection
-   * commits.
+   * Where the database stands: this store's version, which each write through it moves, and SQLite's data version,
+   * which moves when another connection commits, read once for all the code that runs before it next waits.
    */
-  private stamp(): string {
-    const row = this.db.prepare('pragma data_version').get() as { data_version: number };
-    return `${this.version}:${row.data_version}`;
+  stamp(): string {
+    if (this.dataVersion === null) {
+      this.dataVersion = (this.db.prepare('pragma data_version').get() as { data_version: number }).data_version;
+      queueMicrotask(() => {
+        this.dataVersion = null;
+      });
+    }
+    return `${this.version}:${this.dataVersion}`;
   }
 
   constructor(path: string) {
@@ -233,12 +240,9 @@ export class Store {
     return row ? new Uint8Array(row.bytes) : null;
   }
 
-  /** Whether this store holds a blob, kept once it is known, since a blob is never taken out. */
+  /** Whether this store holds a blob. */
   hasBlob(hash: Hash): boolean {
-    if (this.kept.blobs.has(hash)) return true;
-    if (this.db.prepare('select 1 from blobs where hash = ?').get(hash) === undefined) return false;
-    this.kept.blobs.add(hash);
-    return true;
+    return this.db.prepare('select 1 from blobs where hash = ?').get(hash) !== undefined;
   }
 
   /**

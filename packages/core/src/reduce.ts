@@ -15,6 +15,7 @@ import {
   blobProblems,
   envelopeProblems,
   expandPieces,
+  frozenEnvelope,
   inputsBy,
   problemHash,
 } from './envelope.js';
@@ -169,6 +170,20 @@ interface Folded {
   dropped: State['dropped'];
 }
 
+/**
+ * Whether an envelope is its owner's, once for an envelope frozen as a store hands out what it keeps, since the fold of
+ * every version of a chain checks every version before it.
+ */
+const ownersSigned = new WeakMap<object, boolean>();
+function signedByOwner(e: Envelope): boolean {
+  const keep = frozenEnvelope(e);
+  const known = keep ? ownersSigned.get(e) : undefined;
+  if (known !== undefined) return known;
+  const signed = signedBy(e as unknown as Record<string, unknown>, e.problem.owner);
+  if (keep) ownersSigned.set(e, signed);
+  return signed;
+}
+
 export function reduce(input: ReduceInput): State {
   const checked = checkChain(input.envelopes, input.blobs);
   // Pieces: this problem's expansion, by hash. Section 6, Envelopes: "A piece hash counts if any envelope in the chain
@@ -214,8 +229,7 @@ function checkChain(envelopes: Envelope[], blobs: Blobs): Checked {
   const envelope = envelopes[0]!;
   const envProblems = envelopeProblems(envelope);
   if (envProblems.length) throw new Error(`envelope: ${envProblems[0]}`);
-  if (!signedBy(envelope as unknown as Record<string, unknown>, envelope.problem.owner))
-    throw new Error('envelope: not signed by its owner');
+  if (!signedByOwner(envelope)) throw new Error('envelope: not signed by its owner');
   const bp = blobProblems(envelope.problem, blobs);
   if (bp.length) throw new Error(bp[0]);
   const problem = problemHash(envelope);
@@ -227,12 +241,7 @@ function checkChain(envelopes: Envelope[], blobs: Blobs): Checked {
     const prev = envelopesByHash.get(cur.problem.prev);
     if (!prev) break;
     if (prev.problem.owner !== cur.problem.owner) break;
-    if (
-      envelopeProblems(prev).length ||
-      !signedBy(prev as unknown as Record<string, unknown>, prev.problem.owner) ||
-      blobProblems(prev.problem, blobs).length
-    )
-      break;
+    if (envelopeProblems(prev).length || !signedByOwner(prev) || blobProblems(prev.problem, blobs).length) break;
     if (chainHashes.has(cur.problem.prev)) break;
     chain.push(prev);
     chainHashes.add(cur.problem.prev);

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Envelope, type Hash, canonicalBytes, hashBytes } from '@bitquilt/core';
-import { DATA_MAX, EXPANDED_MAX, INPUTS_MAX, expandedBytes } from '../src/admit.js';
+import { type Envelope, type Hash, canonicalBytes, hashBytes, problemHash } from '@bitquilt/core';
+import { CHAIN_PIECES_MAX, DATA_MAX, EXPANDED_MAX, INPUTS_MAX, expandedBytes } from '../src/admit.js';
 import { VERDICT, boot, envelope, key } from './helpers.js';
 
 /**
@@ -10,7 +10,9 @@ import { VERDICT, boot, envelope, key } from './helpers.js';
  * 16 MB (`DATA_MAX`), each blob once, held already or sent; and its pieces expand to at most 32 MB (`EXPANDED_MAX`),
  * each definition once a piece and each slot that names a data slot the bytes of that slot's blob, so a long brief
  * over many pieces and a slot written many times over a long row are refused from an envelope of a few kilobytes. A
- * problem at each bound is taken, and the door answers its pages throughout.
+ * version's chain is held to two million pieces between the folds of its versions (`CHAIN_PIECES_MAX`), since each
+ * version's fold expands every version before it. A problem at each bound is taken, and the door answers its pages
+ * throughout.
  */
 const owner = key(9);
 const START = '2026-11-08T12:00:00Z';
@@ -116,6 +118,28 @@ describe("a problem's pieces", () => {
       status: 400,
       error: `problem.pieces: expand to as much as ${bound} bytes, over the ${EXPANDED_MAX} a door takes`,
     });
+  });
+
+  it('of a chain expand at most two million between the folds of its versions', async () => {
+    // Each version of ten thousand pieces folds every version before it: nineteen fold 1900000 pieces between them,
+    // and a twentieth would make it 2100000.
+    let prev: Hash | null = null;
+    for (let v = 1; v <= 20; v++) {
+      const version = envelope(
+        owner,
+        'a-long-chain',
+        { 'q/*': { ...q, count: 10_000, brief: `Statement {n}, as version ${v} puts it.` } },
+        { ...SETTINGS, prev },
+      );
+      const answer = await publishing(version);
+      if (v < 20) expect(answer).toEqual({ status: 201 });
+      else
+        expect(answer).toEqual({
+          status: 400,
+          error: `problem.prev: the folds of its chain would expand 2100000 pieces, over the ${CHAIN_PIECES_MAX} a door takes`,
+        });
+      prev = problemHash(version);
+    }
   });
 
   it('leave the door answering', async () => {

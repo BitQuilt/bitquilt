@@ -143,10 +143,24 @@ export interface Receipt {
   hash?: string;
 }
 
+/**
+ * Ids and signers already computed, for events frozen as a store hands out the lines it keeps: a tracker folds the same
+ * lines again and again, and hashing every event each time is most of what a fold costs once each problem's state is
+ * kept. An event that is not frozen may still be written to, so it is hashed each time it is asked.
+ */
+const ids = new WeakMap<object, Hash>();
+const signers = new WeakMap<object, Address | null>();
+const frozenEvent = (e: Unsigned | Event): boolean => Object.isFrozen(e) && Object.isFrozen(e.body);
+
 /** The id of an event: the hash of the event without `sig` and `sig_to`. */
 export function eventId(e: Unsigned | Event): Hash {
+  const kept = frozenEvent(e);
+  const known = kept ? ids.get(e) : undefined;
+  if (known !== undefined) return known;
   const { sig: _s, sig_to: _t, ...rest } = e as Event;
-  return hashCanonical(rest);
+  const id = hashCanonical(rest);
+  if (kept) ids.set(e, id);
+  return id;
 }
 
 /**
@@ -180,7 +194,11 @@ export function signEvent(unsigned: Unsigned, secret: Uint8Array): Event {
 
 /** The address that signed `sig`, or null. */
 export function eventSigner(e: Event): Address | null {
-  return recoverSigner(e as unknown as Record<string, unknown>, 'sig');
+  const kept = frozenEvent(e);
+  if (kept && signers.has(e)) return signers.get(e)!;
+  const who = recoverSigner(e as unknown as Record<string, unknown>, 'sig');
+  if (kept) signers.set(e, who);
+  return who;
 }
 
 /** Whether `sig` is the signature of the event's `key`. */

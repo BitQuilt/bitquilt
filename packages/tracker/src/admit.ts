@@ -209,6 +209,41 @@ export function inputsOver(p: Envelope['problem']): string[] {
 }
 
 /**
+ * The most pieces the folds of a chain's versions expand between them (PROTOCOL.md, What the door answers). The fold of
+ * a version expands it and every version before it (CORE.md section 6), so a chain costs what the square of its length
+ * costs, and a line on the identity log folds every version again.
+ */
+export const CHAIN_PIECES_MAX = 2_000_000;
+
+/**
+ * Why a version and the chain below it, as this store holds it along `prev`, would have their folds expand more than
+ * `CHAIN_PIECES_MAX` pieces between them, counted from the definitions, or nothing.
+ */
+export function chainOver(p: Envelope['problem'], envelopeOf: (h: Hash) => Envelope | null): string[] {
+  const counts: number[] = [];
+  const seen = new Set<Hash>();
+  for (let cur: Envelope['problem'] | undefined = p; cur; ) {
+    let n = 0;
+    for (const d of Object.values(cur.pieces)) n += piecesOf(d);
+    counts.push(n);
+    const prev: Hash | null = cur.prev;
+    if (!prev || seen.has(prev)) break;
+    seen.add(prev);
+    cur = envelopeOf(prev)?.problem;
+  }
+  // Oldest first: each version's fold expands the versions up to it.
+  let below = 0;
+  let n = 0;
+  for (const c of counts.reverse()) {
+    below += c;
+    n += below;
+  }
+  return n > CHAIN_PIECES_MAX
+    ? [`problem.prev: the folds of its chain would expand ${n} pieces, over the ${CHAIN_PIECES_MAX} a door takes`]
+    : [];
+}
+
+/**
  * The most bytes of data blobs a problem names, each blob once (PROTOCOL.md, What the door answers). The fold checks
  * every blob against its hash and reads its rows each time it folds the problem.
  */
@@ -410,6 +445,8 @@ export async function publish(
     const prev = store.getEnvelope(e.problem.prev);
     if (!prev) throw new Refusal(400, 'prev: not a problem this tracker holds');
     if (prev.envelope.problem.owner !== e.problem.owner) throw new Refusal(400, 'prev: by another owner');
+    const chain = chainOver(e.problem, (h) => store.envelopeOf(h));
+    if (chain.length) throw new Refusal(400, chain[0]!);
   }
   // CORE.md section 2: `from` is another owner's problem this one forks; the same owner's next version sets `prev`. A
   // fork of a problem not held here is taken on the forker's word, as the core takes it.
