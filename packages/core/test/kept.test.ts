@@ -1,5 +1,6 @@
 /**
- * What the core computes once for what a store hands out frozen (CORE.md sections 2, 3 and 6): an event's id and
+ * What the core computes once for what a store hands out frozen through every level (CORE.md sections 2, 3 and 6),
+ * and not for a value frozen at its top alone, which may still be written to below: an event's id and
  * signer, an envelope's hash, faults and pieces, and a blob's hash for the bytes handed in. Each answer is the answer
  * computed afresh; what is not frozen is computed each time it is asked, so an event or an envelope written to after
  * it was asked about is answered as it now stands; and a frozen problem's pieces follow the blobs handed with it, a
@@ -96,6 +97,26 @@ describe('an event', () => {
     expect(eventId(e)).not.toBe(before);
     expect(eventId(e)).toBe(eventId({ ...e, body: { name: 'After' } }));
     expect(eventSigner(e)).not.toBe(key);
+  });
+});
+
+describe('a value frozen at its top alone', () => {
+  it('is asked again as it now stands below: an event whose return changed, an envelope whose brief changed', () => {
+    const e = event('Shallow');
+    const shallow = { ...e, body: Object.freeze({ name: 'Shallow', note: { by: 'one' } }) } as unknown as Event;
+    Object.freeze(shallow);
+    const before = eventId(shallow);
+    ((shallow.body as { note: { by: string } }).note as { by: string }).by = 'another';
+    expect(eventId(shallow)).not.toBe(before);
+    const envelope: Envelope = structuredClone(sample);
+    Object.freeze(envelope);
+    Object.freeze(envelope.problem);
+    const hash = problemHash(envelope);
+    const pieces = expandPieces(envelope.problem, blobs);
+    envelope.problem.pieces['cite/*']!.brief = 'Another brief {n}.';
+    expect(problemHash(envelope)).not.toBe(hash);
+    expect(expandPieces(envelope.problem, blobs)[0]!.brief).toBe('Another brief 1.');
+    expect(expandPieces(envelope.problem, blobs)).not.toBe(pieces);
   });
 });
 

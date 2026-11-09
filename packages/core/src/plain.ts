@@ -1,6 +1,7 @@
 /**
  * Small pure helpers every package reaches for: the shape checks a body validator starts with, the hour arithmetic
- * the leases and windows use, the trailing slash a tracker's address carries, and the order receipts are read in.
+ * the leases and windows use, the trailing slash a tracker's address carries, the order receipts are read in, and
+ * whether a value is frozen through every level.
  * They are here, in the core, because the core is the one package every other one depends on; nothing in them reads
  * a clock, the network, a file or the environment, as AGENTS.md asks of the core.
  */
@@ -28,3 +29,27 @@ export const byAtThenId = <T extends { at: string; id: string }>(a: T, b: T): nu
 /** The keys of a closed object that `allowed` does not name: what a shape check reports as not a field of it. */
 export const unknownKeys = (o: Record<string, unknown>, allowed: readonly string[]): string[] =>
   Object.keys(o).filter((k) => !allowed.includes(k));
+
+/** Objects found frozen through every level: one stays so for good, so each is walked once. */
+const frozenAll = new WeakSet<object>();
+
+/**
+ * Whether a value is an object frozen through every level, as a store hands out what it keeps: what the core computes
+ * from such a value holds as long as the value does, so the core keeps it. A value frozen at its top alone may still
+ * be written to below, and is not one.
+ */
+export function frozenThrough(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  if (frozenAll.has(value)) return true;
+  const walked = new Set<object>();
+  const left: unknown[] = [value];
+  while (left.length) {
+    const v = left.pop();
+    if (typeof v !== 'object' || v === null || frozenAll.has(v) || walked.has(v)) continue;
+    if (!Object.isFrozen(v)) return false;
+    walked.add(v);
+    for (const x of Object.values(v)) left.push(x);
+  }
+  for (const v of walked) frozenAll.add(v);
+  return true;
+}

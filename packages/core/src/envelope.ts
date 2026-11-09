@@ -7,7 +7,7 @@
 import { canonical } from './canonical.js';
 import { type Hash, hashBytes, hashCanonical, isHash } from './hash.js';
 import { isAddress, isSignature } from './keys.js';
-import { isRecord, unknownKeys, whole } from './plain.js';
+import { frozenThrough, isRecord, unknownKeys, whole } from './plain.js';
 import { type Schema, schemaProblems } from './schema.js';
 
 export const CAPABILITIES = ['web', 'files', 'shell', 'person'] as const;
@@ -139,7 +139,8 @@ const PIECE_FIELDS: readonly string[] = [
 const CHECK_FIELDS: readonly string[] = ['file', 'image', 'tolerance', 'better'];
 
 /**
- * What is computed once for an envelope frozen as a store hands out what it keeps, and once for a blob's bytes their
+ * What is computed once for an envelope frozen through every level as a store hands out what it keeps
+ * (`frozenThrough`), and once for a blob's bytes their
  * holder fixed (`fixedBytes`): a tracker folds every version of a chain, and the fold of each version reads every
  * version before it (CORE.md section 6), so a problem's hash, its checks, its pieces and its blobs' hashes are asked
  * for again and again. An envelope that is not frozen, and bytes not fixed, may still be written to, so what is asked
@@ -161,8 +162,9 @@ export function fixedBytes(bytes: Uint8Array): Uint8Array {
   kept.fixed.add(bytes);
   return bytes;
 }
-/** Whether an envelope is frozen as a store hands out what it keeps, so what is computed from it holds. */
-export const frozenEnvelope = (e: unknown): boolean => isRecord(e) && Object.isFrozen(e) && Object.isFrozen(e.problem);
+
+/** Whether an envelope is frozen through every level, as a store hands out what it keeps, so what it gives holds. */
+export const frozenEnvelope = (e: unknown): boolean => frozenThrough(e);
 
 export function problemHash(e: Envelope): Hash {
   const keep = frozenEnvelope(e);
@@ -346,10 +348,10 @@ export function renderBrief(template: string, n: number, data: Record<string, un
 
 /**
  * The pieces of a problem, expanded and named by hash (section 3). The blobs must already have been checked. A problem
- * frozen as a store hands out what it keeps is expanded once for the same blobs, and its pieces are frozen with it.
+ * frozen through every level is expanded once for the same blobs, and its pieces are frozen with it.
  */
 export function expandPieces(p: Problem, blobs: Blobs): Piece[] {
-  if (typeof p !== 'object' || p === null || !Object.isFrozen(p)) return expand(p, blobs);
+  if (!frozenThrough(p)) return expand(p, blobs);
   const given = Object.values(p.data).map((h) => blobs.get(h));
   const known = kept.pieces.get(p);
   if (known && known.blobs.length === given.length && known.blobs.every((b, i) => b === given[i])) return known.pieces;

@@ -9,7 +9,7 @@ import { canonicalBytes } from './canonical.js';
 import { CAPABILITIES, type Capability } from './envelope.js';
 import { type Hash, hashBytes, hashCanonical, hashText, isHash } from './hash.js';
 import { type Address, type Signature, isAddress, isSignature, recoverSigner, signObject } from './keys.js';
-import { isRecord, unknownKeys } from './plain.js';
+import { frozenThrough, isRecord, unknownKeys } from './plain.js';
 import type { Return } from './schema.js';
 
 export const CORE_EVENT_TYPES = [
@@ -144,14 +144,13 @@ export interface Receipt {
 }
 
 /**
- * Ids and signers already computed, for events frozen as a store hands out the lines it keeps: a tracker folds the same
- * lines again and again, and hashing every event each time is most of what a fold costs once each problem's state is
- * kept. An event that is not frozen may still be written to, so it is hashed each time it is asked.
+ * Ids and signers already computed, for events frozen through every level as a store hands out the lines it keeps
+ * (`frozenThrough`): a tracker folds the same lines again and again, and hashing every event each time is most of what
+ * a fold costs once each problem's state is kept. Any other event may still be written to, so it is hashed each time.
  */
 const ids = new WeakMap<object, Hash>();
 const signers = new WeakMap<object, Address | null>();
-const frozenEvent = (e: Unsigned | Event): boolean =>
-  typeof e === 'object' && e !== null && Object.isFrozen(e) && Object.isFrozen(e.body);
+const frozenEvent = (e: Unsigned | Event): boolean => frozenThrough(e);
 
 /** The id of an event: the hash of the event without `sig` and `sig_to`. */
 export function eventId(e: Unsigned | Event): Hash {
