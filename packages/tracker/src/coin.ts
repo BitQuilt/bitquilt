@@ -21,7 +21,7 @@ import {
   plusHours,
   whole,
 } from '@bitquilt/core';
-import { type Admission, type Layer, refusedHere } from './challenge.js';
+import { type Admission, type Layer, type ProblemLayer, refusedHere } from './challenge.js';
 import { matchedCommitments } from './gold.js';
 import type { CoinLockWord } from './stake.js';
 import { creditedRoots } from './standing.js';
@@ -399,6 +399,15 @@ interface Coin extends CoinLockView {
 }
 
 /**
+ * The first version of a problem's line the tracker holds: the oldest envelope of the core's chain along `prev`.
+ * Versions whose chains share a version share it, so it names the line (QX-1 section 2 as amended 10 November 2026).
+ */
+function lineKeyOf(pl: ProblemLayer): Hash {
+  const chain = pl.fold.chain;
+  return chain.length > 1 ? (chain[chain.length - 2]!.problem.prev as Hash) : pl.problem;
+}
+
+/**
  * The lines the problem logs give the coin, as the layers fold them (QX-17 section 3), in problem order and unsorted:
  * a verified line for each root of a square the owner's gold matched (QX-16), weighted by how its set was made; an
  * accepted line for each set completed by `now`, naming the roots it credits; a complete line for a problem once its
@@ -408,8 +417,10 @@ interface Coin extends CoinLockView {
 export function linesFromLayer(layer: Layer, params: CoinParams, now: string): { lines: Line[]; verified: Line[] } {
   const lines: Line[] = [];
   const verified: Line[] = [];
+  const accepted = new Set<string>();
   for (const pl of layer.problems.values()) {
     const fold = pl.fold;
+    const line = lineKeyOf(pl);
     for (const c of matchedCommitments(pl.golds)) {
       const view = fold.byHash.get(c.piece);
       const set = view?.accepting;
@@ -438,10 +449,14 @@ export function linesFromLayer(layer: Layer, params: CoinParams, now: string): {
     }
     for (const v of fold.pieces)
       if (v.accepting && v.accepting.completedAt <= now) {
+        // A set carried across a version is one set, so the line gives it one accepted line, the first version's.
+        const id = `${v.piece.hash}:${v.accepting.completedAt}`;
+        if (accepted.has(`${line} ${id}`)) continue;
+        accepted.add(`${line} ${id}`);
         lines.push({
           kind: 'accepted',
           at: v.accepting.completedAt,
-          id: `${v.piece.hash}:${v.accepting.completedAt}`,
+          id,
           problem: pl.problem,
           piece: v.piece.hash,
           roots: creditedRoots(v).map((r) => fold.rootOf(r, now)),
@@ -541,6 +556,9 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
 
   // Derived lines from the problem logs, as the layers fold them.
   const { lines, verified } = linesFromLayer(layer, params, now);
+  // QX-17 section 8 as amended 10 November 2026: an escrow is the line's, kept under the line's first version.
+  const lineOfProblem = new Map<Hash, Hash>([...layer.problems.values()].map((pl) => [pl.problem, lineKeyOf(pl)]));
+  const escrowKey = (problem: Hash): Hash => lineOfProblem.get(problem) ?? problem;
   // Every epoch that has ended.
   const genesis = Date.parse(params.genesis);
   const epochMs = params.epoch_h * 3_600_000;
@@ -693,7 +711,7 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
         break;
       }
       case 'accepted': {
-        const list = escrows.get(line.problem!) ?? [];
+        const list = escrows.get(escrowKey(line.problem!)) ?? [];
         const roots = line.roots ?? [];
         const e = list.find((x) => x.remaining > 0 && x.at < line.at);
         if (!e || roots.length === 0) break;
@@ -709,7 +727,7 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
         break;
       }
       case 'complete': {
-        for (const e of escrows.get(line.problem!) ?? []) {
+        for (const e of escrows.get(escrowKey(line.problem!)) ?? []) {
           if (e.remaining <= 0) continue;
           account(e.payer).escrowed -= e.remaining;
           e.remaining = 0;
@@ -788,14 +806,14 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
           const boundBefore = lines.some((x) => x.kind === 'bind' && x.coin === id && x.at < idle);
           if (!boundBefore && idle <= now) insert({ kind: 'release', at: idle, id: `idle:${id}`, coin: id });
         } else if (e.type === 'pay') {
-          const list = escrows.get(b.problem as Hash) ?? [];
+          const list = escrows.get(escrowKey(b.problem as Hash)) ?? [];
           list.push({
             payer: result.root,
             remaining: b.amount as number,
             per_square: b.per_square as number,
             at: line.at,
           });
-          escrows.set(b.problem as Hash, list);
+          escrows.set(escrowKey(b.problem as Hash), list);
           a.escrowed += b.amount as number;
         } else if (e.type === 'burn') {
           drawUnvestedFirst(a, b.amount as number, line.at);

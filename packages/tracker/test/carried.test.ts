@@ -15,7 +15,8 @@ import { VERDICT, addr, boot, envelope, key } from './helpers.js';
  * point. A piece has one revealed gold across its line, so the owner's gold at another version is refused once one is
  * revealed, whichever is revealed first. One challenge is open at a time across the line, and a piece that had its
  * held challenge at one version is not challenged at another. The coin, last: a carried square is verified once, and
- * an escrow at v1 pays the set once; and what the reference does with an escrow at each version.
+ * an escrow at v1 pays the set once; an escrow at v1 pays a set made at v2 alone, before one at v2 does, and what is
+ * left of it is refunded when v2 completes, though v1 never does (QX-17 section 8 as amended 10 November 2026).
  */
 const owner = key(9),
   elsewhere = key(8),
@@ -413,7 +414,7 @@ describe('the coin across a version (QX-17 section 3 and QX-1 section 2 as amend
     linesFromLayer(s.layer(), COIN, s.nowIso())
       .verified.filter((l) => l.piece === piece)
       .map((l) => [l.problem, l.root]);
-  type Balance = { minted: number; received: number };
+  type Balance = { minted: number; received: number; escrowed: number };
   const balanceOf = (k: Uint8Array) => s.t.get<Balance>(`/coin/balance/${addr(k)}`);
 
   it('verifies a carried square once on one gold at v1', async () => {
@@ -459,12 +460,21 @@ describe('the coin across a version (QX-17 section 3 and QX-1 section 2 as amend
     expect((await balanceOf(F)).received).toBe(25);
   });
 
-  it('pays a carried set once from the escrow of each version, as the reference does today', async () => {
-    await s.t.accepted('/coin/events', s.t.ev(A, 'pay', { problem: v1, amount: 50, per_square: 50 }));
-    await s.t.accepted('/coin/events', s.t.ev(A, 'pay', { problem: v2, amount: 50, per_square: 50 }));
-    await s.squared(v1, 'four', [G, H]);
-    // This is what the reference does: the accepted line of each version draws on that version's own escrow.
-    expect((await balanceOf(G)).received).toBe(50);
-    expect((await balanceOf(H)).received).toBe(50);
+  it('pays a set made at v2 alone from the earliest escrow of the line, the one at v1', async () => {
+    await s.t.accepted('/coin/events', s.t.ev(A, 'pay', { problem: v1, amount: 100, per_square: 50 }));
+    await s.t.accepted('/coin/events', s.t.ev(C, 'pay', { problem: v2, amount: 50, per_square: 50 }));
+    await s.squared(v2, 'four', [G, H]);
+    expect(s.stateOf(v1, 'four')).toBe('open');
+    expect((await balanceOf(G)).received).toBe(25);
+    expect((await balanceOf(H)).received).toBe(25);
+    expect((await balanceOf(A)).escrowed).toBe(50);
+    expect((await balanceOf(C)).escrowed).toBe(50);
+  });
+
+  it('refunds what is left of every escrow of the line when v2 completes, though v1 never does', async () => {
+    s.t.clock.tick = Date.parse(T0) + 30 * 24 * HOUR;
+    expect(s.stateOf(v1, 'four')).toBe('open');
+    expect((await balanceOf(A)).escrowed).toBe(0);
+    expect((await balanceOf(C)).escrowed).toBe(0);
   });
 });
