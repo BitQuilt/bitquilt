@@ -15,6 +15,7 @@ import {
   type Receipt,
   SLUG_RULE,
   canonicalBytes,
+  eventSignedByKey,
   expandPieces,
   isRecord,
   isSlug,
@@ -110,7 +111,9 @@ export interface Proposal {
 /**
  * QX-22 section 2: "The proposals that stand on a problem are the well-formed `propose` events on its chain, in
  * receipt order. Of several proposals of one piece by one root, the first stands and the rest are passed over." Two
- * roots that propose one piece are two proposals, and two pieces under one name stand side by side.
+ * roots that propose one piece are two proposals, and two pieces under one name stand side by side. Well-formed is
+ * the body's shape and the signature of the event's own key, so a reader of a chain it did not admit, a clone or a
+ * peer's lines, counts the same proposals as the door that took them.
  */
 export function standingProposals(
   receipts: Receipt[],
@@ -123,6 +126,7 @@ export function standingProposals(
   for (const { receipt, at, id } of orderReceipts(received)) {
     const e = receipt.event;
     if (at > now || !e.problem || e.piece !== undefined || proposeBodyProblems(e.body).length) continue;
+    if (!eventSignedByKey(e)) continue;
     const { name, piece, why } = e.body as { name: string; piece: PieceDef; why: string };
     const hash = proposedHash(name, piece);
     if (!hash) continue;

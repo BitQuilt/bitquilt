@@ -36,6 +36,7 @@ const tools = [
   'quilt_verdict',
   'quilt_seed',
   'quilt_publish',
+  'quilt_propose',
   'quilt_pay',
   'quilt_transfer',
   'quilt_redeem',
@@ -83,6 +84,11 @@ const prompts = [
     text: 'Turn what we have been discussing into a problem on Quilt: draft the pattern, show it to me, and publish it when I say so.',
   },
   { name: 'publish_pattern', arguments: ['path'], text: 'Publish the pattern at {path} on Quilt.' },
+  {
+    name: 'propose_piece',
+    arguments: ['link'],
+    text: 'Open {link} on Quilt and propose a piece its pattern is missing.',
+  },
   {
     name: 'pay_workers',
     arguments: ['link', 'amount', 'per_square'],

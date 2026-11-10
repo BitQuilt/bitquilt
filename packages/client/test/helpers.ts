@@ -122,6 +122,7 @@ export const LISTED_TOOLS = [
   'quilt_verdict',
   'quilt_seed',
   'quilt_publish',
+  'quilt_propose',
   'quilt_pay',
   'quilt_transfer',
   'quilt_redeem',

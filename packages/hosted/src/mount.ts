@@ -4,8 +4,8 @@
  * made here, one for each start, and handed to both sides. The on-ramp writes it on every post it makes for a member
  * (`custodyHeaders`, the tracker's witness.ts), and the door reads it there (`hostedPost`), so the receipt says
  * custody: hosted (QX-18 section 3). The door answers the on-ramp's routes beside its own, and its well-known document
- * says what the on-ramp says of itself. Beside it, the owners' turn every hour (QX-19 section 4, QX-16), scheduled
- * here for both binaries.
+ * says what the on-ramp says of itself. Beside it, the owners' turn every hour, scheduled here for both binaries
+ * (QX-19 section 4, QX-16, QX-22 section 4).
  */
 import { randomBytes } from 'node:crypto';
 import { type Store, type Tracker, type TrackerOptions, createTracker } from '@bitquilt/tracker';

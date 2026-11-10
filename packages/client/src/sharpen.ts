@@ -3,14 +3,17 @@
  * home, and the sharpening over every problem the home knows and this key owns, which the owner's turn runs
  * (owner-turn.ts). Each works through the door its Quilt hands it (door.ts): the version is published as `publish`
  * publishes it and the gold the home holds is committed again on it (gold.ts), and the Quilt's `sharpen`, `freeze`
- * and `sharpenDue` call these. The sentence itself comes from `ask`, which the caller supplies.
+ * and `sharpenDue` call these. The sentence itself comes from `ask`, which the caller supplies. `republish` is the
+ * publishing of an owner's next version, which the take of a proposed piece shares (propose.ts).
  */
 import { type Envelope, type Hash, type Problem, expandPieces, isHash, signObject, textIssues } from '@bitquilt/core';
 import type { Door } from './door.js';
 import { commitGold } from './gold.js';
 import { parseLink } from './link.js';
 import type { Seam, SeamSide } from './listings.js';
+import type { Published } from './quilt.js';
 import { type SentenceAsk, layerByHash } from './render.js';
+import type { Resolved } from './resolver.js';
 
 /**
  * QX-19 section 4: a brief sharpened, or not: the sentence asked for each family with a seam, whether it was kept and
@@ -27,7 +30,7 @@ export interface Sharpened {
 /** The most a sentence added to a brief may run (QX-19 section 4). */
 export const SENTENCE_MAX = 400;
 const NOT_OWNER = 'only the owner sharpens a brief';
-const FROZEN = "that problem's brief is frozen in this home; `quilt freeze <problem> off` thaws it";
+export const FROZEN = "that problem's brief is frozen in this home; `quilt freeze <problem> off` thaws it";
 
 /**
  * QX-19 section 4: the owner's node sharpens a brief two readings read apart. For each family of this problem with a
@@ -47,7 +50,8 @@ export async function sharpen(
 ): Promise<Sharpened> {
   const id = door.needKey();
   if (door.library.problems[problem]?.frozen) throw new Error(FROZEN);
-  const { state, layer, superseded } = await door.open(problem);
+  // The owner's turn reads every problem of the home each hour, so the read leaves the library's dates as they were.
+  const { state, layer, superseded } = await door.open(problem, false);
   const old = state.envelope.problem;
   if (old.owner.toLowerCase() !== id.address.toLowerCase()) throw new Error(NOT_OWNER);
   const entry = door.library.problems[problem];
@@ -100,7 +104,18 @@ export async function sharpen(
   if (!sentences.some((s) => s.kept)) return { problem, sentences, hash: null, posted: [], refused: [] };
   const resolved = await door.resolve(parseLink(problem));
   if (!resolved) throw new Error('no resolver answered for that hash');
-  const next: Problem = { ...old, prev: problem, pieces };
+  const out = await republish(door, problem, { ...old, prev: problem, pieces }, resolved);
+  return { problem, sentences, hash: out.posted.length ? out.hash : null, posted: out.posted, refused: out.refused };
+}
+
+/**
+ * The next version of a problem this key owns, published: the envelope signed with the home's key and the config's
+ * hints, posted as `publish` posts with the topics of this key's announce, the gold the home holds for the problem
+ * committed again on the new pieces, and the home's library noting which version replaced which. The sharpening
+ * publishes through it, and the take of a proposed piece (propose.ts).
+ */
+export async function republish(door: Door, problem: Hash, next: Problem, resolved: Resolved): Promise<Published> {
+  const id = door.needKey();
   const unsigned = {
     quilt: 1 as const,
     problem: next,
@@ -132,7 +147,7 @@ export async function sharpen(
     if (was) was.next = out.hash;
     door.save();
   }
-  return { problem, sentences, hash: out.posted.length ? out.hash : null, posted: out.posted, refused: out.refused };
+  return out;
 }
 
 /**

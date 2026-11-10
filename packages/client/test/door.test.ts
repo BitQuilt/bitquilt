@@ -51,7 +51,7 @@ function quiltMethods(): Map<string, ts.Block> {
 
 describe('the Door', () => {
   it('goes to the files its header and AGENTS.md name, and to no other', () => {
-    expect(taking).toEqual(['coin.ts', 'gold.ts', 'sharpen.ts', 'stake.ts', 'trace.ts']);
+    expect(taking).toEqual(['coin.ts', 'gold.ts', 'propose.ts', 'sharpen.ts', 'stake.ts', 'trace.ts']);
     const header = readFileSync(join(src, 'door.ts'), 'utf8');
     expect(named(header.slice(0, header.indexOf(': ')), /\((\w+\.ts)\)/g)).toEqual(taking);
     const agents = readFileSync(join(here, '..', '..', '..', 'AGENTS.md'), 'utf8');
@@ -67,7 +67,18 @@ describe('the Door', () => {
     const methods = quiltMethods();
     const kept = [...methods.keys()].filter((name) => acts.has(name)).sort();
     expect(kept).toEqual(
-      expect.arrayContaining(['commitGold', 'freeze', 'pay', 'revealGold', 'sharpen', 'sharpenDue', 'stakeRule']),
+      expect.arrayContaining([
+        'commitGold',
+        'freeze',
+        'pay',
+        'propose',
+        'revealGold',
+        'sharpen',
+        'sharpenDue',
+        'stakeRule',
+        'take',
+        'takeDue',
+      ]),
     );
     for (const name of kept) {
       const body = methods.get(name)!.statements;

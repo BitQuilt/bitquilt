@@ -626,7 +626,7 @@ describe("the owners' turn", () => {
       expect(r.received[0]).not.toHaveProperty('via');
     }
     expect(readFileSync(new URL('../../../docs/PROTOCOL.md', import.meta.url), 'utf8')).toContain(
-      "The reference writes `hosted` and `ai` on everything its on-ramp posts to it, and `self` with no seat on every other post (`postEvent` in `packages/tracker/src/admit.ts`). Through the connector a member's product makes the calls; the on-ramp's own hourly turn makes the rest, the gold due revealed (QX-16), the briefs sharpened (QX-19 section 4) and the problems announced (QX-13 section 3), and those carry no `via`, since no product made them.",
+      "The reference writes `hosted` and `ai` on everything its on-ramp posts to it, and `self` with no seat on every other post (`postEvent` in `packages/tracker/src/admit.ts`). Through the connector a member's product makes the calls; the on-ramp's own hourly turn makes the rest, the gold due revealed (QX-16), the briefs sharpened (QX-19 section 4), the proposed pieces taken (QX-22 section 4) and the problems announced (QX-13 section 3), and those carry no `via`, since no product made them.",
     );
     const memberHash = createHash('sha256')
       .update(/\/mcp\/([0-9a-f]{64})$/.exec(made.url)![1]!)

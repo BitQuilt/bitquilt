@@ -26,8 +26,10 @@ export {
   type CoinBalance,
   type Handed,
   type Pattern,
+  type Proposed,
   type Sharpened,
   type Standing,
+  type Taken,
 } from './quilt.js';
 export { AWAY_LOG } from './away.js';
 export { launchdLabel } from './schedule.js';

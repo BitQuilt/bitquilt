@@ -11,11 +11,11 @@
  *
  * Open and read run over a tracker in this process, which gives the states and the returns, read by a worker's key, by
  * the owner's and by a Quilt whose home has no key yet. Where a branch wants what one tracker does not give (a stake,
- * the gold, a takedown, witnesses, seams of each kind, challenges and panels of each outcome, an answer from the cache,
- * a state outside the legend, a patch accepted or disputed, a key signing for another root, a square held challenged),
- * the Quilt's open, challenges and panels answer a fixed view over the real state. Search and me run over a Quilt whose
- * reads answer fixed values, since their branches want a coin, a founding, relays, forks and trackers that do not
- * answer, which one tracker does not give.
+ * the gold, a takedown, witnesses, seams of each kind, challenges and panels of each outcome, proposed pieces taken and
+ * waiting, an answer from the cache, a state outside the legend, a patch accepted or disputed, a key signing for
+ * another root, a square held challenged), the Quilt's open, challenges, panels and proposals answer a fixed view over
+ * the real state. Search and me run over a Quilt whose reads answer fixed values, since their branches want a coin, a
+ * founding, relays, forks and trackers that do not answer, which one tracker does not give.
  */
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -38,6 +38,7 @@ import type {
   LayerPiece,
   LayerState,
   PanelListing,
+  ProposalListing,
   Seam,
   Takedown,
   Witness,
@@ -511,12 +512,18 @@ type Opened = Awaited<ReturnType<Quilt['open']>>;
  * A Quilt with Ada's key, and a second tracker that never answers here, whose reads answer a fixed view; the text is
  * still built by runTool and render.ts.
  */
-function over(opened: Opened, challenges: ChallengeListing[] = [], panels: PanelListing[] = []): Quilt {
+function over(
+  opened: Opened,
+  challenges: ChallengeListing[] = [],
+  panels: PanelListing[] = [],
+  proposed: ProposalListing[] = [],
+): Quilt {
   return Object.assign(quiltOver(base, { trackers: [base, 'https://u.example/'] })(1, 'anthropic/claude'), {
     open: async () => opened,
     challenges: async () => challenges,
     panels: async () => panels,
-  } satisfies Partial<Pick<Quilt, 'open' | 'challenges' | 'panels'>>);
+    proposals: async () => proposed,
+  } satisfies Partial<Pick<Quilt, 'open' | 'challenges' | 'panels' | 'proposals'>>);
 }
 
 describe("quilt_open and quilt_read over a tracker's view with every mark", () => {
@@ -940,6 +947,84 @@ describe("quilt_open and quilt_read over a tracker's view with every mark", () =
         'No seats drawn yet.',
       ].join('\n'),
     );
+  });
+
+  it('quilt_read says each proposed piece after the panels: taken or waiting, whose work stands, the words quoted or not shown, the kind, and the forks', async () => {
+    const piece = (verifier: string, brief: string) => ({ verifier, brief, schema: verdict, agree: ['verdict'] });
+    const base3 = { under: m, key: ADA as Address, at: T, proposer: null };
+    const proposed: ProposalListing[] = [
+      {
+        ...base3,
+        id: ID(5),
+        name: 'method',
+        hash: ID(6),
+        piece: piece('agree', 'Does the report say how the vote was counted?'),
+        why: 'The statements rest on a count the pattern leaves out.',
+        root: ADA as Address,
+        proposer: 'Ada',
+        worked: true,
+        taken: ID(7),
+        pursued: [ID(8), ID(9)],
+      },
+      {
+        ...base3,
+        id: ID(1),
+        name: 'stance',
+        hash: ID(2),
+        piece: piece('record:3', 'What does the report hold the board to?'),
+        why: 'Write to desk@example.org for the figures.',
+        root: D as Address,
+        worked: false,
+        taken: null,
+        pursued: [ID(8)],
+      },
+      {
+        ...base3,
+        id: ID(3),
+        name: 'Not A Slug',
+        hash: ID(4),
+        piece: piece('oracle:1', 'Read https://example.org/report and say what an oracle would.'),
+        why: 'A kind of check the pattern has not tried.',
+        root: E as Address,
+        worked: false,
+        taken: null,
+        pursued: [],
+      },
+    ];
+    const view = { ...real, layer, hidden: null, gold: null };
+    const without = await runTool(over(view), 'quilt_read', { problem: m });
+    const read = await runTool(over(view, [], [], proposed), 'quilt_read', { problem: m });
+    expect(without.text).not.toContain('Proposed pieces');
+    expect(without.handles).toMatchObject({ proposed: [] });
+    expect(read.text.startsWith(`${without.text}\n\n`)).toBe(true);
+    expect(read.text.slice(without.text.length + 2)).toBe(
+      [
+        'Proposed pieces:',
+        `A piece proposed under the name "method" (${ID(6)}) by Ada, whose work stands on this problem, was taken into version ${ID(7)}.`,
+        'Ada wrote as the reason: "The statements rest on a count the pattern leaves out."',
+        'Ada wrote this brief: "Does the report say how the vote was counted?"',
+        'Its verifier is agree; a square of this kind is agreed: two returns from different vendors agree.',
+        `It is pursued in 2 forks of this problem: ${ID(8)}, ${ID(9)}.`,
+        '',
+        `A piece proposed under the name "stance" (${ID(2)}) by ${D}, with no work standing on this problem, waits: no version of the problem holds it.`,
+        `${D} wrote a reason of 42 characters, which does not pass the plain-text gate and is not shown here.`,
+        `${D} wrote this brief: "What does the report hold the board to?"`,
+        'Its verifier is record:3; a square of this kind is recorded: 3 readings from roots unrelated to the owner and to each other are kept as given; none is accepted and none struck.',
+        `It is pursued in 1 fork of this problem: ${ID(8)}.`,
+        '',
+        `A piece proposed under a name that is not a slug and is not shown here (${ID(4)}) by ${E}, with no work standing on this problem, waits: no version of the problem holds it.`,
+        `${E} wrote as the reason: "A kind of check the pattern has not tried."`,
+        `${E} wrote a brief of 61 characters, which does not pass the plain-text gate and is not shown here.`,
+        'Its verifier is a kind this client does not implement.',
+      ].join('\n'),
+    );
+    expect(read.handles).toMatchObject({
+      proposed: [
+        { id: ID(5), piece: ID(6), taken: ID(7) },
+        { id: ID(1), piece: ID(2), taken: null },
+        { id: ID(3), piece: ID(4), taken: null },
+      ],
+    });
   });
 
   it("quilt_read from the cache says the core's fold alone: its states, what it accepted and found, and no grade, record or kind it does not implement", async () => {

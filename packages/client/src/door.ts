@@ -1,10 +1,11 @@
 /**
- * The door a Quilt hands its coin (coin.ts), its gold (gold.ts), its stake (stake.ts), its sharpening (sharpen.ts) and
- * its trace (trace.ts): the key, the config and the library; the way to sign and to post, which stays the Quilt's own;
- * the trackers to ask and how to ask them; what the Quilt has read; and three acts of the Quilt's own those files build
- * on: the core's pick held to one piece, a problem resolved, and an envelope published as `publish` publishes it, its
- * announce and its version signed with the home's key. A Quilt builds one from its private methods when it is made
- * (quilt.ts), so signing and posting reach those five files and no caller of the Quilt.
+ * The door a Quilt hands its coin (coin.ts), its gold (gold.ts), its stake (stake.ts), its sharpening (sharpen.ts), its
+ * proposed pieces (propose.ts) and its trace (trace.ts): the key, the config and the library; the way to sign and to
+ * post, which stays the Quilt's own; the trackers to ask and how to ask them; what the Quilt has read; and three acts
+ * of the Quilt's own those files build on: the core's pick held to one piece, a problem resolved, and an envelope
+ * published as `publish` publishes it, its announce and its version signed with the home's key. A Quilt builds one
+ * from its private methods when it is made (quilt.ts), so signing and posting reach those six files and no caller of
+ * the Quilt.
  */
 import type { Envelope, Event, Hash, Pick, Problem, State, Unsigned } from '@bitquilt/core';
 import type { Config, Identity } from './config.js';
@@ -47,8 +48,11 @@ export interface Door {
   wellKnown(tracker: string): Promise<Record<string, unknown> | null>;
   /** The tracker's layer over a problem (QX-15, QX-16): per piece, the stake asked and the gold's outcome. */
   layerOf(hash: Hash, tracker: string): Promise<LayerPiece[] | null>;
-  /** A problem opened: its state, the layer of the tracker that answered, and the version that replaced it, if any. */
-  open(input: string): Promise<{ state: State; layer: LayerPiece[] | null; superseded: Hash | null }>;
+  /**
+   * A problem opened: its state, the layer of the tracker that answered, and the version that replaced it, if any.
+   * With `opened` false the read is the node's own, and the library keeps the time the person last opened the problem.
+   */
+  open(input: string, opened?: boolean): Promise<{ state: State; layer: LayerPiece[] | null; superseded: Hash | null }>;
   /** The library saved. */
   save(): void;
   /** The core's `next` held to one piece, so the pick is that piece's, or null where this key cannot take it. */

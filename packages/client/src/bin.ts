@@ -47,6 +47,14 @@
  *                                                         machine; every owned problem, or one
  *   quilt freeze <problem> [off]                          the owner's freeze of a brief in this home: no sharpening
  *                                                         from then on, so no version republishes it; off thaws it
+ *   quilt propose <problem> <name> <piece.json> <why>     a piece proposed beside a problem (QX-22): its name, the
+ *                                                         piece as a pattern writes one, and the reason for it
+ *   quilt proposals <problem> [--json]                    the pieces proposed beside a problem, as quilt_read says
+ *                                                         them; --json: the list as the tracker gives it
+ *   quilt take [<problem> [<name> ...]]                   the owner's take of proposed pieces into a version (QX-22):
+ *                                                         every owned problem, or one, by the default; a name, a hash
+ *                                                         or an event's id takes that piece and raises the budget to
+ *                                                         fit
  *   quilt pay <problem> <amount> <per_square>             coin escrowed to a problem on the coin's home (QX-17), paid
  *                                                         per accepted square
  *   quilt balance                                         this key's coin at the first tracker that carries one
@@ -70,7 +78,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import type { DeclineReason } from '@bitquilt/core';
+import type { DeclineReason, PieceDef } from '@bitquilt/core';
 import { NEEDS_AGENT, RUN_TIMEOUT_MS, agentSentence, findAgent, searchDirs } from './agents.js';
 import { awayCli } from './away.js';
 import { type SentenceAsk, handedJson, sentenceAsk } from './render.js';
@@ -285,6 +293,31 @@ async function main(): Promise<void> {
     }
     case 'freeze': {
       console.log(JSON.stringify(await make().freeze(args[1] as `sha256:${string}`, (args[2] ?? 'on') !== 'off')));
+      return;
+    }
+    case 'propose': {
+      // QX-22 section 1: one piece put beside a problem, read from a file as a pattern writes one.
+      const piece = JSON.parse(readFileSync(args[3] ?? '', 'utf8')) as PieceDef;
+      const r = await make().propose(args[1] ?? '', args[2] ?? '', piece, args.slice(4).join(' '));
+      console.log(JSON.stringify(r, null, 2));
+      return;
+    }
+    case 'proposals': {
+      // QX-22 section 5: the pieces proposed beside a problem, in the words quilt_read gives them; --json: the list as
+      // the tracker gives it.
+      const quilt = make();
+      const { hash, state, tracker } = await quilt.open(args.slice(1).find((a) => a !== '--json') ?? '');
+      const list = await quilt.proposals(hash, tracker);
+      if (args.includes('--json')) console.log(JSON.stringify(list, null, 2));
+      else console.log(quilt.proposedText(list, state) || 'No piece is proposed beside that problem.');
+      return;
+    }
+    case 'take': {
+      // QX-22 section 4: the owner's take of proposed pieces into a version. With no problem, every problem this key
+      // owns, by the default; with names, those pieces, the budget raised to fit.
+      const quilt = make();
+      const taken = args[1] ? [await quilt.take(args[1] as `sha256:${string}`, args.slice(2))] : await quilt.takeDue();
+      console.log(JSON.stringify(taken, null, 2));
       return;
     }
     case 'sharpen': {

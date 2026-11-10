@@ -13,6 +13,7 @@ import {
   type Hash,
   type Pick,
   type Piece,
+  type PieceDef,
   type Problem,
   type State,
   type Unsigned,
@@ -43,6 +44,7 @@ import {
   type LayerPiece,
   type Opened,
   type PanelListing,
+  type ProposalListing,
   type Scrape,
   SIDES,
   type Seam,
@@ -55,6 +57,8 @@ import { type AnnouncedWork, NO_WORK, announcementEvent, postToRelays, searchRel
 import type { Library } from './library.js';
 import { type Posted, type Resolver, askJson } from './resolver.js';
 import { inParallel } from './pool.js';
+import * as proposing from './propose.js';
+import type { Proposed, Taken } from './propose.js';
 import * as sharpen from './sharpen.js';
 import type { Sharpened } from './sharpen.js';
 import * as staking from './stake.js';
@@ -69,6 +73,7 @@ import {
   nameOf,
   panelsText,
   pieceText,
+  proposedText,
   summary,
   waitsText,
   witnessesOf,
@@ -78,6 +83,7 @@ export type { CoinBalance } from './coin.js';
 export type { Door } from './door.js';
 export type { Library } from './library.js';
 export type { Posted } from './resolver.js';
+export type { Proposed, Taken } from './propose.js';
 export type { Sharpened } from './sharpen.js';
 
 /** The vendor and model a host declares, from the name it gives at connection. */
@@ -223,8 +229,8 @@ function isDeclineReason(s: string): s is DeclineReason {
  * key and nothing else: every event leaves through `sign`. A post goes to the trackers the library remembers for the
  * problem, then the config's (`trackersFor`), and waits in the resolver's queue when none takes it. The library records
  * what this key opened, claimed, returned, seeded and committed, and is saved after each. The coin (coin.ts), the
- * gold (gold.ts), the stake (stake.ts), the owner's sharpening (sharpen.ts) and the trace (trace.ts) do their work
- * through the door it hands them, built here from its private methods.
+ * gold (gold.ts), the stake (stake.ts), the owner's sharpening (sharpen.ts), the proposed pieces (propose.ts) and the
+ * trace (trace.ts) do their work through the door it hands them, built here from its private methods.
  */
 export class Quilt {
   readonly hostName: string | undefined;
@@ -234,8 +240,8 @@ export class Quilt {
    */
   private readonly wellKnownCache = new Map<string, { at: number; answer: Promise<Record<string, unknown> | null> }>();
   /**
-   * What coin.ts, gold.ts, stake.ts, sharpen.ts and trace.ts are handed (door.ts): the key, the config, the library,
-   * and this Quilt's own signing, posting and reading.
+   * What coin.ts, gold.ts, stake.ts, sharpen.ts, propose.ts and trace.ts are handed (door.ts): the key, the config,
+   * the library, and this Quilt's own signing, posting and reading.
    */
   private readonly door: Door;
 
@@ -273,7 +279,7 @@ export class Quilt {
       firstAnswer: (trackers, ask) => q.firstAnswer(trackers, ask),
       wellKnown: (tracker) => q.wellKnown(tracker),
       layerOf: (hash, tracker) => q.layerOf(hash, tracker),
-      open: (input) => q.open(input),
+      open: (input, opened) => q.open(input, opened),
       save: () => q.save(),
       pickOnly: (state, piece, now) => q.pickOnly(state, piece, now),
       resolve: (link) => q.resolver.resolve(link),
@@ -512,9 +518,13 @@ export class Quilt {
   /**
    * The problem behind a link or hash, resolved and reduced, with the tracker's own view of its pieces and its scrape
    * where one answered, and the witness on each reveal its receipts name (QX-18); the library remembers it and where it
-   * was found.
+   * was found. With `opened` false the read is the node's own, as the owner's turn makes it each hour: the library
+   * keeps the time the person last opened the problem, which the sheet and the card order their lists by.
    */
-  async open(input: string): Promise<
+  async open(
+    input: string,
+    opened = true,
+  ): Promise<
     Opened & {
       link: Link;
       layer: LayerPiece[] | null;
@@ -543,7 +553,7 @@ export class Quilt {
       slug: state.envelope.problem.slug,
       trackers,
       first: entry?.first ?? now,
-      last: now,
+      last: opened || !entry ? now : entry.last,
     };
     this.save();
     const st = resolved.tracker ? await this.trackerState(resolved.hash, resolved.tracker) : null;
@@ -1149,6 +1159,18 @@ export class Quilt {
   }
 
   /**
+   * The pieces proposed beside a problem (QX-22 section 3) as the first tracker that answers lists them: the one that
+   * answered for the problem, then the known ones. None where no tracker here carries the extension.
+   */
+  async proposals(problem: Hash, tracker: string | null = null): Promise<ProposalListing[]> {
+    const found = await this.firstAnswer(
+      this.trackersFor(problem, tracker ? [tracker] : []),
+      async (t) => (await this.ask<{ proposals: ProposalListing[] }>(`${t}p/${problem}/proposals`))?.proposals ?? null,
+    );
+    return found ?? [];
+  }
+
+  /**
    * A challenge of a piece's provisional acceptance (QX-1), or of a gold miss by a root it struck (QX-16): a stake of
    * this key's standing, 0 allowed against a miss, and one sentence of ground, signed and posted.
    */
@@ -1408,6 +1430,11 @@ export class Quilt {
     return panelsText(list, state);
   }
 
+  /** The pieces proposed said as text, empty where there are none (render.ts, `proposedText`). */
+  proposedText(list: ProposalListing[], state: State): string {
+    return proposedText(list, state);
+  }
+
   // The stake (QX-15): the rule a problem's owner sets. The work is in stake.ts, through the door, with the lock
   // before a claim that `next` posts.
 
@@ -1432,6 +1459,24 @@ export class Quilt {
   /** The owner's sharpening over every problem the home knows and this key owns (sharpen.ts, `sharpenDue`). */
   sharpenDue(ask: (q: SentenceAsk) => Promise<string | null>, now?: string): Promise<Sharpened[]> {
     return sharpen.sharpenDue(this.door, ask, now);
+  }
+
+  // The proposed pieces (QX-22): one piece proposed beside a problem by any key, and the owner's take of proposed
+  // pieces into a version. The work is in propose.ts, through the door.
+
+  /** One piece proposed beside a problem under a name, with the proposer's reason (propose.ts, `propose`). */
+  propose(input: string, name: string, piece: PieceDef, why: string): Promise<Proposed> {
+    return proposing.propose(this.door, input, name, piece, why);
+  }
+
+  /** The owner's take of proposed pieces into a version: the default, or those named (propose.ts, `take`). */
+  take(problem: Hash, names?: string[], now?: string): Promise<Taken> {
+    return proposing.take(this.door, problem, names, now);
+  }
+
+  /** The owner's default take over every problem the home knows and this key owns (propose.ts, `takeDue`). */
+  takeDue(now?: string): Promise<Taken[]> {
+    return proposing.takeDue(this.door, now);
   }
 
   // The coin (QX-17): where it lives, what this key holds of it, and the three events that move it. The work is in

@@ -914,9 +914,10 @@ function checkTraceEvent(
  * The door for QX-22: a proposal names a problem and no piece, and its piece is one the owner could take as written.
  * "The door holds the piece to every rule a version that took it would be held to at publish, with room made for the
  * one piece in the budget, which is the owner's to give" (QX-22 section 1): the draft below is that version, asked in
- * the order a publish is asked, the core's rules and then the door's bounds, and a fault of the proposed piece is said
- * of `body.piece`. Last, a proposal this root already made of this piece on the chain named is refused, since the
- * read would pass it over (QX-22 section 2).
+ * the order a publish is asked, the bound on nesting, the core's rules and then the door's bounds, and a fault of the
+ * proposed piece is said of `body.piece`. The nesting is asked of the draft and not of the event alone, since a piece
+ * sits a level deeper in an envelope than in the event that proposes it. Last, a proposal this root already made of
+ * this piece on the chain named is refused, since the read would pass it over (QX-22 section 2).
  */
 function checkProposeEvent(
   { store, now, inputFor }: Reads,
@@ -948,6 +949,7 @@ function checkProposeEvent(
     const ofPiece = first.startsWith(`${where}.`) || first.startsWith(`${where}:`);
     throw new Refusal(400, ofPiece ? `body.piece${first.slice(where.length)}` : first);
   };
+  refuse(bodyOver(draft, 'body.piece'));
   refuse(envelopeProblems(draft));
   refuse([
     ...envelopeHoursOver(draft.problem),

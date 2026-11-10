@@ -90,7 +90,7 @@ describe('bitquilt-node', () => {
     expect(stdout.split('\n').slice(0, 3)).toEqual([
       `bitquilt node, roles admit, host; door at ${url}; store ${home}/node.db`,
       `addresses at ${url}join; QUILT_OAUTH_SECRET is unset: no OAuth, and an address is its own credential`,
-      "the owners' turn runs every hour: the gold due revealed; no vendor key is set, so no brief is sharpened",
+      "the owners' turn runs every hour: the gold due revealed and the proposed pieces taken; no vendor key is set, so no brief is sharpened",
     ]);
     expect(stderr).toBe('');
   });

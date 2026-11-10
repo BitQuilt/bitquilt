@@ -1,6 +1,7 @@
 /**
  * Text for a model, and lines for the page, from what Quilt read: the map as a strip of marks, the kinds, the stake
- * and the gold, a problem's summary, a piece as it is handed, the accepted returns, the challenges and the panels.
+ * and the gold, a problem's summary, a piece as it is handed, the accepted returns, the challenges, the panels and the
+ * pieces proposed.
  * Every function here is pure: it takes the state the resolver reduced and what the tracker's layer said, and reads no
  * clock, file or network. AGENTS.md rule 3 holds here: other people's words (a title, a brief, a return, a ground,
  * a client's name for itself) come out only as quoted text with the signer named, and nothing here tells a model what
@@ -18,6 +19,7 @@ import {
   type State,
   agreeFields,
   canonical,
+  isSlug,
   returnsAgree,
   textIssues,
 } from '@bitquilt/core';
@@ -30,6 +32,7 @@ import {
   type LayerPiece,
   type Opened,
   type PanelListing,
+  type ProposalListing,
   type Seam,
   type SeamSide,
   type Witness,
@@ -621,6 +624,41 @@ export function panelsText(list: PanelListing[], state: State): string {
         else lines.push(`${judge}, drawn, has not ranked.`);
       }
       return lines.join('\n');
+    })
+    .join('\n\n');
+}
+
+/**
+ * QX-22: the pieces proposed beside a problem said as text, in receipt order. Each has the name and the hash it was
+ * proposed under, its proposer named and whether that root's work stands on the problem, the version that took it or
+ * that it waits, and the forks that hold it; then the reason and the brief as the proposer's quoted words, and how
+ * strongly a square of its kind is earned. A name that is not a slug, and a text that does not pass the plain-text
+ * gate, is not shown. Empty where nothing is proposed.
+ */
+export function proposedText(list: ProposalListing[], state: State): string {
+  return list
+    .map((p) => {
+      const who = nameOf(state, p.root);
+      const k = kindWords(p.piece.verifier);
+      const quoted = (text: string, lead: string, what: string): string =>
+        textIssues(text).length
+          ? `${who} wrote ${what} of ${text.length} characters, which does not pass the plain-text gate and is not shown here.`
+          : `${who} wrote ${lead}: "${text}"`;
+      const name = isSlug(p.name) ? `the name "${p.name}"` : 'a name that is not a slug and is not shown here';
+      const work = p.worked ? 'whose work stands on this problem' : 'with no work standing on this problem';
+      const where = p.taken ? `was taken into version ${p.taken}` : 'waits: no version of the problem holds it';
+      const forks = p.pursued.length;
+      return [
+        `A piece proposed under ${name} (${p.hash}) by ${who}, ${work}, ${where}.`,
+        quoted(p.why, 'as the reason', 'a reason'),
+        quoted(p.piece.brief, 'this brief', 'a brief'),
+        k.strength === 'unknown'
+          ? `Its verifier is ${k.says}.`
+          : `Its verifier is ${p.piece.verifier}; a square of this kind is ${k.strength}: ${k.says}.`,
+        ...(forks
+          ? [`It is pursued in ${forks} fork${forks === 1 ? '' : 's'} of this problem: ${p.pursued.join(', ')}.`]
+          : []),
+      ].join('\n');
     })
     .join('\n\n');
 }

@@ -91,7 +91,7 @@ describe('bitquilt-hosted', () => {
     expect(stdout.split('\n').slice(0, 3)).toEqual([
       `bitquilt tracker with the hosted on-ramp at ${url} (db ${join(dir, 'tracker.db')}; addresses at ${url}join)`,
       'QUILT_OAUTH_SECRET is unset: no OAuth, and an address is its own credential',
-      "the owners' turn runs every hour: the gold due revealed; no vendor key is set, so no brief is sharpened",
+      "the owners' turn runs every hour: the gold due revealed and the proposed pieces taken; no vendor key is set, so no brief is sharpened",
     ]);
     expect(stderr).toBe('');
   });

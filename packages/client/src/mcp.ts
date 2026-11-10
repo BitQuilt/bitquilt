@@ -47,7 +47,7 @@ function said({ text, handles }: ToolResult) {
 const instructions = [
   HOW_QUILT_WORKS,
   "Quilt is a client of BitQuilt: problems published as patterns of pieces, worked by many people's AIs, each return signed.",
-  "These tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, what is challenged and what a panel is ranking, publish a pattern, challenge an acceptance, give a verdict where this key was drawn to judge a challenge, rank the candidates of a judge piece where it sits on the panel, and, where a tracker carries the coin, pay a problem's workers, move coin to an address, and redeem coin to the chain.",
+  "These tools open a problem, search for one, take the rarest piece, hand a return back, decline, read what was accepted, what is challenged, what a panel is ranking and which pieces were proposed, publish a pattern, propose a piece a pattern lacks, challenge an acceptance, give a verdict where this key was drawn to judge a challenge, rank the candidates of a judge piece where it sits on the panel, and, where a tracker carries the coin, pay a problem's workers, move coin to an address, and redeem coin to the chain.",
   "Each piece names its verifier kind and how strongly that kind earns a square; an attest piece is the actor's own word and the weakest. A record piece (QX-20) keeps every reading from an unrelated root as given and accepts none: a question with no empirical answer, answered several ways on the record, with what each reading rests on.",
   'The prompts are the sentences a person says to start each of these, in their own words.',
   'Where the chat shows MCP apps, the window is a view of the same beside a result: a search over the trackers and relays this client knows, each problem with its pieces and counts, and who this client is; its buttons hand the chat one of the prompts.',
@@ -55,7 +55,7 @@ const instructions = [
 
 /** The sentence added for a run while away (away.ts): what this connector is, in words that describe. */
 export function awayInstructions(record: AwayRecord): string {
-  return `This connector was started for a run while nobody is at the keyboard: the claims it posts leave out the person capability, today's allowance is ${record.cap} pieces of which ${record.returned} are returned, and the tools that publish, pay, move coin, challenge, judge, seed, name or reveal gold are not offered.`;
+  return `This connector was started for a run while nobody is at the keyboard: the claims it posts leave out the person capability, today's allowance is ${record.cap} pieces of which ${record.returned} are returned, and the tools that publish, propose, pay, move coin, challenge, judge, seed, name or reveal gold are not offered.`;
 }
 
 export interface McpServerOptions {
@@ -336,6 +336,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
         "A problem's map with its kinds, the stake it asks and the gold its owner committed (how many squares are verified, missed or awaiting the reveal), its accepted returns, each as the quoted words of the key that signed it with the signer named and a verified square said so, its disputed pieces (every return on each quoted with its signer and model named, the ones this key signed marked, and the fields they differ on), its challenges (the ground as the challenger's quoted words, the judges drawn, each verdict, the outcome), and its judge panels (each candidate's return quoted, the seats drawn, each rank, the outcome).",
         "Where the tracker keeps traces (QX-19), each accepted square says whether both returns rest on kept reads, and each disputed piece's seams say on which fields the two readings differ, why, and what each side rests on, quoted with its signer named.",
         'A record piece (QX-20) shows its readings so far, each quoted with its signer named, how many rest on kept reads, and the seams between them.',
+        "Where pieces were proposed beside the problem (QX-22), each is listed with its name, its proposer's reason and brief quoted with the proposer named, whether the proposer has work standing on the problem, and whether a version took it or a fork pursues it.",
       ].join(' '),
       inputSchema: { problem: z.string().describe('The problem, as a link or a hash') },
       outputSchema: toolOutput,
@@ -477,6 +478,28 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
       outputSchema: toolOutput,
     },
     call('quilt_publish'),
+  );
+
+  tool(
+    'quilt_propose',
+    {
+      title: 'Propose a piece',
+      description: [
+        "Proposes one piece beside a problem, as a signed event on the problem's log (QX-22): a name that is free on the problem, the piece as a pattern writes one (a brief, a schema, a verifier kind, the fields to agree on, the pieces whose answers it waits on), and the reason in a sentence or two. A pattern is written before the work and the work finds what it missed, so any key may propose, the owner or not.",
+        "A proposed piece stands on the record beside every other proposed piece, and nothing accepts it or strikes it. It joins the map where the owner takes it into a version of the problem: the owner's node takes one by default where its proposer is the owner or has work standing on the problem, its name is free and the budget has room. Squares already made keep their place.",
+        "A piece with faults is refused with every fault at once, in the checker's words. Returns the hash the piece has in any version that takes it.",
+      ].join(' '),
+      inputSchema: {
+        problem: z.string().describe('The problem, as a link or a hash'),
+        name: z.string().describe('The name the piece would have: lower-case letters, digits and hyphens, at most 64'),
+        piece: z
+          .record(z.string(), z.unknown())
+          .describe('The piece as a pattern writes one: its brief, schema, verifier and the rest; one piece, no count'),
+        why: z.string().describe('The reason for the piece, at most 500 characters'),
+      },
+      outputSchema: toolOutput,
+    },
+    call('quilt_propose'),
   );
 
   tool(

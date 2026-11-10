@@ -527,10 +527,13 @@ describe('the seam decides itself (section 4)', () => {
     expect(await owner.sharpen(pa, async () => 'again')).toMatchObject({ sentences: [], hash: newer });
     // Over every problem the home knows: the replaced one is passed over, another owner's is passed over, and the first
     // problem, whose third piece two grounded readings read apart earlier, is sharpened.
+    const lastOpened = owner.library.problems[p]!.last;
     const due = await owner.sharpenDue(async () => 'The first section governs here too.');
     expect(due).toHaveLength(1);
     expect(due[0]).toMatchObject({ problem: p, sentences: [{ family: 'statement', kept: true }], posted: [base] });
     expect(owner.library.problems[p]!.next).toBe(due[0]!.hash);
+    // The read was the node's own: the library keeps the time the person last opened the problem.
+    expect(owner.library.problems[p]!.last).toBe(lastOpened);
     // The away turn: a seam on the new version, the sentence from the caller in place of an agent, and the line counts
     // the version published.
     const next = opened.state.pieces[0]!.piece.hash;

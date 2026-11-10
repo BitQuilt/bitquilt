@@ -76,8 +76,8 @@ export function onrampStartLines(url: string, onramp: HostedEnv, env: NodeJS.Pro
       ? `the authorization server is on: products connect at ${url}mcp and the events say which (QX-18)`
       : 'QUILT_OAUTH_SECRET is unset: no OAuth, and an address is its own credential',
     env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY
-      ? "the owners' turn runs every hour: the gold due revealed and the briefs sharpened for the keys held here"
-      : "the owners' turn runs every hour: the gold due revealed; no vendor key is set, so no brief is sharpened",
+      ? "the owners' turn runs every hour: the gold due revealed, the briefs sharpened and the proposed pieces taken for the keys held here"
+      : "the owners' turn runs every hour: the gold due revealed and the proposed pieces taken; no vendor key is set, so no brief is sharpened",
   ];
 }
 

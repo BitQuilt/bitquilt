@@ -237,6 +237,32 @@ describe('a proposed piece at the door (QX-22 sections 1 and 2)', () => {
     expect(await each('name', wide)).toEqual(['method']);
   });
 
+  it('asks the bound on nesting of the version that would take the piece, a level deeper than the event', async () => {
+    const nested = (levels: number): unknown => {
+      let v: unknown = {};
+      for (let i = 1; i < levels; i++) v = { in: v };
+      return v;
+    };
+    // A workspace is the one field of a piece the core lets nest as it will. In the event its `deep` field is the
+    // fifth level, so sixty levels of it end at the event's sixty-fourth, and at the sixty-fifth of an envelope.
+    const lint = (levels: number) => ({
+      verifier: 'check',
+      brief: 'Run the lint.',
+      workspace: { repo: 'https://example.org/r', base: 'abc', deep: nested(levels) },
+      check: { file: 'lint.sh' },
+    });
+    const one = { ...agree, brief: 'Does it hold?' };
+    const apart = await publish(envelope(owner, 'nested', { one }));
+    const asked = (levels: number) => ev(C, 'propose', { ...good, name: 'lint', piece: lint(levels) }, apart);
+    expect(await refused(`/p/${apart}/events`, asked(61))).toBe('event: nested deeper than 64');
+    expect(await refused(`/p/${apart}/events`, asked(60))).toBe('body.piece: nested deeper than 64');
+    await proposed(C, { ...good, name: 'lint', piece: lint(59) }, apart);
+    expect(await each('name', apart)).toEqual(['lint']);
+    // The version that takes the piece as proposed is one the door publishes.
+    const taking = await publish(envelope(owner, 'nested', { one, lint: lint(59) as PieceDef }, { prev: apart }));
+    expect(await each('taken', taking)).toEqual([taking]);
+  });
+
   it('refuses a root its second proposal of one piece in words, and keeps what others propose beside it', async () => {
     const again = ev(A, 'propose', { ...good, why: 'Said again, in other words.' }, P);
     expect(await refused(`/p/${P}/events`, again)).toBe('this root already proposed this piece');
