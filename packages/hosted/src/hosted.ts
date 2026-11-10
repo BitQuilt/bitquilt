@@ -117,9 +117,9 @@ export interface Hosted {
   describe(): Record<string, unknown>;
   /**
    * The owners' turn (the part of `quilt away` that needs no agent): for every member whose home holds a problem or a
-   * gold, the gold due revealed and the briefs sharpened, signed with the key this tracker holds for them, each turn's
-   * line written to the member's away.log. Both binaries run it every hour (`scheduleOwnersTurn`, mount.ts); a member
-   * with nothing to do is passed over.
+   * gold, the gold due revealed, the briefs sharpened and the proposed pieces taken (QX-22 section 4), signed with the
+   * key this tracker holds for them, each turn's line written to the member's away.log. Both binaries run it every
+   * hour (`scheduleOwnersTurn`, mount.ts); a member with nothing to do is passed over.
    */
   turn(): Promise<MemberTurn[]>;
 }
@@ -333,8 +333,9 @@ export function createHosted(options: HostedOptions): Hosted {
     return new CustodialQuilt(config, { secret, address: addressOf(secret) }, resolver, hostName, witness);
   }
 
-  // QX-19 section 4, QX-16: the owners' turn. A person who runs nothing has no node to reveal their gold or sharpen
-  // their briefs, so the on-ramp, which signs for them, does it for every member whose home holds a problem or a gold.
+  // QX-19 section 4, QX-16, QX-22 section 4: the owners' turn. A person who runs nothing has no node to reveal their
+  // gold, sharpen their briefs or take the pieces proposed to them, so the on-ramp, which signs for them, does it for
+  // every member whose home holds a problem or a gold.
   const sentence: Sentence | null =
     options.sentence === undefined ? vendorSentence(options.env ?? process.env, base) : options.sentence;
   async function turn(): Promise<MemberTurn[]> {

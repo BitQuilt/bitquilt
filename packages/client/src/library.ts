@@ -17,8 +17,9 @@ import type { Held } from './chains.js';
  */
 export interface Library {
   /**
-   * Every problem opened or published here; `next` is the version this key published in its place (QX-19 section 4), so
-   * it is not sharpened twice; `topics` the ones this key announced with (QX-13), and `announced` the work its last
+   * Every problem opened or published here; `next` is the version this key published in its place, sharpened
+   * (QX-19 section 4) or with a proposed piece taken (QX-22 section 4), so the owner's turn passes over the version it
+   * replaced; `topics` the ones this key announced with (QX-13), and `announced` the work its last
    * announce stated and the relays an announce was offered to, so the owner's turn announces again only where the work
    * moved or a relay has not been offered one.
    *

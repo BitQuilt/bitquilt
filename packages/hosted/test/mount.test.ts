@@ -57,6 +57,7 @@ describe("the owners' turn every hour", () => {
     address: `0x${n.toString(16).padStart(40, '0')}` as Address,
     gold: [],
     sharpened: [],
+    taken: [],
     announced: [],
     said,
     kept: { added: 0, reads: 0, sent: 0 },

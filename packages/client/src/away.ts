@@ -39,7 +39,7 @@ import { ACCEPTED_STATES } from './listings.js';
 import { oneLine, ownerTurn } from './owner-turn.js';
 import { inParallel } from './pool.js';
 import { say } from './phrases.js';
-import type { Quilt, Sharpened } from './quilt.js';
+import type { Quilt, Sharpened, Taken } from './quilt.js';
 import { type SentenceAsk, layerByHash, sentenceAsk } from './render.js';
 import {
   type Schedule,
@@ -307,14 +307,16 @@ export interface Turn {
    * The owner's briefs sharpened this turn (QX-19 section 4): each problem with a seam, the sentences and the version.
    */
   sharpened: Sharpened[];
+  /** The proposed pieces the owner's default took this turn (QX-22 section 4), each problem with its version. */
+  taken: Taken[];
   line: string;
   record: AwayRecord;
 }
 
 /**
- * One turn: the owner's part first (the gold due revealed and the briefs sharpened), whether or not an agent runs; then
- * nothing when today's cap is reached or no agent CLI is here; else the run recorded, the agent run with the connector
- * under the cap, and a line in away.log saying how it went.
+ * One turn: the owner's part first (the gold due revealed, the briefs sharpened and the proposed pieces taken), whether
+ * or not an agent runs; then nothing when today's cap is reached or no agent CLI is here; else the run recorded, the
+ * agent run with the connector under the cap, and a line in away.log saying how it went.
  */
 export async function awayTurn(o: TurnOptions): Promise<Turn> {
   const now = o.now ?? (() => new Date());
@@ -324,6 +326,7 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
   const agent = findAgent(dirs, o.exists);
   let gold: Revealed[] = [];
   let sharpened: Sharpened[] = [];
+  let taken: Taken[] = [];
   let goldSaid = '';
   if (o.quilt) {
     // The sentence a brief lacks comes from the agent on this machine, or from the caller.
@@ -340,6 +343,7 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
     ({
       gold,
       sharpened,
+      taken,
       said: goldSaid,
     } = await ownerTurn(o.quilt(), ask, (line) => appendFileSync(log, `${line}\n`), now));
   }
@@ -357,6 +361,7 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
       said: null,
       gold,
       sharpened,
+      taken,
       line,
       record: before,
     };
@@ -400,6 +405,7 @@ export async function awayTurn(o: TurnOptions): Promise<Turn> {
     said,
     gold,
     sharpened,
+    taken,
     line,
     record: after,
   };

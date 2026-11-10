@@ -82,7 +82,7 @@ describe('the MCP Bundle for Claude Desktop', () => {
     expect(readFileSync(join(unpacked, 'server', 'index.js'), 'utf8')).toContain('ui://quilt/window.');
   });
 
-  it("starts over stdio from the unpacked files, under a folder that declares ES modules, names the client's version, finds its page, and lists the nineteen tools the manifest names, in the order it names them", async () => {
+  it("starts over stdio from the unpacked files, under a folder that declares ES modules, names the client's version, finds its page, and lists the twenty tools the manifest names, in the order it names them", async () => {
     const home = join(out, 'home');
     // Where the app unpacks it is not the bundle's to choose; a package.json above it saying ES modules changes
     // nothing.

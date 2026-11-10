@@ -12,6 +12,7 @@ import {
 } from '@bitquilt/core';
 import { CHALLENGE_EVENTS } from '../src/challenge.js';
 import { GOLD_EVENTS } from '../src/gold.js';
+import { PROPOSE_EVENTS } from '../src/propose.js';
 import { STAKE_EVENTS } from '../src/stake.js';
 import { TRACE_EVENTS } from '../src/trace.js';
 import { RANK_EVENTS } from '../src/verifiers.js';
@@ -156,6 +157,11 @@ const problemRows: [type: string, event: () => Event, answered: { status: number
     () => ev(A, 'trace', { reveal: ANY, reads: [], rests: [] }, P),
     refusal('a trace names a problem and a piece'),
   ],
+  [
+    'propose',
+    () => ev(A, 'propose', { name: 'more', piece: {}, why: 'The work found it missing.' }, P, S),
+    refusal('a proposal names a problem and no piece'),
+  ],
 ];
 
 /** One event of each type the identity log takes, naming the problem given, if any. */
@@ -184,6 +190,7 @@ describe("a problem's log", () => {
       ...STAKE_EVENTS,
       ...GOLD_EVENTS,
       ...TRACE_EVENTS,
+      ...PROPOSE_EVENTS,
     ]);
   });
 

@@ -1,10 +1,10 @@
 /**
- * What a tracker lists, as this client reads it: a piece in the tracker's layer, a challenge, a judge panel, the gold
- * summed, a takedown, a scrape; and what `open` gathers of a problem for the render module. Types, with the two fixed
- * lists that go with them, the sides of a challenge and the states that count as accepted so far: the reading is in
- * quilt.ts and the saying in render.ts, and neither imports the other for one of these.
+ * What a tracker lists, as this client reads it: a piece in the tracker's layer, a challenge, a judge panel, a proposed
+ * piece, the gold summed, a takedown, a scrape; and what `open` gathers of a problem for the render module. Types, with
+ * the two fixed lists that go with them, the sides of a challenge and the states that count as accepted so far: the
+ * reading is in quilt.ts and the saying in render.ts, and neither imports the other for one of these.
  */
-import type { Hash, PieceState, State } from '@bitquilt/core';
+import type { Hash, PieceDef, PieceState, State } from '@bitquilt/core';
 
 /**
  * The two sides of a challenge (QX-1): the key that challenged, and the author of the return it challenges. A verdict
@@ -165,6 +165,28 @@ export interface PanelListing {
   outcome: 'open' | 'decided' | 'void';
   winner: Hash | null;
   decided_at: string | null;
+}
+
+/**
+ * A proposed piece as a tracker lists it at /p/<hash>/proposals (QX-22): the signed `propose` event's id, the version
+ * it names, the piece under its name with the hash it has in any envelope that takes it, the proposer's reason, key
+ * and root; and the tracker's reading of what it holds: the name the root chose, whether the root has work standing on
+ * the problem, the version that took the piece, and the forks that pursue it.
+ */
+export interface ProposalListing {
+  id: Hash;
+  under: Hash;
+  name: string;
+  hash: Hash;
+  piece: PieceDef;
+  why: string;
+  key: string;
+  root: string;
+  at: string;
+  proposer: string | null;
+  worked: boolean;
+  taken: Hash | null;
+  pursued: Hash[];
 }
 
 /**

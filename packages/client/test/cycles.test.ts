@@ -90,7 +90,7 @@ describe("the client's imports", () => {
   it('give the files that take the Door nothing of the Quilt at run time, at most a type', () => {
     const graph = edges();
     const taking = [...graph.keys()].filter((f) => f !== 'quilt.ts' && /from '\.\/door\.js'/.test(read(f))).sort();
-    expect(taking).toEqual(['coin.ts', 'gold.ts', 'sharpen.ts', 'stake.ts', 'trace.ts']);
+    expect(taking).toEqual(['coin.ts', 'gold.ts', 'propose.ts', 'sharpen.ts', 'stake.ts', 'trace.ts']);
     for (const file of taking) expect(graph.get(file), file).not.toContain('quilt.ts');
   });
 

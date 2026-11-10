@@ -61,11 +61,11 @@ describe("the on-ramp's environment", () => {
     const url = 'https://t.test/';
     expect(onrampStartLines(url, { relays: [] }, {})).toEqual([
       'QUILT_OAUTH_SECRET is unset: no OAuth, and an address is its own credential',
-      "the owners' turn runs every hour: the gold due revealed; no vendor key is set, so no brief is sharpened",
+      "the owners' turn runs every hour: the gold due revealed and the proposed pieces taken; no vendor key is set, so no brief is sharpened",
     ]);
     expect(onrampStartLines(url, { relays: [], oauth: { secret: 's' } }, { OPENAI_API_KEY: 'k' })).toEqual([
       'the authorization server is on: products connect at https://t.test/mcp and the events say which (QX-18)',
-      "the owners' turn runs every hour: the gold due revealed and the briefs sharpened for the keys held here",
+      "the owners' turn runs every hour: the gold due revealed, the briefs sharpened and the proposed pieces taken for the keys held here",
     ]);
   });
 });

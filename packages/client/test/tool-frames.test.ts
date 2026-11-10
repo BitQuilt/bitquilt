@@ -1,11 +1,11 @@
 /**
  * The text runTool gives a model for each tool tool-text.test.ts does not pin, pinned whole: quilt_window, quilt_next,
- * quilt_return, quilt_decline, quilt_rank, quilt_challenge, quilt_verdict, quilt_seed, quilt_publish, quilt_pay,
- * quilt_transfer, quilt_redeem, quilt_reveal_gold and quilt_name. With tool-text.test.ts, that is every tool whose text
- * a model reads; quilt_window_io answers the card with JSON, which window.test.ts holds. The Quilt answers each with
- * fixed values, so what is held is the framing tools.ts builds around them: a change that moves a space, a separator or
- * a clause fails here. The inputs take each side of every condition tools.ts puts on that text, and of each condition
- * in traceText, which quilt_return's text ends with.
+ * quilt_return, quilt_decline, quilt_rank, quilt_challenge, quilt_verdict, quilt_seed, quilt_publish, quilt_propose,
+ * quilt_pay, quilt_transfer, quilt_redeem, quilt_reveal_gold and quilt_name. With tool-text.test.ts, that is every
+ * tool whose text a model reads; quilt_window_io answers the card with JSON, which window.test.ts holds. The Quilt
+ * answers each with fixed values, so what is held is the framing tools.ts builds around them: a change that moves a
+ * space, a separator or a clause fails here. The inputs take each side of every condition tools.ts puts on that text,
+ * and of each condition in traceText, which quilt_return's text ends with.
  */
 import { describe, expect, it } from 'vitest';
 import type { Hash } from '@bitquilt/core';
@@ -29,6 +29,7 @@ type Answers = Partial<
     | 'verdict'
     | 'seed'
     | 'publish'
+    | 'propose'
     | 'pay'
     | 'transfer'
     | 'redeem'
@@ -301,6 +302,43 @@ describe('quilt_publish', () => {
     expect(await text(published({}), 'quilt_publish', { pattern: {} })).toBe(
       [`Published ${A64}`, `Link: quilt:${A64}`, 'Carried by: https://t.example/'].join('\n'),
     );
+  });
+});
+
+describe('quilt_propose', () => {
+  const C64 = `sha256:${'c'.repeat(64)}` as Hash;
+  const input = {
+    problem: `quilt:${A64}`,
+    name: 'method',
+    piece: { verifier: 'agree', brief: 'x' },
+    why: 'It lacks one.',
+  };
+  const tail =
+    ". It stands on the problem's record beside every other proposed piece, and it joins the map where the owner takes it into a version; quilt_read lists the proposed pieces and what became of each.";
+
+  it('says the name, the version it stands beside, where the proposal went and the hash the piece has, with the handles', async () => {
+    const proposed = (went: typeof posted | typeof queued) =>
+      answering({ propose: async () => ({ ...went, id: C64, problem: A64, name: 'method', piece: B64 }) });
+    const onLog = await runTool(proposed(posted), 'quilt_propose', input);
+    expect(onLog.text).toBe(
+      `Proposed a piece under the name "method" beside ${A64}: posted to https://t.example/. Its hash is ${B64}${tail}`,
+    );
+    expect(onLog.handles).toEqual({ problem: A64, name: 'method', piece: B64, propose: C64 });
+    expect(await text(proposed(queued), 'quilt_propose', input)).toBe(
+      `Proposed a piece under the name "method" beside ${A64}: the proposed piece waits in the queue. Its hash is ${B64}${tail}`,
+    );
+  });
+
+  it('hands the Quilt the problem, the name, the piece and the reason as given', async () => {
+    const got: unknown[] = [];
+    const quilt = answering({
+      propose: async (...args) => {
+        got.push(...args);
+        return { ...posted, id: C64, problem: A64, name: 'method', piece: B64 };
+      },
+    });
+    await runTool(quilt, 'quilt_propose', input);
+    expect(got).toEqual([input.problem, 'method', input.piece, 'It lacks one.']);
   });
 });
 

@@ -166,6 +166,14 @@ export const PHRASES: readonly PhraseSpec[] = [
     say: (a) => `Publish the pattern at ${a.path} on Quilt.`,
   },
   {
+    name: 'propose_piece',
+    title: 'Propose a piece',
+    about:
+      'The AI opens the problem, drafts one piece its pattern lacks with the reason for it, and proposes it beside the problem after asking.',
+    args: ['link'],
+    say: (a) => `Open ${a.link} on Quilt and propose a piece its pattern is missing.`,
+  },
+  {
     name: 'pay_workers',
     title: "Pay a problem's workers",
     about:

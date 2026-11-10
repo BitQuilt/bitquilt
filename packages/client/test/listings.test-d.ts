@@ -2,16 +2,17 @@
  * The wire shapes listings.ts declares again, held to the tracker's own types. The client may not import the tracker,
  * so it writes these out a second time (AGENTS.md, the arrows); a test may, so this file does. Each line assigns what
  * the tracker sends to the client's copy, and the client's typecheck fails where a copy no longer takes it. Where the
- * tracker builds a row in its own code (views.ts: summary() for `scrape`, and the `state`, `challenges` and `panels`
- * routes), the row is built here with the route's own expressions over the same inputs: the problem's layer, its fold,
- * the traces and the names. A field the route takes from the layer's piece, its kind, the fold's piece view or the
- * traces is taken from the same place here, so a type that moves under the route moves under this file too. Nothing
- * here runs: the name ends in .test-d.ts, which vitest leaves out and the client's tsconfig takes in. Each copy is
- * exported, so the typecheck's rule against unused names reads it as used.
+ * tracker builds a row in its own code (views.ts: summary() for `scrape`, and the `state`, `challenges`, `panels` and
+ * `proposals` routes), the row is built here with the route's own expressions over the same inputs: the problem's
+ * layer, its fold, the traces and the names. A field the route takes from the layer's piece, its kind, the fold's
+ * piece view or the traces is taken from the same place here, so a type that moves under the route moves under this
+ * file too. Nothing here runs: the name ends in .test-d.ts, which vitest leaves out and the client's tsconfig takes
+ * in. Each copy is exported, so the typecheck's rule against unused names reads it as used.
  */
 import type { Address, Hash } from '@bitquilt/core';
 import {
   type Hidden,
+  type Layer,
   type LayerState as TrackerLayerState,
   type PieceTraces,
   type ProblemLayer,
@@ -20,6 +21,7 @@ import {
   type SeamSide as TrackerSeamSide,
   type SeedInfo,
   type Side as TrackerSide,
+  proposalsIn,
   windowOpen,
 } from '@bitquilt/tracker';
 import type {
@@ -28,6 +30,7 @@ import type {
   LayerPiece,
   LayerState,
   PanelListing,
+  ProposalListing,
   RecordGrade,
   Scrape,
   Seam,
@@ -36,10 +39,11 @@ import type {
   Takedown,
 } from '../src/listings.js';
 
-// What the routes read: the problem's layer, the tracker's now, the takedowns by problem, the problem's seeding, its
-// traces by piece, and the name a root chose as the fold has it (nameIn in views.ts).
+// What the routes read: the problem's layer, every problem's layer, the tracker's now, the takedowns by problem, the
+// problem's seeding, its traces by piece, and the name a root chose as the fold has it (nameIn in views.ts).
 const hash = {} as Hash;
 const pl = {} as ProblemLayer;
+const layered = {} as Layer;
 const at = {} as string;
 const hidden = {} as Map<string, Hidden>;
 const seed = {} as SeedInfo;
@@ -138,3 +142,7 @@ export const panels: PanelListing[] = pl.panels.map((p) => ({
   winner: p.winner,
   decided_at: p.decidedAt,
 }));
+
+// The proposed pieces of `/p/<hash>/proposals` (QX-22), as the route has proposalsIn build them: over the problem's
+// layer and every problem's, the forks the tracker lists, which are those not taken down here, and the names.
+export const proposals: ProposalListing[] = proposalsIn(pl, layered, (problem) => !hidden.has(problem), name);

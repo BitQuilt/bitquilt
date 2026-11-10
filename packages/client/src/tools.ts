@@ -5,7 +5,7 @@
  * say) works through the one holding the page instead of signing and writing the library beside it. Other people's
  * words come out of here only as quoted text with the signer named.
  */
-import type { Address, DeclineReason, Hash } from '@bitquilt/core';
+import type { Address, DeclineReason, Hash, PieceDef } from '@bitquilt/core';
 import { HOW_QUILT_WORKS } from './about.js';
 import type { CoinBalance } from './coin.js';
 import type { Side } from './listings.js';
@@ -48,6 +48,7 @@ export const TOOL_NAMES = [
   'quilt_verdict',
   'quilt_seed',
   'quilt_publish',
+  'quilt_propose',
   'quilt_pay',
   'quilt_transfer',
   'quilt_redeem',
@@ -342,9 +343,16 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
     }
     case 'quilt_read': {
       const { hash: h, state, tracker, layer, hidden, gold, witnessed, superseded } = await quilt.open(str('problem'));
-      const [challenges, panels] = await Promise.all([quilt.challenges(h, tracker), quilt.panels(h, tracker)]);
+      const [challenges, panels, proposals] = await Promise.all([
+        quilt.challenges(h, tracker),
+        quilt.panels(h, tracker),
+        quilt.proposals(h, tracker),
+      ]);
       // QX-20: a problem with a record piece says its readings so far, between the accepted and the disputed.
       const recorded = recordedText(state, layer);
+      // QX-22: the pieces proposed beside the problem, each in its proposer's quoted words, after the panels and only
+      // where there are any.
+      const proposed = quilt.proposedText(proposals, state);
       const found = foundText(foundIn(state, layer));
       // It opens with what quilt_open says, the replaced-by line included, and goes on to the work, a blank line
       // between the parts.
@@ -356,6 +364,7 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
         section('Disputed', quilt.disputedText(state, layer)),
         section('Challenges', quilt.challengesText(challenges, state)),
         section('Panels', quilt.panelsText(panels, state)),
+        ...(proposed ? [section('Proposed pieces', proposed)] : []),
       ].join('\n\n');
       return {
         text,
@@ -369,6 +378,7 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
             outcome: p.outcome,
             candidates: p.candidates.map((c) => c.digest),
           })),
+          proposed: proposals.map((p) => ({ id: p.id, piece: p.hash, taken: p.taken })),
         },
       };
     }
@@ -425,6 +435,15 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
         ...r.refused.map((x) => `Refused by ${x}`),
       ].join('\n');
       return { text, handles: { problem: r.hash, link: r.link, posted: r.posted, gold: r.gold } };
+    }
+    case 'quilt_propose': {
+      // QX-22: one piece put beside the problem as a signed event. The name and the hash are this caller's own.
+      const r = await quilt.propose(str('problem'), str('name'), input.piece as PieceDef, str('why'));
+      const went = r.queued ? 'the proposed piece waits in the queue' : `posted to ${r.at}`;
+      return {
+        text: `Proposed a piece under the name "${r.name}" beside ${r.problem}: ${went}. Its hash is ${r.piece}. It stands on the problem's record beside every other proposed piece, and it joins the map where the owner takes it into a version; quilt_read lists the proposed pieces and what became of each.`,
+        handles: { problem: r.problem, name: r.name, piece: r.piece, propose: r.id },
+      };
     }
     case 'quilt_pay': {
       const r = await quilt.pay(hash('problem'), Number(input.amount), Number(input.per_square));
