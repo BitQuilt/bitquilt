@@ -299,7 +299,7 @@ describe('the directory window', () => {
       ['statement/2', 'open', 0],
       ['statement/3', 'open', 0],
     ]);
-    expect(pieces[0]).toMatchObject({ kind: 'agree', strength: 'agreed', traced: null, seams: 0 });
+    expect(pieces[0]).toMatchObject({ kind: 'agree', strength: 'agreed', traced: null, seams: 0, inherited: null });
     expect(JSON.stringify(opened)).not.toContain('does the paper say so');
     expect((opened.link as string).startsWith('quilt:sha256:')).toBe(true);
     // The library: names and counts, what the node serves, and no gold answer in it.

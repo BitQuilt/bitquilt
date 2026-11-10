@@ -22,7 +22,8 @@ import { answerText, sentenceVendor, vendorSentence } from '../src/sentence.js';
  * private address reaches nothing, for a member or the site's reader; the sheet a browser gets at the same address,
  * with its data beside it; the page of a square, which says what the version its address names recorded, or the
  * earlier version that holds a piece the later one keeps only from it, what each reading rests on (QX-19), read from
- * the same chain as the readings, and where the piece stands after the owner replaced it. And the owners' turn
+ * the same chain as the readings, where the piece stands after the owner replaced it, and of a piece a fork keeps the
+ * problem its square stands on with the page of that square (QX-23 section 2). And the owners' turn
  * (QX-19 section 4, QX-16): the on-ramp sharpens a hosted owner's brief where two grounded readings read it apart,
  * with the sentence from the vendor its environment names, its posts marked `custody: hosted` and `seat: ai` with no
  * `via`, as PROTOCOL.md says, and passes over a member with nothing to do.
@@ -549,6 +550,58 @@ describe('the page of a square', () => {
     // address's.
     expect(under).not.toContain('The version this address names');
     expect(under).toContain('<p class="state">It is disputed: two readings differ.</p>');
+  });
+
+  it('says of a piece a fork keeps that its square stands on the problem the fork came from, and links the page of that square (QX-23 section 2)', async () => {
+    const owner = mk(0x41, 'anthropic/claude'),
+      a = mk(0x42, 'anthropic/claude'),
+      b = mk(0x43, 'openai/gpt-5'),
+      forker = mk(0x44, 'anthropic/claude');
+    const p = (
+      await owner.publish({
+        title: 'What a fork keeps',
+        done_when: 'Every claim has a verdict.',
+        slug: 'kept',
+        pieces: {
+          'claim/*': {
+            count: 1,
+            verifier: 'agree',
+            requires: ['web'],
+            brief: 'Kept {n}: does the paper say so?',
+            schema,
+            agree: ['verdict'],
+          },
+        },
+      } as Pattern)
+    ).hash as Hash;
+    const claim = (await a.open(p)).state.pieces[0]!.piece.hash;
+    await a.return(p, claim, { verdict: 'supports' }, at(HOLDS));
+    await b.return(p, claim, { verdict: 'supports' }, at(HOLDS));
+    const fork = (await forker.fork(p)).hash!;
+    expect(fork).not.toBe(p);
+    const kept = await page(fork, claim);
+    expect(kept.status).toBe(200);
+    expect(kept.csp).toContain("default-src 'none'");
+    expect(kept.html).toContain(
+      '<title>claim/1: inherited: its square stands on a problem this fork came from</title>',
+    );
+    expect(kept.html).toContain(
+      '<p class="state">It is inherited: its square stands on a problem this fork came from.</p>',
+    );
+    // The problem named, the state of the same piece there in the page's own words, and the page of that square.
+    expect(kept.html).toContain(
+      `<p>The square stands on the problem <code>${p}</code>, which this fork came from. The same piece there is accepted by two AIs from different companies, inside the window in which anyone may challenge it. Its readings are on <a href="${base}r/${p}/${claim}">the page of that square</a>.</p>`,
+    );
+    // The fork's own chain holds no reading of the piece: the returns are on the record of the problem named.
+    expect(kept.html).toContain(
+      '<p class="q">No reading has been revealed on this problem. The readings of the square are on the page named above.</p>',
+    );
+    expect(kept.html).not.toContain(`<h3>${a.identity!.address}</h3>`);
+    expect(kept.html).not.toMatch(/<script/i);
+    // The page the link names is the square's own, with its readings.
+    const there = await page(p, claim);
+    expect(there.html).toContain(`<h3>${a.identity!.address}</h3>`);
+    expect(there.html).not.toContain('The square stands on the problem');
   });
 });
 

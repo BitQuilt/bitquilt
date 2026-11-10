@@ -127,6 +127,14 @@ const short = (address: string): string =>
   address.length > 12 ? `${address.slice(0, 8)}…${address.slice(-4)}` : address;
 const day = (iso: string): string => iso.slice(0, 10);
 const words = (s: string): string => s.replace(/_/g, ' ');
+/**
+ * QX-23 section 3: an inherited square is final where its state on the problem it stands on is `accepted`,
+ * `unreachable` or `recorded`.
+ */
+const FINAL_THERE: readonly string[] = ['accepted', 'unreachable', 'recorded'];
+/** Where an inherited piece's square stands, and its state there (QX-23 section 2); nothing for any other piece. */
+const standsOn = (p: PieceRow): string =>
+  p.inherited ? `, its square on ${short(p.inherited.problem)}, ${words(p.inherited.state)} there` : '';
 /** The counts a row carries, summed into the three a person reads first. */
 function workOf(counts: Record<string, number>): { returned: number; accepted: number; disputed: number } {
   const n = (k: string) => counts[k] ?? 0;
@@ -440,13 +448,15 @@ function drawResults(): void {
 
 /**
  * The map: one square a piece, coloured by its state, dotted where attested, ringed where verified, underlined where a
- * stake is asked.
+ * stake is asked. An inherited piece (QX-23 section 2) is a ring in the accepted green and not a filled square, full
+ * where its square is final on the problem it stands on and light where it is not.
  */
 function mapOf(pieces: PieceRow[]): HTMLElement {
   const m = h('div', { class: 'map' });
   for (const p of pieces) {
+    const final = p.inherited && FINAL_THERE.includes(p.inherited.state);
     const s = h('div', {
-      class: `sq ${p.state}${p.attested ? ' attested' : ''}${p.verified ? ' verified' : ''}${p.stake ? ' staked' : ''}`,
+      class: `sq ${p.state}${final ? ' final' : ''}${p.attested ? ' attested' : ''}${p.verified ? ' verified' : ''}${p.stake ? ' staked' : ''}`,
     });
     const notes = [
       p.verifier,
@@ -459,7 +469,7 @@ function mapOf(pieces: PieceRow[]): HTMLElement {
           ]
         : []),
     ];
-    s.title = `${p.name}: ${words(p.state)} (${notes.join(', ')})`;
+    s.title = `${p.name}: ${words(p.state)}${standsOn(p)} (${notes.join(', ')})`;
     m.append(s);
   }
   return m;
@@ -478,8 +488,10 @@ function drawProblem(): void {
   for (const x of p.pieces) counts[x.state] = (counts[x.state] ?? 0) + 1;
   const w = workOf(counts);
   const traced = p.pieces.filter((x) => x.traced === 'both').length;
+  // QX-23 section 4: the accepted squares counted are the problem's own, and the inherited are said beside them.
+  const inherited = counts.inherited ? `, ${counts.inherited} inherited from a problem this fork came from` : '';
   const lines = [
-    `${p.pieces.length} pieces: ${w.returned} returned, ${w.accepted} accepted (${p.pieces.filter((x) => x.verified).length} verified by the owner's gold, ${traced} resting on kept reads on both sides), ${w.disputed} disputed${p.complete ? '; complete' : ''}.`,
+    `${p.pieces.length} pieces: ${w.returned} returned, ${w.accepted} accepted (${p.pieces.filter((x) => x.verified).length} verified by the owner's gold, ${traced} resting on kept reads on both sides), ${w.disputed} disputed${inherited}${p.complete ? '; complete' : ''}.`,
     `${p.readers} reader${p.readers === 1 ? '' : 's'}${p.vendors.length ? ` from ${p.vendors.length} vendor${p.vendors.length === 1 ? '' : 's'} (${p.vendors.join(', ')})` : ''}; ${p.seeders} seeder${p.seeders === 1 ? '' : 's'}${p.tracker ? `; at ${placeOf(p.tracker)}` : ''}.`,
   ];
   const acts = h(
@@ -529,7 +541,7 @@ function drawProblem(): void {
           'tr',
           {},
           h('td', {}, x.name),
-          h('td', {}, words(x.state) + (x.verified ? ', verified' : '')),
+          h('td', {}, words(x.state) + standsOn(x) + (x.verified ? ', verified' : '')),
           h(
             'td',
             {},

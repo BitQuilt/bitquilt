@@ -14,6 +14,7 @@ import {
   type Pick,
   type Piece,
   type PieceDef,
+  type PieceView,
   type Problem,
   type State,
   type Unsigned,
@@ -21,6 +22,7 @@ import {
   commitHash,
   eventId,
   expandPieces,
+  inputsBy,
   isHash,
   newNonce,
   next,
@@ -58,7 +60,7 @@ import type { Library } from './library.js';
 import { type Posted, type Resolver, askJson } from './resolver.js';
 import { inParallel } from './pool.js';
 import * as proposing from './propose.js';
-import type { Proposed, Taken } from './propose.js';
+import type { Forked, Proposed, Taken } from './propose.js';
 import * as sharpen from './sharpen.js';
 import type { Sharpened } from './sharpen.js';
 import * as staking from './stake.js';
@@ -68,6 +70,7 @@ import {
   acceptedText,
   challengesText,
   disputedText,
+  inheritedOf,
   kindWords,
   layerByHash,
   nameOf,
@@ -83,8 +86,14 @@ export type { CoinBalance } from './coin.js';
 export type { Door } from './door.js';
 export type { Library } from './library.js';
 export type { Posted } from './resolver.js';
-export type { Proposed, Taken } from './propose.js';
+export type { Forked, Proposed, Taken } from './propose.js';
 export type { Sharpened } from './sharpen.js';
+
+/**
+ * QX-23 section 3: a piece is done elsewhere where its square there is final, "`accepted`, `unreachable` or `recorded`
+ * there".
+ */
+const INHERITED_DONE: ReadonlySet<string> = new Set(['accepted', 'unreachable', 'recorded']);
 
 /** The vendor and model a host declares, from the name it gives at connection. */
 export function modelFor(hostName: string | undefined, override?: string): string {
@@ -747,12 +756,13 @@ export class Quilt {
    * The rarest piece for this key, claimed: the tracker's assisted next where one answers and names a piece, else the
    * core's `next` over the map; a lock of standing or of coin before the claim where the problem asks a stake of the
    * piece (QX-15, QX-17); the claim recorded in the library. With no problem named, `offered`. With QUILT_NEXT_ONLY set
-   * to `verify`, only a piece within the second reader's pool (`pool`), and nothing claimed when there is none.
+   * to `verify`, only a piece within the second reader's pool (`pool`), and nothing claimed when there is none. On a
+   * fork, the map's pick leaves out the pieces the tracker says are inherited (QX-23 section 5).
    */
   async next(input: string): Promise<Handed> {
     if (!input.trim()) return this.offered();
     const id = this.needKey();
-    const { hash, state, tracker, superseded } = await this.open(input);
+    const { hash, state, tracker, layer, superseded } = await this.open(input);
     if (superseded) throw new Error(`that problem was replaced by its owner; the work is on ${superseded}`);
     const trackers = this.trackersFor(hash);
     // The second reader's pool, where the environment asks for one: empty, there is nothing to verify, and no claim is
@@ -764,17 +774,19 @@ export class Quilt {
     // 1. The tracker's word, where one answered and named a piece within the pool: the piece, the stake it asks, and
     // the pieces this key cannot cover.
     const asked = tracker
-      ? await this.askedNext(hash, state, tracker, pool !== null)
+      ? await this.askedNext(hash, state, tracker, pool !== null, layer)
       : { pick: null, stake: 0, unaffordable: [] as Hash[], seams: [] as Seam[] };
     let pick = asked.pick && within(asked.pick.piece.hash) ? asked.pick : null;
     let stake = pick ? asked.stake : 0;
     // 2. Else the map, within the pool and leaving out the pieces the tracker left out for their stake, since a claim
     // on one would be refused at its door; where the tracker had named a piece outside the pool, the stake is the map's
-    // piece's own.
+    // piece's own. QX-23 section 5: "Its own pick leaves out the pieces the tracker says are inherited", which this
+    // client's own fold holds open, since the square such a piece has stands on the problem the fork came from.
     if (!pick) {
       const exclude = new Set<string>([
         ...asked.unaffordable,
         ...state.pieces.filter((v) => !within(v.piece.hash)).map((v) => v.piece.hash),
+        ...(layer ?? []).filter((l) => l.state === 'inherited').map((l) => l.hash),
       ]);
       pick = next(state, id.address, this.client(), this.stamp(), { exclude });
       if (pick && asked.pick && tracker)
@@ -859,13 +871,16 @@ export class Quilt {
    * saying its holds are taken, and the map decides; one that does not answer names nothing. One that has taken the
    * problem down (QX-6) takes no claim on it either, so that throws. With `pool`, the tracker is asked within the
    * second reader's pool (`only=verify`), so its pick is a piece with a reading on it, over its own fold: the one fold
-   * in which a reading it set aside does not stand (QX-19 section 4).
+   * in which a reading it set aside does not stand (QX-19 section 4). `layer` is the tracker's layer of the problem as
+   * `open` read it, by which a piece this client's own fold holds locked behind inherited squares is taken on the
+   * tracker's word, its brief rendered here (QX-23 section 3).
    */
   private async askedNext(
     hash: Hash,
     state: State,
     tracker: string,
     pool = false,
+    layer: LayerPiece[] | null = null,
   ): Promise<{ pick: Pick | null; stake: number; unaffordable: Hash[]; seams: Seam[] }> {
     const id = this.needKey();
     type Answer = {
@@ -908,11 +923,17 @@ export class Quilt {
     const setAsideHere = seams.some((s) =>
       s.sides.some((x) => x.aside && x.key.toLowerCase() === id.address.toLowerCase()),
     );
-    if (!pick && (view.state === 'unknown' || setAsideHere))
+    // QX-23 section 5: "where the tracker hands over a piece the core holds `locked` behind one, Quilt takes it on the
+    // tracker's word and renders the brief from the source's chain". The brief is this client's own render, never the
+    // tracker's; where this client cannot check an input itself there is none, and the piece is not taken here.
+    let brief: string | null = null;
+    if (!pick && (view.state === 'unknown' || setAsideHere)) brief = renderInputs(view, state);
+    else if (!pick && view.state === 'locked') brief = await this.briefBehindInherited(view, state, layer, tracker);
+    if (!pick && brief !== null)
       pick = {
         piece: view.piece,
         state: (answer.state ?? 'open') as Pick['state'],
-        brief: renderInputs(view, state),
+        brief,
         ...(view.piece.schema ? { schema: view.piece.schema } : {}),
         agree: answer.agree ?? view.piece.agree ?? view.piece.schema?.required ?? [],
         requires: view.piece.requires,
@@ -920,6 +941,62 @@ export class Quilt {
         availability: view.availability,
       };
     return { pick, stake, unaffordable, seams };
+  }
+
+  /**
+   * QX-23 section 3: the brief of a piece this client's own fold holds `locked` behind inherited squares, rendered
+   * here, or null where the piece is not one this client takes on the tracker's word. "A client that would take such a
+   * piece asks the tracker's next, and renders the brief itself from the source's chain, which it fetches by hash and
+   * checks as it checks any."
+   *
+   * The tracker's word is that the piece is open to this key, and that each input not done on the fork's own chain is
+   * `inherited` from a square that is final at the problem it names. The rest is this client's own: each problem named
+   * is resolved by its hash, its envelope and chain checked and reduced as any problem's are, with nothing written in
+   * the library, and the slot is filled from that fold's accepting set for the piece of the same hash, by the core's
+   * `renderInputs`, each return as quoted text with its signer's address. An input recorded there "renders nothing,
+   * since there is no agreed return to render" (QX-20 section 3).
+   *
+   * Null where an input of the piece is neither done in this client's own fold nor inherited from a final square,
+   * where a problem named does not resolve or holds no piece of that hash, and where this client's fold of it has no
+   * accepting set for a piece that is not a record piece.
+   */
+  private async briefBehindInherited(
+    view: PieceView,
+    state: State,
+    layer: LayerPiece[] | null,
+    tracker: string,
+  ): Promise<string | null> {
+    const over = layerByHash(layer);
+    const named = inputsBy(state.pieces.map((x) => x.piece));
+    const byHash = new Map(state.byHash);
+    // Each problem named is read once, however many of the inputs have their squares there.
+    const sources = new Map<Hash, State | null>();
+    const sourceOf = async (problem: Hash): Promise<State | null> => {
+      if (sources.has(problem)) return sources.get(problem) ?? null;
+      let there: State | null = null;
+      try {
+        const resolved = await this.resolver.resolve({ hash: problem, trackers: [tracker], mirrors: [] });
+        if (resolved) there = this.resolver.state(resolved);
+      } catch {
+        /* a problem that does not resolve, or does not check, is one this client cannot read */
+      }
+      sources.set(problem, there);
+      return there;
+    };
+    let behind = 0;
+    for (const entry of view.piece.inputs)
+      for (const dep of named(entry)) {
+        const own = state.byHash.get(dep.hash)?.state;
+        if (own === 'accepted' || own === 'unreachable') continue;
+        const mark = inheritedOf(over.get(dep.hash));
+        if (!mark || !INHERITED_DONE.has(mark.state)) return null;
+        const there = (await sourceOf(mark.problem))?.byHash.get(dep.hash);
+        if (!there) return null;
+        if (there.accepting) byHash.set(dep.hash, there);
+        else if (mark.state !== 'recorded' || kindWords(dep.verifier).kind !== 'record') return null;
+        behind++;
+      }
+    return behind > 0 ? renderInputs(view, { ...state, byHash }) : null;
   }
 
   /**
@@ -1461,8 +1538,8 @@ export class Quilt {
     return sharpen.sharpenDue(this.door, ask, now);
   }
 
-  // The proposed pieces (QX-22): one piece proposed beside a problem by any key, and the owner's take of proposed
-  // pieces into a version. The work is in propose.ts, through the door.
+  // The proposed pieces (QX-22): one piece proposed beside a problem by any key, the owner's take of proposed pieces
+  // into a version, and any key's fork that holds them (QX-23 section 5). The work is in propose.ts, through the door.
 
   /** One piece proposed beside a problem under a name, with the proposer's reason (propose.ts, `propose`). */
   propose(input: string, name: string, piece: PieceDef, why: string): Promise<Proposed> {
@@ -1477,6 +1554,11 @@ export class Quilt {
   /** The owner's default take over every problem the home knows and this key owns (propose.ts, `takeDue`). */
   takeDue(now?: string): Promise<Taken[]> {
     return proposing.takeDue(this.door, now);
+  }
+
+  /** A fork of a problem under this home's key, with each proposed piece named added (propose.ts, `fork`). */
+  fork(input: string, names?: string[], now?: string): Promise<Forked> {
+    return proposing.fork(this.door, input, names, now);
   }
 
   // The coin (QX-17): where it lives, what this key holds of it, and the three events that move it. The work is in

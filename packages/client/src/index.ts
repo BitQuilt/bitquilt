@@ -24,6 +24,7 @@ export {
   modelFor,
   type AttentionItem,
   type CoinBalance,
+  type Forked,
   type Handed,
   type Pattern,
   type Proposed,

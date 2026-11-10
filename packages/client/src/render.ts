@@ -19,6 +19,7 @@ import {
   type State,
   agreeFields,
   canonical,
+  isHash,
   isSlug,
   returnsAgree,
   textIssues,
@@ -40,8 +41,9 @@ import {
 import type { Posted } from './resolver.js';
 
 /**
- * Each state in the words the legend uses, in the legend's order: the core's ten, then the two the layer adds, then the
- * mark for a kind nobody here implements.
+ * Each state in the words the legend uses, in the legend's order: the core's nine, then the five a tracker's layer
+ * adds, challenged (QX-1), a panel ranking (QX-2), recording and recorded (QX-20) and inherited (QX-23 section 2), then
+ * the mark for a kind nobody here implements.
  */
 export const STATE_WORDS: Record<string, string> = {
   open: 'open',
@@ -57,6 +59,7 @@ export const STATE_WORDS: Record<string, string> = {
   judging: 'a panel ranking candidates',
   recording: 'readings being recorded',
   recorded: 'recorded, every reading standing',
+  inherited: 'inherited, its square standing on a problem the fork came from',
   unknown: 'a kind neither this client nor the tracker that answered implements',
 };
 
@@ -75,6 +78,7 @@ export const STATE_MARK: Record<string, string> = {
   judging: 'j',
   recording: 'r',
   recorded: 'R',
+  inherited: '^',
   unknown: '?',
 };
 
@@ -189,6 +193,17 @@ export function layerByHash(layer: LayerPiece[] | null | undefined): Map<Hash, L
 }
 
 /**
+ * QX-23 section 2: an inherited piece's mark as the tracker that answered gives it, the problem where the square stands
+ * and the piece's state there. Null where the piece is not inherited, and where the mark is not whole, its problem a
+ * hash and its state a string, since both are the tracker's word.
+ */
+export function inheritedOf(l: LayerPiece | null | undefined): { problem: Hash; state: string } | null {
+  const mark = l?.state === 'inherited' ? l.inherited : null;
+  if (!mark || !isHash(mark.problem) || typeof mark.state !== 'string') return null;
+  return { problem: mark.problem, state: mark.state };
+}
+
+/**
  * The map as a strip of marks, one per piece in file order, and the counts; the tracker's states where it answered, the
  * core's otherwise.
  */
@@ -200,6 +215,35 @@ export function mapText(state: State, layer: LayerPiece[] | null = null): string
   for (const v of state.pieces) counts[shown(v)] = (counts[shown(v)] ?? 0) + 1;
   const parts = Object.entries(counts).map(([k, n]) => `${n} ${k.replace('_', ' ')}`);
   return `${strip}\n${parts.join(', ')}${state.complete ? '; complete' : ''}`;
+}
+
+/**
+ * The inherited squares (QX-23 section 2), as the tracker that answered marks them: one line saying for how many of
+ * the pieces the square stands on a problem the fork came from, and each such problem by its hash with the states the
+ * squares have there; nothing where no piece is inherited. The map's counts say `inherited` under its own name, so the
+ * accepted squares counted there are the fork's own, and this line says where the others stand. The problem and the
+ * state are the tracker's word: a problem is said only where it has a hash's shape, and a state only where it is one
+ * the legend knows.
+ */
+export function inheritedText(layer: LayerPiece[] | null): string {
+  const by = new Map<string, Map<string, number>>();
+  let pieces = 0;
+  for (const l of layer ?? []) {
+    const mark = inheritedOf(l);
+    if (!mark) continue;
+    const there = Object.hasOwn(STATE_WORDS, mark.state)
+      ? mark.state.replace('_', ' ')
+      : 'in a state this client does not know';
+    const states = by.get(mark.problem) ?? new Map<string, number>();
+    states.set(there, (states.get(there) ?? 0) + 1);
+    by.set(mark.problem, states);
+    pieces++;
+  }
+  if (pieces === 0) return '';
+  const places = [...by].map(
+    ([problem, states]) => `on ${problem}, ${[...states].map(([k, n]) => `${n} ${k}`).join(', ')}`,
+  );
+  return `Inherited (QX-23): for ${pieces} of the pieces the square stands on a problem this fork came from: ${places.join('; ')}. Their returns are on the record there, and none is counted among this problem's own accepted squares.`;
 }
 
 /** The kinds of the problem's pieces and how each earns its square, the weakest said so. */
@@ -252,9 +296,10 @@ export function goldText(layer: LayerPiece[] | null, gold: GoldCount | null = nu
 
 /**
  * A problem said whole, as quilt_open answers: the owner's title and statement of done as their quoted words, the
- * count of pieces and versions, the map with its counts, the kinds, the stake and the gold where asked or committed,
- * the legend, who answered, a takedown where the tracker reports one, and the link to pass on. The link names the
- * tracker that answered, or `fallbackTrackers` (the config's) where the answer came from the cache or a mirror.
+ * count of pieces and versions, the map with its counts, where the inherited squares stand on a fork (QX-23), the
+ * kinds, the stake and the gold where asked or committed, the legend, who answered, a takedown where the tracker
+ * reports one, and the link to pass on. The link names the tracker that answered, or `fallbackTrackers` (the config's)
+ * where the answer came from the cache or a mirror.
  */
 export function summary(opened: Opened, fallbackTrackers: string[]): string {
   const { hash, state, tracker } = opened;
@@ -267,6 +312,7 @@ export function summary(opened: Opened, fallbackTrackers: string[]): string {
     `and wrote of when it is done: "${p.done_when}"`,
     `${state.pieces.length} pieces, version ${state.chain.length} along prev.`,
     mapText(state, layer),
+    inheritedText(layer),
     kindsText(state),
     stakeText(layer),
     goldText(layer, opened.gold ?? null),

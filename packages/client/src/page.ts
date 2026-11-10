@@ -19,7 +19,16 @@ import { makeLink } from './link.js';
 import { sheetOf } from './phrases.js';
 import { kept } from './pool.js';
 import { type Pattern, Quilt } from './quilt.js';
-import { goldText, handedJson, kindWords, kindsText, layerByHash, stakeText } from './render.js';
+import {
+  goldText,
+  handedJson,
+  inheritedOf,
+  inheritedText,
+  kindWords,
+  kindsText,
+  layerByHash,
+  stakeText,
+} from './render.js';
 import { publicLibrary } from './library.js';
 import { type Resolver, KEEP_EVERY_MS } from './resolver.js';
 import { isToolName, runTool } from './tools.js';
@@ -182,6 +191,7 @@ export function createPage(options: PageOptions): {
               stake: l?.stake ?? 0,
               gold: l?.gold ?? null,
               verified: l?.verified ?? false,
+              inherited: inheritedOf(l),
               mine_gold: mineGold.includes(v.piece.hash),
               gold_due: due.has(v.piece.hash),
             };
@@ -189,6 +199,7 @@ export function createPage(options: PageOptions): {
           kinds: kindsText(state),
           stake: stakeText(layer),
           goldLine: goldText(layer, gold),
+          inheritedLine: inheritedText(layer),
           judging: judging.map((p) => ({
             piece: p.piece,
             name: p.name,

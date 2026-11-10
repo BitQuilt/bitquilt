@@ -69,7 +69,7 @@ export const scrape: Scrape = {
 
 // The pieces of `/p/<hash>/state`, as the route builds them: the name, hash and verifier from the fold's piece view,
 // the state and the kind's words from the layer's piece, the window from the gold's rule at now (QX-16), the grade and
-// the seams from the traces.
+// the seams from the traces, and the inherited square's mark from the layer's piece (QX-23 section 2).
 export const pieces: LayerPiece[] = pl.fold.pieces.map((v) => {
   const l = pl.byHash.get(v.piece.hash)!;
   const t = traced.get(v.piece.hash)!;
@@ -96,6 +96,7 @@ export const pieces: LayerPiece[] = pl.fold.pieces.map((v) => {
     seams: t.seams,
     aside: l.aside,
     record: t.record,
+    inherited: l.inherited,
   };
 });
 

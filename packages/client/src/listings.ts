@@ -28,9 +28,9 @@ export interface KindWords {
 
 /**
  * A piece's state as the layer shows it: the core's, or one the layer adds: challenged (QX-1), judging (QX-2),
- * recording and recorded (QX-20).
+ * recording and recorded (QX-20), inherited (QX-23).
  */
-export type LayerState = PieceState | 'challenged' | 'judging' | 'recording' | 'recorded';
+export type LayerState = PieceState | 'challenged' | 'judging' | 'recording' | 'recorded' | 'inherited';
 
 /** The states in which a returned piece counts as accepted so far. */
 export const ACCEPTED_STATES: readonly string[] = ['accepted_provisional', 'accepted'];
@@ -91,6 +91,11 @@ export interface LayerPiece extends Omit<KindWords, 'kind' | 'strength'> {
   aside?: string[];
   /** QX-20: on a record piece, its grade; null or absent on every other kind. */
   record?: RecordGrade | null;
+  /**
+   * QX-23 section 2: where the state is `inherited`, the problem where the square stands and the piece's state there;
+   * null elsewhere, and absent from a tracker that does not carry the extension.
+   */
+  inherited?: { problem: Hash; state: LayerState } | null;
 }
 
 /**
