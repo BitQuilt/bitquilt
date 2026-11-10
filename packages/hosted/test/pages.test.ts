@@ -206,6 +206,7 @@ describe('the pages the on-ramp serves', () => {
       vendors: [markup],
       traced: 'one',
       verified: true,
+      inherited: { problem: markup, state: markup, url: markup },
       readings: [
         {
           key: '0x0000000000000000000000000000000000000002',

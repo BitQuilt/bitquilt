@@ -5,7 +5,8 @@ import { type LayerState, carriesSet, countsAsAccepted } from '../src/challenge.
  * The layer's two groups of states, each said once beside LayerState (QX-1): a piece counts as accepted while its set
  * stands, provisionally or not, with no challenge open on it, which the directory row and the offer count; and a
  * piece still carries its accepting set under an open challenge too, which seeding and the square page read. Every
- * state the layer gives is asked, and no other is in either group.
+ * state the layer gives is asked, and no other is in either group: an inherited piece (QX-23 section 2) is in
+ * neither, since its set is the problem's where the square stands.
  */
 const STATES = [
   'locked',
@@ -22,6 +23,7 @@ const STATES = [
   'judging',
   'recording',
   'recorded',
+  'inherited',
 ] as const satisfies readonly LayerState[];
 /** True only where STATES names every state the layer gives. */
 const everyState: Exclude<LayerState, (typeof STATES)[number]> extends never ? true : false = true;

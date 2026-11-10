@@ -31,6 +31,7 @@ import {
   whole,
 } from '@bitquilt/core';
 import type { Admission, ProblemLayer } from './challenge.js';
+import type { Inherited } from './inherit.js';
 import type { RecordView } from './verifiers.js';
 
 export const TRACE = 'QX-19';
@@ -508,9 +509,11 @@ export function pieceTraces(
  * name; the square's grade over the layer's fold, whose accepting set is the one that counts; and its seams between the
  * readings that stand (section 4): over the layer's fold where it still calls the piece disputed, so a key that read
  * again with grounds after its first reading was set aside is a side and not the reading set aside, and over the
- * core's fold where the layer has set a reading aside, so the seam shows which. What the state, the directory row,
- * a key's work and `next` show. `blobLength` measures a read and `passageOf` reads a span of it as text, or null
- * where the blob is not here.
+ * core's fold where the layer has set a reading aside, so the seam shows which. An inherited piece says `inherited`
+ * and not its own state (QX-23 section 2), so an inherited agree piece is read over the layer's fold with the piece
+ * taken as disputed, which finds the seams its own state would show, and over the core's fold where that finds none,
+ * as any piece is. What the state, the directory row, a key's work and `next` show. `blobLength` measures a read and
+ * `passageOf` reads a span of it as text, or null where the blob is not here.
  */
 export function problemTraces(
   pl: ProblemLayer,
@@ -522,14 +525,28 @@ export function problemTraces(
     pl.fold.pieces.map((v) => {
       const core = pl.core.byHash.get(v.piece.hash) ?? v;
       const traces = tracesKept(core, receipts, blobLength);
+      const layered = pl.byHash.get(v.piece.hash);
       // QX-20 section 3: a record piece's seams are between its standing readings, with nothing set aside, and its
       // grade is over them.
-      const record = pl.byHash.get(v.piece.hash)?.record ?? null;
+      const record = layered?.record ?? null;
+      // QX-23 section 2: "where they differ, the piece still says `inherited` and the seams between the fork's own
+      // readings are shown beside it". The piece's own state is not kept once it says `inherited`, so its readings
+      // that stand are read with the piece taken as disputed, which finds each pair that differs. On an agree piece
+      // that is the piece's own `disputed`, two readings that stand, from unrelated roots, that differ, so the seams
+      // are the ones the same readings show on a problem that inherits nothing: a struck reading is no side, and a
+      // key that read again is a side once. A human piece counts some of its reveals and a judge piece's candidates
+      // differ by nature, which the readings alone do not say, so those kinds are read as any piece is.
+      const own =
+        layered?.inherited && layered.kind.kind === 'agree'
+          ? seamed(pl.fold, { ...v, state: 'disputed' }, receipts, traces, passageOf)
+          : null;
       const over = record
         ? { seams: recordSeams(pl.fold, v, record, receipts, traces, passageOf), aside: [] as Hash[] }
         : v.state === 'disputed'
           ? seamed(pl.fold, v, receipts, traces, passageOf)
-          : seamed(pl.core, core, receipts, traces, passageOf);
+          : own?.seams.length
+            ? own
+            : seamed(pl.core, core, receipts, traces, passageOf);
       return [
         v.piece.hash,
         {
@@ -546,13 +563,15 @@ export function problemTraces(
 
 /**
  * QX-20 section 4: the record document of a problem with a record piece once the layer calls it complete, with its
- * hash; null otherwise. The tracker's state answers the hash as `record_output` and the mirror writes the document
+ * hash; null otherwise. Complete is the layer's (QX-23 section 4), so a fork whose pieces are inherited from final
+ * squares has its document. The tracker's state answers the hash as `record_output` and the mirror writes the document
  * under `outputs/`, so the two are the same where the chains are.
  */
 export function recordOutput(pl: ProblemLayer): { document: unknown; hash: Hash } | null {
   const records = new Map(pl.pieces.filter((p) => p.record).map((p) => [p.hash, p.record!] as const));
-  if (records.size === 0 || !pl.fold.complete) return null;
-  return recordDocument(pl.problem, pl.fold, records, pl.receipts);
+  if (records.size === 0 || !pl.complete) return null;
+  const inherited = new Map(pl.pieces.filter((p) => p.inherited).map((p) => [p.hash, p.inherited!] as const));
+  return recordDocument(pl.problem, pl.fold, records, pl.receipts, inherited);
 }
 
 /**
@@ -560,14 +579,22 @@ export function recordOutput(pl: ProblemLayer): { document: unknown; hash: Hash 
  * has it (CORE.md section 6), with a record piece's entry carrying its standing readings: the signer's root and key,
  * the vendor and model declared, the time, the return whole, and the trace as the chain states it, or null. A function
  * of the envelope and the receipts alone, so a mirror writes the same document and the same hash as the tracker.
+ *
+ * QX-23 section 4: "an inherited piece's entry is `{ name, piece, state: "inherited", inherited }`, where `inherited`
+ * is the hash of the problem where the square stands. The readings and the evidence are in that problem's own record
+ * and are not copied." `inherited` is the layer's marks, so a fork's document is a function of its own chain and the
+ * chains it reaches.
  */
 export function recordDocument(
   problem: Hash,
   fold: State,
   records: ReadonlyMap<Hash, RecordView>,
   receipts: Receipt[],
+  inherited: ReadonlyMap<Hash, Inherited> = new Map(),
 ): { document: unknown; hash: Hash } {
   const pieces = fold.pieces.map((v) => {
+    const mark = inherited.get(v.piece.hash);
+    if (mark) return { name: v.piece.name, piece: v.piece.hash, state: 'inherited', inherited: mark.problem };
     const base = { name: v.piece.name, piece: v.piece.hash, state: v.state };
     const rec = records.get(v.piece.hash);
     if (rec) {

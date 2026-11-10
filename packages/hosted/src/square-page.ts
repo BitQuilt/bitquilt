@@ -8,11 +8,13 @@
  * page names the version that holds it and says what that one recorded. Each reading is the quoted words of the key
  * that signed it, with the signer and its declared vendor named; each rest names the page it rests on and the hash it
  * was kept under, and quotes the passage where the bytes are held here. The title and the card tags say the agreed
- * answer and the vendors that agreed, or the state; a field agreed blank says so.
+ * answer and the vendors that agreed, or the state; a field agreed blank says so. A piece a fork inherits has its
+ * square on the problem the fork came from (QX-23 section 2), so the page names that problem, says the piece's state
+ * there, and links to the page of the same piece there, where the readings are.
  */
 import { type Address, type Hash, problemHash } from '@bitquilt/core';
 import { type RestedOn, type Store, carriesSet, passageIn, restsOf } from '@bitquilt/tracker';
-import { type Quilt, kindWords, makeLink } from 'quilt';
+import { type Quilt, inheritedOf, kindWords, makeLink } from 'quilt';
 
 /**
  * One reading of the piece: who signed it and as what, when, the fields, what each rests on, and whether it is one of
@@ -59,6 +61,11 @@ export interface SquareView {
   vendors: string[];
   traced: 'both' | 'one' | 'none' | null;
   verified: boolean;
+  /**
+   * QX-23 section 2: where the layer says the piece is inherited, the problem where its square stands, the piece's
+   * state there, and the address of that square's page here; null for every other piece.
+   */
+  inherited: { problem: string; state: string; url: string } | null;
   readings: SquareReading[];
   now: SquareNow | null;
   link: string;
@@ -158,6 +165,7 @@ export async function squareView(
       };
   }
   const env = opened.state.envelope.problem;
+  const mark = inheritedOf(l);
   return {
     url: `${trackerUrl()}r/${problem}/${piece}`,
     problem,
@@ -179,6 +187,7 @@ export async function squareView(
     vendors: accepting ? [...new Set(accepting.reveals.map((r) => r.vendor))] : [],
     traced: l?.traced ?? null,
     verified: l?.verified ?? false,
+    inherited: mark ? { ...mark, url: `${trackerUrl()}r/${mark.problem}/${piece}` } : null,
     readings,
     now: later,
     link: makeLink(problem, [trackerUrl()], env.slug),
@@ -200,6 +209,7 @@ const STATE: Record<string, string> = {
   locked: 'locked: it waits on another piece',
   recording: 'a record piece, its readings being recorded',
   recorded: 'a record piece, every reading standing',
+  inherited: 'inherited: its square stands on a problem this fork came from',
 };
 const stateWords = (s: string): string => STATE[s] ?? s;
 const esc = (s: string): string =>
@@ -256,6 +266,16 @@ function holderText(v: SquareView): string {
   return `<p>The version this address names, <code>${esc(v.problem)}</code>, is a later version without this piece. The state and the readings below are the ones <code>${esc(v.holder)}</code> recorded.</p>\n`;
 }
 
+/**
+ * QX-23 section 2: where the piece is inherited, the problem its square stands on, its state there, and the link to
+ * that square's page, where the readings are.
+ */
+function standsText(v: SquareView): string {
+  const i = v.inherited;
+  if (!i) return '';
+  return `<p>The square stands on the problem <code>${esc(i.problem)}</code>, which this fork came from. The same piece there is ${esc(stateWords(i.state))}. Its readings are on <a href="${esc(i.url)}">the page of that square</a>.</p>\n`;
+}
+
 /** The page itself: one document, no script, nothing loaded from elsewhere. */
 export function squarePage(v: SquareView): string {
   const title = squareTitle(v);
@@ -271,7 +291,9 @@ export function squarePage(v: SquareView): string {
   const verified = v.verified ? " The owner's own answer, committed before anyone read the piece, agreed with it." : '';
   const readings = v.readings.length
     ? v.readings.map(reading).join('')
-    : '<p class="q">No reading has been revealed yet.</p>';
+    : v.inherited
+      ? '<p class="q">No reading has been revealed on this problem. The readings of the square are on the page named above.</p>'
+      : '<p class="q">No reading has been revealed yet.</p>';
   const description = `${v.title}: ${title}.`;
   return `<!doctype html>
 <html lang="en">
@@ -307,7 +329,7 @@ a{color:#2b3f7a;overflow-wrap:anywhere}
 <p>The problem, titled by ${esc(owner)}: “${esc(v.title)}”</p>
 <p>The piece <b>${esc(v.name)}</b>, <code>${esc(v.piece)}</code>, of the problem's version <code>${esc(v.holder ?? v.problem)}</code>. Its brief, as the owner wrote it: “${esc(v.brief)}”</p>
 ${holderText(v)}<p class="state">It is ${esc(stateWords(v.state))}.${esc(grade)}${esc(verified)}</p>
-<p class="q">${esc(v.kind)}</p>
+${standsText(v)}<p class="q">${esc(v.kind)}</p>
 ${nowText(v)}
 <h2>The readings</h2>
 ${readings}

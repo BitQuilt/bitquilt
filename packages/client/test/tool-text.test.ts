@@ -13,9 +13,10 @@
  * the owner's and by a Quilt whose home has no key yet. Where a branch wants what one tracker does not give (a stake,
  * the gold, a takedown, witnesses, seams of each kind, challenges and panels of each outcome, proposed pieces taken and
  * waiting, an answer from the cache, a state outside the legend, a patch accepted or disputed, a key signing for
- * another root, a square held challenged), the Quilt's open, challenges, panels and proposals answer a fixed view over
- * the real state. Search and me run over a Quilt whose reads answer fixed values, since their branches want a coin, a
- * founding, relays, forks and trackers that do not answer, which one tracker does not give.
+ * another root, a square held challenged, the squares a fork inherits), the Quilt's open, challenges, panels and
+ * proposals answer a fixed view over the real state. Search and me run over a Quilt whose reads answer fixed values,
+ * since their branches want a coin, a founding, relays, forks and trackers that do not answer, which one tracker does
+ * not give.
  */
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -325,7 +326,7 @@ function named(text: string): string {
 }
 
 const LEGEND =
-  'Legend: . open, i in flight, s sealed, v needs a second production, d disputed, p accepted within the window, a accepted, u unreachable, l locked, c challenged, j a panel ranking candidates, r readings being recorded, R recorded, every reading standing, ? a kind neither this client nor the tracker that answered implements.';
+  'Legend: . open, i in flight, s sealed, v needs a second production, d disputed, p accepted within the window, a accepted, u unreachable, l locked, c challenged, j a panel ranking candidates, r readings being recorded, R recorded, every reading standing, ^ inherited, its square standing on a problem the fork came from, ? a kind neither this client nor the tracker that answered implements.';
 const OWNER = '0xF7Edc8FA1eCc32967F827C9043FcAe6ba73afA5c';
 const B = '0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF';
 const C = '0x6813Eb9362372EEF6200f3b1dbC3f819671cBA69';
@@ -1088,7 +1089,8 @@ describe("quilt_open and quilt_read over a tracker's view with every mark", () =
  * read its trace does not hold, and one carrying its own name, which a tracker's layer does not send and quilt_next
  * sets. A piece the tracker holds disputed with no returns, which the Disputed section passes over. A square the core
  * accepted that the tracker holds challenged, which the found leaves out, and a record piece the tracker sends no seams
- * for.
+ * for. The squares a fork inherits (QX-23 section 2), which a tracker marks only on a fork: each problem named with the
+ * states the squares have there, and a mark that is not whole, which is drawn and counted and said nowhere else.
  */
 describe('quilt_open and quilt_read over what no tracker here gives', () => {
   const by = (model: string): By => ({ model, client: 'Claude Code', can: ['files'] });
@@ -1138,6 +1140,45 @@ describe('quilt_open and quilt_read over what no tracker here gives', () => {
     };
     expect(named((await runTool(over({ ...opened, layer: [paused] }), 'quilt_open', { link: r })).text)).toBe(
       [...HEAD_R.slice(0, 4), '?', '1 paused', ...HEAD_R.slice(6)].join('\n'),
+    );
+  });
+
+  it('quilt_open marks an inherited piece with ^, counts it under its own name, and says where the squares stand and their states there', async () => {
+    const opened = await mk(1, 'anthropic/claude').open(p);
+    // Two squares final on one problem, a record there too, and one on a second problem in a state no legend holds.
+    const there: Record<string, { problem: Hash; state: LayerState }> = {
+      'statement/1': { problem: q, state: 'accepted' },
+      'statement/2': { problem: q, state: 'accepted' },
+      'statement/3': { problem: r, state: 'paused' as LayerState },
+      question: { problem: q, state: 'recorded' },
+    };
+    const layer = (opened.layer ?? []).map(
+      (l): LayerPiece => ({ ...l, state: 'inherited', inherited: there[l.name]! }),
+    );
+    expect(named((await runTool(over({ ...opened, layer, superseded: null }), 'quilt_open', { link: p })).text)).toBe(
+      [
+        ...HEAD_P.slice(0, 4),
+        '^^^^',
+        '4 inherited',
+        "Inherited (QX-23): for 4 of the pieces the square stands on a problem this fork came from: on <q>, 2 accepted, 1 recorded; on <r>, 1 in a state this client does not know. Their returns are on the record there, and none is counted among this problem's own accepted squares.",
+        ...HEAD_P.slice(6),
+      ].join('\n'),
+    );
+  });
+
+  it('quilt_open says nothing of where a square stands for a mark that is not whole, nor for a mark on a piece that is not inherited', async () => {
+    const opened = await mk(1, 'anthropic/claude').open(p);
+    // An inherited piece with no mark, one whose problem is no hash, one whose state is no string; and an open piece
+    // that carries a mark all the same.
+    const marks: Record<string, Partial<LayerPiece>> = {
+      'statement/1': { state: 'inherited' },
+      'statement/2': { state: 'inherited', inherited: { problem: 'the source' as Hash, state: 'accepted' } },
+      'statement/3': { state: 'inherited', inherited: { problem: q, state: 7 as unknown as LayerState } },
+      question: { state: 'open', inherited: { problem: q, state: 'accepted' } },
+    };
+    const layer = (opened.layer ?? []).map((l): LayerPiece => ({ ...l, ...marks[l.name] }));
+    expect(named((await runTool(over({ ...opened, layer, superseded: null }), 'quilt_open', { link: p })).text)).toBe(
+      [...HEAD_P.slice(0, 4), '^^^.', '3 inherited, 1 open', ...HEAD_P.slice(6)].join('\n'),
     );
   });
 

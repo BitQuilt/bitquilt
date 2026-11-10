@@ -170,7 +170,8 @@ export function offerOrder(
     if (ownerRoot === w) continue;
     const pick = next(fold, key, client, now, { exclude: exclude(hash, pl, input) });
     if (!pick) continue;
-    const done = pl.pieces.filter((p) => countsAsAccepted(p.state)).length;
+    // QX-23 section 5: "The order problems are offered in counts an inherited piece as done."
+    const done = pl.pieces.filter((p) => countsAsAccepted(p.state) || p.state === 'inherited').length;
     const reciprocalAt = workedFor.get(w)?.get(ownerRoot) ?? null;
     const own = input.receipts.filter((r) => r.event.problem !== undefined);
     const last = own.length ? (own[own.length - 1]!.received[0]?.at ?? '') : '';

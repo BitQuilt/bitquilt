@@ -55,6 +55,9 @@
  *                                                         every owned problem, or one, by the default; a name, a hash
  *                                                         or an event's id takes that piece and raises the budget to
  *                                                         fit
+ *   quilt fork <problem> [<name> ...]                     a fork of a problem under this home's key (QX-23): every
+ *                                                         piece kept under the hash it had, and each proposed piece
+ *                                                         named, by its name, its hash or its event's id, added
  *   quilt pay <problem> <amount> <per_square>             coin escrowed to a problem on the coin's home (QX-17), paid
  *                                                         per accepted square
  *   quilt balance                                         this key's coin at the first tracker that carries one
@@ -318,6 +321,13 @@ async function main(): Promise<void> {
       const quilt = make();
       const taken = args[1] ? [await quilt.take(args[1] as `sha256:${string}`, args.slice(2))] : await quilt.takeDue();
       console.log(JSON.stringify(taken, null, 2));
+      return;
+    }
+    case 'fork': {
+      // QX-23 section 5: a fork of a problem under this home's key, its pieces kept as they are. With names, each
+      // proposed piece named is added, the budget raised to fit.
+      const forked = await make().fork(args[1] ?? '', args.slice(2));
+      console.log(JSON.stringify(forked, null, 2));
       return;
     }
     case 'sharpen': {

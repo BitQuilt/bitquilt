@@ -612,7 +612,7 @@ describe('CLIENT.md, when next hands nothing', () => {
 
   it('hands nothing on a record piece whose readings are in, one of a kind this tracker does not define, or one that waits on it', async () => {
     expect(DOC).toContain(
-      'or, for a record piece, `recorded` (QX-20); it waits on another, `locked`; or its kind is one this tracker does not define, `unknown` (CORE.md section 6);',
+      'or, for a record piece, `recorded` (QX-20); on a fork, its square stands on a problem the fork came from, `inherited` (QX-23); it waits on another, `locked`; or its kind is one this tracker does not define, `unknown` (CORE.md section 6);',
     );
     const K = envelope(owner, 'kinds', {
       kept: { ...cite('How does the page read the claim? Give the verdict and the passage.'), verifier: 'record:2' },

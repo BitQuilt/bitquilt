@@ -4,12 +4,14 @@
  * before it. A file takes a type from a later one with `import type`, which loads nothing. Under verbatimModuleSyntax
  * an import of inline types alone still loads its module, so it counts here as a load. The layer's admissions sit in
  * the files of the rules they check, and each returns its part of the one Layer, a type, so moving them there added no
- * load. The door's jobs (tracker.ts, Context) are admit.ts, which takes a post, views.ts, which answers a read, and
- * hand.ts, which hands a key a piece: tracker.ts loads each, and each takes the tracker's context from it as a type
- * alone. Each names the part of the context it reads in its `Reads`. views.ts and hand.ts leave `exactly` out of
- * theirs, so a read cannot ask for the layer built afresh, and they load nothing of the door. None of the three keeps a
- * value that changes at the top of its module, so what a tracker keeps from one request to the next is its context's,
- * one per tracker (kept-layer.test.ts and coin-home.test.ts hold that as it runs).
+ * load. The layer's last pass (QX-23) is in inherit.ts, which loads none of the tracker's files: challenge.ts hands it
+ * a piece's own state and the settling, so it sits below every file that loads it. The door's jobs (tracker.ts,
+ * Context) are admit.ts, which takes a post, views.ts, which answers a read, and hand.ts, which hands a key a piece:
+ * tracker.ts loads each, and each takes the tracker's context from it as a type alone. Each names the part of the
+ * context it reads in its `Reads`. views.ts and hand.ts leave `exactly` out of theirs, so a read cannot ask for the
+ * layer built afresh, and they load nothing of the door. None of the three keeps a value that changes at the top of
+ * its module, so what a tracker keeps from one request to the next is its context's, one per tracker
+ * (kept-layer.test.ts and coin-home.test.ts hold that as it runs).
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -108,6 +110,11 @@ describe("the tracker's files as they load", () => {
 
   it('form no cycle', () => {
     expect(cycle()).toBeNull();
+  });
+
+  it("find the layer's last pass loading none of the tracker's files, and the layer loading it", () => {
+    expect(graph.get('inherit.ts')).toEqual([]);
+    expect(graph.get('challenge.ts')).toContain('inherit.ts');
   });
 
   it('read the layer from the bottom up, each file loading only those before it', () => {

@@ -161,6 +161,8 @@ export interface KindsDecided {
   dropped: { id: Hash; type: string; why: string }[];
   /** QX-20: every record piece's standing readings. */
   records: Map<Hash, RecordView>;
+  /** The reveals that count on a human piece: from a person's seat, unrelated to the owner. */
+  counted: Map<Hash, Reveal[]>;
 }
 
 export interface VerifierOptions {
@@ -472,8 +474,24 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
     }
   }
 
-  // States: the core's for its own kinds where it had one; this layer's for its kinds and for what the core locked
-  // behind them.
+  const decided: KindsDecided = { fold, panels, byPiece, kinds, unoffered, dropped, records, counted };
+  settleKinds(decided, core, now, new Set());
+  return decided;
+}
+
+/**
+ * Every piece's state settled over the kinds as decided, and `complete` with them: the core's for its own kinds where
+ * it had one; this layer's for its kinds and for what the core locked behind them. `base` is the fold the kinds were
+ * decided over, and the core's word is read from it and never from the view, which an earlier settle wrote. `done` is
+ * the pieces done elsewhere (QX-23 section 3), empty wherever applyVerifiers settles: "A dependent's input counts as
+ * done where the input is `accepted`, `unreachable` or `recorded` on the fork, as before, or where it is done
+ * elsewhere and its own inputs on the fork are done." Nothing is decided again here, so no panel is drawn a second
+ * time.
+ */
+export function settleKinds(decided: KindsDecided, base: State, now: string, done: ReadonlySet<Hash>): void {
+  const { fold, byPiece, kinds, records, counted } = decided;
+  const views = fold.pieces;
+  const byHash = fold.byHash;
   const named = inputsBy(views.map((v) => v.piece));
   const memo = new Map<Hash, LayerPieceState>();
   const stateOf = (v: PieceView, trail: Set<Hash>): LayerPieceState => {
@@ -481,19 +499,22 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
     if (hit) return hit;
     if (trail.has(v.piece.hash)) return 'locked';
     trail.add(v.piece.hash);
-    // A dependent unlocks on accepted or unreachable, as the core says, and on recorded (QX-20), which is the record
-    // piece's done.
+    // A dependent unlocks on accepted or unreachable, as the core says, on recorded (QX-20), which is the record
+    // piece's done, and on an input done elsewhere whose own inputs are done (QX-23 section 3).
     const inputsDone = v.piece.inputs.every((entry) =>
       named(entry).every((dep) => {
         const ds = stateOf(byHash.get(dep.hash)!, trail);
-        return ds === 'accepted' || ds === 'unreachable' || ds === 'recorded';
+        return (
+          ds === 'accepted' || ds === 'unreachable' || ds === 'recorded' || (ds !== 'locked' && done.has(dep.hash))
+        );
       }),
     );
     let s: LayerPieceState;
     const info = kinds.get(v.piece.hash)!;
+    const word = base.byHash.get(v.piece.hash)!.state;
     if (!inputsDone) s = 'locked';
     else if (info.kind === null) s = 'unknown';
-    else if (CORE_KINDS.has(info.kind) && v.state !== 'locked') s = v.state;
+    else if (CORE_KINDS.has(info.kind) && word !== 'locked') s = word;
     else if (info.kind === 'record') {
       // QX-20 section 2: recorded once the readings are in; held under needs_verify while some stand, so the core's
       // `next` offers it to a root that has not read it; the core's words while none does.
@@ -530,8 +551,6 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
     views.every(
       (v) => v.state === 'accepted' || v.state === 'unreachable' || (v.state as LayerPieceState) === 'recorded',
     );
-
-  return { fold, panels, byPiece, kinds, unoffered, dropped, records };
 }
 
 /**

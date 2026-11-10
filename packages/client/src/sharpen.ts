@@ -4,7 +4,8 @@
  * (owner-turn.ts). Each works through the door its Quilt hands it (door.ts): the version is published as `publish`
  * publishes it and the gold the home holds is committed again on it (gold.ts), and the Quilt's `sharpen`, `freeze`
  * and `sharpenDue` call these. The sentence itself comes from `ask`, which the caller supplies. `republish` is the
- * publishing of an owner's next version, which the take of a proposed piece shares (propose.ts).
+ * publishing of an owner's next version, which the take of a proposed piece shares, and the fork of a problem
+ * (propose.ts).
  */
 import { type Envelope, type Hash, type Problem, expandPieces, isHash, signObject, textIssues } from '@bitquilt/core';
 import type { Door } from './door.js';
@@ -112,22 +113,26 @@ export async function sharpen(
  * The next version of a problem this key owns, published: the envelope signed with the home's key and the config's
  * hints, posted as `publish` posts with the topics of this key's announce, the gold the home holds for the problem
  * committed again on the new pieces, and the home's library noting which version replaced which. The sharpening
- * publishes through it, and the take of a proposed piece (propose.ts).
+ * publishes through it, and the take of a proposed piece (propose.ts). A fork is published through it too, by a key
+ * that need not own the problem (propose.ts, `fork`): where `next` does not name the problem as its `prev` it replaces
+ * nothing, so the gold stays with the problem it was written for and the library notes no replacement, and where this
+ * key announced nothing on the problem the topics are those of its owner's announce.
  */
 export async function republish(door: Door, problem: Hash, next: Problem, resolved: Resolved): Promise<Published> {
   const id = door.needKey();
+  const version = next.prev === problem;
   const unsigned = {
     quilt: 1 as const,
     problem: next,
     hints: { trackers: door.config.trackers, mirrors: door.config.mirrors },
   };
   const envelope: Envelope = { ...unsigned, sig: signObject(unsigned, id.secret) };
-  const announce = resolved.receipts.find(
-    (r) => r.event.type === 'announce' && r.event.key.toLowerCase() === id.address.toLowerCase(),
-  );
+  const announceOf = (key: string) =>
+    resolved.receipts.find((r) => r.event.type === 'announce' && r.event.key.toLowerCase() === key.toLowerCase());
+  const announce = announceOf(id.address) ?? announceOf(resolved.envelopes[0]?.problem.owner ?? '');
   const topics = (announce?.event.body as { topics?: string[] } | undefined)?.topics ?? [];
   const out = await door.publishEnvelope(envelope, resolved.blobs, next, Array.isArray(topics) ? topics : []);
-  if (out.posted.length) {
+  if (out.posted.length && version) {
     const kept = door.library.gold?.[problem];
     if (kept && Object.keys(kept).length) {
       try {

@@ -3,9 +3,11 @@
  * version. The body's shape, the hash a proposed piece has and the proposals that stand are the tracker's rules (its
  * own propose.ts) written a second time, since this package imports the core alone, and test/propose.test.ts holds the
  * two files to the same answers. A take rests on the signed events of the chain this client resolved and on no
- * tracker's listing, so nothing unsigned decides what the owner signs. Each act works through the door its Quilt hands
- * it (door.ts): the version is published as the sharpening publishes one (sharpen.ts, `republish`), and the Quilt's
- * `propose`, `take` and `takeDue` call these.
+ * tracker's listing, so nothing unsigned decides what the owner signs. Here too is the fork of QX-23 section 5, where
+ * a key that is not the owner pursues a proposed piece: the problem's pieces kept under this home's key, and each
+ * proposed piece named added as a take adds one (test/fork.test.ts). Each act works through the door its Quilt hands
+ * it (door.ts): the version or the fork is published as the sharpening publishes a version (sharpen.ts, `republish`),
+ * and the Quilt's `propose`, `take`, `takeDue` and `fork` call these.
  */
 import {
   type Address,
@@ -406,4 +408,101 @@ export async function takeDue(door: Door, now = new Date().toISOString()): Promi
     }
   }
   return out;
+}
+
+/**
+ * QX-23 section 5: a fork published, or not. `from` is the problem forked; `hash` and `link` are the fork's, null
+ * where no tracker took it, with each tracker's reason in `refused`; `kept` is how many pieces of the problem the fork
+ * holds, each under the hash it had there; `added` is each proposed piece named, with the propose event's id, its
+ * name, its hash and its proposer's root.
+ */
+export interface Forked {
+  from: Hash;
+  hash: Hash | null;
+  link: string | null;
+  kept: number;
+  added: { id: Hash; name: string; piece: Hash; by: Address }[];
+  posted: string[];
+  refused: string[];
+}
+
+/**
+ * QX-23 section 5: "`quilt fork <problem> [<name> ...]` publishes a fork under this home's key: `from` names the
+ * problem, its pieces and data are copied as they are, so each keeps its hash and its square, and each proposed piece
+ * named (QX-22) is added, as a take adds one to a version." The fork is the version this client resolved with this
+ * key as its owner, no `prev`, and `from` that version: the title, the slug, what done looks like, the settings, the
+ * pieces and the data are the problem's, and a piece's hash reads none of what changed (CORE.md section 3). Each name
+ * is the name, the piece's hash or the propose event's id of a proposal that stands on the chain resolved, the first
+ * in receipt order, and each piece is added under its proposal's name as proposed, the budget raised to fit. Every
+ * fault is said before anything is signed, and one fault publishes nothing: a name no standing proposal answers to, a
+ * name the problem's pieces hold, or the first fault the envelope's rules find in the fork that would hold the piece.
+ * Any key forks, the owner's among them, and whether a tracker takes a fork is the tracker's to say. The fork is
+ * published as a version is (sharpen.ts, `republish`), with no gold and no stake rule of its own. `now` is the clock
+ * the receipts are read by.
+ */
+export async function fork(
+  door: Door,
+  input: string,
+  names: string[] = [],
+  now = new Date().toISOString(),
+): Promise<Forked> {
+  const id = door.needKey();
+  const { state } = await door.open(input);
+  const from = state.problem;
+  const old = state.envelope.problem;
+  // The problem is most often another owner's, so it is asked for where the library remembers it from the open.
+  const resolved = await door.resolve({ ...parseLink(from), trackers: door.trackersFor(from) });
+  if (!resolved) throw new Error('no resolver answered for that hash');
+  const standing = standingProposals(resolved.receipts, state.rootOf, now);
+
+  const faults: string[] = [];
+  const named = new Set<Hash>();
+  for (const n of names) {
+    const found = standing.find((p) => p.name === n || p.hash === n || p.id === n);
+    if (found) named.add(found.id);
+    else faults.push(`no proposed piece stands on that problem under ${n}`);
+  }
+  const candidates = standing.filter((p) => named.has(p.id));
+
+  const forkWith = (pieces: Record<string, PieceDef>, budget: number): Problem => ({
+    ...old,
+    owner: id.address,
+    prev: null,
+    from,
+    settings: { ...old.settings, budget },
+    pieces,
+  });
+  const pieces: Record<string, PieceDef> = { ...old.pieces };
+  let total = state.pieces.length;
+  const added = new Set<Hash>();
+  for (const p of candidates) {
+    // Two roots that proposed one piece: the fork that holds the first holds the second's piece too.
+    if (added.has(p.hash)) continue;
+    const budget = Math.max(old.settings.budget, total + 1);
+    const why =
+      Object.hasOwn(pieces, p.name) || Object.hasOwn(pieces, `${p.name}/*`)
+        ? NAME_HELD
+        : (envelopeProblems({ ...state.envelope, problem: forkWith({ ...pieces, [p.name]: p.piece }, budget) })[0] ??
+          null);
+    if (why !== null) {
+      faults.push(`${p.name}: ${why}`);
+      continue;
+    }
+    pieces[p.name] = p.piece;
+    total += 1;
+    added.add(p.hash);
+  }
+  if (faults.length) throw new Error(faults.join('\n'));
+
+  const out = await republish(door, from, forkWith(pieces, Math.max(old.settings.budget, total)), resolved);
+  const went = out.posted.length > 0;
+  return {
+    from,
+    hash: went ? out.hash : null,
+    link: went ? out.link : null,
+    kept: state.pieces.length,
+    added: candidates.map((p) => ({ id: p.id, name: p.name, piece: p.hash, by: p.root })),
+    posted: out.posted,
+    refused: out.refused,
+  };
 }

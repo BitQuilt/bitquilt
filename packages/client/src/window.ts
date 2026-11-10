@@ -16,7 +16,7 @@ import { makeLink } from './link.js';
 import { say } from './phrases.js';
 import { inParallel } from './pool.js';
 import type { Quilt } from './quilt.js';
-import { kindWords, layerByHash, nameOf } from './render.js';
+import { inheritedOf, kindWords, layerByHash, nameOf } from './render.js';
 import { type Library, publicLibrary } from './library.js';
 import { askJson } from './resolver.js';
 import type { Hot, WindowAnswer } from './window-answers.js';
@@ -110,6 +110,7 @@ export async function windowAnswer(quilt: Quilt, input: Record<string, unknown>)
           stake: l?.stake ?? 0,
           gold: l?.gold ?? null,
           verified: l?.verified ?? false,
+          inherited: inheritedOf(l),
           traced: l?.traced ?? null,
           traces: l?.traces ?? 0,
           reveals: v.reveals.length,

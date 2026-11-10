@@ -133,6 +133,7 @@ describe('the page', () => {
       'stake',
       'gold',
       'verified',
+      'inherited',
     ] as const satisfies readonly (keyof MapPiece)[];
     const pick = (p: object) => Object.fromEntries(shared.map((k) => [k, (p as Record<string, unknown>)[k]]));
     const onPage = (await api(`/api/open?link=${problem}`)).body.pieces as PagePiece[];

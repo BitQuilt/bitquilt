@@ -25,6 +25,7 @@
   .sq.disputed { background: var(--disputed); } .sq.accepted_provisional { background: var(--prov); } .sq.accepted { background: var(--acc); }
   .sq.unreachable { background: var(--unreach); } .sq.locked { background: var(--locked); } .sq.unknown { background: var(--unknown); }
   .sq.challenged { background: var(--disputed); } .sq.judging { background: var(--sealed); } .sq.recording { background: var(--verify); } .sq.recorded { background: var(--acc); outline: 2px dashed var(--muted); outline-offset: -2px; }
+  .sq.inherited { background: transparent; box-shadow: inset 0 0 0 3px var(--prov); } .sq.inherited.final { box-shadow: inset 0 0 0 3px var(--acc); }
   .sq.attested { outline: 2px dotted var(--muted); outline-offset: -2px; }
   .sq.verified { box-shadow: inset 0 0 0 2px #d4a017; }
   .sq.staked { border-bottom: 2px solid var(--ink); }
@@ -143,10 +144,14 @@
   $('anyBtn').addEventListener('click', function () { show('problem'); takePiece(''); });
 
   // A problem: its map, the lines the API says it in, the reveals due, a pay, the seed button, the panels this person judges, and what is accepted.
+  // QX-23: an inherited piece is a ring in the accepted green and not a filled square, full where its square is final
+  // on the problem it stands on (accepted, unreachable or recorded there) and light where it is not.
   var mapOf = function (pieces) {
     var m = el('div', 'map');
     pieces.forEach(function (p) {
-      var s = el('div', 'sq ' + p.state + (p.attested ? ' attested' : '') + (p.verified ? ' verified' : '') + (p.stake ? ' staked' : ''));
+      var isFinal = p.inherited && ['accepted', 'unreachable', 'recorded'].indexOf(p.inherited.state) >= 0;
+      var there = p.inherited ? ', its square on ' + p.inherited.problem + ', ' + String(p.inherited.state).replace('_', ' ') + ' there' : '';
+      var s = el('div', 'sq ' + p.state + (isFinal ? ' final' : '') + (p.attested ? ' attested' : '') + (p.verified ? ' verified' : '') + (p.stake ? ' staked' : ''));
       var notes = [p.verifier];
       if (p.strength) notes.push(p.strength);
       if (p.weakest) notes.push('the weakest kind');
@@ -154,7 +159,7 @@
       if (p.stake) notes.push('a stake of ' + p.stake);
       if (p.gold) notes.push('gold ' + p.gold);
       if (p.verified) notes.push('verified');
-      s.title = p.name + ': ' + p.state.replace('_', ' ') + ' (' + notes.join(', ') + ')';
+      s.title = p.name + ': ' + p.state.replace('_', ' ') + there + ' (' + notes.join(', ') + ')';
       m.appendChild(s);
     });
     return m;
@@ -222,6 +227,8 @@
       // The stake asked (QX-15) and the gold counted (QX-16), in the render module's words; empty where nothing is asked or committed.
       if (p.stake) v.appendChild(el('div', 'meta', p.stake));
       if (p.goldLine) v.appendChild(el('div', 'meta', p.goldLine));
+      // The inherited squares (QX-23), in the render module's words; empty where no piece is inherited.
+      if (p.inheritedLine) v.appendChild(el('div', 'meta', p.inheritedLine + ' Each is drawn as a green ring, full where its square there is final and light where it is not.'));
       var b = el('button', 'primary', 'Hand me a piece');
       b.addEventListener('click', function () { takePiece(p.problem); });
       v.appendChild(b);
