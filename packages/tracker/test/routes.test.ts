@@ -142,6 +142,7 @@ function routes(t: Booted): Route[] {
     { listed: '/p/<hash>/challenges', path: `/p/${P}/challenges`, asks: [get(200), post(405, 'GET')] },
     { listed: '/p/<hash>/panels', path: `/p/${P}/panels`, asks: [get(200), post(405, 'GET')] },
     { listed: '/p/<hash>/record', path: `/p/${P}/record`, asks: [get(200), post(405, 'GET')] },
+    { listed: '/p/<hash>/proposals', path: `/p/${P}/proposals`, asks: [get(200), post(405, 'GET')] },
     // Any method but POST lists the identity log.
     {
       listed: '/k/events',
@@ -361,7 +362,17 @@ describe("the door's routes", () => {
   });
 
   it('answers 404 for a problem it does not hold before any of its sub-routes, whatever the method', async () => {
-    for (const sub of ['', '/events', '/state', '/scrape', '/next', '/challenges', '/panels', '/record']) {
+    for (const sub of [
+      '',
+      '/events',
+      '/state',
+      '/scrape',
+      '/next',
+      '/challenges',
+      '/panels',
+      '/record',
+      '/proposals',
+    ]) {
       for (const method of ['GET', 'POST', 'PUT'])
         expect(await answer(plain, method, `/p/${UNKNOWN}${sub}`), `${method} /p/<unknown>${sub}`).toEqual({
           status: 404,

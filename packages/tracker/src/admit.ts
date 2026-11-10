@@ -15,6 +15,7 @@ import {
   type Envelope,
   type Event,
   type Hash,
+  type PieceDef,
   type Received,
   blobProblems,
   canonicalBytes,
@@ -44,6 +45,7 @@ import { goldBodyProblems, goldRevealBodyProblems } from './gold.js';
 import { hideBodyProblems } from './hide.js';
 import { Refusal, json } from './http.js';
 import type { PullDoor } from './peers.js';
+import { proposeBodyProblems, proposedHash, standingProposals } from './propose.js';
 import { seedBodyProblems } from './seeding.js';
 import { PRODUCTION_EVENTS, lockBodyProblems, stakeRuleBodyProblems } from './stake.js';
 import type { Store } from './store.js';
@@ -633,6 +635,7 @@ export const problemDoor: Readonly<Record<string, ProblemCheck | null>> = {
   gold: checkGoldEvent, // QX-16 section 1
   gold_reveal: checkGoldRevealEvent, // QX-16 section 1
   trace: checkTraceEvent, // QX-19 section 1
+  propose: checkProposeEvent, // QX-22 section 1
 };
 
 /**
@@ -905,6 +908,62 @@ function checkTraceEvent(
   const blobLength = (h: Hash): number | null => store.blobLength(h);
   const a = admitTrace(view, receipts, event, tracesKept(view, receipts, blobLength), blobLength);
   if (!a.ok) throw new Refusal(400, a.why);
+}
+
+/**
+ * The door for QX-22: a proposal names a problem and no piece, and its piece is one the owner could take as written.
+ * "The door holds the piece to every rule a version that took it would be held to at publish, with room made for the
+ * one piece in the budget, which is the owner's to give" (QX-22 section 1): the draft below is that version, asked in
+ * the order a publish is asked, the core's rules and then the door's bounds, and a fault of the proposed piece is said
+ * of `body.piece`. Last, a proposal this root already made of this piece on the chain named is refused, since the
+ * read would pass it over (QX-22 section 2).
+ */
+function checkProposeEvent(
+  { store, now, inputFor }: Reads,
+  event: Event,
+  under: Hash,
+  state: ReturnType<typeof reduce>,
+): void {
+  if (event.piece !== undefined) throw new Refusal(400, 'a proposal names a problem and no piece');
+  const shape = proposeBodyProblems(event.body);
+  if (shape.length) throw new Refusal(400, shape[0]!);
+  const { name, piece } = event.body as { name: string; piece: PieceDef };
+  const p = state.envelope.problem;
+  if (Object.hasOwn(p.pieces, name)) throw new Refusal(400, `body.name: this problem has a piece named ${name}`);
+  if (Object.hasOwn(p.pieces, `${name}/*`))
+    throw new Refusal(400, `body.name: this problem has a family named ${name}`);
+  const draft: Envelope = {
+    ...state.envelope,
+    problem: {
+      ...p,
+      prev: under,
+      settings: { ...p.settings, budget: p.settings.budget + 1 },
+      pieces: { ...p.pieces, [name]: piece },
+    },
+  };
+  const where = `problem.pieces.${name}`;
+  const refuse = (faults: string[]): void => {
+    const first = faults[0];
+    if (first === undefined) return;
+    const ofPiece = first.startsWith(`${where}.`) || first.startsWith(`${where}:`);
+    throw new Refusal(400, ofPiece ? `body.piece${first.slice(where.length)}` : first);
+  };
+  refuse(envelopeProblems(draft));
+  refuse([
+    ...envelopeHoursOver(draft.problem),
+    ...namesNotOwn(draft.problem),
+    ...piecesOver(draft.problem),
+    ...inputsOver(draft.problem),
+    ...expandedOver(draft.problem, (h) => store.blobLength(h)),
+    ...chainOver(draft.problem, (h) => store.envelopeOf(h)),
+  ]);
+  const hash = proposedHash(name, piece);
+  if (!hash) throw new Refusal(400, 'body.piece: a piece its hash can name');
+  const at = now();
+  const root = state.rootOf(event.key, at).toLowerCase();
+  const standing = standingProposals(inputFor(under)!.receipts, state.rootOf, at);
+  if (standing.some((s) => s.hash === hash && s.root.toLowerCase() === root))
+    throw new Refusal(400, 'this root already proposed this piece');
 }
 
 /**

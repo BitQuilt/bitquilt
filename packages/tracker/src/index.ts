@@ -176,3 +176,15 @@ export {
   type RecordGrade,
   type RestedOn,
 } from './trace.js';
+export {
+  PROPOSE,
+  PROPOSE_EVENTS,
+  PROPOSE_WHY_MAX,
+  PROPOSED_MAX,
+  proposeBodyProblems,
+  proposedHash,
+  standingProposals,
+  proposalsIn,
+  type Proposal,
+  type ProposalView,
+} from './propose.js';

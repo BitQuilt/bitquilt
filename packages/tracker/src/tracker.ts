@@ -40,6 +40,7 @@ import {
   index,
   named,
   panelsOf,
+  proposalsOf,
   recordOf,
   scrape,
   standingOf,
@@ -438,6 +439,12 @@ export function createTracker(options: TrackerOptions): Tracker {
       path: '/p/<hash>/record',
       guard: 'problem',
       GET: ({ res, hash }) => json(res, 200, recordOf(cx, hash!)),
+      otherwise: 405,
+    },
+    {
+      path: '/p/<hash>/proposals',
+      guard: 'problem',
+      GET: ({ res, hash }) => json(res, 200, proposalsOf(cx, hash!)),
       otherwise: 405,
     },
     // The identity log, which any method but POST lists, and a key's standing and work.

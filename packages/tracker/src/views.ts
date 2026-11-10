@@ -1,11 +1,12 @@
 /**
  * What the tracker's door answers a read with (PROTOCOL.md, The tracker): what it says of itself at the well-known
  * document; a problem's state, the layer's beside the core's; its summary as the index and the scrape show it, and the
- * search; its challenges (QX-1), panels (QX-2) and record document (QX-20); a key's standing (QX-15) and its latest
- * readings; the launch funnel; a chain's lines a page at a time (QX-11); a blob and a name; and the coin as the layer
- * computes it (QX-17). Each writes nothing, and the table of routes in tracker.ts ties each to its path. A view takes
- * what it reads: the store alone, a problem's layer alone, or the views' part of the tracker's context, `Reads`, which
- * leaves out `exactly`, so a read cannot ask for the layer built afresh, and what only the door reads.
+ * search; its challenges (QX-1), panels (QX-2), record document (QX-20) and proposed pieces (QX-22); a key's standing
+ * (QX-15) and its latest readings; the launch funnel; a chain's lines a page at a time (QX-11); a blob and a name; and
+ * the coin as the layer computes it (QX-17). Each writes nothing, and the table of routes in tracker.ts ties each to
+ * its path. A view takes what it reads: the store alone, a problem's layer alone, or the views' part of the tracker's
+ * context, `Reads`, which leaves out `exactly`, so a read cannot ask for the layer built afresh, and what only the
+ * door reads.
  */
 import type { ServerResponse } from 'node:http';
 import { type Address, type Hash, isAddress, shortHead, verifyChain, IDENTITY_LOG } from '@bitquilt/core';
@@ -26,6 +27,7 @@ import { GOLD, windowOpen } from './gold.js';
 import { HIDE } from './hide.js';
 import { Refusal } from './http.js';
 import { PEER_PULL, PEER_PULL_EVERY_MS } from './peers.js';
+import { PROPOSE, PROPOSED_MAX, PROPOSE_WHY_MAX, proposalsIn } from './propose.js';
 import type { Route } from './routes.js';
 import { RECIPROCITY, SEEDING, seedInfo } from './seeding.js';
 import { STAKE } from './stake.js';
@@ -89,6 +91,7 @@ export function wellKnown({ options, url, limits, stampNeeded, coinHome, coin, n
     gold: { extension: GOLD },
     trace: { extension: TRACE, blob_max: BLOB_MAX },
     record: { extension: RECORD },
+    propose: { extension: PROPOSE, piece_max: PROPOSED_MAX, why_max: PROPOSE_WHY_MAX },
     coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
     // The paths a client reads: the listed rows of the door's table, in the order `handle` tries them, and the coin's
     // only where this tracker carries the coin.
@@ -444,6 +447,24 @@ export function challengesOf({ view, now }: Reads, hash: Hash) {
 export function panelsOf({ view, now }: Reads, hash: Hash) {
   const pl = view(hash)!;
   return { problem: hash, now: now(), panels: panels(pl, nameIn(pl)) };
+}
+
+/**
+ * A problem's proposed pieces at now, with the problem and the time (QX-22 section 5). A fork is listed as pursuing a
+ * piece only where this tracker lists the fork: not replaced by its owner, and not taken down here (QX-6). Which
+ * versions are replaced is read from every envelope held, so it is asked only once a fork is weighed.
+ */
+export function proposalsOf({ store, layer, view, hidden, now }: Reads, hash: Hash) {
+  const pl = view(hash)!;
+  const layered = layer();
+  const hid = hidden();
+  let gone: Set<Hash> | null = null;
+  const listed = (problem: Hash): boolean => {
+    if (hid.has(problem)) return false;
+    gone ??= replaced(store, layered);
+    return !gone.has(problem);
+  };
+  return { problem: hash, now: now(), proposals: proposalsIn(pl, layered, listed, nameIn(pl)) };
 }
 
 /**
