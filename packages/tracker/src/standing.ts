@@ -6,12 +6,15 @@
  */
 import {
   type Address,
+  type Event,
   type Hash,
   type PieceView,
   type Receipt,
   type ReduceInput,
+  type Reveal,
   type State,
   isRecord,
+  orderReceipts,
 } from '@bitquilt/core';
 import { type KindsDecided, viaOf } from './verifiers.js';
 import { type LockView, type StakeRule, liveAt } from './stake.js';
@@ -20,11 +23,14 @@ import type { ChallengeView, LayerState } from './challenge.js';
 
 /**
  * A point a root earned: a reveal in an accepting set, counted from the set's completion `at`, and withdrawn at `until`
- * by the strike that struck the set.
+ * by the strike that struck the set. One for each reveal, by its event's id, on the problem the reveal was posted to,
+ * however many versions hold its set (QX-1 section 2 as amended 10 November 2026).
  */
 export interface Credit {
   root: Address;
   problem: Hash;
+  /** The id of the reveal event the point is for. */
+  reveal: Hash;
   at: string;
   until: string | null;
 }
@@ -144,42 +150,122 @@ export function acceptingRoots(v: PieceView): Address[] {
 }
 
 /**
- * The roots whose standing a set credits: the reveals, not the runs; an attested acceptance credits nobody, being the
- * actor's own word.
+ * The reveals whose roots a set credits: both reveals of an agree set, the patch of a check or score set, not the runs;
+ * an attested acceptance credits nobody, being the actor's own word.
  */
-export function creditedRoots(v: PieceView): Address[] {
+export function creditedReveals(v: PieceView): Reveal[] {
   if (!v.accepting) return [];
   if (viaOf(v.accepting) === 'attest') return [];
-  return v.accepting.kind === 'agree' ? v.accepting.reveals.map((r) => r.root) : [v.accepting.patch.root];
+  return v.accepting.kind === 'agree' ? v.accepting.reveals : [v.accepting.patch];
+}
+
+/** The roots whose standing a set credits: the roots of its credited reveals. */
+export function creditedRoots(v: PieceView): Address[] {
+  return creditedReveals(v).map((r) => r.root);
+}
+
+/** A reveal event as the receipts hold it: its id, and the event, which names the problem it was posted to. */
+export interface RevealEvent {
+  id: Hash;
+  event: Event;
+}
+
+/** Each receipts array's reveals by piece, key and receipt time, the first in the reducer's order kept. */
+const revealIndex = new WeakMap<readonly Receipt[], Map<string, RevealEvent>>();
+
+/**
+ * The event of a reveal a fold holds, found in the receipts it was folded from by its piece, its key and its receipt
+ * time, the first in the order the reducer folds them (CORE.md section 6, Order), or null where none is. An input's
+ * receipts are not written once read, so each array is indexed once, however many times a layer asks.
+ */
+export function revealEvent(receipts: readonly Receipt[], piece: Hash, key: Address, at: string): RevealEvent | null {
+  let index = revealIndex.get(receipts);
+  if (!index) {
+    index = new Map();
+    const reveals = receipts.filter((r) => r.event.type === 'reveal');
+    for (const { receipt, at: received, id } of orderReceipts(reveals)) {
+      const k = `${receipt.event.piece} ${receipt.event.key} ${received}`;
+      if (!index.has(k)) index.set(k, { id, event: receipt.event });
+    }
+    revealIndex.set(receipts, index);
+  }
+  return index.get(`${piece} ${key} ${at}`) ?? null;
 }
 
 /**
- * The credits as the folds stand: one per credited root of every accepting set, from the set's completion. A set that
+ * The credits as the folds stand. QX-1 section 2 as amended 10 November 2026: "A reveal earns its root one point, by
+ * the reveal's event: from the earliest completion of a set that holds it, on the problem the reveal was posted to,
+ * however many versions the reader holds." So one credit for each reveal id across every entry, at the earliest
+ * completion, on the problem the event names where it is held here, else the entry it was found in. A reveal whose set
  * was struck keeps its withdrawn point in `struckCredits`, and one struck and restored (QX-16 section 4) regains its
- * point as a move from the decision, so neither is credited twice here.
+ * point as a move from the decision, so neither is credited here.
  */
 export function refreshCredits(f: Folding): void {
-  f.credits = [];
+  const struck = new Set(f.struckCredits.map((c) => c.reveal));
+  const live = new Map<Hash, Credit>();
   for (const e of f.entries.values())
-    for (const v of e.fold.pieces)
-      if (v.accepting)
-        for (const r of creditedRoots(v)) {
-          const root = e.fold.rootOf(r, f.now);
-          const at = v.accepting.completedAt;
-          if (f.struckCredits.some((s) => s.root === root && s.problem === e.hash && s.at === at)) continue;
-          f.credits.push({ root, problem: e.hash, at, until: null });
-        }
+    for (const v of e.fold.pieces) {
+      if (!v.accepting) continue;
+      const at = v.accepting.completedAt;
+      for (const r of creditedReveals(v)) {
+        const found = revealEvent(e.input.receipts, v.piece.hash, r.key, r.at);
+        if (!found || struck.has(found.id)) continue;
+        const known = live.get(found.id);
+        if (known && known.at <= at) continue;
+        const named = found.event.problem;
+        const problem = named && f.entries.has(named) ? named : e.hash;
+        live.set(found.id, { root: e.fold.rootOf(r.root, f.now), problem, reveal: found.id, at, until: null });
+      }
+    }
+  f.credits = [...live.values()];
+}
+
+/** Each entry's chain as hashes, kept for the layer the entry was made in. */
+const chains = new WeakMap<ProblemEntry, ReadonlySet<Hash>>();
+
+/**
+ * The hashes of an entry's chain along `prev`, its own first, from the core's checked chain (`fold.chain`, nearest
+ * first). The last envelope's own `prev` is left out: the core's chain stopped there, at an envelope the reader does
+ * not hold or one by another owner, and that is no version of this line.
+ */
+function chainOf(e: ProblemEntry): ReadonlySet<Hash> {
+  let chain = chains.get(e);
+  if (!chain) {
+    const out = new Set<Hash>([e.hash]);
+    for (const env of e.fold.chain.slice(0, -1)) if (env.problem.prev) out.add(env.problem.prev);
+    chain = out;
+    chains.set(e, chain);
+  }
+  return chain;
 }
 
 /**
- * The roots credited on a problem other than `problem` at `at`. A credit counts from the set's completion until the
- * strike that withdrew it, so a panel drawn before a strike keeps its pool (verifiers.md section 6). The challenge
- * window's pool (QX-1 section 3) and a judge panel's (verifiers.md) each apply their own relatedness filter on top.
+ * The problems of `problem`'s line among those held, itself among them. QX-1 section 2 as amended 10 November 2026:
+ * "Two problems are of one line where their chains along `prev` share a version: an earlier version of `p`, a later
+ * one, and another version made from the same earlier one are each of `p`'s line. A fork is not". A fork names its
+ * source by `from` and holds no version of it in its chain, so it stays outside.
+ */
+export function lineOf(f: Folding, problem: Hash): Set<Hash> {
+  const home = f.entries.get(problem);
+  const out = new Set<Hash>([problem]);
+  if (!home) return out;
+  const own = chainOf(home);
+  for (const e of f.entries.values()) for (const h of chainOf(e)) if (own.has(h)) out.add(e.hash);
+  return out;
+}
+
+/**
+ * The roots credited on a problem other than `problem` at `at`. QX-1 section 2 as amended 10 November 2026: "A problem
+ * of `p`'s line is not a problem other than `p`, so a tracker that holds one problem in several versions has no pool."
+ * A credit counts from the set's completion until the strike that withdrew it, so a panel drawn before a strike keeps
+ * its pool (verifiers.md section 6). The challenge window's pool (QX-1 section 3) and a judge panel's (verifiers.md)
+ * each apply their own relatedness filter on top.
  */
 export function creditedElsewhere(f: Folding, problem: Hash, at: string): Set<Address> {
+  const line = lineOf(f, problem);
   const roots = new Set<Address>();
   for (const c of [...f.credits, ...f.struckCredits])
-    if (c.problem !== problem && c.at <= at && (c.until === null || c.until > at)) roots.add(c.root);
+    if (!line.has(c.problem) && c.at <= at && (c.until === null || c.until > at)) roots.add(c.root);
   return roots;
 }
 

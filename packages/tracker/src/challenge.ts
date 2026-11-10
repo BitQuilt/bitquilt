@@ -103,9 +103,12 @@ import {
   acceptingRoots,
   creditBurns,
   creditedElsewhere,
+  creditedReveals,
   creditedRoots,
+  lineOf,
   newFolding,
   refreshCredits,
+  revealEvent,
   rootOf,
 } from './standing.js';
 import { pieceTraces } from './trace.js';
@@ -360,23 +363,18 @@ export function verdictBodyProblems(body: unknown): string[] {
 
 /**
  * The ids of an accepting set's events in the problem's receipts: the reveals with their commits, or the patch's with
- * the runs.
+ * the runs. A reveal's event is found as the credits find it (`revealEvent`), so the point a strike withdraws is the
+ * point the reveal earned.
  */
 function setEventIds(v: PieceView, receipts: Receipt[]): Hash[] {
   if (!v.accepting) return [];
   const ordered = orderReceipts(receipts);
   const ids: Hash[] = [];
   const reveal = (key: Address, at: string) => {
-    const r = ordered.find(
-      (x) =>
-        x.receipt.event.type === 'reveal' &&
-        x.receipt.event.key === key &&
-        x.receipt.event.piece === v.piece.hash &&
-        x.at === at,
-    );
+    const r = revealEvent(receipts, v.piece.hash, key, at);
     if (!r) return;
     ids.push(r.id);
-    const b = r.receipt.event.body as { return: unknown; nonce: string };
+    const b = r.event.body as { return: unknown; nonce: string };
     const h = commitHash(b.return, b.nonce);
     const c = ordered.find(
       (x) =>
@@ -457,9 +455,23 @@ function rereduce(f: Folding, e: ProblemEntry): void {
   refold(f, e);
 }
 
+/** The problems whose input holds any of these events: every version that carried the set they made. */
+function carriersOf(f: Folding, ids: readonly Hash[]): Set<Hash> {
+  const of = new Set(ids);
+  const out = new Set<Hash>();
+  for (const e of f.entries.values()) if (e.input.receipts.some((x) => of.has(eventId(x.event)))) out.add(e.hash);
+  return out;
+}
+
 /**
  * Strikes a piece's accepting set at `d`, as QX-1 section 6 says: the roots docked and their points withdrawn, their
- * locks forfeited (QX-15 section 3), the events left out and every fold that carried them redone.
+ * locks forfeited (QX-15 section 3), the events left out and every fold that carried them redone. QX-1 section 2 as
+ * amended 10 November 2026: "A held challenge at any version strikes the set's events from the fold of every version
+ * that holds them. Each root of the set loses one and its point for the set, once, and a lock behind the set
+ * (QX-15 section 3) is forfeited whichever version it was made at." So each credited root is docked once, the live
+ * credit for its reveal is withdrawn from `d`, and the locks forfeited are those at every problem that carried the
+ * set's events. Where the reveal's point was withdrawn by an earlier strike and given back as a move by an unstrike
+ * (QX-16 section 4), that point is withdrawn as a move, so nothing is credited twice.
  */
 function strike(
   f: Folding,
@@ -468,17 +480,22 @@ function strike(
   d: string,
   lease: number,
 ): { ids: Hash[]; roots: Address[] } {
-  for (const p of creditedRoots(view)) {
-    const root = home.fold.rootOf(p, f.now);
+  const ids = setEventIds(view, home.input.receipts);
+  const carriers = carriersOf(f, ids);
+  for (const r of creditedReveals(view)) {
+    const root = home.fold.rootOf(r.root, f.now);
     f.moves.push({ root, at: d, delta: -1 });
-    f.struckCredits.push({ root, problem: home.hash, at: view.accepting!.completedAt, until: d });
+    const id = revealEvent(home.input.receipts, view.piece.hash, r.key, r.at)?.id;
+    const live = f.credits.find((c) => c.reveal === id);
+    if (live) f.struckCredits.push({ ...live, until: d });
+    else if (f.struckCredits.some((c) => c.reveal === id)) f.moves.push({ root, at: d, delta: -1 });
   }
   const roots: Address[] = [];
   for (const p of acceptingRoots(view)) {
     const root = home.fold.rootOf(p, f.now);
     roots.push(root);
     for (const l of f.locks) {
-      if (l.problem !== home.hash || l.piece !== view.piece.hash || l.root !== root || l.at > d) continue;
+      if (!carriers.has(l.problem) || l.piece !== view.piece.hash || l.root !== root || l.at > d) continue;
       if (l.forfeitedAt !== null && (l.restoredAt === null || l.restoredAt > d)) continue;
       const end = lockReleasedAt(l, view, lease, home.fold.related, d);
       if (end !== null && end <= d) continue;
@@ -487,11 +504,9 @@ function strike(
       if (l.kind === 'standing') f.moves.push({ root, at: d, delta: -l.amount });
     }
   }
-  const ids = setEventIds(view, home.input.receipts);
-  const struck = new Set(ids);
   for (const e of f.entries.values()) {
-    if (!e.input.receipts.some((x) => struck.has(eventId(x.event)))) continue;
-    for (const id of struck) e.struck.add(id);
+    if (!carriers.has(e.hash)) continue;
+    for (const id of ids) e.struck.add(id);
     rereduce(f, e);
   }
   refreshCredits(f);
@@ -528,14 +543,16 @@ function setAsideUngrounded(f: Folding, blobLength: (hash: Hash) => number | nul
 }
 
 /**
- * Undoes a miss's strike at `d` (QX-16 section 4): the events return to the fold, and each struck root regains from `d`
- * the point docked, its point for the set and its lock.
+ * Undoes a miss's strike at `d` (QX-16 section 4): the events return to the fold of every problem that carried them,
+ * and each struck root regains from `d` the point docked, its point for the set and its locks at those problems, once
+ * however many versions carried the set (QX-1 section 2 as amended 10 November 2026). The reveal's point stays out of
+ * the credits, withdrawn in `struckCredits`, and comes back as the move.
  */
 function unstrike(f: Folding, home: ProblemEntry, c: GoldCommitment, d: string): void {
-  const struck = new Set(c.struck);
+  const carriers = carriersOf(f, c.struck);
   for (const e of f.entries.values()) {
-    if (![...struck].some((id) => e.struck.has(id))) continue;
-    for (const id of struck) e.struck.delete(id);
+    if (!carriers.has(e.hash)) continue;
+    for (const id of c.struck) e.struck.delete(id);
     rereduce(f, e);
   }
   refreshCredits(f);
@@ -546,7 +563,7 @@ function unstrike(f: Folding, home: ProblemEntry, c: GoldCommitment, d: string):
     if (credited.includes(root)) f.moves.push({ root, at: d, delta: 2 });
     for (const l of f.locks) {
       if (
-        l.problem !== home.hash ||
+        !carriers.has(l.problem) ||
         l.piece !== piece ||
         l.root !== root ||
         l.forfeitedAt !== c.revealedAt ||
@@ -602,7 +619,12 @@ function checkChallenge(
   if (!view) return { ok: false, why: 'names a piece this problem does not have' };
   const root = rootFor(fold, key, 'challenge', at);
   if (!root) return { ok: false, why: 'the key may not sign a challenge' };
-  const prior = home.challenges.filter((c) => c.piece === piece);
+  // QX-1 section 2 as amended 10 November 2026: "The challenges on a piece are those on it at any problem of the line:
+  // one is open at a time across the line, and a piece that had its held challenge at one version is not challenged at
+  // another."
+  const prior = [...lineOf(f, home.hash)]
+    .flatMap((h) => f.entries.get(h)?.challenges ?? [])
+    .filter((c) => c.piece === piece);
   if (prior.some((c) => c.outcome === 'held')) return { ok: false, why: 'this piece has had its challenge' };
   const open = prior.some((c) => c.outcome === 'open' || (c.decidedAt !== null && c.decidedAt > at));
   // QX-16 section 4: a miss on the piece inside its window is challenged by a root of the struck set, against the gold.
