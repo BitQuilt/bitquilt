@@ -32,7 +32,7 @@ The reference tracker's `/next` hands a `human` piece only to a client whose `ca
 
 **The panel** is drawn when the last candidate's reveal is received, at that receipt's time `t`:
 
-- **The pool** is every root with a credit (QX-1 section 2: a reveal in an accepting set, not struck) completed at or before `t` on a problem other than this one, unrelated as the core judges relations at `t` to the owner and to every root with a reveal on the piece, candidate or not.
+- **The pool** is every root with a credit (QX-1 section 2: a reveal in an accepting set, not struck) completed at or before `t` on a problem other than this one, unrelated as the core judges relations at `t` to the owner and to every root with a reveal on the piece, candidate or not. A version of this problem, or any problem of its line, is not another problem (QX-1 section 2, amended 10 November 2026).
 - **The seed** is the `hash` of the chained receipt line (QX-11) of the **first candidate's reveal** on the tracker that received it. The first candidate chooses their return, the tracker stamps the time, and the chain's `prev` holds everything before; nobody makes it alone, and it is fixed before the last candidate, or any judge, can know who the pool will be. A well-known document names this seed `first-candidate-receipt`.
 - **The order** is the pool sorted ascending by `sha256(canonical([seed, address]))`, as QX-1 section 4.
 - **The seats** are the first `n` in the order, offered at `t`. A seat whose holder has given no rank `lease_h` hours after it was offered (the piece's lease, else the problem's) lapses, and a seat is offered to the next in the order, as QX-1 section 5.
