@@ -1,10 +1,10 @@
 /**
  * What the tracker hands a key (PROTOCOL.md, The tracker; CORE.md section 7; QX-5): the piece assisted next picks for
- * it on one problem, with the seams between the readings that stand (QX-19 section 4), and the offer across the
- * problems here, each piece the one next would name. Both leave out the pieces one rule keeps from the key,
- * `excludedFor`, and hold what they hand out for that key a minute, so two clients here are not handed the same piece
- * at once. A function here takes the hand-out's part of the tracker's context, `Reads`, the store alone, or the query
- * alone.
+ * it on one problem, with the seams between the readings that stand (QX-19 section 4) and its brief filled from the
+ * squares its inputs inherit (QX-23 section 3), and the offer across the problems here, each piece the one next would
+ * name. Both leave out the pieces one rule keeps from the key, `excludedFor`, and hold what they hand out for that key
+ * a minute, so two clients here are not handed the same piece at once. A function here takes the hand-out's part of
+ * the tracker's context, `Reads`, the store alone, or the query alone.
  */
 import type { ServerResponse } from 'node:http';
 import {
@@ -19,6 +19,7 @@ import {
 } from '@bitquilt/core';
 import type { Layer, ProblemLayer } from './challenge.js';
 import { Refusal, json } from './http.js';
+import { briefOver } from './inherit.js';
 import { offerOrder, seedInfo, watchExclusions } from './seeding.js';
 import type { Store } from './store.js';
 import type { Seam } from './trace.js';
@@ -129,7 +130,8 @@ export function assisted(cx: Reads, res: ServerResponse, hash: Hash, query: URLS
     piece: pick.piece.hash,
     name: pick.piece.name,
     state: layerState,
-    brief: pick.brief,
+    // QX-23 section 3: the slot of an inherited input is filled with the returns of the set at the problem named.
+    brief: briefOver(layered, pl, state.byHash.get(pick.piece.hash)!),
     schema: pick.schema ?? null,
     agree: pick.agree,
     requires: pick.requires,

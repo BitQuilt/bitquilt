@@ -16,7 +16,7 @@ import {
 import { type KindsDecided, viaOf } from './verifiers.js';
 import { type LockView, type StakeRule, liveAt } from './stake.js';
 import { type GoldView, goldLiveAt } from './gold.js';
-import type { ChallengeView } from './challenge.js';
+import type { ChallengeView, LayerState } from './challenge.js';
 
 /**
  * A point a root earned: a reveal in an accepting set, counted from the set's completion `at`, and withdrawn at `until`
@@ -66,6 +66,16 @@ export interface ProblemEntry {
   rules: StakeRule[];
   /** The golds kept on this problem (QX-16). */
   golds: GoldView[];
+  /**
+   * QX-23 section 3: the pieces done elsewhere, each with a final square at a problem this one reaches. Empty until
+   * the layer's last pass, and it only grows there.
+   */
+  elsewhere: Set<Hash>;
+  /**
+   * QX-23 section 2: each inherited piece's square, the problem where it stands and the piece's state there. Empty
+   * until the layer's last pass.
+   */
+  inherited: Map<Hash, { problem: Hash; state: LayerState }>;
 }
 
 /**

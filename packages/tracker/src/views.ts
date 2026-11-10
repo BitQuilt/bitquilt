@@ -1,12 +1,12 @@
 /**
  * What the tracker's door answers a read with (PROTOCOL.md, The tracker): what it says of itself at the well-known
- * document; a problem's state, the layer's beside the core's; its summary as the index and the scrape show it, and the
- * search; its challenges (QX-1), panels (QX-2), record document (QX-20) and proposed pieces (QX-22); a key's standing
- * (QX-15) and its latest readings; the launch funnel; a chain's lines a page at a time (QX-11); a blob and a name; and
- * the coin as the layer computes it (QX-17). Each writes nothing, and the table of routes in tracker.ts ties each to
- * its path. A view takes what it reads: the store alone, a problem's layer alone, or the views' part of the tracker's
- * context, `Reads`, which leaves out `exactly`, so a read cannot ask for the layer built afresh, and what only the
- * door reads.
+ * document; a problem's state, the layer's beside the core's, with the square a fork's piece inherits (QX-23); its
+ * summary as the index and the scrape show it, and the search; its challenges (QX-1), panels (QX-2), record document
+ * (QX-20) and proposed pieces (QX-22); a key's standing (QX-15) and its latest readings; the launch funnel; a chain's
+ * lines a page at a time (QX-11); a blob and a name; and the coin as the layer computes it (QX-17). Each writes
+ * nothing, and the table of routes in tracker.ts ties each to its path. A view takes what it reads: the store alone, a
+ * problem's layer alone, or the views' part of the tracker's context, `Reads`, which leaves out `exactly`, so a read
+ * cannot ask for the layer built afresh, and what only the door reads.
  */
 import type { ServerResponse } from 'node:http';
 import { type Address, type Hash, isAddress, shortHead, verifyChain, IDENTITY_LOG } from '@bitquilt/core';
@@ -26,6 +26,7 @@ import { DAYS_MAX, daysFrom, funnel } from './counts.js';
 import { GOLD, windowOpen } from './gold.js';
 import { HIDE } from './hide.js';
 import { Refusal } from './http.js';
+import { INHERIT } from './inherit.js';
 import { PEER_PULL, PEER_PULL_EVERY_MS } from './peers.js';
 import { PROPOSE, PROPOSED_MAX, PROPOSE_WHY_MAX, proposalsIn } from './propose.js';
 import type { Route } from './routes.js';
@@ -92,6 +93,7 @@ export function wellKnown({ options, url, limits, stampNeeded, coinHome, coin, n
     trace: { extension: TRACE, blob_max: BLOB_MAX },
     record: { extension: RECORD },
     propose: { extension: PROPOSE, piece_max: PROPOSED_MAX, why_max: PROPOSE_WHY_MAX },
+    inherit: { extension: INHERIT },
     coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
     // The paths a client reads: the listed rows of the door's table, in the order `handle` tries them, and the coin's
     // only where this tracker carries the coin.
@@ -231,7 +233,9 @@ function summary(cx: Reads, hash: Hash, layered: Layer = cx.layer()) {
     counts,
     kinds,
     work: workOf(cx, pl),
-    complete: s.complete,
+    // QX-23 section 4: complete is the layer's, which counts a square inherited from a final one; the output is the
+    // core's, so a fork complete by inheritance has none.
+    complete: pl.complete,
     output: s.output?.hash ?? null,
     last: head?.at ?? null,
     // QX-11 section 4: the head and its short form, the core's.
@@ -293,10 +297,12 @@ export function state({ store, now, hidden, tracesOf }: Reads, hash: Hash, layer
         seams: t.seams,
         aside: l.aside,
         record: t.record,
+        // QX-23 section 2: where the state is `inherited`, the problem where the square stands and its state there.
+        inherited: l.inherited,
       };
     }),
     gold: pl.goldCount,
-    complete: s.complete,
+    complete: pl.complete,
     output: s.output?.hash ?? null,
     record_output: recordOutput(pl)?.hash ?? null,
     dropped: [...s.dropped, ...pl.dropped],

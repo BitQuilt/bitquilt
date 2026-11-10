@@ -47,6 +47,7 @@ export {
 } from './challenge.js';
 export {
   applyVerifiers,
+  settleKinds,
   describeKind,
   kindOf,
   viaOf,
@@ -188,3 +189,4 @@ export {
   type Proposal,
   type ProposalView,
 } from './propose.js';
+export { INHERIT, inheritSquares, completeInLayer, briefOver, type Inherited } from './inherit.js';

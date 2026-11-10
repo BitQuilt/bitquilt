@@ -27,6 +27,9 @@
  *   6. The events the layer keeps, read once each in receipt order across every problem: locks (QX-15 section 1),
  *      golds (QX-16 section 1), gold reveals (QX-16 section 3) and challenges with their verdicts
  *      (QX-1 sections 3 to 6; against a gold miss, QX-16 section 4).
+ *      Then the last pass, after everything that moves standing, a lock or a strike: what each fork reaches, the pieces
+ *      done elsewhere, what waits on them settled again, and the inherited squares marked
+ *      (QX-23 sections 1 to 3; inherit.ts).
  *   7. The views a reader is handed, and the admissions the door asks before it takes an event, each built beside the
  *      checks it makes: QX-1's here (challengeAdmissions), QX-2's in verifiers.ts, QX-15's in stake.ts and QX-16's in
  *      gold.ts.
@@ -65,6 +68,7 @@ import {
   leaseOf,
   ownerOf,
   rootFor,
+  settleKinds,
   viaOf,
   windowOf,
 } from './verifiers.js';
@@ -106,6 +110,7 @@ import {
 } from './standing.js';
 import { pieceTraces } from './trace.js';
 import { drawOrder, offerSeats } from './sortition.js';
+import { type Inherited, completeInLayer, inheritSquares } from './inherit.js';
 
 export { rootFor, acceptingRoots, creditedRoots };
 export type { CoinLockWord };
@@ -118,7 +123,7 @@ export const CHALLENGE_SEED = 'challenge-receipt';
 export const SIDES = ['challenger', 'author'] as const;
 export type Side = (typeof SIDES)[number];
 export type Outcome = 'open' | 'held' | 'failed' | 'void';
-export type LayerState = PieceState | 'challenged' | 'judging' | 'recording' | 'recorded';
+export type LayerState = PieceState | 'challenged' | 'judging' | 'recording' | 'recorded' | 'inherited';
 /** Whether a piece in this layered state counts as accepted: its set stands, provisionally or not, unchallenged. */
 export function countsAsAccepted(state: string): boolean {
   return state === 'accepted' || state === 'accepted_provisional';
@@ -197,6 +202,11 @@ export interface PieceLayer {
   aside: Address[];
   /** QX-20: on a record piece, its standing readings; null on every other kind. */
   record: RecordView | null;
+  /**
+   * QX-23 section 2: where the state is `inherited`, the problem where the square stands and the piece's state there;
+   * null elsewhere.
+   */
+  inherited: Inherited | null;
 }
 
 export interface ProblemLayer {
@@ -208,6 +218,11 @@ export interface ProblemLayer {
    * struck and every kind is the core's.
    */
   fold: State;
+  /**
+   * QX-23 section 4: every piece is `accepted`, `unreachable` or `recorded`, or is `inherited` from a square that is
+   * one of those three. The fold's own `complete` counts the problem's own squares alone.
+   */
+  complete: boolean;
   pieces: PieceLayer[];
   byHash: Map<Hash, PieceLayer>;
   challenges: ChallengeView[];
@@ -800,6 +815,23 @@ export function inputRefused(p: ReduceInput): string | null {
   }
 }
 
+/** The last challenge the layer kept on a piece, or null. */
+function lastChallenge(e: ProblemEntry, piece: Hash): ChallengeView | null {
+  const own = e.challenges.filter((c) => c.piece === piece);
+  return own.length ? own[own.length - 1]! : null;
+}
+
+/**
+ * A piece's own state on a problem, as the layer says it before anything is inherited: challenged while its last
+ * challenge is open; recording on a record piece some readings stand on, which the fold holds under needs_verify so
+ * the core's `next` offers it (QX-20); else the fold's. After the last pass the fold's is `inherited` on an inherited
+ * piece (QX-23 section 2), and the views say so.
+ */
+function ownState(e: ProblemEntry, v: PieceView): LayerState {
+  if (lastChallenge(e, v.piece.hash)?.outcome === 'open') return 'challenged';
+  return e.decided.records.has(v.piece.hash) && v.state === 'needs_verify' ? 'recording' : v.state;
+}
+
 /**
  * The layer over every problem a reader holds, at `now`: the time lapses, windows and liveness are judged at; roots are
  * resolved at `now` throughout, moves are dated at the receipts that made them. `coin` is the coin log's receipts, read
@@ -846,6 +878,8 @@ export function challengeLayer(input: {
       dropped: [],
       rules: [],
       golds: [],
+      elsewhere: new Set(),
+      inherited: new Map(),
     });
   }
   for (const h of f.entries.keys()) refused.delete(h);
@@ -916,6 +950,11 @@ export function challengeLayer(input: {
     }
   }
 
+  // The last pass (QX-23 sections 1 to 3): the pieces done elsewhere, what waits on them settled again with nothing
+  // decided again, and the inherited squares marked. Every credit, lock, gold and strike is folded above with each
+  // `elsewhere` empty, so an inherited square moves none of them.
+  inheritSquares(f, ownState, (e) => settleKinds(e.decided, e.base, now, e.elsewhere));
+
   // 7. The views.
   const problems = new Map<Hash, ProblemLayer>();
   const all: ChallengeView[] = [];
@@ -925,14 +964,10 @@ export function challengeLayer(input: {
       if (r.event.piece && e.aside.has(eventId(r.event)))
         asideBy.set(r.event.piece, [...(asideBy.get(r.event.piece) ?? []), r.event.key]);
     const pieces: PieceLayer[] = e.fold.pieces.map((v) => {
-      const own = e.challenges.filter((c) => c.piece === v.piece.hash);
-      const last = own.length ? own[own.length - 1]! : null;
+      const last = lastChallenge(e, v.piece.hash);
       const core = e.core.byHash.get(v.piece.hash)?.state ?? v.state;
       const record = e.decided.records.get(v.piece.hash) ?? null;
-      // QX-20: a record piece some readings stand on is held under needs_verify in the fold, so the core's `next`
-      // offers it; here it says recording.
-      const state: LayerState =
-        last?.outcome === 'open' ? 'challenged' : record && v.state === 'needs_verify' ? 'recording' : v.state;
+      const state = ownState(e, v);
       const kind = e.decided.kinds.get(v.piece.hash)!;
       const commitment = goldOn(e, v.piece.hash);
       const gold = commitment ? (outcomeOf(e, commitment, now) as GoldState) : null;
@@ -950,6 +985,7 @@ export function challengeLayer(input: {
         verified: gold === 'match',
         aside: asideBy.get(v.piece.hash) ?? [],
         record,
+        inherited: e.inherited.get(v.piece.hash) ?? null,
       };
     });
     const rule = ruleAt(e, now);
@@ -957,6 +993,7 @@ export function challengeLayer(input: {
       problem: e.hash,
       core: e.core,
       fold: e.fold,
+      complete: completeInLayer(pieces),
       pieces,
       byHash: new Map(pieces.map((p) => [p.hash, p])),
       challenges: e.challenges,
