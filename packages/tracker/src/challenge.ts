@@ -622,8 +622,8 @@ function checkChallenge(
   // QX-1 section 2 as amended 10 November 2026: "The challenges on a piece are those on it at any problem of the line:
   // one is open at a time across the line, and a piece that had its held challenge at one version is not challenged at
   // another."
-  const prior = [...lineOf(f, home.hash)]
-    .flatMap((h) => f.entries.get(h)?.challenges ?? [])
+  const prior = lineOf(f, home.hash)
+    .flatMap((e) => e.challenges)
     .filter((c) => c.piece === piece);
   if (prior.some((c) => c.outcome === 'held')) return { ok: false, why: 'this piece has had its challenge' };
   const open = prior.some((c) => c.outcome === 'open' || (c.decidedAt !== null && c.decidedAt > at));
@@ -734,7 +734,7 @@ function keepGoldReveal(f: Folding, c: LayerEvent): void {
   const { event: ev, at, home } = c;
   const why = misnamed(ev, home, { piece: true });
   if (why) return drop(c, why);
-  const r = checkGoldReveal(home, ev.piece!, ev.key, ev.body, at);
+  const r = checkGoldReveal(home, lineOf(f, home.hash), ev.piece!, ev.key, ev.body, at);
   if (!r.ok) return drop(c, r.why);
   const projection = ev.body.projection as Record<string, unknown>;
   r.commitment.piece = ev.piece!;
@@ -1043,7 +1043,7 @@ export function challengeLayer(input: {
     ...challengeAdmissions(f, now),
     ...judgeAdmissions(f, now),
     ...stakeAdmissions(f, problems, now),
-    ...goldAdmissions(f, now),
+    ...goldAdmissions(f, now, lineOf),
   };
 }
 

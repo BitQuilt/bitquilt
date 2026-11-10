@@ -240,18 +240,16 @@ function chainOf(e: ProblemEntry): ReadonlySet<Hash> {
 }
 
 /**
- * The problems of `problem`'s line among those held, itself among them. QX-1 section 2 as amended 10 November 2026:
- * "Two problems are of one line where their chains along `prev` share a version: an earlier version of `p`, a later
- * one, and another version made from the same earlier one are each of `p`'s line. A fork is not". A fork names its
- * source by `from` and holds no version of it in its chain, so it stays outside.
+ * The entries of `problem`'s line, its own among them, or none where it is not held. QX-1 section 2 as amended
+ * 10 November 2026: "Two problems are of one line where their chains along `prev` share a version: an earlier version
+ * of `p`, a later one, and another version made from the same earlier one are each of `p`'s line. A fork is not". A
+ * fork names its source by `from` and holds no version of it in its chain, so it stays outside.
  */
-export function lineOf(f: Folding, problem: Hash): Set<Hash> {
+export function lineOf(f: Folding, problem: Hash): ProblemEntry[] {
   const home = f.entries.get(problem);
-  const out = new Set<Hash>([problem]);
-  if (!home) return out;
+  if (!home) return [];
   const own = chainOf(home);
-  for (const e of f.entries.values()) for (const h of chainOf(e)) if (own.has(h)) out.add(e.hash);
-  return out;
+  return [...f.entries.values()].filter((e) => [...chainOf(e)].some((h) => own.has(h)));
 }
 
 /**
@@ -262,7 +260,7 @@ export function lineOf(f: Folding, problem: Hash): Set<Hash> {
  * each apply their own relatedness filter on top.
  */
 export function creditedElsewhere(f: Folding, problem: Hash, at: string): Set<Address> {
-  const line = lineOf(f, problem);
+  const line = new Set(lineOf(f, problem).map((e) => e.hash));
   const roots = new Set<Address>();
   for (const c of [...f.credits, ...f.struckCredits])
     if (!line.has(c.problem) && c.at <= at && (c.until === null || c.until > at)) roots.add(c.root);

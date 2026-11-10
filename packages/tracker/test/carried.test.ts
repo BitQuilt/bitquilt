@@ -5,17 +5,17 @@ import { VERDICT, addr, boot, envelope, key } from './helpers.js';
 
 /**
  * A set carried across a version is one set: QX-1 sections 2, 3, 6 and 7 as amended 10 November 2026, with
- * QX-15 section 3 and QX-16 section 4. The core's fold of a version takes the events of the versions before it along
- * `prev`, so a set made at v1 on a piece v2 keeps stands in the fold of each, and a tracker that holds both counts it
- * once. A reveal earns its root one point, however many versions hold its set, and a reveal posted to v2 beside one
- * posted to v1 earns each its point. A version of a problem is not a problem other than it, so a tracker that holds
- * one problem in several versions has no pool, and two versions made from the same earlier one are of one line. A held
- * challenge at any version docks each root once and withdraws its point once, and forfeits a lock behind the set
- * whichever version the lock was made at; a gold miss struck and then overruled gives each root back the one point.
- * One challenge is open at a time across the line, and a piece that had its held challenge at one version is not
- * challenged at another. The coin, last: one gold at v1 verifies the carried square once, and an escrow at v1 pays the
- * set once; and what the reference does today with a gold at each version on the same piece, and with an escrow at
- * each version.
+ * QX-15 section 3, QX-16 section 1 and QX-16 section 4. The core's fold of a version takes the events of the versions
+ * before it along `prev`, so a set made at v1 on a piece v2 keeps stands in the fold of each, and a tracker that holds
+ * both counts it once. A reveal earns its root one point, however many versions hold its set, and a reveal posted to
+ * v2 beside one posted to v1 earns each its point. A version of a problem is not a problem other than it, so a tracker
+ * that holds one problem in several versions has no pool, and two versions made from the same earlier one are of one
+ * line. A held challenge at any version docks each root once and withdraws its point once, and forfeits a lock behind
+ * the set whichever version the lock was made at; a gold miss struck and then overruled gives each root back the one
+ * point. A piece has one revealed gold across its line, so the owner's gold at another version is refused once one is
+ * revealed, whichever is revealed first. One challenge is open at a time across the line, and a piece that had its
+ * held challenge at one version is not challenged at another. The coin, last: a carried square is verified once, and
+ * an escrow at v1 pays the set once; and what the reference does with an escrow at each version.
  */
 const owner = key(9),
   elsewhere = key(8),
@@ -232,15 +232,16 @@ describe('a gold miss on a carried set, overruled (QX-16 section 4 and QX-1 sect
   });
 });
 
-describe('a carried set struck, restored and struck again (QX-16 section 4 and QX-1 section 2 as amended 10 November 2026)', () => {
+describe('one revealed gold on a piece across its line (QX-16 section 1 and QX-1 section 2 as amended 10 November 2026)', () => {
   const s = scene({ founding: { [addr(owner)]: 10 } });
-  it('withdraws the point the restore gave back where a gold at v2 misses after the miss at v1 was overruled', async () => {
+  it('refuses the reveal of a gold at v2 on a piece whose gold at v1 missed and was overruled', async () => {
     await s.judged();
     const v1 = await s.publish(version('1'));
     const v2 = await s.publish(version('2', v1));
     const piece = s.hashOf(v1, 'one');
     const projection = { verdict: 'supports' };
     const nonces = [newNonce(), newNonce()];
+    // A gold at each version on the same piece, both kept before the work.
     for (const [i, v] of [v1, v2].entries())
       await s.t.accepted(
         `/p/${v}/events`,
@@ -253,14 +254,16 @@ describe('a carried set struck, restored and struck again (QX-16 section 4 and Q
       s.challenge(A, v1, 'one', 0, 'The paper says the opposite of the gold.'),
     );
     await s.held(v1, 'one', id);
+    // QX-16 section 1 takes a reveal "naming a piece with no gold revealed on it", and the gold revealed at v1 is the
+    // piece's at v2 too.
+    expect(
+      await s.t.refused(`/p/${v2}/events`, s.t.ev(owner, 'gold_reveal', { projection, nonce: nonces[1] }, v2, piece)),
+    ).toBe('the gold on this piece is revealed');
+    expect(s.stateOf(v1, 'one')).toBe('accepted_provisional');
+    expect(s.stateOf(v2, 'one')).toBe('accepted_provisional');
+    // Each root keeps the one point the overruled miss gave back.
     expect(s.standing(A)).toBe(2);
-    // The gold at v2 is the owner's own, kept before the work, and its reveal strikes the restored set again.
-    await s.t.accepted(`/p/${v2}/events`, s.t.ev(owner, 'gold_reveal', { projection, nonce: nonces[1] }, v2, piece));
-    expect(s.stateOf(v1, 'one')).toBe('open');
-    expect(s.stateOf(v2, 'one')).toBe('open');
-    // One set struck: each root loses one and its point for the set, the point the restore gave back.
-    expect(s.standing(A)).toBe(0);
-    expect(s.standing(B)).toBe(0);
+    expect(s.standing(B)).toBe(2);
   });
 });
 
@@ -431,23 +434,21 @@ describe('the coin across a version (QX-17 section 3 and QX-1 section 2 as amend
     ]);
   });
 
-  it('verifies a square once for each version whose gold matched it, as the reference does today', async () => {
+  it('verifies a square once where a gold at each version is on it, refusing the reveal at v1 after the one at v2', async () => {
     const two = s.hashOf(v1, 'two');
-    await s.t.accepted(`/p/${v1}/events`, reveal(v1, two));
     await s.t.accepted(`/p/${v2}/events`, reveal(v2, two));
-    // This is what the reference does: a gold at each version on the same piece verifies the one square twice.
+    // The square's gold is revealed at v2, so the reveal at the earlier version is refused.
+    expect(await s.t.refused(`/p/${v1}/events`, reveal(v1, two))).toBe('the gold on this piece is revealed');
     expect(verifiedOn(two)).toEqual([
-      [v1, addr(C)],
-      [v1, addr(D)],
       [v2, addr(C)],
       [v2, addr(D)],
     ]);
-    // So the epoch mints C and D twice what it mints A and B for one square each: weight 12, not 8.
+    // So the epoch mints each square once, and each root of the two the same: weight 8.
     s.t.clock.tick = Date.parse(T0) + 24 * HOUR + 1000;
     const epochs = await s.t.get<{ epochs: { epoch: number; weight: number }[] }>('/coin/epochs');
-    expect(epochs.epochs[0]).toMatchObject({ epoch: 0, weight: 12 });
-    expect((await balanceOf(A)).minted).toBe(150);
-    expect((await balanceOf(C)).minted).toBe(300);
+    expect(epochs.epochs[0]).toMatchObject({ epoch: 0, weight: 8 });
+    expect((await balanceOf(A)).minted).toBe(225);
+    expect((await balanceOf(C)).minted).toBe(225);
   });
 
   it('pays a carried set once from an escrow at v1', async () => {
