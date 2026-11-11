@@ -4,14 +4,14 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 /**
- * The phases of the layer (challenge.ts: QX-1, with QX-15, QX-16, QX-17 and QX-19 section 4 folded in): the file's
- * header lists the phases challengeLayer marks in its body, in the same order, and every section a phase in the body
- * cites, the same phase in the header cites too. The header is the map a reader opens the file by, and it once listed
- * six phases where the body ran seven.
+ * The phases of the read (read.ts: QX-1, with QX-15, QX-16, QX-17 and QX-19 section 4 folded in): the file's header
+ * lists the phases `read` marks in its body, in the same order, and every section a phase in the body cites, the same
+ * phase in the header cites too. The header is the map a reader opens the file by, and it once listed six phases where
+ * the body ran seven.
  */
-const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'challenge.ts'), 'utf8');
+const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'read.ts'), 'utf8');
 const header = source.slice(0, source.indexOf('*/'));
-const start = source.indexOf('export function challengeLayer(');
+const start = source.indexOf('export function read(');
 const body = source.slice(start, source.indexOf('\n}\n', start));
 
 /** The numbered phases of the header, each with its continuation lines joined. */
@@ -36,7 +36,7 @@ function bodyPhases(): Map<number, string> {
 
 const cited = (text: string): string[] => [...text.matchAll(/(?:QX-\d+|verifiers\.md) section \d+/g)].map((m) => m[0]);
 
-describe('the phases of the layer', () => {
+describe('the phases of the read', () => {
   it('are the same in the header and the body, in order, the set-aside of QX-19 among them', () => {
     const head = headerPhases(),
       run = bodyPhases();

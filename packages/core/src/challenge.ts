@@ -1,8 +1,8 @@
 /**
  * The challenge window, extension QX-1 (docs/ext/QX-1.md), as reading 2 shows it: the states a piece has over the
  * fold, the two sides of a verdict, and a challenge as kept, with its panel's seats and its outcome. The record the
- * fold writes into (standing.ts) keeps challenges of this shape. The pass that folds them is still the tracker's, in
- * its `challenge.ts`, until it moves here as docs/history/V2-PLAN.md, phase 3, says.
+ * fold writes into (standing.ts) keeps challenges of this shape. The pass that folds them is `read`, in
+ * `read.ts`, moved here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says.
  */
 import type { PieceState } from './reduce.js';
 import type { Address } from './keys.js';

@@ -1,6 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Envelope, type Hash, eventId, hashBytes, problemHash, reduce, signEvent } from '@bitquilt/core';
-import { challengeLayer, inputRefused } from '../src/challenge.js';
+import {
+  type Envelope,
+  type Hash,
+  eventId,
+  hashBytes,
+  inputRefused,
+  problemHash,
+  reduce,
+  signEvent,
+} from '@bitquilt/core';
+import { challengeLayer } from '../src/challenge.js';
 import { VERDICT, addr, boot, envelope, key, line } from './helpers.js';
 
 /**

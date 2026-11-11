@@ -150,7 +150,7 @@ export function lockReleasedAt(
     : null;
 }
 
-// The lifecycle over the layer's record, in the order the tracker's challengeLayer runs it.
+// The lifecycle over the layer's record, in the order `read` runs it.
 
 /**
  * Why a stake rule would not be kept at `at` (section 1): malformed, not the owner's, or naming a piece the problem

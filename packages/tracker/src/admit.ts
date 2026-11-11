@@ -23,6 +23,7 @@ import {
   admitTrace,
   blobProblems,
   canonicalBytes,
+  challengeBodyProblems,
   envelopeProblems,
   eventId,
   eventProblems,
@@ -51,8 +52,8 @@ import {
   standingProposals,
   textIssues,
   tracesKept,
+  verdictBodyProblems,
 } from '@bitquilt/core';
-import { challengeBodyProblems, verdictBodyProblems } from './challenge.js';
 import { type CoinLockView, type CoinWord, COIN_LOG, coinEventRefusal } from './coin.js';
 import { hideBodyProblems } from './hide.js';
 import { Refusal, json } from './http.js';

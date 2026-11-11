@@ -178,7 +178,7 @@ export function* matchedCommitments(
         yield c as GoldCommitment & { piece: Hash; revealedAt: string };
 }
 
-// The lifecycle over the layer's record, in the order the tracker's challengeLayer runs it.
+// The lifecycle over the layer's record, in the order `read` runs it.
 
 /** When a problem's pieces are all final at `now` (section 3): complete, with every window closed; null until then. */
 export function problemSettledAt(home: ProblemEntry, now: string): string | null {

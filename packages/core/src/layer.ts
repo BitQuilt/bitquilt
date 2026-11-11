@@ -1,6 +1,6 @@
 /**
  * What reading 2 shows of a problem, over the fold: a piece's view and a problem's, with each extension's word on
- * them, and a layer's answer to the door. The pass that builds them is still the tracker's, in its `challenge.ts`,
+ * them, and a layer's answer to the door. The pass that builds them is `read`, in `read.ts`,
  * and the rules here that read them, the trace's, the proposals' and the inherited squares', take them as these
  * shapes. They moved here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says.
  */
