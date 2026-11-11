@@ -8,12 +8,13 @@
 import {
   type Event,
   type Hash,
-  type Receipt,
   IDENTITY_LOG,
+  type Receipt,
   eventId,
   eventProblems,
   eventSignedByKey,
   hashBytes,
+  personSeatIn,
   verifyChain,
   withSlash,
 } from '@bitquilt/core';
@@ -21,7 +22,6 @@ import { COIN_LOG } from './coin.js';
 import { Refusal } from './http.js';
 import type { Store } from './store.js';
 import { readsNamed } from './trace.js';
-import { personSeatIn } from './verifiers.js';
 import { type Admitted, type Log, bodyOver, eventHoursOver, stampsUnlike } from './admit.js';
 import type { Tracker } from './tracker.js';
 

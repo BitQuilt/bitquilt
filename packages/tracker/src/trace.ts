@@ -17,6 +17,7 @@ import {
   type Hash,
   type PieceView,
   type Receipt,
+  type RecordView,
   type Reveal,
   type Schema,
   type State,
@@ -32,7 +33,6 @@ import {
 } from '@bitquilt/core';
 import type { Admission, ProblemLayer } from './challenge.js';
 import type { Inherited } from './inherit.js';
-import type { RecordView } from './verifiers.js';
 
 export const TRACE = 'QX-19';
 export const RECORD = 'QX-20';

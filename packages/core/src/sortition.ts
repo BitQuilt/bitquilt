@@ -1,10 +1,12 @@
 /**
- * Sortition, QX-1 sections 4 and 5, shared by the challenge window (challenge.ts) and the judge panels (verifiers.ts):
- * the draw order over a pool from a seed no one party makes alone, and the seats offered down that order, lapsing by
- * the lease and passing to the next root not yet offered one. The decision loops stay with their callers: a verdict
- * decides a challenge, a rank decides a panel.
+ * Sortition, QX-1 sections 4 and 5, shared by the challenge window and the judge panels (kinds.ts): the draw order
+ * over a pool from a seed no one party makes alone, and the seats offered down that order, lapsing by the lease and
+ * passing to the next root not yet offered one. The decision loops stay with their callers: a verdict decides a
+ * challenge, a rank decides a panel. Moved here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says.
  */
-import { type Address, hashCanonical, plusHours } from '@bitquilt/core';
+import { hashCanonical } from './hash.js';
+import type { Address } from './keys.js';
+import { plusHours } from './plain.js';
 
 /** What a seat holds whatever it is for: who sits, when it was offered, and when it lapsed, null while it is open. */
 export interface Seated {

@@ -11,3 +11,5 @@ export * from './stamp.js';
 export type { Delegation } from './roots.js';
 export * from './reduce.js';
 export * from './next.js';
+export * from './sortition.js';
+export * from './kinds.js';

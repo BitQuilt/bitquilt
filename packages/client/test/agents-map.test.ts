@@ -302,7 +302,7 @@ function uncited(part: string): string | null {
     const link = REGISTRY.get(name!);
     path = link ? `docs/${link}` : null;
     if (!path) return sections || title ? `${name} has no document of its own` : null;
-  } else path = [`docs/${name}`, `docs/ext/${name}`].find(exists) ?? null;
+  } else path = [`docs/${name}`, `docs/ext/${name}`, `docs/v2/${name}`].find(exists) ?? null;
   if (!path) return `no document is at ${name}`;
   const headings = headingsOf(path);
   let scopes = [{ start: 0, end: Number.POSITIVE_INFINITY }];

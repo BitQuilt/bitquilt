@@ -3,9 +3,11 @@
  * the times it is read at, and what the layer says at each. docs/history/V2-PLAN.md, phase 2, calls these the law for
  * the port: the fold the core is given in phase 3 reproduces every one. `reading-fixtures.test.ts` holds the layer to
  * them; with `QUILT_WRITE_READING=1` the helpers' `boot` writes one for each tracker a test file booted, once the file
- * has run. vitest runs `*.test.ts` alone, so this file is no test of its own.
+ * has run, and one wherever a test keeps a tracker as it stands or a ledger it built by hand. With
+ * `QUILT_WRITE_READING=new` only a fixture not yet kept is written. vitest runs `*.test.ts` alone, so this file is no
+ * test of its own.
  */
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -211,6 +213,11 @@ export function fixtureOf(
   const times = [now, plusHours(now, 1000)];
   for (const at of times) expectOf(layerOver(asking, at), asking);
   for (const h of Object.keys(reads).sort()) ledger.reads[h] = reads[h]!;
+  return fixtureOver(name, description, ledger, times);
+}
+
+/** A ledger as a fixture: what the layer says of it at each time, read over the ledger as its JSON gives it back. */
+export function fixtureOver(name: string, description: string, ledger: Ledger, times: string[]): ReadingFixture {
   const fixture: ReadingFixture = {
     name,
     description,
@@ -220,6 +227,16 @@ export function fixtureOf(
   };
   fixture.readings = times.map((at) => ({ now: at, expect: expectOf(layerOver(fixture.ledger, at), fixture.ledger) }));
   return fixture;
+}
+
+/** One problem's envelope and receipts, built by hand with no tracker, as a ledger with nothing else in it. */
+export function ledgerOf(envelope: Envelope, lines: Receipt[]): Ledger {
+  return { identity: [], problems: [{ envelope, lines }], blobs: {}, coin: null, founding: {}, reads: {} };
+}
+
+/** Whether a fixture of this name is kept already. */
+export function kept(name: string): boolean {
+  return existsSync(join(READING_DIR, `${name}.json`));
 }
 
 /** Writes a fixture under the folder, by its name, and says whether it was small enough to keep. */

@@ -13,17 +13,19 @@
 import {
   type Address,
   type Hash,
+  NONCE_RE,
   type PieceView,
   type Return,
-  NONCE_RE,
   agreeFields,
   commitHash,
   isHash,
   isRecord,
+  ownerOf,
   plusHours,
   returnsAgree,
+  rootFor,
+  windowOf,
 } from '@bitquilt/core';
-import { ownerOf, rootFor, windowOf } from './verifiers.js';
 import { ruleAt, stakeAsked } from './stake.js';
 import type { Folding, ProblemEntry } from './standing.js';
 import type { Admission, Layer } from './challenge.js';

@@ -15,8 +15,10 @@ import {
   type Envelope,
   type Event,
   type Hash,
+  IDENTITY_LOG,
   type PieceDef,
   type Received,
+  SLUG_RULE,
   blobProblems,
   canonicalBytes,
   envelopeProblems,
@@ -28,16 +30,17 @@ import {
   isHash,
   isRecord,
   isSlug,
+  kindOf,
+  personSeatIn,
   plainTextProblems,
   problemHash,
+  rankBodyProblems,
   type reduce,
   returnProblems,
   returnStrings,
   signedBy,
   stampOk,
   textIssues,
-  IDENTITY_LOG,
-  SLUG_RULE,
 } from '@bitquilt/core';
 import { challengeBodyProblems, verdictBodyProblems } from './challenge.js';
 import { type CoinLockView, type CoinWord, COIN_LOG, coinEventRefusal } from './coin.js';
@@ -51,7 +54,6 @@ import { PRODUCTION_EVENTS, lockBodyProblems, stakeRuleBodyProblems } from './st
 import type { Store } from './store.js';
 import { BLOB_MAX, admitTrace, tracesKept } from './trace.js';
 import type { Context } from './tracker.js';
-import { kindOf, personSeatIn, rankBodyProblems } from './verifiers.js';
 import { hostedPost, witnessOf } from './witness.js';
 
 /** The most a post may carry, 4 MB: room for an envelope with its blobs. */
@@ -91,7 +93,7 @@ type Reads = Pick<
 /**
  * What the door asks of one type of event on a problem's log, as a row of `problemDoor` names it: given the door's
  * part of the context, the event, the problem it is under, that problem's fold, and whether the line's wrappers say
- * its seat is a person's (`personSeatIn` in verifiers.ts), it refuses by throwing a Refusal, and answers the word the
+ * its seat is a person's (the core's `personSeatIn`), it refuses by throwing a Refusal, and answers the word the
  * receipt's wrapper carries where it has one.
  */
 type ProblemCheck = (

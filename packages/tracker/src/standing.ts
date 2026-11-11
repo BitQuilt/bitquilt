@@ -8,6 +8,7 @@ import {
   type Address,
   type Event,
   type Hash,
+  type KindsDecided,
   type PieceView,
   type Receipt,
   type ReduceInput,
@@ -15,8 +16,8 @@ import {
   type State,
   isRecord,
   orderReceipts,
+  viaOf,
 } from '@bitquilt/core';
-import { type KindsDecided, viaOf } from './verifiers.js';
 import { type LockView, type StakeRule, liveAt } from './stake.js';
 import { type GoldView, goldLiveAt } from './gold.js';
 import type { ChallengeView, LayerState } from './challenge.js';

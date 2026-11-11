@@ -1,6 +1,6 @@
 # Reading 2
 
-Status: Draft, written 11 November 2026, with no implementation. This is the second of the two documents of version 2 of the core; the first is [WIRE.md](WIRE.md), which is frozen. [The plan](../history/V2-PLAN.md) gives the order of the build. Until the switch the plan's phase 6 names, [CORE.md](../CORE.md) section 6 and the extension documents are what the code does, and section 12 below lists every place this draft departs from them.
+Status: Draft, written 11 November 2026. Its fold is being moved into the reference core a rule at a time, as the plan's phase 3 says, and no client reads by it yet. This is the second of the two documents of version 2 of the core; the first is [WIRE.md](WIRE.md), which is frozen. [The plan](../history/V2-PLAN.md) gives the order of the build. Until the switch the plan's phase 6 names, [CORE.md](../CORE.md) section 6 and the extension documents are what the code does, and section 12 below lists every place this draft departs from them.
 
 **Abstract.** A reading is what a client says of the wire's bytes. Reading 1 is CORE.md section 6 with a layer of extensions over it, and it gives each piece two states. Reading 2 is one fold. Its first product is the record: every reading of a piece, in order, with its signer and what it rests on. A square is a view over the record, drawn by the piece's verifier kind. A problem's versions are one line with one record, everything counted is named by an event's id, and each piece has one state.
 

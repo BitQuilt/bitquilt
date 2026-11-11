@@ -13,11 +13,11 @@ import {
   type ReduceInput,
   type State,
   isRecord,
+  leaseOf,
   next,
 } from '@bitquilt/core';
 import { type Layer, type ProblemLayer, carriesSet, countsAsAccepted } from './challenge.js';
 import { acceptingRoots } from './standing.js';
-import { leaseOf } from './verifiers.js';
 
 export const SEEDING = 'QX-4';
 export const RECIPROCITY = 'QX-5';
