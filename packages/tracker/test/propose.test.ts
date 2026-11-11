@@ -2,21 +2,19 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   type Address,
   type Hash,
+  PROPOSED_MAX,
+  PROPOSE_WHY_MAX,
   type PieceDef,
+  type ProposalView,
   commitHash,
   expandPieces,
   newNonce,
   problemHash,
-  signEvent,
-} from '@bitquilt/core';
-import {
-  PROPOSED_MAX,
-  PROPOSE_WHY_MAX,
-  type ProposalView,
   proposeBodyProblems,
   proposedHash,
+  signEvent,
   standingProposals,
-} from '../src/propose.js';
+} from '@bitquilt/core';
 import { VERDICT, addr, boot, envelope, key, line } from './helpers.js';
 
 /**

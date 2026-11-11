@@ -1,7 +1,7 @@
 /**
  * NODE.md section 5, the reads: the reads a chain's traces name are fetched under their hashes where they are not held,
  * and "A read a trace names by anything but a hash, and reads that are not a list, are not fetched, and are no refusal"
- * (`readsNamed` in the tracker's trace.ts). A tracker holds a trace whose reads are not that, written to its store
+ * (`readsNamed` in the core's trace.ts). A tracker holds a trace whose reads are not that, written to its store
  * directly, as a tracker serves one it took before its door held the body to QX-19 section 1; the core's shape reads no
  * trace's body and a core client ignores the event (EXTENSIONS.md, What an extension may do), so a chain that holds it
  * verifies. Its reads name a path that climbs out of the blobs or names a folder, a number or an object, or are not a

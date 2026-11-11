@@ -2,8 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   type Event,
   type Hash,
-  type Unsigned,
   PIECE_EVENT_TYPES,
+  PROPOSE_EVENTS,
+  TRACE_EVENTS,
+  type Unsigned,
   newNonce,
   problemHash,
   signEvent,
@@ -12,9 +14,7 @@ import {
 } from '@bitquilt/core';
 import { CHALLENGE_EVENTS } from '../src/challenge.js';
 import { GOLD_EVENTS } from '../src/gold.js';
-import { PROPOSE_EVENTS } from '../src/propose.js';
 import { STAKE_EVENTS } from '../src/stake.js';
-import { TRACE_EVENTS } from '../src/trace.js';
 import { RANK_EVENTS } from '../src/verifiers.js';
 import { VERDICT, addr, boot, envelope, key } from './helpers.js';
 

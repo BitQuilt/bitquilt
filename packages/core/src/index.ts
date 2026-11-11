@@ -17,3 +17,7 @@ export * from './challenge.js';
 export * from './stake.js';
 export * from './gold.js';
 export * from './standing.js';
+export * from './layer.js';
+export * from './trace.js';
+export * from './propose.js';
+export * from './inherit.js';

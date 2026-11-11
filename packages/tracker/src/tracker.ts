@@ -12,10 +12,21 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createHash } from 'node:crypto';
-import { type Address, type Hash, type ReduceInput, reduce, withSlash, IDENTITY_LOG } from '@bitquilt/core';
+import {
+  type Address,
+  type Hash,
+  IDENTITY_LOG,
+  type PieceTraces,
+  type ProblemLayer,
+  type ReduceInput,
+  passageIn,
+  problemTraces,
+  reduce,
+  withSlash,
+} from '@bitquilt/core';
 import { keepBlob, limit, postEvent, publish, pullDoorOf } from './admit.js';
 import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
-import { type Layer, type ProblemLayer, challengeLayer, inputRefused } from './challenge.js';
+import { type Layer, challengeLayer, inputRefused } from './challenge.js';
 import { type CoinLayer, type CoinParams, COIN_LOG, coinLayer } from './coin.js';
 import { assisted, offer } from './hand.js';
 import { type Hidden, hiddenNow } from './hide.js';
@@ -24,7 +35,6 @@ import { type PeerPull, pullPeers } from './peers.js';
 import { type Handler, type Route, handlerOf, routeOf } from './routes.js';
 import { foldsOf } from './folds.js';
 import type { Store } from './store.js';
-import { type PieceTraces, passageIn, problemTraces } from './trace.js';
 import {
   blob,
   cannotFold,
@@ -315,8 +325,8 @@ function contextOf(options: TrackerOptions): Context {
   }
 
   /**
-   * QX-19: each piece's traces, grade and seams as trace.ts reads them for a problem (`problemTraces`), the passages
-   * from this store's blobs.
+   * QX-19: each piece's traces, grade and seams as the core's trace.ts reads them for a problem (`problemTraces`), the
+   * passages from this store's blobs.
    */
   // Computed once per layer object: the kept layer is one object until the store is written or five seconds pass,
   // and the index, the state and the directory row all read it, so the trace scan runs once for them and not per

@@ -5,20 +5,16 @@
  * pieces done elsewhere, settles what waits on them and marks the inherited squares (QX-23 sections 2 and 3), when a
  * fork is complete in the layer (QX-23 section 4), and the brief of a piece that waits on an inherited input
  * (QX-23 section 3). An inherited square is a reading of the record and moves nothing: the pass runs after every
- * credit, lock, gold and challenge is folded, adds no event, and writes a state and a mark and nothing else. No HTTP
- * in it. It loads the core alone and takes the layer's types as types, with a piece's own state and the settling
- * handed in, so challenge.ts loads it with no cycle.
+ * credit, lock, gold and challenge is folded, adds no event, and writes a state and a mark and nothing else. It takes
+ * the layer's shapes from `layer.ts`, with a piece's own state and the settling handed in by the pass that calls it,
+ * the tracker's `challenge.ts`. Moved here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says.
  */
-import {
-  type Folding,
-  type Hash,
-  type LayerState,
-  type PieceState,
-  type PieceView,
-  type ProblemEntry,
-  renderInputs,
-} from '@bitquilt/core';
-import type { Layer, ProblemLayer } from './challenge.js';
+import type { LayerState } from './challenge.js';
+import type { Hash } from './hash.js';
+import { renderInputs } from './next.js';
+import type { PieceState, PieceView } from './reduce.js';
+import type { Folding, ProblemEntry } from './standing.js';
+import type { LayerViews, ProblemLayer } from './layer.js';
 
 export const INHERIT = 'QX-23';
 
@@ -201,7 +197,7 @@ export function completeInLayer(pieces: readonly { state: LayerState; inherited:
  * since there is no agreed return to render", so the source's view is taken only where it has an accepting set. Where
  * the problem inherits nothing this is the core's own render.
  */
-export function briefOver(layer: Layer, pl: ProblemLayer, v: PieceView): string {
+export function briefOver(layer: LayerViews, pl: ProblemLayer, v: PieceView): string {
   if (!pl.pieces.some((p) => p.inherited)) return renderInputs(v, pl.fold);
   const byHash = new Map(pl.fold.byHash);
   for (const p of pl.pieces) {

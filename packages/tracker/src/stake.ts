@@ -7,10 +7,12 @@
  */
 import {
   type Address,
+  type Admission,
   type CoinLockWord,
   type Folding,
   type Hash,
   type LockView,
+  type ProblemLayer,
   checkLock,
   hasLock,
   liveAt,
@@ -19,7 +21,7 @@ import {
   ruleProblem,
   stakeAsked,
 } from '@bitquilt/core';
-import type { Admission, Layer, ProblemLayer } from './challenge.js';
+import type { Layer } from './challenge.js';
 
 /**
  * The types QX-15 adds to a problem's log. The door admits each through its own row of `problemDoor` in admit.ts,

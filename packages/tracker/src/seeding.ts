@@ -9,6 +9,7 @@ import {
   type Client,
   type Hash,
   type Pick,
+  type ProblemLayer,
   type Receipt,
   type ReduceInput,
   type State,
@@ -19,7 +20,7 @@ import {
   leaseOf,
   next,
 } from '@bitquilt/core';
-import type { Layer, ProblemLayer } from './challenge.js';
+import type { Layer } from './challenge.js';
 
 export const SEEDING = 'QX-4';
 export const RECIPROCITY = 'QX-5';

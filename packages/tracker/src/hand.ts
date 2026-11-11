@@ -9,20 +9,21 @@
 import type { ServerResponse } from 'node:http';
 import {
   type Address,
+  CAPABILITIES,
   type Capability,
   type Client,
   type Hash,
+  type ProblemLayer,
   type ReduceInput,
+  type Seam,
+  briefOver,
   isAddress,
   next,
-  CAPABILITIES,
 } from '@bitquilt/core';
-import type { Layer, ProblemLayer } from './challenge.js';
+import type { Layer } from './challenge.js';
 import { Refusal, json } from './http.js';
-import { briefOver } from './inherit.js';
 import { offerOrder, seedInfo, watchExclusions } from './seeding.js';
 import type { Store } from './store.js';
-import type { Seam } from './trace.js';
 import type { Context } from './tracker.js';
 import { replaced, supersededBy, viewIn } from './views.js';
 

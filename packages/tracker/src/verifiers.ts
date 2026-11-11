@@ -6,6 +6,7 @@
  */
 import {
   type Address,
+  type Admission,
   type Folding,
   type Hash,
   panelSeatProblem,
@@ -13,7 +14,7 @@ import {
   rankingProblem,
   rootFor,
 } from '@bitquilt/core';
-import type { Admission, Layer } from './challenge.js';
+import type { Layer } from './challenge.js';
 
 /**
  * The types QX-2 adds to a problem's log. The door admits each through its own row of `problemDoor` in admit.ts,

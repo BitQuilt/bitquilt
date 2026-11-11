@@ -15,15 +15,18 @@ import {
   type Envelope,
   type Hash,
   IDENTITY_LOG,
+  type PieceLayer,
+  type ProblemLayer,
   type Receipt,
   plusHours,
   problemHash,
+  problemTraces,
+  proposalsIn,
+  recordOutput,
 } from '@bitquilt/core';
-import { type Layer, type PieceLayer, type ProblemLayer, challengeLayer } from '../src/challenge.js';
+import { type Layer, challengeLayer } from '../src/challenge.js';
 import { COIN_LOG } from '../src/coin.js';
-import { proposalsIn } from '../src/propose.js';
 import { type ChainReader, type Store, reduceInputOf } from '../src/store.js';
-import { problemTraces, recordOutput } from '../src/trace.js';
 
 /** Where the fixtures of reading 2 are kept, beside version 1's. */
 export const READING_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../core/fixtures/reading-2');

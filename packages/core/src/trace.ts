@@ -3,42 +3,29 @@
  * its hash, and for each field of the return the read and the span of it the value rests on. The door checks the shape
  * and that every read is held (section 1); the layer grades an accepted square by whether both of its reveals rest on
  * kept reads (section 3) and, where reveals differ, says why from the traces, pair by pair, and which readings rest on
- * nothing where another rests on the record (section 4): those the layer sets aside (challenge.ts). On a record piece
+ * nothing where another rests on the record (section 4): those the tracker's layer sets aside. On a record piece
  * (QX-20) the same traces grade the standing readings and give the seams between them, with nothing set aside, and
  * the record document states each reading with its trace as the chain has it. Which fold each piece of a problem is
  * read over, for the state and for `next`, is said here too (`problemTraces`), and so are a complete problem's record
  * output (`recordOutput`) and what each reading rests on, field by field with its passage, for any page that shows a
- * reading. Pure over the fold, the receipts, and a way to measure and read a blob. Nothing here changes what the core
- * calls a piece.
+ * reading. Pure over the fold, the receipts, and a way to measure and read a blob. Nothing here changes what version 1
+ * calls a piece. Moved here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says.
  */
-import {
-  type Address,
-  type Event,
-  type Hash,
-  type PieceView,
-  type Receipt,
-  type RecordView,
-  type Reveal,
-  type Schema,
-  type State,
-  agreeFields,
-  earliestReceipt,
-  eventId,
-  hashCanonical,
-  isHash,
-  isRecord,
-  isTime,
-  returnsAgree,
-  whole,
-} from '@bitquilt/core';
-import type { Admission, ProblemLayer } from './challenge.js';
+import { type Event, type Receipt, earliestReceipt, eventId } from './events.js';
+import { type Hash, hashCanonical, isHash } from './hash.js';
+import type { Address } from './keys.js';
+import type { RecordView } from './kinds.js';
+import { isRecord, isTime, whole } from './plain.js';
+import type { PieceView, Reveal, State } from './reduce.js';
+import { type Schema, agreeFields, returnsAgree } from './schema.js';
+import type { Admission, ProblemLayer } from './layer.js';
 import type { Inherited } from './inherit.js';
 
 export const TRACE = 'QX-19';
 export const RECORD = 'QX-20';
 /**
- * The types QX-19 adds to a problem's log. The door admits each through its own row of `problemDoor` in admit.ts,
- * and admit.test.ts holds those rows to this set.
+ * The types QX-19 adds to a problem's log. The tracker's door admits each through its own row of `problemDoor`, and
+ * its admit.test.ts holds those rows to this set.
  */
 export const TRACE_EVENTS: ReadonlySet<string> = new Set(['trace']);
 export const READS_MAX = 16;
@@ -485,8 +472,8 @@ export function recordSeams(
 
 /**
  * The three over one fold: the traces kept, the grade, and the seams with the reveals to set aside. The layer's fold is
- * asked this way (challenge.ts); a problem's pieces with the fold each is read over and a record piece's grade are
- * `problemTraces`'s.
+ * asked this way, by the tracker's `challenge.ts`; a problem's pieces with the fold each is read over and a record
+ * piece's grade are `problemTraces`'s.
  */
 export function pieceTraces(
   fold: State,
