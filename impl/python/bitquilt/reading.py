@@ -16,7 +16,7 @@ from .identity import same_address
 from .grounds import fold_traces, set_aside, seams_of, traced
 from .kinds import KIND_WORDS, kind_of, agree_pass, attest_pass, record_pass, person_seat, differ, find_set
 from .decisions import Decisions
-from .record import Ledger, fold_record, iso
+from .record import Ledger, entries_of, fold_record, iso
 from .times import parse_time, hours
 
 DONE = ("accepted", "unreachable", "recorded")
@@ -317,6 +317,13 @@ class Read:
         for line in led.lines.values():
             roots.add(line.owner)
             roots.update(line.identity.final(r) for r in line.roots)
+        # The signers of the coin log's events are listed too (routes-2, coin-1), by their roots.
+        lines = list(led.lines.values())
+        for entry in entries_of([led.coin or []]):
+            key = entry["event"].get("key")
+            if isinstance(key, str) and entry["at"] is not None:
+                root = lines[0].identity.root_of(key, entry["at"]) if lines else key
+                roots.add(lines[0].identity.final(root) if lines else root)
         out = {}
         for root in sorted(roots):
             n = self.dec.standing_at(root, self.now)
