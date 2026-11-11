@@ -78,6 +78,12 @@ A seat is offered to each of the first three at the challenge's receipt. A seat 
 
 The decision's time is the receipt of the verdict that made the majority, or the last lapse.
 
+Clarified 11 November 2026, from the findings of reading 2's second implementation (`impl/python/FINDINGS-2.md`, entries 41, 56 and 59), to say what the reference reads and the fixtures hold. No answer changed.
+
+- **Who is docked.** The roots a held challenge docks are the roots the set credited (section 2): both of an `agree` set, the patch's of a `check` or `score` set. A root in the set with no point for it loses nothing but its lock: a run's root, and the root of an `attest` set, which credits no standing ([verifiers.md](verifiers.md) section 2). The minus one goes with the point, and a set that gave no point takes none.
+- **A set struck and returned.** A set a gold's miss struck and a held challenge on the miss returned ([QX-16](QX-16.md) section 4) was struck at or before every later time. By section 3 it seats its roots in no later pool, though each root has its points again.
+- **A void challenge's time.** Where every seat ran out, the decision's time is the last lapse, though a verdict from a seat no longer live came after it.
+
 ## 7. States
 
 A client with this extension holds each piece in the core's states and one more:
@@ -86,6 +92,7 @@ A client with this extension holds each piece in the core's states and one more:
 - After a **held** challenge, the piece's state is what the core's own reducer computes with the struck events left out: `open`, `sealed`, `needs_verify` or `disputed` as the remaining events say. The piece is offered again by `next` run on that fold. The judges' returns stay in the ledger as evidence. `re_accepted`, where the panel's return stands in the struck set's place, is named in PROTOCOL.md and not in this draft: a held challenge sends the piece back to production.
 - After a **failed** or **void** challenge, the state is the core's.
 - A piece is challenged once. After a held challenge an acceptance it reaches again is not challenged under this draft.
+- Clarified 11 November 2026 (`impl/python/FINDINGS-2.md`, entry 60): once is said of a challenge that held. Section 1 bars a challenge only where an earlier one on the piece is open or has held, so after a failed or a void challenge the acceptance may be challenged again inside its window.
 
 Where this layer says a piece is accepted, the core says accepted; the core's `accepted` means accepted absent a challenge, as CORE.md section 10 says.
 

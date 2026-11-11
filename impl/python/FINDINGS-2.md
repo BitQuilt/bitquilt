@@ -126,4 +126,11 @@ On 11 November 2026, with this code, the fixtures' README was amended:
 - **Entries 3 and 61.** The example shows `unoffered` as a list and `gold` as its six counts, and the field list says what each is.
 - **Entry 58.** The fault was the README's sentence, not the count. `dropped` counts the events of the types reading 2 adds that the pass took for nothing: a lock no free standing covers, a gold or a rank the rules refuse. What reading 1's fold drops, a reveal with no commit among them, is left off the record and is not counted there. The door refuses what the pass would drop, so no ledger a tracker kept holds one and every file says 0. This code says 0 always, which is right for every fixture and wrong for a ledger written by hand that holds such an event, until a fixture holds one.
 
-Entries 56, 57, 59 and 60 are open: each is a place two sentences of the extensions' documents, or a sentence and the reference, must be made to agree. The entries that are thin and not wrong are open too, each a sentence for READING.md, a cited document or the README.
+That day too, the extensions' documents were clarified, each by a dated paragraph that leaves the sentence before it as it was. No answer of a fixture changed.
+
+- **Entry 56.** QX-1 section 6, QX-16 section 4 and verifiers.md section 2 say now who is docked: the roots the set credited. An `attest` set credits none, so its root loses its lock and no point. The reference reads a run's root the same way, which no fixture holds.
+- **Entry 57, with 53 and 55.** The fault was in neither the document nor the reference. A tracker lists a fork's head alone and knows names; a ledger holds neither a listing nor a name, so a fixture lists every version of a fork that holds the piece, in the order of their hashes, and says `proposer` as null. QX-22 section 3 and the fixtures' README say so.
+- **Entry 59.** QX-1 section 6 and QX-16 section 4 say it in one voice: a set struck and returned has its roots' points again and seats them in no later pool.
+- **Entry 60, with 41.** QX-1 section 7 and QX-16 section 4 say once of a challenge that held, as section 1 has it. QX-1 section 6 says a void challenge's time is the last lapse.
+
+The entries that are thin and not wrong are open, each a sentence for READING.md, a cited document or the README: 4 to 13, 15 to 40, 42 to 52 and 54. The assumptions no fixture holds are open until a fixture holds each.
