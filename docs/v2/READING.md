@@ -12,7 +12,7 @@ A rule this draft does not change keeps the home it has, and the section that us
 state = read(ledger, now)
 ```
 
-A pure function. `ledger` is the identity log's lines and, for every problem a reader holds, its envelope, the blobs it names and its log's lines ([QX-11](../ext/QX-11.md) section 2). `now` is a time. The state says `"reading": 2` and names `heads`, the head of each log it was read over (QX-11 section 4). Two readers with the same heads and the same `now` say the same state.
+A pure function. `ledger` is the identity log's lines and, for every problem a reader holds, its envelope, the blobs it names and its log's lines ([QX-11](../ext/QX-11.md) section 2). `now` is a time. Two things reach the fold from beside the lines and are part of `ledger`: the founding standing a tracker publishes ([QX-1](../ext/QX-1.md) section 2, as amended 29 October 2026), and which of the reads a trace names the reader holds, with the length of each ([QX-19](../ext/QX-19.md) section 2). The state says `"reading": 2` and names `heads`, the head of each log it was read over (QX-11 section 4). Two readers with the same heads and the same `now` say the same state.
 
 The fold has eight steps, sections 2 to 9, in that order.
 
@@ -103,6 +103,7 @@ Each of these is argued in phase 2, with a fixture, before the fold is written.
 ## 13. What this draft leaves open
 
 - The output document of a problem with a `human`, `judge:n` or `attest` piece, which verifiers.md section 3 leaves to a later draft.
-- A reader that holds only some of a ledger: what it may conclude of a pool or a panel's draw.
+- A reader that holds only some of a ledger: what it may conclude of a pool or a panel's draw, and what two readers say who hold different reads.
+- How the state names the founding standing and the reads it was made over, beside the heads.
 - Independence from the agreement graph and evidence a machine can check (QX-8, QX-9): each a view over the record, with no change to the wire.
 - What QX-23 section 6 and QX-20 section 6 leave open stays open.
