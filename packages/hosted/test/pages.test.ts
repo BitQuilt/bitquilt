@@ -216,6 +216,7 @@ describe('the pages the on-ramp serves', () => {
           at: markup,
           accepting: true,
           aside: false,
+          nothing: null,
           fields: [[markup, markup]],
           rests: [
             {
@@ -228,6 +229,19 @@ describe('the pages the on-ramp serves', () => {
             { field: markup, url: `https://example.org/${markup}`, hash: markup as Hash, span: [0, 1], passage: null },
           ],
         },
+        // READING.md section 3: a reading that counts for nothing says why, and one struck says what struck it.
+        ...(['kept', 'struck'] as const).map((counts) => ({
+          key: '0x0000000000000000000000000000000000000003',
+          name: null,
+          vendor: 'openai',
+          model: 'openai/gpt',
+          at: '2026-11-11T12:00:00.000Z',
+          accepting: false,
+          aside: false,
+          nothing: { counts, why: markup },
+          fields: [],
+          rests: [],
+        })),
       ],
       now: { version: markup, same: false, piece: markup, state: markup, brief: markup },
       link: markup,
@@ -236,6 +250,8 @@ describe('the pages the on-ramp serves', () => {
     const html = squarePage(view);
     expect(html).not.toContain(markup);
     expect(html).not.toContain('<img');
+    expect(html).toContain(`Kept on the record, and it counts for nothing: ${shown}.`);
+    expect(html).toContain(`Struck: ${shown}.`);
     expect(attributes(html)).toEqual(expect.arrayContaining(['href', 'rel', 'class', 'content']));
     expect(html.split(shown).length - 1).toBeGreaterThan(20);
     heldAsTheSquare({

@@ -54,7 +54,8 @@
  * any version of its line on a piece it keeps. The third is too: the lease and the window an event is held to are
  * those of the version it names, so a claim, a commit and a set's window end at one time at every version of the line.
  * The fifth is too: a challenge open on a piece shows at every version of the line that holds the piece, and a gold
- * miss is challenged at any of them. The stake rules, the locks and the golds are still read at the version each
+ * miss is challenged at any of them. The sixth is too: the record says of each reading how it counts, and of one that
+ * counts for nothing why (`readings.ts`). The stake rules, the locks and the golds are still read at the version each
  * names, and a challenge is listed, and takes its verdicts, where it was posted.
  *
  * What a door asks before it takes an event, the admissions, is no part of the read: a tracker builds them over the
@@ -85,6 +86,7 @@ import type { Address } from './keys.js';
 import { applyVerifiers, leaseOf, ownerOf, rootFor, settleKinds, viaOf, windowOf } from './kinds.js';
 import type { LayerViews, PieceLayer, ProblemLayer } from './layer.js';
 import { byAtThenId, isRecord, plusHours } from './plain.js';
+import { readingsOf } from './readings.js';
 import { type PieceView, type ReduceInput, type Reveal, type State, orderReceipts, reduce } from './reduce.js';
 import { type Return, returnProblems } from './schema.js';
 import { drawOrder, offerSeats } from './sortition.js';
@@ -239,8 +241,17 @@ function carriersOf(f: Folding, ids: readonly Hash[]): Set<Hash> {
  * set's events. Where the reveal's point was withdrawn by an earlier strike and given back as a move by an unstrike
  * (QX-16 section 4), that point is withdrawn as a move, so nothing is credited twice.
  */
-function strike(f: Folding, home: ProblemEntry, view: PieceView, d: string): { ids: Hash[]; roots: Address[] } {
+function strike(
+  f: Folding,
+  home: ProblemEntry,
+  view: PieceView,
+  d: string,
+  by: { kind: 'challenge' | 'gold'; id: Hash },
+): { ids: Hash[]; roots: Address[] } {
   const ids = setEventIds(view);
+  // The set's reveals, each of which the record keeps with the decision that struck it (READING.md section 3).
+  const set = view.accepting;
+  const reveals = !set ? [] : set.kind === 'agree' ? set.reveals.map((r) => r.id) : [set.patch.id];
   const carriers = carriersOf(f, ids);
   for (const r of creditedReveals(view)) {
     const root = home.fold.rootOf(r.root, f.now);
@@ -268,6 +279,7 @@ function strike(f: Folding, home: ProblemEntry, view: PieceView, d: string): { i
   for (const e of f.entries.values()) {
     if (!carriers.has(e.hash)) continue;
     for (const id of ids) e.struck.add(id);
+    for (const id of reveals) e.struckBy.set(id, by);
     rereduce(f, e);
   }
   refreshCredits(f);
@@ -317,7 +329,10 @@ function unstrike(f: Folding, home: ProblemEntry, c: GoldCommitment, d: string):
   const carriers = carriersOf(f, c.struck);
   for (const e of f.entries.values()) {
     if (!carriers.has(e.hash)) continue;
-    for (const id of c.struck) e.struck.delete(id);
+    for (const id of c.struck) {
+      e.struck.delete(id);
+      e.struckBy.delete(id);
+    }
     rereduce(f, e);
   }
   refreshCredits(f);
@@ -511,7 +526,7 @@ function keepGoldReveal(f: Folding, c: LayerEvent): void {
   if (goldMatches(r.view, projection)) r.commitment.outcome = 'match';
   else {
     r.commitment.outcome = 'miss';
-    const s = strike(f, home, r.view, at);
+    const s = strike(f, home, r.view, at, { kind: 'gold', id: c.id });
     r.commitment.struck = s.ids;
     r.commitment.struckRoots = s.roots;
   }
@@ -574,7 +589,7 @@ function keepChallenge(f: Folding, c: LayerEvent, verdicts: Verdict[]): void {
       f.moves.push({ root: r.gold.root, at: d, delta: -r.gold.stake });
       for (const other of r.gold.commitments) if (other.outcome === 'pending') other.outcome = 'dropped';
     } else {
-      challenge.struck = strike(f, home, view, d).ids;
+      challenge.struck = strike(f, home, view, d, { kind: 'challenge', id: challenge.id }).ids;
     }
   } else if (challenge.outcome === 'failed') {
     f.moves.push({ root: challenge.root, at: challenge.decidedAt!, delta: -stake });
@@ -746,6 +761,7 @@ function foldProblems(f: Folding, input: ReadInput): Map<Hash, string> {
       decided,
       struck: new Set(),
       aside: new Set(),
+      struckBy: new Map(),
       challenges: [],
       dropped: [],
       rules: [],
@@ -855,6 +871,7 @@ function stateOf(f: Folding): Pick<Reading, 'problems' | 'challenges'> {
         gold,
         verified: gold === 'match',
         aside: asideBy.get(v.piece.hash) ?? [],
+        readings: readingsOf(e, v.piece.hash),
         record,
         inherited: e.inherited.get(v.piece.hash) ?? null,
       };

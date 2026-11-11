@@ -11,6 +11,7 @@ import type { Hash } from './hash.js';
 import type { Inherited } from './inherit.js';
 import type { Address } from './keys.js';
 import type { KindInfo, PanelView, RecordView } from './kinds.js';
+import type { ReadingView } from './readings.js';
 import type { PieceState, State } from './reduce.js';
 import type { LockView } from './stake.js';
 import type { Dropped } from './standing.js';
@@ -38,6 +39,11 @@ export interface PieceLayer {
    * other rests on the record.
    */
   aside: Address[];
+  /**
+   * READING.md section 3: every reading of the piece in receipt order, each with how it counts, and where it counts
+   * for nothing, why.
+   */
+  readings: ReadingView[];
   /** QX-20: on a record piece, its standing readings; null on every other kind. */
   record: RecordView | null;
   /**

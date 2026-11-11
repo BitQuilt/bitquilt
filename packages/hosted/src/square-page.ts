@@ -14,11 +14,12 @@
  */
 import { type Address, type Hash, problemHash } from '@bitquilt/core';
 import { type RestedOn, type Store, carriesSet, passageIn, restsOf } from '@bitquilt/tracker';
-import { type Quilt, inheritedOf, kindWords, makeLink } from 'quilt';
+import { type LayerReading, type Quilt, inheritedOf, kindWords, makeLink } from 'quilt';
 
 /**
  * One reading of the piece: who signed it and as what, when, the fields, what each rests on, and whether it is one of
- * the two that accepted the square or one the layer set aside.
+ * the two that accepted the square or one the layer set aside; and where the layer says the reading counts for
+ * nothing or was struck, why (READING.md section 3).
  */
 export interface SquareReading {
   key: string;
@@ -28,6 +29,8 @@ export interface SquareReading {
   at: string;
   accepting: boolean;
   aside: boolean;
+  /** The layer's word where the reading counts for nothing: kept or struck, and its reason. */
+  nothing: { counts: 'kept' | 'struck'; why: string } | null;
   fields: [string, unknown][];
   rests: RestedOn[];
 }
@@ -137,6 +140,7 @@ export async function squareView(
     at: r.at,
     accepting: accepted.has(r.key.toLowerCase()),
     aside: aside.has(r.key.toLowerCase()),
+    nothing: countsForNothing(l?.readings?.find((x) => x.id === r.id)),
     fields: Object.entries(r.return as Record<string, unknown>),
     rests: restsFor(r),
   }));
@@ -236,12 +240,22 @@ function rest(x: RestedOn): string {
     : `<li>${esc(x.field)} rests on “${esc(x.passage)}” ${at}</li>`;
 }
 
+/** The layer's reason for a reading it keeps and counts for nothing, or struck; null for any other. */
+function countsForNothing(x: LayerReading | undefined): SquareReading['nothing'] {
+  if (!x || x.why === null || (x.counts !== 'kept' && x.counts !== 'struck')) return null;
+  return { counts: x.counts, why: x.why };
+}
+
 function reading(r: SquareReading): string {
   const mark = r.accepting
     ? ' One of the two readings that accepted the square.'
     : r.aside
       ? ' Set aside: it rests on nothing where the other reading rests on a kept page.'
-      : '';
+      : r.nothing
+        ? r.nothing.counts === 'struck'
+          ? ` Struck: ${r.nothing.why}.`
+          : ` Kept on the record, and it counts for nothing: ${r.nothing.why}.`
+        : '';
   const fields = r.fields.map(([f, val]) => `<li><b>${esc(f)}</b>: ${esc(shown(val))}</li>`).join('');
   const rests = r.rests.length
     ? `<p>What it rests on:</p><ul>${r.rests.map(rest).join('')}</ul>`
