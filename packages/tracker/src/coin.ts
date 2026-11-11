@@ -13,7 +13,6 @@ import {
   type CoinLockWord,
   type Event,
   type Hash,
-  type ProblemLayer,
   type Receipt,
   creditedRoots,
   eventId,
@@ -25,6 +24,7 @@ import {
   leaseOf,
   matchedCommitments,
   plusHours,
+  setName,
   viaOf,
   whole,
 } from '@bitquilt/core';
@@ -402,20 +402,15 @@ interface Coin extends CoinLockView {
 }
 
 /**
- * The first version of a problem's line the tracker holds: the oldest envelope of the core's chain along `prev`.
- * Versions whose chains share a version share it, so it names the line (QX-1 section 2 as amended 10 November 2026).
- */
-function lineKeyOf(pl: ProblemLayer): Hash {
-  const chain = pl.fold.chain;
-  return chain.length > 1 ? (chain[chain.length - 2]!.problem.prev as Hash) : pl.problem;
-}
-
-/**
  * The lines the problem logs give the coin, as the layers fold them (QX-17 section 3), in problem order and unsorted:
  * a verified line for each root of a square the owner's gold matched (QX-16), weighted by how its set was made; an
  * accepted line for each set completed by `now`, naming the roots it credits; a complete line for a problem once its
  * last window has closed by `now`; and for each coin-kind lock (QX-15) its bind, and its forfeit, restore and release
  * as they fall by `now`. `verified` holds the verified lines alone, the same objects in the same order.
+ *
+ * READING.md section 5: "Standing, a strike, a lock's forfeit and the coin name a set by this hash and a reading by
+ * its event's id, so a set is counted once however many versions show it." So a verified line's id is its reading's
+ * event id, and an accepted line's is its set's name, which the core gives (`setName`).
  */
 export function linesFromLayer(layer: Layer, params: CoinParams, now: string): { lines: Line[]; verified: Line[] } {
   const lines: Line[] = [];
@@ -423,7 +418,6 @@ export function linesFromLayer(layer: Layer, params: CoinParams, now: string): {
   const accepted = new Set<string>();
   for (const pl of layer.problems.values()) {
     const fold = pl.fold;
-    const line = lineKeyOf(pl);
     for (const c of matchedCommitments(pl.golds)) {
       const view = fold.byHash.get(c.piece);
       const set = view?.accepting;
@@ -440,7 +434,7 @@ export function linesFromLayer(layer: Layer, params: CoinParams, now: string): {
         const line: Line = {
           kind: 'verified',
           at: c.revealedAt,
-          id: `${c.piece}:${r.root}`,
+          id: r.id,
           problem: pl.problem,
           piece: c.piece,
           root: fold.rootOf(r.root, now),
@@ -452,10 +446,10 @@ export function linesFromLayer(layer: Layer, params: CoinParams, now: string): {
     }
     for (const v of fold.pieces)
       if (v.accepting && v.accepting.completedAt <= now) {
-        // A set carried across a version is one set, so the line gives it one accepted line, the first version's.
-        const id = `${v.piece.hash}:${v.accepting.completedAt}`;
-        if (accepted.has(`${line} ${id}`)) continue;
-        accepted.add(`${line} ${id}`);
+        // A set carried across a version has one name at each, so it is one accepted line, the first version's.
+        const id = setName(v.accepting);
+        if (accepted.has(id)) continue;
+        accepted.add(id);
         lines.push({
           kind: 'accepted',
           at: v.accepting.completedAt,
@@ -559,8 +553,9 @@ export function coinLayer(input: { layer: Layer; params: CoinParams; receipts: R
 
   // Derived lines from the problem logs, as the layers fold them.
   const { lines, verified } = linesFromLayer(layer, params, now);
-  // QX-17 section 8 as amended 10 November 2026: an escrow is the line's, kept under the line's first version.
-  const lineOfProblem = new Map<Hash, Hash>([...layer.problems.values()].map((pl) => [pl.problem, lineKeyOf(pl)]));
+  // QX-17 section 8 as amended 10 November 2026: an escrow is the line's, kept under the line's name, which the core
+  // gives (READING.md section 2).
+  const lineOfProblem = new Map<Hash, Hash>([...layer.problems.values()].map((pl) => [pl.problem, pl.line]));
   const escrowKey = (problem: Hash): Hash => lineOfProblem.get(problem) ?? problem;
   // Every epoch that has ended.
   const genesis = Date.parse(params.genesis);

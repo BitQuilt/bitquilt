@@ -55,6 +55,8 @@ export interface PieceLayer {
 
 export interface ProblemLayer {
   problem: Hash;
+  /** The name of the problem's line (READING.md section 2): the hash of its first version. */
+  line: Hash;
   /** The core's fold, untouched. */
   core: State;
   /**

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Address, type Envelope, type Hash, commitHash, newNonce } from '@bitquilt/core';
+import { type Address, type Envelope, type Hash, commitHash, newNonce, setName } from '@bitquilt/core';
 import { linesFromLayer } from '../src/coin.js';
 import { VERDICT, addr, boot, envelope, key } from './helpers.js';
 
@@ -477,5 +477,33 @@ describe('the coin across a version (QX-17 section 3 and QX-1 section 2 as amend
     expect(s.stateOf(v1, 'four')).toBe('accepted');
     expect((await balanceOf(A)).escrowed).toBe(0);
     expect((await balanceOf(C)).escrowed).toBe(0);
+  });
+
+  it("names an accepted line by its set's name, a verified line by its reading's id, and the line by its first version", () => {
+    // READING.md section 5: "Standing, a strike, a lock's forfeit and the coin name a set by this hash and a reading by
+    // its event's id, so a set is counted once however many versions show it."
+    const layer = s.layer();
+    const { lines, verified } = linesFromLayer(layer, COIN, s.nowIso());
+    const names = new Set<string>();
+    const readings = new Set<string>();
+    let shown = 0;
+    for (const pl of layer.problems.values())
+      for (const v of pl.fold.pieces) {
+        if (!v.accepting || v.accepting.kind !== 'agree') continue;
+        if (pl.problem === v1 || pl.problem === v2) shown++;
+        names.add(setName(v.accepting));
+        for (const r of v.accepting.reveals) readings.add(r.id);
+      }
+    const accepted = lines.filter((l) => l.kind === 'accepted');
+    expect(accepted.map((l) => l.id).sort()).toEqual([...names].sort());
+    // The four squares of the line stand on both versions, and each is one accepted line.
+    expect(shown).toBe(8);
+    expect(accepted.filter((l) => l.problem === v1 || l.problem === v2)).toHaveLength(4);
+    expect(verified).toHaveLength(4);
+    expect(new Set(verified.map((l) => l.id)).size).toBe(4);
+    for (const l of verified) expect(readings.has(l.id)).toBe(true);
+    // READING.md section 2: "A line is named by the hash of its first version, the one whose `prev` is null."
+    expect(layer.problems.get(v1)!.line).toBe(v1);
+    expect(layer.problems.get(v2)!.line).toBe(v1);
   });
 });

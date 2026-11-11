@@ -244,6 +244,16 @@ export function lineOf(f: Folding, problem: Hash): ProblemEntry[] {
 }
 
 /**
+ * A line's name. docs/v2/READING.md section 2: "A line is named by the hash of its first version, the one whose `prev`
+ * is null. A reader that holds a line part of the way names it by the oldest version its chain reaches." Every version
+ * of a line ends its chain along `prev` at one version, so each names the line alike.
+ */
+export function lineName(e: ProblemEntry): Hash {
+  const chain = e.fold.chain;
+  return chain.length > 1 ? (chain[chain.length - 2]!.problem.prev as Hash) : e.hash;
+}
+
+/**
  * The roots credited on a problem other than `problem` at `at`. QX-1 section 2 as amended 10 November 2026: "A problem
  * of `p`'s line is not a problem other than `p`, so a tracker that holds one problem in several versions has no pool."
  * A credit counts from the set's completion until the strike that withdrew it, so a panel drawn before a strike keeps
