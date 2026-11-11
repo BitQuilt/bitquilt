@@ -51,8 +51,9 @@
  *
  * Where the reading departs from what this pass does, its section 12 says so, and each departure waits to be argued
  * with a fixture. The first is argued and kept: a record here is a line's, so a version's map shows the work posted to
- * any version of its line on a piece it keeps. The stake rules, the locks, the golds and the challenges are still read
- * at the version each names, and the lease and the window are those of the version read.
+ * any version of its line on a piece it keeps. The third is too: the lease and the window an event is held to are
+ * those of the version it names, so a claim, a commit and a set's window end at one time at every version of the line.
+ * The stake rules, the locks, the golds and the challenges are still read at the version each names.
  *
  * What a door asks before it takes an event, the admissions, is no part of the read: a tracker builds them over the
  * record this answers with. The pass moved here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says,
@@ -203,7 +204,7 @@ function refold(f: Folding, e: ProblemEntry): void {
     f.now,
     {
       pool: (problem, at, unrelatedTo, fold) => judgePool(f, problem, at, unrelatedTo, fold),
-      line: e.line.versions,
+      line: e.line.settings,
     },
   );
   e.fold = e.decided.fold;
@@ -236,13 +237,7 @@ function carriersOf(f: Folding, ids: readonly Hash[]): Set<Hash> {
  * set's events. Where the reveal's point was withdrawn by an earlier strike and given back as a move by an unstrike
  * (QX-16 section 4), that point is withdrawn as a move, so nothing is credited twice.
  */
-function strike(
-  f: Folding,
-  home: ProblemEntry,
-  view: PieceView,
-  d: string,
-  lease: number,
-): { ids: Hash[]; roots: Address[] } {
+function strike(f: Folding, home: ProblemEntry, view: PieceView, d: string): { ids: Hash[]; roots: Address[] } {
   const ids = setEventIds(view);
   const carriers = carriersOf(f, ids);
   for (const r of creditedReveals(view)) {
@@ -259,6 +254,8 @@ function strike(
     for (const l of f.locks) {
       if (!carriers.has(l.problem) || l.piece !== view.piece.hash || l.root !== root || l.at > d) continue;
       if (l.forfeitedAt !== null && (l.restoredAt === null || l.restoredAt > d)) continue;
+      // A lock is held to the lease of the version it names (READING.md section 3).
+      const lease = leaseOf(f.entries.get(l.problem)!.fold, view);
       const end = lockReleasedAt(l, view, lease, home.fold.related, d);
       if (end !== null && end <= d) continue;
       l.forfeitedAt = d;
@@ -510,7 +507,7 @@ function keepGoldReveal(f: Folding, c: LayerEvent): void {
   if (goldMatches(r.view, projection)) r.commitment.outcome = 'match';
   else {
     r.commitment.outcome = 'miss';
-    const s = strike(f, home, r.view, at, leaseOf(home.fold, r.view));
+    const s = strike(f, home, r.view, at);
     r.commitment.struck = s.ids;
     r.commitment.struckRoots = s.roots;
   }
@@ -573,7 +570,7 @@ function keepChallenge(f: Folding, c: LayerEvent, verdicts: Verdict[]): void {
       f.moves.push({ root: r.gold.root, at: d, delta: -r.gold.stake });
       for (const other of r.gold.commitments) if (other.outcome === 'pending') other.outcome = 'dropped';
     } else {
-      challenge.struck = strike(f, home, view, d, lease).ids;
+      challenge.struck = strike(f, home, view, d).ids;
     }
   } else if (challenge.outcome === 'failed') {
     f.moves.push({ root: challenge.root, at: challenge.decidedAt!, delta: -stake });
@@ -722,9 +719,9 @@ function foldProblems(f: Folding, input: ReadInput): Map<Hash, string> {
   }
   for (const [hash, line] of linesOf([...held.values()])) {
     const own = held.get(hash)!.own;
-    // A version whose line adds nothing to its own chain is read as version 1 reads it, the one fold kept.
-    const core = line.beside.length ? (input.reduceLine ?? reduceLine)(line) : own;
-    const decided = applyVerifiers(core, line.receipts, f.now, { pool: () => [], line: line.versions });
+    // A version whose fold over its line is version 1's fold of its own chain is read as that, the one fold kept.
+    const core = line.plain ? own : (input.reduceLine ?? reduceLine)(line);
+    const decided = applyVerifiers(core, line.receipts, f.now, { pool: () => [], line: line.settings });
     f.entries.set(hash, {
       hash,
       line,

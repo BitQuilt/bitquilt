@@ -85,6 +85,8 @@ export interface Reveal {
 export interface Run {
   /** The id of the run event. */
   id: Hash;
+  /** The problem the run was posted to, a version of the chain. */
+  problem: Hash;
   key: Address;
   root: Address;
   at: string;
@@ -181,6 +183,13 @@ export interface Folded {
 }
 
 /**
+ * The settings an event is held to, by the version it names. Version 1's reducer answers the settings of the version
+ * read for every version of the chain (CORE.md section 6); reading 2 answers each version's own (READING.md section 3,
+ * in `line.ts`).
+ */
+export type SettingsOf = (problem: Hash) => Settings;
+
+/**
  * Whether an envelope is its owner's, once for an envelope frozen as a store hands out what it keeps, since the fold of
  * every version of a chain checks every version before it.
  */
@@ -206,8 +215,10 @@ export function reduce(input: ReduceInput): State {
   for (const env of checked.chain.slice(1))
     for (const piece of expandPieces(env.problem, input.blobs))
       if (!views.has(piece.hash) && !ancestral.has(piece.hash)) ancestral.set(piece.hash, emptyView(piece));
-  const folded = fold(input.receipts, views, ancestral, checked.chainHashes, checked.envelope.problem.settings);
-  return settle(checked, pieces, views, ancestral, folded, input.now);
+  // Version 1 holds every event to the settings of the version read, whichever version of the chain the event names.
+  const settingsOf = (): Settings => checked.envelope.problem.settings;
+  const folded = fold(input.receipts, views, ancestral, checked.chainHashes, settingsOf);
+  return settle(checked, pieces, views, ancestral, folded, input.now, settingsOf);
 }
 
 /** A piece with nothing on it yet. */
@@ -265,14 +276,15 @@ export function checkChain(envelopes: Envelope[], blobs: Blobs): Checked {
  * with no wrapper sort after every receipted event, by ts, then by id." Each event in that order is checked for its
  * shape, its signature and its key's standing, then for what it names, then by its type's own rule; what fails is
  * dropped with its reason (section 6, Drop). An event of a type the core does not define is passed over: not folded,
- * not dropped, and no key's prior event (section 4).
+ * not dropped, and no key's prior event (section 4). `settingsOf` answers the settings an event is held to, by the
+ * version it names: the lease of a claim and a commit, and the size of a patch.
  */
 export function fold(
   receipts: Receipt[],
   views: Map<Hash, PieceView>,
   ancestral: Map<Hash, PieceView>,
   chainHashes: Set<Hash>,
-  settings: Settings,
+  settingsOf: SettingsOf,
 ): Folded {
   const roots = new Roots();
   const names: State['names'] = new Map();
@@ -323,13 +335,13 @@ export function fold(
     switch (e.type) {
       case 'claim': {
         const v = view!;
-        const lease = (body.lease_h as number | undefined) ?? v.piece.lease_h ?? settings.lease_h;
+        const lease = (body.lease_h as number | undefined) ?? v.piece.lease_h ?? settingsOf(e.problem!).lease_h;
         v.claims.push({ key: e.key, root, at, until: plusHours(at, lease), by: body.by as By });
         break;
       }
       case 'commit': {
         const v = view!;
-        const lease = v.piece.lease_h ?? settings.lease_h;
+        const lease = v.piece.lease_h ?? settingsOf(e.problem!).lease_h;
         v.commits.push({
           id,
           key: e.key,
@@ -357,7 +369,8 @@ export function fold(
         }
         if (PATCH_VERIFIERS.includes(v.piece.verifier)) {
           const keys = Object.keys(ret);
-          if (keys.length !== 1 || typeof ret.patch !== 'string' || ret.patch.length > settings.patch_max) {
+          const max = settingsOf(e.problem!).patch_max;
+          if (keys.length !== 1 || typeof ret.patch !== 'string' || ret.patch.length > max) {
             drop(e, 'a check or score return is { patch } within patch_max');
             break;
           }
@@ -410,6 +423,7 @@ export function fold(
         }
         const run: Run = {
           id,
+          problem: e.problem!,
           key: e.key,
           root,
           at,
@@ -457,7 +471,8 @@ export function fold(
  * Section 6, Per piece: "A piece's state is a function of the sets of its live claims, its unabandoned commits, its
  * valid reveals and its runs at now, not a token moved by transitions." Each piece's accepting set and window first,
  * then the roots' weights, the dependents, the states (a piece's inputs before it), the availabilities, and, when
- * every piece is accepted or unreachable, the output.
+ * every piece is accepted or unreachable, the output. `settingsOf` answers the window a set is held to, by the version
+ * the event that completed it names.
  */
 export function settle(
   checked: Checked,
@@ -466,16 +481,16 @@ export function settle(
   ancestral: Map<Hash, PieceView>,
   folded: Folded,
   now: string,
+  settingsOf: SettingsOf,
 ): State {
   const { envelope, problem, chain } = checked;
   const { roots, names, versions, dropped } = folded;
-  const settings = envelope.problem.settings;
   const ownerRoot = envelope.problem.owner as Address;
 
   // Every piece of the chain has its accepting set decided, since weights count "in this chain"; only this problem's
   // pieces have states.
   const every = new Map([...views, ...ancestral]);
-  for (const v of every.values()) decideAccepting(v, roots, ownerRoot, settings.challenge_window_h);
+  for (const v of every.values()) decideAccepting(v, roots, ownerRoot, settingsOf);
   const weights = computeWeights(every, roots);
   const list = pieces.map((p) => views.get(p.hash)!);
   const named = inputsBy(pieces);
@@ -540,7 +555,7 @@ export function settle(
  * The piece's accepting set by its verifier's rule, its frontier for a score piece, and its window from the set's
  * completion.
  */
-function decideAccepting(v: PieceView, roots: Roots, owner: Address, windowH: number): void {
+function decideAccepting(v: PieceView, roots: Roots, owner: Address, settingsOf: SettingsOf): void {
   const p = v.piece;
   if (PATCH_VERIFIERS.includes(p.verifier)) {
     v.accepting = acceptingRuns(v, roots, owner);
@@ -550,7 +565,13 @@ function decideAccepting(v: PieceView, roots: Roots, owner: Address, windowH: nu
   }
   // Section 6: "A window runs from the receipt c of the event that completed the set while
   // now < c + challenge_window_h."
-  v.windowEnd = v.accepting ? plusHours(v.accepting.completedAt, windowH) : null;
+  const set = v.accepting;
+  v.windowEnd = set ? plusHours(set.completedAt, settingsOf(completedIn(set)).challenge_window_h) : null;
+}
+
+/** The version the event that completed a set names: its later reveal, or its later run. */
+function completedIn(set: AcceptingSet): Hash {
+  return set.kind === 'agree' ? set.reveals[1].problem : set.runs[1].problem;
 }
 
 /**

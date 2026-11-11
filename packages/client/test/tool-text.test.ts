@@ -1114,6 +1114,7 @@ describe('quilt_open and quilt_read over what no tracker here gives', () => {
   /** A run of a patch: the check exited cleanly on the run's host. */
   const ran = (key: string, model: string, digest: Hash): Run => ({
     id: hashCanonical({ run: key, digest }),
+    problem: hashCanonical({ problem: 'held' }),
     key: key as Address,
     root: key as Address,
     at: T,
