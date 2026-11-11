@@ -79,7 +79,7 @@ export interface ProblemEntry {
 }
 
 /**
- * What the layer carries between its phases: every problem's entry, and the credits, moves, locks and golds that
+ * What the read carries between its steps: every problem's entry, and the credits, moves, locks and golds that
  * standing, locked and free are read from. The three readers are the record's own, so a check in stake.ts or gold.ts
  * asks the record and not this module.
  */
