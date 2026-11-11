@@ -120,8 +120,9 @@ class Decisions:
         self.now = read.now
         self.moves = []         # (time, order, root, delta)
         self.credited = {}      # reveal id -> Thing(root, at, line)
+        self.known = None       # the credits of the pass before, while the panels are brought to a fixed point
         self.panels = {}        # (line name, piece hash) -> the panel
-        self.rules = {}         # line name -> [Thing(at, min, pieces, version)]
+        self.rules = {}         # problem hash -> [Thing(at, min, pieces)], a rule being its own version's
         self.locks = []
         self.golds = []
         self.gold_on = {}       # (line name, piece hash) -> the commitment revealed on the piece
@@ -181,7 +182,7 @@ class Decisions:
         struck, unrelated to each root of `out`, with no reveal and no run on the piece from a related root."""
         ident = line.identity
         roots = []
-        for c in self.credited.values():
+        for c in (self.credited if self.known is None else self.known).values():
             if c.line is not line and c.at <= t and c.root not in roots:
                 roots.append(c.root)
         keep = []
@@ -201,15 +202,17 @@ class Decisions:
         lines = list(self.led.lines.values())
         judged = [(line, rec) for line in lines for rec in line.recs.values() if kind_of(rec.verifier)[0] == "judge"]
         last = None
-        for _ in range(4):
-            self.moves, self.credited = [], {}
+        for _ in range(6):
+            # A panel is drawn over the credits of the pass before, so the first pass draws none.
+            self.known, self.moves, self.credited = self.credited, [], {}
             for line in lines:
                 for rec in line.recs.values():
                     self.refresh(line, rec)
-            said = [(p.outcome, p.decided, tuple(p.order)) for p in self.panels.values()]
-            if not judged or said == last:
+            said = sorted((k, p.outcome, p.decided, tuple(p.order)) for k, p in self.panels.items())
+            if not judged or (said == last and set(self.known) == set(self.credited)):
                 break
             last = said
+        self.known = None
         self.burns()
         events = []
         for line in lines:
@@ -340,13 +343,13 @@ class Decisions:
 
     # Stake, QX-15.
 
-    def rule_at(self, line, t):
-        rules = [r for r in self.rules.get(line.name, []) if r.at <= t]
+    def rule_at(self, version, t):
+        rules = [r for r in self.rules.get(version.hash, []) if r.at <= t]
         return rules[-1] if rules else None
 
-    def stake_of(self, line, spec, t):
+    def stake_of(self, version, spec, t):
         """QX-15 section 1: "the rule's `min` when the rule covers the piece and 0 otherwise"."""
-        rule = self.rule_at(line, t)
+        rule = self.rule_at(version, t)
         if rule is None:
             return 0
         if rule.pieces is None or spec.get("name") in rule.pieces or spec.get("key") in rule.pieces:
@@ -363,7 +366,7 @@ class Decisions:
             names = {s["name"] for s in version.specs} | {s.get("key") for s in version.specs}
             if not isinstance(pieces, list) or any(p not in names for p in pieces):
                 return
-        self.rules.setdefault(line.name, []).append(Thing(at=entry["at"], min=body["min"], pieces=pieces))
+        self.rules.setdefault(version.hash, []).append(Thing(at=entry["at"], min=body["min"], pieces=pieces))
 
     def production(self, rec, line, root):
         """A root's production on a piece (QX-15 section 2): its claims, commits and reveals there, by time."""
@@ -415,7 +418,7 @@ class Decisions:
         spec = next((s for s in version.specs if s["hash"] == ev.get("piece")), None)
         if rec is None or spec is None:
             return
-        asked = self.stake_of(line, spec, t)
+        asked = self.stake_of(version, spec, t)
         amount = body.get("amount")
         if asked <= 0 or not is_whole(amount) or amount < 1 or amount < asked:
             return
@@ -497,7 +500,7 @@ class Decisions:
             kind = kind_of(rec.verifier)[0]
             if kind not in ("agree", "human", "judge", "attest") or not rec.agree_fields():
                 continue
-            per = self.stake_of(line, spec, t) or 1
+            per = self.stake_of(version, spec, t) or 1
             best = max(best, per * (1 if kind == "attest" else 2))
         return best
 
@@ -576,7 +579,7 @@ class Decisions:
             made = [x for x in self.challenges if x.against == "gold" and x.miss is c]
             if any(x.outcome == "open" for x in made):
                 return None
-            return max([c.window] + [x.decided for x in made]) if made else c.window
+            return max(x.decided for x in made) if made else c.window
         if c.outcome in ("overruled", "dropped"):
             return g.forfeited
         return self.settled(g.version)
@@ -702,9 +705,10 @@ class Decisions:
         made = [c for c in self.challenges if c.line is line and c.rec is rec]
         return made[-1] if made else None
 
-    def gold_of(self, line, rec):
-        c = self.gold_on.get((line.name, rec.hash))
-        return c.outcome if c is not None else None
+    def gold_of(self, version, rec):
+        """The owner's gold on a piece, said at the version its gold names (across-1, carried-12)."""
+        c = self.gold_on.get((version.line.name, rec.hash))
+        return c.outcome if c is not None and c.gold.version is version else None
 
     def gold_counts(self, golds):
         cs = [(g, c) for g in golds for c in g.commitments]

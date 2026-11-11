@@ -234,9 +234,9 @@ class Read:
             "extension": words[1],
             "strength": words[2],
             "attested": kind == "attest" and s is not None,
-            "stake": self.dec.stake_of(line, spec, self.now),
-            "gold": self.dec.gold_of(line, rec),
-            "verified": self.dec.gold_of(line, rec) == "match",
+            "stake": self.dec.stake_of(version, spec, self.now),
+            "gold": self.dec.gold_of(version, rec),
+            "verified": self.dec.gold_of(version, rec) == "match",
             "aside": sorted({r.key for r in rec.readings if r.id in rec.aside and r.id not in rec.struck}),
             "readings": readings,
             "inherited": None,
@@ -268,7 +268,7 @@ class Read:
             dec = self.dec
             line = version.line
             names = {s["hash"]: s["name"] for s in version.specs}
-            rule = dec.rule_at(line, self.now)
+            rule = dec.rule_at(version, self.now)
             golds = [g for g in dec.golds if g.version is version]
             panels = [(dec.panels.get((line.name, s["hash"])), s) for s in version.specs]
             problems[h] = {
