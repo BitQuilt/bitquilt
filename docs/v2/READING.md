@@ -85,7 +85,7 @@ Beside its state a piece says its kind and strength, its set's name or null, its
 
 ## 11. Conformance
 
-A client conforms to reading 2 when it reproduces the state of every fixture of reading 2. The fixtures were made on 11 November 2026 in the plan's phase 2, from what the reference tracker's layer says today, and [their folder's README](../../packages/core/fixtures/reading-2/README.md) gives their form and what they do not yet cover.
+A client conforms to reading 2 when it reproduces the state of every fixture of reading 2. The fixtures were made on 11 November 2026 in the plan's phase 2, from what the reference tracker's layer said that day, and [their folder's README](../../packages/core/fixtures/reading-2/README.md) gives their form and what they do not yet cover. The reference's `read` is held to every one with no tracker beside it, and `pnpm conform:2` runs them.
 
 No fixture of version 1 holds an extension's event, and the layer was run over the twenty-four and the clarifications. Every state stands unchanged but one. Fixture 20 holds a piece whose verifier is `judge:5`, a kind version 1 does not know: version 1 says `unknown`, and reading 2 says `open`, since the kind is the reading's now (section 5) and the piece waits for candidates. The piece that waits on it stays `locked` in both, and `complete` and the output are the same.
 

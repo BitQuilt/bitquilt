@@ -15,6 +15,7 @@
     "build:window": "node scripts/build-window.mjs",
     "check": "pnpm format:check && pnpm typecheck && pnpm test",
     "conform": "pnpm --filter @bitquilt/core conform",
+    "conform:2": "pnpm --filter @bitquilt/core conform:2",
     "format": "biome format --write",
     "format:check": "biome format",
     "build:bin": "node scripts/build-binaries.mjs",

@@ -8,8 +8,17 @@
  * be read again. A fold is kept with the time it was made at and the first time after it at which the clock alone
  * turns a state (`turnsAt`); a fold asked for in between is the fold kept.
  */
-import { type Hash, type ReduceInput, type State, IDENTITY_LOG, fixedBytes, reduce } from '@bitquilt/core';
-import { type ChainReader, type Store, reduceInputOf } from './store.js';
+import {
+  type ChainReader,
+  type Hash,
+  type ReduceInput,
+  type State,
+  IDENTITY_LOG,
+  fixedBytes,
+  reduce,
+  reduceInputOf,
+} from '@bitquilt/core';
+import type { Store } from './store.js';
 
 /** What a version and every version before it hold: versions, lines on their logs, and blobs not held. */
 interface Counts {

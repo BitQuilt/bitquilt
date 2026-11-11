@@ -39,4 +39,4 @@ One JSON file per fixture, written by `generate.ts` from the reference implement
 
 ## Reading 2
 
-`reading-2/` holds the fixtures of [reading 2](../../../docs/v2/READING.md), the draft of version 2's fold: ledgers of many problems, each with what the reference tracker's layer says of it. They are in a form of their own, which [their README](reading-2/README.md) gives, and neither `pnpm conform` nor `impl/python/conform.py` reads them. A client conforms to version 1 without them.
+`reading-2/` holds the fixtures of [reading 2](../../../docs/v2/READING.md), the draft of version 2's fold: ledgers of many problems, each with what the read says of it. They are in a form of their own, which [their README](reading-2/README.md) gives. `pnpm conform:2` runs the core's `read` over them; `pnpm conform` and `impl/python/conform.py` read version 1's alone. A client conforms to version 1 without them.

@@ -1,8 +1,8 @@
 # The fixtures of reading 2
 
-Written 11 November 2026, in phase 2 of [the plan for version 2](../../../../docs/history/V2-PLAN.md): "The tracker's layer, as it is, is run over every fixture and over the ledgers its own tests build, and what it says is kept as fixtures. These are the law for the port." Each file here is one ledger, with what the reference tracker's layer says of it at two times. The fold [reading 2](../../../../docs/v2/READING.md) describes is written in phase 3, and it reproduces every one of these at every step. Until the switch the fixtures one folder up are the law of the core in force, and nothing here changes them.
+Written 11 November 2026, in phase 2 of [the plan for version 2](../../../../docs/history/V2-PLAN.md): "The tracker's layer, as it is, is run over every fixture and over the ledgers its own tests build, and what it says is kept as fixtures. These are the law for the port." Each file here is one ledger, with what the reference tracker's layer said of it at two times. The fold [reading 2](../../../../docs/v2/READING.md) describes is written in phase 3, and it reproduces every one of these at every step: the pass is the core's `read` now, and the core alone is held to them. Until the switch the fixtures one folder up are the law of the core in force, and nothing here changes them.
 
-`packages/tracker/test/reading-fixtures.test.ts` holds the layer to every file, and runs the layer over version 1's fixtures too, where one piece's state differs (READING.md section 11).
+`packages/core/test/reading-fixtures.test.ts` holds the core's `read` to every file, with no tracker and no store, and runs it over version 1's fixtures too, where one piece's state differs (READING.md section 11). `pnpm conform:2` runs the same check as a script and prints, for a fixture that fails, each place the read and the file are apart. The ledger's shape, the read of it and the form of what is expected are in `packages/core/src/ledger.ts`.
 
 ## The file
 
@@ -58,7 +58,7 @@ Each ledger is read twice: at the clock of the tracker that held it, and a thous
 QUILT_WRITE_READING=1 pnpm exec vitest run packages/tracker
 ```
 
-With the variable set, the helper every tracker test boots a tracker through keeps each one, and once a test file has run, writes the ledger each tracker was left holding as `<the test file's name>-<n>.json`. No such fixture is picked by hand. A test also keeps a tracker as it stands at a point it passes through (`keepReading`), for a state it does not end in, and a ledger it builds by hand with no tracker (`keepLedger`), each under a name the test gives. A run without the variable writes nothing.
+The writing stays with the tracker's tests, since a ledger is what a booted tracker's store was left holding (`packages/tracker/test/reading.ts`). With the variable set, the helper every tracker test boots a tracker through keeps each one, and once a test file has run, writes the ledger each tracker was left holding as `<the test file's name>-<n>.json`. No such fixture is picked by hand. A test also keeps a tracker as it stands at a point it passes through (`keepReading`), for a state it does not end in, and a ledger it builds by hand with no tracker (`keepLedger`), each under a name the test gives. A run without the variable writes nothing.
 
 ```bash
 QUILT_WRITE_READING=new pnpm exec vitest run packages/tracker
@@ -74,7 +74,7 @@ The tests sign with fresh nonces and their clocks are their own, so a second wri
 
 Eighty-three ledgers, of 184 problems and 955 lines, with every event type the door takes among them but `run`: the claims, commits and reveals, the challenges and verdicts, the locks and stake rules, the gold and its reveals, the traces, the proposed pieces, the versions and forks, the seeds and ranks, the hides and names, and the coin's lines. Seventy-four are what the tests leave in their trackers. Nine were added in phase 3, before the verifier kinds moved into the core: a judge piece while its panel sits, at two points, and the seven ledgers `packages/tracker/test/verifiers.test.ts` builds by hand for the `human` and `attest` kinds. Fourteen of the fifteen states of READING.md section 9 are seen.
 
-Two things are read through version 1's fixtures, which the same test runs the layer over: the state `unreachable`, in fixture 22, and the `run` event, in fixtures 14 to 17 and clarification 7. No tracker test posts a run through a booted tracker.
+Two things are read through version 1's fixtures, which the same test runs the read over: the state `unreachable`, in fixture 22, and the `run` event, in fixtures 14 to 17 and clarification 7. No tracker test posts a run through a booted tracker.
 
 Not yet covered, each to be closed by a fixture before the rule it bears on is moved:
 

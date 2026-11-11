@@ -21,7 +21,8 @@ import {
 import { signObject } from '@bitquilt/core';
 import { type Layer, challengeLayer } from '../src/challenge.js';
 import { COIN_LOG } from '../src/coin.js';
-import { Store, reduceInputOf } from '../src/store.js';
+import { reduceInputOf } from '@bitquilt/core';
+import { Store } from '../src/store.js';
 import { type Tracker, type TrackerOptions, createTracker } from '../src/tracker.js';
 import { type Ledger, fixtureOf, fixtureOver, kept, writeFixture } from './reading.js';
 

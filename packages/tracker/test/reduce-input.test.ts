@@ -10,7 +10,8 @@ import {
   reduce,
   signEvent,
 } from '@bitquilt/core';
-import { type ChainReader, Store, reduceInputOf } from '../src/store.js';
+import { type ChainReader, reduceInputOf } from '@bitquilt/core';
+import { Store } from '../src/store.js';
 import { VERDICT, addr, envelope, key } from './helpers.js';
 
 /**
