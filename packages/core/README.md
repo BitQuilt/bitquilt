@@ -17,7 +17,7 @@ The wire is frozen and the reading is numbered (AGENTS.md, rule 1). CORE.md is r
 
 ## A second implementation
 
-`impl/python` at the root of the repository is the core written a second time, from CORE.md and the fixtures alone, with no sight of this code. That is how a second implementation is written: from the document and the fixtures, nothing else. Its `FINDINGS.md` records where the document was short, and section 12 of CORE.md now says what it lacked.
+`impl/python` at the root of the repository is the core written a second time, from CORE.md and the fixtures alone, with no sight of this code. That is how a second implementation is written: from the document and the fixtures, nothing else. Its `FINDINGS.md` records where the document was short, and section 12 of CORE.md now says what it lacked. Reading 2 is written there a second time the same way, from READING.md, the documents it cites and the fixtures of reading 2, and its `FINDINGS-2.md` records where those were short.
 
 ## Commands
 

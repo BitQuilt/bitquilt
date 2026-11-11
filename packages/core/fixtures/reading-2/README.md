@@ -2,7 +2,7 @@
 
 Written 11 November 2026, in phase 2 of [the plan for version 2](../../../../docs/history/V2-PLAN.md): "The tracker's layer, as it is, is run over every fixture and over the ledgers its own tests build, and what it says is kept as fixtures. These are the law for the port." Each file here is one ledger, with what the reference tracker's layer said of it at two times. The fold [reading 2](../../../../docs/v2/READING.md) describes is written in phase 3, and it reproduces every one of these at every step: the pass is the core's `read` now, and the core alone is held to them. Until the switch the fixtures one folder up are the law of the core in force, and nothing here changes them.
 
-`packages/core/test/reading-fixtures.test.ts` holds the core's `read` to every file, with no tracker and no store, and runs it over version 1's fixtures too, where one piece's state differs (READING.md section 11). `pnpm conform:2` runs the same check as a script and prints, for a fixture that fails, each place the read and the file are apart. The ledger's shape, the read of it and the form of what is expected are in `packages/core/src/ledger.ts`.
+`packages/core/test/reading-fixtures.test.ts` holds the core's `read` to every file, with no tracker and no store, and runs it over version 1's fixtures too, where one piece's state differs (READING.md section 11). `pnpm conform:2` runs the same check as a script and prints, for a fixture that fails, each place the read and the file are apart. The ledger's shape, the read of it and the form of what is expected are in `packages/core/src/ledger.ts`. A second implementation reads none of the code: this file gives the form, and `impl/python/FINDINGS-2.md` records what one written from the documents and these files alone had to take from the JSON, which `python3 impl/python/conform2.py` holds to every file here.
 
 ## The file
 
@@ -35,7 +35,8 @@ Each ledger is read twice: at the clock of the tracker that held it, and a thous
     "<a problem's hash>": {
       "line": "<the hash of its line's first version>",
       "complete": false, "own_complete": false, "output": null, "record_output": null,
-      "dropped": 0, "unoffered": 0, "stake": null, "gold": 0,
+      "dropped": 0, "unoffered": [], "stake": null,
+      "gold": { "committed": 0, "pending": 0, "verified": 0, "missed": 0, "overruled": 0, "lapsed": 0 },
       "locks": [], "golds": [], "challenges": [], "panels": [], "proposals": [],
       "views": [ <what the layer says of a piece> ],
       "pieces": { "<a piece's name>": 0 }
@@ -50,10 +51,35 @@ Each ledger is read twice: at the clock of the tracker that held it, and a thous
 - `pieces` gives each piece the place in `views` of what the layer says of it. Pieces that say the same thing share one view, so a problem of a thousand open pieces holds one.
 - A view holds the piece's one `state` (READING.md section 9); its `kind`, `extension` and `strength`; `attested`, `stake`, `gold`, `verified`, `aside` and `inherited`; its `readings`; the id of an open `challenge`; its `set`; its `record`, for a record piece; and its `trace`, with the grade and the seams.
 - A `set` is its `name`, its kind, the time it was completed, and each member's id, key, time and digest. The name is the one READING.md section 5 gives, the hash of the canonical JSON of its events' ids, sorted, and a member's `id` is its event's: the reveal's, or the run's. A set a version carries has one name on every version that shows it. A record piece's standing readings each carry their `id` the same way.
-- `readings` holds every reading of the piece in receipt order (READING.md section 3): the reveal's `id`, the `problem` it names, its `key`, `root`, `vendor` and time, how it `counts`, one of `counted`, `kept`, `aside` and `struck`, `why` where it counts for nothing, and `by`, the id of the challenge or the gold reveal that struck it. The reasons are a closed list, `WHY` in `packages/core/src/readings.ts`, and a second implementation says the same words. Since a reading is named by its id, two pieces that hold a reading share no view.
-- `complete` is the layer's, over the inherited squares, and `own_complete` the problem's own (QX-23 section 4). `output` is the hash of the output document and `record_output` the hash of the record document (QX-20 section 4). `dropped` is a count, as in version 1.
+- `readings` holds every reading of the piece in receipt order (READING.md section 3): the reveal's `id`, the `problem` it names, its `key`, `root`, `vendor` and time, how it `counts`, one of `counted`, `kept`, `aside` and `struck`, `why` where it counts for nothing, and `by`, the id of the challenge or the gold reveal that struck it. The reasons are a closed list, `WHY` in `packages/core/src/readings.ts`, and a second implementation says the same words, which are written out under The reasons below. Since a reading is named by its id, two pieces that hold a reading share no view.
+- `complete` is the layer's, over the inherited squares, and `own_complete` the problem's own (QX-23 section 4). `output` is the hash of the output document and `record_output` the hash of the record document (QX-20 section 4). `dropped` is a count of the events of the types reading 2 adds that the pass took for nothing, a lock no free standing covers or a gold or a rank the rules refuse; what reading 1's fold drops, a reveal with no commit among them, is left off the record and not counted here. The door refuses what the pass would drop, so every file says 0. `unoffered` lists the hashes of the judge pieces whose panel is not decided, and `gold` counts the problem's commitments by what became of each.
 - `refused` names each problem the layer could not read, with the reason.
 - `standing` holds every root a line of the ledger counts for, and every owner.
+
+## The reasons
+
+A reading that counts for nothing says why in one of these words, and no others (READING.md section 3). The list is closed, and `packages/core/test/reasons.test.ts` holds it to the reference's. The fixtures hold thirteen of the twenty.
+
+- "its root is related to the owner"
+- "its root is related to the root of an earlier reading"
+- "its root is related to the root of a reading in the set"
+- "an earlier reading from its vendor says the same"
+- "the set holds a reading from its vendor"
+- "it differs from the set on an agree field"
+- "the set was made before it"
+- "the set was made without it", which no fixture holds
+- "the set was made on another patch", which no fixture holds
+- "it is not from a person's seat"
+- "the readings the piece asks for stood before it", which no fixture holds
+- "an earlier candidate gave the same return", which no fixture holds
+- "the candidates were in before it", which no fixture holds
+- "the panel ranked another first"
+- "its panel is void"
+- "its piece asks a verifier this reading does not implement", which no fixture holds
+- "it rests on nothing where another reading rests on the record"
+- "a challenge held against its set"
+- "the owner's gold missed its set"
+- "the fold without the struck events does not hold it", which no fixture holds
 
 ## How they are written
 
