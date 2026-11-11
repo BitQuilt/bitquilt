@@ -99,6 +99,7 @@ import {
   creditedElsewhere,
   creditedReveals,
   creditedRoots,
+  lineName,
   lineOf,
   newFolding,
   refreshCredits,
@@ -879,6 +880,7 @@ function stateOf(f: Folding): Pick<Reading, 'problems' | 'challenges'> {
     const rule = ruleAt(e, now);
     problems.set(e.hash, {
       problem: e.hash,
+      line: lineName(e),
       core: e.core,
       fold: e.fold,
       complete: completeInLayer(pieces),

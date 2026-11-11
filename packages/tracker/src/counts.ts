@@ -8,7 +8,7 @@
  * name, token or hash goes into the answer, so the route that serves it is public: the counts say how the launch is
  * going and nothing about anyone. Each is a function of the store at now and is computed on request, as the layer is.
  */
-import { DECLINE_REASONS, type DeclineReason, type Receipt, matchedCommitments } from '@bitquilt/core';
+import { DECLINE_REASONS, type DeclineReason, type Receipt, matchedCommitments, setName } from '@bitquilt/core';
 import type { Layer } from './challenge.js';
 
 /** The window a `days` query asks for when it says nothing, and the most it may ask. */
@@ -150,15 +150,15 @@ export function funnel(input: FunnelInput): Funnel {
     on(f.at, (c) => {
       c.keys_first_event[f.hosted ? 'hosted' : 'own'] += 1;
     });
-  // The layer's fold: a set a held challenge or a miss struck is not in it. A piece two versions of a problem share
-  // counts once.
+  // The layer's fold: a set a held challenge or a miss struck is not in it. A set two versions of a problem show has
+  // one name (READING.md section 5), so it counts once.
   const sets = new Set<string>();
   const squares = new Set<string>();
   for (const pl of layer.problems.values()) {
     for (const v of pl.fold.pieces) {
       const set = v.accepting;
       if (!set) continue;
-      const id = `${v.piece.hash}:${set.completedAt}`;
+      const id = setName(set);
       if (sets.has(id)) continue;
       sets.add(id);
       on(set.completedAt, (c) => {

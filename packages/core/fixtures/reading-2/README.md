@@ -33,6 +33,7 @@ Each ledger is read twice: at the clock of the tracker that held it, and a thous
 {
   "problems": {
     "<a problem's hash>": {
+      "line": "<the hash of its line's first version>",
       "complete": false, "own_complete": false, "output": null, "record_output": null,
       "dropped": 0, "unoffered": 0, "stake": null, "gold": 0,
       "locks": [], "golds": [], "challenges": [], "panels": [], "proposals": [],
@@ -45,6 +46,7 @@ Each ledger is read twice: at the clock of the tracker that held it, and a thous
 }
 ```
 
+- `line` is the name of the problem's line (READING.md section 2): the hash of its first version, which is the problem's own hash where its `prev` is null, and the oldest version its chain reaches where the ledger holds the line part of the way.
 - `pieces` gives each piece the place in `views` of what the layer says of it. Pieces that say the same thing share one view, so a problem of a thousand open pieces holds one.
 - A view holds the piece's `state`, and the `core` state beside it, which goes at the switch; its `kind`, `extension` and `strength`; `attested`, `stake`, `gold`, `verified`, `aside` and `inherited`; its `readings`; the id of an open `challenge`; its `set`; its `record`, for a record piece; and its `trace`, with the grade and the seams.
 - A `set` is its `name`, its kind, the time it was completed, and each member's id, key, time and digest. The name is the one READING.md section 5 gives, the hash of the canonical JSON of its events' ids, sorted, and a member's `id` is its event's: the reveal's, or the run's. A set a version carries has one name on every version that shows it. A record piece's standing readings each carry their `id` the same way.
@@ -98,6 +100,8 @@ They were said again a fifth time that day, when a challenge came to show across
 - `carried-7` and `carried-9`: a piece says `challenged` at the other version of its line while the challenge is open, where it said `accepted_provisional`, and names that challenge at the later time too, once it is void.
 
 They were said again a sixth time that day, when the record came to say of each reading how it counts (READING.md section 3, and the sixth departure of its section 12). Every file was written, since every view gained its `readings`, and every ledger is as it was. With that one field taken out, each piece says what it said before: pieces that shared a view and hold a reading each have a view of their own now, and nothing else differs.
+
+They were said again a seventh time that day, when the read came to name each problem's line (READING.md section 2, and the second departure of its section 12). Every file was written, since every problem gained its `line`, and every ledger is as it was. With that one field taken out, every answer is what it had been.
 
 ## What they cover, and what they do not
 

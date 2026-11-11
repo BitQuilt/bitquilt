@@ -190,6 +190,7 @@ export function saidOf(reading: Reading, ledger: Ledger): unknown {
       pieces[p.name] = place.get(text)!;
     }
     problems[hash] = plain({
+      line: pl.line,
       complete: pl.complete,
       own_complete: pl.fold.complete,
       output: pl.fold.output?.hash ?? null,
