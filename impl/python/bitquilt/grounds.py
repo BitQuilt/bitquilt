@@ -9,7 +9,7 @@ that is read with the sets.
 """
 
 from .identity import same_address
-from .kinds import kind_of, find_set, differs_on
+from .kinds import differ, differs_on, find_set, kind_of, person_seat
 
 SPAN_MAX = 2000
 
@@ -98,15 +98,20 @@ def traced(rec, reading):
 def set_aside(line, rec):
     """QX-19 section 4: "Where, on every field the two differ on, one side rests on a kept read and the other on
     nothing, the layer sets the other reading aside", each pair judged on its own, and a reading that loses any
-    pair is set aside. The pairs are those of a piece disputed over every reading no decision struck: each two
-    readings from unrelated roots that differ, where no set stands over all of them. Returns the ids set
-    aside."""
+    pair is set aside. READING.md section 4: the grounds are read on an `agree` or a `human` piece that is
+    disputed, which a `human` piece is over the readings from a person's seat alone, and the sides are every
+    two readings no decision struck, from unrelated roots, that differ, the owner's among them. Returns the ids
+    set aside."""
     kind = kind_of(rec.verifier)[0]
-    if kind not in ("agree", "human"):
+    if kind not in ("agree", "human") or not rec.trace_of:
         return set()
     readings = [r for r in rec.readings if r.id not in rec.struck]
-    readings = [r for r in readings if not line.identity.related(r.root, line.owner, r.at)]
-    if not rec.trace_of or find_set(line, rec, readings, kind == "agree") is not None:
+    counting = [r for r in readings if not line.identity.related(r.root, line.owner, r.at)]
+    if kind == "human":
+        counting = [r for r in counting if person_seat(r)]
+    if find_set(line, rec, counting, kind == "agree") is not None:
+        return set()
+    if not differ(line, rec, counting if kind == "human" else readings):
         return set()
     aside = set()
     for j, b in enumerate(readings):

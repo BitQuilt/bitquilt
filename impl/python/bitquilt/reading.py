@@ -261,7 +261,7 @@ class Read:
                 "record_output": record_output,
                 # Every fixture says 0, two that hold a dropped reveal among them (FINDINGS-2.md).
                 "dropped": 0,
-                "unoffered": [s["hash"] for p, s in panels if p is not None and p.outcome != "decided"],
+                "unoffered": sorted(s["hash"] for p, s in panels if p is not None and p.outcome != "decided"),
                 "stake": {"min": rule.min, "pieces": rule.pieces} if rule is not None else None,
                 "gold": dec.gold_counts(golds),
                 "locks": [dec.lock_said(k) for k in dec.locks if k.version == h],
