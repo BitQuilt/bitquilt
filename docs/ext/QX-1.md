@@ -69,6 +69,8 @@ The draw is recomputable by anyone holding the chains of the tracker the challen
 
 A seat is offered to each of the first three at the challenge's receipt. A seat whose holder has given no verdict `lease_h` hours after it was offered (the problem's default lease) lapses, and at that moment a seat is offered to the next root in the order not yet offered one. A verdict counts only from a root whose seat is live at the verdict's receipt: offered, not lapsed, not yet answered. A verdict from any other root, a second verdict from the same root, and a verdict after the decision are dropped.
 
+Clarified 11 November 2026 (`impl/python/FINDINGS-2.md`, entry 42). Each lapse offers one seat, at its own instant. Where several seats lapse at one instant, as many seats are offered at that instant, to the next roots in the order, while the order has them.
+
 ## 6. The decision
 
 - **Held**: two verdicts `for: challenger`. The challenger's standing rises by the stake. Each root of the accepting set loses one and its point for the set. The set's events, the two reveals with their commits, or the patch's reveal and commit with the two runs, are **struck**: left out of the fold from then on.
