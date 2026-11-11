@@ -23,7 +23,7 @@ import { type Layer, challengeLayer } from '../src/challenge.js';
 import { COIN_LOG } from '../src/coin.js';
 import { Store, reduceInputOf } from '../src/store.js';
 import { type Tracker, type TrackerOptions, createTracker } from '../src/tracker.js';
-import { fixtureOf, writeFixture } from './reading.js';
+import { type Ledger, fixtureOf, fixtureOver, kept, writeFixture } from './reading.js';
 
 /** A fixed secret key: thirty-one zero bytes and `n`. */
 export const key = (n: number): Uint8Array => {
@@ -189,23 +189,46 @@ export function boot(start: string, options: Partial<Omit<TrackerOptions, 'store
 
 /**
  * The second phase of docs/history/V2-PLAN.md: with `QUILT_WRITE_READING=1`, once a test file has run, the ledger
- * each of its trackers was left holding is written as a fixture of reading 2, with what the layer says of it. A run
+ * each of its trackers was left holding is written as a fixture of reading 2, with what the layer says of it, and so
+ * is each tracker a test keeps as it stands (`keepReading`) and each ledger one builds by hand (`keepLedger`). With
+ * `QUILT_WRITE_READING=new` only a fixture not yet kept is written, so the ones that stand keep their ids. A run
  * without the variable writes nothing.
  */
-const WRITE_READING = process.env.QUILT_WRITE_READING === '1';
+const WRITE_READING = { '1': 'all', new: 'new' }[process.env.QUILT_WRITE_READING ?? ''] ?? null;
 const booted: { t: Booted; options: Partial<TrackerOptions> }[] = [];
+/** Whether a fixture of this name is to be written in this run. */
+const writing = (name: string) => WRITE_READING === 'all' || (WRITE_READING === 'new' && !kept(name));
+
+/** Writes a booted tracker's store as a fixture; a ledger the layer throws on, or one too long, is not kept. */
+function keepStore(name: string, about: string, t: Booted, options: Partial<TrackerOptions>): void {
+  if (!writing(name)) return;
+  try {
+    const f = fixtureOf(name, about, t.store, new Date(t.clock.tick).toISOString(), options);
+    if (f && !writeFixture(f)) console.warn(`reading 2: ${name} is too large to keep`);
+  } catch (e) {
+    console.warn(`reading 2: ${name} is not kept, ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/**
+ * A booted tracker's ledger as it stands at this point of a test, kept as a fixture of reading 2 under the name: for
+ * a state a test passes through and does not end in.
+ */
+export function keepReading(t: Booted, name: string, about: string): void {
+  keepStore(name, about, t, booted.find((b) => b.t === t)?.options ?? {});
+}
+
+/** A ledger a test built by hand, with no tracker, kept as a fixture of reading 2 read at the times given. */
+export function keepLedger(name: string, about: string, ledger: Ledger, times: string[]): void {
+  if (writing(name)) writeFixture(fixtureOver(name, about, ledger, times));
+}
+
 if (WRITE_READING)
   afterAll(() => {
     const file = basename(expect.getState().testPath ?? 'tracker', '.test.ts');
     booted.forEach(({ t, options }, i) => {
       const about = `The ledger the tracker's test ${file}.test.ts leaves in the tracker it boots, number ${i + 1}.`;
-      // A test may leave a ledger the layer throws on, or one too long to keep; neither is a fixture.
-      try {
-        const f = fixtureOf(`${file}-${i + 1}`, about, t.store, new Date(t.clock.tick).toISOString(), options);
-        if (f && !writeFixture(f)) console.warn(`reading 2: ${f.name} is too large to keep`);
-      } catch (e) {
-        console.warn(`reading 2: ${file}-${i + 1} is not kept, ${e instanceof Error ? e.message : String(e)}`);
-      }
+      keepStore(`${file}-${i + 1}`, about, t, options);
     });
   });
 

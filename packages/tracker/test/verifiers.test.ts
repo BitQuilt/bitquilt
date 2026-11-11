@@ -9,6 +9,7 @@ import {
   commitHash,
   hashCanonical,
   newNonce,
+  plusHours,
   problemHash,
   reduce,
   signEvent,
@@ -16,7 +17,17 @@ import {
 } from '@bitquilt/core';
 import { challengeLayer } from '../src/challenge.js';
 import { describeKind, kindOf, personSeatIn } from '../src/verifiers.js';
-import { SETTINGS as settings, VERDICT_QUOTE, addr, boot, key, line } from './helpers.js';
+import {
+  SETTINGS as settings,
+  VERDICT_QUOTE,
+  addr,
+  boot,
+  keepLedger,
+  keepReading,
+  key,
+  line,
+} from './helpers.js';
+import { ledgerOf } from './reading.js';
 
 /**
  * The three verifier kinds the core does not know (docs/ext/verifiers.md), as the tracker's layer decides them: an
@@ -424,6 +435,7 @@ describe('the verifier kinds at the tracker', () => {
       text: 'Problems as patterns of pieces, each return signed.',
     });
     expect(await pieceOf(p, 'summary')).toMatchObject({ state: 'judging', core: 'unknown', panel: 'open' });
+    keepReading(t, 'verifiers-judging-1', 'A judge piece with its two candidates in and its panel of three seated.');
     expect((await nextFor(p, E, 'web')).piece).not.toBe(summary);
     const [panel] = await panelsOf(p);
     expect(panel!.outcome).toBe('open');
@@ -474,6 +486,7 @@ describe('the verifier kinds at the tracker', () => {
       ev(secretOf.get(drawn[1]!)!, 'rank', { ranking: [b.digest, a.digest] }, p, summary),
     );
     expect((await pieceOf(p, 'summary')).state).toBe('judging');
+    keepReading(t, 'verifiers-judging-2', 'A judge piece two of its three judges have ranked, each a different way.');
     await accepted(
       `/p/${p}/events`,
       ev(secretOf.get(drawn[2]!)!, 'rank', { ranking: [a.digest, b.digest] }, p, summary),
@@ -543,34 +556,38 @@ describe('the pure layer', () => {
       line(signEvent(u('reveal', { return: ret, nonce, by: by(model) }, t(minute + 1)), k), t(minute + 1), received),
     ];
   };
-  const stateWith = (receipts: Receipt[]) =>
-    challengeLayer({ problems: [{ envelopes: [H], blobs: new Map(), receipts, now: t(30) }], now: t(30) })
+  // Each ledger is kept as a fixture of reading 2 under its name, with the layer's answer at the half hour.
+  const stateWith = (name: string, receipts: Receipt[]) => {
+    const about = `A human piece with two reveals built by hand, ${name}.`;
+    keepLedger(`verifiers-human-${name}`, about, ledgerOf(H, receipts), [t(30), plusHours(t(30), 1000)]);
+    return challengeLayer({ problems: [{ envelopes: [H], blobs: new Map(), receipts, now: t(30) }], now: t(30) })
       .problems.get(h)!
       .byHash.get(piece)!;
+  };
 
   it("counts a human piece's reveal only from a seat the receipt or the client declares a person's, and the core says unknown throughout", () => {
     const selfAi = [...handIn(A, 0, 'anthropic/claude', {}), ...handIn(B, 5, 'openai/gpt', {})];
-    expect(stateWith(selfAi)).toMatchObject({ state: 'needs_verify', core: 'unknown' });
+    expect(stateWith('no-seat', selfAi)).toMatchObject({ state: 'needs_verify', core: 'unknown' });
     const oneSeat = [...handIn(A, 0, 'anthropic/claude', { seat: 'person' }), ...handIn(B, 5, 'openai/gpt', {})];
-    expect(stateWith(oneSeat).state).toBe('needs_verify');
+    expect(stateWith('one-seat', oneSeat).state).toBe('needs_verify');
     const twoSeats = [
       ...handIn(A, 0, 'anthropic/claude', { seat: 'person' }),
       ...handIn(B, 5, 'openai/gpt', { custody: 'hosted' }),
     ];
-    expect(stateWith(twoSeats)).toMatchObject({
+    expect(stateWith('two-seats', twoSeats)).toMatchObject({
       state: 'accepted_provisional',
       core: 'unknown',
       kind: { kind: 'human', extension: 'QX-3' },
     });
     const twoPeople = [...handIn(A, 0, 'human', {}), ...handIn(B, 5, 'human', {})];
-    expect(stateWith(twoPeople).state).toBe('accepted_provisional');
+    expect(stateWith('two-people', twoPeople).state).toBe('accepted_provisional');
     // On a member's reveal the on-ramp writes `seat: ai` beside its custody, since the member's product makes the
     // calls, and the custody counts whatever seat it names: the seat is the member's. The documents say both.
     const twoMembers = [
       ...handIn(A, 0, 'anthropic/claude', { custody: 'hosted', seat: 'ai' }),
       ...handIn(B, 5, 'openai/gpt', { custody: 'hosted', seat: 'ai' }),
     ];
-    expect(stateWith(twoMembers).state).toBe('accepted_provisional');
+    expect(stateWith('two-members', twoMembers).state).toBe('accepted_provisional');
     const doc = (name: string) => readFileSync(new URL(`../../../docs/${name}`, import.meta.url), 'utf8');
     expect(doc('ext/verifiers.md')).toContain(
       'the wrapper says `custody: "hosted"`, whatever `seat` it says beside (a key the tracker holds for a member who took an address at its door and connects their own client to it: the seat is the member\'s, and the reference writes `seat: "ai"` beside it, since the member\'s product makes the calls)',
@@ -579,7 +596,7 @@ describe('the pure layer', () => {
       "The `human` verifier counts a hosted custody as a person's seat whatever its `seat` says, since the on-ramp opened the seat for a member, a person who took an address at its door (verifiers.md section 2).",
     );
     const related = [...handIn(A, 0, 'human', {}), ...handIn(A, 5, 'human', {})];
-    expect(stateWith(related).state).toBe('needs_verify');
+    expect(stateWith('one-root', related).state).toBe('needs_verify');
   });
 
   it('unlocks what waits on an attested piece once its window has closed, where the core keeps it locked', () => {
@@ -629,6 +646,8 @@ describe('the pure layer', () => {
     ];
     const at = (now: string) =>
       challengeLayer({ problems: [{ envelopes: [T], blobs: new Map(), receipts, now }], now }).problems.get(th)!;
+    const told = 'An attest piece with the actor\'s one reveal, and a piece that waits on it, built by hand.';
+    keepLedger('verifiers-attest', told, ledgerOf(T, receipts), [t(10), t(49 * 60)]);
     const inside = at(t(10));
     expect(inside.byHash.get(toldPiece)).toMatchObject({
       state: 'accepted_provisional',

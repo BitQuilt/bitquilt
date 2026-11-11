@@ -58,20 +58,25 @@ Each ledger is read twice: at the clock of the tracker that held it, and a thous
 QUILT_WRITE_READING=1 pnpm exec vitest run packages/tracker
 ```
 
-With the variable set, the helper every tracker test boots a tracker through keeps each one, and once a test file has run, writes the ledger each tracker was left holding as `<the test file's name>-<n>.json`. No fixture is picked by hand. A run without the variable writes nothing.
+With the variable set, the helper every tracker test boots a tracker through keeps each one, and once a test file has run, writes the ledger each tracker was left holding as `<the test file's name>-<n>.json`. No such fixture is picked by hand. A test also keeps a tracker as it stands at a point it passes through (`keepReading`), for a state it does not end in, and a ledger it builds by hand with no tracker (`keepLedger`), each under a name the test gives. A run without the variable writes nothing.
+
+```bash
+QUILT_WRITE_READING=new pnpm exec vitest run packages/tracker
+```
+
+With `new` only a fixture not yet kept is written, and every file that stands is left as it is. This is how a fixture is added.
 
 Four kinds of ledger are left out: one with no problem, one of more than a thousand lines, one whose file would pass 256 KB, and one the layer throws on, which a test builds to show the throw.
 
-The tests sign with fresh nonces and their clocks are their own, so a second writing gives new ids throughout. A rewrite therefore replaces every file, and it is done only where the layer's answer is meant to change, in a pull request that says which answers and why. Between rewrites the files stand as they are and the code is held to them.
+The tests sign with fresh nonces and their clocks are their own, so a second writing gives new ids throughout. A rewrite with `1` therefore replaces every file, and it is done only where the layer's answer is meant to change, in a pull request that says which answers and why. Between rewrites the files stand as they are and the code is held to them.
 
 ## What they cover, and what they do not
 
-Seventy-four ledgers, of 171 problems and 882 lines, with every event type the door takes among them but `run`: the claims, commits and reveals, the challenges and verdicts, the locks and stake rules, the gold and its reveals, the traces, the proposed pieces, the versions and forks, the seeds and ranks, the hides and names, and the coin's lines. Thirteen of the fifteen states of READING.md section 9 are seen.
+Eighty-three ledgers, of 184 problems and 955 lines, with every event type the door takes among them but `run`: the claims, commits and reveals, the challenges and verdicts, the locks and stake rules, the gold and its reveals, the traces, the proposed pieces, the versions and forks, the seeds and ranks, the hides and names, and the coin's lines. Seventy-four are what the tests leave in their trackers. Nine were added in phase 3, before the verifier kinds moved into the core: a judge piece while its panel sits, at two points, and the seven ledgers `packages/tracker/test/verifiers.test.ts` builds by hand for the `human` and `attest` kinds. Fourteen of the fifteen states of READING.md section 9 are seen.
+
+Two things are read through version 1's fixtures, which the same test runs the layer over: the state `unreachable`, in fixture 22, and the `run` event, in fixtures 14 to 17 and clarification 7. No tracker test posts a run through a booted tracker.
 
 Not yet covered, each to be closed by a fixture before the rule it bears on is moved:
 
-- the states `judging` and `unreachable`;
-- a `run` event, which no tracker test posts through a booted tracker; version 1's fixtures hold runs, and the test reads the layer over those;
-- the two ledgers `packages/tracker/test/verifiers.test.ts` builds by hand, without a booted tracker;
 - a ledger of more than a thousand lines;
 - the departures READING.md section 12 lists, each of which gets a fixture written for it when it is argued.
