@@ -8,11 +8,13 @@
  * 1's reducer is untouched: it holds these pieces as `unknown`, and `applyVerifiers` decides on top. The accepting set
  * recorded here has the shape of version 1's `agree` set with one more field, `via`, naming the kind, so code that
  * reads the core's shapes (`next`, the brief's slots, the challenge window) reads it; `viaOf` tells the two apart. A
- * record piece has no accepting set at all: what it has is its standing readings. What a tracker's door asks before
- * it takes a rank is admission and stays in the tracker.
+ * record piece has no accepting set at all: what it has is its standing readings. A window here is that of the version
+ * the event that completed the set names, and a panel's seats are held to the lease of the version the reveal that
+ * completed its candidates names (READING.md section 3). What a tracker's door asks before it takes a rank is
+ * admission and stays in the tracker.
  */
 import { type Event, type Receipt, type Received, eventSignedByKey } from './events.js';
-import { inputsBy } from './envelope.js';
+import { type Settings, inputsBy } from './envelope.js';
 import { type Hash, isHash } from './hash.js';
 import type { Address } from './keys.js';
 import { byAtThenId, isRecord, plusHours } from './plain.js';
@@ -157,11 +159,12 @@ export interface VerifierOptions {
    */
   pool(problem: Hash, at: string, unrelatedTo: Address[], fold: State): Address[];
   /**
-   * The versions of the problem's line, where the receipts are the line's record (READING.md section 3): a rank
-   * that names any of them is on the record of the piece it names. Without it, a rank counts where it names the
-   * problem.
+   * The versions of the problem's line, each with its settings, where the receipts are the line's record
+   * (READING.md section 3): a rank that names any of them is on the record of the piece it names, and "The lease and
+   * the window an event is held to are those of the version it names". Without it, a rank counts where it names the
+   * problem, and the lease and the window are the problem's.
    */
-  line?: ReadonlySet<Hash>;
+  line?: ReadonlyMap<Hash, Settings>;
 }
 
 /**
@@ -362,13 +365,13 @@ interface Rank {
 }
 
 /**
- * What deciding a piece of one of these kinds reads: the fold being decided, its owner and window, the receipt line of
- * a reveal, the time, and the caller's pool.
+ * What deciding a piece of one of these kinds reads: the fold being decided, its owner, the settings an event is held
+ * to by the version it names, the receipt line of a reveal, the time, and the caller's pool.
  */
 interface Context {
   fold: State;
   owner: Address;
-  windowH: number;
+  settingsOf: (problem: Hash | undefined) => Settings;
   lineOf: (piece: Hash, r: Reveal) => Line | undefined;
   now: string;
   options: VerifierOptions;
@@ -382,7 +385,8 @@ interface Context {
  */
 export function applyVerifiers(core: State, receipts: Receipt[], now: string, options: VerifierOptions): KindsDecided {
   const owner = core.envelope.problem.owner as Address;
-  const windowH = windowOf(core);
+  const settingsOf = (problem: Hash | undefined): Settings =>
+    (problem && options.line?.get(problem)) || core.envelope.problem.settings;
 
   // The receipt line of each reveal, by piece, key and time, and the ranks by piece, each once by id.
   const own: ReadonlySet<Hash> = new Set([core.problem]);
@@ -412,7 +416,7 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
   const records = new Map<Hash, RecordView>();
   /** The reveals that count on a human piece: from a person's seat, unrelated to the owner. */
   const counted = new Map<Hash, Reveal[]>();
-  const cx: Context = { fold, owner, windowH, lineOf, now, options };
+  const cx: Context = { fold, owner, settingsOf, lineOf, now, options };
 
   for (const v of views) {
     const info = describeKind(v.piece.verifier);
@@ -533,27 +537,28 @@ function decideRecord(v: PieceView, { fold, owner }: Context, n: number): Record
 
 /**
  * The first valid reveal from a root unrelated to the owner accepts the piece at once (QX-10); the window runs from its
- * receipt.
+ * receipt, and is that of the version the reveal names.
  */
-function decideAttest(v: PieceView, { fold, owner, windowH }: Context): void {
+function decideAttest(v: PieceView, { fold, owner, settingsOf }: Context): void {
   const r = v.reveals.find((x) => !fold.related(x.root, owner, x.at));
   if (!r) return;
   const set: ExtAccepting = { kind: 'agree', via: 'attest', reveals: [r], completedAt: r.at };
   v.accepting = set as unknown as AcceptingSet;
-  v.windowEnd = plusHours(r.at, windowH);
+  v.windowEnd = plusHours(r.at, settingsOf(r.problem).challenge_window_h);
 }
 
 /**
  * As agree, with the vendor rule replaced by the seat (QX-3): two reveals from unrelated roots, each from a person's
- * seat, agreeing on the agree fields.
+ * seat, agreeing on the agree fields. The window is that of the version the later reveal names.
  */
-function decideHuman(v: PieceView, { fold, owner, windowH, lineOf }: Context): Reveal[] {
+function decideHuman(v: PieceView, { fold, owner, settingsOf, lineOf }: Context): Reveal[] {
   const schema = v.piece.schema;
   if (!schema) return [];
   const fields = agreeFields(schema, v.piece.agree);
   const counted = v.reveals.filter(
     (r) => !fold.related(r.root, owner, r.at) && fromPersonSeat(r, lineOf(v.piece.hash, r)?.receipt),
   );
+  v.windowEnd = null;
   for (let j = 0; j < counted.length && !v.accepting; j++) {
     const b = counted[j]!;
     if (counted.slice(0, j).some((a) => fold.related(a.root, b.root, b.at))) continue;
@@ -562,22 +567,24 @@ function decideHuman(v: PieceView, { fold, owner, windowH, lineOf }: Context): R
       if (returnsAgree(schema, fields, a.return, b.return)) {
         const set: ExtAccepting = { kind: 'agree', via: 'human', reveals: [a, b], completedAt: b.at };
         v.accepting = set as unknown as AcceptingSet;
+        v.windowEnd = plusHours(b.at, settingsOf(b.problem).challenge_window_h);
         break;
       }
     }
   }
-  v.windowEnd = v.accepting ? plusHours(v.accepting.completedAt, windowH) : null;
   return counted;
 }
 
 /**
  * The candidates are the first `candidates` reveals from roots unrelated to the owner and to each other, with distinct
  * digests (QX-2); once they are in, a panel of n is drawn from the pool at that receipt, seeded by the first
- * candidate's receipt line, and the ranks are folded in receipt order. Null while the candidates are not yet in.
+ * candidate's receipt line, and the ranks are folded in receipt order. Null while the candidates are not yet in. The
+ * seats are held to the lease of the version the reveal that completed the candidates names, and the window is that of
+ * the version the rank that decided names.
  */
 function decideJudge(
   v: PieceView,
-  { fold, owner, windowH, lineOf, now, options }: Context,
+  { fold, owner, settingsOf, lineOf, now, options }: Context,
   n: number,
   ranks: Rank[],
 ): PanelView | null {
@@ -617,21 +624,23 @@ function decideJudge(
   }
   if (seed === null) return panel;
   panel.order = drawOrder(seed, pool);
-  seatPanel(panel, fold, leaseOf(fold, v), ranks.sort(byAtThenId), now);
+  const lease = v.piece.lease_h ?? settingsOf(last.problem).lease_h;
+  const decidedIn = seatPanel(panel, fold, lease, ranks.sort(byAtThenId), now);
   if (panel.outcome === 'decided') {
     const winner = chosen.find((r) => r.digest === panel.winner)!;
     const set: ExtAccepting = { kind: 'agree', via: 'judge', reveals: [winner], completedAt: panel.decidedAt! };
     v.accepting = set as unknown as AcceptingSet;
-    v.windowEnd = plusHours(panel.decidedAt!, windowH);
+    v.windowEnd = plusHours(panel.decidedAt!, settingsOf(decidedIn).challenge_window_h);
   }
   return panel;
 }
 
 /**
  * Offers the seats, lapses and replaces them by the lease (sortition.ts), folds the ranks in receipt order, and decides
- * on a majority's first choice.
+ * on a majority's first choice. Answers the version the rank that decided names, where one did.
  */
-function seatPanel(panel: PanelView, fold: State, leaseH: number, ranks: Rank[], now: string): void {
+function seatPanel(panel: PanelView, fold: State, leaseH: number, ranks: Rank[], now: string): Hash | undefined {
+  let decidedIn: Hash | undefined;
   const { seats, advance, ranOut, lastLapse } = offerSeats<PanelSeat>(
     panel.order,
     panel.panel,
@@ -684,6 +693,7 @@ function seatPanel(panel: PanelView, fold: State, leaseH: number, ranks: Rank[],
       panel.outcome = 'decided';
       panel.winner = top;
       panel.decidedAt = r.at;
+      decidedIn = ev.problem;
     }
   }
   if (panel.outcome === 'open') {
@@ -693,6 +703,7 @@ function seatPanel(panel: PanelView, fold: State, leaseH: number, ranks: Rank[],
       panel.decidedAt = lastLapse() ?? now;
     }
   }
+  return decidedIn;
 }
 
 /** Two of the reveals given, from unrelated roots, that differ on an agree field. */
