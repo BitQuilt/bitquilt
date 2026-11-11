@@ -288,6 +288,9 @@ export function state({ store, now, hidden, tracesOf }: Reads, hash: Hash, layer
         state: l.state,
         core: l.core,
         challenge: l.challenge?.id ?? null,
+        // READING.md section 7: a challenge shows at every version that holds the piece. Its verdicts go to the
+        // version it was posted to (QX-1 section 4), which this names.
+        challenge_at: l.challenge?.problem ?? null,
         kind: l.kind.kind,
         extension: l.kind.extension,
         strength: l.kind.strength,

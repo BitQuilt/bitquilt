@@ -53,7 +53,9 @@
  * with a fixture. The first is argued and kept: a record here is a line's, so a version's map shows the work posted to
  * any version of its line on a piece it keeps. The third is too: the lease and the window an event is held to are
  * those of the version it names, so a claim, a commit and a set's window end at one time at every version of the line.
- * The stake rules, the locks, the golds and the challenges are still read at the version each names.
+ * The fifth is too: a challenge open on a piece shows at every version of the line that holds the piece, and a gold
+ * miss is challenged at any of them. The stake rules, the locks and the golds are still read at the version each
+ * names, and a challenge is listed, and takes its verdicts, where it was posted.
  *
  * What a door asks before it takes an event, the admissions, is no part of the read: a tracker builds them over the
  * record this answers with. The pass moved here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says,
@@ -385,17 +387,19 @@ export function checkChallenge(
   // QX-1 section 2 as amended 10 November 2026: "The challenges on a piece are those on it at any problem of the line:
   // one is open at a time across the line, and a piece that had its held challenge at one version is not challenged at
   // another."
-  const prior = lineOf(f, home.hash)
-    .flatMap((e) => e.challenges)
-    .filter((c) => c.piece === piece);
+  const line = lineOf(f, home.hash);
+  const prior = line.flatMap((e) => e.challenges).filter((c) => c.piece === piece);
   if (prior.some((c) => c.outcome === 'held')) return { ok: false, why: 'this piece has had its challenge' };
   const open = prior.some((c) => c.outcome === 'open' || (c.decidedAt !== null && c.decidedAt > at));
   // QX-16 section 4: a miss on the piece inside its window is challenged by a root of the struck set, against the gold.
   // The stake may be 0: the strike may have left the root with nothing (amended 27 October 2026).
-  const miss = missOn(home, piece);
+  // READING.md section 7: "a gold miss is challenged at any of them", the versions that hold the piece. The window a
+  // miss opens is that of the version the gold's reveal names (READING.md section 3).
+  const miss = missOn(line, piece);
   if (!view.accepting && miss) {
     if (open) return { ok: false, why: 'a challenge is open on this piece' };
-    if (at >= plusHours(miss.commitment.revealedAt!, windowOf(fold))) return { ok: false, why: 'outside the window' };
+    if (at >= plusHours(miss.commitment.revealedAt!, windowOf(miss.home.fold)))
+      return { ok: false, why: 'outside the window' };
     if (!miss.commitment.struckRoots.includes(root))
       return { ok: false, why: 'only a root of the struck set challenges a miss' };
     const parties = [ownerOf(fold, at)];
@@ -593,10 +597,16 @@ export function inputRefused(p: ReduceInput): string | null {
   }
 }
 
-/** The last challenge the layer kept on a piece, or null. */
-function lastChallenge(e: ProblemEntry, piece: Hash): ChallengeView | null {
-  const own = e.challenges.filter((c) => c.piece === piece);
-  return own.length ? own[own.length - 1]! : null;
+/**
+ * The last challenge the layer kept on a piece at any version of the problem's line, or null. READING.md section 7:
+ * "Since a piece has one record on its line, a challenge open on a piece shows at every version that holds the piece".
+ */
+function lastChallenge(f: Folding, e: ProblemEntry, piece: Hash): ChallengeView | null {
+  let last: ChallengeView | null = null;
+  for (const h of e.line.versions)
+    for (const c of f.entries.get(h)?.challenges ?? [])
+      if (c.piece === piece && (last === null || c.at > last.at || (c.at === last.at && c.id > last.id))) last = c;
+  return last;
 }
 
 /**
@@ -605,8 +615,8 @@ function lastChallenge(e: ProblemEntry, piece: Hash): ChallengeView | null {
  * the core's `next` offers it (QX-20); else the fold's. After the last pass the fold's is `inherited` on an inherited
  * piece (QX-23 section 2), and the views say so.
  */
-function ownState(e: ProblemEntry, v: PieceView): LayerState {
-  if (lastChallenge(e, v.piece.hash)?.outcome === 'open') return 'challenged';
+function ownState(f: Folding, e: ProblemEntry, v: PieceView): LayerState {
+  if (lastChallenge(f, e, v.piece.hash)?.outcome === 'open') return 'challenged';
   return e.decided.records.has(v.piece.hash) && v.state === 'needs_verify' ? 'recording' : v.state;
 }
 
@@ -682,7 +692,11 @@ export function read(input: ReadInput): Reading {
   // 8. The reach (QX-23 sections 1 to 3): the pieces done elsewhere, what waits on them settled again with nothing
   // decided again, and the inherited squares marked. Every credit, lock, gold and strike is folded above with each
   // `elsewhere` empty, so an inherited square moves none of them.
-  inheritSquares(f, ownState, (e) => settleKinds(e.decided, e.base, now, e.elsewhere));
+  inheritSquares(
+    f,
+    (e, v) => ownState(f, e, v),
+    (e) => settleKinds(e.decided, e.base, now, e.elsewhere),
+  );
 
   // 9. The state: the views, standing, and the record the door's admissions are asked over.
   return {
@@ -821,10 +835,10 @@ function stateOf(f: Folding): Pick<Reading, 'problems' | 'challenges'> {
       if (r.event.piece && e.aside.has(eventId(r.event)))
         asideBy.set(r.event.piece, [...(asideBy.get(r.event.piece) ?? []), r.event.key]);
     const pieces: PieceLayer[] = e.fold.pieces.map((v) => {
-      const last = lastChallenge(e, v.piece.hash);
+      const last = lastChallenge(f, e, v.piece.hash);
       const core = e.own.byHash.get(v.piece.hash)?.state ?? v.state;
       const record = e.decided.records.get(v.piece.hash) ?? null;
-      const state = ownState(e, v);
+      const state = ownState(f, e, v);
       const kind = e.decided.kinds.get(v.piece.hash)!;
       const commitment = goldOn(e, v.piece.hash);
       const gold = commitment ? (outcomeOf(e, commitment, now) as GoldState) : null;

@@ -64,6 +64,11 @@ export interface LayerPiece extends Omit<KindWords, 'kind' | 'strength'> {
   attested: boolean;
   panel: string | null;
   challenge: Hash | null;
+  /**
+   * The version of the line the piece's last challenge was posted to (QX-1 section 2), where its verdicts go. Absent
+   * from a tracker older than 11 November 2026.
+   */
+  challenge_at?: Hash | null;
   /** The stake of standing the problem asks of a claim on this piece (QX-15); 0 or absent where none. */
   stake?: number;
   /**
