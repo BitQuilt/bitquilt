@@ -73,15 +73,27 @@ Each kind's rule reads the record and says whether a set stands.
 
 **A set is named** by the hash of the canonical JSON of its events' ids, sorted. Its events are the reveals and runs the kind's rule took. Standing, a strike, a lock's forfeit and the coin name a set by this hash and a reading by its event's id, so a set is counted once however many versions show it.
 
+Clarified 11 November 2026, since `impl/python/FINDINGS-2.md`, entries 29 to 31, found in no document where a panel is listed. A `judge:n` piece's panel is drawn at each version of the line that holds the piece, over the line's record, and is listed at every such version. A challenge is listed at the version its event names and at no other, though the piece says `challenged` at every version that holds it (section 7). The fixtures' README gives a panel's keys and its words, and the problem's `unoffered`.
+
 ## 6. Standing
 
 Standing is [QX-1](../ext/QX-1.md) section 2 as amended 10 November 2026: one credit for each reveal in a set, by the reveal's id. The pool is QX-1 section 3, and a version of a line is no other problem for it. Locked and free standing are [QX-15](../ext/QX-15.md) section 3. A burn on the coin log is credited on the door's word in its receipt's wrapper ([QX-17](../ext/QX-17.md) section 4), so where a tracker carries the coin its log's lines are in the ledger, and the fold reads the word and no balance. Sections 5 and 6 are brought to a fixed point, since a panel is drawn by standing and a panel's ranking makes a set. Section 4 is read with them: wherever the grounds set a reading aside after the sets, the sets and standing are brought to their fixed point again over what remains, and the fold stops when nothing new is set aside, in four passes at most.
+
+Clarified 11 November 2026, since `impl/python/FINDINGS-2.md`, entries 32 to 35, found this section thin.
+
+The fixed point is reached by passes. A pass refreshes the credits over the sets as they stand and then decides the kinds again at every version, and a panel is drawn over the credits of the pass before it, so the first fold, which has no credits, draws no panel. The passes stop where no piece's state and no panel's outcome or seats moved, and the kinds are decided again three times at most. The fixed point is reached once, and again each time the grounds set a reading aside after it, three times more at most, which are the four passes above. It is reached before section 7's pass. A strike there folds again the problems it touches and refreshes the credits, and does not run the fixed point again: a panel drawn before the strike keeps its pool, and a panel drawn after it draws from what remains.
+
+A credit counts from the completion of its set, the earliest where the sets of several versions hold the reveal. An `agree` or a `human` set credits each of its reveals. A `judge:n` set credits the winning candidate alone, and a rank credits no judge. A `check` or a `score` set credits its patch and not its runs. An `attest` set credits none, and a `record:n` piece has no set and credits none.
+
+The door's word for a burn is `stake: { kind: "burn", amount, standing }` in the first wrapper of the burn's receipt on the coin log. The fold credits `standing`, where it is a number above 0, to the signer's root from the receipt, and reads no other key of the word. The word for a lock in coin is QX-17 section 5's, and the fold holds its `id` to the lock's.
 
 ## 7. The decisions
 
 One pass in receipt order over the locks (QX-15 sections 1 to 3), the owner's gold and its reveals ([QX-16](../ext/QX-16.md) sections 1 to 5), and the challenges and verdicts (QX-1 sections 1 and 4 to 6). A decision names the set it is about. A strike is one strike: each root docked once, the set's events struck on the line's record, and every lock behind the set forfeited. A coin lock reaches the fold as the door's word on the receipt, and the fold reads no balance.
 
 Since a piece has one record on its line, a challenge open on a piece shows at every version that holds the piece, and a gold miss is challenged at any of them.
+
+Clarified 11 November 2026, since `impl/python/FINDINGS-2.md`, entries 36 to 38, found the stake rule and the locks thin. A `stake_rule` is kept at the version it names and holds there alone: another version of the line asks no stake until its owner sets a rule on it, and a lock is held to the rule of the version it names. The problem's `stake` is the rule in force at the time read, the last kept by then, and each piece's `stake` is what that rule asks of it. A lock kept is listed at the version it names from then on, released or not. The list says no word of a release, which is read from the fold as QX-15 section 2 says, and `forfeitedAt` and `restoredAt` say what a strike and its undoing made of the lock.
 
 ## 8. The reach
 
@@ -96,6 +108,8 @@ Each piece has one state, of the fifteen the tracker's layer says today: `locked
 Beside its state a piece says its kind and strength, its set's name or null, its record, its gold and whether it is verified (QX-16 section 6), its stake (QX-15 section 4), its grade and seams (QX-19 section 3, QX-20 section 3), and, where inherited, the problem where the square stands.
 
 `complete` is as QX-23 section 4 says of the layer, and the output is CORE.md section 6, "Output", with the record document of QX-20 section 4.
+
+Clarified 11 November 2026, since `impl/python/FINDINGS-2.md`, entry 28, found the output unsaid where a piece is of a kind reading 2 adds. The output document is reading 1's, over the record that stands, and is said where reading 1's reducer calls the version complete: every piece of its own `accepted` or `unreachable`, each by a kind reading 1 knows, `agree`, `check` or `score`. A problem with a piece of any other kind says no output, though the layer calls it complete. The record document is said where the problem has a `record:n` piece and is complete in the layer. So a problem with a `judge:n`, a `human` or an `attest` piece and no record piece says neither.
 
 ## 10. next
 
