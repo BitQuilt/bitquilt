@@ -12,14 +12,13 @@ import type { Inherited } from './inherit.js';
 import type { Address } from './keys.js';
 import type { KindInfo, PanelView, RecordView } from './kinds.js';
 import type { ReadingView } from './readings.js';
-import type { PieceState, State } from './reduce.js';
+import type { State } from './reduce.js';
 import type { LockView } from './stake.js';
 import type { Dropped } from './standing.js';
 
 export interface PieceLayer {
   hash: Hash;
   name: string;
-  core: PieceState;
   state: LayerState;
   challenge: ChallengeView | null;
   /** The verifier in words: kind, registry number, strength. */
@@ -57,7 +56,7 @@ export interface ProblemLayer {
   problem: Hash;
   /** The name of the problem's line (READING.md section 2): the hash of its first version. */
   line: Hash;
-  /** The core's fold, untouched. */
+  /** The reduce of the line's record with nothing struck: every reading in it (READING.md section 3). */
   core: State;
   /**
    * The core's fold with struck events left out and the verifier kinds decided: the same as `core` where nothing was

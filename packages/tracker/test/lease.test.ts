@@ -53,7 +53,7 @@ const { ev, post, get, accepted } = t;
 beforeAll(() => t.listen());
 afterAll(() => t.close());
 
-type Shown = { name: string; hash: Hash; state: string; core: string };
+type Shown = { name: string; hash: Hash; state: string };
 type Panel = { outcome: string; seats: { root: Address }[] };
 const shown = (problem: Hash, name: string) =>
   (t.tracker.layer().problems.get(problem)!.pieces as Shown[]).find((p) => p.name === name)!;
@@ -103,8 +103,6 @@ describe('the lease and the window of the version an event names', () => {
       expect(stateOf(v, 'one')).toBe('open');
       expect(stateOf(v, 'two')).toBe('in_flight');
     }
-    // Version 1 holds each to the version read: the later version's ten hours for the claim that names the older.
-    expect(shown(LATER, 'one').core).toBe('in_flight');
     keepReading(t, 'lease-running', 'Two claims on a line, each held to the lease of the version it names.');
     hours(8);
     for (const v of [OLDER, LATER]) expect(stateOf(v, 'two')).toBe('open');
@@ -117,7 +115,6 @@ describe('the lease and the window of the version an event names', () => {
     for (const v of [OLDER, LATER]) expect(stateOf(v, 'three')).toBe('sealed');
     hours(5);
     for (const v of [OLDER, LATER]) expect(stateOf(v, 'three')).toBe('open');
-    expect(shown(LATER, 'three').core).toBe('sealed');
   });
 
   it('closes a set by the window of the version the event that completed it names', async () => {
@@ -145,8 +142,6 @@ describe('the lease and the window of the version an event names', () => {
       expect(stateOf(v, 'five')).toBe('accepted_provisional');
       expect(stateOf(v, 'summary')).toBe('accepted_provisional');
     }
-    // Version 1 closes every set of the later version by the later version's window.
-    expect(shown(LATER, 'five').core).toBe('accepted');
     keepReading(t, 'lease-windows', 'Four sets on a line, each closed by the window of the version that completed it.');
     hours(24);
     for (const v of [OLDER, LATER]) {

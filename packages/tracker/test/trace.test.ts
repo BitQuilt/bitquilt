@@ -371,7 +371,7 @@ describe('seams', () => {
 describe('a seam decides itself (section 4)', () => {
   let pa: Hash;
   const ps: Record<string, Hash> = {};
-  type StatePiece = PieceState & { core: string; aside: Address[] };
+  type StatePiece = PieceState & { aside: Address[] };
   const stateOf = async (problem: Hash, piece: Hash) =>
     ((await get(`/p/${problem}/state`)) as { pieces: StatePiece[] }).pieces.find((x) => x.hash === piece)!;
   async function returnedOn(problem: Hash, piece: Hash, k: Uint8Array, model: string, verdict: string): Promise<Hash> {
@@ -411,7 +411,7 @@ describe('a seam decides itself (section 4)', () => {
     ).toBe(false);
     await accepted(`/p/${pa}/events`, rested(B, pa, x, rb, [0, span(PAGE, HOLDS)[1] + 1]));
     const s = await stateOf(pa, x);
-    expect(s).toMatchObject({ state: 'disputed', core: 'disputed', aside: [] });
+    expect(s).toMatchObject({ state: 'disputed', aside: [] });
     expect(s.seams).toMatchObject([{ why: 'reading', sides: [{ aside: false }, { aside: false }] }]);
     const y = ps['statement/3']!;
     await returnedOn(pa, y, A, 'anthropic/claude', 'supports');
@@ -429,7 +429,7 @@ describe('a seam decides itself (section 4)', () => {
     await returnedOn(pa, x, B, 'openai/gpt-5', 'contradicts');
     await accepted(`/p/${pa}/events`, rested(A, pa, x, ra, span(PAGE, HOLDS)));
     const s = await stateOf(pa, x);
-    expect(s).toMatchObject({ state: 'needs_verify', core: 'disputed', aside: [addr(B)], traced: null });
+    expect(s).toMatchObject({ state: 'needs_verify', aside: [addr(B)], traced: null });
     expect(s.seams).toMatchObject([
       {
         field: 'verdict',
@@ -453,7 +453,6 @@ describe('a seam decides itself (section 4)', () => {
     await returnedOn(pa, x, B, 'openai/gpt-5', 'supports');
     expect(await stateOf(pa, x)).toMatchObject({
       state: 'accepted_provisional',
-      core: 'disputed',
       aside: [addr(B)],
       traced: 'one',
     });
@@ -492,7 +491,7 @@ describe('a seam decides itself (section 4)', () => {
     const rb = await returnedOn(pp, x, B, 'openai/gpt-5', 'contradicts');
     await accepted(`/p/${pp}/events`, rested(B, pp, x, rb, span(PAGE, NOT_AT_SCALE)));
     const s = await stateOf(pp, x);
-    expect(s).toMatchObject({ state: 'disputed', core: 'disputed', aside: [addr(B)] });
+    expect(s).toMatchObject({ state: 'disputed', aside: [addr(B)] });
     expect(s.seams).toMatchObject([
       {
         field: 'verdict',
@@ -532,10 +531,10 @@ describe('a seam decides itself (section 4)', () => {
     await returnedOn(pt, x, A, 'anthropic/claude', 'supports');
     await returnedOn(pt, x, B, 'openai/gpt-5', 'contradicts');
     const rc = await returnedOn(pt, x, C, 'anthropic/claude', 'silent');
-    expect(await stateOf(pt, x)).toMatchObject({ state: 'disputed', core: 'disputed', aside: [] });
+    expect(await stateOf(pt, x)).toMatchObject({ state: 'disputed', aside: [] });
     await accepted(`/p/${pt}/events`, rested(C, pt, x, rc, span(PAGE, NOT_AT_SCALE)));
     const s = await stateOf(pt, x);
-    expect(s).toMatchObject({ state: 'needs_verify', core: 'disputed', aside: [addr(A), addr(B)], traced: null });
+    expect(s).toMatchObject({ state: 'needs_verify', aside: [addr(A), addr(B)], traced: null });
     expect(s.seams).toMatchObject([
       {
         field: 'verdict',
@@ -571,7 +570,6 @@ describe('a seam decides itself (section 4)', () => {
     await returnedOn(pt, x, B, 'openai/gpt-5', 'silent');
     expect(await stateOf(pt, x)).toMatchObject({
       state: 'accepted_provisional',
-      core: 'disputed',
       aside: [addr(A), addr(B)],
       traced: 'one',
     });
@@ -584,7 +582,7 @@ describe('a seam decides itself (section 4)', () => {
     const ry = await returnedOn(pt, y, C, 'anthropic/claude', 'supports');
     await accepted(`/p/${pt}/events`, rested(C, pt, y, ry, span(PAGE, HOLDS)));
     const sy = await stateOf(pt, y);
-    expect(sy).toMatchObject({ state: 'needs_verify', core: 'disputed', aside: [addr(B)] });
+    expect(sy).toMatchObject({ state: 'needs_verify', aside: [addr(B)] });
     expect(sy.seams).toMatchObject([
       {
         field: 'verdict',
@@ -611,7 +609,6 @@ describe('a seam decides itself (section 4)', () => {
     await returnedOn(pt, z, C, 'anthropic/claude', 'contradicts');
     expect(await stateOf(pt, z)).toMatchObject({
       state: 'accepted_provisional',
-      core: 'accepted_provisional',
       aside: [],
     });
   });

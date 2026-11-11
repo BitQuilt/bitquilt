@@ -303,28 +303,29 @@ describe('the gold due, by the window the tracker holds open', () => {
   const dueOf = (pieces: LayerPiece[]) =>
     goldDue(library, problem, new Map(pieces.map((l) => [l.hash, l]))).map((d) => d.name);
 
-  it('reads window_open where the tracker says it, a challenge open or not, whatever the core says', () => {
-    // An attest piece the core does not know: challenged in its window, and challenged once the window has closed.
-    expect(windowOpen(piece(1, { state: 'challenged', core: 'unknown', window_open: true }))).toBe(true);
-    expect(windowOpen(piece(2, { state: 'challenged', core: 'unknown', window_open: false }))).toBe(false);
+  it('reads window_open where the tracker says it, a challenge open or not', () => {
+    // A piece challenged in its window, and one still challenged once its window has closed.
+    expect(windowOpen(piece(1, { state: 'challenged', window_open: true }))).toBe(true);
+    expect(windowOpen(piece(2, { state: 'challenged', window_open: false }))).toBe(false);
     expect(
       dueOf([
-        piece(1, { state: 'challenged', core: 'unknown', window_open: true }),
-        piece(2, { state: 'challenged', core: 'unknown', window_open: false }),
-        piece(3, { state: 'accepted_provisional', core: 'accepted_provisional', window_open: true, gold: 'match' }),
-        piece(4, { state: 'accepted', core: 'accepted', window_open: false }),
-        piece(5, { state: 'accepted_provisional', core: 'accepted_provisional', window_open: true }),
+        piece(1, { state: 'challenged', window_open: true }),
+        piece(2, { state: 'challenged', window_open: false }),
+        piece(3, { state: 'accepted_provisional', window_open: true, gold: 'match' }),
+        piece(4, { state: 'accepted', window_open: false }),
+        piece(5, { state: 'accepted_provisional', window_open: true }),
       ]),
     ).toEqual(['statement/1']);
   });
 
-  it('reads a tracker that does not say window_open by its states, a challenged piece only while the core does not call it final', () => {
+  it('reads a tracker that does not say window_open by its one state, a challenged piece among the due', () => {
+    // READING.md section 9: a piece has one state, so nothing says whether a challenged piece's window has closed,
+    // and the reveal is offered for the tracker to take or refuse.
     expect(
       dueOf([
-        piece(1, { state: 'accepted_provisional', core: 'accepted_provisional' }),
-        piece(2, { state: 'challenged', core: 'accepted_provisional' }),
-        piece(3, { state: 'challenged', core: 'accepted' }),
-        piece(4, { state: 'accepted', core: 'accepted' }),
+        piece(1, { state: 'accepted_provisional' }),
+        piece(2, { state: 'challenged' }),
+        piece(3, { state: 'accepted' }),
       ]),
     ).toEqual(['statement/1', 'statement/2']);
   });

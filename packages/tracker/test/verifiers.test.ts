@@ -165,7 +165,6 @@ interface PieceState {
   name: string;
   hash: Hash;
   state: string;
-  core: string;
   kind: string | null;
   extension: string | null;
   strength: string | null;
@@ -249,7 +248,6 @@ describe('the verifier kinds at the tracker', () => {
     summary = byName.summary!.hash;
     expect(byName.told).toMatchObject({
       state: 'open',
-      core: 'unknown',
       kind: 'attest',
       extension: 'QX-10',
       strength: 'attested',
@@ -258,14 +256,12 @@ describe('the verifier kinds at the tracker', () => {
     });
     expect(byName.vote).toMatchObject({
       state: 'open',
-      core: 'unknown',
       kind: 'human',
       extension: 'QX-3',
       strength: 'agreed',
     });
     expect(byName.summary).toMatchObject({
       state: 'open',
-      core: 'unknown',
       kind: 'judge',
       extension: 'QX-2',
       strength: 'judged',
@@ -273,7 +269,6 @@ describe('the verifier kinds at the tracker', () => {
     });
     expect(byName.after).toMatchObject({
       state: 'locked',
-      core: 'locked',
       kind: 'agree',
       extension: null,
       strength: 'agreed',
@@ -295,10 +290,10 @@ describe('the verifier kinds at the tracker', () => {
     });
     expect(r.reveal).toMatch(/^sha256:/);
     const view = await pieceOf(p, 'told');
-    expect(view).toMatchObject({ state: 'accepted_provisional', core: 'unknown', attested: true, weakest: true });
+    expect(view).toMatchObject({ state: 'accepted_provisional', attested: true, weakest: true });
     // As the core has it, a dependent unlocks on accepted, not on provisional: the window has to close first (the pure
     // layer below).
-    expect(await pieceOf(p, 'after')).toMatchObject({ state: 'locked', core: 'locked' });
+    expect(await pieceOf(p, 'after')).toMatchObject({ state: 'locked' });
     expect(tracker.layer().standing(addr(A))).toBe(1);
     // What is left for an AI: the judge piece; the human piece is kept for a person, the attested one is taken, the
     // agree one waits.
@@ -329,7 +324,7 @@ describe('the verifier kinds at the tracker', () => {
     ).challenges.find((x) => x.id === id)!;
     expect(held.outcome).toBe('held');
     expect(held.struck).toHaveLength(2);
-    expect(await pieceOf(p, 'told')).toMatchObject({ state: 'open', core: 'unknown', attested: false });
+    expect(await pieceOf(p, 'told')).toMatchObject({ state: 'open', attested: false });
     expect((await pieceOf(p, 'after')).state).toBe('locked');
     expect(tracker.layer().standing(addr(A))).toBe(1);
     expect(tracker.layer().standing(addr(C))).toBe(2);
@@ -384,7 +379,6 @@ describe('the verifier kinds at the tracker', () => {
     );
     expect(await pieceOf(p, 'vote')).toMatchObject({
       state: 'accepted_provisional',
-      core: 'unknown',
       kind: 'human',
       attested: false,
     });
@@ -427,7 +421,7 @@ describe('the verifier kinds at the tracker', () => {
     const b = await returnOn(p, summary, B, 'openai/gpt', {
       text: 'Problems as patterns of pieces, each return signed.',
     });
-    expect(await pieceOf(p, 'summary')).toMatchObject({ state: 'judging', core: 'unknown', panel: 'open' });
+    expect(await pieceOf(p, 'summary')).toMatchObject({ state: 'judging', panel: 'open' });
     keepReading(t, 'verifiers-judging-1', 'A judge piece with its two candidates in and its panel of three seated.');
     expect((await nextFor(p, E, 'web')).piece).not.toBe(summary);
     const [panel] = await panelsOf(p);
@@ -491,7 +485,6 @@ describe('the verifier kinds at the tracker', () => {
     expect(decided!.seats.filter((s) => s.rank).map((s) => s.rank!.ranking[0])).toEqual([a.digest, b.digest, a.digest]);
     expect(await pieceOf(p, 'summary')).toMatchObject({
       state: 'accepted_provisional',
-      core: 'unknown',
       kind: 'judge',
       panel: 'decided',
     });
@@ -560,7 +553,7 @@ describe('the pure layer', () => {
 
   it("counts a human piece's reveal only from a seat the receipt or the client declares a person's, and the core says unknown throughout", () => {
     const selfAi = [...handIn(A, 0, 'anthropic/claude', {}), ...handIn(B, 5, 'openai/gpt', {})];
-    expect(stateWith('no-seat', selfAi)).toMatchObject({ state: 'needs_verify', core: 'unknown' });
+    expect(stateWith('no-seat', selfAi)).toMatchObject({ state: 'needs_verify' });
     const oneSeat = [...handIn(A, 0, 'anthropic/claude', { seat: 'person' }), ...handIn(B, 5, 'openai/gpt', {})];
     expect(stateWith('one-seat', oneSeat).state).toBe('needs_verify');
     const twoSeats = [
@@ -569,7 +562,6 @@ describe('the pure layer', () => {
     ];
     expect(stateWith('two-seats', twoSeats)).toMatchObject({
       state: 'accepted_provisional',
-      core: 'unknown',
       kind: { kind: 'human', extension: 'QX-3' },
     });
     const twoPeople = [...handIn(A, 0, 'human', {}), ...handIn(B, 5, 'human', {})];
@@ -644,13 +636,12 @@ describe('the pure layer', () => {
     const inside = at(t(10));
     expect(inside.byHash.get(toldPiece)).toMatchObject({
       state: 'accepted_provisional',
-      core: 'unknown',
       attested: true,
     });
-    expect(inside.byHash.get(afterPiece)).toMatchObject({ state: 'locked', core: 'locked' });
+    expect(inside.byHash.get(afterPiece)).toMatchObject({ state: 'locked' });
     const closed = at(t(49 * 60));
-    expect(closed.byHash.get(toldPiece)).toMatchObject({ state: 'accepted', core: 'unknown' });
-    expect(closed.byHash.get(afterPiece)).toMatchObject({ state: 'open', core: 'locked' });
+    expect(closed.byHash.get(toldPiece)).toMatchObject({ state: 'accepted' });
+    expect(closed.byHash.get(afterPiece)).toMatchObject({ state: 'open' });
     expect(closed.fold.complete).toBe(false);
     expect(closed.core.complete).toBe(false);
   });

@@ -755,7 +755,6 @@ function foldProblems(f: Folding, input: ReadInput): Map<Hash, string> {
     f.entries.set(hash, {
       hash,
       line,
-      own,
       core,
       base: core,
       fold: decided.fold,
@@ -853,7 +852,6 @@ function stateOf(f: Folding): Pick<Reading, 'problems' | 'challenges'> {
         asideBy.set(r.event.piece, [...(asideBy.get(r.event.piece) ?? []), r.event.key]);
     const pieces: PieceLayer[] = e.fold.pieces.map((v) => {
       const last = lastChallenge(f, e, v.piece.hash);
-      const core = e.own.byHash.get(v.piece.hash)?.state ?? v.state;
       const record = e.decided.records.get(v.piece.hash) ?? null;
       const state = ownState(f, e, v);
       const kind = e.decided.kinds.get(v.piece.hash)!;
@@ -862,7 +860,6 @@ function stateOf(f: Folding): Pick<Reading, 'problems' | 'challenges'> {
       return {
         hash: v.piece.hash,
         name: v.piece.name,
-        core,
         state,
         challenge: last,
         kind,

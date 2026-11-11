@@ -52,7 +52,7 @@ const { ev, post, get, accepted } = t;
 beforeAll(() => t.listen());
 afterAll(() => t.close());
 
-type Shown = { name: string; hash: Hash; state: string; core: string };
+type Shown = { name: string; hash: Hash; state: string };
 type Panel = { outcome: string; winner: Hash | null; seats: { root: Address }[] };
 const pieces = (problem: Hash): Shown[] => t.tracker.layer().problems.get(problem)!.pieces as Shown[];
 const shown = (problem: Hash, name: string) => pieces(problem).find((p) => p.name === name);
@@ -92,9 +92,6 @@ describe('one record for a line', () => {
     await returned(V1, 'one', A, 'anthropic/claude', SUPPORTS);
     await returned(V2, 'one', B, 'openai/gpt', SUPPORTS);
     for (const v of [V1, V2, SIDE]) expect(stateOf(v, 'one')).toBe('accepted_provisional');
-    // The core's state is version 1's: the older version's own chain holds one of the two readings.
-    expect(shown(V1, 'one')!.core).toBe('needs_verify');
-    expect(shown(V2, 'one')!.core).toBe('accepted_provisional');
   });
 
   it('keeps a piece only a later version holds off the older version, which is not complete for it', async () => {

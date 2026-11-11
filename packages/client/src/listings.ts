@@ -65,16 +65,15 @@ export interface LayerReading {
 }
 
 /**
- * A piece as the tracker that answered holds it in its layer (QX-1, QX-2, QX-3, QX-10): its state beside the core's,
- * and the kind's words as the tracker fills them, with the kind and its strength null where the tracker does not
- * implement the kind.
+ * A piece as the tracker that answered holds it in its layer (QX-1, QX-2, QX-3, QX-10): its one state, as
+ * READING.md section 9 says, and the kind's words as the tracker fills them, with the kind and its strength null
+ * where the tracker does not implement the kind.
  */
 export interface LayerPiece extends Omit<KindWords, 'kind' | 'strength'> {
   hash: Hash;
   name: string;
   verifier: string;
   state: LayerState;
-  core: PieceState;
   kind: string | null;
   strength: string | null;
   attested: boolean;

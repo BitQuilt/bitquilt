@@ -140,7 +140,6 @@ function pieceOf(pl: ProblemLayer, p: PieceLayer, trace: unknown): unknown {
   });
   return plain({
     state: p.state,
-    core: p.core,
     kind: p.kind.kind,
     extension: p.kind.extension,
     strength: p.kind.strength,

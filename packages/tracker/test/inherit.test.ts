@@ -100,7 +100,6 @@ type PieceState = {
   name: string;
   hash: Hash;
   state: string;
-  core: string;
   inherited: Mark;
   seams: { field: string; sides: { key: Address; aside: boolean }[] }[];
 };
@@ -238,7 +237,6 @@ describe("a fork while the source's squares are provisional (QX-23 sections 2 an
       expect(piece.hash).toBe(await hashOf(S, name));
       expect(piece).toMatchObject({
         state: 'inherited',
-        core: 'open',
         inherited: { problem: S, state: 'accepted_provisional' },
       });
     }
@@ -254,7 +252,6 @@ describe("a fork while the source's squares are provisional (QX-23 sections 2 an
     const s = await stateOf(F);
     expect(s.pieces.find((p) => p.name === 'summary')).toMatchObject({
       state: 'locked',
-      core: 'locked',
       inherited: null,
     });
     expect(s.complete).toBe(false);
@@ -344,7 +341,7 @@ describe('a square challenged and struck at the source (QX-23 section 2)', () =>
     expect(movedAtSource).toEqual([-2, -2, 1]);
     // QX-23 section 2: "Where a challenge or the owner's gold strikes the set at the source, the square is gone from
     // every fork at the next read".
-    expect(await pieceOf(FT, 'claim')).toMatchObject({ state: 'open', core: 'open', inherited: null });
+    expect(await pieceOf(FT, 'claim')).toMatchObject({ state: 'open', inherited: null });
     unmovedByForks();
   });
 });
@@ -354,7 +351,7 @@ describe('a fork once the windows at the source have closed (QX-23 sections 3 an
     t.clock.tick += 49 * HOUR;
     for (const name of ['statement/1', 'statement/2'])
       expect(await shown(F, name)).toEqual({ state: 'inherited', inherited: { problem: S, state: 'accepted' } });
-    expect(await pieceOf(F, 'summary')).toMatchObject({ state: 'open', core: 'locked', inherited: null });
+    expect(await pieceOf(F, 'summary')).toMatchObject({ state: 'open', inherited: null });
     expect((await stateOf(F)).complete).toBe(false);
     const alone = layerOver((e) => e.hash === F).problems.get(F)!;
     expect(alone.pieces.map((p) => p.state)).toEqual(['open', 'open', 'locked']);
@@ -403,13 +400,11 @@ describe("the fork's own work on a piece it inherits (QX-23 section 2)", () => {
     await returned(F, 'statement/1', X, 'google/gemini');
     expect(await pieceOf(F, 'statement/1')).toMatchObject({
       state: 'inherited',
-      core: 'needs_verify',
       inherited: { problem: S, state: 'accepted' },
     });
     await returned(F, 'statement/1', Y, 'meta/llama');
     expect(await pieceOf(F, 'statement/1')).toMatchObject({
       state: 'accepted_provisional',
-      core: 'accepted_provisional',
       inherited: null,
     });
   });
@@ -418,7 +413,7 @@ describe("the fork's own work on a piece it inherits (QX-23 section 2)", () => {
     await returned(F, 'statement/2', X, 'google/gemini', 'supports');
     await returned(F, 'statement/2', Y, 'meta/llama', 'contradicts');
     const piece = await pieceOf(F, 'statement/2');
-    expect(piece).toMatchObject({ state: 'inherited', core: 'disputed', inherited: { problem: S, state: 'accepted' } });
+    expect(piece).toMatchObject({ state: 'inherited', inherited: { problem: S, state: 'accepted' } });
     expect(piece.seams.map((s) => s.field)).toEqual(['verdict']);
   });
 
@@ -447,19 +442,18 @@ describe("a challenge at the fork on a set of the fork's own (QX-23 sections 2 a
   let before: number[];
 
   it('is taken by the door on a dependent the inherited inputs opened, and the piece says challenged', async () => {
-    expect(await pieceOf(FC, 'summary')).toMatchObject({ state: 'open', core: 'locked', inherited: null });
+    expect(await pieceOf(FC, 'summary')).toMatchObject({ state: 'open', inherited: null });
     expect(standingOf([...forkPair, forkChallenger])).toEqual([1, 1, 1]);
     await squared(FC, 'summary', forkPair);
     expect(await pieceOf(FC, 'summary')).toMatchObject({
       state: 'accepted_provisional',
-      core: 'locked',
       inherited: null,
     });
     before = standingOf([...forkPair, forkChallenger]);
     expect(before).toEqual([2, 2, 1]);
     const piece = await hashOf(FC, 'summary');
     id = await accepted(`/p/${FC}/events`, ev(forkChallenger, 'challenge', { stake: 1, ground }, FC, piece));
-    expect(await pieceOf(FC, 'summary')).toMatchObject({ state: 'challenged', core: 'locked', inherited: null });
+    expect(await pieceOf(FC, 'summary')).toMatchObject({ state: 'challenged', inherited: null });
     const open = await challengeOf(FC, id);
     expect(open.outcome).toBe('open');
     expect(open.seats).toHaveLength(3);
@@ -474,7 +468,7 @@ describe("a challenge at the fork on a set of the fork's own (QX-23 sections 2 a
     const piece = await hashOf(FC, 'summary');
     expect(pl.core.byHash.get(piece)!.reveals).toHaveLength(2);
     expect(pl.fold.byHash.get(piece)).toMatchObject({ accepting: null, reveals: [] });
-    expect(await pieceOf(FC, 'summary')).toMatchObject({ state: 'open', core: 'locked', inherited: null });
+    expect(await pieceOf(FC, 'summary')).toMatchObject({ state: 'open', inherited: null });
     // The inputs are inherited as they were, and next hands the piece again.
     for (const name of ['statement/1', 'statement/2'])
       expect(await shown(FC, name)).toEqual({ state: 'inherited', inherited: { problem: S, state: 'accepted' } });
@@ -588,14 +582,14 @@ describe("the seams between the fork's own readings on an inherited piece (QX-23
     t.clock.tick += 49 * HOUR;
     inherited.problem = S;
     expect(await shown(S, 'summary')).toEqual({ state: 'accepted', inherited: null });
-    expect(await pieceOf(FS, 'summary')).toMatchObject({ state: 'inherited', core: 'locked', inherited, seams: [] });
+    expect(await pieceOf(FS, 'summary')).toMatchObject({ state: 'inherited', inherited, seams: [] });
     await returned(FS, 'summary', X, 'google/gemini', 'supports');
-    expect(await pieceOf(FS, 'summary')).toMatchObject({ state: 'inherited', core: 'locked', inherited, seams: [] });
+    expect(await pieceOf(FS, 'summary')).toMatchObject({ state: 'inherited', inherited, seams: [] });
     await returned(FS, 'summary', Y, 'meta/llama', 'contradicts');
     const piece = await pieceOf(FS, 'summary');
     // QX-23 section 2: "where they differ, the piece still says `inherited` and the seams between the fork's own
     // readings are shown beside it".
-    expect(piece).toMatchObject({ state: 'inherited', core: 'locked', inherited });
+    expect(piece).toMatchObject({ state: 'inherited', inherited });
     expect(piece.seams.map((s) => [s.field, s.sides.map((side) => [side.key, side.aside])])).toEqual([
       [
         'verdict',
@@ -613,7 +607,6 @@ describe("the seams between the fork's own readings on an inherited piece (QX-23
     await returned(FS, 'statement/1', Y, 'google/gemini');
     expect(await pieceOf(FS, 'statement/1')).toMatchObject({
       state: 'inherited',
-      core: 'needs_verify',
       inherited,
       seams: [],
     });
@@ -626,7 +619,7 @@ describe("the seams between the fork's own readings on an inherited piece (QX-23
     const piece = await hashOf(FC, 'summary');
     expect(pl.core.byHash.get(piece)!.reveals).toHaveLength(3);
     expect(pl.fold.byHash.get(piece)!.reveals.map((rv) => rv.key)).toEqual([addr(late)]);
-    expect(await pieceOf(FC, 'summary')).toMatchObject({ state: 'inherited', core: 'locked', inherited, seams: [] });
+    expect(await pieceOf(FC, 'summary')).toMatchObject({ state: 'inherited', inherited, seams: [] });
   });
 });
 

@@ -47,8 +47,6 @@ export interface ProblemEntry {
   hash: Hash;
   /** The version with the rest of its line, and the line's record (READING.md sections 2 and 3). */
   line: Line;
-  /** Version 1's reduce of the version's own chain, kept for the core's states. */
-  own: State;
   /** The reduce of the line's record with nothing struck, every reading in it. */
   core: State;
   /** The reduce of the line's record without the struck events. */

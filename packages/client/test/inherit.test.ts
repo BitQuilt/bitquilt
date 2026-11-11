@@ -48,7 +48,7 @@ const pattern: Pattern = {
   },
 };
 
-type StateView = { pieces: { name: string; hash: Hash; state: string; core: string; inherited: unknown }[] };
+type StateView = { pieces: { name: string; hash: Hash; state: string; inherited: unknown }[] };
 type NextAnswer = { piece: Hash | null; name?: string; state?: string; brief?: string };
 const NOTHING = 'nothing for this key on that problem right now';
 const address = (q: Quilt) => q.identity!.address;
@@ -156,10 +156,10 @@ describe("a fork once the source's windows have closed (QX-23 sections 3 and 5)"
     expect((await opened(c)).slice(4, 7)).toEqual(['^^.', '2 inherited, 1 open', inheritedLine('2 accepted')]);
     // The card's reader carries the mark on each inherited piece and none on the other.
     const card = await windowAnswer(c, { op: 'open', link: fork });
-    expect(card.op === 'open' && card.pieces.map((x) => [x.name, x.state, x.core, x.inherited])).toEqual([
-      ['statement/1', 'inherited', 'open', { problem: p, state: 'accepted' }],
-      ['statement/2', 'inherited', 'open', { problem: p, state: 'accepted' }],
-      ['summary', 'open', 'locked', null],
+    expect(card.op === 'open' && card.pieces.map((x) => [x.name, x.state, x.inherited])).toEqual([
+      ['statement/1', 'inherited', { problem: p, state: 'accepted' }],
+      ['statement/2', 'inherited', { problem: p, state: 'accepted' }],
+      ['summary', 'open', null],
     ]);
   });
 

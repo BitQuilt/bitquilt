@@ -392,7 +392,6 @@ describe('the coin as a layer', () => {
     // still says accepted.
     expect(await pieceOf(p, p3)).toMatchObject({
       state: 'in_flight',
-      core: 'accepted_provisional',
       gold: 'miss',
       verified: false,
     });

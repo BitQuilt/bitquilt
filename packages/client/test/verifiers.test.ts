@@ -71,7 +71,7 @@ const judgePattern: Pattern = {
 };
 const trackerState = async (problem: Hash, piece: Hash) => {
   const s = await json<{
-    pieces: { hash: Hash; state: string; core: string; attested: boolean; strength: string | null }[];
+    pieces: { hash: Hash; state: string; attested: boolean; strength: string | null }[];
   }>(`${base}p/${problem}/state`);
   return s.pieces.find((x) => x.hash === piece)!;
 };
@@ -159,7 +159,6 @@ describe('an attest piece of the promotion pattern', () => {
     );
     expect(await trackerState(tell, pick.piece.hash)).toMatchObject({
       state: 'accepted_provisional',
-      core: 'unknown',
       attested: true,
       strength: 'attested',
     });
@@ -186,7 +185,6 @@ describe('an attest piece of the promotion pattern', () => {
     expect(opened.status).toBe(200);
     const pieces = opened.body.pieces as {
       state: string;
-      core: string;
       verifier: string;
       strength: string;
       weakest: boolean;
@@ -194,9 +192,7 @@ describe('an attest piece of the promotion pattern', () => {
     }[];
     expect(pieces).toHaveLength(20);
     expect(pieces.every((p) => p.verifier === 'attest' && p.strength === 'attested' && p.weakest)).toBe(true);
-    expect(pieces.filter((p) => p.attested && p.state === 'accepted_provisional' && p.core === 'unknown')).toHaveLength(
-      1,
-    );
+    expect(pieces.filter((p) => p.attested && p.state === 'accepted_provisional')).toHaveLength(1);
     expect(opened.body.kinds).toContain('20 attest (attested');
     expect(opened.body.judging).toEqual([]);
   });
@@ -222,7 +218,7 @@ describe('a judge piece', () => {
     const pb = await b.next(judged);
     expect(pb.pick.piece.hash).toBe(piece);
     await b.return(judged, piece, rb);
-    expect(await trackerState(judged, piece)).toMatchObject({ state: 'judging', core: 'unknown', strength: 'judged' });
+    expect(await trackerState(judged, piece)).toMatchObject({ state: 'judging', strength: 'judged' });
     await expect(c.next(judged)).rejects.toThrow(/nothing for this key/);
     const panels = await c.panels(judged, base);
     expect(panels).toHaveLength(1);
@@ -293,7 +289,6 @@ describe('a judge piece', () => {
     expect(posted.body.queued).toBe(false);
     expect(await trackerState(judged, piece)).toMatchObject({
       state: 'accepted_provisional',
-      core: 'unknown',
       strength: 'judged',
       attested: false,
     });

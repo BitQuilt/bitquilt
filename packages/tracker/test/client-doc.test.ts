@@ -272,7 +272,7 @@ async function returned(
 
 /** The state's answer, as the page names it. */
 interface StateAnswer {
-  pieces: { hash: Hash; name: string; state: string; core: string; reveals: number; traces: number }[];
+  pieces: { hash: Hash; name: string; state: string; reveals: number; traces: number }[];
   dropped: { id: Hash; type: string; why: string }[];
 }
 /** What next answers, as the page names it. */
@@ -603,7 +603,7 @@ describe('CLIENT.md, when next hands nothing', () => {
     const piece = (await t.get<NextAnswer>(`/p/${f}/next?key=${addr(B)}&can=web,files&model=openai/gpt-5`)).piece!;
     await returned(t, f, B, 'openai/gpt-5', piece, { verdict: 'supports', quote: 'The file says so.' });
     const { pieces } = await t.get<StateAnswer>(`/p/${f}/state`);
-    expect(pieces.find((x) => x.hash === piece)!.core).toBe('accepted_provisional');
+    expect(pieces.find((x) => x.hash === piece)!.state).toBe('accepted_provisional');
     t.clock.tick += 60_000;
     expect(await ask(A)).toEqual(nothing);
     expect(await t.get<NextAnswer>(`/p/${f}/next?key=${addr(A)}&can=web,files&model=meta/llama`)).toEqual(nothing);
@@ -705,7 +705,7 @@ describe('CLIENT.md, what a 202 does not say', () => {
     revealed = id;
     const { pieces: after, dropped } = await state();
     const piece = after.find((x) => x.hash === pieces['cite/1'])!;
-    expect([piece.state, piece.core, piece.reveals]).toEqual(['needs_verify', 'needs_verify', 1]);
+    expect([piece.state, piece.reveals]).toEqual(['needs_verify', 1]);
     expect(dropped.map((d) => d.id)).not.toContain(id);
     expect(DOC).toContain('It is optional: the door takes a commit and a reveal with no claim before them');
     const lines = await log(t, g);
@@ -796,14 +796,17 @@ describe('CLIENT.md, what a 202 does not say', () => {
     expect(lines.filter((l) => eventId(l.event) === revealed).map((l) => l.event.type)).toEqual(['reveal']);
   });
 
-  it("names the state's pieces by hash and name, each with its layer's state and the core's, and dropped beside", async () => {
+  it("names the state's pieces by hash and name, each with its one state, and dropped beside", async () => {
     const answer = await state();
     expect(Array.isArray(answer.pieces) && Array.isArray(answer.dropped)).toBe(true);
     for (const x of answer.pieces)
-      for (const k of ['hash', 'name', 'state', 'core', 'reveals', 'traces']) expect(x).toHaveProperty(k);
+      for (const k of ['hash', 'name', 'state', 'reveals', 'traces']) expect(x).toHaveProperty(k);
+    // READING.md section 12, One state: the `core` field went at the switch.
+    for (const x of answer.pieces) expect(x).not.toHaveProperty('core');
     const said = section('## After a return');
-    for (const k of ['pieces', 'hash', 'name', 'state', 'core', 'reveals', 'traces', 'dropped', '{ id, type, why }'])
+    for (const k of ['pieces', 'hash', 'name', 'state', 'reveals', 'traces', 'dropped', '{ id, type, why }'])
       expect(said, k).toContain(`\`${k}\``);
+    expect(said).toContain('Each has one `state` (READING.md section 9)');
   });
 });
 
@@ -1459,7 +1462,7 @@ describe('CLIENT.md, what a client that reduces reads', () => {
     expect(reduced([own, ancestor, identity])).toBe('accepted_provisional');
     expect(reduced([own, identity])).toBe('open');
     const { pieces } = await t.get<StateAnswer>(`/p/${v2}/state`);
-    expect(pieces.find((x) => x.hash === piece)!.core).toBe('accepted_provisional');
+    expect(pieces.find((x) => x.hash === piece)!.state).toBe('accepted_provisional');
   });
 });
 

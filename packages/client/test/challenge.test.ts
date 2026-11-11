@@ -67,7 +67,7 @@ afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
 const pieceOf = async (problem: Hash, n: number): Promise<Hash> => (await a.open(problem)).state.pieces[n]!.piece.hash;
 const trackerState = async (problem: Hash, piece: Hash) => {
-  const s = await json<{ pieces: { hash: Hash; state: string; core: string }[] }>(`${base}p/${problem}/state`);
+  const s = await json<{ pieces: { hash: Hash; state: string }[] }>(`${base}p/${problem}/state`);
   return s.pieces.find((x) => x.hash === piece)!;
 };
 
@@ -129,7 +129,6 @@ describe('challenge and verdict from the client', () => {
     expect(held!.outcome).toBe('held');
     const after = await trackerState(p, p1);
     expect(after.state).toBe('open');
-    expect(after.core).toBe('accepted_provisional');
     const { state } = await c.open(p);
     const text = c.challengesText([held!], state);
     expect(text).toContain('held: the acceptance was struck and the piece is open again');
