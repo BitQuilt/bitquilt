@@ -27,6 +27,12 @@ WHY_SET_VENDOR = "the set holds a reading from its vendor"
 WHY_SET_ROOT = "its root is related to the root of a reading in the set"
 WHY_LATE = "the set was made before it"
 WHY_ROOT = "its root is related to the root of an earlier reading"
+# The reasons READING.md section 3 gives an order to and no fixture holds.
+WHY_WITHOUT = "the set was made without it"
+WHY_FULL = "the readings the piece asks for stood before it"
+WHY_SAME = "an earlier candidate gave the same return"
+WHY_CANDIDATES = "the candidates were in before it"
+WHY_VERIFIER = "its piece asks a verifier this reading does not implement"
 
 # What each verifier says of itself beside a piece's state: its kind, the extension that defines it, and how
 # strongly it earns a square. The table is in no one document (FINDINGS-2.md); the fixtures hold each row.
@@ -127,7 +133,8 @@ def agree_pass(line, rec, seat=None):
     piece, "as `agree`, with the seat where the vendor was": a reading not from a person's seat counts for
     nothing.
 
-    Returns the set, or None, and says how each reading counts in `rec.counts`."""
+    Returns the set, or None, and says how each reading counts in `rec.counts`, each reason asked in the order
+    READING.md section 3 writes them for `agree` and `human`."""
     ident = line.identity
     counts = rec.counts
     live = []
@@ -141,15 +148,13 @@ def agree_pass(line, rec, seat=None):
         live.append(r)
     found = find_set(line, rec, live, seat is None)
     if found is None:
-        # No set: a reading counts toward one unless its vendor has said the same already. A second reading from
-        # one root counts toward one too, on a human piece at least (fixture verifiers-human-one-root).
-        toward = []
-        for r in live:
-            if seat is None and any(a.vendor == r.vendor and agree(rec, a.ret, r.ret) for a in toward):
+        # READING.md section 3, where the piece has no set: "an earlier reading from its vendor, not the owner's,
+        # agrees with it". "A second reading from one root is `counted` while no set is made."
+        for j, r in enumerate(live):
+            if seat is None and any(a.vendor == r.vendor and agree(rec, a.ret, r.ret) for a in live[:j]):
                 counts[r.id] = ("kept", WHY_VENDOR_SAME)
             else:
                 counts[r.id] = ("counted", None)
-                toward.append(r)
         return None
     members = {m.id for m in found.members}
     first = found.members[0]
@@ -160,12 +165,12 @@ def agree_pass(line, rec, seat=None):
             counts[r.id] = ("kept", WHY_LATE)
         elif not agree(rec, first.ret, r.ret):
             counts[r.id] = ("kept", WHY_DIFFERS)
-        elif any(ident.related(m.root, r.root, r.at) for m in found.members):
-            counts[r.id] = ("kept", WHY_SET_ROOT)
         elif seat is None and any(m.vendor == r.vendor for m in found.members):
             counts[r.id] = ("kept", WHY_SET_VENDOR)
+        elif any(ident.related(m.root, r.root, r.at) for m in found.members):
+            counts[r.id] = ("kept", WHY_SET_ROOT)
         else:
-            counts[r.id] = ("counted", None)
+            counts[r.id] = ("kept", WHY_WITHOUT)
     return found
 
 
@@ -207,7 +212,7 @@ def record_pass(line, rec, n):
         elif any(line.identity.related(a.root, r.root, r.at) for a in standing):
             rec.counts[r.id] = ("kept", WHY_ROOT)
         elif len(standing) >= n:
-            rec.counts[r.id] = ("kept", WHY_LATE)
+            rec.counts[r.id] = ("kept", WHY_FULL)
         else:
             rec.counts[r.id] = ("counted", None)
             standing.append(r)

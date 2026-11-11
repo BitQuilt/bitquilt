@@ -14,7 +14,8 @@ from .canonical import canonical
 from .hashes import hash_json
 from .identity import same_address
 from .grounds import fold_traces, set_aside, seams_of, traced
-from .kinds import KIND_WORDS, kind_of, agree_pass, attest_pass, record_pass, person_seat, differ, find_set
+from .kinds import KIND_WORDS, WHY_VERIFIER, kind_of, agree_pass, attest_pass, record_pass, person_seat, differ
+from .kinds import find_set
 from .decisions import Decisions
 from .inherit import Reach
 from .propose import proposals_said
@@ -76,8 +77,11 @@ class Read:
         elif kind == "judge":
             rec.set = self.dec.judge(line, rec, n)
         else:
+            # READING.md section 3: "Any other verifier: every reading says" that its piece asks one unknown here.
+            # A `check` or a `score` piece's readings are counted, and no fixture of reading 2 holds a run.
+            why = ("counted", None) if kind is not None else ("kept", WHY_VERIFIER)
             for r in rec.live():
-                rec.counts[r.id] = ("counted", None)
+                rec.counts[r.id] = why
 
     # Section 9, the state.
 
