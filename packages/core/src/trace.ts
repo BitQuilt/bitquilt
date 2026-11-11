@@ -14,7 +14,7 @@
 import { type Event, type Receipt, earliestReceipt, eventId } from './events.js';
 import { type Hash, hashCanonical, isHash } from './hash.js';
 import type { Address } from './keys.js';
-import type { RecordView } from './kinds.js';
+import { type RecordView, kindOf } from './kinds.js';
 import { isRecord, isTime, whole } from './plain.js';
 import type { PieceView, Reveal, State } from './reduce.js';
 import { type Schema, agreeFields, returnsAgree } from './schema.js';
@@ -409,7 +409,8 @@ export function restsOf(
 /**
  * Where the fold calls the piece disputed, its seams, pair by pair, and the reveals to set aside (section 4): in each
  * pair, the side that rests on nothing on every field the two differ on, where the other rests on a kept read on each,
- * loses; mixed, neither does. A reading that loses any pair is set aside, and every seam it is a side of says so.
+ * loses; mixed, neither does. A reading that loses any pair is set aside, and every seam it is a side of says so. No
+ * candidate of a judge piece is set aside: where its panel is void its seams are shown as they are.
  * `passage` reads a span of a blob as text, or null where the blob is not here.
  */
 export function seamed(
@@ -428,12 +429,15 @@ export function seamed(
   if (pairs.length === 0) return { seams, aside };
   const side = sideOf(view, receipts, traces, passage);
   const grounded = (s: SeamSide) => s.read !== null && s.span !== null;
+  // READING.md section 4: "The grounds set aside no candidate of a `judge:n` piece." Its candidates differ by nature
+  // and its panel ranks them, so where its panel is void the seams are shown and no side of one is set aside.
+  const ranked = kindOf(view.piece.verifier)?.kind === 'judge';
   const losers = new Set<Reveal>();
   const owners: [Reveal, Reveal][] = [];
   for (const pair of pairs) {
     const own = pairSeams(schema, fields, pair, side);
     const loses = (i: 0 | 1) =>
-      own.length > 0 && own.every((s) => !grounded(s.sides[i]) && grounded(s.sides[i === 0 ? 1 : 0]));
+      !ranked && own.length > 0 && own.every((s) => !grounded(s.sides[i]) && grounded(s.sides[i === 0 ? 1 : 0]));
     if (loses(0)) losers.add(pair[0]);
     else if (loses(1)) losers.add(pair[1]);
     for (const s of own) {

@@ -289,8 +289,8 @@ class Decisions:
         lease = rec.spec.get("lease_h")
         lease = hours(lease if isinstance(lease, (int, float)) and not isinstance(lease, bool) else version.settings["lease_h"])
         p = Thing(rec=rec, n=n, majority=n // 2 + 1, wanted=wanted, cands=cands, seed=seed, at=t, at_text=last.at_text,
-                  order=draw(seed, pool) if seed is not None else [], board=None, outcome="open", winner=None,
-                  decided=None, decided_text=None)
+                  order=draw(seed, pool) if seed is not None and len(pool) >= n else [], board=None, outcome="open",
+                  winner=None, decided=None, decided_text=None)
         self.panels[key] = p
         if seed is None:
             return None
@@ -643,7 +643,8 @@ class Decisions:
         pool = self.pool(line, rec, t, out)
         c = Thing(id=entry["id"], line=line, rec=rec, version=version, key=ev["key"], root=root, at=t,
                   at_text=entry["at_text"], stake=stake, ground=ground, against=against, parties=parties, seed=seed,
-                  order=draw(seed, pool) if seed is not None else [], board=None, outcome="open", decided=None,
+                  order=draw(seed, pool) if seed is not None and len(pool) >= 3 else [], board=None, outcome="open",
+                  decided=None,
                   struck=[], set=s, miss=miss)
         self.challenges.append(c)
         if seed is None:
