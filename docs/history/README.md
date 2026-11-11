@@ -11,7 +11,7 @@ These say what was done and decided, and when. Each is kept whole as it was writ
 | 27 October 2026 | [AUDIT.md](AUDIT.md) | The readability audit: what five readers met, what changed, and what was left | The conventions a change keeps: [AGENTS.md](../../AGENTS.md) |
 | 28 October 2026 | [COIN-AUDIT.md](COIN-AUDIT.md) | Whether standing and the coin should be one thing, and what the emission should be | Why they are two, and the parameters decided: [COIN.md](../COIN.md); the rules: [ext/QX-17.md](../ext/QX-17.md) |
 | 28 October 2026 | [JOURNEY-AUDIT.md](JOURNEY-AUDIT.md) | The path from the site to a solved square, where it broke, and the walks of 1 November | The stranger's walk and the order of deployment: [DEPLOY.md](../DEPLOY.md), "The walk" and "Bringing it up, in order"; the funnel at `GET /counts`: DEPLOY.md, "Keeping it"; a key at first use: [APP.md](../APP.md), "The shell on a Mac" |
-| 10 November 2026 | [V2-PLAN.md](V2-PLAN.md) | The plan for version 2 of the core: the record first, the wire frozen and the reading numbered, one fold, and the order it would be built in | Nothing yet: it is a plan to decide on, and none of it is built |
+| 10 November 2026 | [V2-PLAN.md](V2-PLAN.md) | The plan for version 2 of the core: the record first, the wire frozen and the reading numbered, one fold, and the order it would be built in | Decided 11 November 2026. Phase 1 is [the wire](../v2/WIRE.md), frozen, and [reading 2](../v2/READING.md), a draft; no code yet |
 
 Other records stay where a reader meets them:
 
