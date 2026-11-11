@@ -13,7 +13,7 @@ import {
 } from '@bitquilt/core';
 import { challengeLayer } from '../src/challenge.js';
 import { coinEventRefusal, coinLayer } from '../src/coin.js';
-import { reduceInputOf } from '../src/store.js';
+import { reduceInputOf } from '@bitquilt/core';
 import { VERDICT_QUOTE, addr, boot, envelope as signed, key } from './helpers.js';
 
 /**

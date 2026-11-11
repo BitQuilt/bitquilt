@@ -19,6 +19,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "conform": "tsx src/conformance.ts fixtures fixtures/clarifications",
+    "conform:2": "tsx src/conformance.ts fixtures/reading-2",
     "verify": "tsx src/verify.ts"
   },
   "dependencies": {

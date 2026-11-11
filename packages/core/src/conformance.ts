@@ -4,6 +4,11 @@
  * library it is a test; run against another implementation it is the definition of being a BitQuilt client.
  *
  *   tsx src/conformance.ts fixtures fixtures/clarifications
+ *
+ * A fixture of reading 2 (docs/v2/READING.md section 11) is a ledger and what the read says of it at each time, and
+ * the same script runs the core's `read` over each under a folder of them (`checkReading`):
+ *
+ *   tsx src/conformance.ts fixtures/reading-2
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -11,6 +16,7 @@ import type { Envelope } from './envelope.js';
 import type { Receipt } from './events.js';
 import { type Hash, hashBytes } from './hash.js';
 import type { Address } from './keys.js';
+import { type ReadingFixture, readLedger, saidOf } from './ledger.js';
 import { type Client, next } from './next.js';
 import { reduce } from './reduce.js';
 
@@ -67,22 +73,54 @@ export function checkFixture(f: Fixture): string[] {
   return problems;
 }
 
-/** Every `.json` file under `dir`, in name order, read as a fixture; the folder's README says what one holds. */
-export function loadFixtures(dir: string): Fixture[] {
+/** Where two JSON values differ, each place by its path with what is there and what was expected. */
+function apart(got: unknown, want: unknown, path: string, out: string[]): string[] {
+  const object = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+  if (object(got) && object(want) && Array.isArray(got) === Array.isArray(want)) {
+    for (const k of new Set([...Object.keys(got), ...Object.keys(want)])) apart(got[k], want[k], `${path}/${k}`, out);
+  } else if (got !== want)
+    out.push(`${path || '/'}: ${JSON.stringify(got) ?? 'nothing'}, expected ${JSON.stringify(want) ?? 'nothing'}`);
+  return out;
+}
+
+/** The ways this implementation's read of a ledger differs from the fixture's, at each time, or nothing. */
+export function checkReading(f: ReadingFixture): string[] {
+  const problems: string[] = [];
+  for (const r of f.readings) {
+    // What the read says is compared as its JSON gives it back, as a fixture's file holds it.
+    const said = JSON.parse(JSON.stringify(saidOf(readLedger(f.ledger, r.now), f.ledger))) as unknown;
+    for (const d of apart(said, r.expect, '', [])) problems.push(`at ${r.now}, ${d}`);
+  }
+  return problems;
+}
+
+/** Every `.json` file under `dir`, in name order, as it parses; the folder's README says what one holds. */
+function filesOf(dir: string): unknown[] {
   return readdirSync(dir)
     .filter((f) => f.endsWith('.json'))
     .sort()
-    .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')) as Fixture);
+    .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')) as unknown);
+}
+
+/** Every `.json` file under `dir`, in name order, read as a fixture; the folder's README says what one holds. */
+export function loadFixtures(dir: string): Fixture[] {
+  return filesOf(dir) as Fixture[];
+}
+
+/** Every `.json` file under `dir`, in name order, read as a fixture of reading 2. */
+export function loadReadings(dir: string): ReadingFixture[] {
+  return filesOf(dir) as ReadingFixture[];
 }
 
 // Run as a script when invoked directly (`pnpm conform`); imported by the tests, this file only exports.
 if (process.argv[1] && /conformance\.(ts|js)$/.test(process.argv[1])) {
   // One folder or several: `pnpm conform` passes the fixtures and the clarifications beside them.
   const dirs = process.argv.length > 2 ? process.argv.slice(2) : ['fixtures'];
-  const fixtures = dirs.flatMap((dir) => loadFixtures(dir));
+  const fixtures = dirs.flatMap((dir) => filesOf(dir) as (Fixture | ReadingFixture)[]);
   let failed = 0;
   for (const f of fixtures) {
-    const problems = checkFixture(f);
+    // A fixture of reading 2 says so, and is read by `read`; any other is version 1's, and is reduced.
+    const problems = 'reading' in f ? checkReading(f) : checkFixture(f);
     if (problems.length) {
       failed++;
       console.log(`FAIL ${f.name}`);

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Hash, type Receipt, commitHash, eventId, hashBytes, newNonce, problemHash, reduce } from '@bitquilt/core';
 import { DEPTH_MAX, PIECES_MAX } from '../src/admit.js';
-import { reduceInputOf } from '../src/store.js';
+import { reduceInputOf } from '@bitquilt/core';
 import { VERDICT, addr, boot, envelope, key, line } from './helpers.js';
 
 /**

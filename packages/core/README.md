@@ -8,7 +8,7 @@ CORE.md is frozen as version 1 (its section 10 and AGENTS.md, rule 1), and the f
 
 ## The scripts
 
-- `bitquilt-conform` (`src/conformance.ts`; `pnpm conform` at the root): runs every fixture under a folder and prints `ok` or the differences for each, then a total. Against this library it is a test; against another implementation it is the definition of being a BitQuilt client.
+- `bitquilt-conform` (`src/conformance.ts`; `pnpm conform` at the root): runs every fixture under a folder and prints `ok` or the differences for each, then a total. Against this library it is a test; against another implementation it is the definition of being a BitQuilt client. Given `fixtures/reading-2` it runs the fixtures of reading 2 through `read` (`pnpm conform:2` at the root).
 - `bitquilt-verify` (`src/verify.ts`; `pnpm --filter @bitquilt/core verify`): given a problem's chained receipts and its hash, and optionally its envelopes and blobs, checks the chain and every signature against its key, then runs the reducer and prints the map. Clone and compute, with no trust in any site.
 
 ## The fixtures
@@ -25,4 +25,5 @@ CORE.md is frozen as version 1 (its section 10 and AGENTS.md, rule 1), and the f
 pnpm --filter @bitquilt/core typecheck   # the source and the tests
 npx vitest run packages/core
 pnpm conform
+pnpm conform:2
 ```

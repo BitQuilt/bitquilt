@@ -2,9 +2,9 @@
  * The tracker's store: SQLite through Node's own module, so a tracker runs anywhere Node runs with nothing to compile.
  * Envelopes and blobs by hash; receipts as one chained file per problem (QX-11), stamped strictly increasing; names
  * from version events; announcements for the index (QX-13); the rate-limit buckets; short holds for assisted next;
- * the hosted on-ramp's members, and the clients, codes and grants of its authorization server (QX-18). Beside it, the
- * input the reducer takes for a problem, read from any store that answers an envelope, a blob and a log's lines, so
- * the door and the mirror fold the same chains the same way.
+ * the hosted on-ramp's members, and the clients, codes and grants of its authorization server (QX-18). The input the
+ * reducer takes for a problem is read from it by the core's `reduceInputOf`, as from any store that answers an
+ * envelope, a blob and a log's lines, so the door and the mirror fold the same chains the same way.
  */
 import { DatabaseSync } from 'node:sqlite';
 import {
@@ -13,12 +13,9 @@ import {
   type Hash,
   type Receipt,
   type Received,
-  type ReduceInput,
-  IDENTITY_LOG,
   eventId,
   lineHash,
   hashHex,
-  problemHash,
 } from '@bitquilt/core';
 import type { MemberTimes } from './counts.js';
 
@@ -750,43 +747,4 @@ export class Store {
       .all(problem, key, now) as { piece: string }[];
     return new Set(rows.map((r) => r.piece as Hash));
   }
-}
-
-/**
- * What `reduceInputOf` reads a problem from: an envelope by its hash, a blob by its hash, and every line of a log. The
- * tracker's store answers it, and so do the mirror's files and a node's store under the keeper (`KeptStore` in
- * packages/mirror), which share the shape and do not import it.
- */
-export interface ChainReader {
-  envelopeOf(hash: Hash): Envelope | null;
-  getBlob(hash: Hash): Uint8Array | null;
-  lines(log: Hash): Receipt[];
-}
-
-/**
- * What the reducer takes for a problem held here: its envelope chain along prev, the blobs, every receipt along the
- * chain and the identity log.
- */
-export function reduceInputOf(store: ChainReader, envelope: Envelope, at: string): ReduceInput {
-  const chainEnvelopes: Envelope[] = [envelope];
-  const guard = new Set<Hash>([problemHash(envelope)]);
-  for (let cur = envelope.problem.prev; cur && !guard.has(cur); ) {
-    guard.add(cur);
-    const prev = store.envelopeOf(cur);
-    if (!prev) break;
-    chainEnvelopes.push(prev);
-    cur = prev.problem.prev;
-  }
-  const blobs = new Map<Hash, Uint8Array>();
-  for (const e of chainEnvelopes)
-    for (const h of Object.values(e.problem.data))
-      if (!blobs.has(h)) {
-        const b = store.getBlob(h);
-        if (b) blobs.set(h, b);
-      }
-  const receipts: Receipt[] = [];
-  // Line by line, not spread into one call, which a log of more than about a hundred thousand lines would overflow.
-  for (const e of chainEnvelopes) for (const l of store.lines(problemHash(e))) receipts.push(l);
-  for (const l of store.lines(IDENTITY_LOG)) receipts.push(l);
-  return { envelopes: chainEnvelopes, blobs, receipts, now: at };
 }

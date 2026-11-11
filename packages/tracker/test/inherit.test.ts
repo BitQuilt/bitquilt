@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Address, type Envelope, type Hash, canonical, commitHash, newNonce, recordOutput } from '@bitquilt/core';
 import { type Layer, challengeLayer } from '../src/challenge.js';
 import { linesFromLayer } from '../src/coin.js';
-import { reduceInputOf } from '../src/store.js';
+import { reduceInputOf } from '@bitquilt/core';
 import { VERDICT, addr, boot, envelope, key } from './helpers.js';
 
 /**

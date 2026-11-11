@@ -4,14 +4,8 @@
  * (AGENTS.md, The shape of it) says what each file holds and which extension it carries out. The tracker's own tests
  * import its files themselves.
  */
-export {
-  Store,
-  reduceInputOf,
-  type ChainReader,
-  type OAuthClientRow,
-  type OAuthCodeRow,
-  type GrantRow,
-} from './store.js';
+export { Store, type OAuthClientRow, type OAuthCodeRow, type GrantRow } from './store.js';
+export { type ChainReader, reduceInputOf } from '@bitquilt/core';
 export { createTracker, IDENTITY, type Tracker, type TrackerOptions } from './tracker.js';
 export { schedulePeerPulls, PEER_PULL, PEER_PULL_EVERY_MS, type PeerPull } from './peers.js';
 export { json } from './http.js';
