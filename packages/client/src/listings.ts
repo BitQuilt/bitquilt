@@ -49,6 +49,22 @@ export interface RecordGrade {
 }
 
 /**
+ * One reading of a piece as a tracker's layer says it (READING.md section 3): the reveal's id, the version it names,
+ * who gave it, how it counts, why where it counts for nothing, and the decision that struck it where one did.
+ */
+export interface LayerReading {
+  id: Hash;
+  problem: Hash | null;
+  key: string;
+  root: string;
+  vendor: string;
+  at: string;
+  counts: 'counted' | 'kept' | 'aside' | 'struck';
+  why: string | null;
+  by: Hash | null;
+}
+
+/**
  * A piece as the tracker that answered holds it in its layer (QX-1, QX-2, QX-3, QX-10): its state beside the core's,
  * and the kind's words as the tracker fills them, with the kind and its strength null where the tracker does not
  * implement the kind.
@@ -94,6 +110,12 @@ export interface LayerPiece extends Omit<KindWords, 'kind' | 'strength'> {
   seams?: Seam[];
   /** QX-19 section 4: the keys whose reading of this piece the layer set aside. */
   aside?: string[];
+  /**
+   * READING.md section 3: every reading of the piece in receipt order, each named by its reveal's id, with how it
+   * counts, why where it counts for nothing, and the decision that struck it where one did. Absent from a tracker
+   * older than 11 November 2026.
+   */
+  readings?: LayerReading[];
   /** QX-20: on a record piece, its grade; null or absent on every other kind. */
   record?: RecordGrade | null;
   /**

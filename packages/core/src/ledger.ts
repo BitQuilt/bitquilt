@@ -149,6 +149,7 @@ function pieceOf(pl: ProblemLayer, p: PieceLayer, trace: unknown): unknown {
     gold: p.gold,
     verified: p.verified,
     aside: [...p.aside].sort(),
+    readings: p.readings,
     inherited: p.inherited,
     challenge: p.challenge?.id ?? null,
     set: set && {

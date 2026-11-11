@@ -64,6 +64,12 @@ export interface ProblemEntry {
    * the other rests on the record.
    */
   aside: Set<Hash>;
+  /**
+   * The decision that struck each reveal still struck here, by the reveal's id: a held challenge (QX-1 section 6), or
+   * the owner's gold reveal that missed (QX-16 section 3). READING.md section 3: a struck reading is on the record
+   * "with the decision that struck it".
+   */
+  struckBy: Map<Hash, { kind: 'challenge' | 'gold'; id: Hash }>;
   challenges: ChallengeView[];
   dropped: Dropped[];
   /** The stake rules kept (QX-15), in receipt order. */

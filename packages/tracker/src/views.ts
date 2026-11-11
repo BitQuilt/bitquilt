@@ -311,6 +311,8 @@ export function state({ store, now, hidden, tracesOf }: Reads, hash: Hash, layer
         traced: t.traced,
         seams: t.seams,
         aside: l.aside,
+        // READING.md section 3: every reading of the piece, each with how it counts and why.
+        readings: l.readings,
         record: t.record,
         // QX-23 section 2: where the state is `inherited`, the problem where the square stands and its state there.
         inherited: l.inherited,
