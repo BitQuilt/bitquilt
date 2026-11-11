@@ -1,5 +1,5 @@
+import { type LayerState, carriesSet, countsAsAccepted } from '@bitquilt/core';
 import { describe, expect, it } from 'vitest';
-import { type LayerState, carriesSet, countsAsAccepted } from '../src/challenge.js';
 
 /**
  * The layer's two groups of states, each said once beside LayerState (QX-1): a piece counts as accepted while its set

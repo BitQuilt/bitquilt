@@ -12,12 +12,14 @@ import {
   type Receipt,
   type ReduceInput,
   type State,
+  acceptingRoots,
+  carriesSet,
+  countsAsAccepted,
   isRecord,
   leaseOf,
   next,
 } from '@bitquilt/core';
-import { type Layer, type ProblemLayer, carriesSet, countsAsAccepted } from './challenge.js';
-import { acceptingRoots } from './standing.js';
+import type { Layer, ProblemLayer } from './challenge.js';
 
 export const SEEDING = 'QX-4';
 export const RECIPROCITY = 'QX-5';

@@ -13,3 +13,7 @@ export * from './reduce.js';
 export * from './next.js';
 export * from './sortition.js';
 export * from './kinds.js';
+export * from './challenge.js';
+export * from './stake.js';
+export * from './gold.js';
+export * from './standing.js';

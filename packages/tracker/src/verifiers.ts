@@ -4,8 +4,15 @@
  * kinds themselves, decided over the fold, and the three checks a rank is held to there and here, moved into the core
  * as docs/history/V2-PLAN.md, phase 3, says: they are `kinds.ts` there.
  */
-import { type Address, type Hash, panelSeatProblem, rankBodyProblems, rankingProblem, rootFor } from '@bitquilt/core';
-import type { Folding } from './standing.js';
+import {
+  type Address,
+  type Folding,
+  type Hash,
+  panelSeatProblem,
+  rankBodyProblems,
+  rankingProblem,
+  rootFor,
+} from '@bitquilt/core';
 import type { Admission, Layer } from './challenge.js';
 
 /**

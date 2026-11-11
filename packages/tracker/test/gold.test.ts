@@ -1,6 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Address, type Envelope, type Hash, commitHash, newNonce, problemHash } from '@bitquilt/core';
-import { matchedCommitments } from '../src/gold.js';
+import {
+  type Address,
+  type Envelope,
+  type Hash,
+  commitHash,
+  matchedCommitments,
+  newNonce,
+  problemHash,
+} from '@bitquilt/core';
 import { VERDICT_QUOTE, addr, boot, envelope as signed, key, layerOf } from './helpers.js';
 
 /**

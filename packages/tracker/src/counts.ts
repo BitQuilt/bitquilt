@@ -8,9 +8,8 @@
  * name, token or hash goes into the answer, so the route that serves it is public: the counts say how the launch is
  * going and nothing about anyone. Each is a function of the store at now and is computed on request, as the layer is.
  */
-import { DECLINE_REASONS, type DeclineReason, type Receipt } from '@bitquilt/core';
+import { DECLINE_REASONS, type DeclineReason, type Receipt, matchedCommitments } from '@bitquilt/core';
 import type { Layer } from './challenge.js';
-import { matchedCommitments } from './gold.js';
 
 /** The window a `days` query asks for when it says nothing, and the most it may ask. */
 export const DAYS_DEFAULT = 30;

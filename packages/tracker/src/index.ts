@@ -19,32 +19,34 @@ export { WITNESS_VIA, WITNESS_BOUND_BY, CLIENT_NAME_MAX, custodyHeaders } from '
 export { PRIVATE_RANGES, clientAddress, clientAddressOf, inRanges, plainAddress, rangesOf } from './address.js';
 export { trackerOptionsFromEnv, quietSqliteWarning, type TrackerEnv } from './env.js';
 export {
+  type Admission,
+  CHALLENGE,
+  CHALLENGE_EVENTS,
+  CHALLENGE_SEED,
+  GROUND_MAX,
+  type Layer,
+  MAJORITY,
+  PANEL,
+  type PieceLayer,
+  type ProblemLayer,
+  challengeBodyProblems,
   challengeLayer,
   inputRefused,
-  challengeBodyProblems,
   verdictBodyProblems,
-  countsAsAccepted,
-  carriesSet,
-  acceptingRoots,
-  rootFor,
-  CHALLENGE,
-  PANEL,
-  MAJORITY,
-  GROUND_MAX,
-  CHALLENGE_SEED,
-  SIDES,
-  CHALLENGE_EVENTS,
-  type Layer,
-  type ProblemLayer,
-  type PieceLayer,
-  type ChallengeView,
-  type Seat,
-  type VerdictView,
-  type Side,
-  type Outcome,
-  type LayerState,
-  type Admission,
 } from './challenge.js';
+export {
+  type ChallengeView,
+  type LayerState,
+  type Outcome,
+  SIDES,
+  type Seat,
+  type Side,
+  type VerdictView,
+  acceptingRoots,
+  carriesSet,
+  countsAsAccepted,
+  rootFor,
+} from '@bitquilt/core';
 export {
   applyVerifiers,
   settleKinds,
@@ -74,42 +76,37 @@ export {
   type RecordView,
 } from '@bitquilt/core';
 export { RANK_EVENTS } from './verifiers.js';
+export { drawOrder, offerSeats, type Seated } from '@bitquilt/core';
+export { PRODUCTION_EVENTS, STAKE_EVENTS } from './stake.js';
 export {
-  drawOrder,
-  offerSeats,
-  type Seated,
-} from '@bitquilt/core';
-export {
-  STAKE,
-  STAKE_EVENTS,
-  PRODUCTION_EVENTS,
-  LOCK_KINDS,
-  stakeRuleBodyProblems,
-  lockBodyProblems,
-  stakeAsked,
-  ruleNames,
-  lockReleasedAt,
-  type StakeRule,
-  type LockView,
-  type LockKind,
   type CoinLockWord,
-} from './stake.js';
+  LOCK_KINDS,
+  type LockKind,
+  type LockView,
+  STAKE,
+  type StakeRule,
+  lockBodyProblems,
+  lockReleasedAt,
+  ruleNames,
+  stakeAsked,
+  stakeRuleBodyProblems,
+} from '@bitquilt/core';
+export { GOLD_EVENTS } from './gold.js';
 export {
   GOLD,
-  GOLD_EVENTS,
-  goldBodyProblems,
-  goldRevealBodyProblems,
-  goldMatches,
-  matchedCommitments,
-  goldShare,
-  hasAgreedFields,
-  firstProductionAt,
-  windowOpen,
-  type GoldView,
   type GoldCommitment,
   type GoldOutcome,
   type GoldState,
-} from './gold.js';
+  type GoldView,
+  firstProductionAt,
+  goldBodyProblems,
+  goldMatches,
+  goldRevealBodyProblems,
+  goldShare,
+  hasAgreedFields,
+  matchedCommitments,
+  windowOpen,
+} from '@bitquilt/core';
 export {
   COIN,
   COIN_LOG,
@@ -131,7 +128,7 @@ export {
   type RedeemLine,
   type CreditLine,
 } from './coin.js';
-export { creditedRoots, type Credit, type Move } from './standing.js';
+export { type Credit, type Move, creditedRoots } from '@bitquilt/core';
 export { HIDE, WHY_MAX, hideBodyProblems, hiddenNow, type Hidden } from './hide.js';
 export {
   SEEDING,

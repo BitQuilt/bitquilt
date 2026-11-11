@@ -9,9 +9,11 @@
  */
 import {
   type Address,
+  type CoinLockWord,
   type Event,
   type Hash,
   type Receipt,
+  creditedRoots,
   eventId,
   hashText,
   isAddress,
@@ -19,14 +21,12 @@ import {
   isRecord,
   isTime,
   leaseOf,
+  matchedCommitments,
   plusHours,
   viaOf,
   whole,
 } from '@bitquilt/core';
 import { type Admission, type Layer, type ProblemLayer, refusedHere } from './challenge.js';
-import { matchedCommitments } from './gold.js';
-import type { CoinLockWord } from './stake.js';
-import { creditedRoots } from './standing.js';
 
 export const COIN = 'QX-17';
 /** The pseudo-problem the coin log is chained from, as the identity log is from quilt:identity. */

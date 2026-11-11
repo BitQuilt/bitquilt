@@ -9,9 +9,16 @@
  * in it. It loads the core alone and takes the layer's types as types, with a piece's own state and the settling
  * handed in, so challenge.ts loads it with no cycle.
  */
-import { type Hash, type PieceState, type PieceView, renderInputs } from '@bitquilt/core';
-import type { Layer, LayerState, ProblemLayer } from './challenge.js';
-import type { Folding, ProblemEntry } from './standing.js';
+import {
+  type Folding,
+  type Hash,
+  type LayerState,
+  type PieceState,
+  type PieceView,
+  type ProblemEntry,
+  renderInputs,
+} from '@bitquilt/core';
+import type { Layer, ProblemLayer } from './challenge.js';
 
 export const INHERIT = 'QX-23';
 
