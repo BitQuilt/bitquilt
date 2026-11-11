@@ -18,7 +18,7 @@ import hashlib
 
 from .canonical import canonical
 from .grounds import set_aside
-from .kinds import kind_of, Set, agree, WHY_CHALLENGE, WHY_GOLD, WHY_RANKED, WHY_VOID, WHY_OWNER, WHY_ROOT, WHY_LATE
+from .kinds import kind_of, Set, agree, WHY_CHALLENGE, WHY_GOLD, WHY_RANKED, WHY_VOID, WHY_OWNER, WHY_ROOT, WHY_SAME, WHY_CANDIDATES
 from .record import iso, word, entries_of
 from .reducer import commit_hash
 from .schema import validate_return
@@ -257,24 +257,24 @@ class Decisions:
     # Judge panels, verifiers.md section 2.
 
     def judge(self, line, rec, n):
-        """The panel of a `judge:n` piece and the set it made, or None. Says how each reading counts."""
+        """The panel of a `judge:n` piece and the set it made, or None. Says how each reading counts, each reason
+        asked in the order READING.md section 3 writes them for `judge:n`."""
         ident = line.identity
         counts = rec.counts
         key = (line.name, rec.hash)
         self.panels.pop(key, None)
         wanted = rec.spec.get("candidates")
         wanted = wanted if is_whole(wanted) and wanted >= 1 else 2
-        cands, rest = [], []
+        cands = []
         for r in rec.live():
             if ident.related(r.root, line.owner, r.at):
                 counts[r.id] = ("kept", WHY_OWNER)
             elif len(cands) >= wanted:
-                counts[r.id] = ("kept", WHY_LATE)
+                counts[r.id] = ("kept", WHY_CANDIDATES)
+            elif any(c.digest == r.digest for c in cands):
+                counts[r.id] = ("kept", WHY_SAME)
             elif any(ident.related(c.root, r.root, r.at) for c in cands):
                 counts[r.id] = ("kept", WHY_ROOT)
-            elif any(c.digest == r.digest for c in cands):
-                counts[r.id] = ("kept", WHY_LATE)
-                rest.append(r)
             else:
                 counts[r.id] = ("counted", None)
                 cands.append(r)
