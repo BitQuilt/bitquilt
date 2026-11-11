@@ -17,6 +17,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm conform
+      - run: pnpm conform:2
       - run: python3 impl/python/conform.py
       - run: forge test
         working-directory: contracts

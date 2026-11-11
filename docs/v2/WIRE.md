@@ -1,6 +1,6 @@
 # The wire
 
-Status: frozen 11 November 2026. This is the first of the two documents of version 2 of the core; the second is [READING.md](READING.md), a draft. [The plan](../history/V2-PLAN.md) says why there are two and the order they are built in. Until the switch the plan's phase 6 names, [CORE.md](../CORE.md) is the core in force, and nothing here changes it.
+Status: frozen 11 November 2026. This is the first of the two documents of version 2 of the core; the second is [READING.md](READING.md), a draft. [The plan](../history/V2-PLAN.md) says why there are two and the order they are built in. Since the switch the plan's phase 6 names, 11 November 2026, the reference tracker reads these bytes by reading 2. [CORE.md](../CORE.md) says the same bytes and reading 1, and nothing here changes it.
 
 **Abstract.** The wire is the bytes a person's key signs and a resolver keeps: the forms, the envelope, the piece hash, the event line, the receipt, the chained line and the link. It is frozen as it stands. A hash made today names the same bytes for good, and a signature made today recovers the same key for good. What those bytes mean, which pieces have a square and who has standing, is the reading, which carries a number and may change without changing a byte of the wire.
 
