@@ -156,6 +156,12 @@ export interface VerifierOptions {
    * less those related to any of `unrelatedTo`.
    */
   pool(problem: Hash, at: string, unrelatedTo: Address[], fold: State): Address[];
+  /**
+   * The versions of the problem's line, where the receipts are the line's record (READING.md section 3): a rank
+   * that names any of them is on the record of the piece it names. Without it, a rank counts where it names the
+   * problem.
+   */
+  line?: ReadonlySet<Hash>;
 }
 
 /**
@@ -379,6 +385,7 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
   const windowH = windowOf(core);
 
   // The receipt line of each reveal, by piece, key and time, and the ranks by piece, each once by id.
+  const own: ReadonlySet<Hash> = new Set([core.problem]);
   const revealLines = new Map<string, Line>();
   const ranks = new Map<Hash, Rank[]>();
   for (const { receipt, at, id } of orderReceipts(receipts)) {
@@ -386,7 +393,7 @@ export function applyVerifiers(core: State, receipts: Receipt[], now: string, op
     if (ev.type === 'reveal' && ev.piece) {
       const k = `${ev.piece}|${ev.key}|${at}`;
       if (!revealLines.has(k)) revealLines.set(k, { receipt, id });
-    } else if (ev.type === 'rank' && ev.piece && ev.problem === core.problem) {
+    } else if (ev.type === 'rank' && ev.piece && ev.problem && (options.line ?? own).has(ev.problem)) {
       const list = ranks.get(ev.piece) ?? [];
       if (!list.some((r) => r.id === id)) list.push({ id, event: ev, at });
       ranks.set(ev.piece, list);

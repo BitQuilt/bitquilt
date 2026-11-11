@@ -26,9 +26,11 @@
  * below where each runs:
  *
  *   2. The check, and the line: every problem reduced once by the core, which checks its envelopes, blobs, signatures
- *      and chain, and a problem the core refuses left out with the core's reason (`foldProblems`).
- *   3. The record: each problem's events in order on its pieces, as the reducer folds them, with the kinds' first
- *      word on them and no panel drawn yet (`foldProblems`; verifiers.md section 1).
+ *      and chain, a problem the core refuses left out with the core's reason, and each version's line found, the
+ *      versions whose chains share a version with its own (`foldProblems`; line.ts).
+ *   3. The record: each line's events in order on its pieces, as the reducer folds them, every version's map over
+ *      the one record, with the kinds' first word on them and no panel drawn yet (`foldProblems`; line.ts;
+ *      verifiers.md section 1).
  *   4. The grounds: in a dispute, a reading that rests on nothing set aside (QX-19 section 4; trace.ts), before the
  *      sets, so the reading that takes its place counts toward one, and again after them where a set opened a piece
  *      that waited on it.
@@ -48,7 +50,9 @@
  *      (standing.ts).
  *
  * Where the reading departs from what this pass does, its section 12 says so, and each departure waits to be argued
- * with a fixture: a record here is a problem's own, read with its ancestors', and not yet a line's.
+ * with a fixture. The first is argued and kept: a record here is a line's, so a version's map shows the work posted to
+ * any version of its line on a piece it keeps. The stake rules, the locks, the golds and the challenges are still read
+ * at the version each names, and the lease and the window are those of the version read.
  *
  * What a door asks before it takes an event, the admissions, is no part of the read: a tracker builds them over the
  * record this answers with. The pass moved here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says,
@@ -73,6 +77,7 @@ import {
 } from './gold.js';
 import { type Hash, isHash } from './hash.js';
 import { completeInLayer, inheritSquares } from './inherit.js';
+import { type Held, type Line, linesOf, reduceLine } from './line.js';
 import type { Address } from './keys.js';
 import { applyVerifiers, leaseOf, ownerOf, rootFor, settleKinds, viaOf, windowOf } from './kinds.js';
 import type { LayerViews, PieceLayer, ProblemLayer } from './layer.js';
@@ -194,24 +199,30 @@ function poolFor(
 function refold(f: Folding, e: ProblemEntry): void {
   e.decided = applyVerifiers(
     e.base,
-    e.input.receipts.filter((x) => !e.struck.has(eventId(x.event))),
+    e.line.receipts.filter((x) => !e.struck.has(eventId(x.event))),
     f.now,
-    { pool: (problem, at, unrelatedTo, fold) => judgePool(f, problem, at, unrelatedTo, fold) },
+    {
+      pool: (problem, at, unrelatedTo, fold) => judgePool(f, problem, at, unrelatedTo, fold),
+      line: e.line.versions,
+    },
   );
   e.fold = e.decided.fold;
 }
 
-/** Reduces an entry again without its struck events and decides the kinds again over what remains. */
+/** Reduces an entry's line again without its struck events and decides the kinds again over what remains. */
 function rereduce(f: Folding, e: ProblemEntry): void {
-  e.base = reduce({ ...e.input, receipts: e.input.receipts.filter((x) => !e.struck.has(eventId(x.event))) });
+  e.base = reduceLine(
+    e.line,
+    e.line.receipts.filter((x) => !e.struck.has(eventId(x.event))),
+  );
   refold(f, e);
 }
 
-/** The problems whose input holds any of these events: every version that carried the set they made. */
+/** The problems whose record holds any of these events: every version that carried the set they made. */
 function carriersOf(f: Folding, ids: readonly Hash[]): Set<Hash> {
   const of = new Set(ids);
   const out = new Set<Hash>();
-  for (const e of f.entries.values()) if (e.input.receipts.some((x) => of.has(eventId(x.event)))) out.add(e.hash);
+  for (const e of f.entries.values()) if (e.line.receipts.some((x) => of.has(eventId(x.event)))) out.add(e.hash);
   return out;
 }
 
@@ -281,7 +292,7 @@ function setAsideUngrounded(f: Folding, blobLength: (hash: Hash) => number | nul
       const found: Hash[] = [];
       for (const v of e.fold.pieces) {
         if (v.state !== 'disputed') continue;
-        for (const id of pieceTraces(e.fold, v, e.input.receipts, blobLength, () => null).aside)
+        for (const id of pieceTraces(e.fold, v, e.line.receipts, blobLength, () => null).aside)
           if (!e.struck.has(id)) found.push(id);
       }
       if (found.length === 0) break;
@@ -611,6 +622,8 @@ export interface ReadInput {
   now: string;
   /** The core's fold of a problem's input, as a tracker keeps it (folds.ts); `reduce` where none is given. */
   reduce?: (p: ReduceInput) => State;
+  /** The fold of a version over its line's record, as a tracker keeps it; `reduceLine` where none is given. */
+  reduceLine?: (line: Line) => State;
   coin?: Receipt[];
   founding?: Map<string, number>;
   blobLength?: (hash: Hash) => number | null;
@@ -649,8 +662,9 @@ export function read(input: ReadInput): Reading {
   const { now } = input;
   const f = newFolding(now, input.founding);
 
-  // 2. The check, and the line: every problem reduced once by the core, and one the core refuses left out.
-  // 3. The record: each problem's events on its pieces, with the kinds' first word on them (verifiers.md section 1).
+  // 2. The check, and the line: every problem reduced once by the core, one the core refuses left out, and each
+  // version's line found.
+  // 3. The record: each line's events on its pieces, with the kinds' first word on them (verifiers.md section 1).
   const refused = foldProblems(f, input);
 
   // 4. The grounds (QX-19 section 4): in a dispute, a reading that rests on nothing is set aside.
@@ -685,28 +699,36 @@ export function read(input: ReadInput): Reading {
 }
 
 /**
- * Steps 2 and 3 of the read (READING.md sections 2 and 3): every problem reduced by the core, once each by hash, and
- * the kinds decided over it with no credits yet. A problem whose input the core refuses is left out with the core's
- * reason (`inputRefused`), so one problem a store cannot fold leaves the others folded; anything else that fails is
- * the failure it was. Answers the problems refused, by hash.
+ * Steps 2 and 3 of the read (READING.md sections 2 and 3): every problem reduced by the core, once each by hash, each
+ * version's line found over those folds, the version folded over its line's record, and the kinds decided over that
+ * with no credits yet. A problem whose input the core refuses is left out with the core's reason (`inputRefused`), so
+ * one problem a store cannot fold leaves the others folded, and it is of no line; anything else that fails is the
+ * failure it was. Answers the problems refused, by hash.
  */
 function foldProblems(f: Folding, input: ReadInput): Map<Hash, string> {
   const refused = new Map<Hash, string>();
+  const held = new Map<Hash, Held>();
   for (const p of input.problems) {
-    let core: State;
+    let own: State;
     try {
-      core = (input.reduce ?? reduce)(p);
+      own = (input.reduce ?? reduce)(p);
     } catch (err) {
       const why = inputRefused(p);
       if (why === null || !p.envelopes[0]) throw err;
       refused.set(problemHash(p.envelopes[0]), why);
       continue;
     }
-    if (f.entries.has(core.problem)) continue;
-    const decided = applyVerifiers(core, p.receipts, f.now, { pool: () => [] });
-    f.entries.set(core.problem, {
-      hash: core.problem,
-      input: p,
+    if (!held.has(own.problem)) held.set(own.problem, { input: p, own });
+  }
+  for (const [hash, line] of linesOf([...held.values()])) {
+    const own = held.get(hash)!.own;
+    // A version whose line adds nothing to its own chain is read as version 1 reads it, the one fold kept.
+    const core = line.beside.length ? (input.reduceLine ?? reduceLine)(line) : own;
+    const decided = applyVerifiers(core, line.receipts, f.now, { pool: () => [], line: line.versions });
+    f.entries.set(hash, {
+      hash,
+      line,
+      own,
       core,
       base: core,
       fold: decided.fold,
@@ -755,7 +777,7 @@ function decide(f: Folding): void {
   const events = new Map<Hash, LayerEvent>();
   const verdicts = new Map<Hash, Verdict[]>();
   for (const e of f.entries.values())
-    for (const { receipt, at, id } of orderReceipts(e.input.receipts)) {
+    for (const { receipt, at, id } of orderReceipts(e.line.receipts)) {
       const ev = receipt.event;
       if (LAYER_EVENT_KINDS.has(ev.type)) {
         if (events.has(id)) continue;
@@ -798,12 +820,12 @@ function stateOf(f: Folding): Pick<Reading, 'problems' | 'challenges'> {
   const all: ChallengeView[] = [];
   for (const e of f.entries.values()) {
     const asideBy = new Map<Hash, Address[]>();
-    for (const r of e.input.receipts)
+    for (const r of e.line.receipts)
       if (r.event.piece && e.aside.has(eventId(r.event)))
         asideBy.set(r.event.piece, [...(asideBy.get(r.event.piece) ?? []), r.event.key]);
     const pieces: PieceLayer[] = e.fold.pieces.map((v) => {
       const last = lastChallenge(e, v.piece.hash);
-      const core = e.core.byHash.get(v.piece.hash)?.state ?? v.state;
+      const core = e.own.byHash.get(v.piece.hash)?.state ?? v.state;
       const record = e.decided.records.get(v.piece.hash) ?? null;
       const state = ownState(e, v);
       const kind = e.decided.kinds.get(v.piece.hash)!;
@@ -842,7 +864,7 @@ function stateOf(f: Folding): Pick<Reading, 'problems' | 'challenges'> {
       locks: f.locks.filter((l) => l.problem === e.hash),
       golds: e.golds,
       goldCount: goldCount(e.golds, (_g, c) => outcomeOf(e, c, now)),
-      receipts: e.input.receipts,
+      receipts: e.line.receipts,
     });
     all.push(...e.challenges);
   }

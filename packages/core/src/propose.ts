@@ -181,7 +181,8 @@ export function proposalsIn(
     if (forked && listed(f.problem)) forks.push(f);
   }
 
-  // A proposal names a version of the line, since the chain read holds this version's receipts and its ancestors'.
+  // A proposal names a version of the line, since the receipts read are the line's record. One that names a version
+  // this one's chain does not hold is shown with no take: a take is read along the chain, up to the version read.
   const after = (under: Hash): Hash[] => (line.includes(under) ? line.slice(line.indexOf(under) + 1) : []);
 
   return standing.map((p) => ({

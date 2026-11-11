@@ -530,16 +530,19 @@ describe('several squares in reach (QX-23 sections 1 and 2)', () => {
 describe('versions, and a ring of from (QX-23 section 1)', () => {
   let V2: Hash, V3: Hash, FV2: Hash;
 
-  it('reaches a square made on a later version of the source, the earlier version first among equals', async () => {
+  it('reaches a square made on a later version of the source, at the source, which shows it too', async () => {
     expect(await shown(FV, 'one')).toEqual({ state: 'inherited', inherited: { problem: V1, state: 'accepted' } });
     expect(await shown(FV, 'two')).toEqual({ state: 'open', inherited: null });
     V2 = await publish(envelope(owner, 'versions', { one, two, three }, { prev: V1 }));
     await squared(V2, 'two');
     expect(await shown(V2, 'one')).toEqual({ state: 'accepted', inherited: null });
     expect(await shown(V2, 'two')).toEqual({ state: 'accepted_provisional', inherited: null });
+    // The record is the line's (READING.md section 3), so the source shows the square on the piece it keeps, and the
+    // earlier version is the one the fork's piece names.
+    expect(await shown(V1, 'two')).toEqual({ state: 'accepted_provisional', inherited: null });
     expect(await shown(FV, 'two')).toEqual({
       state: 'inherited',
-      inherited: { problem: V2, state: 'accepted_provisional' },
+      inherited: { problem: V1, state: 'accepted_provisional' },
     });
     expect(await shown(FV, 'one')).toEqual({ state: 'inherited', inherited: { problem: V1, state: 'accepted' } });
     expect(await shown(FV, 'extra')).toEqual({ state: 'open', inherited: null });

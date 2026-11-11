@@ -6,17 +6,21 @@
  * blobs are not held. A chain only grows, a log is only appended to, and a blob once held stays, so each of those
  * counts only moves one way when what it counts changes, and an input whose key is unchanged is the input as it would
  * be read again. A fold is kept with the time it was made at and the first time after it at which the clock alone
- * turns a state (`turnsAt`); a fold asked for in between is the fold kept.
+ * turns a state (`turnsAt`); a fold asked for in between is the fold kept. A version's fold over its line's record
+ * (READING.md section 3) is kept the same way, beside the version's own, while the kept inputs of the line's other
+ * versions are the ones it was made from.
  */
 import {
   type ChainReader,
   type Hash,
+  type Line,
   type ReduceInput,
   type State,
   IDENTITY_LOG,
   fixedBytes,
   reduce,
   reduceInputOf,
+  reduceLine,
 } from '@bitquilt/core';
 import type { Store } from './store.js';
 
@@ -27,11 +31,15 @@ interface Counts {
   missing: number;
 }
 
-/** A problem's input as kept, its key, and the fold over it with the times it holds for. */
+/**
+ * A problem's input as kept, its key, the fold over it with the times it holds for, and the fold over its line's
+ * record with the kept inputs of the line's other versions it was made from.
+ */
 interface Kept {
   key: string;
   input: ReduceInput;
   fold: { state: State; from: string; until: string | null } | null;
+  line: { others: Kept[]; state: State; from: string; until: string | null } | null;
 }
 
 /** What a tracker keeps of each problem's fold, over its store. */
@@ -43,6 +51,11 @@ export interface Folds {
    * input, such as one with events struck from it, is reduced as it is.
    */
   reduce(input: ReduceInput): State;
+  /**
+   * The fold of a version over its line's record, kept while the version's key and each other version's hold and its
+   * time is within the fold's; a line of any input `inputAt` did not make is reduced as it is.
+   */
+  reduceLine(line: Line): State;
 }
 
 /**
@@ -150,7 +163,7 @@ export function foldsOf(store: Store): Folds {
       const read = reduceInputOf(reader, store.getEnvelope(hash)!.envelope, at);
       Object.freeze(read.envelopes);
       Object.freeze(read.receipts);
-      entry = { key, input: read, fold: null };
+      entry = { key, input: read, fold: null, line: null };
       kept.set(hash, entry);
     }
     const input = { ...entry.input, now: at };
@@ -168,5 +181,28 @@ export function foldsOf(store: Store): Folds {
     return state;
   }
 
-  return { inputAt, reduce: reduceKept };
+  /**
+   * A kept entry is made again whenever its key moves, so the same entries are the same inputs: the line's record is
+   * the one this fold was made from while the version's entry and each other version's are the ones kept with it.
+   */
+  function reduceLineKept(line: Line): State {
+    const entry = madeFrom.get(line.input);
+    const others = line.others.map((o) => madeFrom.get(o));
+    if (!entry || others.some((o) => !o)) return reduceLine(line);
+    const now = line.input.now;
+    const f = entry.line;
+    if (
+      f &&
+      f.others.length === others.length &&
+      f.others.every((o, i) => o === others[i]) &&
+      f.from <= now &&
+      (f.until === null || now < f.until)
+    )
+      return f.state;
+    const state = frozenFold(reduceLine(line));
+    entry.line = { others: others as Kept[], state, from: now, until: turnsAt(state, now) };
+    return state;
+  }
+
+  return { inputAt, reduce: reduceKept, reduceLine: reduceLineKept };
 }

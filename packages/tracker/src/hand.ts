@@ -77,7 +77,7 @@ function excludedFor(
 ): { exclude: Set<Hash>; unaffordable: Hash[] } {
   const exclude = new Set<Hash>([...store.heldByOthers(pl.problem, key, at), ...pl.unoffered]);
   if (!client.can.includes('person')) for (const p of pl.pieces) if (p.kind.kind === 'human') exclude.add(p.hash);
-  for (const h of watchExclusions(pl, input, key, seedInfo(input.receipts, pl.fold, at).seeders, at)) exclude.add(h);
+  for (const h of watchExclusions(pl, input, key, seedInfo(pl.receipts, pl.fold, at).seeders, at)) exclude.add(h);
   const unaffordable = [...layered.unaffordable(pl.problem, key)];
   for (const h of unaffordable) exclude.add(h);
   return { exclude, unaffordable };
@@ -179,7 +179,7 @@ export function offer(cx: Reads, res: ServerResponse, query: URLSearchParams): v
     count,
     (_h, pl, input) => excludedFor(store, layered, pl, input, key, client, at).exclude,
     firstSeeder
-      ? (_h, pl, input) => seedInfo(input.receipts, pl.fold, at).seeders.has(pl.fold.rootOf(firstSeeder, at))
+      ? (_h, pl) => seedInfo(pl.receipts, pl.fold, at).seeders.has(pl.fold.rootOf(firstSeeder, at))
       : undefined,
   );
   const first = list[0];

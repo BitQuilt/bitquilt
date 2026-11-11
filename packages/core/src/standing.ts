@@ -10,7 +10,8 @@ import { type Hash, hashCanonical } from './hash.js';
 import type { Address } from './keys.js';
 import { type KindsDecided, viaOf } from './kinds.js';
 import { isRecord } from './plain.js';
-import type { AcceptingSet, PieceView, ReduceInput, Reveal, State } from './reduce.js';
+import type { Line } from './line.js';
+import type { AcceptingSet, PieceView, Reveal, State } from './reduce.js';
 import { type LockView, type StakeRule, liveAt } from './stake.js';
 import { type GoldView, goldLiveAt } from './gold.js';
 import type { ChallengeView, LayerState } from './challenge.js';
@@ -44,10 +45,13 @@ export interface Dropped {
 /** One problem as the layer holds it while it folds. */
 export interface ProblemEntry {
   hash: Hash;
-  input: ReduceInput;
-  /** The core's reduce of everything, kept for the core's states. */
+  /** The version with the rest of its line, and the line's record (READING.md sections 2 and 3). */
+  line: Line;
+  /** Version 1's reduce of the version's own chain, kept for the core's states. */
+  own: State;
+  /** The reduce of the line's record with nothing struck, every reading in it. */
   core: State;
-  /** The core's reduce without the struck events. */
+  /** The reduce of the line's record without the struck events. */
   base: State;
   /** `base` with the verifier kinds decided: the fold the layer reads. */
   fold: State;

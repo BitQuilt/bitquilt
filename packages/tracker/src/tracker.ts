@@ -286,6 +286,7 @@ function contextOf(options: TrackerOptions): Context {
       problems,
       now: at,
       reduce: folds.reduce,
+      reduceLine: folds.reduceLine,
       blobLength: (h) => store.blobLength(h),
       ...(options.coin ? { coin: store.lines(COIN_LOG) } : {}),
       ...(founding.size ? { founding } : {}),
