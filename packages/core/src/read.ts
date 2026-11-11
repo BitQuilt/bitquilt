@@ -42,7 +42,7 @@
  */
 import { type ChallengeView, type LayerState, SIDES, type Seat, type Side } from './challenge.js';
 import { problemHash } from './envelope.js';
-import { type Event, type Receipt, commitHash, eventId, eventSignedByKey } from './events.js';
+import { type Event, type Receipt, eventId, eventSignedByKey } from './events.js';
 import {
   type GoldCommitment,
   type GoldState,
@@ -61,7 +61,7 @@ import type { Address } from './keys.js';
 import { applyVerifiers, leaseOf, ownerOf, rootFor, settleKinds, viaOf, windowOf } from './kinds.js';
 import type { LayerViews, PieceLayer, ProblemLayer } from './layer.js';
 import { byAtThenId, isRecord, plusHours } from './plain.js';
-import { type PieceView, type ReduceInput, type State, orderReceipts, reduce } from './reduce.js';
+import { type PieceView, type ReduceInput, type Reveal, type State, orderReceipts, reduce } from './reduce.js';
 import { type Return, returnProblems } from './schema.js';
 import { drawOrder, offerSeats } from './sortition.js';
 import { type CoinLockWord, checkLock, keepStakeRules, lockReleasedAt, ruleAt, stakeAsked } from './stake.js';
@@ -76,7 +76,6 @@ import {
   lineOf,
   newFolding,
   refreshCredits,
-  revealEvent,
   rootOf,
 } from './standing.js';
 import { pieceTraces } from './trace.js';
@@ -128,44 +127,15 @@ export function verdictBodyProblems(body: unknown): string[] {
 }
 
 /**
- * The ids of an accepting set's events in the problem's receipts: the reveals with their commits, or the patch's with
- * the runs. A reveal's event is found as the credits find it (`revealEvent`), so the point a strike withdraws is the
- * point the reveal earned.
+ * The ids of the events a strike leaves out of the fold: the set's reveals, each with the commit it opened, or the
+ * patch's with the runs. The fold keeps each event's id on its view, so the point a strike withdraws is the point the
+ * reveal earned.
  */
-function setEventIds(v: PieceView, receipts: Receipt[]): Hash[] {
+function setEventIds(v: PieceView): Hash[] {
   if (!v.accepting) return [];
-  const ordered = orderReceipts(receipts);
-  const ids: Hash[] = [];
-  const reveal = (key: Address, at: string) => {
-    const r = revealEvent(receipts, v.piece.hash, key, at);
-    if (!r) return;
-    ids.push(r.id);
-    const b = r.event.body as { return: unknown; nonce: string };
-    const h = commitHash(b.return, b.nonce);
-    const c = ordered.find(
-      (x) =>
-        x.receipt.event.type === 'commit' &&
-        x.receipt.event.key === key &&
-        x.receipt.event.piece === v.piece.hash &&
-        (x.receipt.event.body as { h: Hash }).h === h,
-    );
-    if (c) ids.push(c.id);
-  };
-  if (v.accepting.kind === 'agree') for (const r of v.accepting.reveals) reveal(r.key, r.at);
-  else {
-    reveal(v.accepting.patch.key, v.accepting.patch.at);
-    for (const run of v.accepting.runs) {
-      const x = ordered.find(
-        (y) =>
-          y.receipt.event.type === 'run' &&
-          y.receipt.event.key === run.key &&
-          y.receipt.event.piece === v.piece.hash &&
-          y.at === run.at,
-      );
-      if (x) ids.push(x.id);
-    }
-  }
-  return ids;
+  const opened = (r: Reveal) => [r.id, r.commit];
+  if (v.accepting.kind === 'agree') return v.accepting.reveals.flatMap(opened);
+  return [...opened(v.accepting.patch), ...v.accepting.runs.map((r) => r.id)];
 }
 
 // The pools
@@ -246,15 +216,14 @@ function strike(
   d: string,
   lease: number,
 ): { ids: Hash[]; roots: Address[] } {
-  const ids = setEventIds(view, home.input.receipts);
+  const ids = setEventIds(view);
   const carriers = carriersOf(f, ids);
   for (const r of creditedReveals(view)) {
     const root = home.fold.rootOf(r.root, f.now);
     f.moves.push({ root, at: d, delta: -1 });
-    const id = revealEvent(home.input.receipts, view.piece.hash, r.key, r.at)?.id;
-    const live = f.credits.find((c) => c.reveal === id);
+    const live = f.credits.find((c) => c.reveal === r.id);
     if (live) f.struckCredits.push({ ...live, until: d });
-    else if (f.struckCredits.some((c) => c.reveal === id)) f.moves.push({ root, at: d, delta: -1 });
+    else if (f.struckCredits.some((c) => c.reveal === r.id)) f.moves.push({ root, at: d, delta: -1 });
   }
   const roots: Address[] = [];
   for (const p of acceptingRoots(view)) {

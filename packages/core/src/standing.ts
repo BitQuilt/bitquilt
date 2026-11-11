@@ -5,12 +5,12 @@
  * them: what the folds credit, what a lock holds (QX-15), what a gold locks (QX-16), what a burn bought (QX-17). Moved
  * here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says.
  */
-import type { Event, Receipt } from './events.js';
-import type { Hash } from './hash.js';
+import type { Receipt } from './events.js';
+import { type Hash, hashCanonical } from './hash.js';
 import type { Address } from './keys.js';
 import { type KindsDecided, viaOf } from './kinds.js';
 import { isRecord } from './plain.js';
-import { type PieceView, type ReduceInput, type Reveal, type State, orderReceipts } from './reduce.js';
+import type { AcceptingSet, PieceView, ReduceInput, Reveal, State } from './reduce.js';
 import { type LockView, type StakeRule, liveAt } from './stake.js';
 import { type GoldView, goldLiveAt } from './gold.js';
 import type { ChallengeView, LayerState } from './challenge.js';
@@ -158,32 +158,21 @@ export function creditedRoots(v: PieceView): Address[] {
   return creditedReveals(v).map((r) => r.root);
 }
 
-/** A reveal event as the receipts hold it: its id, and the event, which names the problem it was posted to. */
-export interface RevealEvent {
-  id: Hash;
-  event: Event;
+/**
+ * The ids of the events a set's rule took: the reveals of an agree set, or the patch and the two runs of a check or
+ * score set (docs/v2/READING.md section 5).
+ */
+export function setEvents(set: AcceptingSet): Hash[] {
+  return set.kind === 'agree' ? set.reveals.map((r) => r.id) : [set.patch.id, ...set.runs.map((r) => r.id)];
 }
 
-/** Each receipts array's reveals by piece, key and receipt time, the first in the reducer's order kept. */
-const revealIndex = new WeakMap<readonly Receipt[], Map<string, RevealEvent>>();
-
 /**
- * The event of a reveal a fold holds, found in the receipts it was folded from by its piece, its key and its receipt
- * time, the first in the order the reducer folds them (CORE.md section 6, Order), or null where none is. An input's
- * receipts are not written once read, so each array is indexed once, however many times a layer asks.
+ * A set's name. docs/v2/READING.md section 5: "A set is named by the hash of the canonical JSON of its events' ids,
+ * sorted." The events are the fold's, each with the id of the line it was read from, so a set carried by several
+ * versions has one name at every one of them.
  */
-export function revealEvent(receipts: readonly Receipt[], piece: Hash, key: Address, at: string): RevealEvent | null {
-  let index = revealIndex.get(receipts);
-  if (!index) {
-    index = new Map();
-    const reveals = receipts.filter((r) => r.event.type === 'reveal');
-    for (const { receipt, at: received, id } of orderReceipts(reveals)) {
-      const k = `${receipt.event.piece} ${receipt.event.key} ${received}`;
-      if (!index.has(k)) index.set(k, { id, event: receipt.event });
-    }
-    revealIndex.set(receipts, index);
-  }
-  return index.get(`${piece} ${key} ${at}`) ?? null;
+export function setName(set: AcceptingSet): Hash {
+  return hashCanonical([...setEvents(set)].sort());
 }
 
 /**
@@ -202,13 +191,11 @@ export function refreshCredits(f: Folding): void {
       if (!v.accepting) continue;
       const at = v.accepting.completedAt;
       for (const r of creditedReveals(v)) {
-        const found = revealEvent(e.input.receipts, v.piece.hash, r.key, r.at);
-        if (!found || struck.has(found.id)) continue;
-        const known = live.get(found.id);
+        if (struck.has(r.id)) continue;
+        const known = live.get(r.id);
         if (known && known.at <= at) continue;
-        const named = found.event.problem;
-        const problem = named && f.entries.has(named) ? named : e.hash;
-        live.set(found.id, { root: e.fold.rootOf(r.root, f.now), problem, reveal: found.id, at, until: null });
+        const problem = f.entries.has(r.problem) ? r.problem : e.hash;
+        live.set(r.id, { root: e.fold.rootOf(r.root, f.now), problem, reveal: r.id, at, until: null });
       }
     }
   f.credits = [...live.values()];
