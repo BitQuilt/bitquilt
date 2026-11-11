@@ -12,18 +12,18 @@
  * whole store: a credit on one problem seats a panel on another.
  *
  * Three more extensions are folded here because each is a move on the same standing or a strike on the same set: the
- * stake rules and locks of QX-15 (stake.ts holds what each rule says), the owner's gold of QX-16 (gold.ts), and
- * QX-17's burn credit and the door's word on a coin lock. challengeLayer reads them in one pass over every problem's
- * receipts, in receipt order, since a lock on one problem and a credit on another are both functions of the whole
- * store. Before them it sets aside, in a dispute, a reading that rests on nothing where the other rests on the record
- * (QX-19 section 4; trace.ts says what a reading rests on), so the piece is folded without it. The phases, each marked
- * below where it runs:
+ * stake rules and locks of QX-15 (the core's `stake.ts` holds what each rule says), the owner's gold of QX-16 (its
+ * `gold.ts`), and QX-17's burn credit and the door's word on a coin lock. challengeLayer reads them in one pass over
+ * every problem's receipts, in receipt order, since a lock on one problem and a credit on another are both functions of
+ * the whole store. Before them it sets aside, in a dispute, a reading that rests on nothing where the other rests on
+ * the record (QX-19 section 4; trace.ts says what a reading rests on), so the piece is folded without it. The phases,
+ * each marked below where it runs:
  *
  *   1. Every problem reduced by the core, and the verifier kinds decided over it (verifiers.md section 1).
  *   2. The kinds and the credits brought to a fixed point (verifiers.md section 1).
  *   3. The readings that rest on nothing set aside in a dispute (QX-19 section 4; trace.ts).
- *   4. The stake rules kept in receipt order (QX-15 section 1; stake.ts).
- *   5. The burns on the coin log credited as standing (QX-17 section 4; standing.ts).
+ *   4. The stake rules kept in receipt order (QX-15 section 1; the core's stake.ts).
+ *   5. The burns on the coin log credited as standing (QX-17 section 4; the core's standing.ts).
  *   6. The events the layer keeps, read once each in receipt order across every problem: locks (QX-15 section 1),
  *      golds (QX-16 section 1), gold reveals (QX-16 section 3) and challenges with their verdicts
  *      (QX-1 sections 3 to 6; against a gold miss, QX-16 section 4).
@@ -34,150 +34,97 @@
  *      checks it makes: QX-1's here (challengeAdmissions), QX-2's in verifiers.ts, QX-15's in stake.ts and QX-16's in
  *      gold.ts.
  *
- * The record the phases write into, and standing, locked and free over it, are in standing.ts; the draw and the seats
- * both panels share are the core's, in its `sortition.ts`, with the kinds.
+ * The record the phases write into, with standing, locked and free over it, is the core's, in its `standing.ts`, and
+ * so are the shapes of a challenge as kept (its `challenge.ts`) and the draw and the seats both panels share (its
+ * `sortition.ts`), with the kinds. They moved there as docs/history/V2-PLAN.md, phase 3, says, and this pass follows.
  */
 import {
   type Address,
-  type Event,
-  type Hash,
-  type KindInfo,
-  type PanelView,
-  type PieceState,
-  type PieceView,
-  type Receipt,
-  type RecordView,
-  type ReduceInput,
-  type Return,
-  type State,
-  applyVerifiers,
-  byAtThenId,
-  commitHash,
-  drawOrder,
-  eventId,
-  eventSignedByKey,
-  isHash,
-  isRecord,
-  leaseOf,
-  offerSeats,
-  orderReceipts,
-  ownerOf,
-  plusHours,
-  problemHash,
-  reduce,
-  returnProblems,
-  rootFor,
-  settleKinds,
-  viaOf,
-  windowOf,
-} from '@bitquilt/core';
-import { judgeAdmissions } from './verifiers.js';
-import {
+  type ChallengeView,
   type CoinLockWord,
-  type LockView,
-  checkLock,
-  keepStakeRules,
-  lockReleasedAt,
-  ruleAt,
-  stakeAdmissions,
-  stakeAsked,
-} from './stake.js';
-import {
+  type Dropped,
+  type Event,
+  type Folding,
   type GoldCommitment,
   type GoldCount,
   type GoldState,
   type GoldView,
+  type Hash,
+  type KindInfo,
+  type LayerState,
+  type LockView,
+  type PanelView,
+  type PieceState,
+  type PieceView,
+  type ProblemEntry,
+  type Receipt,
+  type RecordView,
+  type ReduceInput,
+  type Return,
+  SIDES,
+  type Seat,
+  type Side,
+  type State,
+  acceptingRoots,
+  applyVerifiers,
+  byAtThenId,
   checkGold,
   checkGoldReveal,
-  goldAdmissions,
-  goldCount,
-  goldMatches,
-  goldOn,
-  missOn,
-  outcomeOf,
-} from './gold.js';
-import {
-  type Dropped,
-  type Folding,
-  type ProblemEntry,
-  acceptingRoots,
+  checkLock,
+  commitHash,
   creditBurns,
   creditedElsewhere,
   creditedReveals,
   creditedRoots,
+  drawOrder,
+  eventId,
+  eventSignedByKey,
+  goldCount,
+  goldMatches,
+  goldOn,
+  isHash,
+  isRecord,
+  keepStakeRules,
+  leaseOf,
   lineOf,
+  lockReleasedAt,
+  missOn,
   newFolding,
+  offerSeats,
+  orderReceipts,
+  outcomeOf,
+  ownerOf,
+  plusHours,
+  problemHash,
+  reduce,
   refreshCredits,
+  returnProblems,
   revealEvent,
+  rootFor,
   rootOf,
-} from './standing.js';
+  ruleAt,
+  settleKinds,
+  stakeAsked,
+  viaOf,
+  windowOf,
+} from '@bitquilt/core';
+import { judgeAdmissions } from './verifiers.js';
+import { stakeAdmissions } from './stake.js';
+import { goldAdmissions } from './gold.js';
 import { pieceTraces } from './trace.js';
 import { type Inherited, completeInLayer, inheritSquares } from './inherit.js';
 
-export { rootFor, acceptingRoots, creditedRoots };
-export type { CoinLockWord };
 export const CHALLENGE = 'QX-1';
 export const PANEL = 3;
 export const MAJORITY = 2;
 export const GROUND_MAX = 200;
 /** The seed a challenge panel is drawn from, named for the well-known document: the receipt line of the challenge. */
 export const CHALLENGE_SEED = 'challenge-receipt';
-export const SIDES = ['challenger', 'author'] as const;
-export type Side = (typeof SIDES)[number];
-export type Outcome = 'open' | 'held' | 'failed' | 'void';
-export type LayerState = PieceState | 'challenged' | 'judging' | 'recording' | 'recorded' | 'inherited';
-/** Whether a piece in this layered state counts as accepted: its set stands, provisionally or not, unchallenged. */
-export function countsAsAccepted(state: string): boolean {
-  return state === 'accepted' || state === 'accepted_provisional';
-}
-/** Whether a piece in this layered state still carries its accepting set. */
-export function carriesSet(state: string): boolean {
-  return state === 'accepted' || state === 'accepted_provisional' || state === 'challenged';
-}
 /**
  * The types QX-1 adds to a problem's log. The door admits each through its own row of `problemDoor` in admit.ts,
  * and admit.test.ts holds those rows to this set.
  */
 export const CHALLENGE_EVENTS: ReadonlySet<string> = new Set(['challenge', 'verdict']);
-
-export interface VerdictView {
-  id: Hash;
-  key: Address;
-  root: Address;
-  at: string;
-  for: Side;
-  return: Return | null;
-}
-export interface Seat {
-  root: Address;
-  offeredAt: string;
-  lapsedAt: string | null;
-  verdict: VerdictView | null;
-}
-export interface ChallengeView {
-  id: Hash;
-  problem: Hash;
-  piece: Hash;
-  key: Address;
-  root: Address;
-  at: string;
-  stake: number;
-  ground: string;
-  /** What is challenged: a piece's acceptance (QX-1), or the gold reveal that struck it (QX-16). */
-  against: 'acceptance' | 'gold';
-  /** The roots of the accepting set, then the owner; against gold, the owner alone. */
-  parties: Address[];
-  seed: string | null;
-  /** The pool in draw order. */
-  order: Address[];
-  seats: Seat[];
-  outcome: Outcome;
-  decidedAt: string | null;
-  /** The ids of the accepting set's events, left out of the fold once the challenge held. */
-  struck: Hash[];
-  /** Verdicts that did not count, with why. */
-  dropped: { id: Hash; why: string }[];
-}
 
 export interface PieceLayer {
   hash: Hash;
@@ -1042,7 +989,7 @@ export function challengeLayer(input: {
     ...challengeAdmissions(f, now),
     ...judgeAdmissions(f, now),
     ...stakeAdmissions(f, problems, now),
-    ...goldAdmissions(f, now, lineOf),
+    ...goldAdmissions(f, now),
   };
 }
 

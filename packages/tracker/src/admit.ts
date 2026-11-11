@@ -26,11 +26,14 @@ import {
   eventProblems,
   eventSignedByKey,
   expandPieces,
+  goldBodyProblems,
+  goldRevealBodyProblems,
   hashBytes,
   isHash,
   isRecord,
   isSlug,
   kindOf,
+  lockBodyProblems,
   personSeatIn,
   plainTextProblems,
   problemHash,
@@ -39,18 +42,18 @@ import {
   returnProblems,
   returnStrings,
   signedBy,
+  stakeRuleBodyProblems,
   stampOk,
   textIssues,
 } from '@bitquilt/core';
 import { challengeBodyProblems, verdictBodyProblems } from './challenge.js';
 import { type CoinLockView, type CoinWord, COIN_LOG, coinEventRefusal } from './coin.js';
-import { goldBodyProblems, goldRevealBodyProblems } from './gold.js';
 import { hideBodyProblems } from './hide.js';
 import { Refusal, json } from './http.js';
 import type { PullDoor } from './peers.js';
 import { proposeBodyProblems, proposedHash, standingProposals } from './propose.js';
 import { seedBodyProblems } from './seeding.js';
-import { PRODUCTION_EVENTS, lockBodyProblems, stakeRuleBodyProblems } from './stake.js';
+import { PRODUCTION_EVENTS } from './stake.js';
 import type { Store } from './store.js';
 import { BLOB_MAX, admitTrace, tracesKept } from './trace.js';
 import type { Context } from './tracker.js';

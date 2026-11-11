@@ -14,6 +14,7 @@ import {
   type Problem,
   type Receipt,
   SLUG_RULE,
+  acceptingRoots,
   canonicalBytes,
   eventSignedByKey,
   expandPieces,
@@ -23,7 +24,6 @@ import {
   plainTextProblems,
 } from '@bitquilt/core';
 import type { Layer, ProblemLayer } from './challenge.js';
-import { acceptingRoots } from './standing.js';
 
 export const PROPOSE = 'QX-22';
 

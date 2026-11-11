@@ -1,23 +1,16 @@
 /**
- * Standing, QX-1 section 2, as the layer keeps it while it folds: the credits every accepting set earns its roots,
+ * Standing, QX-1 section 2, as reading 2 keeps it while it folds: the credits every accepting set earns its roots,
  * the moves a strike, a stake, a forfeit, a restore or a burn makes, and the three readers over them, standing, locked
- * and free. The record every phase of challengeLayer writes into is defined here too, since standing is a function of
- * all of them: what the folds credit, what a lock holds (QX-15), what a gold locks (QX-16), what a burn bought (QX-17).
+ * and free. The record every phase of the fold writes into is defined here too, since standing is a function of all of
+ * them: what the folds credit, what a lock holds (QX-15), what a gold locks (QX-16), what a burn bought (QX-17). Moved
+ * here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says.
  */
-import {
-  type Address,
-  type Event,
-  type Hash,
-  type KindsDecided,
-  type PieceView,
-  type Receipt,
-  type ReduceInput,
-  type Reveal,
-  type State,
-  isRecord,
-  orderReceipts,
-  viaOf,
-} from '@bitquilt/core';
+import type { Event, Receipt } from './events.js';
+import type { Hash } from './hash.js';
+import type { Address } from './keys.js';
+import { type KindsDecided, viaOf } from './kinds.js';
+import { isRecord } from './plain.js';
+import { type PieceView, type ReduceInput, type Reveal, type State, orderReceipts } from './reduce.js';
 import { type LockView, type StakeRule, liveAt } from './stake.js';
 import { type GoldView, goldLiveAt } from './gold.js';
 import type { ChallengeView, LayerState } from './challenge.js';
