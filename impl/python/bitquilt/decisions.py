@@ -207,8 +207,9 @@ class Decisions:
         lines = list(self.led.lines.values())
         judged = [(line, rec) for line in lines for rec in line.recs.values() if kind_of(rec.verifier)[0] == "judge"]
         last = None
-        for _ in range(6):
-            # A panel is drawn over the credits of the pass before, so the first pass draws none.
+        # READING.md section 6: a panel is drawn over the credits of the pass before, so the first pass draws none,
+        # and the kinds are decided again three times at most.
+        for _ in range(4):
             self.known, self.moves, self.credited = self.credited, [], {}
             for line in lines:
                 for rec in line.recs.values():

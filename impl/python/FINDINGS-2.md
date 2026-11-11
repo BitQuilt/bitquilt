@@ -158,5 +158,13 @@ Then READING.md section 4 was given what entries 20 to 27 asked, by two dated pa
 - **Entry 26.** The README says no fixture holds an implementation to a passage.
 - **Entry 27.** Section 4 says `traced` by the set's reveals, and null where the piece shows no set of reveals. A set of runs says null in the reference, which no fixture holds (entry 14).
 - **The sides, which no entry asked.** In the reference the owner's reading is a side of a seam like any other, and on a `human` piece that is `disputed` over its seated readings every two readings that differ are sides, seated or not. This code left the owner's out and read the seated alone. Section 4 says both as the reference reads them, this code follows, and no fixture holds either.
+- **Entry 28.** Section 9 says when each document is said: the output where reading 1's reducer calls the version complete, the record document where the problem has a record piece and is complete in the layer.
+- **Entries 29 to 31.** Section 5 says where a panel and a challenge are listed. The README gives a panel's keys and words, and `unoffered`, sorted.
+- **Entry 32.** Section 6 says a panel is drawn over the credits of the pass before, the first fold draws none, and the kinds are decided again three times at most. This code allowed six passes, and allows the first fold and three now, as the reference does.
+- **Entry 33.** Section 6 says the fixed point comes before section 7's pass, and a strike there does not run it again.
+- **Entry 34.** Section 6 says what each kind's set credits, and that a credit counts from the earliest completion of a set that holds the reveal.
+- **Entry 35.** Section 6 and QX-17 section 4 give the burn's word, and section 6 says what the fold reads of it and of a coin lock's.
+- **Entry 36.** QX-15 section 1 and section 7 say a stake rule is its version's.
+- **Entries 37 and 38.** Section 7 says the problem's `stake` and that a lock kept stays listed, with `forfeitedAt` and `restoredAt` the signs of what became of it.
 
-The entries that are thin and not wrong are open, each a sentence for READING.md or a cited document: 28 to 40, 42 to 52 and 54. The assumptions no fixture holds are open until a fixture holds each: with those listed above, the grounds at a version where the piece is locked, the owner's reading as a side, and a reading from no person's seat as a side on a `human` piece.
+The entries that are thin and not wrong are open, each a sentence for READING.md or a cited document: 39 to 40, 42 to 52 and 54. The assumptions no fixture holds are open until a fixture holds each: with those listed above, the grounds at a version where the piece is locked, the owner's reading as a side, and a reading from no person's seat as a side on a `human` piece.
