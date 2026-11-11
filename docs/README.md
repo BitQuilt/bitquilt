@@ -16,7 +16,7 @@ Each kind of reader has a path through the documents, in order, with what each o
 3. [CORE.md](CORE.md), sections 1 to 8 and 11: the forms (canonical JSON, hashes, keys and signatures), the envelope, the piece hash, the event line, the receipt wrapper, the reducer, `next`, the link a client resolves and checks, and the gate a return passes at the door. The fixtures hold sections 6 and 7 (section 9), so a client computes the map and the pick itself; a tracker's `GET /p/<hash>/state` is that tracker's view, a convenience.
 4. [PROTOCOL.md](PROTOCOL.md#the-tracker), "The tracker": the routes a client calls.
 5. [EXTENSIONS.md](EXTENSIONS.md): the registry, for the extension behind a verifier kind or a refusal the client meets; each number links its document.
-6. [impl/python](../impl/python/README.md): the core written a second time from CORE.md and the fixtures alone, the reference for the forms in another language, and [its findings](../impl/python/FINDINGS.md), where the two readings of the document parted.
+6. [impl/python](../impl/python/README.md): the core written a second time from CORE.md and the fixtures alone, the reference for the forms in another language, and [its findings](../impl/python/FINDINGS.md), where the two readings of the document parted; reading 2 is written a second time beside it, with [its own findings](../impl/python/FINDINGS-2.md).
 7. [The fixtures](../packages/core/fixtures/README.md): a client is a client when it reproduces every one: the states, the count of dropped events, `complete`, the output hash and the picks.
 
 ## A contributor to the code

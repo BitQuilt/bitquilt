@@ -62,3 +62,48 @@ section 12 of CORE.md now says it. On 27 October every place this code read
 a clarified sentence differently from the reference was aligned to the
 reference, and one place the reference was aligned to this code; the last
 section of FINDINGS.md lists them, and the clarification fixtures pin each.
+
+## Reading 2
+
+The same package holds a second implementation of reading 2,
+`state = read(ledger, now)`, written from `docs/v2/READING.md`, the documents
+it cites and the fixtures under `packages/core/fixtures/reading-2` as JSON.
+No TypeScript or JavaScript file was read while writing it. It reuses reading
+1's code for the bytes, the envelope, the schema, the roots and the checks of
+an event, and changes none of reading 1's answers.
+
+```bash
+python3 impl/python/conform2.py          # every fixture at each of its times, PASS or the first places apart, then a total
+python3 impl/python/conform2.py -v       # every place the read and the file are apart
+python3 impl/python/conform2.py path/to/fixture.json
+```
+
+```python
+import sys; sys.path.insert(0, "impl/python")
+from bitquilt.reading import read
+
+state = read(fixture["ledger"], "2026-11-09T12:00:47.000Z")   # the state, in the form a fixture keeps under `expect`
+```
+
+| File | READING.md |
+| --- | --- |
+| `bitquilt/record.py` | sections 2 and 3: the ledger, the lines, and one record for a line |
+| `bitquilt/grounds.py` | section 4: the traces, the readings set aside and the seams (QX-19) |
+| `bitquilt/kinds.py` | sections 3 and 5: the set of each kind, and how each reading counts |
+| `bitquilt/decisions.py` | sections 5 to 7: standing, the panels, and the pass over the locks, the gold and the challenges (QX-1, QX-15, QX-16, QX-17) |
+| `bitquilt/inherit.py` | section 8: the reach and the inherited squares (QX-23) |
+| `bitquilt/propose.py` | section 3: the proposed pieces beside a problem (QX-22) |
+| `bitquilt/reading.py` | sections 1 and 9: the read, each piece's one state, the output and the record document, and what is said in a fixture's form |
+| `conform2.py` | section 11: the fixtures of reading 2 as the conformance test |
+| `FINDINGS-2.md` | every place the documents were insufficient, ambiguous or contradicted by a fixture, what was assumed, and the fixture that decided it |
+
+The plain-text gate is not implemented here, as in reading 1, so the one
+place reading 2 makes it a rule of validity, a proposal's brief and reason
+(QX-22 section 1), is not held. No fixture holds a run, so the `check` and
+`score` kinds are reading 1's code and untested under reading 2.
+
+### Score
+
+91 of 91 fixtures pass, each at both of its times, on 11 November 2026.
+FINDINGS-2.md records what the documents did not say, and the places a
+document and a fixture disagree, where the fixture was followed.

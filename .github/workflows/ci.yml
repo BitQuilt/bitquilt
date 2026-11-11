@@ -19,5 +19,6 @@ jobs:
       - run: pnpm conform
       - run: pnpm conform:2
       - run: python3 impl/python/conform.py
+      - run: python3 impl/python/conform2.py
       - run: forge test
         working-directory: contracts
