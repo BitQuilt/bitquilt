@@ -1,13 +1,14 @@
 /**
  * QX-23, a fork inherits squares (docs/ext/QX-23.md): a piece is named by the hash of its brief, schema and verifier,
  * so a piece a fork keeps unchanged is the same question, and the square it has on the problem the fork came from
- * already answers it. This file holds what a fork reaches (QX-23 section 1), the layer's last pass, which counts the
- * pieces done elsewhere, settles what waits on them and marks the inherited squares (QX-23 sections 2 and 3), when a
- * fork is complete in the layer (QX-23 section 4), and the brief of a piece that waits on an inherited input
- * (QX-23 section 3). An inherited square is a reading of the record and moves nothing: the pass runs after every
- * credit, lock, gold and challenge is folded, adds no event, and writes a state and a mark and nothing else. It takes
- * the layer's shapes from `layer.ts`, with a piece's own state and the settling handed in by the pass that calls it,
- * `read`. Moved here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says.
+ * already answers it. This file holds what a fork reaches, the whole line of each problem its line's envelopes name in
+ * `from` (QX-23 section 1, and READING.md section 8), the layer's last pass, which counts the pieces done elsewhere,
+ * settles what waits on them and marks the inherited squares (QX-23 sections 2 and 3), when a fork is complete in the
+ * layer (QX-23 section 4), and the brief of a piece that waits on an inherited input (QX-23 section 3). An inherited
+ * square is a reading of the record and moves nothing: the pass runs after every credit, lock, gold and challenge is
+ * folded, adds no event, and writes a state and a mark and nothing else. It takes the layer's shapes from `layer.ts`,
+ * with a piece's own state and the settling handed in by the pass that calls it, `read`. Moved here from the
+ * tracker's layer as docs/history/V2-PLAN.md, phase 3, says.
  */
 import type { LayerState } from './challenge.js';
 import type { Hash } from './hash.js';
@@ -45,52 +46,46 @@ function rankOf(state: string): number {
 }
 
 /**
- * The hashes of an entry's chain, nearest first: its own, then each ancestor's along `prev` that the core's chain
- * holds. The last envelope's own `prev` is left out: the core's chain stopped there, at an envelope the reader does
- * not hold or one by another owner, and that is no version of this line.
+ * QX-23 section 1: each `from` an envelope of the entry's line names, "F's own envelope first, then each ancestor's
+ * along `prev`, then those of the other versions of F's line the tracker holds, in the order of their hashes".
+ * READING.md section 8: "A fork reaches the line of each problem its line's envelopes name in `from`".
  */
-function chainOf(e: ProblemEntry): Hash[] {
-  const out: Hash[] = [e.hash];
-  for (const env of e.fold.chain.slice(0, -1)) if (env.problem.prev) out.push(env.problem.prev);
-  return out;
-}
-
-/** QX-23 section 1: each `from` an envelope of the entry's chain names, its own envelope first, then an ancestor's. */
 function sourcesOf(e: ProblemEntry): Hash[] {
   const out: Hash[] = [];
   for (const env of e.fold.chain) if (env.problem.from) out.push(env.problem.from);
+  const beside = [...e.line.beside].sort((a, b) => (a.hash < b.hash ? -1 : a.hash > b.hash ? 1 : 0));
+  for (const b of beside) if (b.envelope.problem.from) out.push(b.envelope.problem.from);
   return out;
 }
 
 /**
- * QX-23 section 1, what each problem reaches, for the problems that reach something: "For a source S the tracker
- * holds, F reaches the line of S: S, and every later version of S the tracker holds, the earlier first", and "what
- * S's own chain reaches by the same rule". A later version of equal length is ordered by its hash. "A problem never
- * reaches a version of itself, and a ring of `from` is walked once." Nothing is built where no envelope names a
- * `from`, so a tracker that holds no fork does no more here than look.
+ * QX-23 section 1: "F reaches the line of S: S first, and then every other version of S's line the tracker holds, a
+ * shorter chain before a longer and, of two as long, the lesser hash first."
+ */
+function lineFrom(source: ProblemEntry, entries: ReadonlyMap<Hash, ProblemEntry>): ProblemEntry[] {
+  const rest: ProblemEntry[] = [];
+  for (const h of source.line.versions) {
+    const e = entries.get(h);
+    if (e && e !== source) rest.push(e);
+  }
+  rest.sort((a, b) => a.fold.chain.length - b.fold.chain.length || (a.hash < b.hash ? -1 : a.hash > b.hash ? 1 : 0));
+  return [source, ...rest];
+}
+
+/**
+ * QX-23 section 1, what each problem reaches, for the problems that reach something: a fork reaches the line of each
+ * source the tracker holds, an earlier version of the source and one made beside it among them, since "a square is
+ * read where it was made" (READING.md section 8) and a piece only one of those holds has its square there. It
+ * reaches as well "what S's line reaches by the same rule". "A problem never reaches a version of its own line, and a
+ * ring of `from` is walked once." Nothing is built where no envelope names a `from`, so a tracker that holds no fork
+ * does no more here than look.
  */
 function reaches(entries: ReadonlyMap<Hash, ProblemEntry>): Map<ProblemEntry, ProblemEntry[]> {
   const out = new Map<ProblemEntry, ProblemEntry[]>();
-  const forks = [...entries.values()].filter((e) => sourcesOf(e).length > 0);
-  if (forks.length === 0) return out;
-
-  // The line of each held problem: the entries whose chain holds it, itself first, then the later versions.
-  const chains = new Map<ProblemEntry, Hash[]>();
-  const lines = new Map<Hash, ProblemEntry[]>();
-  for (const e of entries.values()) {
-    const chain = chainOf(e);
-    chains.set(e, chain);
-    for (const h of chain) lines.set(h, [...(lines.get(h) ?? []), e]);
-  }
-  for (const line of lines.values())
-    line.sort(
-      (a, b) => chains.get(a)!.length - chains.get(b)!.length || (a.hash < b.hash ? -1 : a.hash > b.hash ? 1 : 0),
-    );
-
-  for (const fork of forks) {
-    // The fork's own line: the versions in its chain, and each later version of it.
-    const own = new Set<Hash>(chains.get(fork)!);
-    for (const later of lines.get(fork.hash) ?? []) own.add(later.hash);
+  for (const fork of entries.values()) {
+    const first = sourcesOf(fork);
+    if (first.length === 0) continue;
+    const own = fork.line.versions;
     const reach: ProblemEntry[] = [];
     const reached = new Set<Hash>();
     const walked = new Set<Hash>();
@@ -100,7 +95,7 @@ function reaches(entries: ReadonlyMap<Hash, ProblemEntry>): Map<ProblemEntry, Pr
         walked.add(s);
         const source = entries.get(s);
         if (!source) continue;
-        for (const e of lines.get(s) ?? []) {
+        for (const e of lineFrom(source, entries)) {
           if (own.has(e.hash) || reached.has(e.hash)) continue;
           reached.add(e.hash);
           reach.push(e);
@@ -108,7 +103,7 @@ function reaches(entries: ReadonlyMap<Hash, ProblemEntry>): Map<ProblemEntry, Pr
         walk(sourcesOf(source));
       }
     };
-    walk(sourcesOf(fork));
+    walk(first);
     if (reach.length) out.set(fork, reach);
   }
   return out;

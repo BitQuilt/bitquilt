@@ -8,7 +8,7 @@ import { VERDICT, addr, boot, envelope, key } from './helpers.js';
 /**
  * A fork inherits squares (docs/ext/QX-23.md), in the layer and at the door. QX-23 section 1: a fork reaches the line
  * of the problem it came from, a later version among it, and what that problem reaches, so a fork of a fork reaches
- * the root, a problem never reaches a version of itself, and a ring of `from` is walked once. QX-23 section 2: a
+ * the root, a problem never reaches a version of its own line, and a ring of `from` is walked once. QX-23 section 2: a
  * piece the fork keeps is `inherited` where a square stands on it in reach, with the problem and the state there, the
  * furthest along and of equals the first; a piece the fork changed inherits nothing, a piece with a square of the
  * fork's own or one `locked` says its own state, a reader that does not hold the source says `open`, a square struck
