@@ -255,6 +255,7 @@ class Read:
                 "own_complete": own,
                 "output": output,
                 "record_output": record_output,
+                # Every fixture says 0, two that hold a dropped reveal among them (FINDINGS-2.md).
                 "dropped": 0,
                 "unoffered": [s["hash"] for p, s in panels if p is not None and p.outcome != "decided"],
                 "stake": {"min": rule.min, "pieces": rule.pieces} if rule is not None else None,
