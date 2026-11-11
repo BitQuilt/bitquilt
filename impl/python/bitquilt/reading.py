@@ -17,6 +17,7 @@ from .grounds import fold_traces, set_aside, seams_of, traced
 from .kinds import KIND_WORDS, kind_of, agree_pass, attest_pass, record_pass, person_seat, differ, find_set
 from .decisions import Decisions
 from .inherit import Reach
+from .propose import proposals_said
 from .record import Ledger, entries_of, fold_record, iso
 from .times import parse_time, hours
 
@@ -294,7 +295,7 @@ class Read:
                 "golds": [dec.gold_said(g) for g in golds],
                 "challenges": [dec.challenge_said(c) for c in dec.challenges if c.version is version],
                 "panels": [dec.panel_said(p, s["name"]) for p, s in panels if p is not None],
-                "proposals": [],
+                "proposals": proposals_said(led, version),
                 "views": views,
                 "pieces": pieces,
             }
