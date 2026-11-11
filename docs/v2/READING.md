@@ -42,6 +42,8 @@ The lease and the window an event is held to are those of the version it names.
 
 A reading that rests on nothing, where another on the piece rests on a kept read and the two differ, is set aside as QX-19 section 4 says. The seams between readings that differ are computed as that section computes them.
 
+The grounds are read before the sets, so the reading that takes a set-aside one's place counts toward a set and is credited where the set is made. They are read again after the sets, since a piece that waits on another opens only once that one's set is made, and a dispute on it shows only then.
+
 ## 5. The sets
 
 Each kind's rule reads the record and says whether a set stands.
@@ -57,7 +59,7 @@ Each kind's rule reads the record and says whether a set stands.
 
 ## 6. Standing
 
-Standing is [QX-1](../ext/QX-1.md) section 2 as amended 10 November 2026: one credit for each reveal in a set, by the reveal's id. The pool is QX-1 section 3, and a version of a line is no other problem for it. Locked and free standing are [QX-15](../ext/QX-15.md) section 3. A burn on the coin log is credited on the door's word in its receipt's wrapper ([QX-17](../ext/QX-17.md) section 4), so where a tracker carries the coin its log's lines are in the ledger, and the fold reads the word and no balance. Sections 5 and 6 are brought to a fixed point, since a panel is drawn by standing and a panel's ranking makes a set.
+Standing is [QX-1](../ext/QX-1.md) section 2 as amended 10 November 2026: one credit for each reveal in a set, by the reveal's id. The pool is QX-1 section 3, and a version of a line is no other problem for it. Locked and free standing are [QX-15](../ext/QX-15.md) section 3. A burn on the coin log is credited on the door's word in its receipt's wrapper ([QX-17](../ext/QX-17.md) section 4), so where a tracker carries the coin its log's lines are in the ledger, and the fold reads the word and no balance. Sections 5 and 6 are brought to a fixed point, since a panel is drawn by standing and a panel's ranking makes a set. Section 4 is read with them: wherever the grounds set a reading aside after the sets, the sets and standing are brought to their fixed point again over what remains, and the fold stops when nothing new is set aside, in four passes at most.
 
 ## 7. The decisions
 
@@ -101,6 +103,7 @@ Each of these is argued in phase 2, with a fixture, before the fold is written.
 6. **A reading that counts for nothing.** The record says why. Today the tracker shows such a reading and gives no reason.
 7. **One state.** The `core` field a tracker answers beside each piece's state goes at the switch.
 8. **The gold and the lock in the reading.** Today they are extensions a core client may ignore. Decided 11 November 2026.
+9. **The grounds with the sets.** Until 11 November 2026 the code read the grounds once, after the fixed point of sections 5 and 6, which was not run again: a set made by the reading that took a set-aside one's place was credited too late to seat a panel on another problem, and the panel was void. Sections 4 to 6 are read together now, as section 6 says. No answer over the ledgers kept changed, and the fixture `grounds-1` holds both halves: the panel seated from that set, and a reading set aside on a piece that waited on the judged one. Done 11 November 2026.
 
 ## 13. What this draft leaves open
 

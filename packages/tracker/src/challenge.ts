@@ -2,11 +2,11 @@
  * The one Layer a tracker's door reads (docs/ext/QX-1.md): the core's `read` of every problem held, with each
  * extension's admissions bound beside the views, what the door asks before it takes an event. The pass itself, the
  * challenge window with the verifier kinds, the readings set aside, the stakes, the golds and the inherited squares
- * folded in its seven phases, is the core's `read.ts` now, moved as docs/history/V2-PLAN.md, phase 3, says, and it
- * answers with the record it wrote into. challengeLayer asks each extension's admissions over that record, each built
- * in the file of the checks it makes: QX-1's here (challengeAdmissions), QX-2's in verifiers.ts, QX-15's in stake.ts
- * and QX-16's in gold.ts. The types QX-1 adds to a problem's log are here too, and what the door says of a problem
- * the core refuses.
+ * folded in the reading's eight steps, is the core's `read.ts` now, moved as docs/history/V2-PLAN.md, phase 3, says,
+ * and it answers with the record it wrote into. challengeLayer asks each extension's admissions over that record, each
+ * built in the file of the checks it makes: QX-1's here (challengeAdmissions), QX-2's in verifiers.ts, QX-15's in
+ * stake.ts and QX-16's in gold.ts. The types QX-1 adds to a problem's log are here too, and what the door says of a
+ * problem the core refuses.
  */
 import {
   type Address,

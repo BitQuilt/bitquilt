@@ -20,25 +20,41 @@
  * QX-17's burn credit and the door's word on a coin lock. `read` takes them in one pass over every problem's receipts,
  * in receipt order, since a lock on one problem and a credit on another are both functions of the whole ledger. Before
  * them it sets aside, in a dispute, a reading that rests on nothing where the other rests on the record
- * (QX-19 section 4; `trace.ts` says what a reading rests on), so the piece is folded without it. The phases, each
- * marked below where it runs:
+ * (QX-19 section 4; `trace.ts` says what a reading rests on), so the piece is folded without it.
  *
- *   1. Every problem reduced, and the verifier kinds decided over it (verifiers.md section 1).
- *   2. The kinds and the credits brought to a fixed point (verifiers.md section 1).
- *   3. The readings that rest on nothing set aside in a dispute (QX-19 section 4; trace.ts).
- *   4. The stake rules kept in receipt order (QX-15 section 1; stake.ts).
- *   5. The burns on the coin log credited as standing (QX-17 section 4; standing.ts).
- *   6. The events the pass keeps, read once each in receipt order across every problem: locks (QX-15 section 1),
- *      golds (QX-16 section 1), gold reveals (QX-16 section 3) and challenges with their verdicts
+ * The steps are the eight of the reading, docs/v2/READING.md sections 2 to 9, numbered as its sections are and marked
+ * below where each runs:
+ *
+ *   2. The check, and the line: every problem reduced once by the core, which checks its envelopes, blobs, signatures
+ *      and chain, and a problem the core refuses left out with the core's reason (`foldProblems`).
+ *   3. The record: each problem's events in order on its pieces, as the reducer folds them, with the kinds' first
+ *      word on them and no panel drawn yet (`foldProblems`; verifiers.md section 1).
+ *   4. The grounds: in a dispute, a reading that rests on nothing set aside (QX-19 section 4; trace.ts), before the
+ *      sets, so the reading that takes its place counts toward one, and again after them where a set opened a piece
+ *      that waited on it.
+ *   5. The sets: each kind's rule read over the record (verifiers.md section 1; kinds.ts), brought to a fixed point
+ *      with the credits of step 6, since a panel is drawn by standing and a panel's ranking makes a set
+ *      (`setsAndStanding`).
+ *   6. Standing: a credit for each reveal in a set (QX-1 section 2; standing.ts), and the burns on the coin log
+ *      credited (QX-17 section 4).
+ *   7. The decisions: the stake rules kept in receipt order (QX-15 section 1; stake.ts), then the events the pass
+ *      keeps, read once each in receipt order across every problem (`decide`): locks (QX-15 section 1), golds
+ *      (QX-16 section 1), gold reveals (QX-16 section 3) and challenges with their verdicts
  *      (QX-1 sections 3 to 6; against a gold miss, QX-16 section 4).
- *      Then the last pass, after everything that moves standing, a lock or a strike: what each fork reaches, the pieces
- *      done elsewhere, what waits on them settled again, and the inherited squares marked
+ *   8. The reach, after everything that moves standing, a lock or a strike: what each fork reaches, the pieces done
+ *      elsewhere, what waits on them settled again, and the inherited squares marked
  *      (QX-23 sections 1 to 3; inherit.ts).
- *   7. The views a reader is handed (layer.ts), with the record the phases wrote into (standing.ts).
+ *   9. The state: the views a reader is handed (`stateOf`; layer.ts), with the record the steps wrote into
+ *      (standing.ts).
+ *
+ * Where the reading departs from what this pass does, its section 12 says so, and each departure waits to be argued
+ * with a fixture: a record here is a problem's own, read with its ancestors', and not yet a line's.
  *
  * What a door asks before it takes an event, the admissions, is no part of the read: a tracker builds them over the
  * record this answers with. The pass moved here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says,
- * in the seven phases it had there.
+ * in the seven phases it had there, and was laid out in the reading's steps after, the grounds before the sets. In
+ * those phases the grounds came after the fixed point, which was not run again: a set made by the reading that took a
+ * set-aside one's place was credited too late to seat a panel on another problem.
  */
 import { type ChallengeView, type LayerState, SIDES, type Seat, type Side } from './challenge.js';
 import { problemHash } from './envelope.js';
@@ -255,9 +271,11 @@ function strike(
  * another. Nothing is docked: a disputed piece had no square. A trace that arrives later lifts it, since the layer is a
  * function of the receipts; a reader that measures no blob sets nothing aside. The mirror's own fold, for its record
  * documents, measures none; its check of the coin's balances measures each read a trace names by its bytes, as the
- * home does, so it sets aside what the home sets aside (QX-17 section 7).
+ * home does, so it sets aside what the home sets aside (QX-17 section 7). Answers whether anything was set aside, so
+ * the read brings the sets and standing to their fixed point again over what remains.
  */
-function setAsideUngrounded(f: Folding, blobLength: (hash: Hash) => number | null): void {
+function setAsideUngrounded(f: Folding, blobLength: (hash: Hash) => number | null): boolean {
+  let any = false;
   for (const e of f.entries.values()) {
     for (let pass = 0; pass < 4; pass++) {
       const found: Hash[] = [];
@@ -267,6 +285,7 @@ function setAsideUngrounded(f: Folding, blobLength: (hash: Hash) => number | nul
           if (!e.struck.has(id)) found.push(id);
       }
       if (found.length === 0) break;
+      any = true;
       for (const id of found) {
         e.struck.add(id);
         e.aside.add(id);
@@ -275,6 +294,7 @@ function setAsideUngrounded(f: Folding, blobLength: (hash: Hash) => number | nul
     }
   }
   refreshCredits(f);
+  return any;
 }
 
 /**
@@ -629,9 +649,48 @@ export function read(input: ReadInput): Reading {
   const { now } = input;
   const f = newFolding(now, input.founding);
 
-  // 1. Every problem reduced by the core, once each by hash, and the kinds decided over it with no credits yet. A
-  // problem whose input the core refuses is left out with the core's reason (`inputRefused`), so one problem a store
-  // cannot fold leaves the others folded; anything else that fails is the failure it was.
+  // 2. The check, and the line: every problem reduced once by the core, and one the core refuses left out.
+  // 3. The record: each problem's events on its pieces, with the kinds' first word on them (verifiers.md section 1).
+  const refused = foldProblems(f, input);
+
+  // 4. The grounds (QX-19 section 4): in a dispute, a reading that rests on nothing is set aside.
+  const grounds = () => setAsideUngrounded(f, input.blobLength ?? (() => null));
+  grounds();
+
+  // 5. The sets (verifiers.md section 1), brought to a fixed point with the credits of step 6, and with the grounds
+  // again where a set opened a piece that waited on it and a dispute shows there: four passes at most.
+  // 6. Standing (QX-1 section 2), and the burns on the coin log credited (QX-17 section 4).
+  setsAndStanding(f);
+  for (let pass = 0; pass < 3 && grounds(); pass++) setsAndStanding(f);
+  creditBurns(f, input.coin ?? []);
+
+  // 7. The decisions: the stake rules each owner set (QX-15 section 1), then the locks, golds and challenges.
+  keepStakeRules(f);
+  decide(f);
+
+  // 8. The reach (QX-23 sections 1 to 3): the pieces done elsewhere, what waits on them settled again with nothing
+  // decided again, and the inherited squares marked. Every credit, lock, gold and strike is folded above with each
+  // `elsewhere` empty, so an inherited square moves none of them.
+  inheritSquares(f, ownState, (e) => settleKinds(e.decided, e.base, now, e.elsewhere));
+
+  // 9. The state: the views, standing, and the record the door's admissions are asked over.
+  return {
+    now,
+    ...stateOf(f),
+    refused,
+    rootOf: (key, at = now) => rootOf(f, key, at),
+    standing: f.standing,
+    record: f,
+  };
+}
+
+/**
+ * Steps 2 and 3 of the read (READING.md sections 2 and 3): every problem reduced by the core, once each by hash, and
+ * the kinds decided over it with no credits yet. A problem whose input the core refuses is left out with the core's
+ * reason (`inputRefused`), so one problem a store cannot fold leaves the others folded; anything else that fails is
+ * the failure it was. Answers the problems refused, by hash.
+ */
+function foldProblems(f: Folding, input: ReadInput): Map<Hash, string> {
   const refused = new Map<Hash, string>();
   for (const p of input.problems) {
     let core: State;
@@ -644,7 +703,7 @@ export function read(input: ReadInput): Reading {
       continue;
     }
     if (f.entries.has(core.problem)) continue;
-    const decided = applyVerifiers(core, p.receipts, now, { pool: () => [] });
+    const decided = applyVerifiers(core, p.receipts, f.now, { pool: () => [] });
     f.entries.set(core.problem, {
       hash: core.problem,
       input: p,
@@ -663,38 +722,36 @@ export function read(input: ReadInput): Reading {
     });
   }
   for (const h of f.entries.keys()) refused.delete(h);
+  return refused;
+}
 
-  // 2. The kinds and the credits to a fixed point (verifiers.md section 1): a judge panel's pool is the credits on
-  // other problems, and a judged acceptance is itself a credit, so the credits are refreshed and the kinds decided
-  // again until nothing moves; four passes at most.
+/**
+ * Steps 5 and 6 of the read (READING.md sections 5 and 6), to a fixed point (verifiers.md section 1): a judge panel's
+ * pool is the credits on other problems, and a judged acceptance is itself a credit, so the credits are refreshed and
+ * the kinds decided again until nothing moves; four passes at most. A strike in step 7 refolds the problems it touches
+ * and refreshes the credits without running the fixed point again: a struck credit keeps its `until`, so a panel drawn
+ * before the strike keeps its pool (verifiers.md section 6), and a panel drawn after it draws from what remains.
+ */
+function setsAndStanding(f: Folding): void {
+  const seats = (e: ProblemEntry) =>
+    e.decided.panels.map((p) => `${p.piece}:${p.outcome}:${p.seats.map((s) => s.root).join('.')}`).join(';');
   let fingerprint = '';
   for (let pass = 0; ; pass++) {
     refreshCredits(f);
     const next = [...f.entries.values()]
-      .map(
-        (e) =>
-          `${e.fold.pieces.map((v) => v.state).join(',')}|${e.decided.panels.map((p) => `${p.piece}:${p.outcome}:${p.seats.map((s) => s.root).join('.')}`).join(';')}`,
-      )
+      .map((e) => `${e.fold.pieces.map((v) => v.state).join(',')}|${seats(e)}`)
       .join('/');
     if (next === fingerprint || pass === 3) break;
     fingerprint = next;
     for (const e of f.entries.values()) refold(f, e);
   }
-  // A strike below refolds the problems it touches and refreshes the credits without running the fixed point again: a
-  // struck credit keeps its `until`, so a panel drawn before the strike keeps its pool (verifiers.md section 6), and a
-  // panel drawn after it draws from what remains.
+}
 
-  // 3. QX-19 section 4: in a dispute, a reading that rests on nothing where the other rests on the record is set aside.
-  setAsideUngrounded(f, input.blobLength ?? (() => null));
-
-  // 4. The stake rules each problem's owner set (QX-15 section 1).
-  keepStakeRules(f);
-
-  // 5. The burns on the coin log, credited as standing (QX-17 section 4).
-  creditBurns(f, input.coin ?? []);
-
-  // 6. The events this layer keeps or drops, once each by id across every problem, in receipt order; a verdict is read
-  // under its challenge.
+/**
+ * Step 7 of the read (READING.md section 7): the events the pass keeps or drops, once each by id across every problem,
+ * in receipt order; a verdict is read under its challenge.
+ */
+function decide(f: Folding): void {
   const events = new Map<Hash, LayerEvent>();
   const verdicts = new Map<Hash, Verdict[]>();
   for (const e of f.entries.values())
@@ -729,13 +786,14 @@ export function read(input: ReadInput): Reading {
         break;
     }
   }
+}
 
-  // The last pass (QX-23 sections 1 to 3): the pieces done elsewhere, what waits on them settled again with nothing
-  // decided again, and the inherited squares marked. Every credit, lock, gold and strike is folded above with each
-  // `elsewhere` empty, so an inherited square moves none of them.
-  inheritSquares(f, ownState, (e) => settleKinds(e.decided, e.base, now, e.elsewhere));
-
-  // 7. The views.
+/**
+ * Step 9 of the read (READING.md section 9): each problem's view, a piece's state and each extension's word on it, and
+ * every problem's challenges in receipt order.
+ */
+function stateOf(f: Folding): Pick<Reading, 'problems' | 'challenges'> {
+  const now = f.now;
   const problems = new Map<Hash, ProblemLayer>();
   const all: ChallengeView[] = [];
   for (const e of f.entries.values()) {
@@ -789,17 +847,7 @@ export function read(input: ReadInput): Reading {
     all.push(...e.challenges);
   }
   all.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
-
-  // The reading: the views, standing, and the record the door's admissions are asked over.
-  return {
-    now,
-    problems,
-    refused,
-    challenges: all,
-    rootOf: (key, at = now) => rootOf(f, key, at),
-    standing: f.standing,
-    record: f,
-  };
+  return { problems, challenges: all };
 }
 
 /** Why a root has no live seat on a challenge, or null when it has one. */

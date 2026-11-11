@@ -4,18 +4,21 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 /**
- * The phases of the read (read.ts: QX-1, with QX-15, QX-16, QX-17 and QX-19 section 4 folded in): the file's header
- * lists the phases `read` marks in its body, in the same order, and every section a phase in the body cites, the same
- * phase in the header cites too. The header is the map a reader opens the file by, and it once listed six phases where
+ * The steps of the read (read.ts; docs/v2/READING.md section 1: "The fold has eight steps, sections 2 to 9, in that
+ * order."): the file's header lists the steps `read` marks in its body, in the same order, each numbered as its
+ * section of the reading is and named by that section's heading, and every section a step in the body cites, the same
+ * step in the header cites too. The header is the map a reader opens the file by, and it once listed six phases where
  * the body ran seven.
  */
-const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'read.ts'), 'utf8');
+const here = dirname(fileURLToPath(import.meta.url));
+const source = readFileSync(join(here, '..', 'src', 'read.ts'), 'utf8');
+const reading = readFileSync(join(here, '..', '..', '..', 'docs', 'v2', 'READING.md'), 'utf8');
 const header = source.slice(0, source.indexOf('*/'));
 const start = source.indexOf('export function read(');
 const body = source.slice(start, source.indexOf('\n}\n', start));
 
-/** The numbered phases of the header, each with its continuation lines joined. */
-function headerPhases(): Map<number, string> {
+/** The numbered steps of the header, each with its continuation lines joined. */
+function headerSteps(): Map<number, string> {
   const out = new Map<number, string>();
   let last = 0;
   for (const line of header.split('\n')) {
@@ -29,25 +32,39 @@ function headerPhases(): Map<number, string> {
   return out;
 }
 
-/** The numbered phases the body marks, each with the first line of its comment. */
-function bodyPhases(): Map<number, string> {
+/** The numbered steps the body marks, each with the first line of its comment. */
+function bodySteps(): Map<number, string> {
   return new Map([...body.matchAll(/^ {2}\/\/ (\d+)\. (.*)$/gm)].map((m) => [Number(m[1]), m[2]!]));
+}
+
+/** The headings of the reading's sections, by number. */
+function sections(): Map<number, string> {
+  return new Map([...reading.matchAll(/^## (\d+)\. (.*)$/gm)].map((m) => [Number(m[1]), m[2]!]));
 }
 
 const cited = (text: string): string[] => [...text.matchAll(/(?:QX-\d+|verifiers\.md) section \d+/g)].map((m) => m[0]);
 
-describe('the phases of the read', () => {
-  it('are the same in the header and the body, in order, the set-aside of QX-19 among them', () => {
-    const head = headerPhases(),
-      run = bodyPhases();
-    expect(run.size).toBe(7);
+describe('the steps of the read', () => {
+  it('are the same in the header and the body, in order, the eight of the reading', () => {
+    const head = headerSteps(),
+      run = bodySteps();
+    expect([...run.keys()]).toEqual([2, 3, 4, 5, 6, 7, 8, 9]);
     expect([...head.keys()]).toEqual([...run.keys()]);
-    expect([...run.keys()]).toEqual([1, 2, 3, 4, 5, 6, 7]);
-    expect(cited(head.get(3)!)).toContain('QX-19 section 4');
   });
-  it('cite in the header every section the body cites for the same phase', () => {
-    const head = headerPhases();
-    for (const [n, text] of bodyPhases())
-      for (const section of cited(text)) expect(cited(head.get(n) ?? ''), `phase ${n}`).toContain(section);
+  it("are each named by the heading of the reading's section of that number", () => {
+    const head = headerSteps(),
+      run = bodySteps(),
+      named = sections();
+    for (const n of run.keys()) {
+      const name = named.get(n)!;
+      expect(head.get(n)!.startsWith(name), `the header's step ${n}`).toBe(true);
+      expect(run.get(n)!.startsWith(name), `the body's step ${n}`).toBe(true);
+    }
+  });
+  it('cite in the header every section the body cites for the same step, the set-aside of QX-19 among them', () => {
+    const head = headerSteps();
+    expect(cited(head.get(4)!)).toContain('QX-19 section 4');
+    for (const [n, text] of bodySteps())
+      for (const section of cited(text)) expect(cited(head.get(n) ?? ''), `step ${n}`).toContain(section);
   });
 });
