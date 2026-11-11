@@ -12,12 +12,17 @@ import type { ServerResponse } from 'node:http';
 import {
   type Address,
   BLOB_MAX,
+  CHALLENGE,
+  CHALLENGE_SEED,
   EXTENSIONS,
   GOLD,
+  GROUND_MAX,
   type Hash,
   IDENTITY_LOG,
   INHERIT,
   JUDGE_SEED,
+  MAJORITY,
+  PANEL,
   PROPOSE,
   PROPOSED_MAX,
   PROPOSE_WHY_MAX,
@@ -33,7 +38,7 @@ import {
   verifyChain,
   windowOpen,
 } from '@bitquilt/core';
-import { CHALLENGE, CHALLENGE_SEED, GROUND_MAX, type Layer, MAJORITY, PANEL, refusedHere } from './challenge.js';
+import { type Layer, refusedHere } from './challenge.js';
 import { type CoinFolded, type CoinLayer, type LogHead, COIN, COIN_LOG } from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
 import { HIDE } from './hide.js';

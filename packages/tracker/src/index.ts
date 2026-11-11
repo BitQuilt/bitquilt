@@ -18,19 +18,17 @@ export { json } from './http.js';
 export { WITNESS_VIA, WITNESS_BOUND_BY, CLIENT_NAME_MAX, custodyHeaders } from './witness.js';
 export { PRIVATE_RANGES, clientAddress, clientAddressOf, inRanges, plainAddress, rangesOf } from './address.js';
 export { trackerOptionsFromEnv, quietSqliteWarning, type TrackerEnv } from './env.js';
+export { CHALLENGE_EVENTS, type Layer, challengeLayer } from './challenge.js';
 export {
   CHALLENGE,
-  CHALLENGE_EVENTS,
   CHALLENGE_SEED,
   GROUND_MAX,
-  type Layer,
   MAJORITY,
   PANEL,
   challengeBodyProblems,
-  challengeLayer,
   inputRefused,
   verdictBodyProblems,
-} from './challenge.js';
+} from '@bitquilt/core';
 export { type Admission, type PieceLayer, type ProblemLayer } from '@bitquilt/core';
 export {
   type ChallengeView,

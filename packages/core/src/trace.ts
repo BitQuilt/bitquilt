@@ -472,7 +472,7 @@ export function recordSeams(
 
 /**
  * The three over one fold: the traces kept, the grade, and the seams with the reveals to set aside. The layer's fold is
- * asked this way, by the tracker's `challenge.ts`; a problem's pieces with the fold each is read over and a record
+ * asked this way, by `read`; a problem's pieces with the fold each is read over and a record
  * piece's grade are `problemTraces`'s.
  */
 export function pieceTraces(

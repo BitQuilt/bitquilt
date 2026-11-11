@@ -19,6 +19,7 @@ import {
   type PieceTraces,
   type ProblemLayer,
   type ReduceInput,
+  inputRefused,
   passageIn,
   problemTraces,
   reduce,
@@ -26,7 +27,7 @@ import {
 } from '@bitquilt/core';
 import { keepBlob, limit, postEvent, publish, pullDoorOf } from './admit.js';
 import { PRIVATE_RANGES, clientAddress, rangesOf } from './address.js';
-import { type Layer, challengeLayer, inputRefused } from './challenge.js';
+import { type Layer, challengeLayer } from './challenge.js';
 import { type CoinLayer, type CoinParams, COIN_LOG, coinLayer } from './coin.js';
 import { assisted, offer } from './hand.js';
 import { type Hidden, hiddenNow } from './hide.js';

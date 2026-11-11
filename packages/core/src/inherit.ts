@@ -7,7 +7,7 @@
  * (QX-23 section 3). An inherited square is a reading of the record and moves nothing: the pass runs after every
  * credit, lock, gold and challenge is folded, adds no event, and writes a state and a mark and nothing else. It takes
  * the layer's shapes from `layer.ts`, with a piece's own state and the settling handed in by the pass that calls it,
- * the tracker's `challenge.ts`. Moved here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says.
+ * `read`. Moved here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says.
  */
 import type { LayerState } from './challenge.js';
 import type { Hash } from './hash.js';

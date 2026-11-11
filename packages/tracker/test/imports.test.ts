@@ -1,9 +1,10 @@
 /**
  * The tracker's files load one another without a cycle (AGENTS.md, The shape of it), so the layer reads from the bottom
  * up: verifiers.ts, stake.ts, gold.ts, then challenge.ts, each loading only files before it. The draw, the verifier
- * kinds, the stake, the gold, standing, the trace, the proposed pieces and the inherited squares are the core's now,
- * moved as docs/history/V2-PLAN.md, phase 3, says: the draw, standing, the trace, the proposals and the last pass are
- * no files here, and verifiers.ts, stake.ts and gold.ts hold the admissions alone. A file takes a type from a later one
+ * kinds, the stake, the gold, standing, the trace, the proposed pieces, the inherited squares and the pass over them
+ * all are the core's now, moved as docs/history/V2-PLAN.md, phase 3, says: the draw, standing, the trace, the
+ * proposals and the last pass are no files here, and verifiers.ts, stake.ts, gold.ts and challenge.ts hold the
+ * admissions alone, which challenge.ts binds over the core's read. A file takes a type from a later one
  * with `import type`, which loads nothing. Under verbatimModuleSyntax an import of inline types alone still loads its
  * module, so it counts here as a load. The layer's admissions sit in the files of the rules they check, and each
  * returns its part of the one Layer, a type, so moving them there added no load. The door's jobs (tracker.ts, Context)
