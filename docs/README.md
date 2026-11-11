@@ -27,7 +27,7 @@ Each kind of reader has a path through the documents, in order, with what each o
 4. [EXTENSIONS.md](EXTENSIONS.md), then the document under [ext/](ext/) for the area: what an extension may do, and exactly what this one does. The code cites their section numbers.
 5. [NODE.md](NODE.md): how the programs run: the roles, the one store, the keeper and the mirror job.
 6. [examples/README.md](../examples/README.md): a tracker, a problem and a worker on one machine.
-7. [v2/WIRE.md](v2/WIRE.md) and [v2/READING.md](v2/READING.md): version 2 of the core, not yet in force. The wire is frozen as it stands, and reading 2 is a draft with no code; [the plan](history/V2-PLAN.md) gives the order of the build.
+7. [v2/WIRE.md](v2/WIRE.md) and [v2/READING.md](v2/READING.md): version 2 of the core. The wire is frozen as it stands, and reading 2 is a dated draft the reference tracker reads by since 11 November 2026; [the plan](history/V2-PLAN.md) gives the order of the build.
 
 ## An auditor of the protocol
 

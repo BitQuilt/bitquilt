@@ -4,7 +4,7 @@ The BitQuilt core, version 1: what a client has to get right and nothing else. `
 
 ## The frozen rule
 
-CORE.md is frozen as version 1 (its section 10 and AGENTS.md, rule 1), and the fixtures are the law. A change to this package that changes any fixture's expected state is a change to the core, which is version 2, which is a different conversation. `fixtures/generate.ts` writes the fixtures from this implementation; running it to change what an existing fixture expects belongs to that conversation, and a fixture is added only for what the reference already computes, as `23-verifies-first` was on 26 October 2026. New behaviour goes in an extension (`docs/EXTENSIONS.md`) and is ignored by a core client.
+The wire is frozen and the reading is numbered (AGENTS.md, rule 1). CORE.md is reading 1, frozen as version 1: `reduce` and `next` answer the twenty-four fixtures as they stand, and no change to this package moves a state or a pick there. `fixtures/generate.ts` writes those fixtures from this implementation and is run only to add a clarification, as rule 1 says. Reading 2 is `docs/v2/READING.md`, a dated draft, and `read` is held to every fixture under `fixtures/reading-2`: a change that moves an answer there amends the document in the same pull request, says the fixtures again with `fixtures/say-again.ts`, and says which answers changed and why. Behaviour that moves no piece's state, no set and no standing goes in an extension (`docs/EXTENSIONS.md`).
 
 ## The scripts
 
