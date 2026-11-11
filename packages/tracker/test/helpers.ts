@@ -5,7 +5,8 @@
  * test file keeps its own pieces, any other schema and the helpers that differ from these. vitest runs `*.test.ts`
  * alone, so this file is no test of its own.
  */
-import { expect } from 'vitest';
+import { afterAll, expect } from 'vitest';
+import { basename } from 'node:path';
 import type { Server } from 'node:http';
 import {
   type Envelope,
@@ -22,6 +23,7 @@ import { type Layer, challengeLayer } from '../src/challenge.js';
 import { COIN_LOG } from '../src/coin.js';
 import { Store, reduceInputOf } from '../src/store.js';
 import { type Tracker, type TrackerOptions, createTracker } from '../src/tracker.js';
+import { fixtureOf, writeFixture } from './reading.js';
 
 /** A fixed secret key: thirty-one zero bytes and `n`. */
 export const key = (n: number): Uint8Array => {
@@ -181,8 +183,31 @@ export function boot(start: string, options: Partial<Omit<TrackerOptions, 'store
       return signEvent(u, k);
     },
   };
+  if (WRITE_READING) booted.push({ t, options });
   return t;
 }
+
+/**
+ * The second phase of docs/history/V2-PLAN.md: with `QUILT_WRITE_READING=1`, once a test file has run, the ledger
+ * each of its trackers was left holding is written as a fixture of reading 2, with what the layer says of it. A run
+ * without the variable writes nothing.
+ */
+const WRITE_READING = process.env.QUILT_WRITE_READING === '1';
+const booted: { t: Booted; options: Partial<TrackerOptions> }[] = [];
+if (WRITE_READING)
+  afterAll(() => {
+    const file = basename(expect.getState().testPath ?? 'tracker', '.test.ts');
+    booted.forEach(({ t, options }, i) => {
+      const about = `The ledger the tracker's test ${file}.test.ts leaves in the tracker it boots, number ${i + 1}.`;
+      // A test may leave a ledger the layer throws on, or one too long to keep; neither is a fixture.
+      try {
+        const f = fixtureOf(`${file}-${i + 1}`, about, t.store, new Date(t.clock.tick).toISOString(), options);
+        if (f && !writeFixture(f)) console.warn(`reading 2: ${f.name} is too large to keep`);
+      } catch (e) {
+        console.warn(`reading 2: ${file}-${i + 1} is not kept, ${e instanceof Error ? e.message : String(e)}`);
+      }
+    });
+  });
 
 /**
  * The challenge layer over every problem in a booted tracker's store at its clock, built as the tracker builds it for
