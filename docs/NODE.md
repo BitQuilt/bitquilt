@@ -79,7 +79,7 @@ The wrapper the keeper adds says `by`: the mirror's says `mirror` unless `BITQUI
 
 ## 6. The mirror job
 
-`mirror()` is the same pull over `MirrorFiles` in its folder, with the publication written after it. The folder is what a client reads raw with `mirrors` in its config, and what `bitquilt-verify` (`packages/core/src/verify.ts`) takes with a hash to check the chain, every signature and the envelope, run the reducer and print the map: clone and compute, with no trust in any site.
+`mirror()` is the same pull over `MirrorFiles` in its folder, with the publication written after it. The folder is what a client reads raw with `mirrors` in its config, and what `bitquilt-verify` (`packages/core/src/verify.ts`) takes with a hash to check the chain, every signature and the envelope, read the problem by reading 2 and print the map: clone and compute, with no trust in any site.
 
 ```
 problems/<hash>.json             the envelope

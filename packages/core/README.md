@@ -9,7 +9,7 @@ The wire is frozen and the reading is numbered (AGENTS.md, rule 1). CORE.md is r
 ## The scripts
 
 - `bitquilt-conform` (`src/conformance.ts`; `pnpm conform` at the root): runs every fixture under a folder and prints `ok` or the differences for each, then a total. Against this library it is a test; against another implementation it is the definition of being a BitQuilt client. Given `fixtures/reading-2` it runs the fixtures of reading 2 through `read` (`pnpm conform:2` at the root).
-- `bitquilt-verify` (`src/verify.ts`; `pnpm --filter @bitquilt/core verify`): given a problem's chained receipts and its hash, and optionally its envelopes and blobs, checks the chain and every signature against its key, then runs the reducer and prints the map. Clone and compute, with no trust in any site.
+- `bitquilt-verify` (`src/verify.ts`; `pnpm --filter @bitquilt/core verify`): given a problem's chained receipts and its hash, and optionally its envelopes and blobs, checks the chain and every signature against its key, then reads the problem by reading 2, as a ledger of its own, and prints the map. Clone and compute, with no trust in any site.
 
 ## The fixtures
 
