@@ -10,6 +10,7 @@
  * a gold or a gold reveal stays with the tracker, in its `gold.ts`. These rules moved here from the tracker's
  * layer, as docs/history/V2-PLAN.md, phase 3, says.
  */
+import type { ChallengeView } from './challenge.js';
 import { NONCE_RE, commitHash } from './events.js';
 import { type Hash, isHash } from './hash.js';
 import type { Address } from './keys.js';
@@ -200,8 +201,17 @@ export function outcomeOf(home: ProblemEntry, c: GoldCommitment, now: string): G
   return problemSettledAt(home, now) !== null ? 'lapsed' : 'pending';
 }
 
-/** When a commitment is final (section 5), or null while the owner's stake is still exposed on it. */
-export function commitmentFinalAt(home: ProblemEntry, c: GoldCommitment, now: string): string | null {
+/**
+ * When a commitment is final (section 5), or null while the owner's stake is still exposed on it. `challenges` are
+ * those of the home's line: READING.md section 7: "a gold miss is challenged at any of them", the versions that hold
+ * the piece, so the challenge that decides a miss may sit at another version than the gold.
+ */
+export function commitmentFinalAt(
+  home: ProblemEntry,
+  c: GoldCommitment,
+  now: string,
+  challenges: readonly ChallengeView[],
+): string | null {
   const view = c.piece ? home.fold.byHash.get(c.piece) : undefined;
   switch (outcomeOf(home, c, now)) {
     case 'match':
@@ -209,7 +219,7 @@ export function commitmentFinalAt(home: ProblemEntry, c: GoldCommitment, now: st
     case 'lapsed':
       return problemSettledAt(home, now);
     case 'miss': {
-      const ch = home.challenges.find((x) => x.piece === c.piece && x.against === 'gold' && x.at >= c.revealedAt!);
+      const ch = challenges.find((x) => x.piece === c.piece && x.against === 'gold' && x.at >= c.revealedAt!);
       if (ch && ch.outcome === 'open') return null;
       if (ch?.decidedAt) return ch.decidedAt;
       const w = plusHours(c.revealedAt!, windowOf(home.fold));
@@ -232,8 +242,10 @@ export function goldEnd(f: Folding, g: GoldView): string | null {
   const home = f.entries.get(g.problem);
   if (!home) return g.at;
   let latest = g.at;
+  const challenges: ChallengeView[] = [];
+  for (const h of home.line.versions) challenges.push(...(f.entries.get(h)?.challenges ?? []));
   for (const c of g.commitments) {
-    const final = commitmentFinalAt(home, c, f.now);
+    const final = commitmentFinalAt(home, c, f.now, challenges);
     if (final === null) return null;
     if (final > latest) latest = final;
   }
@@ -253,12 +265,20 @@ export function goldOn(home: ProblemEntry, piece: Hash): GoldCommitment | null {
   return null;
 }
 
-/** The unforfeited gold's miss on the piece, if the piece carries one. */
-export function missOn(home: ProblemEntry, piece: Hash): { gold: GoldView; commitment: GoldCommitment } | null {
-  for (const gold of home.golds)
-    if (gold.forfeitedAt === null)
-      for (const commitment of gold.commitments)
-        if (commitment.piece === piece && commitment.outcome === 'miss') return { gold, commitment };
+/**
+ * The unforfeited gold's miss on the piece, if the piece carries one at a problem of `line`, the entries of one line,
+ * with the version the gold was posted to. READING.md section 7: "Since a piece has one record on its line, a
+ * challenge open on a piece shows at every version that holds the piece, and a gold miss is challenged at any of them."
+ */
+export function missOn(
+  line: readonly ProblemEntry[],
+  piece: Hash,
+): { home: ProblemEntry; gold: GoldView; commitment: GoldCommitment } | null {
+  for (const home of line)
+    for (const gold of home.golds)
+      if (gold.forfeitedAt === null)
+        for (const commitment of gold.commitments)
+          if (commitment.piece === piece && commitment.outcome === 'miss') return { home, gold, commitment };
   return null;
 }
 
