@@ -15,6 +15,7 @@ import type { PieceLayer, ProblemLayer } from './layer.js';
 import { proposalsIn } from './propose.js';
 import { type Reading, read } from './read.js';
 import type { ReduceInput } from './reduce.js';
+import { setName } from './standing.js';
 import { problemTraces, recordOutput } from './trace.js';
 
 /**
@@ -130,7 +131,13 @@ function plain(v: unknown): unknown {
 /** What the read says of one piece: its state, its kind, its set, each extension's word on it, and its trace. */
 function pieceOf(pl: ProblemLayer, p: PieceLayer, trace: unknown): unknown {
   const set = pl.fold.byHash.get(p.hash)?.accepting ?? null;
-  const member = (m: { key: Address; at: string; digest: Hash }) => ({ key: m.key, at: m.at, digest: m.digest });
+  // A reading is named by its event's id, and a set by the hash of its events' ids (docs/v2/READING.md section 5).
+  const member = (m: { id: Hash; key: Address; at: string; digest: Hash }) => ({
+    id: m.id,
+    key: m.key,
+    at: m.at,
+    digest: m.digest,
+  });
   return plain({
     state: p.state,
     core: p.core,
@@ -145,6 +152,7 @@ function pieceOf(pl: ProblemLayer, p: PieceLayer, trace: unknown): unknown {
     inherited: p.inherited,
     challenge: p.challenge?.id ?? null,
     set: set && {
+      name: setName(set),
       kind: set.kind,
       completedAt: set.completedAt,
       members: set.kind === 'agree' ? set.reveals.map(member) : [member(set.patch), ...set.runs.map(member)],

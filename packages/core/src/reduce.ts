@@ -58,6 +58,8 @@ export interface Claim {
   by: By;
 }
 export interface Commit {
+  /** The id of the commit event. */
+  id: Hash;
   key: Address;
   root: Address;
   at: string;
@@ -66,6 +68,12 @@ export interface Commit {
   revealed: boolean;
 }
 export interface Reveal {
+  /** The id of the reveal event, by which a reading is named wherever it is counted. */
+  id: Hash;
+  /** The id of the commit the reveal opened. */
+  commit: Hash;
+  /** The problem the reveal was posted to, a version of the chain. */
+  problem: Hash;
   key: Address;
   root: Address;
   at: string;
@@ -75,6 +83,8 @@ export interface Reveal {
   digest: Hash;
 }
 export interface Run {
+  /** The id of the run event. */
+  id: Hash;
   key: Address;
   root: Address;
   at: string;
@@ -270,7 +280,7 @@ function fold(
   const dropped: State['dropped'] = [];
   const drop = (e: Event, why: string) => dropped.push({ id: eventId(e), type: e.type, why });
 
-  for (const { receipt, at } of orderReceipts(receipts)) {
+  for (const { receipt, at, id } of orderReceipts(receipts)) {
     const e = receipt.event;
     if (!(CORE_EVENT_TYPES as readonly string[]).includes(e.type)) continue;
     const shape = eventProblems(e);
@@ -321,6 +331,7 @@ function fold(
         const v = view!;
         const lease = v.piece.lease_h ?? settings.lease_h;
         v.commits.push({
+          id,
           key: e.key,
           root,
           at,
@@ -360,6 +371,9 @@ function fold(
         commit.revealed = true;
         const by = body.by as By;
         v.reveals.push({
+          id,
+          commit: commit.id,
+          problem: e.problem!,
           key: e.key,
           root,
           at,
@@ -395,6 +409,7 @@ function fold(
           break;
         }
         const run: Run = {
+          id,
           key: e.key,
           root,
           at,

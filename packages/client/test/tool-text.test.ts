@@ -1100,6 +1100,9 @@ describe('quilt_open and quilt_read over what no tracker here gives', () => {
    * (CORE.md section 6).
    */
   const patched = (key: string, model: string, patch: string, root = key): Reveal => ({
+    id: hashCanonical({ reveal: key, patch }),
+    commit: hashCanonical({ commit: key, patch }),
+    problem: hashCanonical({ problem: 'held' }),
     key: key as Address,
     root: root as Address,
     at: T,
@@ -1110,6 +1113,7 @@ describe('quilt_open and quilt_read over what no tracker here gives', () => {
   });
   /** A run of a patch: the check exited cleanly on the run's host. */
   const ran = (key: string, model: string, digest: Hash): Run => ({
+    id: hashCanonical({ run: key, digest }),
     key: key as Address,
     root: key as Address,
     at: T,

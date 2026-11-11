@@ -47,7 +47,7 @@ Each ledger is read twice: at the clock of the tracker that held it, and a thous
 
 - `pieces` gives each piece the place in `views` of what the layer says of it. Pieces that say the same thing share one view, so a problem of a thousand open pieces holds one.
 - A view holds the piece's `state`, and the `core` state beside it, which goes at the switch; its `kind`, `extension` and `strength`; `attested`, `stake`, `gold`, `verified`, `aside` and `inherited`; the id of an open `challenge`; its `set`; its `record`, for a record piece; and its `trace`, with the grade and the seams.
-- A `set` is its kind, the time it was completed, and each member's key, time and digest. Reading 2 names a set by its events' ids (section 5); the layer keeps no id on a reveal today, so the name joins these fixtures in phase 3, in the pull request that gives the fold the ids.
+- A `set` is its `name`, its kind, the time it was completed, and each member's id, key, time and digest. The name is the one READING.md section 5 gives, the hash of the canonical JSON of its events' ids, sorted, and a member's `id` is its event's: the reveal's, or the run's. A set a version carries has one name on every version that shows it. A record piece's standing readings each carry their `id` the same way.
 - `complete` is the layer's, over the inherited squares, and `own_complete` the problem's own (QX-23 section 4). `output` is the hash of the output document and `record_output` the hash of the record document (QX-20 section 4). `dropped` is a count, as in version 1.
 - `refused` names each problem the layer could not read, with the reason.
 - `standing` holds every root a line of the ledger counts for, and every owner.
@@ -68,7 +68,17 @@ With `new` only a fixture not yet kept is written, and every file that stands is
 
 Four kinds of ledger are left out: one with no problem, one of more than a thousand lines, one whose file would pass 256 KB, and one the layer throws on, which a test builds to show the throw.
 
-The tests sign with fresh nonces and their clocks are their own, so a second writing gives new ids throughout. A rewrite with `1` therefore replaces every file, and it is done only where the layer's answer is meant to change, in a pull request that says which answers and why. Between rewrites the files stand as they are and the code is held to them.
+The tests sign with fresh nonces and their clocks are their own, so a second writing gives new ids throughout. A rewrite with `1` therefore replaces every file, ledgers and all, and it is done only where the ledgers themselves are meant to change, in a pull request that says why. Between rewrites the files stand as they are and the code is held to them.
+
+## How they are said again
+
+```bash
+pnpm --filter @bitquilt/core exec tsx fixtures/say-again.ts
+```
+
+Where the read's answer over the ledgers kept is meant to change, the ledgers stand and the answers alone are written again: `packages/core/fixtures/say-again.ts` reads each file's ledger at each of its times with the core's `read` and writes what it says where the answer was kept. No id, time or signature changes, and a file whose answers stand is not written. It is run only in a pull request that says which answers changed and why, and that shows nothing else did.
+
+They were said again once, on 11 November 2026, when the fold began to keep each reveal's and each run's id: a set gained its `name` and each member its `id`. Forty-seven files hold a set and were written; with those two fields taken out, every answer was what it had been.
 
 ## What they cover, and what they do not
 
