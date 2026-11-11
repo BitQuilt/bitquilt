@@ -13,7 +13,8 @@ order, so `conform2.py` holds it to the file as JSON.
 from .canonical import canonical
 from .hashes import hash_json
 from .identity import same_address
-from .kinds import KIND_WORDS, kind_of, agree_pass, attest_pass, record_pass, person_seat, differ
+from .grounds import fold_traces, set_aside, seams_of, traced
+from .kinds import KIND_WORDS, kind_of, agree_pass, attest_pass, record_pass, person_seat, differ, find_set
 from .record import Ledger, fold_record, iso
 from .times import parse_time, hours
 
@@ -40,6 +41,7 @@ class Read:
         # Section 3, the record.
         for line in self.led.lines.values():
             fold_record(line, self.led.identity)
+            fold_traces(line, self.led.reads)
         # Sections 4 to 6, the grounds, the sets and standing, to a fixed point.
         self.sets()
 
@@ -48,6 +50,8 @@ class Read:
     def sets(self):
         for line in self.led.lines.values():
             for rec in line.recs.values():
+                # Section 4, "The grounds are read before the sets".
+                rec.aside = set_aside(line, rec)
                 self.set_of(line, rec)
 
     def set_of(self, line, rec):
@@ -134,7 +138,52 @@ class Read:
 
         return {spec["name"]: final(spec, frozenset()) for spec in specs}
 
-    def view(self, version, spec, state):
+    def core_open(self, version, spec, stack=frozenset()):
+        """Whether version 1's fold leaves a piece unlocked: each input is of a kind the core knows, is itself
+        unlocked there, and has the core's set, over every reading, with its window closed."""
+        line = version.line
+        if spec["hash"] in stack:
+            return False
+        stack = stack | {spec["hash"]}
+        for name in spec.get("inputs") or []:
+            found = [s for s in version.specs if s["name"] == name or s["key"] == name]
+            if not found:
+                return False
+            for inp in found:
+                rec = line.recs[inp["hash"]]
+                if kind_of(rec.verifier)[0] != "agree" or not self.core_open(version, inp, stack):
+                    return False
+                readings = [r for r in rec.readings if not line.identity.related(r.root, line.owner, r.at)]
+                found_set = find_set(line, rec, readings)
+                if found_set is None:
+                    return False
+                if self.now < found_set.at + hours(line.by_hash[found_set.version].settings["challenge_window_h"]):
+                    return False
+        return True
+
+    def grounds_of(self, version, spec, state):
+        """What a piece's view says of its grounds: the traces kept, the grade of its set, the seams and the
+        readings set aside. QX-19 section 4: a seam "is computed over the layer's fold where the layer still
+        calls the piece disputed, and over the core's fold where the layer has set a reading aside"."""
+        line = version.line
+        rec = line.recs[spec["hash"]]
+        kind = kind_of(rec.verifier)[0]
+        grade = None
+        if rec.set is not None and state in SET_STATES:
+            n = sum(1 for m in rec.set.members if traced(rec, m))
+            grade = "both" if n >= 2 else "one" if n == 1 else "none"
+        seams, aside = [], []
+        if kind == "record":
+            seams = seams_of(line, rec, rec.standing)
+        elif state == "disputed":
+            seams = seams_of(line, rec, rec.live())
+        elif rec.aside and self.core_open(version, spec):
+            seams = seams_of(line, rec, [r for r in rec.readings if r.id not in rec.struck])
+            aside = sorted(rec.aside)
+        return {"traces": rec.traces, "traced": grade, "seams": seams, "aside": aside}
+
+    def view(self, version, spec, state, own=None):
+        own = state if own is None else own
         line = version.line
         rec = line.recs[spec["hash"]]
         kind, n = kind_of(rec.verifier)
@@ -163,7 +212,7 @@ class Read:
             said_record = {"wanted": n, "recordedAt": stands[n - 1].at_text if len(stands) >= n else None,
                            "standing": [{"id": m.id, "key": m.key, "at": m.at_text, "digest": m.digest}
                                         for m in stands]}
-            grade = {"wanted": n, "standing": len(stands), "grounded": 0,
+            grade = {"wanted": n, "standing": len(stands), "grounded": sum(1 for m in stands if traced(rec, m)),
                      "roots": len({m.root for m in stands}), "vendors": len({m.vendor for m in stands}),
                      "keys": [m.key for m in stands]}
         return {
@@ -175,14 +224,13 @@ class Read:
             "stake": 0,
             "gold": None,
             "verified": False,
-            "aside": [],
+            "aside": sorted({r.key for r in rec.readings if r.id in rec.aside and r.id not in rec.struck}),
             "readings": readings,
             "inherited": None,
             "challenge": None,
             "set": said_set,
             "record": said_record,
-            "trace": {"traces": [], "traced": "none" if s is not None else None, "seams": [], "aside": [],
-                      "record": grade},
+            "trace": dict(self.grounds_of(version, spec, own), record=grade),
         }
 
     def said(self):

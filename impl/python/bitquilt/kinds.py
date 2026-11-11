@@ -95,15 +95,37 @@ def person_seat(r):
     return isinstance(r.by, dict) and r.by.get("model") == "human"
 
 
-def agree_pass(line, rec, seat=None):
+def differs_on(rec, a, b):
+    """The agree fields on which two returns differ, in the piece's order."""
+    props = (rec.spec.get("schema") or {}).get("properties", {})
+    out = []
+    for f in rec.agree_fields():
+        if f not in a or f not in b or not fields_agree(a[f], b[f], props.get(f)):
+            out.append(f)
+    return out
+
+
+def find_set(line, rec, readings, vendors=True):
     """CORE.md section 6, An accepting set, for agree: "Reveals are taken in receipt order, and a reveal counts
     only when its root is unrelated to the owner and to the root of every earlier reveal on the piece; among
     counting reveals, the first pair in receipt order whose vendors differ and whose agree fields agree is the
-    accepting set, completed at the receipt of its later reveal."
+    accepting set, completed at the receipt of its later reveal." Without `vendors`, two vendors are not asked
+    for, as verifiers.md section 2 reads a `human` piece. The readings are those unrelated to the owner."""
+    ident = line.identity
+    for j, b in enumerate(readings):
+        if any(ident.related(a.root, b.root, b.at) for a in readings[:j]):
+            continue
+        for a in readings[:j]:
+            if (not vendors or a.vendor != b.vendor) and agree(rec, a.ret, b.ret):
+                return set_of([a, b], b)
+    return None
 
-    The readings it reads are the live ones: a struck reading and one set aside are not among them. `seat`,
-    where given, is the test of verifiers.md section 2 for a `human` piece, "as `agree`, with the seat where the
-    vendor was": a reading not from a person's seat counts for nothing, and "two vendors are not asked for".
+
+def agree_pass(line, rec, seat=None):
+    """The set of an `agree` piece, or of a `human` one where `seat` is given, over the live readings: a struck
+    reading and one set aside are not among them. `seat` is the test of verifiers.md section 2 for a `human`
+    piece, "as `agree`, with the seat where the vendor was": a reading not from a person's seat counts for
+    nothing.
 
     Returns the set, or None, and says how each reading counts in `rec.counts`."""
     ident = line.identity
@@ -117,16 +139,7 @@ def agree_pass(line, rec, seat=None):
             counts[r.id] = ("kept", WHY_SEAT)
             continue
         live.append(r)
-    found = None
-    for j, b in enumerate(live):
-        if any(ident.related(a.root, b.root, b.at) for a in live[:j]):
-            continue
-        for a in live[:j]:
-            if (seat is not None or a.vendor != b.vendor) and agree(rec, a.ret, b.ret):
-                found = set_of([a, b], b)
-                break
-        if found:
-            break
+    found = find_set(line, rec, live, seat is None)
     if found is None:
         # No set: a reading counts toward one unless its vendor has said the same already. A second reading from
         # one root counts toward one too, on a human piece at least (fixture verifiers-human-one-root).
