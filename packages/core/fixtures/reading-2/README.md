@@ -57,6 +57,38 @@ Each ledger is read twice: at the clock of the tracker that held it, and a thous
 - `refused` names each problem the layer could not read, with the reason.
 - `standing` holds every root a line of the ledger counts for, and every owner.
 
+## The keys
+
+Each thing listed is written with the keys below and no others, and a key that holds nothing says null, so none is left out. A time is written as a receipt writes it, a hash carries `sha256:`, and a key or a root is an address. Added 11 November 2026 for `impl/python/FINDINGS-2.md`, entries 4 to 13, which took each of these from the JSON, and `packages/core/test/fixture-keys.test.ts` holds this part to every file here.
+
+A view:
+
+- `state`, `kind`, `extension` and `strength`. A verifier says its kind, the extension that reads it and how strongly it earns a square: `agree`, null and `agreed`; `check` or `score`, null and `reproduced`; `human`, `QX-3` and `agreed`; `judge`, `QX-2` and `judged`; `attest`, `QX-10` and `attested`; `record`, `QX-20` and `recorded`. A verifier no rule knows says null for all three, and its piece is `unknown`.
+- `attested` is true where the piece's set is an `attest` piece's. `stake` is the standing the piece asks at the time read, 0 where it asks none.
+- `gold` is null, `match`, `miss` or `overruled`, and `verified` is true where it is `match`. Both are said at the version the gold names: another version of the line that keeps the piece says null and false, though it shows the set.
+- `aside` holds the ids of the reveals set aside, sorted. `inherited` is null, or the `problem` where the square stands and its `state` there.
+- `challenge` is the id of the last challenge on the piece at any version of its line, the last by its receipt's time and then by its id, and it is kept once the challenge is decided. It is null where the piece has had none.
+- `set` is `name`, `kind`, `completedAt` and `members`, each member an `id`, a `key`, an `at` and a `digest`. The kind is the set's own and not the verifier's: a set of reveals says `agree` on a `human`, a `judge` or an `attest` piece too, and the view's `kind` says which verifier made it. A set of a `check` or a `score` piece lists the patch and then its runs, which no fixture holds.
+- `record` is null, or `wanted`, `recordedAt` and `standing`, each standing reading written as a set's member is.
+- `trace` is `traces`, `traced`, `seams`, `aside` and `record`. A trace is `id`, `key`, `at`, the `reveal` it names, its `reads`, each a `url`, a `hash`, an `at` and a `media`, and its `rests`, each a `field`, the place of a `read` in the reads and a `span`. `traced` is `both`, `one`, `none` or null. A seam is a `field`, a `why`, one of `source`, `span`, `reading` and `unknown`, and two `sides`, each a `key`, a `value`, a `read`, a `span`, a `passage` and `aside`; the passage is null here, since a ledger holds no read's bytes. `aside` holds the ids of the reveals set aside, and `record` is null or a record piece's grade: `wanted`, `standing`, `grounded`, `roots`, `vendors` and `keys`.
+
+A problem's lists, `locks`, `golds`, `challenges`, `panels` and `proposals`, and its two sums:
+
+- `gold` counts the commitments of the problem's golds, the dropped left out: `committed` is all of them, and each is one of `pending`, `verified` where it matched, `missed`, `overruled` and `lapsed`, which a commitment is where it was still pending when the problem settled.
+- `stake` is null, or the rule in force at the time read: `min`, and `pieces`, the names of the pieces and the families it is on, null where it is on every piece.
+- A lock is `id`, `problem`, `piece`, `name`, `key`, `root`, `at`, `kind`, `amount`, `coinId`, `forfeitedAt` and `restoredAt`. The kind is `standing` or `coin`, and `coinId` is the coin log's lock a coin lock names.
+- A gold is `id`, `problem`, `key`, `root`, `at`, `stake`, `commitments` and `forfeitedAt`. A commitment is `h`, `piece`, `name`, `outcome`, `revealedAt`, `projection`, `struck` and `struckRoots`. The piece, its name and the projection are null until the reveal. The outcome is `pending`, `match`, `miss`, `overruled` or `dropped`, the last where a challenge overruled another commitment of the gold while this one was pending. `struck` holds the ids of the events of the set a miss struck, and `struckRoots` their roots.
+- A challenge is `id`, `problem`, `piece`, `key`, `root`, `at`, `stake`, `ground`, `against`, `parties`, `seed`, `order`, `seats`, `outcome`, `decidedAt`, `struck` and `dropped`. `against` is `acceptance` or `gold`. `parties` holds the roots of the accepting set and then the owner, and against a gold the owner alone. `order` is the pool in the order of the draw. A seat is `root`, `offeredAt`, `lapsedAt` and `verdict`, and a verdict is `id`, `key`, `root`, `at`, `for`, which is `challenger` or `author`, and `return`. The outcome is `open`, `held`, `failed` or `void`. `struck` holds the ids of the set's events once the challenge held, and `dropped` each verdict that did not count, its `id` and `why`.
+- A panel is `piece`, `name`, `panel`, `majority`, `wanted`, `candidates`, `seed`, `completedAt`, `order`, `seats`, `outcome`, `winner`, `decidedAt` and `dropped`. `panel` is the number of seats, `majority` the number that decides and `wanted` the candidates the piece asks for. A candidate is `digest`, `key`, `root`, `at` and `return`, in receipt order. A seat is `root`, `offeredAt`, `lapsedAt` and `rank`, and a rank is `id`, `key`, `root`, `at` and `ranking`, the candidates' digests in the order ranked. The outcome is `open`, `decided` or `void`, and `winner` is the digest a majority ranked first.
+- A proposal is `id`, `under`, `name`, `hash`, `piece`, `why`, `key`, `root`, `at`, `proposer`, `worked`, `taken` and `pursued`. `under` is the version the proposal names, `hash` the hash the proposed piece has, and `piece` the piece as the event's body gives it.
+- A `seed`, a challenge's or a panel's, is sixty-four hex characters with no `sha256:` before them.
+
+The whole:
+
+- The views are in the order their first pieces have in the envelope, its families expanded, and two pieces share a view where the two say the same in every key.
+- `standing` holds the root of the signer of every line of the ledger, the identity log's, the coin log's and each problem's, and the root of each envelope's owner, each root as the identity log leaves it at its end.
+- A problem is refused in the words of its first fault, asked in this order: `envelope: ` and then the first fault of the envelope's shape, `envelope: not signed by its owner`, `blob <name>: <hash> not present` for a blob the envelope names that the ledger does not hold, and `blob <name>: does not match its hash`. The fixtures hold the second and the third.
+
 ## The reasons
 
 A reading that counts for nothing says why in one of these words, and no others (READING.md section 3). The list is closed, and `packages/core/test/reasons.test.ts` holds it to the reference's. The fixtures hold thirteen of the twenty.
