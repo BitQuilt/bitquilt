@@ -85,6 +85,16 @@ def set_of(members, completing):
     return Set(members=list(members), at=completing.at, at_text=completing.at_text, version=completing.problem)
 
 
+def person_seat(r):
+    """verifiers.md section 2, `human`: a reveal "came from a person's seat, which is any of: the receipt's
+    wrapper says `seat: "person"`; the wrapper says `custody: "hosted"`, whatever `seat` it says beside"; "or
+    the reveal's `by.model` is `human`". "Every wrapper the line carries is read."."""
+    for w in r.entry["received"]:
+        if w.get("seat") == "person" or w.get("custody") == "hosted":
+            return True
+    return isinstance(r.by, dict) and r.by.get("model") == "human"
+
+
 def agree_pass(line, rec, seat=None):
     """CORE.md section 6, An accepting set, for agree: "Reveals are taken in receipt order, and a reveal counts
     only when its root is unrelated to the owner and to the root of every earlier reveal on the piece; among
@@ -92,8 +102,8 @@ def agree_pass(line, rec, seat=None):
     accepting set, completed at the receipt of its later reveal."
 
     The readings it reads are the live ones: a struck reading and one set aside are not among them. `seat`,
-    where given, is a further test a reading must pass to count, with the reason it gives one that fails:
-    verifiers.md section 2 holds a `human` piece to persons' seats this way.
+    where given, is the test of verifiers.md section 2 for a `human` piece, "as `agree`, with the seat where the
+    vendor was": a reading not from a person's seat counts for nothing, and "two vendors are not asked for".
 
     Returns the set, or None, and says how each reading counts in `rec.counts`."""
     ident = line.identity
@@ -112,19 +122,17 @@ def agree_pass(line, rec, seat=None):
         if any(ident.related(a.root, b.root, b.at) for a in live[:j]):
             continue
         for a in live[:j]:
-            if a.vendor != b.vendor and agree(rec, a.ret, b.ret):
+            if (seat is not None or a.vendor != b.vendor) and agree(rec, a.ret, b.ret):
                 found = set_of([a, b], b)
                 break
         if found:
             break
     if found is None:
-        # No set: a reading counts toward one unless its root is an earlier reading's, or its vendor has said
-        # the same already, since neither could make a pair with what came before it.
+        # No set: a reading counts toward one unless its vendor has said the same already. A second reading from
+        # one root counts toward one too, on a human piece at least (fixture verifiers-human-one-root).
         toward = []
         for r in live:
-            if any(ident.related(a.root, r.root, r.at) for a in toward):
-                counts[r.id] = ("kept", WHY_ROOT)
-            elif any(a.vendor == r.vendor and agree(rec, a.ret, r.ret) for a in toward):
+            if seat is None and any(a.vendor == r.vendor and agree(rec, a.ret, r.ret) for a in toward):
                 counts[r.id] = ("kept", WHY_VENDOR_SAME)
             else:
                 counts[r.id] = ("counted", None)
@@ -141,7 +149,7 @@ def agree_pass(line, rec, seat=None):
             counts[r.id] = ("kept", WHY_DIFFERS)
         elif any(ident.related(m.root, r.root, r.at) for m in found.members):
             counts[r.id] = ("kept", WHY_SET_ROOT)
-        elif any(m.vendor == r.vendor for m in found.members):
+        elif seat is None and any(m.vendor == r.vendor for m in found.members):
             counts[r.id] = ("kept", WHY_SET_VENDOR)
         else:
             counts[r.id] = ("counted", None)
@@ -158,3 +166,36 @@ def differ(line, rec, readings):
             if not agree(rec, a.ret, b.ret):
                 return True
     return False
+
+
+def attest_pass(line, rec):
+    """verifiers.md section 2, `attest`: "The first valid reveal from a root unrelated to the owner is the
+    accepting set", "with that one reveal, completed at its receipt"."""
+    found = None
+    for r in rec.live():
+        if line.identity.related(r.root, line.owner, r.at):
+            rec.counts[r.id] = ("kept", WHY_OWNER)
+        elif found is None:
+            found = set_of([r], r)
+            rec.counts[r.id] = ("counted", None)
+        else:
+            rec.counts[r.id] = ("kept", WHY_LATE)
+    return found
+
+
+def record_pass(line, rec, n):
+    """QX-20 section 2: "A reading stands when its reveal is valid in the core's sense, its root is unrelated to
+    the owner and to the root of every earlier standing reading, and fewer than `n` stand before it, in receipt
+    order." "A record piece has no accepting set." Returns the standing readings."""
+    standing = []
+    for r in rec.live():
+        if line.identity.related(r.root, line.owner, r.at):
+            rec.counts[r.id] = ("kept", WHY_OWNER)
+        elif any(line.identity.related(a.root, r.root, r.at) for a in standing):
+            rec.counts[r.id] = ("kept", WHY_ROOT)
+        elif len(standing) >= n:
+            rec.counts[r.id] = ("kept", WHY_LATE)
+        else:
+            rec.counts[r.id] = ("counted", None)
+            standing.append(r)
+    return standing

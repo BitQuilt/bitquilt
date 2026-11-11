@@ -13,7 +13,7 @@ order, so `conform2.py` holds it to the file as JSON.
 from .canonical import canonical
 from .hashes import hash_json
 from .identity import same_address
-from .kinds import KIND_WORDS, kind_of, agree_pass, differ
+from .kinds import KIND_WORDS, kind_of, agree_pass, attest_pass, record_pass, person_seat, differ
 from .record import Ledger, fold_record, iso
 from .times import parse_time, hours
 
@@ -54,8 +54,15 @@ class Read:
         rec.counts = {}
         rec.set = None
         kind, n = kind_of(rec.verifier)
+        rec.standing = []
         if kind == "agree":
             rec.set = agree_pass(line, rec)
+        elif kind == "human":
+            rec.set = agree_pass(line, rec, seat=person_seat)
+        elif kind == "attest":
+            rec.set = attest_pass(line, rec)
+        elif kind == "record":
+            rec.standing = record_pass(line, rec, n)
         else:
             for r in rec.live():
                 rec.counts[r.id] = ("counted", None)
@@ -73,7 +80,19 @@ class Read:
                 return "accepted_provisional"
             return "unreachable" if unreachable(rec) else "accepted"
         live = rec.live()
-        if differ(line, rec, live):
+        if kind == "record":
+            if len(rec.standing) >= n:
+                return "recorded"
+            if rec.standing:
+                return "recording"
+            live = []
+        if kind == "human":
+            live = [r for r in live if rec.counts.get(r.id) != ("kept", "it is not from a person's seat")]
+            if differ(line, rec, [r for r in live if not line.identity.related(r.root, line.owner, r.at)]):
+                return "disputed"
+            if rec.live():
+                return "needs_verify"
+        elif differ(line, rec, live):
             return "disputed"
         if live:
             return "needs_verify"
@@ -138,12 +157,21 @@ class Read:
             said_set = {"name": s.name, "kind": "agree", "completedAt": s.at_text,
                         "members": [{"id": m.id, "key": m.key, "at": m.at_text, "digest": m.digest}
                                     for m in s.members]}
+        said_record, grade = None, None
+        if kind == "record":
+            stands = rec.standing
+            said_record = {"wanted": n, "recordedAt": stands[n - 1].at_text if len(stands) >= n else None,
+                           "standing": [{"id": m.id, "key": m.key, "at": m.at_text, "digest": m.digest}
+                                        for m in stands]}
+            grade = {"wanted": n, "standing": len(stands), "grounded": 0,
+                     "roots": len({m.root for m in stands}), "vendors": len({m.vendor for m in stands}),
+                     "keys": [m.key for m in stands]}
         return {
             "state": state,
             "kind": words[0],
             "extension": words[1],
             "strength": words[2],
-            "attested": False,
+            "attested": kind == "attest" and s is not None,
             "stake": 0,
             "gold": None,
             "verified": False,
@@ -152,9 +180,9 @@ class Read:
             "inherited": None,
             "challenge": None,
             "set": said_set,
-            "record": None,
+            "record": said_record,
             "trace": {"traces": [], "traced": "none" if s is not None else None, "seams": [], "aside": [],
-                      "record": None},
+                      "record": grade},
         }
 
     def said(self):
@@ -173,7 +201,8 @@ class Read:
                 pieces[spec["name"]] = index[key]
             own = bool(version.specs) and all(states[s["name"]] in DONE for s in version.specs)
             output = None
-            if own and all(states[s["name"]] in ("accepted", "unreachable") for s in version.specs):
+            core = all(kind_of(s.get("verifier"))[0] in ("agree", "check", "score") for s in version.specs)
+            if own and core and all(states[s["name"]] in ("accepted", "unreachable") for s in version.specs):
                 output = hash_json(self.output_document(version, states))
             problems[h] = {
                 "line": version.line.name,
@@ -222,7 +251,7 @@ class Read:
             roots.add(line.owner)
             roots.update(line.identity.final(r) for r in line.roots)
             for rec in line.recs.values():
-                if rec.set is not None:
+                if rec.set is not None and kind_of(rec.verifier)[0] != "attest":
                     for m in rec.set.members:
                         credit.setdefault(m.root, set()).add(m.id)
         out = {}
