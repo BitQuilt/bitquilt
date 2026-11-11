@@ -121,6 +121,7 @@ class Decisions:
         self.moves = []         # (time, order, root, delta)
         self.credited = {}      # reveal id -> Thing(root, at, line)
         self.known = None       # the credits of the pass before, while the panels are brought to a fixed point
+        self.returned = set()   # the ids of the reveals a held challenge against the gold brought back
         self.panels = {}        # (line name, piece hash) -> the panel
         self.rules = {}         # problem hash -> [Thing(at, min, pieces)], a rule being its own version's
         self.locks = []
@@ -182,7 +183,11 @@ class Decisions:
         struck, unrelated to each root of `out`, with no reveal and no run on the piece from a related root."""
         ident = line.identity
         roots = []
-        for c in (self.credited if self.known is None else self.known).values():
+        for id_, c in (self.credited if self.known is None else self.known).items():
+            # "The set not struck at or before `t`": a set the gold struck stays out though a held challenge
+            # returned it, as the fixture gold-1 draws no seat for a root whose one set was struck and returned.
+            if id_ in self.returned:
+                continue
             if c.line is not line and c.at <= t and c.root not in roots:
                 roots.append(c.root)
         keep = []
@@ -481,6 +486,7 @@ class Decisions:
         regains the point docked, its set point and its lock"."""
         for m in c.set.members:
             rec.struck.pop(m.id, None)
+            self.returned.add(m.id)
             if m.id in c.docked:
                 self.move(t, line, m.root, 1)
         for k in c.forfeits:

@@ -122,38 +122,6 @@ class Read:
             return "in_flight"
         return "open"
 
-    def states_of(self, version):
-        """Each piece's state on one version: its own state on the line's record, or `locked` while an input of
-        its own version is not done (CORE.md section 6, Per piece)."""
-        line = version.line
-        specs = version.specs
-        memo = {}
-
-        def inputs_of(spec):
-            out = []
-            for name in spec.get("inputs") or []:
-                found = [s for s in specs if s["name"] == name or s["key"] == name]
-                if not found:
-                    out.append(None)
-                out.extend(found)
-            return out
-
-        def final(spec, stack):
-            h = spec["hash"]
-            if h in memo:
-                return memo[h]
-            if h in stack:
-                return "locked"
-            stack = stack | {h}
-            for inp in inputs_of(spec):
-                if inp is None or final(inp, stack) not in DONE:
-                    memo[h] = "locked"
-                    return "locked"
-            memo[h] = self.own_state(line, line.recs[h])
-            return memo[h]
-
-        return {spec["name"]: final(spec, frozenset()) for spec in specs}
-
     def core_open(self, version, spec, stack=frozenset()):
         """Whether version 1's fold leaves a piece unlocked: each input is of a kind the core knows, is itself
         unlocked there, and has the core's set, over every reading, with its window closed."""
