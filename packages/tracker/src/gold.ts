@@ -336,10 +336,13 @@ export function windowOpen(view: PieceView, at: string): boolean {
 /**
  * Whether a gold reveal would count if received at `at`, by section 1: the owner's, naming a piece with no gold
  * revealed on it, matching a pending commitment of a gold kept before the piece was first worked, on a piece with an
- * accepting set inside its window.
+ * accepting set inside its window. A set carried across a version is one set (QX-1 section 2 as amended
+ * 10 November 2026), so a piece has its gold revealed where a commitment on it was revealed and not dropped at any
+ * problem of `line`, the entries of the home's line, the home among them.
  */
 export function checkGoldReveal(
   home: ProblemEntry,
+  line: readonly ProblemEntry[],
   piece: Hash,
   key: Address,
   body: Record<string, unknown>,
@@ -351,7 +354,7 @@ export function checkGoldReveal(
   if (shape.length) return { ok: false, why: shape[0]! };
   const root = rootFor(home.fold, key, 'gold_reveal', at);
   if (!root || root !== ownerOf(home.fold, at)) return { ok: false, why: 'the owner alone reveals gold' };
-  if (goldOn(home, piece)) return { ok: false, why: 'the gold on this piece is revealed' };
+  if (line.some((e) => goldOn(e, piece))) return { ok: false, why: 'the gold on this piece is revealed' };
   const h = goldCommitHash(piece, body.projection as Record<string, unknown>, body.nonce as string);
   let found: { gold: GoldView; commitment: GoldCommitment } | null = null;
   for (const gold of home.golds)
@@ -371,9 +374,14 @@ export function checkGoldReveal(
 
 /**
  * QX-16's part of the layer (QX-16 sections 1 and 3), over the record `f` challengeLayer folded at `now`: whether a
- * gold or a gold reveal by this key would count if received now, and why not.
+ * gold or a gold reveal by this key would count if received now, and why not. `lineOf` is standing.ts's, handed in,
+ * since this file loads before it.
  */
-export function goldAdmissions(f: Folding, now: string): Pick<Layer, 'admitGold' | 'admitGoldReveal'> {
+export function goldAdmissions(
+  f: Folding,
+  now: string,
+  lineOf: (f: Folding, problem: Hash) => readonly ProblemEntry[],
+): Pick<Layer, 'admitGold' | 'admitGoldReveal'> {
   const admitGold = (problem: Hash, key: Address, body: Record<string, unknown>): Admission => {
     const home = f.entries.get(problem);
     if (!home) return { ok: false, why: 'no such problem here' };
@@ -383,7 +391,7 @@ export function goldAdmissions(f: Folding, now: string): Pick<Layer, 'admitGold'
   const admitGoldReveal = (problem: Hash, piece: Hash, key: Address, body: Record<string, unknown>): Admission => {
     const home = f.entries.get(problem);
     if (!home) return { ok: false, why: 'no such problem here' };
-    const r = checkGoldReveal(home, piece, key, body, now);
+    const r = checkGoldReveal(home, lineOf(f, problem), piece, key, body, now);
     return r.ok ? { ok: true } : r;
   };
   return { admitGold, admitGoldReveal };
