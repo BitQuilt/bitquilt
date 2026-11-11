@@ -163,7 +163,7 @@ export function orderReceipts(receipts: Receipt[]): { receipt: Receipt; at: stri
 }
 
 /** The envelopes once checked: this problem's, its hash, the chain along `prev`, and the hashes in it. */
-interface Checked {
+export interface Checked {
   envelope: Envelope;
   problem: Hash;
   chain: Envelope[];
@@ -173,7 +173,7 @@ interface Checked {
 /**
  * What the fold leaves for `settle`: the roots as they stand at its end, the names, the versions, and what was dropped.
  */
-interface Folded {
+export interface Folded {
   roots: Roots;
   names: State['names'];
   versions: State['versions'];
@@ -211,7 +211,7 @@ export function reduce(input: ReduceInput): State {
 }
 
 /** A piece with nothing on it yet. */
-function emptyView(piece: Piece): PieceView {
+export function emptyView(piece: Piece): PieceView {
   return {
     piece,
     state: 'open',
@@ -234,7 +234,7 @@ function emptyView(piece: Piece): PieceView {
  * missing, by another owner, invalid, or already in the chain. "An envelope that fails its checks makes the input
  * invalid: reduce refuses it and produces no state."
  */
-function checkChain(envelopes: Envelope[], blobs: Blobs): Checked {
+export function checkChain(envelopes: Envelope[], blobs: Blobs): Checked {
   if (envelopes.length === 0) throw new Error('no envelope');
   const envelope = envelopes[0]!;
   const envProblems = envelopeProblems(envelope);
@@ -267,7 +267,7 @@ function checkChain(envelopes: Envelope[], blobs: Blobs): Checked {
  * dropped with its reason (section 6, Drop). An event of a type the core does not define is passed over: not folded,
  * not dropped, and no key's prior event (section 4).
  */
-function fold(
+export function fold(
   receipts: Receipt[],
   views: Map<Hash, PieceView>,
   ancestral: Map<Hash, PieceView>,
@@ -459,7 +459,7 @@ function fold(
  * then the roots' weights, the dependents, the states (a piece's inputs before it), the availabilities, and, when
  * every piece is accepted or unreachable, the output.
  */
-function settle(
+export function settle(
   checked: Checked,
   pieces: Piece[],
   views: Map<Hash, PieceView>,

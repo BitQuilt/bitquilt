@@ -178,7 +178,7 @@ export function ruleProblem(
  */
 export function keepStakeRules(f: Folding): void {
   for (const e of f.entries.values())
-    for (const { receipt, at, id } of orderReceipts(e.input.receipts)) {
+    for (const { receipt, at, id } of orderReceipts(e.line.receipts)) {
       const ev = receipt.event;
       if (ev.type !== 'stake_rule' || ev.problem !== e.hash) continue;
       if (e.rules.some((r) => r.id === id)) continue;

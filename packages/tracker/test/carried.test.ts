@@ -5,18 +5,19 @@ import { VERDICT, addr, boot, envelope, key } from './helpers.js';
 
 /**
  * A set carried across a version is one set: QX-1 sections 2, 3, 6 and 7 as amended 10 November 2026, with
- * QX-15 section 3, QX-16 section 1 and QX-16 section 4. The core's fold of a version takes the events of the versions
- * before it along `prev`, so a set made at v1 on a piece v2 keeps stands in the fold of each, and a tracker that holds
- * both counts it once. A reveal earns its root one point, however many versions hold its set, and a reveal posted to
- * v2 beside one posted to v1 earns each its point. A version of a problem is not a problem other than it, so a tracker
- * that holds one problem in several versions has no pool, and two versions made from the same earlier one are of one
- * line. A held challenge at any version docks each root once and withdraws its point once, and forfeits a lock behind
- * the set whichever version the lock was made at; a gold miss struck and then overruled gives each root back the one
- * point. A piece has one revealed gold across its line, so the owner's gold at another version is refused once one is
- * revealed, whichever is revealed first. One challenge is open at a time across the line, and a piece that had its
- * held challenge at one version is not challenged at another. The coin, last: a carried square is verified once, and
- * an escrow at v1 pays the set once; an escrow at v1 pays a set made at v2 alone, before one at v2 does, and what is
- * left of it is refunded when v2 completes, though v1 never does (QX-17 section 8 as amended 10 November 2026).
+ * QX-15 section 3, QX-16 section 1 and QX-16 section 4. A line has one record (docs/v2/READING.md sections 2 and 3),
+ * so a set made at any version on a piece another keeps stands on the map of each, and a tracker that holds them
+ * counts it once. A reveal earns its root one point, however many versions show its set, and a reveal posted to v2
+ * beside one posted to v1 makes one set, which both show. A version of a problem is not a problem other than it, so
+ * a tracker that holds one problem in several versions has no pool, and two versions made from the same earlier one
+ * are of one line. A held challenge at any version docks each root once and withdraws its point once, and forfeits a
+ * lock behind the set whichever version the lock was made at; a gold miss struck and then overruled gives each root
+ * back the one point. A piece has one revealed gold across its line, so the owner's gold at another version is
+ * refused once one is revealed, whichever is revealed first. One challenge is open at a time across the line, and a
+ * piece that had its held challenge at one version is not challenged at another. The coin, last: a carried square is
+ * verified once, and an escrow at v1 pays the set once; an escrow at v1 pays a set made at v2 alone, before one at v2
+ * does, and what is left of it is refunded when a version of the line completes (QX-17 section 8 as amended
+ * 10 November 2026).
  */
 const owner = key(9),
   elsewhere = key(8),
@@ -159,13 +160,13 @@ describe('a reveal is counted once (QX-1 section 2 as amended 10 November 2026)'
 describe('a reveal posted to v2 beside one posted to v1 (QX-1 section 2 as amended 10 November 2026)', () => {
   const s = scene();
   let v2: Hash;
-  it('gives each root one point, where the set stands in the fold of v2 alone', async () => {
+  it('gives each root one point, where the set stands on the record of the line and each version shows it', async () => {
     const v1 = await s.publish(version('1'));
     v2 = await s.publish(version('2', v1));
     await s.returned(v1, 'one', A, 'anthropic/claude');
     await s.returned(v2, 'one', B, 'openai/gpt');
-    // v1's fold leaves out the reveal that names v2, so only v2 holds the pair.
-    expect(s.stateOf(v1, 'one')).toBe('needs_verify');
+    // The record is the line's, so v1 shows the pair too, on a piece it keeps (READING.md section 3).
+    expect(s.stateOf(v1, 'one')).toBe('accepted_provisional');
     expect(s.stateOf(v2, 'one')).toBe('accepted_provisional');
     expect(s.standing(A)).toBe(2);
     expect(s.standing(B)).toBe(2);
@@ -374,10 +375,10 @@ describe('versions made from the same earlier one (QX-1 sections 2 and 3 as amen
     expect(s.stateOf(right, 'one')).toBe('accepted_provisional');
     expect(s.standing(A)).toBe(2);
     expect(s.standing(B)).toBe(2);
-    // Squares posted to one sibling alone, which the other's fold does not hold.
+    // Squares posted to one sibling alone, which the other shows, since the two share a record.
     await s.squared(left, 'two', [workers[0]!, workers[1]!]);
     await s.squared(left, 'three', [workers[2]!, workers[3]!]);
-    expect(s.stateOf(right, 'two')).toBe('open');
+    expect(s.stateOf(right, 'two')).toBe('accepted_provisional');
     // "another version made from the same earlier one" is of the line, so its credits are no pool.
     expect(await s.t.refused(`/p/${right}/events`, s.challenge(C, right, 'one'))).toBe(NO_PANEL);
   });
@@ -464,16 +465,16 @@ describe('the coin across a version (QX-17 section 3 and QX-1 section 2 as amend
     await s.t.accepted('/coin/events', s.t.ev(A, 'pay', { problem: v1, amount: 100, per_square: 50 }));
     await s.t.accepted('/coin/events', s.t.ev(C, 'pay', { problem: v2, amount: 50, per_square: 50 }));
     await s.squared(v2, 'four', [G, H]);
-    expect(s.stateOf(v1, 'four')).toBe('open');
+    expect(s.stateOf(v1, 'four')).toBe('accepted_provisional');
     expect((await balanceOf(G)).received).toBe(25);
     expect((await balanceOf(H)).received).toBe(25);
     expect((await balanceOf(A)).escrowed).toBe(50);
     expect((await balanceOf(C)).escrowed).toBe(50);
   });
 
-  it('refunds what is left of every escrow of the line when v2 completes, though v1 never does', async () => {
+  it('refunds what is left of every escrow of the line when its versions complete', async () => {
     s.t.clock.tick = Date.parse(T0) + 30 * 24 * HOUR;
-    expect(s.stateOf(v1, 'four')).toBe('open');
+    expect(s.stateOf(v1, 'four')).toBe('accepted');
     expect((await balanceOf(A)).escrowed).toBe(0);
     expect((await balanceOf(C)).escrowed).toBe(0);
   });

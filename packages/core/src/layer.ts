@@ -80,8 +80,9 @@ export interface ProblemLayer {
    */
   goldCount: GoldCount;
   /**
-   * Every receipt the fold was computed from: the chain's and the identity log's, so a reader of the layer (the traces,
-   * the seeds, the directory row) need not read the store again.
+   * Every receipt the fold was computed from, the line's record (READING.md section 3): the chain's, the identity
+   * log's, and those of the line's other versions, so a reader of the layer (the traces, the seeds, the proposed
+   * pieces, the directory row) need not read the store again.
    */
   receipts: Receipt[];
 }
