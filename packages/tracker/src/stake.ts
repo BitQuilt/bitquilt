@@ -17,10 +17,12 @@ import {
   type PieceView,
   eventSignedByKey,
   isRecord,
+  leaseOf,
   orderReceipts,
+  ownerOf,
   plusHours,
+  rootFor,
 } from '@bitquilt/core';
-import { leaseOf, ownerOf, rootFor } from './verifiers.js';
 import type { Folding, ProblemEntry } from './standing.js';
 import type { Admission, Layer, ProblemLayer } from './challenge.js';
 

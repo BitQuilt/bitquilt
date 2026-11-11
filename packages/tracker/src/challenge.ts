@@ -6,8 +6,8 @@
  * run again without them, says what the piece is now; a failed one costs the challenger the stake. The core's state is
  * a coarsening of this layer's: where it says `challenged`, the core says accepted within its window.
  *
- * The fold this layer reads is the core's with the verifier kinds of verifiers.ts (human, judge:n, attest) decided on
- * top, so an attested or judged acceptance can be challenged and struck like any other, and a judge panel is drawn
+ * The fold this layer reads is the core's with the verifier kinds of its `kinds.ts` (human, judge:n, attest) decided
+ * on top, so an attested or judged acceptance can be challenged and struck like any other, and a judge panel is drawn
  * from the same pool of credits as a challenge's. The two are folded together here because both are functions of the
  * whole store: a credit on one problem seats a panel on another.
  *
@@ -35,43 +35,43 @@
  *      gold.ts.
  *
  * The record the phases write into, and standing, locked and free over it, are in standing.ts; the draw and the seats
- * both panels share are in sortition.ts.
+ * both panels share are the core's, in its `sortition.ts`, with the kinds.
  */
 import {
   type Address,
   type Event,
   type Hash,
+  type KindInfo,
+  type PanelView,
   type PieceState,
   type PieceView,
   type Receipt,
+  type RecordView,
   type ReduceInput,
   type Return,
   type State,
+  applyVerifiers,
   byAtThenId,
   commitHash,
+  drawOrder,
   eventId,
   eventSignedByKey,
   isHash,
   isRecord,
+  leaseOf,
+  offerSeats,
   orderReceipts,
+  ownerOf,
   plusHours,
   problemHash,
   reduce,
   returnProblems,
-} from '@bitquilt/core';
-import {
-  type KindInfo,
-  type PanelView,
-  type RecordView,
-  applyVerifiers,
-  judgeAdmissions,
-  leaseOf,
-  ownerOf,
   rootFor,
   settleKinds,
   viaOf,
   windowOf,
-} from './verifiers.js';
+} from '@bitquilt/core';
+import { judgeAdmissions } from './verifiers.js';
 import {
   type CoinLockWord,
   type LockView,
@@ -112,7 +112,6 @@ import {
   rootOf,
 } from './standing.js';
 import { pieceTraces } from './trace.js';
-import { drawOrder, offerSeats } from './sortition.js';
 import { type Inherited, completeInLayer, inheritSquares } from './inherit.js';
 
 export { rootFor, acceptingRoots, creditedRoots };
@@ -1105,8 +1104,8 @@ function returnProblem(view: PieceView, ret: unknown): string | null {
 }
 
 /**
- * Offers the seats, lapses and replaces them by the lease (sortition.ts), folds the verdicts in receipt order, and
- * decides on a majority.
+ * Offers the seats, lapses and replaces them by the lease (the core's sortition.ts), folds the verdicts in receipt
+ * order, and decides on a majority.
  */
 function seat(
   challenge: ChallengeView,

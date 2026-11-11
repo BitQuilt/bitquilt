@@ -9,7 +9,16 @@
  * cannot ask for the layer built afresh, and what only the door reads.
  */
 import type { ServerResponse } from 'node:http';
-import { type Address, type Hash, isAddress, shortHead, verifyChain, IDENTITY_LOG } from '@bitquilt/core';
+import {
+  type Address,
+  EXTENSIONS,
+  type Hash,
+  IDENTITY_LOG,
+  JUDGE_SEED,
+  isAddress,
+  shortHead,
+  verifyChain,
+} from '@bitquilt/core';
 import {
   type Layer,
   type ProblemLayer,
@@ -35,7 +44,6 @@ import { STAKE } from './stake.js';
 import type { Store } from './store.js';
 import { BLOB_MAX, RECORD, TRACE, recordOutput } from './trace.js';
 import type { Context } from './tracker.js';
-import { EXTENSIONS, JUDGE_SEED } from './verifiers.js';
 import { witnessedReveals } from './witness.js';
 
 /** What the views read of the tracker's context (tracker.ts). */

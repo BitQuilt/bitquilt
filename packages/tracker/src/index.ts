@@ -54,12 +54,8 @@ export {
   leaseOf,
   ownerOf,
   windowOf,
-  rankBodyProblems,
-  rankingProblem,
-  panelSeatProblem,
   fromPersonSeat,
   EXTENSIONS,
-  RANK_EVENTS,
   DEFAULT_CANDIDATES,
   JUDGE_SEED,
   STRENGTHS,
@@ -76,8 +72,13 @@ export {
   type ExtAccepting,
   type VerifierOptions,
   type RecordView,
-} from './verifiers.js';
-export { drawOrder, offerSeats, type Seated } from './sortition.js';
+} from '@bitquilt/core';
+export { RANK_EVENTS } from './verifiers.js';
+export {
+  drawOrder,
+  offerSeats,
+  type Seated,
+} from '@bitquilt/core';
 export {
   STAKE,
   STAKE_EVENTS,

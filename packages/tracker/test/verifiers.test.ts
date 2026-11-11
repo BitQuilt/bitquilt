@@ -7,8 +7,11 @@ import {
   type Receipt,
   type Unsigned,
   commitHash,
+  describeKind,
   hashCanonical,
+  kindOf,
   newNonce,
+  personSeatIn,
   plusHours,
   problemHash,
   reduce,
@@ -16,17 +19,7 @@ import {
   signObject,
 } from '@bitquilt/core';
 import { challengeLayer } from '../src/challenge.js';
-import { describeKind, kindOf, personSeatIn } from '../src/verifiers.js';
-import {
-  SETTINGS as settings,
-  VERDICT_QUOTE,
-  addr,
-  boot,
-  keepLedger,
-  keepReading,
-  key,
-  line,
-} from './helpers.js';
+import { SETTINGS as settings, VERDICT_QUOTE, addr, boot, keepLedger, keepReading, key, line } from './helpers.js';
 import { ledgerOf } from './reading.js';
 
 /**
@@ -422,7 +415,7 @@ describe('the verifier kinds at the tracker', () => {
       'store.appendReceipt(chain, event, id, url, now(), wrapper.custody, wrapper.seat, extra)',
     );
     expect(source('peers.ts')).toContain('personSeatIn(line.received)');
-    expect(source('verifiers.ts')).toContain('personSeatIn(receipt.received)');
+    expect(source('../../core/src/kinds.ts')).toContain('personSeatIn(receipt.received)');
   });
 
   it('seats a panel of three on a judge piece once its candidates are in, and accepts the candidate two of them rank first', async () => {
@@ -646,7 +639,7 @@ describe('the pure layer', () => {
     ];
     const at = (now: string) =>
       challengeLayer({ problems: [{ envelopes: [T], blobs: new Map(), receipts, now }], now }).problems.get(th)!;
-    const told = 'An attest piece with the actor\'s one reveal, and a piece that waits on it, built by hand.';
+    const told = "An attest piece with the actor's one reveal, and a piece that waits on it, built by hand.";
     keepLedger('verifiers-attest', told, ledgerOf(T, receipts), [t(10), t(49 * 60)]);
     const inside = at(t(10));
     expect(inside.byHash.get(toldPiece)).toMatchObject({

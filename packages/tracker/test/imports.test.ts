@@ -1,17 +1,18 @@
 /**
- * The tracker's files load one another without a cycle (AGENTS.md, The shape of it), so the layer reads from the
- * bottom up: sortition.ts, verifiers.ts, stake.ts, gold.ts, standing.ts, then challenge.ts, each loading only files
- * before it. A file takes a type from a later one with `import type`, which loads nothing. Under verbatimModuleSyntax
- * an import of inline types alone still loads its module, so it counts here as a load. The layer's admissions sit in
- * the files of the rules they check, and each returns its part of the one Layer, a type, so moving them there added no
- * load. The layer's last pass (QX-23) is in inherit.ts, which loads none of the tracker's files: challenge.ts hands it
- * a piece's own state and the settling, so it sits below every file that loads it. The door's jobs (tracker.ts,
- * Context) are admit.ts, which takes a post, views.ts, which answers a read, and hand.ts, which hands a key a piece:
- * tracker.ts loads each, and each takes the tracker's context from it as a type alone. Each names the part of the
- * context it reads in its `Reads`. views.ts and hand.ts leave `exactly` out of theirs, so a read cannot ask for the
- * layer built afresh, and they load nothing of the door. None of the three keeps a value that changes at the top of
- * its module, so what a tracker keeps from one request to the next is its context's, one per tracker
- * (kept-layer.test.ts and coin-home.test.ts hold that as it runs).
+ * The tracker's files load one another without a cycle (AGENTS.md, The shape of it), so the layer reads from the bottom
+ * up: verifiers.ts, stake.ts, gold.ts, standing.ts, then challenge.ts, each loading only files before it. The draw and
+ * the verifier kinds are the core's now, moved as docs/history/V2-PLAN.md, phase 3, says, so they are not files here. A
+ * file takes a type from a later one with `import type`, which loads nothing. Under verbatimModuleSyntax an import of
+ * inline types alone still loads its module, so it counts here as a load. The layer's admissions sit in the files of
+ * the rules they check, and each returns its part of the one Layer, a type, so moving them there added no load. The
+ * layer's last pass (QX-23) is in inherit.ts, which loads none of the tracker's files: challenge.ts hands it a piece's
+ * own state and the settling, so it sits below every file that loads it. The door's jobs (tracker.ts, Context) are
+ * admit.ts, which takes a post, views.ts, which answers a read, and hand.ts, which hands a key a piece: tracker.ts
+ * loads each, and each takes the tracker's context from it as a type alone. Each names the part of the context it reads
+ * in its `Reads`. views.ts and hand.ts leave `exactly` out of theirs, so a read cannot ask for the layer built afresh,
+ * and they load nothing of the door. None of the three keeps a value that changes at the top of its module, so what a
+ * tracker keeps from one request to the next is its context's, one per tracker (kept-layer.test.ts and
+ * coin-home.test.ts hold that as it runs).
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -100,7 +101,7 @@ const JOBS = ['admit.ts', 'views.ts', 'hand.ts'];
 const text = (f: string): string => readFileSync(join(src, f), 'utf8');
 
 /** The layer's files from the bottom up. */
-const LAYER = ['sortition.ts', 'verifiers.ts', 'stake.ts', 'gold.ts', 'standing.ts', 'challenge.ts'];
+const LAYER = ['verifiers.ts', 'stake.ts', 'gold.ts', 'standing.ts', 'challenge.ts'];
 
 describe("the tracker's files as they load", () => {
   it('reads every file and finds the layer loading its rules', () => {
