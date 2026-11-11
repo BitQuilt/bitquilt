@@ -133,4 +133,8 @@ That day too, the extensions' documents were clarified, each by a dated paragrap
 - **Entry 59.** QX-1 section 6 and QX-16 section 4 say it in one voice: a set struck and returned has its roots' points again and seats them in no later pool.
 - **Entry 60, with 41.** QX-1 section 7 and QX-16 section 4 say once of a challenge that held, as section 1 has it. QX-1 section 6 says a void challenge's time is the last lapse.
 
-The entries that are thin and not wrong are open, each a sentence for READING.md, a cited document or the README: 4 to 13, 15 to 40, 42 to 52 and 54. The assumptions no fixture holds are open until a fixture holds each.
+Then the fixtures' README was given a part of its own, "The keys", for what the stranger took from the JSON:
+
+- **Entries 4 to 13.** The README lists the keys of a view, a set, a record, a trace, a stake rule, a lock, a gold, a challenge, a panel and a proposal, and no others. It says a seed is bare hex, gives each verifier its three words, and says which view comes first, that `challenge` is the last challenge on the piece and is kept once decided, that a gold is shown at the version it names, and that a set's `kind` is the set's own and not the verifier's. Entry 12 read `standing` wider than it is: it holds the root of each line's signer, the coin log's among them, and each owner's. Entry 13's forms are listed in the order they are asked, with a fourth, a blob that does not match its hash, and the fixtures hold two of the four.
+
+The entries that are thin and not wrong are open, each a sentence for READING.md or a cited document: 15 to 40, 42 to 52 and 54. The assumptions no fixture holds are open until a fixture holds each.
