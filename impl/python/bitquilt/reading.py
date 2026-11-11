@@ -15,6 +15,7 @@ from .hashes import hash_json
 from .identity import same_address
 from .grounds import fold_traces, set_aside, seams_of, traced
 from .kinds import KIND_WORDS, kind_of, agree_pass, attest_pass, record_pass, person_seat, differ, find_set
+from .decisions import Decisions
 from .record import Ledger, fold_record, iso
 from .times import parse_time, hours
 
@@ -42,8 +43,9 @@ class Read:
         for line in self.led.lines.values():
             fold_record(line, self.led.identity)
             fold_traces(line, self.led.reads)
-        # Sections 4 to 6, the grounds, the sets and standing, to a fixed point.
-        self.sets()
+        # Sections 4 to 6, the grounds, the sets and standing, to a fixed point, then section 7, the decisions.
+        self.dec = Decisions(self)
+        self.dec.run()
 
     # Section 5, the sets.
 
@@ -67,6 +69,8 @@ class Read:
             rec.set = attest_pass(line, rec)
         elif kind == "record":
             rec.standing = record_pass(line, rec, n)
+        elif kind == "judge":
+            rec.set = self.dec.judge(line, rec, n)
         else:
             for r in rec.live():
                 rec.counts[r.id] = ("counted", None)
@@ -79,11 +83,19 @@ class Read:
         if kind is None:
             return "unknown"
         if rec.set is not None:
+            # QX-1 section 7: "`challenged`: a challenge on the piece is open."
+            if self.dec.open_on(line, rec) is not None:
+                return "challenged"
             window = hours(line.by_hash[rec.set.version].settings["challenge_window_h"])
             if now < rec.set.at + window:
                 return "accepted_provisional"
             return "unreachable" if unreachable(rec) else "accepted"
         live = rec.live()
+        if kind == "judge":
+            # verifiers.md section 2: "`judging` while the panel sits", "`disputed` when void".
+            panel = self.dec.panels.get((line.name, rec.hash))
+            if panel is not None:
+                return "judging" if panel.outcome == "open" else "disputed"
         if kind == "record":
             if len(rec.standing) >= n:
                 return "recorded"
@@ -206,6 +218,7 @@ class Read:
             said_set = {"name": s.name, "kind": "agree", "completedAt": s.at_text,
                         "members": [{"id": m.id, "key": m.key, "at": m.at_text, "digest": m.digest}
                                     for m in s.members]}
+        last = self.dec.last_on(line, rec)
         said_record, grade = None, None
         if kind == "record":
             stands = rec.standing
@@ -221,13 +234,13 @@ class Read:
             "extension": words[1],
             "strength": words[2],
             "attested": kind == "attest" and s is not None,
-            "stake": 0,
-            "gold": None,
-            "verified": False,
+            "stake": self.dec.stake_of(line, spec, self.now),
+            "gold": self.dec.gold_of(line, rec),
+            "verified": self.dec.gold_of(line, rec) == "match",
             "aside": sorted({r.key for r in rec.readings if r.id in rec.aside and r.id not in rec.struck}),
             "readings": readings,
             "inherited": None,
-            "challenge": None,
+            "challenge": last.id if last is not None else None,
             "set": said_set,
             "record": said_record,
             "trace": dict(self.grounds_of(version, spec, own), record=grade),
@@ -252,6 +265,12 @@ class Read:
             core = all(kind_of(s.get("verifier"))[0] in ("agree", "check", "score") for s in version.specs)
             if own and core and all(states[s["name"]] in ("accepted", "unreachable") for s in version.specs):
                 output = hash_json(self.output_document(version, states))
+            dec = self.dec
+            line = version.line
+            names = {s["hash"]: s["name"] for s in version.specs}
+            rule = dec.rule_at(line, self.now)
+            golds = [g for g in dec.golds if g.version is version]
+            panels = [(dec.panels.get((line.name, s["hash"])), s) for s in version.specs]
             problems[h] = {
                 "line": version.line.name,
                 "complete": own,
@@ -259,13 +278,13 @@ class Read:
                 "output": output,
                 "record_output": None,
                 "dropped": 0,
-                "unoffered": [],
-                "stake": None,
-                "gold": {"committed": 0, "pending": 0, "verified": 0, "missed": 0, "overruled": 0, "lapsed": 0},
-                "locks": [],
-                "golds": [],
-                "challenges": [],
-                "panels": [],
+                "unoffered": [s["hash"] for p, s in panels if p is not None and p.outcome != "decided"],
+                "stake": {"min": rule.min, "pieces": rule.pieces} if rule is not None else None,
+                "gold": dec.gold_counts(golds),
+                "locks": [dec.lock_said(k) for k in dec.locks if k.version == h],
+                "golds": [dec.gold_said(g) for g in golds],
+                "challenges": [dec.challenge_said(c) for c in dec.challenges if c.version is version],
+                "panels": [dec.panel_said(p, s["name"]) for p, s in panels if p is not None],
                 "proposals": [],
                 "views": views,
                 "pieces": pieces,
@@ -292,20 +311,17 @@ class Read:
     # Section 6, standing.
 
     def standing(self):
+        """Each root's standing at `now`, with what is locked and what is free (QX-15 section 3)."""
         led = self.led
         roots = set()
-        credit = {}
         for line in led.lines.values():
             roots.add(line.owner)
             roots.update(line.identity.final(r) for r in line.roots)
-            for rec in line.recs.values():
-                if rec.set is not None and kind_of(rec.verifier)[0] != "attest":
-                    for m in rec.set.members:
-                        credit.setdefault(m.root, set()).add(m.id)
         out = {}
         for root in sorted(roots):
-            n = 1 + int(led.founding.get(root, 0)) + len(credit.get(root, ()))
-            out[root] = {"standing": n, "locked": 0, "free": n}
+            n = self.dec.standing_at(root, self.now)
+            locked = self.dec.locked_at(root, self.now)
+            out[root] = {"standing": n, "locked": locked, "free": max(0, n - locked)}
         return out
 
 
