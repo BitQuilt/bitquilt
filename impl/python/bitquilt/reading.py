@@ -16,6 +16,7 @@ from .identity import same_address
 from .grounds import fold_traces, set_aside, seams_of, traced
 from .kinds import KIND_WORDS, kind_of, agree_pass, attest_pass, record_pass, person_seat, differ, find_set
 from .decisions import Decisions
+from .inherit import Reach
 from .record import Ledger, entries_of, fold_record, iso
 from .times import parse_time, hours
 
@@ -46,6 +47,8 @@ class Read:
         # Sections 4 to 6, the grounds, the sets and standing, to a fixed point, then section 7, the decisions.
         self.dec = Decisions(self)
         self.dec.run()
+        # Section 8, the reach.
+        self.inh = Reach(self)
 
     # Section 5, the sets.
 
@@ -77,14 +80,14 @@ class Read:
 
     # Section 9, the state.
 
-    def own_state(self, line, rec):
+    def own_state(self, line, rec, challenges=True):
         now = self.now
         kind, n = kind_of(rec.verifier)
         if kind is None:
             return "unknown"
         if rec.set is not None:
             # QX-1 section 7: "`challenged`: a challenge on the piece is open."
-            if self.dec.open_on(line, rec) is not None:
+            if challenges and self.dec.open_on(line, rec) is not None:
                 return "challenged"
             window = hours(line.by_hash[rec.set.version].settings["challenge_window_h"])
             if now < rec.set.at + window:
@@ -194,7 +197,7 @@ class Read:
             aside = sorted(rec.aside)
         return {"traces": rec.traces, "traced": grade, "seams": seams, "aside": aside}
 
-    def view(self, version, spec, state, own=None):
+    def view(self, version, spec, state, own=None, inherited=None):
         own = state if own is None else own
         line = version.line
         rec = line.recs[spec["hash"]]
@@ -239,7 +242,7 @@ class Read:
             "verified": self.dec.gold_of(version, rec) == "match",
             "aside": sorted({r.key for r in rec.readings if r.id in rec.aside and r.id not in rec.struck}),
             "readings": readings,
-            "inherited": None,
+            "inherited": inherited,
             "challenge": last.id if last is not None else None,
             "set": said_set,
             "record": said_record,
@@ -251,20 +254,26 @@ class Read:
         problems = {}
         for h in sorted(led.versions):
             version = led.versions[h]
-            states = self.states_of(version)
+            settled = self.inh.states(version)
+            states = {name: s[0] for name, s in settled.items()}
             views, index, pieces = [], {}, {}
             for spec in version.specs:
-                view = self.view(version, spec, states[spec["name"]])
+                view = self.view(version, spec, *settled[spec["name"]])
                 key = canonical(view)
                 if key not in index:
                     index[key] = len(views)
                     views.append(view)
                 pieces[spec["name"]] = index[key]
-            own = bool(version.specs) and all(states[s["name"]] in DONE for s in version.specs)
+            own = self.inh.own_complete(version)
+            complete = self.inh.complete(version)
             output = None
             core = all(kind_of(s.get("verifier"))[0] in ("agree", "check", "score") for s in version.specs)
-            if own and core and all(states[s["name"]] in ("accepted", "unreachable") for s in version.specs):
+            if complete and core and all(states[s["name"]] in ("accepted", "unreachable") for s in version.specs):
                 output = hash_json(self.output_document(version, states))
+            # QX-20 section 4: "When the layer calls the problem complete and it has a record piece".
+            record_output = None
+            if complete and any(kind_of(s.get("verifier"))[0] == "record" for s in version.specs):
+                record_output = hash_json(self.record_document(version, settled))
             dec = self.dec
             line = version.line
             names = {s["hash"]: s["name"] for s in version.specs}
@@ -273,10 +282,10 @@ class Read:
             panels = [(dec.panels.get((line.name, s["hash"])), s) for s in version.specs]
             problems[h] = {
                 "line": version.line.name,
-                "complete": own,
+                "complete": complete,
                 "own_complete": own,
                 "output": output,
-                "record_output": None,
+                "record_output": record_output,
                 "dropped": 0,
                 "unoffered": [s["hash"] for p, s in panels if p is not None and p.outcome != "decided"],
                 "stake": {"min": rule.min, "pieces": rule.pieces} if rule is not None else None,
@@ -307,6 +316,34 @@ class Read:
                                      for m in rec.set.members]
             pieces.append(entry)
         return {"quilt": 1, "problem": version.hash, "pieces": pieces}
+
+    def record_document(self, version, settled):
+        """QX-20 section 4: "canonical JSON `{ quilt: 1, problem, extension: "QX-20", pieces: [...] }`, one entry
+        per piece in file order as the core's output has it", "a record piece's entry carrying `wanted` and
+        `readings`, each `{ signer, key, vendor, model, at, return, trace }` with the trace as the chain states
+        it (the reads and the rests of the key's trace event, or null)". QX-23 section 4: "an inherited piece's
+        entry is `{ name, piece, state: "inherited", inherited }`, where `inherited` is the hash of the problem
+        where the square stands"."""
+        states = {name: s[0] for name, s in settled.items()}
+        pieces = []
+        for entry in self.output_document(version, states)["pieces"]:
+            spec = next(s for s in version.specs if s["name"] == entry["name"])
+            rec = version.line.recs[spec["hash"]]
+            kind, n = kind_of(rec.verifier)
+            if entry["state"] == "inherited":
+                entry = {"name": entry["name"], "piece": entry["piece"], "state": "inherited",
+                         "inherited": settled[entry["name"]][2]["problem"]}
+            elif kind == "record":
+                readings = []
+                for m in rec.standing:
+                    trace = rec.trace_of.get(m.id)
+                    readings.append({"signer": m.root, "key": m.key, "vendor": m.vendor, "model": m.by.get("model"),
+                                     "at": m.at_text, "return": m.ret,
+                                     "trace": {"reads": trace["reads"], "rests": trace["rests"]} if trace else None})
+                entry["wanted"] = n
+                entry["readings"] = readings
+            pieces.append(entry)
+        return {"quilt": 1, "problem": version.hash, "extension": "QX-20", "pieces": pieces}
 
     # Section 6, standing.
 
