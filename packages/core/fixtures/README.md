@@ -36,3 +36,7 @@ One JSON file per fixture, written by `generate.ts` from the reference implement
 ## The gate
 
 `gate/cases.json` is the fixture CORE.md section 11 promises for `gate/1`: for each text as a tracker receives it, the issue codes the gate reports (`links`, `contact`, `machines`, `shouting`), in order, with a clean text among them and texts whose invisible characters are taken out before judging. A tracker that claims `gate/1` reproduces them; `test/gate.test.ts` holds the reference to it.
+
+## Reading 2
+
+`reading-2/` holds the fixtures of [reading 2](../../../docs/v2/READING.md), the draft of version 2's fold: ledgers of many problems, each with what the reference tracker's layer says of it. They are in a form of their own, which [their README](reading-2/README.md) gives, and neither `pnpm conform` nor `impl/python/conform.py` reads them. A client conforms to version 1 without them.
