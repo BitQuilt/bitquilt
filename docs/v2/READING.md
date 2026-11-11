@@ -57,7 +57,7 @@ Each kind's rule reads the record and says whether a set stands.
 
 ## 6. Standing
 
-Standing is [QX-1](../ext/QX-1.md) section 2 as amended 10 November 2026: one credit for each reveal in a set, by the reveal's id. The pool is QX-1 section 3, and a version of a line is no other problem for it. Locked and free standing are [QX-15](../ext/QX-15.md) section 3. Sections 5 and 6 are brought to a fixed point, since a panel is drawn by standing and a panel's ranking makes a set.
+Standing is [QX-1](../ext/QX-1.md) section 2 as amended 10 November 2026: one credit for each reveal in a set, by the reveal's id. The pool is QX-1 section 3, and a version of a line is no other problem for it. Locked and free standing are [QX-15](../ext/QX-15.md) section 3. A burn on the coin log is credited on the door's word in its receipt's wrapper ([QX-17](../ext/QX-17.md) section 4), so where a tracker carries the coin its log's lines are in the ledger, and the fold reads the word and no balance. Sections 5 and 6 are brought to a fixed point, since a panel is drawn by standing and a panel's ranking makes a set.
 
 ## 7. The decisions
 
