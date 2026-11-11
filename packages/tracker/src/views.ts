@@ -1,6 +1,6 @@
 /**
  * What the tracker's door answers a read with (PROTOCOL.md, The tracker): what it says of itself at the well-known
- * document; a problem's state, the layer's beside the core's, with the square a fork's piece inherits (QX-23); its
+ * document; a problem's state, one for each piece, with the square a fork's piece inherits (QX-23); its
  * summary as the index and the scrape show it, and the search; its challenges (QX-1), panels (QX-2), record document
  * (QX-20) and proposed pieces (QX-22); a key's standing (QX-15) and its latest readings; the launch funnel; a chain's
  * lines a page at a time (QX-11); a blob and a name; and the coin as the layer computes it (QX-17). Each writes
@@ -262,10 +262,10 @@ function summary(cx: Reads, hash: Hash, layered: Layer = cx.layer()) {
 }
 
 /**
- * A problem's state as the layer has it, with the core's beside each piece: a core client reads `core`, one with the
- * extensions reads `state`, and the kind says how the square is earned and how strongly. `window_open` says whether a
- * reveal of the owner's gold is taken on the piece at `now`, which `state` does not say under an open challenge
- * (QX-16).
+ * A problem's state as the read has it. docs/v2/READING.md section 9: "Each piece has one state". Until the switch,
+ * 11 November 2026, version 1's state of the version's own chain was answered beside it as `core`. The kind says how
+ * the square is earned and how strongly. `window_open` says whether a reveal of the owner's gold is taken on the piece
+ * at `now`, which `state` does not say under an open challenge (QX-16).
  */
 export function state({ store, now, hidden, tracesOf }: Reads, hash: Hash, layered: Layer) {
   const pl = viewIn(layered, hash)!;
@@ -286,7 +286,6 @@ export function state({ store, now, hidden, tracesOf }: Reads, hash: Hash, layer
         hash: v.piece.hash,
         verifier: v.piece.verifier,
         state: l.state,
-        core: l.core,
         challenge: l.challenge?.id ?? null,
         // READING.md section 7: a challenge shows at every version that holds the piece. Its verdicts go to the
         // version it was posted to (QX-1 section 4), which this names.

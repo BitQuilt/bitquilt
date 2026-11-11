@@ -150,7 +150,7 @@ Every answer the tracker writes itself allows any origin, so a page on any site 
 | `/p` | POST | `{ envelope, blobs }`, blobs in base64; `201 { hash }` | 400, 413, 429 |
 | `/p/<hash>` | GET | The envelope | 404 |
 | `/p/<hash>/events` | GET, POST | The problem's log; a post | 400, 404, 409, 410, 413, 429, 503 |
-| `/p/<hash>/state` | GET | Each piece's layer state, core state, kind and extensions' view | 404, 503 |
+| `/p/<hash>/state` | GET | Each piece's one state, its kind and the extensions' view | 404, 503 |
 | `/p/<hash>/scrape` | GET | The problem's summary, `problem`, `title`, `slug`, `owner`, `owner_name`, `from`, `done_when`, `pieces`, `counts`, `kinds`, `work`, `complete`, `output`, `last`, `head`, `versions`, `challenges`, `seeders`, `last_seeded`, `panels` and `hidden`, then `topics` and `chain_ok` | 404, 503 |
 | `/p/<hash>/next` | GET | For `key`, `can`, `model` and `only=verify`: the piece below | 400, 404, 410, 503 |
 | `/p/<hash>/challenges`, `/p/<hash>/panels`, `/p/<hash>/record`, `/p/<hash>/proposals` | GET | Challenges (QX-1 section 8), panels (verifiers.md section 4), the record (QX-20 section 4), the proposed pieces (QX-22 section 5) | 404, 503 |

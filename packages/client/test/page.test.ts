@@ -129,7 +129,6 @@ describe('the page', () => {
       'weakest',
       'attested',
       'state',
-      'core',
       'stake',
       'gold',
       'verified',
@@ -331,19 +330,17 @@ describe("the reveal of the owner's gold the page offers", () => {
     const acceptedAt = tick;
     const tracked = async () =>
       (
-        await json<{ pieces: { hash: Hash; state: string; core: string; window_open: boolean }[] }>(
-          `${goldBase}p/${golden}/state`,
-        )
+        await json<{ pieces: { hash: Hash; state: string; window_open: boolean }[] }>(`${goldBase}p/${golden}/state`)
       ).pieces.find((x) => x.hash === third.hash)!;
     // Half an hour before the window closes, a challenge: the piece is challenged, its window open, and the reveal due.
     tick = acceptedAt + 47.5 * HOUR;
     await challenger.challenge(golden, third.hash, 1, 'Both quote the abstract, which the paper itself takes back.');
-    expect(await tracked()).toMatchObject({ state: 'challenged', core: 'accepted_provisional', window_open: true });
+    expect(await tracked()).toMatchObject({ state: 'challenged', window_open: true });
     expect(await due()).toEqual(['statement/3']);
     expect((await mine.revealDue(false)).map((d) => d.name)).toEqual(['statement/3']);
     // Half an hour after, the panel still sits and the piece is still challenged, but the window has closed.
     tick = acceptedAt + 48.5 * HOUR;
-    expect(await tracked()).toMatchObject({ state: 'challenged', core: 'accepted', window_open: false });
+    expect(await tracked()).toMatchObject({ state: 'challenged', window_open: false });
     expect((await rows())[2]).toMatchObject({
       name: 'statement/3',
       state: 'challenged',

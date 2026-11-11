@@ -47,9 +47,9 @@ export interface Searched {
 }
 
 /**
- * One piece on a problem's map as the page and the window both read it: its verifier and kind, its state beside the
- * core's, its stake and gold, and, where the tracker says the piece is inherited (QX-23 section 2), the problem where
- * its square stands and the state it has there. Each adds its own fields.
+ * One piece on a problem's map as the page and the window both read it: its verifier and kind, its one state
+ * (READING.md section 9), its stake and gold, and, where the tracker says the piece is inherited (QX-23 section 2),
+ * the problem where its square stands and the state it has there. Each adds its own fields.
  */
 export interface MapPiece {
   hash: string;
@@ -60,7 +60,6 @@ export interface MapPiece {
   weakest: boolean;
   attested: boolean;
   state: string;
-  core: string;
   stake: number;
   gold: string | null;
   verified: boolean;

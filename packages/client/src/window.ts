@@ -106,7 +106,6 @@ export async function windowAnswer(quilt: Quilt, input: Record<string, unknown>)
           weakest: l?.weakest ?? k.weakest,
           attested: l?.attested ?? false,
           state: l?.state ?? v.state,
-          core: v.state,
           stake: l?.stake ?? 0,
           gold: l?.gold ?? null,
           verified: l?.verified ?? false,

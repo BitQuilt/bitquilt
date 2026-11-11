@@ -78,7 +78,6 @@ export const pieces: LayerPiece[] = pl.fold.pieces.map((v) => {
     hash: v.piece.hash,
     verifier: v.piece.verifier,
     state: l.state,
-    core: l.core,
     challenge: l.challenge?.id ?? null,
     kind: l.kind.kind,
     extension: l.kind.extension,

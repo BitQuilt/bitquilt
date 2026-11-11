@@ -72,7 +72,7 @@ const pattern: Pattern = {
 };
 
 type StateView = {
-  pieces: { hash: Hash; state: string; core?: string; traces: number; traced: string | null; aside?: string[] }[];
+  pieces: { hash: Hash; state: string; traces: number; traced: string | null; aside?: string[] }[];
   superseded?: Hash | null;
   gold?: { committed: number };
 };
@@ -419,7 +419,6 @@ describe('the seam decides itself (section 4)', () => {
     await b.return(pa, piece, { verdict: 'contradicts', quote: 'q' });
     expect((await trackerState(pa)).pieces[0]).toMatchObject({
       state: 'needs_verify',
-      core: 'disputed',
       traces: 1,
       aside: [b.identity!.address],
     });
@@ -448,7 +447,6 @@ describe('the seam decides itself (section 4)', () => {
     ]);
     expect((await trackerState(pa)).pieces[0]).toMatchObject({
       state: 'accepted_provisional',
-      core: 'disputed',
       traced: 'both',
     });
   });

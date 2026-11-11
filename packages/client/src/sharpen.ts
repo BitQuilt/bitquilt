@@ -35,7 +35,7 @@ export const FROZEN = "that problem's brief is frozen in this home; `quilt freez
 
 /**
  * QX-19 section 4: the owner's node sharpens a brief two readings read apart. For each family of this problem with a
- * piece the core calls disputed on a `source`, `span` or `reading` seam, or disputed between readings that rest on
+ * piece the tracker shows a `source`, `span` or `reading` seam on, or disputed between readings that rest on
  * nothing once the dispute has stood a lease past its last reveal, `ask` is given the brief, the field and both
  * sides, and answers with the sentence the brief lacks, or null to leave it. Each sentence kept goes at the end of
  * its family's brief in a version of the problem, `prev` this one, posted as `publish` posts, with the announce's
@@ -68,7 +68,9 @@ export async function sharpen(
   const grounded = (x: SeamSide) => x.read !== null && x.span !== null;
   for (const v of state.pieces) {
     const l = over.get(v.piece.hash);
-    if ((l?.core ?? v.state) !== 'disputed' || seams.has(v.piece.family) || !l?.seams?.length) continue;
+    // A seam is said only where a fold calls the piece disputed (QX-19 section 4), and a record piece's seams are
+    // its readings as given, which no sentence closes (QX-20 section 3).
+    if (!l?.seams?.length || l.record || seams.has(v.piece.family)) continue;
     // Two readings that both rest on the record: the seam says why they differ, and the sentence decides between
     // them.
     const both = l.seams.find((s) => s.why !== 'unknown');

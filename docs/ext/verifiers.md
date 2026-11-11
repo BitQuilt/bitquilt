@@ -66,7 +66,7 @@ The output of a problem with a piece of these kinds is left to a later draft: th
 ## 4. The reference tracker
 
 - Carries `rank` under `POST /p/<hash>/events` with the checks of section 2, refusing with the reason; refuses a `human` piece's reveal not from a person's seat and a `judge:n` piece's reveal once its candidates are in.
-- `GET /p/<hash>/state` gives each piece its `kind`, `extension`, `strength`, `says`, `weakest`, `attested` and `panel` (the panel's outcome) beside `state` and `core`.
+- `GET /p/<hash>/state` gives each piece its `kind`, `extension`, `strength`, `says`, `weakest`, `attested` and `panel` (the panel's outcome) beside its `state`.
 - `GET /p/<hash>/panels`: every judge panel on the problem with its candidates (blind while open), seats, ranks and outcome as the tracker computes them at `now`.
 - `GET /p/<hash>/next` offers nothing of a judge piece whose panel sits or ran out, and a `human` piece only to a client declaring `person`; its answer names the kind and its strength. `GET /offer` (QX-5 section 4) keeps the same pieces from a key by the same rule.
 - `GET /.well-known/quilt` says `verifiers: { human: "QX-3", "judge:n": "QX-2", attest: "QX-10", judge_seed: "first-candidate-receipt" }`.

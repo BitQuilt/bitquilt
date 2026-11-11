@@ -154,14 +154,13 @@ export const GOLD_DUE_STATES: readonly string[] = ['accepted_provisional', 'chal
 
 /**
  * Whether the tracker holds the piece's window open, which is where it takes a reveal: the tracker's `window_open`. A
- * tracker older than 7 November 2026 does not say it, and the states stand in, a challenged piece counting only while
- * the core does not call its acceptance final. The core says `accepted` once the window closes while the panel sits
- * (QX-1 section 7), but `unknown` for a piece of a kind it does not know, so there a late reveal can still be offered,
- * and the tracker refuses it with its reason.
+ * tracker older than 7 November 2026 does not say it, and the states stand in. A piece has one state, as
+ * READING.md section 9 says, and a challenged piece says `challenged` after its window has closed too, so there a
+ * late reveal can still be offered, and the tracker refuses it with its reason.
  */
 export function windowOpen(l: LayerPiece): boolean {
   if (typeof l.window_open === 'boolean') return l.window_open;
-  return GOLD_DUE_STATES.includes(l.state) && l.core !== 'accepted' && l.core !== 'unreachable';
+  return GOLD_DUE_STATES.includes(l.state);
 }
 
 /** The pieces of a problem whose gold is due, from the library and the tracker's layer over the problem. */

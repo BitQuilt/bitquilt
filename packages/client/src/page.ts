@@ -181,7 +181,6 @@ export function createPage(options: PageOptions): {
               hash: v.piece.hash,
               verifier: v.piece.verifier,
               state: l?.state ?? v.state,
-              core: v.state,
               requires: v.piece.requires,
               kind: k.kind,
               strength: k.strength,

@@ -46,7 +46,7 @@ async function returnOn(problem: Hash, piece: Hash, k: Uint8Array, model: string
 }
 const stateOf = async (problem: Hash, piece: Hash) => {
   const s = (await get(`/p/${problem}/state`)) as {
-    pieces: { hash: Hash; state: string; core: string; challenge: string | null }[];
+    pieces: { hash: Hash; state: string; challenge: string | null }[];
   };
   return s.pieces.find((p) => p.hash === piece)!;
 };
@@ -128,7 +128,6 @@ describe('the challenge window at the door', () => {
     expect(await refused(`/p/${p}/events`, challenge(D, p, p1, 1))).toBe('a challenge is open on this piece');
     const view = await stateOf(p, p1);
     expect(view.state).toBe('challenged');
-    expect(view.core).toBe('accepted_provisional');
     expect(view.challenge).toBe(id);
     const [c] = await challengesOf(p);
     expect(c!.id).toBe(id);
@@ -154,10 +153,9 @@ describe('the challenge window at the door', () => {
     expect(await refused(`/p/${p}/events`, verdict(drawn[0]!, p, p1, id, 'author'))).toBe('this judge has answered');
     expect((await stateOf(p, p1)).state).toBe('challenged');
     await accepted(`/p/${p}/events`, verdict(drawn[1]!, p, p1, id, 'challenger'));
-    // Held: the set is struck, the piece is open again for the layer and still provisional for the core.
+    // Held: the set is struck, and the piece is open again.
     const after = await stateOf(p, p1);
     expect(after.state).toBe('open');
-    expect(after.core).toBe('accepted_provisional');
     const [held] = await challengesOf(p);
     expect(held!.outcome).toBe('held');
     expect(held!.struck).toHaveLength(4);

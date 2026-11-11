@@ -155,7 +155,7 @@ export async function squareView(
     next = o.superseded;
   }
   if (newest) {
-    const stateIn = (h: Hash, core: string): string => newest!.opened.layer?.find((x) => x.hash === h)?.state ?? core;
+    const stateIn = (h: Hash, own: string): string => newest!.opened.layer?.find((x) => x.hash === h)?.state ?? own;
     const same = newest.opened.state.byHash.get(piece);
     const named = same ? null : newest.opened.state.pieces.find((x) => x.piece.name === v.piece.name);
     if (same) later = { version: newest.hash, same: true, state: stateIn(piece, same.state) };

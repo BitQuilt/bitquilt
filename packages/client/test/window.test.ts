@@ -287,7 +287,6 @@ describe('the directory window', () => {
     const pieces = opened.pieces as {
       name: string;
       state: string;
-      core: string;
       kind: string;
       strength: string;
       reveals: number;

@@ -78,7 +78,6 @@ type PieceState = {
   name: string;
   hash: Hash;
   state: string;
-  core: string;
   kind: string;
   extension: string | null;
   strength: string | null;
@@ -112,7 +111,6 @@ describe('the record kind (QX-20)', () => {
     then = s.pieces.find((p) => p.name === 'then')!.hash;
     expect(await pieceOf(question)).toMatchObject({
       state: 'open',
-      core: 'unknown',
       kind: 'record',
       extension: 'QX-20',
       strength: 'recorded',
@@ -159,7 +157,6 @@ describe('the record kind (QX-20)', () => {
     await returned(C, 'anthropic/claude', 'asserts');
     const q = await pieceOf(question);
     expect(q.state).toBe('recording');
-    expect(q.core).toBe('unknown');
     expect(q.record).toMatchObject({
       wanted: 4,
       standing: 3,

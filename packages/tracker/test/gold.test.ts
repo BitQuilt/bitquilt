@@ -72,7 +72,6 @@ type PieceState = {
   hash: Hash;
   name: string;
   state: string;
-  core: string;
   gold: string | null;
   verified: boolean;
   window_open: boolean;
@@ -227,7 +226,6 @@ describe('gold pieces', () => {
     await accepted(`/p/${p}/events`, reveal(ownerP, p, p2));
     expect(await pieceOf(p, p2)).toMatchObject({
       state: 'open',
-      core: 'accepted_provisional',
       gold: 'miss',
       verified: false,
     });
@@ -353,16 +351,16 @@ describe('gold pieces', () => {
     // The actor's own record accepts the piece at once, and its window runs from that receipt.
     await returnOn(s, s1, F, 'meta/llama');
     const acceptedAt = clock.tick;
-    expect(await pieceOf(s, s1)).toMatchObject({ state: 'accepted_provisional', core: 'unknown', window_open: true });
+    expect(await pieceOf(s, s1)).toMatchObject({ state: 'accepted_provisional', window_open: true });
     // A challenge half an hour before the window closes: challenged, and the core cannot say whether the window is
     // open.
     clock.tick = acceptedAt + 47.5 * HOUR;
     await accepted(`/p/${s}/events`, ev(A, 'challenge', { stake: 1, ground: 'The author was never asked.' }, s, s1));
-    expect(await pieceOf(s, s1)).toMatchObject({ state: 'challenged', core: 'unknown', window_open: true });
+    expect(await pieceOf(s, s1)).toMatchObject({ state: 'challenged', window_open: true });
     // Half an hour after, the panel still sits and the piece is still challenged; the window has closed, and the reveal
     // is refused.
     clock.tick = acceptedAt + 48.5 * HOUR;
-    expect(await pieceOf(s, s1)).toMatchObject({ state: 'challenged', core: 'unknown', window_open: false });
+    expect(await pieceOf(s, s1)).toMatchObject({ state: 'challenged', window_open: false });
     expect(await refused(`/p/${s}/events`, reveal(ownerP, s, s1))).toBe('the window has closed');
   });
 
