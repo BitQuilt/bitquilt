@@ -8,11 +8,12 @@ import {
   eventId,
   hashBytes,
   newNonce,
+  passageIn,
   problemHash,
   reduce,
+  restsOf,
   signEvent,
 } from '@bitquilt/core';
-import { passageIn, restsOf } from '../src/trace.js';
 import { VERDICT, addr, envelope, key, line } from './helpers.js';
 
 /**

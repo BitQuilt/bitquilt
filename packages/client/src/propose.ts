@@ -1,13 +1,13 @@
 /**
  * QX-22 from the client's side: a piece proposed beside a problem, and the owner's take of proposed pieces into a
- * version. The body's shape, the hash a proposed piece has and the proposals that stand are the tracker's rules (its
- * own propose.ts) written a second time, since this package imports the core alone, and test/propose.test.ts holds the
- * two files to the same answers. A take rests on the signed events of the chain this client resolved and on no
- * tracker's listing, so nothing unsigned decides what the owner signs. Here too is the fork of QX-23 section 5, where
- * a key that is not the owner pursues a proposed piece: the problem's pieces kept under this home's key, and each
- * proposed piece named added as a take adds one (test/fork.test.ts). Each act works through the door its Quilt hands
- * it (door.ts): the version or the fork is published as the sharpening publishes a version (sharpen.ts, `republish`),
- * and the Quilt's `propose`, `take`, `takeDue` and `fork` call these.
+ * version. The body's shape, the hash a proposed piece has and the proposals that stand are the core's rules (its own
+ * propose.ts) written a second time, as they were when the rules were the tracker's, which this package does not
+ * import, and test/propose.test.ts holds the two files to the same answers. A take rests on the signed events of the
+ * chain this client resolved and on no tracker's listing, so nothing unsigned decides what the owner signs. Here too is
+ * the fork of QX-23 section 5, where a key that is not the owner pursues a proposed piece: the problem's pieces kept
+ * under this home's key, and each proposed piece named added as a take adds one (test/fork.test.ts). Each act works
+ * through the door its Quilt hands it (door.ts): the version or the fork is published as the sharpening publishes a
+ * version (sharpen.ts, `republish`), and the Quilt's `propose`, `take`, `takeDue` and `fork` call these.
  */
 import {
   type Address,
@@ -52,7 +52,7 @@ const NOT_TAKEN = 'no tracker took the version';
 /**
  * Why this is not a well-formed propose body, or nothing (QX-22 section 1): one piece under a slug, no family and no
  * data, of a bounded size, with a reason, and the gate on the two texts a person reads. "A proposed piece does not
- * wait on itself". The tracker's `proposeBodyProblems`, fault for fault.
+ * wait on itself". The core's `proposeBodyProblems`, fault for fault.
  */
 export function proposeBodyProblems(body: unknown): string[] {
   if (!isRecord(body)) return ['body: an object'];
@@ -120,7 +120,7 @@ export interface Proposal {
  * QX-22 section 2: "The proposals that stand on a problem are the well-formed `propose` events on its chain, in
  * receipt order. Of several proposals of one piece by one root, the first stands and the rest are passed over."
  * Well-formed is the body's shape and the signature of the event's own key, which this client asks of a chain it did
- * not admit. The tracker's `standingProposals`, proposal for proposal.
+ * not admit. The core's `standingProposals`, proposal for proposal.
  */
 export function standingProposals(
   receipts: Receipt[],

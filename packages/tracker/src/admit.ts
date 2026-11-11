@@ -12,6 +12,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   type Address,
+  BLOB_MAX,
   type Envelope,
   type Event,
   type Hash,
@@ -19,6 +20,7 @@ import {
   type PieceDef,
   type Received,
   SLUG_RULE,
+  admitTrace,
   blobProblems,
   canonicalBytes,
   envelopeProblems,
@@ -37,6 +39,8 @@ import {
   personSeatIn,
   plainTextProblems,
   problemHash,
+  proposeBodyProblems,
+  proposedHash,
   rankBodyProblems,
   type reduce,
   returnProblems,
@@ -44,18 +48,18 @@ import {
   signedBy,
   stakeRuleBodyProblems,
   stampOk,
+  standingProposals,
   textIssues,
+  tracesKept,
 } from '@bitquilt/core';
 import { challengeBodyProblems, verdictBodyProblems } from './challenge.js';
 import { type CoinLockView, type CoinWord, COIN_LOG, coinEventRefusal } from './coin.js';
 import { hideBodyProblems } from './hide.js';
 import { Refusal, json } from './http.js';
 import type { PullDoor } from './peers.js';
-import { proposeBodyProblems, proposedHash, standingProposals } from './propose.js';
 import { seedBodyProblems } from './seeding.js';
 import { PRODUCTION_EVENTS } from './stake.js';
 import type { Store } from './store.js';
-import { BLOB_MAX, admitTrace, tracesKept } from './trace.js';
 import type { Context } from './tracker.js';
 import { hostedPost, witnessOf } from './witness.js';
 

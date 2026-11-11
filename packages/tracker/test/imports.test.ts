@@ -1,19 +1,18 @@
 /**
  * The tracker's files load one another without a cycle (AGENTS.md, The shape of it), so the layer reads from the bottom
  * up: verifiers.ts, stake.ts, gold.ts, then challenge.ts, each loading only files before it. The draw, the verifier
- * kinds, the stake, the gold and standing are the core's now, moved as docs/history/V2-PLAN.md, phase 3, says: the draw
- * and standing are no files here, and verifiers.ts, stake.ts and gold.ts hold the admissions alone. A file takes a type
- * from a later one with `import type`, which loads nothing. Under verbatimModuleSyntax an import of inline types alone
- * still loads its module, so it counts here as a load. The layer's admissions sit in the files of the rules they check,
- * and each returns its part of the one Layer, a type, so moving them there added no load. The layer's last pass (QX-23)
- * is in inherit.ts, which loads none of the tracker's files: challenge.ts hands it a piece's own state and the
- * settling, so it sits below every file that loads it. The door's jobs (tracker.ts, Context) are admit.ts, which takes
- * a post, views.ts, which answers a read, and hand.ts, which hands a key a piece: tracker.ts loads each, and each takes
- * the tracker's context from it as a type alone. Each names the part of the context it reads in its `Reads`. views.ts
- * and hand.ts leave `exactly` out of theirs, so a read cannot ask for the layer built afresh, and they load nothing of
- * the door. None of the three keeps a value that changes at the top of its module, so what a tracker keeps from one
- * request to the next is its context's, one per tracker (kept-layer.test.ts and coin-home.test.ts hold that as it
- * runs).
+ * kinds, the stake, the gold, standing, the trace, the proposed pieces and the inherited squares are the core's now,
+ * moved as docs/history/V2-PLAN.md, phase 3, says: the draw, standing, the trace, the proposals and the last pass are
+ * no files here, and verifiers.ts, stake.ts and gold.ts hold the admissions alone. A file takes a type from a later one
+ * with `import type`, which loads nothing. Under verbatimModuleSyntax an import of inline types alone still loads its
+ * module, so it counts here as a load. The layer's admissions sit in the files of the rules they check, and each
+ * returns its part of the one Layer, a type, so moving them there added no load. The door's jobs (tracker.ts, Context)
+ * are admit.ts, which takes a post, views.ts, which answers a read, and hand.ts, which hands a key a piece: tracker.ts
+ * loads each, and each takes the tracker's context from it as a type alone. Each names the part of the context it reads
+ * in its `Reads`. views.ts and hand.ts leave `exactly` out of theirs, so a read cannot ask for the layer built afresh,
+ * and they load nothing of the door. None of the three keeps a value that changes at the top of its module, so what a
+ * tracker keeps from one request to the next is its context's, one per tracker (kept-layer.test.ts and
+ * coin-home.test.ts hold that as it runs).
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -106,7 +105,7 @@ const LAYER = ['verifiers.ts', 'stake.ts', 'gold.ts', 'challenge.ts'];
 
 describe("the tracker's files as they load", () => {
   it('reads every file and finds the layer loading its rules', () => {
-    expect(files).toEqual(expect.arrayContaining([...LAYER, 'tracker.ts', 'coin.ts', 'trace.ts']));
+    expect(files).toEqual(expect.arrayContaining([...LAYER, 'tracker.ts', 'coin.ts']));
     expect(graph.get('challenge.ts')).toEqual(expect.arrayContaining(LAYER.slice(0, -1)));
   });
 
@@ -114,9 +113,9 @@ describe("the tracker's files as they load", () => {
     expect(cycle()).toBeNull();
   });
 
-  it("find the layer's last pass loading none of the tracker's files, and the layer loading it", () => {
-    expect(graph.get('inherit.ts')).toEqual([]);
-    expect(graph.get('challenge.ts')).toContain('inherit.ts');
+  it('find the moved rules no files here, so the layer takes them from the core', () => {
+    for (const moved of ['trace.ts', 'propose.ts', 'inherit.ts', 'standing.ts', 'sortition.ts'])
+      expect(files).not.toContain(moved);
   });
 
   it('read the layer from the bottom up, each file loading only those before it', () => {

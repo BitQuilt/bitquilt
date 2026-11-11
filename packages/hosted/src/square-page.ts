@@ -87,9 +87,9 @@ export interface SquareSource {
  * keeps the piece only as an earlier version's (CORE.md section 6, Envelopes), the newest version of its chain that
  * holds it, since an ancestral piece has no state where it is kept. The readings come from that version's fold, the two
  * that accepted the square and any the layer set aside marked; what each rests on from the traces on the lines of the
- * same chain (trace.ts, restsOf), with the passages of the reads kept here; and where the piece stands in the newest
- * version, following the replacements eight at most. Null where this tracker holds no such problem or piece, or a
- * maintainer hid the version the page reads.
+ * same chain (the core's trace.ts, restsOf), with the passages of the reads kept here; and where the piece stands in
+ * the newest version, following the replacements eight at most. Null where this tracker holds no such problem or piece,
+ * or a maintainer hid the version the page reads.
  */
 export async function squareView(
   { readerOf, store, trackerUrl }: SquareSource,

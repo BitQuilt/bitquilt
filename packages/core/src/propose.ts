@@ -4,32 +4,25 @@
  * shape, the hash a proposed piece has in any envelope that takes it under its name, the proposals that stand on a
  * chain, and what the tracker says of each: whether its proposer's work stands on the problem, the version that took
  * it, and the forks that pursue it. Proposals stand as a record: nothing here accepts one or strikes one, and the
- * reducer never sees the event. The door's check is `checkProposeEvent` in admit.ts, and the read is `proposalsOf` in
- * views.ts.
+ * reducer never sees the event. The door's check is `checkProposeEvent` in the tracker's admit.ts, and the read is
+ * `proposalsOf` in its views.ts. Moved here from the tracker's layer as docs/history/V2-PLAN.md, phase 3, says.
  */
-import {
-  type Address,
-  type Hash,
-  type PieceDef,
-  type Problem,
-  type Receipt,
-  SLUG_RULE,
-  acceptingRoots,
-  canonicalBytes,
-  eventSignedByKey,
-  expandPieces,
-  isRecord,
-  isSlug,
-  orderReceipts,
-  plainTextProblems,
-} from '@bitquilt/core';
-import type { Layer, ProblemLayer } from './challenge.js';
+import { canonicalBytes } from './canonical.js';
+import { type PieceDef, type Problem, SLUG_RULE, expandPieces, isSlug } from './envelope.js';
+import { type Receipt, eventSignedByKey } from './events.js';
+import { plainTextProblems } from './gate.js';
+import type { Hash } from './hash.js';
+import type { Address } from './keys.js';
+import { isRecord } from './plain.js';
+import { orderReceipts } from './reduce.js';
+import { acceptingRoots } from './standing.js';
+import type { LayerViews, ProblemLayer } from './layer.js';
 
 export const PROPOSE = 'QX-22';
 
 /**
- * The types QX-22 adds to a problem's log. The door admits each through its own row of `problemDoor` in admit.ts, and
- * admit.test.ts holds those rows to this set.
+ * The types QX-22 adds to a problem's log. The tracker's door admits each through its own row of `problemDoor`, and
+ * its admit.test.ts holds those rows to this set.
  */
 export const PROPOSE_EVENTS: ReadonlySet<string> = new Set(['propose']);
 
@@ -162,7 +155,7 @@ export interface ProposalView extends Proposal {
  */
 export function proposalsIn(
   pl: ProblemLayer,
-  layered: Layer,
+  layered: LayerViews,
   listed: (problem: Hash) => boolean,
   nameOf: (root: string) => string | null,
 ): ProposalView[] {

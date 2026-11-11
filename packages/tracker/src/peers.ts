@@ -15,13 +15,13 @@ import {
   eventSignedByKey,
   hashBytes,
   personSeatIn,
+  readsNamed,
   verifyChain,
   withSlash,
 } from '@bitquilt/core';
 import { COIN_LOG } from './coin.js';
 import { Refusal } from './http.js';
 import type { Store } from './store.js';
-import { readsNamed } from './trace.js';
 import { type Admitted, type Log, bodyOver, eventHoursOver, stampsUnlike } from './admit.js';
 import type { Tracker } from './tracker.js';
 

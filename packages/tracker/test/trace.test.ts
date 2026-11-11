@@ -6,10 +6,13 @@ import {
   commitHash,
   hashBytes,
   newNonce,
+  passageIn,
   problemHash,
+  problemTraces,
+  readsNamed,
   signEvent,
+  traceBodyProblems,
 } from '@bitquilt/core';
-import { passageIn, problemTraces, readsNamed, traceBodyProblems } from '../src/trace.js';
 import { addr, boot, envelope as signed, key, layerOf } from './helpers.js';
 
 /**

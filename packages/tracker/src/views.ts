@@ -11,39 +11,37 @@
 import type { ServerResponse } from 'node:http';
 import {
   type Address,
+  BLOB_MAX,
   EXTENSIONS,
   GOLD,
   type Hash,
   IDENTITY_LOG,
+  INHERIT,
   JUDGE_SEED,
+  PROPOSE,
+  PROPOSED_MAX,
+  PROPOSE_WHY_MAX,
+  type ProblemLayer,
+  RECORD,
   STAKE,
+  TRACE,
   countsAsAccepted,
   isAddress,
+  proposalsIn,
+  recordOutput,
   shortHead,
   verifyChain,
   windowOpen,
 } from '@bitquilt/core';
-import {
-  CHALLENGE,
-  CHALLENGE_SEED,
-  GROUND_MAX,
-  type Layer,
-  MAJORITY,
-  PANEL,
-  type ProblemLayer,
-  refusedHere,
-} from './challenge.js';
+import { CHALLENGE, CHALLENGE_SEED, GROUND_MAX, type Layer, MAJORITY, PANEL, refusedHere } from './challenge.js';
 import { type CoinFolded, type CoinLayer, type LogHead, COIN, COIN_LOG } from './coin.js';
 import { DAYS_MAX, daysFrom, funnel } from './counts.js';
 import { HIDE } from './hide.js';
 import { Refusal } from './http.js';
-import { INHERIT } from './inherit.js';
 import { PEER_PULL, PEER_PULL_EVERY_MS } from './peers.js';
-import { PROPOSE, PROPOSED_MAX, PROPOSE_WHY_MAX, proposalsIn } from './propose.js';
 import type { Route } from './routes.js';
 import { RECIPROCITY, SEEDING, seedInfo } from './seeding.js';
 import type { Store } from './store.js';
-import { BLOB_MAX, RECORD, TRACE, recordOutput } from './trace.js';
 import type { Context } from './tracker.js';
 import { witnessedReveals } from './witness.js';
 

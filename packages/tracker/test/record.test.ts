@@ -1,6 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Hash, commitHash, hashBytes, newNonce, problemHash } from '@bitquilt/core';
-import { passageIn, problemTraces, recordOutput } from '../src/trace.js';
+import {
+  type Hash,
+  commitHash,
+  hashBytes,
+  newNonce,
+  passageIn,
+  problemHash,
+  problemTraces,
+  recordOutput,
+} from '@bitquilt/core';
 import { addr, boot, envelope, key, layerOf } from './helpers.js';
 
 /**
