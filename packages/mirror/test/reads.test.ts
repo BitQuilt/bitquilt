@@ -93,7 +93,9 @@ const READS: [string, unknown, boolean][] = [
 ];
 
 describe('the reads a mirror takes (NODE.md section 5)', () => {
-  it.each(READS)(
+  // As in mirror.test.ts: the mirror names a blob's file by its hash, sha256 and a colon, which Windows keeps no file
+  // by, so the cases over the mirror's files run where the mirror runs; the cases over a store run on Windows too.
+  it.skipIf(process.platform === 'win32').each(READS)(
     'takes a trace whose reads hold %s, refuses nothing, and takes the good read alone',
     async (_, reads, takes) => {
       const { server, base, id } = await holding(reads);
