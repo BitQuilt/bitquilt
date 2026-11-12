@@ -128,8 +128,33 @@ class Rec:
         return list(agree)
 
     def live(self):
-        """The readings the kinds read: those no decision struck and the grounds did not set aside."""
-        return [r for r in self.readings if r.id not in self.struck and r.id not in self.aside]
+        """The readings the kinds read: those no decision struck and the grounds did not set aside, which the
+        fold without those events still holds."""
+        gone = self.gone()
+        return [r for r in self.readings
+                if r.id not in self.struck and r.id not in self.aside and r.id not in gone]
+
+    def gone(self):
+        """READING.md section 3: "a reveal is matched to its key's first unrevealed commit, so the record with
+        nothing struck can hold a reveal that the fold without the struck events lacks." A decision strikes a
+        set's reveals with their commits, and the grounds set a reveal aside and leave its commit unrevealed, so
+        a later reveal of the same key and hash is matched there to that commit, and dropped where the commit was
+        abandoned. Returns the ids of the readings neither took that the fold without those events lacks."""
+        left = set(self.struck) | self.aside
+        if not left:
+            return set()
+        struck = {r.commit.id for r in self.readings if r.id in self.struck}
+        opened, gone = set(), set()
+        for r in self.readings:
+            if r.id in left:
+                continue
+            commit = next(c for c in self.commits if c.id not in struck and c.id not in opened
+                          and same_address(c.key, r.key) and c.h == r.commit.h)
+            if r.at >= commit.at + 2 * commit.lease:
+                gone.add(r.id)
+            else:
+                opened.add(commit.id)
+        return gone
 
     def ran(self, ident):
         """The runs the fold keeps over the readings that stand. CORE.md section 6 drops a run where "the digest
@@ -317,15 +342,20 @@ def fold_record(line, identity_lines):
             line.dropped.append((why, ev))
             continue
         key, body = ev["key"], ev["body"]
-        if not same_address(signer(ev), key):
+        # A verdict is read under its challenge and a rank under its panel, which say why one counts for nothing:
+        # its signature and its key are asked there, each in its place in the order of the reasons.
+        under = type_ in ("verdict", "rank")
+        signed = same_address(signer(ev), key)
+        if not signed and not under:
             line.dropped.append(("signature is not the key's", ev))
             continue
-        root, why = ident.standing(key, type_, at)
-        if root is None:
+        root, why = ident.standing(key, type_, at) if signed else (None, None)
+        if root is None and not under:
             line.dropped.append((why, ev))
             continue
-        entry["root"] = root
-        line.roots.add(root)
+        entry["signed"], entry["root"] = signed, root
+        if root is not None:
+            line.roots.add(root)
         if type_ in CORE_EVENTS:
             ident.has_event.add(key)
         if type_ in IDENTITY_EVENTS:

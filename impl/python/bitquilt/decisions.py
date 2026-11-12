@@ -139,6 +139,7 @@ class Decisions:
         self.golds = []
         self.gold_on = {}       # (line name, piece hash) -> the commitment revealed on the piece
         self.challenges = []
+        self.early = {}
         self.dropped = {}       # problem hash -> how many locks, golds, gold reveals and challenges the pass dropped
 
     # Standing, section 6.
@@ -324,19 +325,26 @@ class Decisions:
         made = None
         for entry in line.ext:
             ev = entry["event"]
-            if ev.get("type") != "rank" or ev.get("piece") != rec.hash or entry["at"] < t:
+            if ev.get("type") != "rank" or ev.get("piece") != rec.hash:
                 continue
             ranking = ev["body"].get("ranking")
             # The ranks a panel takes for nothing, each with why, in the order the reference asks them.
             if made is not None:
                 why = "the panel has decided"
+            elif not entry["signed"]:
+                why = "signature is not the key's"
             elif not isinstance(ranking, list) or not ranking or any(not is_hash(d) for d in ranking):
                 why = "body.ranking: a list of candidate digests, first choice first"
             elif len(set(ranking)) != len(ranking):
                 why = "body.ranking: each digest once"
             else:
                 p.board.advance(entry["at"])
-                why = p.board.problem(entry["root"], "this judge has ranked", "not a judge drawn for this piece")
+                if entry["root"] is None:
+                    why = "the key may not sign a rank"
+                else:
+                    # No seat is offered before the last candidate's receipt, so an earlier rank is from no judge.
+                    undrawn = "not a judge drawn for this piece"
+                    why = undrawn if entry["at"] < t else p.board.problem(entry["root"], "this judge has ranked", undrawn)
                 if why is None and sorted(ranking) != sorted(set(digests)):
                     why = "body.ranking: the %d candidate digests, each once" % len(set(digests))
             if why is not None:
@@ -684,6 +692,9 @@ class Decisions:
             c.outcome, c.decided = "void", t
             return True
         c.board = Board(c.order, 3, t, hours(version.settings["lease_h"]))
+        # The verdicts received before the challenge are read under it now, in receipt order.
+        for early in self.early.pop(c.id, []):
+            self.on_verdict(*early)
         return True
 
     def on_verdict(self, line, entry):
@@ -691,7 +702,11 @@ class Decisions:
         t, root = entry["at"], entry["root"]
         c = next((c for c in self.challenges if c.id == body.get("challenge")), None)
         # A verdict is read under its challenge, "where it was posted"; a challenge with no panel reads none.
-        if c is None or c.board is None:
+        if c is None:
+            if isinstance(body.get("challenge"), str):
+                self.early.setdefault(body["challenge"], []).append((line, entry))
+            return
+        if c.board is None:
             return
         ret = body.get("return")
         # The verdicts a challenge takes for nothing, each with why, in the order the reference asks them.
@@ -699,12 +714,18 @@ class Decisions:
             why = "the challenge was decided"
         elif ev.get("problem") != c.version.hash or ev.get("piece") != c.rec.hash:
             why = "names another problem or piece than its challenge"
+        elif not entry["signed"]:
+            why = "signature is not the key's"
         elif body.get("for") not in ("challenger", "author"):
             why = "body.for: one of challenger, author"
         elif ret is not None and not isinstance(ret, dict):
             why = "body.return: an object"
+        elif root is None:
+            why = "the key may not sign a verdict"
         else:
-            why = c.board.problem(root, "this judge has answered", "not a judge drawn for this challenge")
+            # No seat is offered before the challenge's receipt, so an earlier verdict is from no judge.
+            undrawn = "not a judge drawn for this challenge"
+            why = undrawn if t < c.at else c.board.problem(root, "this judge has answered", undrawn)
             if why is None and ret is not None:
                 if c.rec.verifier in ("check", "score"):
                     why = "a verdict on a check or score piece carries no return"
