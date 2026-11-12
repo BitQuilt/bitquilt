@@ -177,12 +177,15 @@ class Read:
         rec = line.recs[spec["hash"]]
         kind, n = kind_of(rec.verifier)
         words = KIND_WORDS.get(kind, (None, None, None))
+        # READING.md section 4: the grounds are read at each version, on a piece that version's fold calls
+        # disputed, so a piece locked at this version has no reading set aside here.
+        aside = rec.aside if own != "locked" else set()
         readings = []
         for r in rec.readings:
             if r.id in rec.struck:
                 why, by = rec.struck[r.id]
                 counts = "struck"
-            elif r.id in rec.aside:
+            elif r.id in aside:
                 counts, why, by = "aside", "it rests on nothing where another reading rests on the record", None
             else:
                 counts, why = rec.counts.get(r.id, ("counted", None))
@@ -214,7 +217,7 @@ class Read:
             "stake": self.dec.stake_of(version, spec, self.now),
             "gold": self.dec.gold_of(version, rec),
             "verified": self.dec.gold_of(version, rec) == "match",
-            "aside": sorted({r.key for r in rec.readings if r.id in rec.aside and r.id not in rec.struck}),
+            "aside": sorted({r.key for r in rec.readings if r.id in aside and r.id not in rec.struck}),
             "readings": readings,
             "inherited": inherited,
             "challenge": last.id if last is not None else None,
