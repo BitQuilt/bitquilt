@@ -3,15 +3,16 @@
 Section 3: "The proposed pieces beside a problem (QX-22 sections 1 to 3) are on the line's record and move no
 state." A proposal is read from the line alone. None is accepted or struck, and none earns.
 
-QX-22 section 1 holds `piece.brief` and `why` to the plain-text gate (CORE.md section 11). This implementation
-has no gate, since reading 1 leaves the gate to the door, so a proposal the gate alone would pass over stands
-here. No fixture holds one (FINDINGS-2.md).
+QX-22 section 1 holds `piece.brief` and `why` to the plain-text gate (CORE.md section 11) and asks a reason
+that says something: "A reader passes over a proposal whose brief or reason the gate refuses." The gate is
+`gate.py`, and the fixture `taken-1` holds a proposal passed over for each (FINDINGS-2.md).
 """
 
 import re
 
 from .canonical import canonical
 from .envelope import expand
+from .gate import passes
 from .inherit import listed
 from .kinds import kind_of
 
@@ -48,7 +49,10 @@ def well_formed(ev):
     inputs = piece.get("inputs")
     if inputs is not None and (not isinstance(inputs, list) or name in inputs):
         return None
-    if not isinstance(why, str) or len(why) > WHY_MAX:
+    if not isinstance(why, str) or not why.strip() or len(why) > WHY_MAX or not passes(why):
+        return None
+    brief = piece.get("brief")
+    if isinstance(brief, str) and not passes(brief):
         return None
     return proposed_hash(name, piece)
 

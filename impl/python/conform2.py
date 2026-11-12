@@ -95,6 +95,18 @@ def run_fixture(path, verbose=False):
     return diffs
 
 
+def gate_apart():
+    """The gate's own fixture, which a reader of reading 2 holds since a proposal stands by it (QX-22 section 1):
+    each case whose issue codes this gate says otherwise, and how many cases there are."""
+    from bitquilt.gate import text_issues
+
+    path = os.path.join(default_fixtures_dir(), "..", "gate", "cases.json")
+    with open(path, encoding="utf-8") as f:
+        cases = json.load(f)["cases"]
+    said = [(c["text"], c["issues"], text_issues(c["text"])) for c in cases]
+    return [s for s in said if s[1] != s[2]], len(cases)
+
+
 def main(argv):
     verbose = "-v" in argv
     args = [a for a in argv if a != "-v"]
@@ -119,8 +131,17 @@ def main(argv):
             print("        %s" % where)
             print("            expected %s" % short(want))
             print("            produced %s" % short(got))
+    apart, cases = gate_apart()
+    if apart:
+        print("FAIL  the gate  (%d of %d cases apart)" % (len(apart), cases))
+        for text, want, got in apart if verbose else apart[:SHOWN]:
+            print("        %s" % short(text))
+            print("            expected %s" % short(want))
+            print("            produced %s" % short(got))
+    else:
+        print("PASS  the gate  (%d cases)" % cases)
     print("%d of %d" % (passed, len(paths)))
-    return 0 if passed == len(paths) else 1
+    return 0 if passed == len(paths) and not apart else 1
 
 
 if __name__ == "__main__":

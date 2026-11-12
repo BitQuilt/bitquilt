@@ -48,10 +48,8 @@ pick = bitquilt.next(state, key, {"can": ["web"], "model": "vendor/model"}, now)
 | `FINDINGS.md` | every place the document was insufficient, ambiguous or contradicted by a fixture, and what was assumed |
 
 Sections 8 (the link) and 11 (the plain-text gate and the stamp) are not
-implemented here: the reducer and `next` need neither, so each has the
-reference alone, and the gate's fixture,
-`packages/core/fixtures/gate/cases.json`, runs in
-`packages/core/test/gate.test.ts`.
+part of reading 1 here: the reducer and `next` need neither. The link and the
+stamp have the reference alone. The gate is written for reading 2, below.
 
 ## Score
 
@@ -93,15 +91,19 @@ state = read(fixture["ledger"], "2026-11-09T12:00:47.000Z")   # the state, in th
 | `bitquilt/decisions.py` | sections 5 to 7: standing, the panels, and the pass over the locks, the gold and the challenges (QX-1, QX-15, QX-16, QX-17) |
 | `bitquilt/inherit.py` | section 8: the reach and the inherited squares (QX-23) |
 | `bitquilt/propose.py` | section 3: the proposed pieces beside a problem (QX-22) |
+| `bitquilt/gate.py` | the plain-text gate, `gate/2` (CORE.md sections 11 and 12), which a proposal stands by (QX-22 section 1) |
 | `bitquilt/reading.py` | sections 1 and 9: the read, each piece's one state, the output and the record document, and what is said in a fixture's form |
 | `conform2.py` | section 11: the fixtures of reading 2 as the conformance test |
 | `FINDINGS-2.md` | every place the documents were insufficient, ambiguous or contradicted by a fixture, what was assumed, and the fixture that decided it |
 
-The plain-text gate is not implemented here, as in reading 1, so the one
-place reading 2 makes it a rule of validity, a proposal's brief and reason
-(QX-22 section 1), is not held. The fixture `run-1` holds a set of runs, on a
-`check` piece and a `score` piece, and `run-challenge-1` a held challenge on
-such a set; a gold beside one is held by no fixture.
+Reading 2 makes the plain-text gate a rule of validity in one place, a
+proposal's brief and reason (QX-22 section 1), so this implementation holds
+the gate. The documents name the gate by its source and its fixture and do not
+write its patterns out, so `bitquilt/gate.py` is the one file here written
+beside the reference's source, `packages/core/src/gate.ts`, and it imports
+nothing from it. `conform2.py` holds it to the gate's own fixture,
+`packages/core/fixtures/gate/cases.json`, in a line of its own after the
+ledgers, and `taken-1` holds a proposal passed over for it.
 
 ### Score
 
