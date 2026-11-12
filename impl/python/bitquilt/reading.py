@@ -260,8 +260,9 @@ class Read:
                 "own_complete": own,
                 "output": output,
                 "record_output": record_output,
-                # Every fixture says 0, two that hold a dropped reveal among them (FINDINGS-2.md).
-                "dropped": 0,
+                # The locks, the golds, the gold reveals and the challenges the pass dropped at this problem, and the
+                # ranks its panels took for nothing; what reading 1's fold drops is not counted (FINDINGS-2.md).
+                "dropped": dec.dropped.get(h, 0) + sum(len(p.dropped) for p, s in panels if p is not None),
                 "unoffered": sorted(s["hash"] for p, s in panels if p is not None and p.outcome != "decided"),
                 "stake": {"min": rule.min, "pieces": rule.pieces} if rule is not None else None,
                 "gold": dec.gold_counts(golds),
