@@ -292,5 +292,9 @@ describe('discovery over relays (QX-14)', () => {
     const found = await searchRelays([relay.url], 'reading');
     expect(found).toHaveLength(1);
     expect(found[0]).toMatchObject({ announcer: owner.identity!.address, owner: owner.identity!.address });
+    // Every word of the query, wherever it sits in the announcement, and no announcement that lacks one of them.
+    const words = `READING ${found[0]!.slug}`;
+    expect(await searchRelays([relay.url], words)).toHaveLength(1);
+    expect(await searchRelays([relay.url], 'reading nothing-like-this')).toEqual([]);
   });
 });

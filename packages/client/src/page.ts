@@ -304,10 +304,12 @@ export function createPage(options: PageOptions): {
       if ((tool = /^\/api\/tool\/([a-z_]+)$/.exec(path)) && method === 'POST') {
         const name = tool[1] ?? '';
         if (!isToolName(name)) return json(res, 404, { error: 'no such tool' });
-        const b = (await body(req)) as { input?: Record<string, unknown>; host?: string | null };
+        const b = (await body(req)) as { input?: Record<string, unknown>; host?: string | null; model?: string | null };
         const host = typeof b.host === 'string' ? b.host : null;
         resolver.sawConnector(host);
-        const forHost = new Quilt(quilt.config, quilt.identity, quilt.resolver, host ?? undefined);
+        // The copy's own declared model stands before the host's name, as it would where the copy works alone.
+        const config = typeof b.model === 'string' && b.model ? { ...quilt.config, model: b.model } : quilt.config;
+        const forHost = new Quilt(config, quilt.identity, quilt.resolver, host ?? undefined);
         return json(res, 200, await runTool(forHost, name, b.input ?? {}));
       }
       if (path === '/api/next' && method === 'GET') {

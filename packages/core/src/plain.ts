@@ -19,6 +19,19 @@ export const isTime = (s: unknown): s is string => typeof s === 'string' && Numb
 /** The ISO time `h` hours after `t`: a lease's end, a window's close, a commitment's abandonment. */
 export const plusHours = (t: string, h: number): string => new Date(Date.parse(t) + h * 3_600_000).toISOString();
 
+/**
+ * Whether a text carries every word of a search, whatever its case: the words are the query's, apart at white space,
+ * and they need not sit together or in the query's order. A query of no words is carried by every text.
+ */
+export const carriesWords = (text: string, query: string): boolean => {
+  const hay = text.toLowerCase();
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((word) => hay.includes(word));
+};
+
 /** A tracker's address as the links and the configuration carry it, with one trailing slash. */
 export const withSlash = (url: string): string => (url.endsWith('/') ? url : `${url}/`);
 

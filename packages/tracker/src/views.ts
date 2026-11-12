@@ -17,6 +17,7 @@ import {
   EXTENSIONS,
   GOLD,
   GROUND_MAX,
+  carriesWords,
   type Hash,
   IDENTITY_LOG,
   INHERIT,
@@ -490,12 +491,12 @@ export function proposalsOf({ store, layer, view, hidden, now }: Reads, hash: Ha
 }
 
 /**
- * The problems here, each in summary with its topics (QX-13), those matching `q` when one is given; hidden ones left
- * out.
+ * The problems here, each in summary with its topics (QX-13), those that hold every word of `q` when one is given;
+ * hidden ones left out.
  */
 export function index(cx: Reads, query: URLSearchParams) {
   const { store, layer, hidden } = cx;
-  const q = (query.get('q') ?? '').trim().toLowerCase();
+  const q = query.get('q') ?? '';
   const topicsByProblem = new Map<Hash, Set<string>>();
   for (const a of store.announcements()) {
     const set = topicsByProblem.get(a.problem) ?? new Set<string>();
@@ -509,9 +510,8 @@ export function index(cx: Reads, query: URLSearchParams) {
   for (const e of store.listEnvelopes()) {
     if (hid.has(e.hash) || gone.has(e.hash)) continue;
     const topics = [...(topicsByProblem.get(e.hash) ?? [])];
-    const hay =
-      `${e.envelope.problem.title} ${e.envelope.problem.slug} ${e.envelope.problem.done_when} ${topics.join(' ')}`.toLowerCase();
-    if (q && !hay.includes(q)) continue;
+    const hay = `${e.envelope.problem.title} ${e.envelope.problem.slug} ${e.envelope.problem.done_when} ${topics.join(' ')}`;
+    if (!carriesWords(hay, q)) continue;
     const s = summary(cx, e.hash, layered);
     if (s) out.push({ ...s, topics });
   }

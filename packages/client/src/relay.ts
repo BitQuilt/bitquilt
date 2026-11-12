@@ -9,7 +9,15 @@
 import { schnorr } from '@noble/curves/secp256k1.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
-import { type Event, type Hash, eventSignedByKey, eventProblems, isHash, textIssues } from '@bitquilt/core';
+import {
+  type Event,
+  type Hash,
+  carriesWords,
+  eventSignedByKey,
+  eventProblems,
+  isHash,
+  textIssues,
+} from '@bitquilt/core';
 
 /** The event kind announcements use: parameterized replaceable, so a relay keeps one per key and problem. */
 export const KIND = 30177;
@@ -261,9 +269,9 @@ export function searchFilters(query: string, limit: number): Record<string, unkn
 }
 
 /**
- * Announcements on the relays that match the query in their title, slug, statement or topics; the latest per problem,
- * an owner's own announce before a seeder's. What a relay had sent before its deadline is kept, since a slow relay is
- * still a relay.
+ * Announcements on the relays whose title, slug, statement or topics hold every word of the query; the latest per
+ * problem, an owner's own announce before a seeder's. What a relay had sent before its deadline is kept, since a slow
+ * relay is still a relay.
  */
 export async function searchRelays(
   relays: string[],
@@ -271,7 +279,6 @@ export async function searchRelays(
   timeoutMs = 5000,
   limit = 200,
 ): Promise<RelayAnnouncement[]> {
-  const q = query.trim().toLowerCase();
   const found = new Map<Hash, RelayAnnouncement>();
   await Promise.all(
     relays.map(async (relay) => {
@@ -297,8 +304,7 @@ export async function searchRelays(
         () => out,
       );
       for (const a of got) {
-        const hay = `${a.title} ${a.slug} ${a.done_when} ${a.topics.join(' ')}`.toLowerCase();
-        if (q && !hay.includes(q)) continue;
+        if (!carriesWords(`${a.title} ${a.slug} ${a.done_when} ${a.topics.join(' ')}`, query)) continue;
         const have = found.get(a.problem);
         if (!have || prefer(a, have)) found.set(a.problem, a);
       }
