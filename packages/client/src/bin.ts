@@ -227,7 +227,7 @@ async function main(): Promise<void> {
       let run: ToolRunner;
       if (node.found === 'mine') {
         log(`quilt works through the node at http://127.0.0.1:${config.port}/, which holds this home's page`);
-        run = remoteRunner(`http://127.0.0.1:${config.port}/`, alone, fetch, log);
+        run = remoteRunner(`http://127.0.0.1:${config.port}/`, alone, fetch, log, config.model);
       } else {
         if (node.found === 'other')
           log(

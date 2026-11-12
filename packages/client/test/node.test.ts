@@ -133,6 +133,19 @@ describe('one node per home', () => {
     // A tool's own error comes back as the error, not as a fall-back.
     await expect(run('quilt_open', { link: 'nothing' }, 'Claude Desktop')).rejects.toThrow();
     expect(fellBack).toBe(false);
+    // A copy whose own configuration declares a model has it declared at the node, whatever the host calls itself:
+    // Claude Desktop names itself to its connector by a bridge name, and the connector's entry says the vendor.
+    const declared = remoteRunner(
+      site,
+      () => localRunner(() => owner),
+      fetch,
+      () => {},
+      'anthropic/claude',
+    );
+    expect((await declared('quilt_me', {}, 'local-agent-mode-quilt')).text).toContain(
+      'Declares: anthropic/claude; can',
+    );
+    expect((await run('quilt_me', {}, 'Claude Desktop')).text).toContain('Declares: anthropic/claude-desktop');
     // A name the node does not know is refused at the door.
     const r = await fetch(`${site}api/tool/quilt_nothing`, {
       method: 'POST',

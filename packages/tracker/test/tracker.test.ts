@@ -232,6 +232,9 @@ describe('the reference tracker', () => {
     expect(found.problems.map((p) => p.problem)).toEqual([P]);
     expect(found.problems[0]!.topics).toEqual(['citations', 'ai-safety']);
     expect((await get<Found>('/search?q=nothing-like-this')).problems).toEqual([]);
+    // Every word of the query, wherever it sits: a title's word and a topic, apart and in either order and case.
+    expect((await get<Found>('/search?q=AI-safety%20report')).problems.map((p) => p.problem)).toEqual([P]);
+    expect((await get<Found>('/search?q=report%20nothing-like-this')).problems).toEqual([]);
     const home = await get<Found>('/');
     expect(home.problems[0]!.title).toBe('A report');
     // The directory row (APP.md, Search): the work on the problem, the pieces by kind, the owner's name and what it

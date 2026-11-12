@@ -45,13 +45,16 @@ function unreachable(err: unknown): boolean {
 
 /**
  * The runner for a copy working through the node at `url`. The first call that finds the node gone switches to the
- * runner `alone` makes, for good: the node's page and key are then this copy's own until it exits.
+ * runner `alone` makes, for good: the node's page and key are then this copy's own until it exits. Each call carries
+ * the host's name and `model`, the model this copy's own configuration declares, so a claim signed at the node
+ * declares what this copy would have declared alone: the node's own configuration is another program's.
  */
 export function remoteRunner(
   url: string,
   alone: () => ToolRunner,
   fetchImpl: typeof fetch = fetch,
   log: (s: string) => void = () => {},
+  model?: string,
 ): ToolRunner {
   const base = withSlash(url);
   let own: ToolRunner | null = null;
@@ -62,7 +65,7 @@ export function remoteRunner(
       r = await fetchImpl(`${base}api/tool/${name}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ input, host: host ?? null }),
+        body: JSON.stringify({ input, host: host ?? null, model: model ?? null }),
         signal: AbortSignal.timeout(120_000),
       });
     } catch (err) {

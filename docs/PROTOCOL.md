@@ -160,7 +160,7 @@ Every answer the tracker writes itself allows any origin, so a page on any site 
 | `/b/<hash>` | GET, PUT | A blob; a read put, at most 1 MB, `202 { hash, bytes }` (QX-19 section 2) | 400, 404, 413, 429 |
 | `/n/<owner>/<slug>` | GET | `{ hash }` of the owner's latest version | 404 |
 | `/` | GET | `{ quilt, tracker, problems }`, each problem its summary and `topics`, without `chain_ok`, hidden and replaced ones left out; unlisted | |
-| `/search` | GET | `{ problems }` whose title, slug, `done_when` or topics hold `q`, each as `/` gives it | |
+| `/search` | GET | `{ problems }` whose title, slug, `done_when` or topics hold every word of `q`, each as `/` gives it | |
 | `/offer` | GET | For `key`, `can`, `model`: problems in QX-5 section 2's order | 400 |
 | `/hidden` | GET | Every hide in force (QX-6 section 3) | |
 | `/counts` | GET | The launch funnel by UTC day, `days` 1 to 365 | 400 |
