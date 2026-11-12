@@ -100,8 +100,8 @@ state = read(fixture["ledger"], "2026-11-09T12:00:47.000Z")   # the state, in th
 The plain-text gate is not implemented here, as in reading 1, so the one
 place reading 2 makes it a rule of validity, a proposal's brief and reason
 (QX-22 section 1), is not held. The fixture `run-1` holds a set of runs, on a
-`check` piece and a `score` piece; a held challenge on such a set, and a
-gold beside one, are held by no fixture.
+`check` piece and a `score` piece, and `run-challenge-1` a held challenge on
+such a set; a gold beside one is held by no fixture.
 
 ### Score
 
