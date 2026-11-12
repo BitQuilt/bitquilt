@@ -33,6 +33,7 @@ WHY_FULL = "the readings the piece asks for stood before it"
 WHY_SAME = "an earlier candidate gave the same return"
 WHY_CANDIDATES = "the candidates were in before it"
 WHY_VERIFIER = "its piece asks a verifier this reading does not implement"
+WHY_PATCH = "the set was made on another patch"
 
 # What each verifier says of itself beside a piece's state: its kind, the extension that defines it, and how
 # strongly it earns a square. The table is in no one document (FINDINGS-2.md); the fixtures hold each row.
@@ -70,10 +71,15 @@ class Set:
     at_text: str
     version: str
     name: str = ""
+    kind: str = "agree"
+    credits: list | None = None
 
     def __post_init__(self):
         # "A set is named by the hash of the canonical JSON of its events' ids, sorted."
         self.name = hash_json(sorted(m.id for m in self.members))
+        # Section 6: "One credit for each reveal in a set that stands", and of a set of runs the patch alone.
+        if self.credits is None:
+            self.credits = list(self.members)
 
 
 def agree(rec, a, b):
@@ -125,6 +131,42 @@ def find_set(line, rec, readings, vendors=True):
             if (not vendors or a.vendor != b.vendor) and agree(rec, a.ret, b.ret):
                 return set_of([a, b], b)
     return None
+
+
+def runs_pass(line, rec, kind):
+    """The set of a `check` or a `score` piece, which is version 1's (CORE.md section 6, An accepting set): for
+    check, a revealed patch and "two run events with exit 0 at that patch's digest", "from roots unrelated to
+    each other and to the root that revealed the patch"; for score, "two run events whose score values are
+    within the check's tolerance of each other". A run from a root related to the owner makes no pair, and of
+    several pairs the one completed first is the set, completed at the receipt of its later run.
+
+    The set holds the patch and then its two runs, and READING.md section 6 credits one of them: "A `check` or
+    a `score` set credits its patch and not its runs." Section 3 says how each reading counts: "every reading
+    is `counted` until a set is made, and from then each but the set's patch says" that the set was made on
+    another patch."""
+    ident = line.identity
+    tolerance = (rec.spec.get("check") or {}).get("tolerance") or 0
+    live = rec.live()
+    ran = rec.ran(ident)
+    best = None
+    for patch in live:
+        runs = [x for x in ran if x.digest == patch.digest and not ident.related(x.root, line.owner, x.at)]
+        for j, b in enumerate(runs):
+            if b.exit != 0 or (best is not None and b.at >= best[2].at):
+                continue
+            for a in runs[:j]:
+                if a.exit != 0 or ident.related(a.root, b.root, b.at):
+                    continue
+                if kind == "score" and (a.score is None or b.score is None or abs(a.score - b.score) > tolerance):
+                    continue
+                best = (patch, a, b)
+                break
+    for r in live:
+        rec.counts[r.id] = ("counted", None) if best is None or r is best[0] else ("kept", WHY_PATCH)
+    if best is None:
+        return None
+    patch, a, b = best
+    return Set(members=[patch, a, b], at=b.at, at_text=b.at_text, version=b.problem, kind=kind, credits=[patch])
 
 
 def agree_pass(line, rec, seat=None):

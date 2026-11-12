@@ -164,7 +164,7 @@ class Decisions:
         s = rec.set
         if s is None or kind_of(rec.verifier)[0] == "attest":
             return
-        for m in s.members:
+        for m in s.credits:
             if m.id not in self.credited:
                 self.credited[m.id] = Thing(root=m.root, at=s.at, line=line)
                 self.move(s.at if when is None else max(when, s.at), line, m.root, 1)
@@ -196,7 +196,7 @@ class Decisions:
                 continue
             if any(ident.related(r, x.root, t) for x in rec.readings):
                 continue
-            if any(ident.related(r, x.get("root"), t) for x in rec.runs if x.get("root")):
+            if any(ident.related(r, x.root, t) for x in rec.ran(ident)):
                 continue
             keep.append(r)
         return keep
@@ -384,9 +384,9 @@ class Decisions:
         """When a lock is released (QX-15 section 3), or None while it is not."""
         line, rec = lock.line, lock.rec
         claims, commits, reveals = self.production(rec, line, lock.root)
-        runs = [x for x in rec.runs if x.get("root") and self.final(line, x["root"]) == self.final(line, lock.root)]
+        runs = [x for x in rec.ran(line.identity) if self.final(line, x.root) == self.final(line, lock.root)]
         first = lock.at + lock.lease
-        made = [x.at for x in claims + commits + reveals] + [x["at"] for x in runs]
+        made = [x.at for x in claims + commits + reveals + runs]
         if not any(at <= first for at in made):
             return first
         ends = []
@@ -547,7 +547,7 @@ class Decisions:
         if c is None or not rec.agree_fields():
             return
         g = c.gold
-        before = [x.at for x in rec.claims + rec.commits + rec.readings] + [x["at"] for x in rec.runs]
+        before = [x.at for x in rec.claims + rec.commits + rec.readings + rec.ran(line.identity)]
         if any(at < g.at for at in before):
             return
         s = rec.set
