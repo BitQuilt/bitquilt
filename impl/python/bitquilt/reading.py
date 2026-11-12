@@ -15,7 +15,7 @@ from .hashes import hash_json
 from .identity import same_address
 from .grounds import fold_traces, set_aside, seams_of, traced
 from .kinds import KIND_WORDS, WHY_VERIFIER, kind_of, agree_pass, attest_pass, record_pass, person_seat, differ
-from .kinds import find_set
+from .kinds import find_set, runs_pass
 from .decisions import Decisions
 from .inherit import Reach
 from .propose import proposals_said
@@ -76,12 +76,12 @@ class Read:
             rec.standing = record_pass(line, rec, n)
         elif kind == "judge":
             rec.set = self.dec.judge(line, rec, n)
+        elif kind in ("check", "score"):
+            rec.set = runs_pass(line, rec, kind)
         else:
             # READING.md section 3: "Any other verifier: every reading says" that its piece asks one unknown here.
-            # A `check` or a `score` piece's readings are counted, and no fixture of reading 2 holds a run.
-            why = ("counted", None) if kind is not None else ("kept", WHY_VERIFIER)
             for r in rec.live():
-                rec.counts[r.id] = why
+                rec.counts[r.id] = ("kept", WHY_VERIFIER)
 
     # Section 9, the state.
 
@@ -157,7 +157,8 @@ class Read:
         rec = line.recs[spec["hash"]]
         kind = kind_of(rec.verifier)[0]
         grade = None
-        if rec.set is not None and state in SET_STATES:
+        # A set of runs has no grade: a trace says what a return rests on, and a run is no return.
+        if rec.set is not None and rec.set.kind == "agree" and state in SET_STATES:
             n = sum(1 for m in rec.set.members if traced(rec, m))
             grade = "both" if n >= 2 else "one" if n == 1 else "none"
         seams, aside = [], []
@@ -191,7 +192,7 @@ class Read:
         s = rec.set
         said_set = None
         if s is not None:
-            said_set = {"name": s.name, "kind": "agree", "completedAt": s.at_text,
+            said_set = {"name": s.name, "kind": s.kind, "completedAt": s.at_text,
                         "members": [{"id": m.id, "key": m.key, "at": m.at_text, "digest": m.digest}
                                     for m in s.members]}
         last = self.dec.last_on(line, rec)
@@ -277,12 +278,20 @@ class Read:
     def output_document(self, version, states):
         """CORE.md section 6, Output: `{quilt, problem, pieces}`, a piece's name, hash and state, an agree piece
         with `agreed`, the agree fields of the set's first reveal, and `evidence`, for each reveal of the set
-        its signer and every other field."""
+        its signer and every other field; a check or a score piece with `patch`, `author` and `runs`, each run
+        its signer, `exit` and `host`, with `score` and `image` where it says them."""
         pieces = []
         for spec in version.specs:
             rec = version.line.recs[spec["hash"]]
             entry = {"name": spec["name"], "piece": spec["hash"], "state": states[spec["name"]]}
-            if rec.set is not None:
+            if rec.set is not None and rec.set.kind != "agree":
+                patch, *runs = rec.set.members
+                entry["patch"] = patch.ret.get("patch")
+                entry["author"] = patch.root
+                entry["runs"] = [dict({"signer": x.root, "exit": x.exit, "host": x.host},
+                                      **{k: v for k, v in (("score", x.score), ("image", x.image)) if v is not None})
+                                 for x in runs]
+            elif rec.set is not None:
                 fields = rec.agree_fields()
                 first = rec.set.members[0].ret
                 entry["agreed"] = {f: first.get(f) for f in fields}

@@ -82,6 +82,27 @@ class Reading:
     entry: dict | None = None
 
 
+@dataclass
+class Ran:
+    """A run the fold keeps (CORE.md section 6, Folding events): its signer and root, the version it names, the
+    digest of the patch it ran, and what it says of the run. It stands in a set beside its patch, so it answers
+    what a set asks of a member, with no commit and no return of its own."""
+    id: str
+    key: str
+    root: str
+    at: datetime
+    at_text: str
+    digest: str
+    exit: int
+    host: str
+    problem: str
+    seq: int
+    score: float | None = None
+    image: str | None = None
+    commit: None = None
+    ret: None = None
+
+
 class Rec:
     """The line's record of one piece: every kept event that names it and a version of the line, in order."""
 
@@ -95,7 +116,7 @@ class Rec:
         self.struck = {}        # a reading's id -> the id of the decision that struck it
         self.aside = set()      # the ids of the readings set aside under section 4
         self.set = None         # the set that stands, section 5
-        self.runs = []
+        self.runs = []          # every run on a check or score piece in its declared image, in receipt order
         self.declines = []
 
     def agree_fields(self):
@@ -109,6 +130,20 @@ class Rec:
     def live(self):
         """The readings the kinds read: those no decision struck and the grounds did not set aside."""
         return [r for r in self.readings if r.id not in self.struck and r.id not in self.aside]
+
+    def ran(self, ident):
+        """The runs the fold keeps over the readings that stand. CORE.md section 6 drops a run where "the digest
+        is no revealed return of the piece" and "a run by the patch's author": the patch is the first reading
+        with the run's digest received before it, and a struck run is left out of the fold with its set."""
+        live = self.live()
+        out = []
+        for x in self.runs:
+            if x.id in self.struck:
+                continue
+            patch = next((r for r in live if r.digest == x.digest and r.entry["seq"] < x.seq), None)
+            if patch is not None and not ident.related(x.root, patch.root, x.at):
+                out.append(x)
+        return out
 
 
 class Version:
@@ -383,6 +418,15 @@ def fold_piece_event(line, rec, version, entry, type_, key, root, body, at):
         rec.declines.append(entry)
         return True
     if type_ == "run":
-        rec.runs.append(entry)
+        if rec.verifier not in ("check", "score"):
+            line.dropped.append(("a run belongs to a check or score piece", ev))
+            return False
+        image = (rec.spec.get("check") or {}).get("image")
+        if image is not None and body.get("image") != image:
+            line.dropped.append(("not in the declared image", ev))
+            return False
+        rec.runs.append(Ran(id=eid, key=key, root=root, at=at, at_text=entry["at_text"], digest=body["digest"],
+                            exit=body["exit"], host=body["host"], problem=version.hash, seq=entry["seq"],
+                            score=body.get("score"), image=body.get("image")))
         return True
     return False
