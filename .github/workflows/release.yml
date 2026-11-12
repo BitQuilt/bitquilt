@@ -23,9 +23,20 @@ jobs:
             name: linux-arm64
           - os: windows-2022
             name: win32-x64
+            # Windows keeps no file with a colon in its name, and the mirror names a folder and a file by a hash,
+            # `sha256:` and the hex. This checkout leaves the mirror's folders out, which no check or build reads.
+            sparse: |
+              /*
+              !/mirror/*/
     runs-on: ${{ matrix.os }}
     steps:
+      # Git for Windows refuses a tree that names such a path, checked out or not, while core.protectNTFS is set.
+      - if: runner.os == 'Windows'
+        run: git config --system core.protectNTFS false
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: ${{ matrix.sparse }}
+          sparse-checkout-cone-mode: false
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:

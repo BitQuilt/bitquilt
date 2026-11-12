@@ -1211,28 +1211,35 @@ describe('a problem the home holds and the core refuses', () => {
     expect(report.coin).toMatchObject({ reproduced: true });
   });
 
-  it('refuses a state that names a refused problem as folded, a folded one as refused or listed, or leaves out one it served', async () => {
-    const asFolded = await run(moved(Y, 'problems'));
-    expect(asFolded.refused).toHaveLength(1);
-    expect(asFolded.refused[0]).toMatch(
-      new RegExp(`^coin: the coin state names ${Y} as folded, and the core refuses it here: .+, from `),
-    );
-    const asRefused = await run(moved(G, 'refused'));
-    expect(asRefused.refused).toEqual([
-      `coin: the coin state names ${G} as refused, and the core folds it here, from ${home}`,
-    ]);
-    const listed = await run(moved(F, 'refused'));
-    expect(listed.refused).toEqual([
-      `coin: the coin state from ${home} names ${F} as refused, which it listed this run`,
-    ]);
-    const leftOut = await run(moved(Y, null));
-    expect(leftOut.refused).toEqual([`coin: the coin state from ${home} does not name ${Y}, which it served this run`]);
-    // A problem the state calls folded cannot lack its data: the home folds none without it.
-    const lacking = await run(moved(X, 'problems'));
-    expect(lacking.refused).toEqual([
-      `coin: the data blob ${hashBytes(cites)} of ${X} from ${home} is not served, and the home's fold rests on it`,
-    ]);
-  });
+  // As in mirror.test.ts: a run here finds the problem an earlier run left by its file's name, sha256 and a colon,
+  // which Windows keeps no file by, so this case runs where the mirror runs.
+  it.skipIf(process.platform === 'win32')(
+    'refuses a state that names a refused problem as folded, a folded one as refused or listed, or leaves out one it served',
+    async () => {
+      const asFolded = await run(moved(Y, 'problems'));
+      expect(asFolded.refused).toHaveLength(1);
+      expect(asFolded.refused[0]).toMatch(
+        new RegExp(`^coin: the coin state names ${Y} as folded, and the core refuses it here: .+, from `),
+      );
+      const asRefused = await run(moved(G, 'refused'));
+      expect(asRefused.refused).toEqual([
+        `coin: the coin state names ${G} as refused, and the core folds it here, from ${home}`,
+      ]);
+      const listed = await run(moved(F, 'refused'));
+      expect(listed.refused).toEqual([
+        `coin: the coin state from ${home} names ${F} as refused, which it listed this run`,
+      ]);
+      const leftOut = await run(moved(Y, null));
+      expect(leftOut.refused).toEqual([
+        `coin: the coin state from ${home} does not name ${Y}, which it served this run`,
+      ]);
+      // A problem the state calls folded cannot lack its data: the home folds none without it.
+      const lacking = await run(moved(X, 'problems'));
+      expect(lacking.refused).toEqual([
+        `coin: the data blob ${hashBytes(cites)} of ${X} from ${home} is not served, and the home's fold rests on it`,
+      ]);
+    },
+  );
 
   it('refuses a state whose refused problem lacks a data blob the mirror holds, or folds over what the mirror holds', async () => {
     const blob = await run(null, 'blob');
