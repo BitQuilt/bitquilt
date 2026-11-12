@@ -94,6 +94,17 @@ class Board:
                 return s
         return None
 
+    def problem(self, root, answered, undrawn):
+        """Why a root has no live seat, or None when it has one: never drawn, answered already, or lapsed."""
+        seats = [s for s in self.seats if s.root == root]
+        if not seats:
+            return undrawn
+        if any(s.answer is not None for s in seats):
+            return answered
+        if all(s.lapsed is not None for s in seats):
+            return "this seat lapsed"
+        return None
+
     def spent(self):
         return all(s.answer is not None or s.lapsed is not None for s in self.seats)
 
@@ -128,6 +139,7 @@ class Decisions:
         self.golds = []
         self.gold_on = {}       # (line name, piece hash) -> the commitment revealed on the piece
         self.challenges = []
+        self.dropped = {}       # problem hash -> how many locks, golds, gold reveals and challenges the pass dropped
 
     # Standing, section 6.
 
@@ -228,7 +240,13 @@ class Decisions:
         events.sort(key=lambda e: (e[0], e[1]))
         for at, _, line, entry in events:
             self.advance(at)
-            getattr(self, "on_" + entry["event"]["type"])(line, entry)
+            kind = entry["event"]["type"]
+            kept = getattr(self, "on_" + kind)(line, entry)
+            # The fixtures' README, `dropped`: "how many events of the types reading 2 adds the pass took for
+            # nothing". A verdict is on its challenge's list, and a rule is not kept or dropped at a receipt.
+            if not kept and kind in ("lock", "gold", "gold_reveal", "challenge"):
+                home = entry["version"].hash
+                self.dropped[home] = self.dropped.get(home, 0) + 1
         self.advance(self.now)
 
     def burns(self):
@@ -291,7 +309,7 @@ class Decisions:
         lease = hours(lease if isinstance(lease, (int, float)) and not isinstance(lease, bool) else version.settings["lease_h"])
         p = Thing(rec=rec, n=n, majority=n // 2 + 1, wanted=wanted, cands=cands, seed=seed, at=t, at_text=last.at_text,
                   order=draw(seed, pool) if seed is not None and len(pool) >= n else [], board=None, outcome="open",
-                  winner=None, decided=None, decided_text=None)
+                  winner=None, decided=None, decided_text=None, dropped=[])
         self.panels[key] = p
         if seed is None:
             return None
@@ -308,20 +326,29 @@ class Decisions:
             ev = entry["event"]
             if ev.get("type") != "rank" or ev.get("piece") != rec.hash or entry["at"] < t:
                 continue
-            p.board.advance(entry["at"])
-            if p.board.spent():
-                break
-            seat = p.board.live(entry["root"])
             ranking = ev["body"].get("ranking")
-            if seat is None or not isinstance(ranking, list) or sorted(map(str, ranking)) != sorted(digests):
+            # The ranks a panel takes for nothing, each with why, in the order the reference asks them.
+            if made is not None:
+                why = "the panel has decided"
+            elif not isinstance(ranking, list) or not ranking or any(not is_hash(d) for d in ranking):
+                why = "body.ranking: a list of candidate digests, first choice first"
+            elif len(set(ranking)) != len(ranking):
+                why = "body.ranking: each digest once"
+            else:
+                p.board.advance(entry["at"])
+                why = p.board.problem(entry["root"], "this judge has ranked", "not a judge drawn for this piece")
+                if why is None and sorted(ranking) != sorted(set(digests)):
+                    why = "body.ranking: the %d candidate digests, each once" % len(set(digests))
+            if why is not None:
+                p.dropped.append({"id": entry["id"], "why": why})
                 continue
+            seat = p.board.live(entry["root"])
             seat.answer = {"id": entry["id"], "key": ev["key"], "root": entry["root"], "at": entry["at_text"],
                            "ranking": ranking}
             firsts[ranking[0]] = firsts.get(ranking[0], 0) + 1
             if firsts[ranking[0]] >= p.majority:
                 made = entry
                 p.winner = ranking[0]
-                break
         if made is None:
             p.board.advance(self.now)
             if p.board.spent():
@@ -344,7 +371,7 @@ class Decisions:
                            for c in p.cands],
             "seed": p.seed, "completedAt": p.at_text, "order": p.order,
             "seats": p.board.said("rank") if p.board is not None else [],
-            "outcome": p.outcome, "winner": p.winner, "decidedAt": p.decided_text, "dropped": [],
+            "outcome": p.outcome, "winner": p.winner, "decidedAt": p.decided_text, "dropped": p.dropped,
         }
 
     # Stake, QX-15.
@@ -448,6 +475,7 @@ class Decisions:
         self.locks.append(Thing(id=entry["id"], line=line, rec=rec, version=version.hash, name=spec["name"],
                                 key=ev["key"], root=root, at=t, at_text=entry["at_text"], kind=body["kind"],
                                 amount=amount, coin=coin, lease=lease, forfeited=None, restored=None, by=None))
+        return True
 
     def lock_said(self, k):
         return {"id": k.id, "problem": k.version, "piece": k.rec.hash, "name": k.name, "key": k.key, "root": k.root,
@@ -530,6 +558,7 @@ class Decisions:
         g.commitments = [Thing(h=h, gold=g, rec=None, name=None, outcome="pending", revealed=None, projection=None,
                                struck=[], roots=[], set=None, window=None, docked=[], forfeits=[]) for h in hs]
         self.golds.append(g)
+        return True
 
     def on_gold_reveal(self, line, entry):
         ev, body = entry["event"], entry["event"]["body"]
@@ -558,10 +587,11 @@ class Decisions:
         self.gold_on[(line.name, rec.hash)] = c
         if all(agree(rec, projection, m.ret) for m in s.members):
             c.outcome = "match"
-            return
+            return True
         c.outcome = "miss"
         c.window = t + hours(version.settings["challenge_window_h"])
         c.struck, c.roots, c.docked, c.forfeits = self.strike(line, rec, s, t, WHY_GOLD, entry["id"])
+        return True
 
     def settled(self, version):
         """When a problem settled, "complete with every window closed" (QX-16 section 3), or None."""
@@ -646,29 +676,45 @@ class Decisions:
                   at_text=entry["at_text"], stake=stake, ground=ground, against=against, parties=parties, seed=seed,
                   order=draw(seed, pool) if seed is not None and len(pool) >= 3 else [], board=None, outcome="open",
                   decided=None,
-                  struck=[], set=s, miss=miss)
+                  struck=[], set=s, miss=miss, dropped=[])
         self.challenges.append(c)
         if seed is None:
-            return
+            return True
         if len(pool) < 3:
             c.outcome, c.decided = "void", t
-            return
+            return True
         c.board = Board(c.order, 3, t, hours(version.settings["lease_h"]))
+        return True
 
     def on_verdict(self, line, entry):
         ev, body = entry["event"], entry["event"]["body"]
         t, root = entry["at"], entry["root"]
-        c = next((c for c in self.challenges if c.id == body.get("challenge") and c.line is line
-                  and c.rec.hash == ev.get("piece") and c.outcome == "open" and c.board is not None), None)
-        if c is None or body.get("for") not in ("challenger", "author"):
-            return
-        seat = c.board.live(root)
-        if seat is None:
+        c = next((c for c in self.challenges if c.id == body.get("challenge")), None)
+        # A verdict is read under its challenge, "where it was posted"; a challenge with no panel reads none.
+        if c is None or c.board is None:
             return
         ret = body.get("return")
-        if ret is not None:
-            if c.rec.verifier in ("check", "score") or validate_return(ret, c.rec.spec.get("schema") or {}):
-                return
+        # The verdicts a challenge takes for nothing, each with why, in the order the reference asks them.
+        if c.outcome in ("held", "failed"):
+            why = "the challenge was decided"
+        elif ev.get("problem") != c.version.hash or ev.get("piece") != c.rec.hash:
+            why = "names another problem or piece than its challenge"
+        elif body.get("for") not in ("challenger", "author"):
+            why = "body.for: one of challenger, author"
+        elif ret is not None and not isinstance(ret, dict):
+            why = "body.return: an object"
+        else:
+            why = c.board.problem(root, "this judge has answered", "not a judge drawn for this challenge")
+            if why is None and ret is not None:
+                if c.rec.verifier in ("check", "score"):
+                    why = "a verdict on a check or score piece carries no return"
+                else:
+                    faults = validate_return(ret, c.rec.spec.get("schema") or {})
+                    why = faults[0] if faults else None
+        if why is not None:
+            c.dropped.append({"id": entry["id"], "why": why})
+            return
+        seat = c.board.live(root)
         seat.answer = {"id": entry["id"], "key": ev["key"], "root": root, "at": entry["at_text"], "for": body["for"],
                        "return": ret}
         said = [s.answer["for"] for s in c.board.seats if s.answer is not None]
@@ -702,7 +748,7 @@ class Decisions:
         return {"id": c.id, "problem": c.version.hash, "piece": c.rec.hash, "key": c.key, "root": c.root,
                 "at": c.at_text, "stake": c.stake, "ground": c.ground, "against": c.against, "parties": c.parties,
                 "seed": c.seed, "order": c.order, "seats": c.board.said("verdict") if c.board is not None else [],
-                "outcome": c.outcome, "decidedAt": iso(c.decided), "struck": c.struck, "dropped": []}
+                "outcome": c.outcome, "decidedAt": iso(c.decided), "struck": c.struck, "dropped": c.dropped}
 
     # What the views read.
 
