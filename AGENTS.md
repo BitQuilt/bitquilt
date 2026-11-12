@@ -99,6 +99,7 @@ Quilt. The package and the executable share the name. `quilt.ts` is the one thin
 | `src/listings.ts` | The shapes of what a tracker lists, as this client reads them, which quilt.ts reads and render.ts says (`LayerPiece`, `LayerReading`, `ACCEPTED_STATES`) | QX-1; QX-2; QX-15; QX-16; QX-18; QX-19; QX-20; QX-22; QX-23 section 2; READING.md section 3 |
 | `src/mcp.ts` | The connector: each tool's schema and words, the prompts, the card's resource, and the tools a run while away is offered (`createMcpServer`) | APP.md, Three things in one process |
 | `src/node.ts` | One node per home: a copy that finds this home's node on the page's port works through it (`probeNode`, `remoteRunner`) | APP.md, One node per home |
+| `src/offline.ts` | A problem read where no tracker's state answered: the one problem this home resolved, read by the core as a ledger of its own and said in the shape of a tracker's state (`readAlone`) | READING.md sections 1 and 9 |
 | `src/owner-turn.ts` | The owner's part of the hourly turn: the gold due, the sharpening, the take, the announce and the keep (`ownerTurn`) | QX-13 section 3; QX-16; QX-19 section 4; QX-22 section 4; NODE.md section 4 |
 | `src/page.ts` | The page's server and the node: the page, its API, the node's read-only routes and the keep every half hour (`createPage`) | APP.md, Three things in one process; NODE.md section 4; PROTOCOL.md, The node's routes |
 | `src/pattern.ts` | Every fault of a pattern at once, for `quilt publish` and `scripts/check-pattern.ts` (`patternProblems`, `draftEnvelope`) | APP.md, Publishing |

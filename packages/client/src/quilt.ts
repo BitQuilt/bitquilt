@@ -57,6 +57,7 @@ import {
 } from './listings.js';
 import { type AnnouncedWork, NO_WORK, announcementEvent, postToRelays, searchRelays } from './relay.js';
 import type { Library } from './library.js';
+import { readAlone } from './offline.js';
 import { type Posted, type Resolver, askJson } from './resolver.js';
 import { inParallel } from './pool.js';
 import * as proposing from './propose.js';
@@ -527,8 +528,10 @@ export class Quilt {
   /**
    * The problem behind a link or hash, resolved and reduced, with the tracker's own view of its pieces and its scrape
    * where one answered, and the witness on each reveal its receipts name (QX-18); the library remembers it and where it
-   * was found. With `opened` false the read is the node's own, as the owner's turn makes it each hour: the library
-   * keeps the time the person last opened the problem, which the sheet and the card order their lists by.
+   * was found. Where no tracker's state answered, the pieces are this home's own read of the one problem by reading
+   * 2 (`readAlone`), so the layer is null only for a problem the core refuses. With `opened` false the read is the
+   * node's own, as the owner's turn makes it each hour: the library keeps the time the person last opened the
+   * problem, which the sheet and the card order their lists by.
    */
   async open(
     input: string,
@@ -565,7 +568,9 @@ export class Quilt {
       last: opened || !entry ? now : entry.last,
     };
     this.save();
-    const st = resolved.tracker ? await this.trackerState(resolved.hash, resolved.tracker) : null;
+    const answered = resolved.tracker ? await this.trackerState(resolved.hash, resolved.tracker) : null;
+    // READING.md section 1: the ledger is what a reader holds, so with no tracker's state the one problem is read here.
+    const st = answered ?? readAlone(resolved, now, (h) => this.resolver.chains.getBlob(h));
     const scrape = resolved.tracker ? await this.scrapeOf(resolved.hash, resolved.tracker) : null;
     return {
       link,
