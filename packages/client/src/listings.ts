@@ -255,7 +255,8 @@ export interface Scrape {
 
 /**
  * A problem as `open` reads it: the reduced state, the tracker that answered, and, where one did, its layer, its
- * takedown and the gold summed. What the render module's `summary` takes.
+ * takedown and the gold summed; where none did, the layer and the gold are this home's own read of the one problem
+ * (`offline.ts`). What the render module's `summary` takes.
  */
 export interface Opened {
   hash: Hash;
