@@ -26,6 +26,7 @@ const sorted = (ids: Iterable<Hash>) => [...ids].sort();
 describe('how each reading counts (READING.md section 3)', () => {
   it('agrees with the fold over every ledger of reading 2', () => {
     const seen = new Map<string, number>();
+    const gone = new Set<string>();
     let readings = 0;
     for (const f of fixtures) {
       const types = new Map<Hash, string>();
@@ -52,6 +53,11 @@ describe('how each reading counts (READING.md section 3)', () => {
               if (x.why !== null) {
                 expect(words.has(x.why), `${at}: ${x.why}`).toBe(true);
                 seen.set(x.why, (seen.get(x.why) ?? 0) + 1);
+                // The one reason said of a reading the fold lacks, though nothing struck it or set it aside.
+                if (x.why === WHY.gone) {
+                  gone.add(f.name);
+                  expect([x.counts, held.has(x.id)], at).toEqual(['kept', false]);
+                }
               }
               // The fold holds what is counted or kept beside it, and not what is set aside or struck.
               if (x.counts === 'aside' || x.counts === 'struck') expect(held.has(x.id), at).toBe(false);
@@ -91,7 +97,8 @@ describe('how each reading counts (READING.md section 3)', () => {
       WHY.gold,
     ])
       expect(seen.get(why) ?? 0, why).toBeGreaterThan(0);
-    // And none is a reading the read could say nothing more of than that the fold does not hold it.
-    expect(seen.get(WHY.gone) ?? 0).toBe(0);
+    // The read can say nothing more of a reading than that the fold does not hold it in one ledger alone, the one
+    // made to hold it: a reveal that follows a reading set aside, from the same key and to the same hash.
+    expect([...gone]).toEqual(['gone-1']);
   });
 });

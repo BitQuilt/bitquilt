@@ -180,6 +180,7 @@ class Read:
         # READING.md section 4: the grounds are read at each version, on a piece that version's fold calls
         # disputed, so a piece locked at this version has no reading set aside here.
         aside = rec.aside if own != "locked" else set()
+        gone = rec.gone()
         readings = []
         for r in rec.readings:
             if r.id in rec.struck:
@@ -187,6 +188,8 @@ class Read:
                 counts = "struck"
             elif r.id in aside:
                 counts, why, by = "aside", "it rests on nothing where another reading rests on the record", None
+            elif r.id in gone:
+                counts, why, by = "kept", "the fold without the struck events does not hold it", None
             else:
                 counts, why = rec.counts.get(r.id, ("counted", None))
                 by = None

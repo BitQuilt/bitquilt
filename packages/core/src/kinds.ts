@@ -673,7 +673,9 @@ function seatPanel(panel: PanelView, fold: State, leaseH: number, ranks: Rank[],
       drop('the key may not sign a rank');
       continue;
     }
-    const why = panelSeatProblem(panel, root);
+    // verifiers.md section 2: the key's root "holds a live seat (offered, not lapsed, not yet answered) at the rank's
+    // receipt", and no seat is offered before the last candidate's receipt.
+    const why = r.at < panel.completedAt ? 'not a judge drawn for this piece' : panelSeatProblem(panel, root);
     if (why) {
       drop(why);
       continue;

@@ -965,7 +965,9 @@ function seat(
       dropVerdict('the key may not sign a verdict');
       continue;
     }
-    const why = seatProblem(challenge, root);
+    // QX-1 section 5: "A verdict counts only from a root whose seat is live at the verdict's receipt", and no seat
+    // is offered before the challenge's receipt.
+    const why = v.at < challenge.at ? 'not a judge drawn for this challenge' : seatProblem(challenge, root);
     if (why) {
       dropVerdict(why);
       continue;

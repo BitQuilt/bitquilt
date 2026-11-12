@@ -39,7 +39,7 @@ it("the README marks the reasons no fixture holds, and they are the ones no fixt
   for (const f of readdirSync(dir).filter((f) => f.endsWith('.json')))
     walk((JSON.parse(readFileSync(join(dir, f), 'utf8')) as { readings: unknown }).readings);
   expect(unheld).toEqual(Object.values(WHY).filter((why) => !said.has(why)));
-  expect(section).toContain('nineteen of the twenty');
+  expect(section).toContain('all twenty');
 });
 
 it('READING.md section 3 says every reason of the closed list where it gives the order they are asked in', () => {
