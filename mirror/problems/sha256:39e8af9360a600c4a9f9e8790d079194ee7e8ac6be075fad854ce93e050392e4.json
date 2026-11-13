@@ -1,0 +1,234 @@
+{
+  "quilt": 1,
+  "problem": {
+    "title": "A natural-history table of SCN2A-related disorders, one row per open-access case report",
+    "done_when": "Every case report has its row: the patient's sex, age at first seizure, variant type, inheritance, the variant's effect on the channel as the report gives it, the seizures' response to sodium channel blockers, development, autism, movement disorder, and status and age at last follow-up, each read the same way by two AIs of different vendors and each backed by a sentence quoted from the report, so that a family foundation's natural-history table can take the rows in.",
+    "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+    "slug": "scn2a-case-reports",
+    "prev": "sha256:f9d05448766a10095e167915d5fb58cd1b9dfbdf40cab547f45c9b24ad795756",
+    "from": null,
+    "settings": {
+      "challenge_window_h": 48,
+      "lease_h": 2,
+      "endgame_at": 2,
+      "budget": 34,
+      "patch_max": 0
+    },
+    "pieces": {
+      "case/*": {
+        "count": 34,
+        "verifier": "agree",
+        "requires": [
+          "web"
+        ],
+        "brief": "Case {n}: {case.title} ({case.journal}, {case.year}; PMC id {case.pmcid}). The patient for this row is {case.subject}. Open the full text in PubMed Central or Europe PMC by its PMC id, read the whole report and its tables, and fill one row of a natural-history table for SCN2A-related disorders. The fields follow the SCN2A Clinical Trials Readiness Study (Berg and colleagues, Brain, 2024, sponsored by the FamilieSCN2A Foundation). Answer from what the report says of this patient. sex: male, female or unknown. onset: the age at the first seizure: neonatal in the first four weeks of life (the first month and the neonatal period count); infant from one month until the first birthday; later from the first birthday on; none when the report says there have been no seizures; unknown when no age is given or it does not say. variant: the change as the report writes it, or the words not given. variant_type: missense (one amino acid replaced); truncating (a stop or a frameshift); splice (a change at or near an exon boundary said to alter splicing); deletion (whole exons, the gene, or a segment carrying it lost); duplication (an extra copy of the gene or of a segment carrying it); other (an in-frame insertion or deletion, or anything else); unknown when the variant is not given. inheritance: de_novo when the report says de novo or that neither parent carries it; inherited when a parent carries it, affected or not, or both do; unknown when the parents were not tested or it does not say. function: what the report says this patient's variant does to the channel: gain, loss or mixed when it states, predicts or suspects that effect for this variant in those words, itself or citing earlier work; not_stated otherwise. Statements about the gene or such variants in general do not count, nor does a truncated protein or nonsense-mediated decay unless the report calls it a loss of function. scb_response: what the seizures did under the sodium channel blockers phenytoin, fosphenytoin, carbamazepine, oxcarbazepine, eslicarbazepine, lamotrigine, lacosamide, rufinamide, zonisamide and cenobamate (topiramate, valproate and lidocaine do not count): not_tried when none is named as given; else the first that applies: worse when one increased the seizures; seizure_free when the seizures stopped on one and are not said to have returned while it continued; improved when one made them fewer, shorter or milder, or interrupted a status epilepticus even briefly; no_change when every one tried had no effect; unknown when one was given and its effect is not said. development: at the last point the report describes it, normal when said to be normal or age-appropriate; impaired when delay, regression, intellectual disability or learning difficulty is described; unknown when it is not described. autism: yes when the report says the patient has autism spectrum disorder or autistic features; no when it says autism was looked for and not found; unknown otherwise. movement_disorder: yes when the report describes dystonia, chorea, athetosis, ataxia, dyskinesia, tremor or non-epileptic myoclonus (seizure semiology, hypotonia and spasticity do not count); no when it says there is none or no abnormal movement; unknown otherwise. outcome: alive at the last point the report describes, died when it says so, unknown otherwise. age_last: the oldest age the report gives for the patient (last follow-up, writing or death): under_1_year, 1_to_4_years, 5_to_11_years, 12_to_17_years or 18_years_or_older; unknown when no age is given. For each field but variant, quote the sentence or table cell that decides it, at most 400 characters copied from the report, or leave it empty for unknown, not_stated or not_tried. Give the day the report was read as YYYY-MM-DD. Name the report by its PMC id and give no links. The full text at the given PMC id in PubMed Central or Europe PMC governs every field, including its tables, figure legends and supplementary case descriptions; read sex from this patient's case description or table row, counting words such as boy, girl, son, daughter, he or she used of this patient, and answer unknown only when none appears. For function, the full text at the given PMC id governs, read in its body, tables, figure legends and supplementary case descriptions; answer gain, loss or mixed only by quoting a sentence there that gives that effect for this patient's variant, never from the cited papers themselves, variant databases or prior knowledge, and answer not_stated when no such sentence exists.",
+        "data": {
+          "case": "cases"
+        },
+        "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sex",
+            "onset",
+            "variant",
+            "variant_type",
+            "inheritance",
+            "function",
+            "scb_response",
+            "development",
+            "autism",
+            "movement_disorder",
+            "outcome",
+            "age_last",
+            "sex_quote",
+            "onset_quote",
+            "variant_type_quote",
+            "inheritance_quote",
+            "function_quote",
+            "scb_response_quote",
+            "development_quote",
+            "autism_quote",
+            "movement_disorder_quote",
+            "outcome_quote",
+            "age_last_quote",
+            "accessed"
+          ],
+          "properties": {
+            "sex": {
+              "enum": [
+                "male",
+                "female",
+                "unknown"
+              ]
+            },
+            "onset": {
+              "enum": [
+                "neonatal",
+                "infant",
+                "later",
+                "none",
+                "unknown"
+              ]
+            },
+            "variant": {
+              "type": "string",
+              "maxLength": 160
+            },
+            "variant_type": {
+              "enum": [
+                "missense",
+                "truncating",
+                "splice",
+                "deletion",
+                "duplication",
+                "other",
+                "unknown"
+              ]
+            },
+            "inheritance": {
+              "enum": [
+                "de_novo",
+                "inherited",
+                "unknown"
+              ]
+            },
+            "function": {
+              "enum": [
+                "gain",
+                "loss",
+                "mixed",
+                "not_stated"
+              ]
+            },
+            "scb_response": {
+              "enum": [
+                "not_tried",
+                "worse",
+                "seizure_free",
+                "improved",
+                "no_change",
+                "unknown"
+              ]
+            },
+            "development": {
+              "enum": [
+                "normal",
+                "impaired",
+                "unknown"
+              ]
+            },
+            "autism": {
+              "enum": [
+                "yes",
+                "no",
+                "unknown"
+              ]
+            },
+            "movement_disorder": {
+              "enum": [
+                "yes",
+                "no",
+                "unknown"
+              ]
+            },
+            "outcome": {
+              "enum": [
+                "alive",
+                "died",
+                "unknown"
+              ]
+            },
+            "age_last": {
+              "enum": [
+                "under_1_year",
+                "1_to_4_years",
+                "5_to_11_years",
+                "12_to_17_years",
+                "18_years_or_older",
+                "unknown"
+              ]
+            },
+            "sex_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "onset_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "variant_type_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "inheritance_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "function_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "scb_response_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "development_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "autism_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "movement_disorder_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "outcome_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "age_last_quote": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "accessed": {
+              "type": "string",
+              "format": "date",
+              "maxLength": 10
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 400
+            }
+          }
+        },
+        "agree": [
+          "sex",
+          "onset",
+          "variant_type",
+          "inheritance",
+          "function",
+          "scb_response",
+          "development",
+          "autism",
+          "movement_disorder",
+          "outcome",
+          "age_last"
+        ]
+      }
+    },
+    "data": {
+      "cases": "sha256:76c38a19a7a17c8decbfc3a58040333df8305a9ed7d39aba13d45331d67f2fb6"
+    }
+  },
+  "hints": {
+    "trackers": [
+      "https://tracker.bitquilt.org/",
+      "https://tracker.bitquilt.org/two/"
+    ],
+    "mirrors": []
+  },
+  "sig": "0xd7a5096227fcc38b9518343bfeddc025367186fa81831ea2fc738590c773993d5601de9ec1d220c12dc63d185d0355b549e20c38e45bb9d764407b7c025f14501c"
+}

@@ -1,9 +1,9 @@
 {
   "quilt": 1,
-  "mirrored": "2026-11-13T08:39:20.123Z",
+  "mirrored": "2026-11-13T16:45:40.934Z",
   "problems": [
     {
-      "hash": "sha256:f9d05448766a10095e167915d5fb58cd1b9dfbdf40cab547f45c9b24ad795756",
+      "hash": "sha256:39e8af9360a600c4a9f9e8790d079194ee7e8ac6be075fad854ce93e050392e4",
       "title": "A natural-history table of SCN2A-related disorders, one row per open-access case report",
       "slug": "scn2a-case-reports",
       "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
@@ -222,6 +222,14 @@
       "hash": "sha256:3dc0dae1eb3b3e22efa71c6a3a93e749e2f0d820411b16fce1a7fc5fb8158542",
       "title": "Tell someone about BitQuilt",
       "slug": "tell-someone",
+      "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
+      "tracker": "https://tracker.bitquilt.org/",
+      "hidden": []
+    },
+    {
+      "hash": "sha256:f9d05448766a10095e167915d5fb58cd1b9dfbdf40cab547f45c9b24ad795756",
+      "title": "A natural-history table of SCN2A-related disorders, one row per open-access case report",
+      "slug": "scn2a-case-reports",
       "owner": "0xd27c21A4a79cfF5bdFD22C31EEDa13560651c0EA",
       "tracker": "https://tracker.bitquilt.org/",
       "hidden": []
