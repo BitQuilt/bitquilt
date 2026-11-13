@@ -142,7 +142,13 @@ const isConnector = (r: { paths: string[] }): boolean => r.paths.some((p) => CON
 /** The paths a row's path stands for: an ellipsis for the authorization server's, a placeholder filled. */
 function concrete(path: string): string[] {
   if (path.endsWith('…')) return OAUTH.filter((p) => p.startsWith(path.slice(0, -1)));
-  return [path.replace('<token>', mine.token).replace('<problem>', NO_SQUARE).replace('<piece>', NO_SQUARE)];
+  return [
+    path
+      .replace('<token>', mine.token)
+      .replace('<name>', 'quilt_me')
+      .replace('<problem>', NO_SQUARE)
+      .replace('<piece>', NO_SQUARE),
+  ];
 }
 
 /**
