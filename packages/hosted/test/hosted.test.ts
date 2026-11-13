@@ -342,6 +342,72 @@ describe('the hosted on-ramp', () => {
     expect(r.status).toBe(403);
     await client.close();
   });
+  it('answers the same tools over plain HTTP to an AI with no MCP client, each call naming its model (PROTOCOL.md)', async () => {
+    const mine = (await (await fetch(`${base}join`, { method: 'POST' })).json()) as { address: string; url: string };
+    const call = (name: string, body: unknown): Promise<Response> =>
+      fetch(`${mine.url}/tools/${name}`, {
+        method: 'POST',
+        body: typeof body === 'string' ? body : JSON.stringify(body),
+      });
+    const model = 'openai/gpt-plain';
+    // The list: each tool with its words and its input's schema, and none of the card's.
+    const listed = (await (await fetch(`${mine.url}/tools`)).json()) as {
+      tools: { name: string; description: string; inputSchema: { properties?: Record<string, unknown> } }[];
+    };
+    const names = listed.tools.map((t) => t.name);
+    expect(names).toContain('quilt_return');
+    expect(names.filter((n) => n.startsWith('quilt_window'))).toEqual([]);
+    const next = listed.tools.find((t) => t.name === 'quilt_next')!;
+    expect(next.description.length).toBeGreaterThan(20);
+    expect(Object.keys(next.inputSchema.properties ?? {})).toContain('problem');
+    // A call: the text and the handles the connector gives, under the model the call names.
+    const me = await call('quilt_me', { model });
+    expect(me.status).toBe(200);
+    const meSaid = (await me.json()) as { text: string; handles: unknown };
+    expect(meSaid.text).toContain(`Address: ${mine.address}`);
+    expect(meSaid.text).toContain(`Declares: ${model}`);
+    const handed = (await (await call('quilt_next', { model, input: { problem } })).json()) as {
+      handles: { piece: string; problem: string };
+    };
+    expect(handed.handles.problem).toBe(problem);
+    const returned = await call('quilt_return', {
+      model,
+      input: { problem, piece: handed.handles.piece, return: { verdict: 'supports' } },
+    });
+    expect(((await returned.json()) as { text: string }).text).toContain('posted to');
+    const lines = (await (await fetch(`${base}p/${problem}/events`)).text())
+      .trim()
+      .split('\n')
+      .map((l) => JSON.parse(l) as Receipt);
+    const posted = lines.filter((l) => l.event.key === mine.address);
+    expect(posted.map((l) => l.event.type)).toEqual(['claim', 'commit', 'reveal']);
+    expect(posted.every((l) => l.received[0]!.custody === 'hosted')).toBe(true);
+    expect((posted[0]!.event.body as { by: { model: string } }).by.model).toBe(model);
+    // The refusals: no model, a person's word for one, a body that is not JSON, an input the schema refuses, a tool
+    // that is the card's or nobody's, the other method, and an address nobody holds.
+    for (const body of [{}, { model: 'gpt' }, { model: 'human/person' }, { model, input: [] }, 'not json']) {
+      const r = await call('quilt_me', body);
+      expect(r.status, JSON.stringify(body)).toBe(400);
+      expect(((await r.json()) as { error: string }).error.length).toBeGreaterThan(0);
+    }
+    const unfit = await call('quilt_return', { model, input: { problem } });
+    expect(unfit.status).toBe(400);
+    expect(((await unfit.json()) as { error: string }).error).toContain('piece');
+    expect((await call('quilt_window', { model })).status).toBe(404);
+    expect((await call('quilt_nothing', { model })).status).toBe(404);
+    expect((await fetch(`${mine.url}/tools/quilt_me`)).status).toBe(405);
+    expect((await fetch(`${mine.url}/tools`, { method: 'POST', body: '{}' })).status).toBe(405);
+    expect((await fetch(`${base}mcp/${'0'.repeat(64)}/tools`)).status).toBe(404);
+    // The page for agents on the site says the same routes and the same body.
+    const forAgents = readFileSync(new URL('../../../site/llms.txt', import.meta.url), 'utf8');
+    for (const said of [
+      '/join`',
+      '`GET <url>/tools`',
+      '`POST <url>/tools/<name>`',
+      '{ "model": "<vendor>/<model>", "input": { } }',
+    ])
+      expect(forAgents, said).toContain(said);
+  });
 });
 
 describe('the page of a square', () => {

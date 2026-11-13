@@ -2,7 +2,8 @@
  * The hosted on-ramp (PROTOCOL.md, Identity; APP.md, Three things in one process): for a person who cannot run
  * anything, a tracker makes a root key, holds it encrypted at rest, and mounts Quilt's connector at an address they
  * paste into their AI. Every receipt for its events says custody: hosted, so a reader can tell. The key is theirs:
- * they can fetch it with their address and move it into a Quilt of their own.
+ * they can fetch it with their address and move it into a Quilt of their own. An AI that holds no MCP client calls the
+ * same tools at the address over plain HTTP, a POST a call, naming its model in each.
  *
  * With a token key set, the on-ramp is also the authorization server for its addresses (QX-18, oauth.ts): a product
  * that connects at `/mcp` holds a token for an address its person presented, and the events posted through that
@@ -12,6 +13,8 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 import { mkdirSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { join } from 'node:path';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ErrorCode, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
@@ -20,6 +23,7 @@ import {
   type Address,
   type Hash,
   addressOf,
+  isRecord,
   randomSecretKey,
   secretFromHex,
   secretToHex,
@@ -39,6 +43,7 @@ import {
   type WindowAnswer,
   type Witness,
   createMcpServer,
+  isToolName,
   localRunner,
   ownerTurn,
   publicFetch,
@@ -135,6 +140,15 @@ interface Seat {
 
 const SESSION_IDLE_MS = 60 * 60 * 1000;
 
+/** The name a call over plain HTTP connects under, which the member's library records as the connector's. */
+const PLAIN_CLIENT = 'plain-http';
+
+/**
+ * The model a call over plain HTTP names: a vendor and a name with a slash between, as a return declares one. The
+ * vendor `human` is a person's word at Quilt's page (verifiers.md section 2), and this route is an AI's.
+ */
+const PLAIN_MODEL = /^(?!human\/)[a-z0-9][a-z0-9.-]*\/[A-Za-z0-9][A-Za-z0-9._:-]*$/;
+
 /**
  * The sheet's policy (page-policy.ts): its own script and style by hash, its reads from this tracker, and nothing else.
  */
@@ -157,6 +171,9 @@ function decrypt(keySecret: string, stored: string): string {
 }
 
 const tokenHash = (token: string): string => createHash('sha256').update(token).digest('hex');
+
+/** Whether a tool is the card's, which only a chat that shows MCP apps has a use for. */
+const isCardTool = (name: string): boolean => name.startsWith('quilt_window');
 
 /** A body that does not parse as JSON, which the connector refuses with the transport's parse error. */
 const NOT_JSON: unique symbol = Symbol('not JSON');
@@ -315,15 +332,22 @@ export function createHosted(options: HostedOptions): Hosted {
    * The Quilt that signs for a member, by the hash of their address token, posting to this tracker with the custody
    * secret and the session's witness, and to any other with neither; a custodial one, which signs no redeem.
    */
-  function quiltFor(hash: string, hostName: string | undefined, witness: Witness | null = null): Quilt | null {
+  function quiltFor(
+    hash: string,
+    hostName: string | undefined,
+    witness: Witness | null = null,
+    model?: string,
+  ): Quilt | null {
     const member = store.getMember(hash);
     if (!member) return null;
     const secret = secretFromHex(decrypt(keySecret, member.keyEnc));
+    // A model the caller named stands before the host's name, as a home's own configuration does.
     const config: Config = {
       ...DEFAULT_CONFIG,
       trackers: [trackerUrl()],
       relays: options.relays ?? [],
       can: ['web'],
+      ...(model ? { model } : {}),
     };
     const home = join(options.home, hash);
     const resolver = new Resolver(config, home, outward, {
@@ -400,20 +424,7 @@ export function createHosted(options: HostedOptions): Hosted {
       json(res, 400, { error: 'no session with that id; begin with an initialize request' });
       return;
     }
-    const server: McpServer = createMcpServer(
-      localRunner((hostName) => {
-        const q = quiltFor(seat.member, hostName, seat.witness);
-        if (!q) throw new Error('this address is gone');
-        return q;
-      }),
-      {
-        // The AI that connects is recorded in the member's library, as a home's node records it: the sheet at the
-        // address moves from the connecting words to the phrases.
-        connected: (host) => {
-          quiltFor(seat.member, host ?? undefined)?.resolver.sawConnector(host);
-        },
-      },
-    );
+    const server = connector(seat);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       // the callback runs inside handleRequest, after both exist
@@ -426,6 +437,75 @@ export function createHosted(options: HostedOptions): Hosted {
     };
     await server.connect(transport);
     await transport.handleRequest(req, res, body);
+  }
+
+  /**
+   * The connector for a seat, which signs as its member; with a model, every return declares it. The AI that connects
+   * is recorded in the member's library, as a home's node records it, so the sheet at the address moves from the
+   * connecting words to the phrases; a caller that only lists the tools is not recorded.
+   */
+  function connector(seat: Seat, model?: string, recorded = true): McpServer {
+    return createMcpServer(
+      localRunner((hostName) => {
+        const q = quiltFor(seat.member, hostName, seat.witness, model);
+        if (!q) throw new Error('this address is gone');
+        return q;
+      }),
+      recorded
+        ? {
+            connected: (host) => {
+              quiltFor(seat.member, host ?? undefined)?.resolver.sawConnector(host);
+            },
+          }
+        : {},
+    );
+  }
+
+  /**
+   * One exchange with the connector for a caller that holds no MCP client: a connector for the seat and a client
+   * joined to it in memory, so a call over plain HTTP is held to each tool's schema and answered in the connector's
+   * words.
+   */
+  async function plain<T>(seat: Seat, model: string | undefined, work: (client: Client) => Promise<T>): Promise<T> {
+    const server = connector(seat, model, model !== undefined);
+    const client = new Client({ name: PLAIN_CLIENT, version: '1' });
+    const [here, there] = InMemoryTransport.createLinkedPair();
+    await server.connect(there);
+    await client.connect(here);
+    try {
+      return await work(client);
+    } finally {
+      await client.close();
+    }
+  }
+
+  /** The tools a caller over plain HTTP may call, each with its words and its input's schema, the card's left out. */
+  async function plainTools(seat: Seat): Promise<{ name: string; description: string; inputSchema: unknown }[]> {
+    const { tools } = await plain(seat, undefined, (client) => client.listTools());
+    return tools
+      .filter((t) => !isCardTool(t.name))
+      .map((t) => ({ name: t.name, description: t.description ?? '', inputSchema: t.inputSchema }));
+  }
+
+  /**
+   * One tool called over plain HTTP: the text a model reads and the handles the next call takes, or the error, a
+   * tracker's refusal and an input its schema refuses among them.
+   */
+  async function plainCall(
+    seat: Seat,
+    model: string,
+    name: string,
+    input: Record<string, unknown>,
+  ): Promise<{ text: string; handles: unknown } | { error: string }> {
+    try {
+      const r = await plain(seat, model, (client) => client.callTool({ name, arguments: input }));
+      const text = (r.content as { type: string; text?: string }[]).map((c) => c.text ?? '').join('\n');
+      if (r.isError) return { error: text };
+      const said = r.structuredContent as { text?: string; handles?: unknown } | undefined;
+      return { text: said?.text ?? text, handles: said?.handles ?? {} };
+    } catch (e) {
+      return { error: (e as Error).message };
+    }
   }
 
   /**
@@ -592,6 +672,52 @@ export function createHosted(options: HostedOptions): Hosted {
       }
     }
     let m: RegExpExecArray | null;
+    // The tools over plain HTTP, for an AI that can make a request and holds no MCP client: the list, and one POST a
+    // call. The address is the credential here as it is for the connector, and a token for another address is refused.
+    if ((m = /^\/mcp\/([0-9a-f]{64})\/tools(?:\/([a-z_]+))?$/.exec(path))) {
+      const hash = tokenHash(m[1]!);
+      const name = m[2];
+      const takes = name === undefined ? 'GET' : 'POST';
+      if (method !== takes) {
+        json(res, 405, { error: takes });
+        return true;
+      }
+      if (!store.getMember(hash)) {
+        json(res, 404, { error: 'no such address here' });
+        return true;
+      }
+      const b = oauth?.bearer(req) ?? { kind: 'none' as const };
+      if (b.kind === 'granted' && b.member !== hash) {
+        json(res, 403, { error: 'that token is for another address' });
+        return true;
+      }
+      const seat: Seat = { member: hash, witness: b.kind === 'granted' ? b.witness : null };
+      if (name === undefined) {
+        json(res, 200, { tools: await plainTools(seat) });
+        return true;
+      }
+      if (!isToolName(name) || isCardTool(name)) {
+        json(res, 404, { error: 'no such tool' });
+        return true;
+      }
+      const body = await readJson(req);
+      if (
+        !isRecord(body) ||
+        typeof body.model !== 'string' ||
+        body.model.length > 80 ||
+        !PLAIN_MODEL.test(body.model)
+      ) {
+        json(res, 400, { error: 'a call names the model that makes it: { "model": "vendor/name", "input": { } }' });
+        return true;
+      }
+      if (body.input !== undefined && !isRecord(body.input)) {
+        json(res, 400, { error: "input is an object of the tool's fields" });
+        return true;
+      }
+      const said = await plainCall(seat, body.model, name, body.input ?? {});
+      json(res, 'error' in said ? 400 : 200, said);
+      return true;
+    }
     if ((m = /^\/mcp\/([0-9a-f]{64})(?:\/(key|sheet))?$/.exec(path))) {
       const token = m[1]!;
       if (m[2] === 'sheet') {

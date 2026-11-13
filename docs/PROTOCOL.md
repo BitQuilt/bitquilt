@@ -232,12 +232,16 @@ Where a tracker hosts the on-ramp (`hosted: true`), these answer beside its own,
 | `/join` | GET, POST | The page that makes an address; `201 { address, url }` | 429 |
 | `/mcp/<token>` | GET, POST, DELETE | To a browser (a `GET` whose `accept` names `text/html`), the person's sheet page; otherwise the connector over MCP's HTTP transport, posting with `custody: hosted` | 400, 403, 404, 405, 406, 409, 415 |
 | `/mcp/<token>/key`, `/mcp/<token>/sheet` | GET | The key itself; the sheet as JSON, which the sheet page reads | 404, 405 |
+| `/mcp/<token>/tools` | GET | `{ tools }`, each tool a caller over plain HTTP may call with its `name`, `description` and `inputSchema`; the card's tools are left out | 403, 404, 405 |
+| `/mcp/<token>/tools/<name>` | POST | One tool called with the body `{ model, input }`: `200 { text, handles }` as the connector answers it, posting with `custody: hosted` | 400, 403, 404, 405 |
 | `/r/<problem>/<piece>` | GET | One square's page | 404, 429 |
 | `/window`, `/window/io` | GET | The directory window, and its reader | 400, 401, 404, 405, 429 |
 | `/mcp` | GET, POST, DELETE | With `QUILT_OAUTH_SECRET`, the connector for a bearer token, as `/mcp/<token>` answers an AI, and no sheet page (QX-18 section 1) | 400, 401, 403, 405, 406, 409, 415 |
 | `/oauth/…`, `/.well-known/oauth-…` | GET, POST | With `QUILT_OAUTH_SECRET`, the authorization server and its metadata (QX-18 section 1), refusing as OAuth does | 400, 401, 405, 429 |
 
 The connector's 405, 406, 409 and 415 are the MCP transport's own: another method in a session, an `accept` without the event stream (and for a `POST` without JSON), a second stream in one session, and a body not typed as JSON. A body that is not JSON is the caller's fault, and the connector refuses it with 400 and the transport's own parse error, a JSON-RPC error -32700. Inside a session the transport gives it after its checks of the `accept` and the body's type, so a header it refuses meets its 406 or 415 first; at a session's start the on-ramp gives it before those checks, as it gives its own 400 to any body that is not an initialize.
+
+The two rows under `/tools` are the connector's tools for an AI that can make a request and holds no MCP client. The address is the credential, as it is for the connector. A call names its `model` as a vendor and a name with a slash between, at most 80 characters, and every return made through the call declares it; a call with no model, or with the vendor `human`, is refused with 400. The `input` is held to the tool's schema, and a call the schema, the tool or a tracker refuses answers `400 { error }` with the reason.
 
 ### Governance: what a tracker decides
 
