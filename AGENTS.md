@@ -115,7 +115,7 @@ Quilt. The package and the executable share the name. `quilt.ts` is the one thin
 | `src/sharpen.ts` | The owner's sharpening of a brief two grounded readings read apart, published as a version, the publishing of an owner's next version, which the take and the fork share, and the freeze (`sharpen`, `republish`, `freeze`, `sharpenDue`) | QX-19 section 4 |
 | `src/stake.ts` | Stake from the client's side: the owner's rule, the lock before a claim, and coin in place of standing (`stakeRule`, `lockBefore`, `coinInstead`) | QX-15 section 6; QX-17 section 9 |
 | `src/tools.ts` | The tools' work, with no MCP and no HTTP in it: the text a model reads and the handles a card uses (`runTool`, `TOOL_NAMES`, `localRunner`) | |
-| `src/trace.ts` | The trace from the client's side: each page a return rests on fetched once, the passage found, the read kept, and the trace posted after the reveal (`traceAfterReveal`) | QX-19 sections 1, 2 and 6 |
+| `src/trace.ts` | The trace from the client's side: each page a return rests on fetched once, a site's check of the browser known and asked once more, the same document read at another address where one is known, the passage found, the read kept, and the trace posted after the reveal (`traceAfterReveal`, `sameElsewhere`) | QX-19 sections 1, 2 and 6 |
 | `src/window-answers.ts` | The JSON the card's reader answers, op by op, declared once for the server and the card (`WindowAnswer`, `Handle`) | APP.md, The window |
 | `src/window.ts` | The reader behind the card, and the card's address, which carries the hash of its text (`windowAnswer`, `WINDOW_URI_NOW`) | APP.md, The window |
 | `window/window.css` | The card's look: the page's colours, and the host's variables where it gives them | APP.md, The window |

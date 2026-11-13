@@ -4,6 +4,11 @@
  * puts the read on the problem's trackers under its hash, and after the reveal posts the trace with the spans. A
  * passage not found on the page as fetched is left out and said. Nothing a page says reaches the model: the read is
  * kept and hashed, and the only words that come back are the passage the model named itself.
+ *
+ * A site may answer a program with a check of the browser where the page should be. The client knows such an answer
+ * by its words, asks once more after a pause, and says so where the page is still not served. Where a page could not
+ * be read and another address is known to serve the same document, the client reads that one, and the read's `url`
+ * is the address it came from (QX-19 section 2).
  */
 import { type Hash, hashBytes } from '@bitquilt/core';
 import type { Door } from './door.js';
@@ -41,6 +46,23 @@ export const READ_MAX = 1024 * 1024;
 /** The longest passage, in bytes (QX-19 section 1). */
 export const PASSAGE_MAX = 2000;
 export const FETCH_MS = 15_000;
+/** How long the client waits before it asks once more of a site that answered with a check of the browser. */
+export const CHECK_PAUSE_MS = 2000;
+/** Why a page is left out where its site answered with a check of the browser in the page's place. */
+export const CHECKED = 'the site answered with a check of the browser, not the page';
+/**
+ * The words a check of the browser carries where the page should be, and the longest text taken for one: an article
+ * may say any of these of something else, and an article is long.
+ */
+const CHECK_WORDS = [
+  'checking your browser',
+  'recaptcha',
+  'verify you are human',
+  'verifying you are human',
+  'enable javascript and cookies to continue',
+  'are you a robot',
+];
+const CHECK_TEXT_MAX = 2000;
 const enc = new TextEncoder();
 
 /** Whitespace runs as one space, trimmed: the one form a read's text and a passage are compared in. */
@@ -72,6 +94,31 @@ export function drawText(body: string, contentType: string): string {
   return norm(text);
 }
 
+/** Whether a page's text is a site's check of the browser and not the page asked for. */
+export function browserCheck(text: string): boolean {
+  if (text.length > CHECK_TEXT_MAX) return false;
+  const lower = text.toLowerCase();
+  return CHECK_WORDS.some((w) => lower.includes(w));
+}
+
+/**
+ * Another address known to serve the same document, or null: an article of PubMed Central as Europe PMC serves its
+ * full text, the two archives holding the open-access articles in common. PubMed Central answers many programs with a
+ * check of the browser, and Europe PMC's service is made for programs.
+ */
+export function sameElsewhere(url: URL): string | null {
+  const m = /^(?:pmc\.ncbi\.nlm\.nih\.gov|(?:www\.)?ncbi\.nlm\.nih\.gov\/pmc)\/articles\/(PMC\d+)(?:\/|$)/i.exec(
+    url.hostname + url.pathname,
+  );
+  return m ? `https://www.ebi.ac.uk/europepmc/webservices/rest/${m[1]!.toUpperCase()}/fullTextXML` : null;
+}
+
+/** How a page is fetched where a test stands in for the pause and for the other address. */
+export interface ReadOptions {
+  pauseMs?: number;
+  elsewhere?: (url: URL) => string | null;
+}
+
 /**
  * Where a passage sits in a read's text, in bytes, or null when it is not there; the words as written first, then
  * without regard to case.
@@ -87,12 +134,15 @@ export function locate(text: string, passage: string): [number, number] | null {
 }
 
 /**
- * A page fetched once and drawn to text, or the reason it could not be. Where the connector is shared
- * (`QUILT_READS=public`, which the hosted binary sets), it fetches on a stranger's word and serves what it kept to
- * anyone, so the GET is `publicFetch`'s, refused at a private address on every hop. In either case the body is read to
- * READ_MAX and no further, and the reason names the kind of failure and nothing the network or the page said.
+ * A page read for a rest, or the reason it could not be. A site's check of the browser is asked once more after a
+ * pause. A page that still could not be read is read at another address known to serve the same document, where there
+ * is one, and the read says the address it came from; where that fails too, the reason is the first address's.
  */
-export async function fetchRead(url: string, now: string): Promise<{ read: ReadKept } | { why: string }> {
+export async function fetchRead(
+  url: string,
+  now: string,
+  options: ReadOptions = {},
+): Promise<{ read: ReadKept } | { why: string }> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -100,6 +150,27 @@ export async function fetchRead(url: string, now: string): Promise<{ read: ReadK
     return { why: 'not a URL' };
   }
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return { why: 'not an http or https URL' };
+  let got = await readOnce(url, now);
+  if ('why' in got && got.why === CHECKED) {
+    await new Promise((done) => setTimeout(done, options.pauseMs ?? CHECK_PAUSE_MS));
+    got = await readOnce(url, now);
+  }
+  if ('read' in got) return got;
+  const other = (options.elsewhere ?? sameElsewhere)(parsed);
+  if (other) {
+    const there = await readOnce(other, now);
+    if ('read' in there) return there;
+  }
+  return got;
+}
+
+/**
+ * A page fetched once and drawn to text, or the reason it could not be. Where the connector is shared
+ * (`QUILT_READS=public`, which the hosted binary sets), it fetches on a stranger's word and serves what it kept to
+ * anyone, so the GET is `publicFetch`'s, refused at a private address on every hop. In either case the body is read to
+ * READ_MAX and no further, and the reason names the kind of failure and nothing the network or the page said.
+ */
+async function readOnce(url: string, now: string): Promise<{ read: ReadKept } | { why: string }> {
   const signal = AbortSignal.timeout(FETCH_MS);
   const accept = 'text/html, text/plain;q=0.9, */*;q=0.1';
   try {
@@ -119,6 +190,7 @@ export async function fetchRead(url: string, now: string): Promise<{ read: ReadK
     const text = drawText(new TextDecoder().decode(raw), contentType);
     const bytes = enc.encode(text);
     if (bytes.length === 0) return { why: 'the page has no text' };
+    if (browserCheck(text)) return { why: CHECKED };
     return { read: { url, hash: hashBytes(bytes), at: now, media: 'text/plain', bytes, text } };
   } catch (e) {
     if (e instanceof Refused) return { why: e.why };
