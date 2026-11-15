@@ -200,6 +200,11 @@ export interface Pattern {
  */
 export interface Standing {
   tracker: string;
+  /**
+   * The root the key counts for at that tracker (CORE.md section 6, Roots and delegates): the key itself, or the root
+   * that delegated to it or that it was rotated to. The standing is that root's.
+   */
+  root: Address;
   standing: number;
   locked: number;
   free: number;
@@ -445,6 +450,7 @@ export class Quilt {
       return (
         j && {
           tracker: t,
+          root: j.root ?? address,
           standing: j.standing,
           locked: j.locked,
           free: j.free,
@@ -453,6 +459,17 @@ export class Quilt {
         }
       );
     });
+  }
+
+  /**
+   * The root this key counts for, as the first tracker that answers folds it (CORE.md section 6, Roots and delegates):
+   * the key itself, or the root it was delegated by or rotated to; null where no tracker answers.
+   */
+  private async rootOf(address: Address): Promise<Address | null> {
+    return this.firstAnswer(
+      this.config.trackers,
+      async (t) => (await this.ask<{ root?: Address }>(`${t}k/${address}/standing`))?.root ?? null,
+    );
   }
 
   /**
@@ -1394,6 +1411,14 @@ export class Quilt {
     topics: string[],
   ): Promise<Published> {
     const id = this.needKey();
+    // CORE.md section 4: a `version` is "Signed by a root", and an owner's acts are its root's. A key that signs for
+    // another root, delegated by it or rotated to it, would publish a problem its own events could not keep, so
+    // nothing is posted and the refusal names the root.
+    const root = await this.rootOf(id.address);
+    if (root && root !== id.address)
+      throw new Error(
+        `This key signs for the root ${root}, which is held elsewhere, and a problem is published by a root (CORE.md section 4). Nothing was posted.`,
+      );
     const hash = problemHash(envelope);
     const body = JSON.stringify({
       envelope,

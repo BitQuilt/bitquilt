@@ -1,5 +1,5 @@
-// The tracker as this app reads it: the join, a person's sheet, the problems and one problem's map
-// (docs/PROTOCOL.md, Routes and The on-ramp's routes). The app signs nothing; the tracker holds the key.
+// The tracker as this app reads it: the join, a person's sheet, the problems and one problem's map, the root a key
+// counts for, and the identity log this phone's root posts to (docs/PROTOCOL.md, Routes and The on-ramp's routes).
 import Foundation
 
 /// A problem as the tracker's search lists it.
@@ -58,8 +58,10 @@ struct PhraseGroup: Decodable, Identifiable {
 
 /// A person's sheet at their address: whether an AI has connected, their standing, and the sentences to say.
 struct Sheet: Decodable {
+    /// The standing of the address's key, and the root that key counts for.
     struct Standing: Decodable {
         let standing: Double
+        let root: String?
     }
 
     /// The tracker's record of the AI that connected: when it first did, and when it last did.
@@ -90,6 +92,14 @@ private struct Refusal: Decodable {
 
 struct TrackerError: LocalizedError {
     let errorDescription: String?
+    var status = 0
+}
+
+/// A key as the tracker counts it: the root it signs for, and that root's standing.
+struct KeyStanding: Decodable {
+    let address: String
+    let root: String
+    let standing: Double
 }
 
 struct Tracker {
@@ -117,6 +127,36 @@ struct Tracker {
         let url = base.appending(path: "search").appending(queryItems: [URLQueryItem(name: "q", value: words)])
         let found: Found = try await answer(URLRequest(url: url))
         return found.problems
+    }
+
+    /// The root a key counts for, and its standing.
+    static func standing(of address: String) async throws -> KeyStanding {
+        try await answer(URLRequest(url: base.appending(path: "k/\(address)/standing")))
+    }
+
+    /// An event for the identity log. A door that already holds it has taken it.
+    static func post(identity event: WireEvent) async throws {
+        struct Taken: Decodable { let id: String }
+        do {
+            let _: Taken = try await answer(posting(event, to: base.appending(path: "k/events")))
+        } catch let refusal as TrackerError where refusal.status == 409 {}
+    }
+
+    /// A rotation the phone wrote and signed as the new root, for the on-ramp to sign as the old and post.
+    static func rotate(at address: String, event: WireEvent) async throws {
+        struct Rotated: Decodable { let id: String }
+        guard let url = URL(string: address + "/rotate") else { throw TrackerError(errorDescription: "That is not an address.") }
+        do {
+            let _: Rotated = try await answer(posting(event, to: url))
+        } catch let refusal as TrackerError where refusal.status == 409 {}
+    }
+
+    private static func posting(_ event: WireEvent, to url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = event.posted
+        return request
     }
 
     static func state(of problem: String) async throws -> ProblemState {
@@ -147,7 +187,7 @@ struct Tracker {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200 ..< 300).contains(status) else {
             let why = (try? JSONDecoder().decode(Refusal.self, from: data))?.error
-            throw TrackerError(errorDescription: why.map { "The tracker says: \($0)." } ?? "The tracker answered \(status).")
+            throw TrackerError(errorDescription: why.map { "The tracker says: \($0)." } ?? "The tracker answered \(status).", status: status)
         }
         return try JSONDecoder().decode(T.self, from: data)
     }

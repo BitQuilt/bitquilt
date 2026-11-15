@@ -1351,6 +1351,7 @@ describe('quilt_me', () => {
       }),
       standing: async () => ({
         tracker: 'https://t.example/',
+        root: '0x1111111111111111111111111111111111111111',
         standing: 12,
         locked: 3,
         free: 9,
@@ -1391,6 +1392,7 @@ describe('quilt_me', () => {
       me: me({ witness: { via: 'chatgpt.com', client: null, by: 'address' } }),
       standing: async () => ({
         tracker: 'https://t.example/',
+        root: '0x1111111111111111111111111111111111111111',
         standing: 4,
         locked: 0,
         free: 4,

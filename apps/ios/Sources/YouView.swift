@@ -1,6 +1,8 @@
 // The person's own page. Until Quilt is in their Claude it shows the steps left, each marked done as the phone finds
-// it so: Claude's app on this phone, an address made, and an AI connected at the address, which the tracker records.
-// After that it shows their standing and the sentences to say, as the sheet at their address gives them.
+// it so: Claude's app on this phone, a key and an address made, and an AI connected at the address, which the tracker
+// records. After that it shows their standing and the sentences to say, as the sheet at their address gives them.
+// Under either it says where the person's key is: on this phone, with the tracker's key signing for it, or at the
+// tracker, with the way to bring it here.
 import SwiftUI
 import UIKit
 
@@ -21,7 +23,7 @@ struct YouView: View {
                     } else {
                         Setup()
                     }
-                    if let address = store.address { YourAddress(address: address) }
+                    if let address = store.address { YourKey(address: address) }
                 }
                 .padding(20)
                 .padding(.bottom, 60)
@@ -78,11 +80,11 @@ private struct Setup: View {
 
     @ViewBuilder private var address: some View {
         if store.address != nil {
-            Step(done: true, title: "Your address is made", about: nil) { EmptyView() }
+            Step(done: true, title: store.phoneHoldsRoot ? "Your key is on this phone, and your address is made" : "Your address is made", about: nil) { EmptyView() }
         } else {
-            Step(done: false, title: "Make your address",
-                 about: "The tracker makes a key and holds it for you. Your address is how your Claude signs its work, and it is yours to take elsewhere.") {
-                Button(working ? "Making your address" : "Make my address") {
+            Step(done: false, title: "Make your key and your address",
+                 about: "This phone makes your key and keeps it. The tracker makes a second key, the one your Claude signs its work with, and your key says that it may. Your work is your key's, on any tracker.") {
+                Button(working ? "Making your key" : "Make my key and address") {
                     working = true
                     Task {
                         await store.join()
@@ -92,7 +94,7 @@ private struct Setup: View {
                 .buttonStyle(Lead(leads: store.claudeInstalled))
                 .disabled(working)
                 if pasting {
-                    Text("If Quilt is already in your Claude, paste the address it was added with, and this page will know.")
+                    Text("If Quilt is already in your Claude, paste the address it was added with, and this page will know. Its key is at the tracker, and this page then offers to bring it under a key of this phone's.")
                         .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
                     TextField("https://tracker.bitquilt.org/mcp/…", text: $pasted, axis: .vertical)
                         .font(Typeface.mono())
@@ -178,31 +180,70 @@ private struct Step<Action: View>: View {
     }
 }
 
-/// The address held on this phone: a copy of it, and the way to take it off.
-private struct YourAddress: View {
+/// Where the person's key is, and the address their Claude signs through: a copy of it, the end of the tracker's key
+/// where this phone holds the root, the way to bring the root here where the tracker holds it, and the way to take
+/// the address off this phone.
+private struct YourKey: View {
     let address: String
     @Environment(Store.self) private var store
     @State private var copied = false
     @State private var forgetting = false
+    @State private var revoking = false
+    @State private var working = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Your address").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
-            Text("Whoever holds this address signs as you, so treat it as a password. The tracker holds the key behind it.")
+            if store.phoneHoldsRoot {
+                Text("Your key is on this phone").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
+                if let mine = store.root?.key?.address {
+                    Text(mine.prefix(8) + "…" + mine.suffix(6)).font(Typeface.mono()).foregroundStyle(Palette.ink2)
+                }
+                Text("Your work and your standing are this key's. It is kept in this phone's keychain, and in iCloud Keychain where that is on. The tracker holds a second key, which signs your Claude's work for yours until you end it.")
+                    .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+            } else if store.sheet != nil {
+                Text("The tracker holds your key").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
+                Text("This address signs with a key the tracker made and keeps. This phone can make a key of its own and take the address in: the work so far becomes this phone's key's, and the tracker's key signs on for it until you end it.")
+                    .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+                Button(working ? "Bringing it here" : "Bring my key to this phone") {
+                    working = true
+                    Task {
+                        await store.bringHome()
+                        working = false
+                    }
+                }
+                .buttonStyle(QuietButton())
+                .disabled(working)
+            }
+            Text("Your address").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink).padding(.top, 8)
+            Text(store.phoneHoldsRoot
+                ? "The address is how your Claude reaches the tracker's key. Whoever holds it signs your Claude's work as you, so treat it as a password."
+                : "Whoever holds this address signs as you, so treat it as a password.")
                 .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
             Button(copied ? "Copied" : "Copy my address") {
                 UIPasteboard.general.string = address
                 copied = true
             }
             .buttonStyle(QuietButton())
+            if store.phoneHoldsRoot {
+                Button("End the tracker's key", role: .destructive) { revoking = true }
+                    .font(Typeface.text(15, relativeTo: .subheadline))
+                    .padding(.top, 4)
+            }
             Button("Take this address off this phone", role: .destructive) { forgetting = true }
                 .font(Typeface.text(15, relativeTo: .subheadline))
                 .padding(.top, 4)
         }
+        .confirmationDialog("End the tracker's key?", isPresented: $revoking, titleVisibility: .visible) {
+            Button("End it", role: .destructive) { Task { await store.revoke() } }
+        } message: {
+            Text("This phone's key signs that the tracker's key signs for it no longer. Nothing your Claude sends through this address counts after that, and the address is taken off this phone. Work already accepted stays yours. To work again, make a new address here and add it to Claude.")
+        }
         .confirmationDialog("Take this address off this phone?", isPresented: $forgetting, titleVisibility: .visible) {
             Button("Take it off", role: .destructive) { store.forget() }
         } message: {
-            Text("The address still works wherever it is kept. If this phone holds the only copy, copy it somewhere first: nothing else can bring it back.")
+            Text(store.phoneHoldsRoot
+                ? "The address still works wherever it is kept, and your key stays on this phone. If this phone holds the only copy of the address, copy it somewhere first."
+                : "The address still works wherever it is kept. If this phone holds the only copy, copy it somewhere first: nothing else can bring it back.")
         }
     }
 }
@@ -219,7 +260,7 @@ private struct Connected: View {
                 Text(number(sheet.standing?.standing ?? 0)).font(Typeface.text(44, bold: true, relativeTo: .largeTitle)).foregroundStyle(Palette.doneInk)
                 Text("Your standing, earned by work that stood and not for sale.")
                     .font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink2)
-                if let address = sheet.address {
+                if let address = sheet.standing?.root ?? sheet.address {
                     Text(address.prefix(8) + "…" + address.suffix(6)).font(Typeface.mono()).foregroundStyle(Palette.ink2)
                 }
                 if let last = sheet.connector.flatMap({ moment($0.last) }) {

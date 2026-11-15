@@ -1,6 +1,6 @@
-// What the app holds: the person's address, kept in the keychain since the address is its own credential, their
-// sheet as the tracker last gave it, whether Claude's app is on this phone, the tab in front, and the sentence on its
-// way to Claude.
+// What the app holds: the person's root key, the address their Claude signs through, kept in the keychain since the
+// address is its own credential, their sheet as the tracker last gave it, whether Claude's app is on this phone, the
+// tab in front, and the sentence on its way to Claude.
 import Foundation
 import Observation
 import Security
@@ -12,23 +12,79 @@ final class Store {
     private(set) var address: String? = UserDefaults.standard.string(forKey: "address") ?? Keychain.read()
     private(set) var sheet: Sheet?
     private(set) var problem: String?
+    /// The person's root key, made on this phone and kept in its keychain (Root.swift).
+    private(set) var root: Root? = RootStore.read()
     /// Whether Claude's app is on this phone, asked again each time the app comes to the front.
     private(set) var claudeInstalled = Claude.installed
-    /// The person's own page first while they hold no address here, since it is where one is made.
-    var tab = Keychain.read() == nil ? "you" : "problems"
+    /// The person's own page first while they hold no address here, since it is where one is made. `-tab you` at
+    /// launch names the tab for a run in the simulator.
+    var tab = UserDefaults.standard.string(forKey: "tab") ?? (Keychain.read() == nil ? "you" : "problems")
     var handOff: HandOff?
 
     /// Whether an AI has connected at this address: the tracker records the first time one does, so the sheet says
     /// whether Quilt is in the person's Claude.
     var connected: Bool { sheet?.connected ?? false }
 
-    /// Makes an address at the tracker and keeps it.
+    /// Whether the key behind the address signs for this phone's root, as the tracker counts it: the sheet names the
+    /// root the address's key counts for.
+    var phoneHoldsRoot: Bool {
+        guard let mine = root?.key?.address, let counted = sheet?.standing?.root else { return false }
+        return mine == counted
+    }
+
+    /// Makes the root here where there is none, makes an address at the tracker, and says at once, as the root, that
+    /// the address's key signs for it: the key has signed nothing yet, which a delegation asks.
     func join() async {
         await attempt {
+            let key = try self.signing()
             let joined = try await Tracker.join()
             self.keep(joined.url)
+            try await Identity.delegate(key, to: joined.address)
         }
         await refresh()
+    }
+
+    /// Puts an address whose key the tracker holds as a root under this phone's key. A root that has signed nothing
+    /// takes it by a rotation, and everything the address did becomes this phone's. A root that has signed can only
+    /// delegate, which stands where the address has signed nothing, as after a join whose delegation did not arrive.
+    func bringHome() async {
+        guard let address, let key = sheet?.address else { return }
+        await attempt {
+            let rotates = !(self.root?.signed ?? false) || self.root?.took == key
+            let mine = try self.signing(taking: rotates ? key : nil)
+            if rotates {
+                try await Identity.rotate(at: address, from: key, to: mine)
+            } else {
+                try await Identity.delegate(mine, to: key)
+            }
+        }
+        await refresh()
+    }
+
+    /// Ends the tracker's key: from the revoke's receipt it signs for this phone's root no longer. The address is taken
+    /// off this phone, since nothing signed through it would count. Work already accepted stays the root's.
+    func revoke() async {
+        guard let key = sheet?.address else { return }
+        var ended = false
+        await attempt {
+            try await Identity.revoke(try self.signing(), of: key)
+            ended = true
+        }
+        if ended { forget() }
+    }
+
+    /// The root's key for an act that signs, made and kept where there is none, and marked as having signed before it
+    /// does, with the address a rotation takes, so a post whose answer was lost is not taken for one never made.
+    private func signing(taking: String? = nil) throws -> SigningKey {
+        var held = try root ?? RootStore.make()
+        guard let key = held.key else { throw WireError(errorDescription: "The key in this phone's keychain is not one.") }
+        if !held.signed || (taking != nil && held.took != taking) {
+            held.signed = true
+            if let taking { held.took = taking }
+            RootStore.write(held)
+        }
+        root = held
+        return key
     }
 
     /// Keeps an address the person already holds, once the tracker answers its sheet.
@@ -62,7 +118,8 @@ final class Store {
         }
     }
 
-    /// Takes the address off this phone. The key stays at the tracker, reached by the address alone.
+    /// Takes the address off this phone. The root stays in the keychain, and the address's key stays at the tracker,
+    /// reached by the address alone.
     func forget() {
         Keychain.delete()
         address = nil
