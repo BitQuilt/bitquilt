@@ -6,13 +6,11 @@ import SwiftUI
 @main
 struct QuiltApp: App {
     @State private var store = Store()
-    /// The person's own page first while they hold no address here, since it is where one is made.
-    @State private var tab = Keychain.read() == nil ? "you" : "problems"
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
-            TabView(selection: $tab) {
+            TabView(selection: $store.tab) {
                 ProblemsView()
                     .tabItem { Label("Problems", systemImage: "square.grid.3x3.fill") }
                     .tag("problems")
@@ -24,7 +22,7 @@ struct QuiltApp: App {
             .tint(Palette.act)
             .sheet(item: $store.handOff) { HandOffSheet(handOff: $0) }
             .task { await store.refresh() }
-            // Back from Claude: the sheet says whether an AI has connected since.
+            // Back from Claude or the App Store: whether Claude's app is here now, and whether an AI has connected since.
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await store.refresh() } }
             }

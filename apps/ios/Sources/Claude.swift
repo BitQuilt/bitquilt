@@ -4,6 +4,16 @@ import SwiftUI
 import UIKit
 
 enum Claude {
+    /// Claude's page on the App Store.
+    static let appStore = URL(string: "https://apps.apple.com/app/id6473753684")!
+
+    /// Whether Claude's app is on this phone: it answers the scheme claude, which Info.plist names as one this app
+    /// asks about. `-claude yes` or `-claude no` at launch says it for a run in the simulator.
+    @MainActor static var installed: Bool {
+        if let named = UserDefaults.standard.string(forKey: "claude") { return named == "yes" }
+        return UIApplication.shared.canOpenURL(URL(string: "claude://")!)
+    }
+
     /// Claude's Add custom connector window with the address and the name Quilt filled in, as the join page links it.
     static func addConnector(_ address: String) -> URL {
         URL(string: "https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Quilt&connectorUrl="
@@ -31,6 +41,7 @@ struct HandOff: Identifiable {
 }
 
 /// The sentence shown before it goes, with the ways to send it: Claude opened on it, a copy, or the share sheet.
+/// Where Claude's app is not on this phone the button says where the sentence opens, and the App Store is one tap away.
 struct HandOffSheet: View {
     let handOff: HandOff
     @Environment(\.openURL) private var openURL
@@ -50,12 +61,17 @@ struct HandOffSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.rule))
-            Button("Open Claude") {
+            Button(Claude.installed ? "Open Claude" : "Open Claude in Safari") {
                 UIPasteboard.general.string = handOff.sentence
                 openURL(Claude.chat(saying: handOff.sentence))
                 dismiss()
             }
             .buttonStyle(ActButton())
+            if !Claude.installed {
+                Link("Claude's app is not on this phone. Get it from the App Store.", destination: Claude.appStore)
+                    .font(Typeface.text(14, relativeTo: .footnote))
+                    .multilineTextAlignment(.leading)
+            }
             HStack(spacing: 12) {
                 Button(copied ? "Copied" : "Copy") {
                     UIPasteboard.general.string = handOff.sentence

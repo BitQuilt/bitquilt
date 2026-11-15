@@ -1,5 +1,6 @@
 // What the app holds: the person's address, kept in the keychain since the address is its own credential, their
-// sheet as the tracker last gave it, and the sentence on its way to Claude.
+// sheet as the tracker last gave it, whether Claude's app is on this phone, the tab in front, and the sentence on its
+// way to Claude.
 import Foundation
 import Observation
 import Security
@@ -11,8 +12,14 @@ final class Store {
     private(set) var address: String? = UserDefaults.standard.string(forKey: "address") ?? Keychain.read()
     private(set) var sheet: Sheet?
     private(set) var problem: String?
+    /// Whether Claude's app is on this phone, asked again each time the app comes to the front.
+    private(set) var claudeInstalled = Claude.installed
+    /// The person's own page first while they hold no address here, since it is where one is made.
+    var tab = Keychain.read() == nil ? "you" : "problems"
     var handOff: HandOff?
 
+    /// Whether an AI has connected at this address: the tracker records the first time one does, so the sheet says
+    /// whether Quilt is in the person's Claude.
     var connected: Bool { sheet?.connected ?? false }
 
     /// Makes an address at the tracker and keeps it.
@@ -37,10 +44,22 @@ final class Store {
         }
     }
 
-    /// Reads the sheet again: whether an AI has connected, the standing and the sentences.
+    /// Looks again: whether Claude's app is on this phone, and the sheet, which says whether an AI has connected, the
+    /// standing and the sentences.
     func refresh() async {
+        claudeInstalled = Claude.installed
         guard let address else { return }
         await attempt { self.sheet = try await Tracker.sheet(at: address) }
+    }
+
+    /// Asks the tracker every few seconds until an AI has connected, so the page moves on by itself once Quilt is in
+    /// Claude. A read that fails is tried again and says nothing.
+    func awaitConnection() async {
+        while let address, !connected, !Task.isCancelled {
+            if let sheet = try? await Tracker.sheet(at: address) { self.sheet = sheet }
+            if connected { break }
+            try? await Task.sleep(for: .seconds(3))
+        }
     }
 
     /// Takes the address off this phone. The key stays at the tracker, reached by the address alone.
