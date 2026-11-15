@@ -1,5 +1,5 @@
 // One problem: the owner's statement of when it is done, quoted as theirs, the map of its pieces, and the two
-// sentences that send the person's Claude to it.
+// sentences that send the person's Claude to it, or, until Quilt is in their Claude, the way to the steps left.
 import SwiftUI
 
 struct ProblemView: View {
@@ -45,16 +45,22 @@ struct ProblemView: View {
                 }
 
                 VStack(spacing: 12) {
-                    Button("Take a piece with Claude") {
-                        store.handOff = HandOff(title: "Take a piece", sentence: "Open \(link) on Quilt and take a piece.")
-                    }
-                    .buttonStyle(ActButton())
-                    Button("Ask Claude what it asks") {
-                        store.handOff = HandOff(title: "Open a problem", sentence: "Open \(link) on Quilt and tell me what it asks.")
-                    }
-                    .buttonStyle(QuietButton())
-                    if !store.connected {
-                        Text("Your Claude needs Quilt added before it can take a piece. The You tab has the one step.")
+                    if store.connected {
+                        Button("Take a piece with Claude") {
+                            store.handOff = HandOff(title: "Take a piece", sentence: "Open \(link) on Quilt and take a piece.")
+                        }
+                        .buttonStyle(ActButton())
+                        Button("Ask Claude what it asks") {
+                            store.handOff = HandOff(title: "Open a problem", sentence: "Open \(link) on Quilt and tell me what it asks.")
+                        }
+                        .buttonStyle(QuietButton())
+                    } else {
+                        // Quilt is not in the person's Claude yet, so a sentence would reach a Claude that cannot act on it.
+                        Button(store.address == nil ? "Set up Quilt to take a piece" : "Add Quilt to Claude to take a piece") {
+                            store.tab = "you"
+                        }
+                        .buttonStyle(ActButton())
+                        Text("Your Claude does the work, and it needs Quilt added first. The You tab shows what is left.")
                             .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
                     }
                 }

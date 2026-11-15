@@ -62,8 +62,15 @@ struct Sheet: Decodable {
         let standing: Double
     }
 
+    /// The tracker's record of the AI that connected: when it first did, and when it last did.
+    struct Connector: Decodable {
+        let first: String
+        let last: String
+    }
+
     let state: String
     let address: String?
+    let connector: Connector?
     let first: Phrase
     let groups: [PhraseGroup]
     let standing: Standing?
