@@ -82,9 +82,12 @@ private struct Setup: View {
         if store.address != nil {
             Step(done: true, title: store.phoneHoldsRoot ? "Your key is on this phone, and your address is made" : "Your address is made", about: nil) { EmptyView() }
         } else {
-            Step(done: false, title: "Make your key and your address",
-                 about: "This phone makes your key and keeps it. The tracker makes a second key, the one your Claude signs its work with, and your key says that it may. Your work is your key's, on any tracker.") {
-                Button(working ? "Making your key" : "Make my key and address") {
+            // After a revoke, or an address taken off, the root is still here and only the address is new.
+            Step(done: false, title: store.root == nil ? "Make your key and your address" : "Make a new address",
+                 about: store.root == nil
+                     ? "This phone makes your key and keeps it. The tracker makes a second key, the one your Claude signs its work with, and your key says that it may. Your work is your key's, on any tracker."
+                     : "Your key is on this phone. The tracker makes a second key, the one your Claude signs its work with, and your key says that it may.") {
+                Button(working ? "Making it" : store.root == nil ? "Make my key and address" : "Make my address") {
                     working = true
                     Task {
                         await store.join()
