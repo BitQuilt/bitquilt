@@ -1,7 +1,10 @@
-// The problems the tracker carries, searched by every word, each a row with how far it has got.
+// The problems the tracker carries, searched by every word, each a row with how far it has got. The list is read again
+// as the person's Claude's work changes and when this phone publishes a problem, so a square their Claude settled or a
+// problem their key signed is there when they look.
 import SwiftUI
 
 struct ProblemsView: View {
+    @Environment(Store.self) private var store
     @State private var problems: [Problem] = []
     @State private var words = ""
     @State private var trouble: String?
@@ -34,6 +37,7 @@ struct ProblemsView: View {
                 await load()
             }
             .refreshable { await load() }
+            .onChange(of: store.pulse) { Task { await load() } }
         }
     }
 
