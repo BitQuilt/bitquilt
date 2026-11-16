@@ -326,7 +326,7 @@ function named(text: string): string {
 }
 
 const LEGEND =
-  'Legend: . open, i in flight, s sealed, v needs a second production, d disputed, p accepted within the window, a accepted, u unreachable, l locked, c challenged, j a panel ranking candidates, r readings being recorded, R recorded, every reading standing, ^ inherited, its square standing on a problem the fork came from, ? a kind neither this client nor the tracker that answered implements.';
+  'Legend: . open, i in flight, s sealed, v read once, d disputed, p accepted within the window, a accepted, u unreachable, l locked, c challenged, j a panel ranking candidates, r readings being recorded, R recorded, every reading standing, ^ inherited, its square standing on a problem the fork came from, ? a kind neither this client nor the tracker that answered implements.';
 const OWNER = '0xF7Edc8FA1eCc32967F827C9043FcAe6ba73afA5c';
 const B = '0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF';
 const C = '0x6813Eb9362372EEF6200f3b1dbC3f819671cBA69';

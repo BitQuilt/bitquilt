@@ -122,7 +122,7 @@ struct Work: Decodable, Equatable {
             case "accepted", "accepted_provisional": return .agreed
             case "recorded": return .recorded
             case "disputed", "challenged": return .differs
-            default: return .waiting
+            default: return .onRecord
             }
         }
 
@@ -133,7 +133,7 @@ struct Work: Decodable, Equatable {
             case .aside: return "Set aside: \(why ?? "it rests on nothing where another reading rests on the record"). It stays on the record."
             case .kept: return "Kept on the record, and it counts for nothing on this piece: \(why ?? "the piece had its readings")."
             case .agreed:
-                let who = agreeing.isEmpty ? "A second AI" : Vendor.list(agreeing)
+                let who = agreeing.isEmpty ? "Another AI" : Vendor.list(agreeing)
                 return state == "accepted"
                     ? "\(who) gave the same answer. The square is settled."
                     : "\(who) gave the same answer. The square is green, and open to challenge for a while."
@@ -143,18 +143,24 @@ struct Work: Decodable, Equatable {
             case .differs:
                 return state == "challenged"
                     ? "The square is challenged. A panel reads it again."
-                    : "Another AI read it differently. Both readings are kept, and the piece goes out again."
-            case .waiting:
+                    : "Another AI read it differently. Both readings are kept, each under its own key, and the piece goes out for a third."
+            case .onRecord:
                 switch state {
-                case "recording": return "Kept. The piece is taking more readings."
-                case "judging": return "Kept. A panel is ranking the candidates."
-                default: return "Waiting on a second AI from another company."
+                case "recording": return "On the record under your key. The piece is taking more readings, and every one is kept."
+                case "judging": return "On the record under your key. A panel is ranking the candidates."
+                default:
+                    let n = (beside ?? []).count
+                    return n == 0
+                        ? "On the record under your key. It is the first reading of this piece."
+                        : "On the record under your key, beside \(n) other reading\(n == 1 ? "" : "s")."
                 }
             }
         }
     }
 
-    enum Standing { case waiting, agreed, recorded, differs, kept, aside, struck }
+    /// `onRecord` is a reading kept where its piece has no square yet: an answer is whole once it is signed, and a
+    /// square is what a second reading may make of it.
+    enum Standing { case onRecord, agreed, recorded, differs, kept, aside, struck }
 
     let address: String
     let root: String
@@ -212,17 +218,17 @@ extension Work {
             let fresh = seen[r.key] == nil
             switch r.standing {
             case .agreed:
-                out.append(News(kind: .agreed, title: fresh ? "Your Claude's answer was matched" : "A second AI agreed",
+                out.append(News(kind: .agreed, title: fresh ? "Your Claude's answer was matched" : "Another AI read it the same",
                                 body: "\(r.name): \(r.story)", state: r.state))
             case .differs:
                 out.append(News(kind: .differs, title: "Another AI read it differently",
-                                body: "\(r.name): both readings are kept on the record.", state: r.state))
+                                body: "\(r.name): both readings are kept, each under its own key.", state: r.state))
             case .recorded:
                 out.append(News(kind: .other, title: "Recorded", body: "\(r.name): \(r.story)", state: r.state))
             case .kept, .aside, .struck:
                 out.append(News(kind: .other, title: fresh ? "Your Claude handed back an answer" : "A reading changed",
                                 body: "\(r.name): \(r.story)", state: r.state))
-            case .waiting:
+            case .onRecord:
                 guard fresh else { continue }
                 out.append(News(kind: .returned, title: "Your Claude handed back an answer",
                                 body: "\(r.name). \(r.said.map { $0 + " " } ?? "")\(r.story)", state: r.state))

@@ -15,6 +15,8 @@ enum Palette {
     static let doneInk = pair(0x2F6B48, 0x8FD3A9)
     static let provisional = pair(0x9CC7AC, 0x2C5C40)
     static let work = pair(0xC9D2EC, 0x3B4A7A)
+    /// A piece with a reading kept on it and no square yet, the card's `--verify`.
+    static let read = pair(0xF3D9A4, 0x7A6430)
     static let open = pair(0xF6F2EA, 0x2A3147)
     static let madder = pair(0xB5603A, 0xB5603A)
 
@@ -32,7 +34,8 @@ enum Palette {
         switch state {
         case "accepted", "recorded": return done
         case "accepted_provisional": return provisional
-        case "in_flight", "sealed", "needs_verify", "judging", "recording": return work
+        case "needs_verify", "recording": return read
+        case "in_flight", "sealed", "judging": return work
         case "disputed", "challenged": return madder
         case "open": return open
         default: return rule

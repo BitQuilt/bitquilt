@@ -290,7 +290,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
       description: [
         "Hands back a return for a piece this client was handed: a commit with the hash of the return, then its reveal, both signed with this client's key and posted to the problem's trackers.",
         "The return is an object with the fields the piece's schema names, every string plain text.",
-        "What the piece waits for next depends on its kind: another vendor's agreement, a second person, a panel's ranking, or nothing, for an attest piece, which is accepted at once on this record, and for a record piece, where the reading stands as given beside the others.",
+        "The return is kept on the problem's record under the key that signed it. What makes the piece's square from there depends on its kind: another vendor's agreement, a second person, a panel's ranking, or nothing more, for an attest piece, which is accepted at once on this record, and for a record piece, where the reading stands as given beside the others.",
         'Beside the return, rests may say for a field which page it rests on and the words on it (QX-19): the client fetches the page, keeps its text under its hash, finds the words, and posts the trace beside the reveal; a passage not found on the page as fetched is left out and said.',
         'Where two readings of a piece differ, one whose fields rest on a kept page stands and one that rests on nothing is set aside: the piece goes out again for another reading, and the reading set aside counts for nothing until a trace rests it on a page.',
       ].join(' '),

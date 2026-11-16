@@ -31,8 +31,8 @@ final class WorkTests: XCTestCase {
         XCTAssertEqual(r.fields.map(\.name), ["pages", "sure", "verdict", "note", "quote"])
         XCTAssertEqual(r.fields.map(\.value), ["3", "yes", "supports", "left blank", "in so many words"])
         XCTAssertEqual(r.rests, [Work.Rest(field: "quote", url: "https://paper.example/one", passage: "in so many words")])
-        XCTAssertEqual(r.standing, .waiting)
-        XCTAssertEqual(r.story, "Waiting on a second AI from another company.")
+        XCTAssertEqual(r.standing, .onRecord)
+        XCTAssertEqual(r.story, "On the record under your key. It is the first reading of this piece.")
     }
 
     func testAShortReturnSaysItsVerdictAndNotANumberBesideIt() throws {
@@ -54,7 +54,7 @@ final class WorkTests: XCTestCase {
         XCTAssertEqual(w.readings.map(\.standing), [.agreed, .agreed, .differs, .aside, .kept, .struck, .recorded])
         XCTAssertEqual(w.readings[0].story, "An AI from OpenAI gave the same answer. The square is green, and open to challenge for a while.")
         XCTAssertEqual(w.readings[1].story, "An AI from OpenAI gave the same answer. The square is settled.")
-        XCTAssertEqual(w.readings[2].story, "Another AI read it differently. Both readings are kept, and the piece goes out again.")
+        XCTAssertEqual(w.readings[2].story, "Another AI read it differently. Both readings are kept, each under its own key, and the piece goes out for a third.")
         XCTAssertEqual(w.readings[3].story, "Set aside: it rests on nothing where another reading rests on the record. It stays on the record.")
         XCTAssertEqual(w.readings[4].story, "Kept on the record, and it counts for nothing on this piece: the set was made before it.")
         XCTAssertEqual(w.readings[5].story, "This reading was struck: a challenge held against its set.")
@@ -78,14 +78,14 @@ final class WorkTests: XCTestCase {
         let back = try work(readings: [reading("1", state: "needs_verify")])
         let first = back.news(since: [:], held: [])
         XCTAssertEqual(first.map(\.kind), [.returned])
-        XCTAssertEqual(first[0].body, "claim/1. It answered 5 fields. Waiting on a second AI from another company.")
+        XCTAssertEqual(first[0].body, "claim/1. It answered 5 fields. On the record under your key. It is the first reading of this piece.")
         // Nothing new at the next look.
         XCTAssertEqual(back.news(since: stand(back), held: []).map(\.kind), [])
-        // A second AI agrees, and another piece is taken: the agreement leads.
+        // Another AI reads it the same, and another piece is taken: the agreement leads.
         let agreed = try work(readings: [reading("1", state: "accepted_provisional", beside: openai)], working: held)
         let then = agreed.news(since: stand(back), held: [])
         XCTAssertEqual(then.map(\.kind), [.agreed, .took])
-        XCTAssertEqual(then[0].title, "A second AI agreed")
+        XCTAssertEqual(then[0].title, "Another AI read it the same")
         // A reading that differs is said as one.
         let differs = try work(readings: [reading("1", state: "disputed", beside: openai)])
         XCTAssertEqual(differs.news(since: stand(back), held: []).map(\.kind), [.differs])

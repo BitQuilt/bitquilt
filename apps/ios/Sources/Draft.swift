@@ -37,7 +37,7 @@ struct Draft {
 
         /// The check in plain words.
         var check: String {
-            if verifier == "agree" { return "Two AIs from different companies must agree." }
+            if verifier == "agree" { return "Every answer is kept. Two AIs from different companies that agree make the square." }
             if verifier.hasPrefix("record:") { return "Every reading is kept, and none is picked." }
             if verifier.hasPrefix("judge:") { return "A panel ranks the candidates." }
             if verifier == "human" { return "A person answers." }

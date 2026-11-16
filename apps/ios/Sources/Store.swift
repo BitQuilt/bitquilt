@@ -147,13 +147,14 @@ final class Store {
 
     /// Asks the tracker for the work while the app is in front: every three seconds for five minutes after the app
     /// came to the front or a sentence went to Claude, and while Claude holds a piece; every five while an answer
-    /// waits on a second reading; every twenty otherwise. The task that runs it ends it.
+    /// is on the record with no square yet, since another reading may come; every twenty otherwise. The task that
+    /// runs it ends it.
     func watch() async {
         expect()
         while !Task.isCancelled {
             await look()
             let lately = expecting.map { Date().timeIntervalSince($0) < 300 } ?? false
-            let waiting = (work?.readings ?? []).contains { $0.standing == .waiting }
+            let waiting = (work?.readings ?? []).contains { $0.standing == .onRecord }
             try? await Task.sleep(for: .seconds(lately || !holding.isEmpty ? 3 : waiting ? 5 : 20))
         }
     }
