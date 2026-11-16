@@ -23,6 +23,18 @@ struct ActivityView: View {
                             }
                         }
                     }
+                    if !store.asks.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Asked of your Claude").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
+                            ForEach(store.asks) { ask in
+                                AskRow(ask: ask, woke: store.woke) { Task { await store.takeBack(ask) } }
+                            }
+                            if let run = store.run, store.asks.contains(where: { $0.handed == nil }) {
+                                Link("Watch your Claude work, in Claude", destination: run)
+                                    .font(Typeface.text(14, relativeTo: .footnote))
+                            }
+                        }
+                    }
                     if store.address == nil {
                         Empty(title: "Nothing here yet",
                               about: "Your Claude does the work, and this page shows what it did as it happens: each answer, what it rests on, and who else read the same piece.",
@@ -65,6 +77,7 @@ struct ActivityView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .animation(.easeInOut(duration: 0.35), value: store.work)
                 .animation(.easeInOut(duration: 0.35), value: store.waiting)
+                .animation(.easeInOut(duration: 0.35), value: store.asks)
             }
             .background(Palette.ground)
             .navigationTitle("Activity")
@@ -268,6 +281,42 @@ private struct Squares: View {
     }
 }
 
+/// What the person asked of their Claude from this app (Asks.swift): waiting at the address, where it can be taken
+/// back, or in Claude's hands.
+private struct AskRow: View {
+    let ask: Ask
+    let woke: Date?
+    let takeBack: () -> Void
+
+    private var state: String {
+        if let handed = ask.handed.flatMap(moment) {
+            return "Your Claude picked it up \(handed.formatted(.relative(presentation: .named)))."
+        }
+        if let woke, Date().timeIntervalSince(woke) < 600 { return "Your Claude was started, and has not read it yet." }
+        return "Waiting at your address for your Claude."
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: ask.handed == nil ? "tray.and.arrow.down" : "checkmark.circle")
+                .font(.system(size: 18)).foregroundStyle(ask.handed == nil ? Palette.act : Palette.doneInk)
+                .frame(width: 22).padding(.top, 2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(ask.title).font(Typeface.text(16, bold: true)).foregroundStyle(Palette.ink)
+                Text(state).font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+            }
+            Spacer(minLength: 8)
+            if ask.handed == nil {
+                Button("Take back", action: takeBack)
+                    .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.act)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
 /// The page with nothing on it yet: what will be here, and the one step toward it.
 private struct Empty: View {
     let title: String
@@ -455,13 +504,13 @@ private struct ReadingSheet: View {
                     if reading.standing == .differs {
                         Button("Ask Claude to show me the readings") {
                             dismiss()
-                            store.handOff = HandOff(title: "My disputed return", sentence: "Open \(link) on Quilt and show me the return of mine that is disputed.")
+                            store.handOff = HandOff(title: "My disputed return", sentence: "Open \(link) on Quilt and show me the return of mine that is disputed.", phrase: "my_disputed_return", problem: reading.problem)
                         }
                         .buttonStyle(QuietButton())
                     }
                     Button("Take another piece with Claude") {
                         dismiss()
-                        store.handOff = HandOff(title: "Take a piece", sentence: "Open \(link) on Quilt and take a piece.")
+                        store.handOff = HandOff(title: "Take a piece", sentence: "Open \(link) on Quilt and take a piece.", phrase: "take_piece", problem: reading.problem)
                     }
                     .buttonStyle(ActButton())
                 }

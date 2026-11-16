@@ -272,6 +272,7 @@ private struct Connected: View {
                         .padding(.top, 6)
                 }
             }
+            WakeCard()
             if !store.claudeInstalled {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Claude's app is not on this phone, so a sentence opens Claude in Safari.")
@@ -288,7 +289,7 @@ private struct Connected: View {
                     Text(group.title).font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
                     ForEach(group.phrases) { phrase in
                         Button {
-                            store.handOff = HandOff(title: phrase.title, sentence: phrase.say)
+                            store.handOff = HandOff(phrase: phrase)
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(phrase.title).font(Typeface.text(16, bold: true)).foregroundStyle(Palette.ink)
@@ -308,5 +309,137 @@ private struct Connected: View {
 
     private func number(_ n: Double) -> String {
         n == n.rounded() ? String(Int(n)) : String(format: "%.1f", n)
+    }
+}
+
+/// Whether this app starts the person's Claude by itself, and the way to set that up or end it (Asks.swift).
+private struct WakeCard: View {
+    @Environment(Store.self) private var store
+    @State private var setting = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(store.wake == nil ? "Let Quilt start your Claude" : "Quilt starts your Claude")
+                .font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
+            Text(store.wake == nil
+                ? "Today a tap here opens Claude with a sentence for you to send. With a scheduled task of your own in Claude, the tap is enough: Quilt leaves what you asked at your address and starts the task, and your Claude does it on your plan."
+                : "A tap on a piece leaves what you asked at your address and starts your scheduled task in Claude. The task's token is in this phone's keychain, and goes to Claude and nowhere else.")
+                .font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink2)
+            Button(store.wake == nil ? "Set it up" : "Change it or turn it off") { setting = true }
+                .buttonStyle(QuietButton())
+                .padding(.top, 4)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 12))
+        .sheet(isPresented: $setting) { WakeSetup().environment(store) }
+    }
+}
+
+/// The one-time setup of the trigger: the task the person makes in Claude, with the prompt to give it, and the Fire
+/// URL and token Claude gives back, which are pasted here and kept in the keychain.
+private struct WakeSetup: View {
+    @Environment(Store.self) private var store
+    @Environment(\.openURL) private var openURL
+    @Environment(\.dismiss) private var dismiss
+    @State private var url = ""
+    @State private var token = ""
+    @State private var copied = false
+    @State private var said: String?
+    @State private var trying = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("Claude can run a task of yours when something outside asks it to. Give Quilt the way to ask, and a tap on a piece is all it takes: your Claude does the piece in the background, on your plan.")
+                        .font(Typeface.text(16)).foregroundStyle(Palette.ink2)
+
+                    part("1", "Make a task in Claude",
+                         "Open Claude's scheduled tasks and make a new one. Name it Quilt, and give it this prompt.")
+                    Text(Wake.prompt)
+                        .font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink)
+                        .textSelection(.enabled)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.rule))
+                    HStack(spacing: 12) {
+                        Button(copied ? "Copied" : "Copy the prompt") {
+                            UIPasteboard.general.string = Wake.prompt
+                            copied = true
+                        }
+                        .buttonStyle(QuietButton())
+                        Button("Open Claude's tasks") { openURL(Wake.tasks) }
+                            .buttonStyle(QuietButton())
+                    }
+
+                    part("2", "Give it an API trigger",
+                         "In the task's Trigger row, add API. Claude shows a Fire URL, and makes a token it shows once. Keep Quilt among the task's connectors, and let Quilt's tools run without asking, since nobody is there to approve them.")
+
+                    part("3", "Paste the two here", "They are kept in this phone's keychain and go to Claude alone.")
+                    HStack {
+                        TextField("Fire URL", text: $url)
+                            .textInputAutocapitalization(.never).autocorrectionDisabled()
+                            .font(Typeface.mono(13))
+                        PasteButton(payloadType: String.self) { url = $0.first ?? "" }.labelStyle(.iconOnly)
+                    }
+                    .padding(10)
+                    .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 10))
+                    HStack {
+                        SecureField("Token", text: $token)
+                            .textInputAutocapitalization(.never).autocorrectionDisabled()
+                            .font(Typeface.mono(13))
+                        PasteButton(payloadType: String.self) { token = $0.first ?? "" }.labelStyle(.iconOnly)
+                    }
+                    .padding(10)
+                    .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 10))
+                    Button("Save") {
+                        if store.keepWake(url: url, token: token) {
+                            said = "Saved. A tap on a piece now starts your Claude."
+                            url = ""
+                            token = ""
+                        } else {
+                            said = "That is not a Fire URL and a token as Claude gives them. The URL starts https://api.anthropic.com/v1/claude_code/routines/ and ends /fire."
+                        }
+                    }
+                    .buttonStyle(ActButton())
+                    .disabled(url.isEmpty || token.isEmpty)
+
+                    if store.wake != nil {
+                        Button(trying ? "Starting\u{2026}" : "Start it once, to try") {
+                            trying = true
+                            Task {
+                                said = await store.tryWake()
+                                trying = false
+                            }
+                        }
+                        .buttonStyle(QuietButton())
+                        .disabled(trying)
+                        Button("Turn it off on this phone") {
+                            store.forgetWake()
+                            dismiss()
+                        }
+                        .buttonStyle(QuietButton())
+                    }
+                    if let said {
+                        Text(said).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink)
+                    }
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(Palette.ground)
+            .navigationTitle("Start my Claude")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+    }
+
+    private func part(_ n: String, _ title: String, _ about: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\(n). \(title)").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
+            Text(about).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink2)
+        }
     }
 }

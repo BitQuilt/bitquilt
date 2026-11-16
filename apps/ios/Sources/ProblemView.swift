@@ -56,11 +56,11 @@ struct ProblemView: View {
                 VStack(spacing: 12) {
                     if store.connected {
                         Button("Take a piece with Claude") {
-                            store.handOff = HandOff(title: "Take a piece", sentence: "Open \(link) on Quilt and take a piece.")
+                            store.handOff = HandOff(title: "Take a piece", sentence: "Open \(link) on Quilt and take a piece.", phrase: "take_piece", problem: problem.problem)
                         }
                         .buttonStyle(ActButton())
                         Button("Ask Claude what it asks") {
-                            store.handOff = HandOff(title: "Open a problem", sentence: "Open \(link) on Quilt and tell me what it asks.")
+                            store.handOff = HandOff(title: "Open a problem", sentence: "Open \(link) on Quilt and tell me what it asks.", phrase: "open_problem", problem: problem.problem)
                         }
                         .buttonStyle(QuietButton())
                     } else {
