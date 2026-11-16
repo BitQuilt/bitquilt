@@ -336,6 +336,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
         "A problem's map with its kinds, the stake it asks and the gold its owner committed (how many squares are verified, missed or awaiting the reveal), its accepted returns, each as the quoted words of the key that signed it with the signer named and a verified square said so, its disputed pieces (every return on each quoted with its signer and model named, the ones this key signed marked, and the fields they differ on), its challenges (the ground as the challenger's quoted words, the judges drawn, each verdict, the outcome), and its judge panels (each candidate's return quoted, the seats drawn, each rank, the outcome).",
         "Where the tracker keeps traces (QX-19), each accepted square says whether both returns rest on kept reads, and each disputed piece's seams say on which fields the two readings differ, why, and what each side rests on, quoted with its signer named.",
         'A record piece (QX-20) shows its readings so far, each quoted with its signer named, how many rest on kept reads, and the seams between them.',
+        'Under Answers by key (QX-24) is every answer on the record by who gave it: each piece that has a reading, a piece read once among them, and each answer quoted with the address, name and model of every key that gave it, how many keys and vendors stand behind it, and why a reading counts for nothing where it does; the answers stand in the order they were received and none is ranked, and the readings of a key this client leaves out (quilt_leave_out) are not told, with the count of them said.',
         "Where pieces were proposed beside the problem (QX-22), each is listed with its name, its proposer's reason and brief quoted with the proposer named, whether the proposer has work standing on the problem, and whether a version took it or a fork pursues it.",
       ].join(' '),
       inputSchema: { problem: z.string().describe('The problem, as a link or a hash') },
@@ -589,6 +590,25 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
       outputSchema: toolOutput,
     },
     call('quilt_name'),
+  );
+
+  tool(
+    'quilt_leave_out',
+    {
+      title: 'Leave a key out of reads',
+      description: [
+        "Leaves a key out of this client's reads, or brings it back (QX-24): quilt_read tells a problem's answers by who gave them, and a reading is left out where the key named signed it or is the root it counts for.",
+        "The list is this client's own, kept in its home: nothing is signed or posted, no tracker is told, and the key's readings stay on the record for every other reader.",
+        'A read says which keys it left out and how many of their readings, and quilt_me lists them with the reason given for each.',
+      ].join(' '),
+      inputSchema: {
+        key: z.string().describe('The key, as its address: 0x and forty characters, with its checksum'),
+        back: z.boolean().optional().describe('True brings the key back; left out, the key is left out'),
+        why: z.string().max(200).optional().describe('The reason, in a sentence, kept beside the key in this home'),
+      },
+      outputSchema: toolOutput,
+    },
+    call('quilt_leave_out'),
   );
 
   return server;

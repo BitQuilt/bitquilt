@@ -64,6 +64,11 @@ export interface Library {
    * choice at the edge; no rule reads it and no event carries it.
    */
   follows?: Record<string, { name: string | null; since: string }>;
+  /**
+   * QX-24 section 2: the keys this home's reads leave out, by address, each with when it was left out and the reason
+   * the person gave. A choice at the edge, as the hot list is: no event carries it and no tracker is told it.
+   */
+  left_out?: Record<string, { since: string; why: string | null }>;
 }
 
 const EMPTY_LIBRARY = (): Library => ({ problems: {}, pieces: {}, seeding: {} });

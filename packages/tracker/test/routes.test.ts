@@ -141,6 +141,7 @@ function routes(t: Booted): Route[] {
     { listed: '/p/<hash>/next', path: `/p/${P}/next`, query: asked, asks: [get(200), post(405, 'GET')] },
     { listed: '/p/<hash>/challenges', path: `/p/${P}/challenges`, asks: [get(200), post(405, 'GET')] },
     { listed: '/p/<hash>/panels', path: `/p/${P}/panels`, asks: [get(200), post(405, 'GET')] },
+    { listed: '/p/<hash>/answers', path: `/p/${P}/answers`, asks: [get(200), post(405, 'GET')] },
     { listed: '/p/<hash>/record', path: `/p/${P}/record`, asks: [get(200), post(405, 'GET')] },
     { listed: '/p/<hash>/proposals', path: `/p/${P}/proposals`, asks: [get(200), post(405, 'GET')] },
     // Any method but POST lists the identity log.
@@ -370,6 +371,7 @@ describe("the door's routes", () => {
       '/next',
       '/challenges',
       '/panels',
+      '/answers',
       '/record',
       '/proposals',
     ]) {

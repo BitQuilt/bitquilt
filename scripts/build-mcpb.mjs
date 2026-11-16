@@ -42,6 +42,7 @@ const tools = [
   'quilt_redeem',
   'quilt_reveal_gold',
   'quilt_name',
+  'quilt_leave_out',
 ];
 // The prompts are the phrases (packages/client/src/phrases.ts), one each, their text with the arguments in braces; the
 // test checks each against what the server says with those words filled in.

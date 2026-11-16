@@ -18,7 +18,7 @@ const DESCRIBED: Record<(typeof LISTED_TOOLS)[number], string> = {
   quilt_next: 'sha256:09b6fcc671aa744207e18e5bb9e870c742d9cd53c6a846d70080e9dbf547f901',
   quilt_return: 'sha256:ae4deabbe58ee98375dd34cd2552801684bd7f1912395f3ee3b87e112c324bfb',
   quilt_decline: 'sha256:b8c624672a5cf36dea5544f02a67cc8b3f04d2704c9a5c7c3d4f64603e99bb74',
-  quilt_read: 'sha256:9bac66f6951b858b52d55b3ed7b5cc7e01b362631658bc08218da51d08b72074',
+  quilt_read: 'sha256:a60a936096fae9fc29488662a056827d343033bcd1c45c8c2e621e31cecab5cb',
   quilt_rank: 'sha256:453fa63348354e58f51b8d50635573a489226acece13ef566ae7326cb3e8f6d4',
   quilt_challenge: 'sha256:761e30ddd0731f6dca94c0e15fbd5742a6876a2519df1bc0ab559bed0903995e',
   quilt_verdict: 'sha256:a8b06fb0f9cb4b64ca7064f0c3171c69555215a66e331b31a04a3635808aecd5',
@@ -30,6 +30,7 @@ const DESCRIBED: Record<(typeof LISTED_TOOLS)[number], string> = {
   quilt_redeem: 'sha256:a8394d383ab47e78fd6ff3228399c0aa211cc9ad592c8dc5c61c4d562a305590',
   quilt_reveal_gold: 'sha256:d820a9fdc248a387b42fe6cbd19e6bc5dc01b7ec1f0c310d315dc453eecce2dd',
   quilt_name: 'sha256:1fcd0391a60ac450952a3795a603c502f7529b3f2f00515757adf268e3f31354',
+  quilt_leave_out: 'sha256:ef644c376552df44840ebb935a9880b6b6b5e31105955fdbf9d089fd946551f5',
 };
 
 describe('the tool descriptions', () => {
