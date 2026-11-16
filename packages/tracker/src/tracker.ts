@@ -41,6 +41,7 @@ import {
   cannotFold,
   challengesOf,
   coinBalance,
+  answersOf,
   coinCredits,
   coinEpochs,
   coinLock,
@@ -445,6 +446,12 @@ export function createTracker(options: TrackerOptions): Tracker {
       path: '/p/<hash>/panels',
       guard: 'problem',
       GET: ({ res, hash }) => json(res, 200, panelsOf(cx, hash!)),
+      otherwise: 405,
+    },
+    {
+      path: '/p/<hash>/answers',
+      guard: 'problem',
+      GET: ({ res, hash }) => json(res, 200, answersOf(cx, hash!)),
       otherwise: 405,
     },
     {

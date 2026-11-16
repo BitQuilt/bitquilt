@@ -17,16 +17,21 @@ import {
   type PieceView,
   type Receipt,
   type State,
+  PATCH_VERIFIERS,
   agreeFields,
   canonical,
   isHash,
   isSlug,
+  leftOut,
   returnsAgree,
+  tally,
   textIssues,
 } from '@bitquilt/core';
 import { makeLink } from './link.js';
 import {
   ACCEPTED_STATES,
+  type AnswerListing,
+  type AnswerReading,
   type ChallengeListing,
   type GoldCount,
   type KindWords,
@@ -49,7 +54,7 @@ export const STATE_WORDS: Record<string, string> = {
   open: 'open',
   in_flight: 'in flight',
   sealed: 'sealed',
-  needs_verify: 'read once',
+  needs_verify: 'read, with no square yet',
   disputed: 'disputed',
   accepted_provisional: 'accepted within the window',
   accepted: 'accepted',
@@ -610,6 +615,76 @@ export function disputedText(state: State, layer: LayerPiece[] | null = null, me
     blocks.push(lines.join('\n'));
   }
   return blocks.length ? blocks.join('\n\n') : 'No piece is disputed.';
+}
+
+/** A count and its noun, plural unless the count is one. */
+const count = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? '' : 's'}`;
+
+/** The states whose pieces another section of a read shows the returns of whole. */
+const SHOWN_WHOLE: readonly string[] = [...ACCEPTED_STATES, 'disputed', 'challenged', 'recording', 'recorded'];
+
+/**
+ * A problem's answers, by who gave them (QX-24 sections 1 to 3): each piece that has a reading, and under it each
+ * answer as the quoted agree fields of the readings that say it, with the roots and vendors behind it and every
+ * signer named with its address, its model, and why its reading counts for nothing where it does. The answers stand
+ * in the order the first reading of each was received, and none is ranked. A piece no other section of the read
+ * shows the returns of, one read once among them, has each return whole under its answers. `out` is the keys this
+ * home leaves out (QX-24 section 2): their readings are not told, the answers are told again over the rest with the
+ * core's `tally`, and the section says how many readings of which keys it left out. Empty where nothing is told.
+ */
+export function answersText(
+  list: AnswerListing[],
+  state: State,
+  out: Record<string, { since: string; why: string | null }> = {},
+  me: string | null = null,
+): string {
+  const without = leftOut(Object.keys(out));
+  const mine = (a: string) => me !== null && a.toLowerCase() === me.toLowerCase();
+  const named = (root: string): string => {
+    const name = state.names.get(root as Address)?.name;
+    return name ? `${name}, ${root}` : root;
+  };
+  const signer = (r: AnswerReading): string => {
+    const how = r.counts === 'counted' ? '' : `, ${r.counts}: ${r.why ?? 'no reason given'}`;
+    return `${named(r.root)} (${r.model}${mine(r.root) || mine(r.key) ? ', this key' : ''}${how})`;
+  };
+  const blocks: string[] = [];
+  const gone = new Map<string, number>();
+  for (const p of list) {
+    const piece = state.pieces.find((v) => v.piece.hash === p.piece)?.piece;
+    const said = p.answers.flatMap((a) => a.readings);
+    for (const r of said)
+      if (without.has(r.root.toLowerCase()) || without.has(r.key.toLowerCase()))
+        gone.set(r.root, (gone.get(r.root) ?? 0) + 1);
+    const schema = PATCH_VERIFIERS.includes(p.verifier) ? undefined : piece?.schema;
+    const told = tally(schema, piece?.agree, said, without);
+    if (told.readings === 0) continue;
+    const words = STATE_WORDS[p.state] ?? String(p.state).replace('_', ' ');
+    // Where this home left readings of the piece out, the line says how many, since the state beside the name is the
+    // tracker's count over every key.
+    const omitted = told.left_out ? `; ${count(told.left_out, 'reading')} left out` : '';
+    const lines = [
+      `${p.name} (${words}): ${count(told.readings, 'reading')}, ${count(told.answers.length, 'answer')}${omitted}.`,
+    ];
+    for (const a of told.answers) {
+      const behind = `${count(a.roots, 'key')} of ${count(a.vendors, 'vendor')}`;
+      const what = a.says ? canonical(a.says) : `the patch ${a.readings[0]!.digest}`;
+      lines.push(`${a.readings.map(signer).join('; ')} returned, ${behind} behind it: ${what}`);
+      if (SHOWN_WHOLE.includes(p.state)) continue;
+      // The return in full, where it holds more than the agree fields the line above quotes.
+      for (const r of a.readings)
+        if (r.return && canonical(r.return) !== what)
+          lines.push(`${named(r.root)} returned in full: ${canonical(r.return)}`);
+    }
+    blocks.push(lines.join('\n'));
+  }
+  if (gone.size) {
+    const keys = [...gone].map(([root, n]) => `${named(root)} (${count(n, 'reading')})`);
+    blocks.push(
+      `Left out of these answers, as this home asked: ${keys.join('; ')}. The state beside each piece and the sections above are the tracker's own count, which leaves no key out.`,
+    );
+  }
+  return blocks.join('\n\n');
 }
 
 /**

@@ -102,7 +102,7 @@ func words(_ state: String) -> String {
     case "accepted_provisional": return "accepted, and open to challenge"
     case "open": return "open"
     case "in_flight": return "being worked"
-    case "needs_verify": return "read once, and kept"
+    case "needs_verify": return "read and kept, with no square yet"
     case "recording": return "taking readings"
     case "recorded": return "recorded, every reading kept"
     default: return state.replacingOccurrences(of: "_", with: " ")
@@ -126,7 +126,7 @@ private struct Held: ViewModifier {
 /// What the colours mean, and the dot where the map carries one.
 private struct Legend: View {
     let mine: Bool
-    private let entries: [(String, String)] = [("open", "Open"), ("needs_verify", "Read once"), ("accepted_provisional", "Agreed"), ("accepted", "Settled")]
+    private let entries: [(String, String)] = [("open", "Open"), ("needs_verify", "Read"), ("accepted_provisional", "Agreed"), ("accepted", "Settled")]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {

@@ -5,7 +5,7 @@
  * say) works through the one holding the page instead of signing and writing the library beside it. Other people's
  * words come out of here only as quoted text with the signer named.
  */
-import type { Address, DeclineReason, Hash, PieceDef } from '@bitquilt/core';
+import { type Address, type DeclineReason, type Hash, type PieceDef, isAddress } from '@bitquilt/core';
 import { HOW_QUILT_WORKS } from './about.js';
 import type { CoinBalance } from './coin.js';
 import type { Side } from './listings.js';
@@ -54,6 +54,7 @@ export const TOOL_NAMES = [
   'quilt_redeem',
   'quilt_reveal_gold',
   'quilt_name',
+  'quilt_leave_out',
 ] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 
@@ -202,6 +203,8 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
     case 'quilt_me': {
       const me = quilt.me();
       const [s, c] = await Promise.all([quilt.standing(), quilt.coin()]);
+      // QX-24 section 2: the keys this home leaves out, each with the reason the person gave, where there are any.
+      const left = Object.entries(quilt.leftOut()).map(([a, x]) => (x.why ? `${a}, of which was said: "${x.why}"` : a));
       const text = [
         `Address: ${me.address ?? 'none yet (made at first use)'}`,
         ...(me.wordsDue
@@ -217,6 +220,7 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
         ...(c ? [coinText(c)] : []),
         ...(me.witness ? [sessionWitnessText(me.witness)] : []),
         `Queued events: ${me.queued}; problems in the library: ${me.problems}`,
+        ...(left.length ? [`Keys this home's reads leave out (QX-24): ${left.join('; ')}`] : []),
         // A key that has opened no problem yet is new here: the account of how Quilt works comes with who it is.
         ...(me.problems === 0 ? [`New here, with no problem opened yet. ${HOW_QUILT_WORKS}`] : []),
       ].join('\n');
@@ -343,16 +347,22 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
     }
     case 'quilt_read': {
       const { hash: h, state, tracker, layer, hidden, gold, witnessed, superseded } = await quilt.open(str('problem'));
-      const [challenges, panels, proposals] = await Promise.all([
+      const [challenges, panels, proposals, listed] = await Promise.all([
         quilt.challenges(h, tracker),
         quilt.panels(h, tracker),
         quilt.proposals(h, tracker),
+        // The answers are the listing of the tracker that answered for the problem; a read no tracker answered has
+        // none.
+        tracker ? quilt.answers(h, tracker) : null,
       ]);
       // QX-20: a problem with a record piece says its readings so far, between the accepted and the disputed.
       const recorded = recordedText(state, layer);
       // QX-22: the pieces proposed beside the problem, each in its proposer's quoted words, after the panels and only
       // where there are any.
       const proposed = quilt.proposedText(proposals, state);
+      // QX-24: every answer on the record by who gave it, a piece read once among them, without the keys this home
+      // leaves out; after the disputed, and only where a piece has a reading.
+      const answers = quilt.answersText(listed, state);
       const found = foundText(foundIn(state, layer));
       // It opens with what quilt_open says, the replaced-by line included, and goes on to the work, a blank line
       // between the parts.
@@ -362,6 +372,7 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
         section('Accepted so far', quilt.acceptedText(state, layer, witnessed)),
         ...(recorded ? [section('Recorded', recorded)] : []),
         section('Disputed', quilt.disputedText(state, layer)),
+        ...(answers ? [section('Answers by key', answers)] : []),
         section('Challenges', quilt.challengesText(challenges, state)),
         section('Panels', quilt.panelsText(panels, state)),
         ...(proposed ? [section('Proposed pieces', proposed)] : []),
@@ -499,6 +510,22 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
     case 'quilt_name': {
       const r = await quilt.setName(str('name'));
       return { text: `Name set to "${str('name')}"; ${where(r)}.`, handles: { name: input.name } };
+    }
+    case 'quilt_leave_out': {
+      // QX-24 section 2: the list is this home's own, so nothing here is signed or posted.
+      const key = str('key');
+      if (!isAddress(key)) throw new Error('key: an address with its checksum, 0x and forty characters');
+      const back = input.back === true;
+      const why = typeof input.why === 'string' && input.why.trim() ? input.why.trim() : null;
+      await quilt.leaveOut(key, !back, why);
+      const list = Object.keys(quilt.leftOut());
+      const now = `This home's reads now leave out ${plural(list.length, 'key')}.`;
+      return {
+        text: back
+          ? `Brought back ${key}: its readings are told again in this home's reads. ${now}`
+          : `Left out ${key}: this home's reads tell a problem's answers without the readings this key signed or that count for it. Nothing was signed or posted, and its readings stay on the record for every other reader. ${now}`,
+        handles: { key, left_out: list },
+      };
     }
   }
 }

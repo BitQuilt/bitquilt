@@ -128,6 +128,7 @@ export const LISTED_TOOLS = [
   'quilt_redeem',
   'quilt_reveal_gold',
   'quilt_name',
+  'quilt_leave_out',
 ] as const;
 
 /** The regex the tests hold tool descriptions and manifests to: text that describes and does not instruct. */

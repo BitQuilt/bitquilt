@@ -45,6 +45,7 @@ import {
   type GoldCount,
   type LayerPiece,
   type Opened,
+  type AnswerListing,
   type PanelListing,
   type ProposalListing,
   type Scrape,
@@ -75,6 +76,7 @@ import {
   kindWords,
   layerByHash,
   nameOf,
+  answersText,
   panelsText,
   pieceText,
   proposedText,
@@ -505,6 +507,25 @@ export class Quilt {
         since: follows[address]?.since ?? this.stamp(),
       };
     else delete follows[address];
+    this.save();
+  }
+
+  /**
+   * QX-24 section 2: the keys this home's reads leave out, by address. The list is this home's own.
+   */
+  leftOut(): NonNullable<Library['left_out']> {
+    return this.library.left_out ?? {};
+  }
+
+  /**
+   * QX-24 section 2: a key left out of this home's reads, or brought back, in this home's library alone; nothing is
+   * signed or posted, and the key's readings stay on the record for every other reader.
+   */
+  async leaveOut(address: Address, on: boolean, why: string | null = null): Promise<void> {
+    const list = (this.library.left_out ??= {});
+    const held = Object.keys(list).find((a) => a.toLowerCase() === address.toLowerCase());
+    if (on) list[held ?? address] = { since: list[held ?? address]?.since ?? this.stamp(), why: why ?? null };
+    else if (held) delete list[held];
     this.save();
   }
 
@@ -1279,6 +1300,18 @@ export class Quilt {
   }
 
   /**
+   * A problem's answers, by who gave them (QX-24 section 3), as the first tracker that answers lists them: the one
+   * that answered for the problem, then the known ones. Null where no tracker here carries the extension. No key is
+   * left out in what a tracker lists; `answersText` tells the answers again without the keys this home leaves out.
+   */
+  async answers(problem: Hash, tracker: string | null = null): Promise<AnswerListing[] | null> {
+    return this.firstAnswer(
+      this.trackersFor(problem, tracker ? [tracker] : []),
+      async (t) => (await this.ask<{ pieces: AnswerListing[] }>(`${t}p/${problem}/answers`))?.pieces ?? null,
+    );
+  }
+
+  /**
    * The pieces proposed beside a problem (QX-22 section 3) as the first tracker that answers lists them: the one that
    * answered for the problem, then the known ones. None where no tracker here carries the extension.
    */
@@ -1591,6 +1624,14 @@ export class Quilt {
   /** The panels said as text (render.ts, `panelsText`). */
   panelsText(list: PanelListing[], state: State): string {
     return panelsText(list, state);
+  }
+
+  /**
+   * A problem's answers said as text, by who gave them, without the keys this home leaves out and with this key's
+   * marked; empty where no piece has a reading (render.ts, `answersText`).
+   */
+  answersText(list: AnswerListing[] | null, state: State): string {
+    return answersText(list ?? [], state, this.leftOut(), this.identity?.address ?? null);
   }
 
   /** The pieces proposed said as text, empty where there are none (render.ts, `proposedText`). */

@@ -11,6 +11,7 @@
 import type { ServerResponse } from 'node:http';
 import {
   type Address,
+  ANSWERS,
   BLOB_MAX,
   CHALLENGE,
   CHALLENGE_SEED,
@@ -21,6 +22,7 @@ import {
   type Hash,
   IDENTITY_LOG,
   INHERIT,
+  answersIn,
   JUDGE_SEED,
   MAJORITY,
   PANEL,
@@ -110,6 +112,7 @@ export function wellKnown({ options, url, limits, stampNeeded, coinHome, coin, n
     record: { extension: RECORD },
     propose: { extension: PROPOSE, piece_max: PROPOSED_MAX, why_max: PROPOSE_WHY_MAX },
     inherit: { extension: INHERIT },
+    answers: { extension: ANSWERS },
     coin: options.coin ? { extension: COIN, ...options.coin, home: coinHome() } : null,
     // The paths a client reads: the listed rows of the door's table, in the order `handle` tries them, and the coin's
     // only where this tracker carries the coin.
@@ -473,6 +476,29 @@ export function challengesOf({ view, now }: Reads, hash: Hash) {
 export function panelsOf({ view, now }: Reads, hash: Hash) {
   const pl = view(hash)!;
   return { problem: hash, now: now(), panels: panels(pl, nameIn(pl)) };
+}
+
+/**
+ * A problem's answers at now, by who gave them (QX-24 section 3): each piece that has a reading, its answers in the
+ * order the first reading of each was received, and under each answer every reading that says it, with the root it
+ * counts for, the key that signed it, the name the root chose, and how the reading counts. No key is left out here:
+ * a reader's list is the reader's own and is never sent to a tracker (QX-24 section 2), so the reader tells the
+ * answers again over what this lists.
+ */
+export function answersOf({ view, now }: Reads, hash: Hash) {
+  const pl = view(hash)!;
+  const name = nameIn(pl);
+  return {
+    problem: hash,
+    now: now(),
+    pieces: answersIn(pl).map((p) => ({
+      ...p,
+      answers: p.answers.map((a) => ({
+        ...a,
+        readings: a.readings.map((r) => ({ ...r, signer: name(r.root) })),
+      })),
+    })),
+  };
 }
 
 /**

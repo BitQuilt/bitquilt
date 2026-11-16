@@ -24,4 +24,5 @@ export * from './propose.js';
 export * from './inherit.js';
 export * from './read.js';
 export * from './readings.js';
+export * from './answers.js';
 export * from './ledger.js';

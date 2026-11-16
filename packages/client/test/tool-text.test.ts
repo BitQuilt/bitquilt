@@ -326,10 +326,31 @@ function named(text: string): string {
 }
 
 const LEGEND =
-  'Legend: . open, i in flight, s sealed, v read once, d disputed, p accepted within the window, a accepted, u unreachable, l locked, c challenged, j a panel ranking candidates, r readings being recorded, R recorded, every reading standing, ^ inherited, its square standing on a problem the fork came from, ? a kind neither this client nor the tracker that answered implements.';
+  'Legend: . open, i in flight, s sealed, v read, with no square yet, d disputed, p accepted within the window, a accepted, u unreachable, l locked, c challenged, j a panel ranking candidates, r readings being recorded, R recorded, every reading standing, ^ inherited, its square standing on a problem the fork came from, ? a kind neither this client nor the tracker that answered implements.';
 const OWNER = '0xF7Edc8FA1eCc32967F827C9043FcAe6ba73afA5c';
 const B = '0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF';
 const C = '0x6813Eb9362372EEF6200f3b1dbC3f819671cBA69';
+const ADA = '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf';
+/** One answer under Answers by key (QX-24): who returned it, what stands behind it, and its quoted agree fields. */
+const gave = (who: string, keys: number, vendors: number, what: string): string =>
+  `${who} returned, ${keys} key${keys === 1 ? '' : 's'} of ${vendors} vendor${vendors === 1 ? '' : 's'} behind it: ${what}`;
+/** Ada as that section names her: her name, her address and her model, marked where the reader is her key. */
+const ada = (mine: boolean, how = ''): string => `Ada, ${ADA} (anthropic/claude${mine ? ', this key' : ''}${how})`;
+/** The Answers by key of the first problem, with Ada's readings marked where the reader is her key. */
+const answersP = (mine: boolean): string[] => [
+  'Answers by key:',
+  'statement/1 (accepted within the window): 2 readings, 1 answer.',
+  gave(`${ada(mine)}; ${B} (openai/gpt-5)`, 2, 2, '{"verdict":"supports"}'),
+  '',
+  'statement/2 (disputed): 2 readings, 2 answers.',
+  gave(ada(mine), 1, 1, '{"verdict":"supports"}'),
+  gave(`${B} (openai/gpt-5)`, 1, 1, '{"verdict":"contradicts"}'),
+  '',
+  'question (readings being recorded): 2 readings, 2 answers.',
+  gave(ada(mine), 1, 1, '{"stance":"asserts"}'),
+  gave(`${C} (google/gemini)`, 1, 1, '{"stance":"denies"}'),
+  '',
+];
 const HEAD_P = [
   'Problem <p>',
   `The owner, ${OWNER}, titled it: "Does the paper say so?"`,
@@ -410,6 +431,7 @@ const readP = (mark: string): string =>
     `Ada (anthropic/claude)${mark} returned: {"verdict":"supports"}`,
     `${B} (openai/gpt-5) returned: {"verdict":"contradicts"}`,
     '',
+    ...answersP(mark !== ''),
     'Challenges:',
     'No challenge on this problem.',
     '',
@@ -452,6 +474,10 @@ describe('quilt_read', () => {
         '',
         'Disputed:',
         'No piece is disputed.',
+        '',
+        'Answers by key:',
+        'name (accepted within the window): 2 readings, 1 answer.',
+        gave(`${ada(false)}; ${B} (openai/gpt-5)`, 2, 2, '{"verdict":"supports"}'),
         '',
         'Challenges:',
         'No challenge on this problem.',
@@ -910,6 +936,62 @@ describe("quilt_open and quilt_read over a tracker's view with every mark", () =
         'sentence/3 is disputed, with 1 return.',
         `${D} (anthropic/claude) returned: {"text":"The board skipped its vote."}`,
         '',
+        'Answers by key:',
+        'statement/1 (accepted within the window): 2 readings, 1 answer.',
+        gave(`${ada(true)}; ${B} (openai/gpt-5)`, 2, 2, '{"verdict":"supports"}'),
+        '',
+        'statement/2 (accepted within the window): 2 readings, 1 answer.',
+        gave(`${ada(true)}; ${C} (google/gemini)`, 2, 2, '{"verdict":"contradicts"}'),
+        '',
+        'statement/3 (read, with no square yet): 2 readings, 1 answer.',
+        gave(
+          `${ada(true)}; ${D} (anthropic/claude, kept: an earlier reading from its vendor says the same)`,
+          2,
+          1,
+          '{"verdict":"supports"}',
+        ),
+        '',
+        'claim/1 (accepted within the window): 2 readings, 1 answer.',
+        gave(`${ada(true)}; ${B} (openai/gpt-5)`, 2, 2, '{"page":4,"tone":"plain","verdict":"supports"}'),
+        '',
+        'claim/2 (disputed): 2 readings, 2 answers.',
+        gave(ada(true), 1, 1, '{"page":4,"tone":"plain","verdict":"supports"}'),
+        gave(`${B} (openai/gpt-5)`, 1, 1, '{"page":9,"tone":"hedged","verdict":"contradicts"}'),
+        '',
+        'claim/3 (disputed): 2 readings, 2 answers.',
+        gave(ada(true), 1, 1, '{"page":4,"tone":"plain","verdict":"supports"}'),
+        gave(`${C} (google/gemini)`, 1, 1, '{"page":4,"tone":"hedged","verdict":"contradicts"}'),
+        '',
+        'tell (accepted within the window): 1 reading, 1 answer.',
+        gave(ada(true), 1, 1, '{"said":"I told the editor of a newsletter about the report."}'),
+        '',
+        'sentence/1 (disputed): 2 readings, 2 answers.',
+        gave(
+          `${B} (openai/gpt-5, kept: its panel is void)`,
+          1,
+          1,
+          '{"text":"The report finds the board never voted."}',
+        ),
+        gave(ada(true, ', kept: its panel is void'), 1, 1, '{"text":"The board acted without a vote."}'),
+        '',
+        'sentence/2 (read, with no square yet): 1 reading, 1 answer.',
+        gave(`${C} (google/gemini)`, 1, 1, '{"text":"A report on a vote that did not happen."}'),
+        '',
+        'sentence/3 (read, with no square yet): 1 reading, 1 answer.',
+        gave(`${D} (anthropic/claude)`, 1, 1, '{"text":"The board skipped its vote."}'),
+        '',
+        'sentence/4 (read, with no square yet): 1 reading, 1 answer.',
+        gave(`${C} (google/gemini)`, 1, 1, '{"text":"No vote, says the report."}'),
+        '',
+        'question (recorded, every reading standing): 3 readings, 2 answers.',
+        gave(
+          `${OWNER} (anthropic/claude, kept: its root is related to the owner); ${ada(true)}`,
+          2,
+          1,
+          '{"stance":"asserts"}',
+        ),
+        gave(`${D} (anthropic/claude)`, 1, 1, '{"stance":"denies"}'),
+        '',
         'Challenges:',
         `Challenge ${ID(1)} on statement/1, by ${C} with a stake of 3, failed: the acceptance stands and the stake was lost.`,
         `${C} wrote as the ground: "The quote is not on the page."`,
@@ -1217,6 +1299,7 @@ describe('quilt_open and quilt_read over what no tracker here gives', () => {
         'Ada (anthropic/claude), this key, returned: {"verdict":"supports"}',
         `${B} (openai/gpt-5) returned: {"verdict":"contradicts"}`,
         '',
+        ...answersP(true),
         'Challenges:',
         'No challenge on this problem.',
         '',

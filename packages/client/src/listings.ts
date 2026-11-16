@@ -65,6 +65,39 @@ export interface LayerReading {
 }
 
 /**
+ * QX-24 section 3: one reading under an answer, as a tracker lists it: the record's entry for it, as
+ * READING.md section 3 has it, the model it declares, the name its root chose, and what it said, null on a check or
+ * score piece.
+ */
+export interface AnswerReading {
+  id: Hash;
+  key: string;
+  root: string;
+  signer: string | null;
+  vendor: string;
+  model: string;
+  at: string;
+  counts: LayerReading['counts'];
+  why: string | null;
+  digest: Hash;
+  return: Record<string, unknown> | null;
+}
+
+/**
+ * QX-24 section 3: a piece's answers as a tracker lists them, with no key left out: each answer's agree fields, the
+ * roots and vendors behind it, and every reading that says it, in the order the first reading of each was received.
+ */
+export interface AnswerListing {
+  piece: Hash;
+  name: string;
+  verifier: string;
+  state: LayerState;
+  readings: number;
+  left_out: number;
+  answers: { says: Record<string, unknown> | null; roots: number; vendors: number; readings: AnswerReading[] }[];
+}
+
+/**
  * A piece as the tracker that answered holds it in its layer (QX-1, QX-2, QX-3, QX-10): its one state, as
  * READING.md section 9 says, and the kind's words as the tracker fills them, with the kind and its strength null
  * where the tracker does not implement the kind.
