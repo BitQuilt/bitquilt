@@ -47,7 +47,10 @@ import {
 } from '@bitquilt/core';
 import { PRIVATE_RANGES, type Store, clientAddress, custodyHeaders, json, rangesOf } from '@bitquilt/tracker';
 import {
+  ASK_SHOWN_HOURS,
+  ASK_WAITS_HOURS,
   AWAY_LOG,
+  type Ask,
   type Config,
   DEFAULT_CONFIG,
   type OwnerTurn,
@@ -943,6 +946,56 @@ export function createHosted(options: HostedOptions): Hosted {
       }
       const said = await answerWaiting(member, id, await readJson(req));
       json(res, 'error' in said ? said.status : 200, 'error' in said ? { error: said.error } : said);
+      return true;
+    }
+    // What the person asked from their own app (APP.md, "What a person asks from their own app"): the asks kept at the
+    // address, one made, and one taken back. The token in the path is the person's, as it is for the tools.
+    if ((m = /^\/mcp\/([0-9a-f]{64})\/asks(?:\/([0-9a-f]{32}))?$/.exec(path))) {
+      const q = quiltFor(tokenHash(m[1]!), undefined);
+      const id = m[2];
+      if (id ? method !== 'DELETE' : method !== 'GET' && method !== 'POST') {
+        json(res, 405, { error: id ? 'DELETE' : 'GET, POST' });
+        return true;
+      }
+      if (!q) {
+        json(res, 404, { error: 'no such address here' });
+        return true;
+      }
+      const shown = (a: Ask) => ({
+        ...a,
+        sentence: q.askSentence(a),
+        // An ask not yet handed is dropped two days after it was made, and a handed one a day after it was handed.
+        expires: new Date(
+          a.handed === null
+            ? Date.parse(a.at) + ASK_WAITS_HOURS * 3600000
+            : Date.parse(a.handed) + ASK_SHOWN_HOURS * 3600000,
+        ).toISOString(),
+      });
+      if (id) {
+        if (!q.dropAsk(id)) json(res, 404, { error: 'no such ask at this address' });
+        else json(res, 200, { dropped: id });
+        return true;
+      }
+      if (method === 'GET') {
+        json(res, 200, { asks: q.asks().map(shown) });
+        return true;
+      }
+      const body = await readJson(req);
+      if (
+        !isRecord(body) ||
+        typeof body.phrase !== 'string' ||
+        (body.problem !== undefined && typeof body.problem !== 'string')
+      ) {
+        json(res, 400, {
+          error: 'an ask is { "phrase": a phrase\'s name, "problem": the hash where the phrase takes one }',
+        });
+        return true;
+      }
+      try {
+        json(res, 201, { ask: shown(q.keepAsk(body.phrase, body.problem ?? null)) });
+      } catch (e) {
+        json(res, 400, { error: (e as Error).message });
+      }
       return true;
     }
     if ((m = /^\/mcp\/([0-9a-f]{64})(?:\/(key|sheet|rotate))?$/.exec(path))) {

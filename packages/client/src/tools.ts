@@ -55,6 +55,7 @@ export const TOOL_NAMES = [
   'quilt_reveal_gold',
   'quilt_name',
   'quilt_leave_out',
+  'quilt_asked',
 ] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 
@@ -205,6 +206,8 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
       const [s, c] = await Promise.all([quilt.standing(), quilt.coin()]);
       // QX-24 section 2: the keys this home leaves out, each with the reason the person gave, where there are any.
       const left = Object.entries(quilt.leftOut()).map(([a, x]) => (x.why ? `${a}, of which was said: "${x.why}"` : a));
+      // The asks that wait: how many, where there are any, and the tool that lists them.
+      const asked = quilt.asks().filter((a) => a.handed === null).length;
       const text = [
         `Address: ${me.address ?? 'none yet (made at first use)'}`,
         ...(me.wordsDue
@@ -221,6 +224,7 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
         ...(me.witness ? [sessionWitnessText(me.witness)] : []),
         `Queued events: ${me.queued}; problems in the library: ${me.problems}`,
         ...(left.length ? [`Keys this home's reads leave out (QX-24): ${left.join('; ')}`] : []),
+        ...(asked ? [`Asked from this person's own Quilt app and waiting: ${asked}; quilt_asked lists them`] : []),
         // A key that has opened no problem yet is new here: the account of how Quilt works comes with who it is.
         ...(me.problems === 0 ? [`New here, with no problem opened yet. ${HOW_QUILT_WORKS}`] : []),
       ].join('\n');
@@ -510,6 +514,27 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
     case 'quilt_name': {
       const r = await quilt.setName(str('name'));
       return { text: `Name set to "${str('name')}"; ${where(r)}.`, handles: { name: input.name } };
+    }
+    case 'quilt_asked': {
+      // APP.md, "What a person asks from their own app": each ask is said as its phrase, written here from the
+      // phrase's name and the problem's hash, so the sentence is the person's own and no other words reach a model.
+      const asked = quilt.handAsks();
+      if (asked.length === 0)
+        return {
+          text: 'Nothing is asked. What this person taps in their own Quilt app waits at this address for their AI, and nothing waits now.',
+          handles: { asked: [] },
+        };
+      const lines = asked.map((a, i) => `${i + 1}. "${quilt.askSentence(a)}" (asked ${a.at})`);
+      return {
+        text: [
+          `Asked by this person from their own Quilt app, and not yet done: ${plural(asked.length, 'ask')}.`,
+          ...lines,
+          "Each is one of this person's own phrases with a problem's link filled in, the same sentence they would say in this chat. They are marked as handed to this AI now, and the person's app shows that.",
+        ].join('\n'),
+        handles: {
+          asked: asked.map((a) => ({ id: a.id, phrase: a.phrase, problem: a.problem, sentence: quilt.askSentence(a) })),
+        },
+      };
     }
     case 'quilt_leave_out': {
       // QX-24 section 2: the list is this home's own, so nothing here is signed or posted.

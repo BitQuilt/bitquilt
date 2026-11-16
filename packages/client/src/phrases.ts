@@ -71,6 +71,14 @@ export const PHRASES: readonly PhraseSpec[] = [
     say: () => 'Explain how Quilt works to me, and how I would add a problem of my own.',
   },
   {
+    name: 'what_i_asked',
+    title: 'What I asked from my app',
+    about:
+      "The AI reads what this person asked from their own Quilt app, each one of these phrases with a problem's link, and does each in turn.",
+    args: [],
+    say: () => 'Do what I asked on Quilt.',
+  },
+  {
     name: 'search_quilt',
     title: 'Search for a problem',
     about:
@@ -197,6 +205,15 @@ export const PHRASES: readonly PhraseSpec[] = [
     say: (a) => `Redeem ${a.amount} of my Quilt coin to the chain.`,
   },
 ];
+
+/**
+ * The phrases an ask may carry (APP.md, "What a person asks from their own app"): each takes a problem's link or
+ * nothing at all, so an ask is a phrase's name and a problem's hash and no words of anyone's cross with it. The
+ * phrase that sends an AI to the asks is not one of them, since an ask does not ask for the asks.
+ */
+export const ASKABLE: readonly string[] = PHRASES.filter(
+  (p) => p.name !== 'what_i_asked' && p.args.every((a) => a === 'link'),
+).map((p) => p.name);
 
 /** The phrase by name; a name the list has not is a programming error. */
 export function phrase(name: string): PhraseSpec {

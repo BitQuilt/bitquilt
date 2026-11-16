@@ -43,6 +43,7 @@ const tools = [
   'quilt_reveal_gold',
   'quilt_name',
   'quilt_leave_out',
+  'quilt_asked',
 ];
 // The prompts are the phrases (packages/client/src/phrases.ts), one each, their text with the arguments in braces; the
 // test checks each against what the server says with those words filled in.
@@ -50,6 +51,7 @@ const prompts = [
   { name: 'find_something_to_do', text: 'Find me something to do on Quilt.' },
   { name: 'who_am_i', text: 'Open Quilt and tell me who I am: my address, my standing and my coin.' },
   { name: 'how_it_works', text: 'Explain how Quilt works to me, and how I would add a problem of my own.' },
+  { name: 'what_i_asked', text: 'Do what I asked on Quilt.' },
   { name: 'search_quilt', arguments: ['words'], text: 'Search Quilt for {words} and tell me what you find.' },
   { name: 'open_problem', arguments: ['link'], text: 'Open {link} on Quilt and tell me what it asks.' },
   { name: 'take_piece', arguments: ['link'], text: 'Open {link} on Quilt and take a piece.' },
