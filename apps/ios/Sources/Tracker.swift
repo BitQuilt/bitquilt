@@ -1,5 +1,6 @@
-// The tracker as this app reads it: the join, a person's sheet, the problems and one problem's map, the root a key
-// counts for, and the identity log this phone's root posts to (docs/PROTOCOL.md, Routes and The on-ramp's routes).
+// The tracker as this app reads it: the join, a person's sheet, the problems and one problem's map, a key's work, the
+// root a key counts for, and the identity log this phone's root posts to (docs/PROTOCOL.md, Routes and The on-ramp's
+// routes).
 import Foundation
 
 /// A problem as the tracker's search lists it.
@@ -134,6 +135,12 @@ struct Tracker {
         try await answer(URLRequest(url: base.appending(path: "k/\(address)/standing")))
     }
 
+    /// The key's work as the record holds it: the pieces it holds, and its latest readings (Work.swift).
+    static func work(of address: String) async throws -> Work {
+        let url = base.appending(path: "k/\(address)/work").appending(queryItems: [URLQueryItem(name: "limit", value: "30")])
+        return try await answer(URLRequest(url: url))
+    }
+
     /// An event for the identity log. A door that already holds it has taken it.
     static func post(identity event: WireEvent) async throws {
         struct Taken: Decodable { let id: String }
@@ -169,11 +176,13 @@ struct Tracker {
     }
 
     /// A problem's link as Quilt makes one (packages/client/src/link.ts, `makeLink`): the hash, the name and this tracker.
-    static func link(to problem: Problem) -> String {
+    static func link(to problem: Problem) -> String { link(to: problem.problem, slug: problem.slug) }
+
+    static func link(to hash: String, slug: String? = nil) -> String {
         var parts: [String] = []
-        if let slug = problem.slug, !slug.isEmpty { parts.append("dn=" + formEncoded(slug)) }
+        if let slug, !slug.isEmpty { parts.append("dn=" + formEncoded(slug)) }
         parts.append("tr=" + formEncoded(base.absoluteString))
-        return "quilt:\(problem.problem)?" + parts.joined(separator: "&")
+        return "quilt:\(hash)?" + parts.joined(separator: "&")
     }
 
     private static func formEncoded(_ s: String) -> String {

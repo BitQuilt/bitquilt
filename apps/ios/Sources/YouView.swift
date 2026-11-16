@@ -306,14 +306,6 @@ private struct Connected: View {
         }
     }
 
-    /// A time as the tracker writes one, with or without the fraction of a second.
-    private func moment(_ written: String) -> Date? {
-        let whole = ISO8601DateFormatter()
-        let fine = ISO8601DateFormatter()
-        fine.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return fine.date(from: written) ?? whole.date(from: written)
-    }
-
     private func number(_ n: Double) -> String {
         n == n.rounded() ? String(Int(n)) : String(format: "%.1f", n)
     }

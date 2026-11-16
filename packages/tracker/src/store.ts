@@ -720,6 +720,16 @@ export class Store {
     return rows.map((r) => ({ problem: r.problem as Hash, piece: r.piece as Hash, at: r.at }));
   }
 
+  /** A key's latest claims across every log, newest first, by the same index: the pieces it may still hold. */
+  claimsBy(key: string, limit: number): { problem: Hash; piece: Hash; at: string }[] {
+    const rows = this.db
+      .prepare(
+        `select problem, json_extract(json, '$.piece') as piece, at from receipts where key = ? and type = 'claim' order by at desc limit ?`,
+      )
+      .all(key, limit) as { problem: string; piece: string; at: string }[];
+    return rows.map((r) => ({ problem: r.problem as Hash, piece: r.piece as Hash, at: r.at }));
+  }
+
   /** QX-18: a problem's reveals whose receipts carry a witness, read without parsing the rest of the chain. */
   witnessedReveals(problem: Hash): { key: string; piece: Hash; received: Received[] }[] {
     const rows = this.db

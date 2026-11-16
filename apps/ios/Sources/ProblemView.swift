@@ -1,5 +1,6 @@
-// One problem: the owner's statement of when it is done, quoted as theirs, the map of its pieces, and the two
-// sentences that send the person's Claude to it, or, until Quilt is in their Claude, the way to the steps left.
+// One problem: the owner's statement of when it is done, quoted as theirs, the map of its pieces, with the ones the
+// person's Claude read or holds marked and the map read again as their Claude's work changes, and the two sentences
+// that send the person's Claude to it, or, until Quilt is in their Claude, the way to the steps left.
 import SwiftUI
 
 struct ProblemView: View {
@@ -35,12 +36,20 @@ struct ProblemView: View {
                             RoundedRectangle(cornerRadius: 5)
                                 .fill(Palette.square(piece.state))
                                 .overlay(RoundedRectangle(cornerRadius: 5).stroke(chosen == piece ? Palette.ink : Palette.rule, lineWidth: chosen == piece ? 2 : 1))
+                                // A piece the person's Claude read or holds carries a dot, and breathes while it is held.
+                                .overlay {
+                                    if store.mine.contains(piece.hash) {
+                                        Circle().fill(Palette.ink).frame(width: 6, height: 6)
+                                    }
+                                }
+                                .modifier(Held(held: store.holding.contains(piece.hash)))
                                 .aspectRatio(1, contentMode: .fit)
                                 .onTapGesture { chosen = chosen == piece ? nil : piece }
-                                .accessibilityLabel("\(piece.name), \(words(piece.state))")
+                                .accessibilityLabel("\(piece.name), \(words(piece.state))\(store.mine.contains(piece.hash) ? ", your Claude's" : "")")
                         }
                     }
-                    Legend()
+                    .animation(.easeInOut(duration: 0.6), value: pieces)
+                    Legend(mine: pieces.contains { store.mine.contains($0.hash) })
                     if let chosen { ChosenPiece(problem: problem, piece: chosen) }
                 }
 
@@ -70,7 +79,9 @@ struct ProblemView: View {
         }
         .background(Palette.ground)
         .navigationBarTitleDisplayMode(.inline)
-        .task { await load() }
+        // The map is read when the page opens and again whenever the person's Claude's work changes, so a square
+        // their Claude took or returned changes colour while they look.
+        .task(id: store.pulse) { await load() }
         .refreshable { await load() }
     }
 
@@ -98,18 +109,41 @@ func words(_ state: String) -> String {
     }
 }
 
-/// What the colours mean.
+/// A square the person's Claude holds now breathes.
+private struct Held: ViewModifier {
+    let held: Bool
+    @State private var dim = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(held && dim ? 0.4 : 1)
+            .animation(held ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true) : .default, value: dim)
+            .onAppear { dim = held }
+            .onChange(of: held) { _, now in dim = now }
+    }
+}
+
+/// What the colours mean, and the dot where the map carries one.
 private struct Legend: View {
+    let mine: Bool
     private let entries: [(String, String)] = [("open", "Open"), ("needs_verify", "Being read"), ("accepted_provisional", "Agreed"), ("accepted", "Settled")]
 
     var body: some View {
-        HStack(spacing: 14) {
-            ForEach(entries, id: \.0) { state, label in
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 14) {
+                ForEach(entries, id: \.0) { state, label in
+                    HStack(spacing: 5) {
+                        RoundedRectangle(cornerRadius: 3).fill(Palette.square(state))
+                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Palette.rule))
+                            .frame(width: 12, height: 12)
+                        Text(label)
+                    }
+                }
+            }
+            if mine {
                 HStack(spacing: 5) {
-                    RoundedRectangle(cornerRadius: 3).fill(Palette.square(state))
-                        .overlay(RoundedRectangle(cornerRadius: 3).stroke(Palette.rule))
-                        .frame(width: 12, height: 12)
-                    Text(label)
+                    Circle().fill(Palette.ink).frame(width: 6, height: 6).frame(width: 12, height: 12)
+                    Text("Your Claude's")
                 }
             }
         }

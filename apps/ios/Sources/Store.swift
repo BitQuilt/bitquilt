@@ -1,9 +1,11 @@
 // What the app holds: the person's root key, the address their Claude signs through, kept in the keychain since the
 // address is its own credential, their sheet as the tracker last gave it, whether Claude's app is on this phone, the
-// tab in front, and the sentence on its way to Claude.
+// tab in front, the sentence on its way to Claude, and what came back: their Claude's work as the record holds it,
+// asked again every few seconds while the app is in front, with what changed since the phone last looked.
 import Foundation
 import Observation
 import Security
+import UIKit
 
 @MainActor
 @Observable
@@ -16,10 +18,28 @@ final class Store {
     private(set) var root: Root? = RootStore.read()
     /// Whether Claude's app is on this phone, asked again each time the app comes to the front.
     private(set) var claudeInstalled = Claude.installed
-    /// The person's own page first while they hold no address here, since it is where one is made. `-tab you` at
-    /// launch names the tab for a run in the simulator.
-    var tab = UserDefaults.standard.string(forKey: "tab") ?? (Keychain.read() == nil ? "you" : "problems")
+    /// The person's own page first while they hold no address here, since it is where one is made; after that, what
+    /// their Claude did. `-tab you` at launch names the tab for a run in the simulator.
+    var tab = UserDefaults.standard.string(forKey: "tab") ?? (Keychain.read() == nil ? "you" : "activity")
     var handOff: HandOff?
+
+    /// The work of the key the person's Claude signs with, as the tracker last answered it (Work.swift).
+    private(set) var work: Work?
+    /// What changed last, shown as a banner until it is tapped or a few seconds pass.
+    var news: News?
+    /// The readings that changed since the Activity page was last looked at.
+    private(set) var fresh = Set(UserDefaults.standard.stringArray(forKey: "fresh") ?? [])
+    /// Counts each change of the work, so a map on screen knows to read its problem again.
+    private(set) var pulse = 0
+    /// When a sentence last went to Claude: for a few minutes after, the tracker is asked more often.
+    private var expecting: Date?
+
+    /// The pieces the person's Claude has read or holds, which a map marks as theirs.
+    var mine: Set<String> { Set((work?.readings ?? []).map(\.piece) + (work?.working ?? []).map(\.piece)) }
+    /// The pieces their Claude holds now.
+    var holding: Set<String> { Set((work?.working ?? []).map(\.piece)) }
+    /// What the Activity tab's badge counts: nothing while the page is in front.
+    var unseen: Int { tab == "activity" ? 0 : fresh.count }
 
     /// Whether an AI has connected at this address: the tracker records the first time one does, so the sheet says
     /// whether Quilt is in the person's Claude.
@@ -118,12 +138,66 @@ final class Store {
         }
     }
 
+    /// A sentence is on its way to Claude, or the person is back, so the work is asked for every few seconds for a while.
+    func expect() { expecting = Date() }
+
+    /// Asks the tracker for the work while the app is in front: every three seconds for five minutes after the app
+    /// came to the front or a sentence went to Claude, and while Claude holds a piece; every five while an answer
+    /// waits on a second reading; every twenty otherwise. The task that runs it ends it.
+    func watch() async {
+        expect()
+        while !Task.isCancelled {
+            await look()
+            let lately = expecting.map { Date().timeIntervalSince($0) < 300 } ?? false
+            let waiting = (work?.readings ?? []).contains { $0.standing == .waiting }
+            try? await Task.sleep(for: .seconds(lately || !holding.isEmpty ? 3 : waiting ? 5 : 20))
+        }
+    }
+
+    /// One look at the work. What changed since the last is said as news, the weightiest first, and marked fresh
+    /// until the Activity page is looked at. The first look on a phone marks everything seen and says nothing. A read
+    /// that fails is tried again at the next look and says nothing.
+    func look() async {
+        guard let address else { return }
+        if sheet == nil, let read = try? await Tracker.sheet(at: address) { sheet = read }
+        guard let key = sheet?.address, let now = try? await Tracker.work(of: key), now != work else { return }
+        let defaults = UserDefaults.standard
+        let seen = defaults.dictionary(forKey: "seen") as? [String: String]
+        let held = Set(defaults.stringArray(forKey: "held") ?? [])
+        let stands = Dictionary(now.readings.map { ($0.key, String(describing: $0.standing)) }) { a, _ in a }
+        defaults.set(stands, forKey: "seen")
+        defaults.set((now.working ?? []).map(\.piece), forKey: "held")
+        work = now
+        pulse += 1
+        guard let seen else { return }
+        fresh.formUnion(stands.filter { seen[$0.key] != $0.value }.keys)
+        defaults.set(Array(fresh), forKey: "fresh")
+        guard let first = now.news(since: seen, held: held).first else { return }
+        news = first
+        UINotificationFeedbackGenerator().notificationOccurred(first.kind == .differs ? .warning : .success)
+        // An agreement moves the standing, which the sheet carries.
+        if first.kind == .agreed, let read = try? await Tracker.sheet(at: address) { sheet = read }
+    }
+
+    /// The Activity page was looked at: nothing on it is fresh any more.
+    func sawActivity() {
+        fresh = []
+        UserDefaults.standard.removeObject(forKey: "fresh")
+    }
+
     /// Takes the address off this phone. The root stays in the keychain, and the address's key stays at the tracker,
-    /// reached by the address alone.
+    /// reached by the address alone. What this phone had seen of the address's work goes with it.
     func forget() {
         Keychain.delete()
         address = nil
         sheet = nil
+        unsee()
+    }
+
+    private func unsee() {
+        work = nil
+        fresh = []
+        for name in ["seen", "held", "fresh"] { UserDefaults.standard.removeObject(forKey: name) }
     }
 
     func clearProblem() { problem = nil }
@@ -131,6 +205,7 @@ final class Store {
     private func keep(_ url: String) {
         Keychain.write(url)
         address = url
+        unsee()
     }
 
     private func attempt(_ work: () async throws -> Void) async {

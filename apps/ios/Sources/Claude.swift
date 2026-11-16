@@ -44,6 +44,7 @@ struct HandOff: Identifiable {
 /// Where Claude's app is not on this phone the button says where the sentence opens, and the App Store is one tap away.
 struct HandOffSheet: View {
     let handOff: HandOff
+    @Environment(Store.self) private var store
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
@@ -51,7 +52,7 @@ struct HandOffSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(handOff.title).font(Typeface.display(24)).foregroundStyle(Palette.ink)
-            Text("This is the sentence your Claude gets. It is copied too, so you can paste it if Claude opens without it.")
+            Text("This is the sentence your Claude gets. It is copied too, so you can paste it if Claude opens without it. What your Claude does with it shows up here, under Activity.")
                 .font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink2)
             Text(handOff.sentence)
                 .font(Typeface.text(17))
@@ -63,6 +64,7 @@ struct HandOffSheet: View {
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.rule))
             Button(Claude.installed ? "Open Claude" : "Open Claude in Safari") {
                 UIPasteboard.general.string = handOff.sentence
+                store.expect()
                 openURL(Claude.chat(saying: handOff.sentence))
                 dismiss()
             }
