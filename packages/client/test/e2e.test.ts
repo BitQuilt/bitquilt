@@ -111,7 +111,9 @@ describe('Quilt against a tracker', () => {
       /no links/,
     );
     // The first return is told what the piece waits for; the second, that two vendors agree.
-    expect(r.waits).toBe('The piece now waits for a second production from another vendor.');
+    expect(r.waits).toBe(
+      'The reading is kept on the record under the key that signed it. A reading from another vendor that says the same makes the square.',
+    );
     const r2 = await b.return(problem, piece, { verdict: 'supports', quote: 'a different twenty words' });
     expect(r2.reveal.queued).toBe(false);
     expect(r2.waits).toContain('Two vendors agree: the piece is accepted');

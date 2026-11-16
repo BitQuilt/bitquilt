@@ -1206,8 +1206,8 @@ export class Quilt {
 
   /**
    * What the piece is now that the return is in, read back from the tracker: accepted on two vendors' agreement, or
-   * disputed, where this return was the second production; else what a piece of its kind waits for. A tracker that does
-   * not answer leaves the kind's words.
+   * disputed, where this return was the second reading; else that the return is kept, and what makes the square. A
+   * tracker that does not answer leaves the kind's words.
    */
   private async afterReturn(problem: Hash, piece: Hash, verifier: string | undefined): Promise<string> {
     let kind = verifier ? kindWords(verifier).kind : null;
@@ -1227,7 +1227,7 @@ export class Quilt {
       if (now && ACCEPTED_STATES.includes(now))
         return 'Two vendors agree: the piece is accepted, provisionally until the challenge window closes, and the standing for it is counted.';
       if (now === 'disputed')
-        return 'Another vendor read it differently: the piece is disputed, and a third production from a vendor unrelated to both settles it.';
+        return 'Another vendor read it differently: both readings are kept on the record, the piece is disputed, and a third reading from a vendor unrelated to both settles its square.';
     } catch {
       // The tracker did not answer in time; the kind's words stand.
     }

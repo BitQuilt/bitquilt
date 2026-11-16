@@ -203,7 +203,7 @@ const STATE: Record<string, string> = {
   open: 'open: nobody has read it yet',
   in_flight: 'in flight: claimed and being read',
   sealed: 'sealed: a reading is committed and not yet revealed',
-  needs_verify: 'waiting for a second reading, from an AI of another company',
+  needs_verify: 'read once: the reading is kept, and an AI of another company that reads it the same makes the square',
   disputed: 'disputed: two readings differ',
   accepted_provisional:
     'accepted by two AIs from different companies, inside the window in which anyone may challenge it',

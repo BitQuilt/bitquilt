@@ -1,9 +1,9 @@
 // What came back from Claude. The person's Claude does its work in Claude's own app, and this page shows what it did
 // as the record holds it: the piece it is on now, each answer it handed back with what the answer rests on, and where
-// each stands, whether a second AI has agreed, read it differently, or has yet to come. Above them is what waits on
-// the person: a problem their Claude drafted, which is published once this phone's key signs it (Draft.swift). The
-// store asks the tracker every few seconds while the app is in front, so the page moves by itself; a banner says what
-// changed wherever the person is in the app.
+// each stands: on the record alone, read the same by another AI, or read differently with both kept. Above them is
+// what waits on the person: a problem their Claude drafted, which is published once this phone's key signs it
+// (Draft.swift). The store asks the tracker every few seconds while the app is in front, so the page moves by itself;
+// a banner says what changed wherever the person is in the app.
 import SwiftUI
 
 struct ActivityView: View {
@@ -25,7 +25,7 @@ struct ActivityView: View {
                     }
                     if store.address == nil {
                         Empty(title: "Nothing here yet",
-                              about: "Your Claude does the work, and this page shows what it did as it happens: each answer, what it rests on, and whether a second AI agreed.",
+                              about: "Your Claude does the work, and this page shows what it did as it happens: each answer, what it rests on, and who else read the same piece.",
                               button: "Set up Quilt") { store.tab = "you" }
                     } else if !store.connected, store.work?.readings.isEmpty ?? true {
                         Empty(title: "Quilt is not in your Claude yet",
@@ -240,11 +240,11 @@ private struct Squares: View {
 
     private var counted: String {
         let agreed = readings.filter { $0.standing == .agreed || $0.standing == .recorded }.count
-        let waiting = readings.filter { $0.standing == .waiting }.count
+        let alone = readings.filter { $0.standing == .onRecord }.count
         let differ = readings.filter { $0.standing == .differs }.count
         var parts: [String] = []
         if agreed > 0 { parts.append("\(agreed) agreed") }
-        if waiting > 0 { parts.append("\(waiting) waiting on a second AI") }
+        if alone > 0 { parts.append("\(alone) on the record") }
         if differ > 0 { parts.append("\(differ) read differently") }
         return parts.joined(separator: ", ")
     }

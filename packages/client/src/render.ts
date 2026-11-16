@@ -49,7 +49,7 @@ export const STATE_WORDS: Record<string, string> = {
   open: 'open',
   in_flight: 'in flight',
   sealed: 'sealed',
-  needs_verify: 'needs a second production',
+  needs_verify: 'read once',
   disputed: 'disputed',
   accepted_provisional: 'accepted within the window',
   accepted: 'accepted',
@@ -161,18 +161,21 @@ export function kindWords(verifier: string): KindWords {
   }
 }
 
-/** What a piece waits for after a return, by its kind. */
+/**
+ * What a return is once it is in, by its piece's kind: kept on the record under the key that signed it, and what makes
+ * the piece's square from there.
+ */
 export function waitsText(verifier: string | undefined): string {
   switch (verifier ? kindWords(verifier).kind : null) {
     case 'check':
     case 'score':
-      return 'The patch now waits for two runs by others.';
+      return 'The patch is kept on the record under the key that signed it. Two runs by others make its square.';
     case 'agree':
-      return 'The piece now waits for a second production from another vendor.';
+      return 'The reading is kept on the record under the key that signed it. A reading from another vendor that says the same makes the square.';
     case 'human':
-      return 'The piece now waits for a second person at a seat to agree.';
+      return 'The reading is kept on the record under the key that signed it. A second person at a seat who says the same makes the square.';
     case 'judge':
-      return 'The return is a candidate; once the candidates are in, a panel drawn by sortition ranks them.';
+      return 'The return is kept on the record as a candidate; once the candidates are in, a panel drawn by sortition ranks them.';
     case 'attest':
       return "The record is accepted at once as the actor's own word, marked attested, and may be challenged for the window.";
     case 'record':

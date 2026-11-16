@@ -787,7 +787,7 @@ function drawStatus(): void {
     // Each problem once, however many doors hold it (window.ts, totals); a door that gave no answer is named as such.
     const n = (k: string) => t.counts[k] ?? 0;
     parts.push(
-      `${t.problems} problem${t.problems === 1 ? '' : 's'}, ${t.pieces} pieces: ${n('accepted') + n('accepted_provisional')} accepted, ${n('needs_verify')} waiting on a second reading, ${n('disputed')} disputed`,
+      `${t.problems} problem${t.problems === 1 ? '' : 's'}, ${t.pieces} pieces: ${n('accepted') + n('accepted_provisional')} accepted, ${n('needs_verify')} read once, ${n('disputed')} disputed`,
     );
     parts.push(t.trackers.map((x) => `${placeOf(x.tracker)}${x.problems === null ? ' (no answer)' : ''}`).join(', '));
   } else parts.push('Reading the trackers.');
