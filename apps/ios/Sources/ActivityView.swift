@@ -375,8 +375,8 @@ private struct ReadingRow: View {
                     }
                 }
                 Text(reading.title).font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2).lineLimit(1)
-                if let answer = reading.answer {
-                    Text(verbatim: "It said: \(answer)").font(Typeface.text(16)).foregroundStyle(Palette.ink).lineLimit(2)
+                if let said = reading.said {
+                    Text(verbatim: said).font(Typeface.text(16)).foregroundStyle(Palette.ink).lineLimit(2)
                 }
                 Text(verbatim: reading.story).font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(tone(reading.standing))
                     .multilineTextAlignment(.leading)

@@ -92,13 +92,19 @@ struct Work: Decodable, Equatable {
                 .sorted { ($0.value.count, $0.name) < ($1.value.count, $1.name) }
         }
 
-        /// The answer in one line: the shortest field that is words, which is the verdict where a return has one.
-        var answer: String? {
-            let worded = (`return` ?? [:]).compactMap { field -> String? in
+        /// The answer in a few words: the shortest field that is words where the return has three fields or fewer,
+        /// which is the verdict where it has one, and the count of fields where it has more, since no one field of a
+        /// long return is its answer.
+        var said: String? {
+            let all = `return` ?? [:]
+            guard !all.isEmpty else { return nil }
+            guard all.count <= 3 else { return "It answered \(all.count) fields." }
+            let worded = all.compactMap { field -> String? in
                 if case .text(let s) = field.value, !s.isEmpty { return s }
                 return nil
             }
-            return worded.min { ($0.count, $0) < ($1.count, $1) } ?? fields.first?.value
+            guard let answer = worded.min(by: { ($0.count, $0) < ($1.count, $1) }) ?? fields.first?.value else { return nil }
+            return "It said: \(answer)" + (answer.hasSuffix(".") ? "" : ".")
         }
 
         /// The vendors of the readings beside this one that count with it.
@@ -218,9 +224,8 @@ extension Work {
                                 body: "\(r.name): \(r.story)", state: r.state))
             case .waiting:
                 guard fresh else { continue }
-                let said = r.answer.map { "It said: \($0). " } ?? ""
                 out.append(News(kind: .returned, title: "Your Claude handed back an answer",
-                                body: "\(r.name). \(said)\(r.story)", state: r.state))
+                                body: "\(r.name). \(r.said.map { $0 + " " } ?? "")\(r.story)", state: r.state))
             }
         }
         for w in working ?? [] where !held.contains(w.piece) {
