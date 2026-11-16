@@ -177,6 +177,37 @@ struct Tracker {
         let _: Taken = try await answer(request)
     }
 
+    /// What the person asked from this app and the address still keeps, oldest first (Asks.swift).
+    static func asks(at address: String) async throws -> [Ask] {
+        struct Listed: Decodable { let asks: [Ask] }
+        guard let url = URL(string: address + "/asks") else { throw TrackerError(errorDescription: "That is not an address.") }
+        let listed: Listed = try await answer(URLRequest(url: url))
+        return listed.asks
+    }
+
+    /// Leaves an ask at the address: a phrase's name and, where the phrase takes one, a problem's hash.
+    static func ask(_ phrase: String, problem: String?, at address: String) async throws -> Ask {
+        struct Made: Decodable { let ask: Ask }
+        guard let url = URL(string: address + "/asks") else { throw TrackerError(errorDescription: "That is not an address.") }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        var body: [String: String] = ["phrase": phrase]
+        if let problem { body["problem"] = problem }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let made: Made = try await answer(request)
+        return made.ask
+    }
+
+    /// Takes an ask back: the address keeps it no longer.
+    static func takeBack(_ ask: Ask, at address: String) async throws {
+        struct Dropped: Decodable { let dropped: String }
+        guard let url = URL(string: address + "/asks/" + ask.id) else { throw TrackerError(errorDescription: "That is not an address.") }
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        let _: Dropped = try await answer(request)
+    }
+
     private static func posting(_ event: WireEvent, to url: URL) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

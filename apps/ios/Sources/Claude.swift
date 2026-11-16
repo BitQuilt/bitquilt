@@ -36,8 +36,30 @@ enum Claude {
 struct HandOff: Identifiable {
     let title: String
     let sentence: String
+    /// The phrase the sentence is, by its name, and the problem it names, by its hash: what an ask carries
+    /// (Asks.swift). Nil where the sentence is not one an ask carries.
+    var phrase: String?
+    var problem: String?
 
     var id: String { sentence }
+
+    /// Whether the address keeps this as an ask: its phrase is one this app asks with.
+    var asks: Bool { phrase.map { Ask.titles[$0] != nil } ?? false }
+
+    /// A sentence of the sheet's, with the problem read out of it where it names one.
+    init(phrase: Phrase) {
+        title = phrase.title
+        sentence = phrase.say
+        self.phrase = phrase.name
+        problem = phrase.say.range(of: #"sha256:[0-9a-f]{64}"#, options: .regularExpression).map { String(phrase.say[$0]) }
+    }
+
+    init(title: String, sentence: String, phrase: String? = nil, problem: String? = nil) {
+        self.title = title
+        self.sentence = sentence
+        self.phrase = phrase
+        self.problem = problem
+    }
 }
 
 /// The sentence shown before it goes, with the ways to send it: Claude opened on it, a copy, or the share sheet.
@@ -48,27 +70,53 @@ struct HandOffSheet: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
+    @State private var asking = false
+
+    /// Whether a tap here is enough: the person gave this app their task's trigger, and the sentence is one an ask
+    /// carries.
+    private var wakes: Bool { store.wake != nil && handOff.asks }
+
+    private var about: String {
+        if wakes {
+            return "Quilt leaves this sentence at your address and starts your Claude, which reads it there and does it. What it does shows up here, under Activity."
+        }
+        if handOff.asks {
+            return "Open Claude to send this sentence yourself, or leave it at your address for your Claude to pick up. What it does shows up here, under Activity."
+        }
+        return "This is the sentence your Claude gets. It is copied too, so you can paste it if Claude opens without it. What your Claude does with it shows up here, under Activity."
+    }
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             Text(handOff.title).font(Typeface.display(24)).foregroundStyle(Palette.ink)
-            Text("This is the sentence your Claude gets. It is copied too, so you can paste it if Claude opens without it. What your Claude does with it shows up here, under Activity.")
+            Text(about)
                 .font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink2)
+                .fixedSize(horizontal: false, vertical: true)
             Text(handOff.sentence)
                 .font(Typeface.text(17))
                 .foregroundStyle(Palette.ink)
                 .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.rule))
-            Button(Claude.installed ? "Open Claude" : "Open Claude in Safari") {
-                UIPasteboard.general.string = handOff.sentence
-                store.expect()
-                openURL(Claude.chat(saying: handOff.sentence))
-                dismiss()
+            if wakes {
+                Button(asking ? "Asking\u{2026}" : "Ask my Claude") { leave(waking: true) }
+                    .buttonStyle(ActButton())
+                    .disabled(asking)
+                Button("Open Claude myself") { open() }
+                    .buttonStyle(QuietButton())
+            } else {
+                Button(Claude.installed ? "Open Claude" : "Open Claude in Safari") { open() }
+                    .buttonStyle(ActButton())
+                if handOff.asks {
+                    Button(asking ? "Leaving it\u{2026}" : "Leave it for my Claude") { leave(waking: false) }
+                        .buttonStyle(QuietButton())
+                        .disabled(asking)
+                }
             }
-            .buttonStyle(ActButton())
             if !Claude.installed {
                 Link("Claude's app is not on this phone. Get it from the App Store.", destination: Claude.appStore)
                     .font(Typeface.text(14, relativeTo: .footnote))
@@ -83,10 +131,27 @@ struct HandOffSheet: View {
                 ShareLink(item: handOff.sentence) { Text("Share") }
                     .buttonStyle(QuietButton())
             }
-            Spacer(minLength: 0)
         }
         .padding(20)
+        }
         .background(Palette.ground)
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.fraction(0.72), .large])
+    }
+
+    /// Claude opened on the sentence, with the sentence copied in case Claude opens without it.
+    private func open() {
+        UIPasteboard.general.string = handOff.sentence
+        store.expect()
+        openURL(Claude.chat(saying: handOff.sentence))
+        dismiss()
+    }
+
+    /// The sentence left at the address as an ask, and the person's Claude started where that was asked for.
+    private func leave(waking: Bool) {
+        asking = true
+        Task {
+            if await store.ask(handOff, waking: waking) { dismiss() }
+            asking = false
+        }
     }
 }

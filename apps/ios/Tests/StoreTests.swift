@@ -29,6 +29,42 @@ final class StoreTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "presence")
     }
 
+    func testWhatIsAskedWaitsAtTheAddressIsReadByItsClaudeAndIsTakenBack() async throws {
+        let joined = try await Tracker.join()
+        let store = Store()
+        await store.use(joined.url)
+        XCTAssertNil(store.problem)
+        let problem = "sha256:" + String(repeating: "a", count: 64)
+        // Left with no trigger kept: the ask waits at the address.
+        let taken = HandOff(title: "Take a piece", sentence: "Open quilt:\(problem) on Quilt and take a piece.", phrase: "take_piece", problem: problem)
+        let kept = await store.ask(taken, waking: true)
+        XCTAssertTrue(kept)
+        XCTAssertEqual(store.asks.map(\.phrase), ["take_piece"])
+        XCTAssertNil(store.asks[0].handed)
+        XCTAssertEqual(store.news?.title, "Left for your Claude")
+        // A sentence with words of its own is refused at the address, and nothing is kept.
+        let refused = await store.ask(HandOff(title: "Call me", sentence: "Call me Ada on Quilt.", phrase: "call_me"), waking: false)
+        XCTAssertFalse(refused)
+        XCTAssertEqual(store.asks.count, 1)
+        // The address's Claude lists the asks with its tool, here over plain HTTP, and the next look says so.
+        var asked = URLRequest(url: URL(string: joined.url + "/tools/quilt_asked")!)
+        asked.httpMethod = "POST"
+        asked.setValue("application/json", forHTTPHeaderField: "content-type")
+        asked.httpBody = Data(#"{"model":"anthropic/claude-test","input":{}}"#.utf8)
+        let (said, answered) = try await URLSession.shared.data(for: asked)
+        XCTAssertEqual((answered as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertTrue(String(decoding: said, as: UTF8.self).contains("and take a piece."))
+        await store.look()
+        XCTAssertNotNil(store.asks[0].handed)
+        XCTAssertEqual(store.news?.title, "Your Claude has what you asked")
+        // A second ask is taken back before Claude reads it.
+        let found = await store.ask(HandOff(title: "Something to do", sentence: "Find me something to do on Quilt.", phrase: "find_something_to_do"), waking: false)
+        XCTAssertTrue(found)
+        XCTAssertEqual(store.asks.count, 2)
+        await store.takeBack(store.asks[1])
+        XCTAssertEqual(store.asks.map(\.phrase), ["take_piece"])
+    }
+
     func testAnAddressTheTrackerHeldComesUnderAFreshRootByARotation() async throws {
         // An address made elsewhere, whose key has signed: a name, through the tools over plain HTTP.
         let joined = try await Tracker.join()

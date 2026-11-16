@@ -32,6 +32,13 @@ final class Store {
     /// What waits on this phone's root: the problems the person's Claude drafted, each published once the root signs
     /// it (Draft.swift).
     private(set) var waiting: [Waiting] = []
+    /// What the person asked of their Claude from this app and the address still keeps (Asks.swift).
+    private(set) var asks: [Ask] = []
+    /// The trigger of the person's own scheduled task in Claude, where they gave this app one (Asks.swift).
+    private(set) var wake: Wake? = WakeStore.read()
+    /// When this app last started the person's Claude, and the session Claude said it started.
+    private(set) var woke: Date?
+    private(set) var run: URL?
     /// Counts each change of the work, so a map on screen knows to read its problem again.
     private(set) var pulse = 0
     /// When a sentence last went to Claude: for a few minutes after, the tracker is asked more often.
@@ -154,7 +161,7 @@ final class Store {
         while !Task.isCancelled {
             await look()
             let lately = expecting.map { Date().timeIntervalSince($0) < 300 } ?? false
-            let waiting = (work?.readings ?? []).contains { $0.standing == .onRecord }
+            let waiting = (work?.readings ?? []).contains { $0.standing == .onRecord } || asks.contains { $0.handed == nil }
             try? await Task.sleep(for: .seconds(lately || !holding.isEmpty ? 3 : waiting ? 5 : 20))
         }
     }
@@ -167,6 +174,7 @@ final class Store {
         guard let address else { return }
         if sheet == nil, let read = try? await Tracker.sheet(at: address) { sheet = read }
         let asked = await lookForDrafts(at: address)
+        await lookForAsks(at: address)
         guard let key = sheet?.address, let now = try? await Tracker.work(of: key), now != work else { return }
         let defaults = UserDefaults.standard
         let seen = defaults.dictionary(forKey: "seen") as? [String: String]
@@ -198,6 +206,83 @@ final class Store {
         say(News(kind: .asked, title: "Your Claude drafted a problem",
                  body: (title.map { "\($0). " } ?? "") + "It waits for your key. Read it, and publish it if it is right.", state: "open"))
         return true
+    }
+
+    /// Reads the asks the address keeps, and says so when the person's Claude has picked one up since the last look.
+    private func lookForAsks(at address: String) async {
+        guard let listed = try? await Tracker.asks(at: address), listed != asks else { return }
+        let waited = Set(asks.filter { $0.handed == nil }.map(\.id))
+        asks = listed
+        guard let picked = listed.first(where: { $0.handed != nil && waited.contains($0.id) }) else { return }
+        say(News(kind: .sent, title: "Your Claude has what you asked", body: "\(picked.title). It is working from it now, and what it does shows up here.", state: "in_flight"))
+    }
+
+    /// Leaves a hand-off at the address as an ask, and where `waking` and a trigger is kept, starts the person's
+    /// Claude. Whether the ask was kept. A start that fails leaves the ask waiting, and the banner says why.
+    func ask(_ handOff: HandOff, waking: Bool) async -> Bool {
+        guard let address, let phrase = handOff.phrase else { return false }
+        var kept = false
+        await attempt {
+            let made = try await Tracker.ask(phrase, problem: handOff.problem, at: address)
+            self.asks.removeAll { $0.id == made.id }
+            self.asks.append(made)
+            kept = true
+        }
+        guard kept else { return false }
+        expect()
+        guard waking, let wake else {
+            say(News(kind: .sent, title: "Left for your Claude", body: "\(handOff.title). It waits at your address until your Claude looks: say \u{201C}Do what I asked on Quilt\u{201D} in Claude.", state: "open"))
+            return true
+        }
+        do {
+            let fired = try await wake.fire()
+            woke = Date()
+            run = fired.url.flatMap { URL(string: $0) }
+            say(News(kind: .sent, title: "Your Claude is starting", body: "\(handOff.title). It reads what you asked and does it, and its answer shows up here.", state: "in_flight"))
+        } catch {
+            say(News(kind: .sent, title: "Asked, and Claude did not start", body: "\(error.localizedDescription) What you asked still waits at your address.", state: "disputed"))
+        }
+        return true
+    }
+
+    /// Takes an ask back before the person's Claude has read it.
+    func takeBack(_ ask: Ask) async {
+        guard let address else { return }
+        await attempt {
+            try await Tracker.takeBack(ask, at: address)
+            self.asks.removeAll { $0.id == ask.id }
+        }
+    }
+
+    /// Keeps the trigger of the person's scheduled task in this phone's keychain. Whether the two are a Fire URL and
+    /// a token as Claude gives them.
+    func keepWake(url: String, token: String) -> Bool {
+        guard let made = Wake(url: url, token: token) else { return false }
+        WakeStore.write(made)
+        wake = made
+        return true
+    }
+
+    /// Forgets the trigger: a tap opens Claude with a sentence again.
+    func forgetWake() {
+        WakeStore.delete()
+        wake = nil
+        woke = nil
+        run = nil
+    }
+
+    /// Starts the person's task once with nothing asked, to see that Claude takes the trigger. What happened, in a
+    /// sentence.
+    func tryWake() async -> String {
+        guard let wake else { return "No trigger is kept on this phone." }
+        do {
+            let fired = try await wake.fire()
+            woke = Date()
+            run = fired.url.flatMap { URL(string: $0) }
+            return "Claude took it and started the task. With nothing asked, the task reads that and stops."
+        } catch {
+            return error.localizedDescription
+        }
     }
 
     /// Publishes a draft: the person is asked for, the root signs the envelope and its version, and the address
