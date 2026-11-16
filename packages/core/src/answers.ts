@@ -14,6 +14,7 @@ import { PATCH_VERIFIERS } from './envelope.js';
 import type { Hash } from './hash.js';
 import type { LayerState } from './challenge.js';
 import type { ProblemLayer } from './layer.js';
+import { byAtThenId } from './plain.js';
 import type { HowCounts } from './readings.js';
 import type { Reveal } from './reduce.js';
 import { type Return, type Schema, agreeFields, returnsAgree } from './schema.js';
@@ -72,7 +73,7 @@ const NOBODY: ReadonlySet<string> = new Set();
  * The answers of one piece. QX-24 section 1: two readings say the same answer where they agree on the piece's agree
  * fields as the core reads agreement (CORE.md section 6), and where the piece has no schema or returns a patch,
  * where their returns have one hash. A reading joins the first answer it agrees with, in receipt order, so the
- * answers stand in the order the first reading of each was received.
+ * answers stand in the order the first reading of each was received, in whatever order the readings are handed in.
  */
 export function tally<S extends Said>(
   schema: Schema | undefined,
@@ -80,7 +81,10 @@ export function tally<S extends Said>(
   said: readonly S[],
   without: ReadonlySet<string> = NOBODY,
 ): Tally<S> {
-  const told = said.filter((r) => !without.has(r.root.toLowerCase()) && !without.has(r.key.toLowerCase()));
+  // Receipt order is asked for here and not of the caller: a reader holds a listing by answer, and tells it again.
+  const told = said
+    .filter((r) => !without.has(r.root.toLowerCase()) && !without.has(r.key.toLowerCase()))
+    .sort(byAtThenId);
   const fields = schema ? agreeFields(schema, agree) : [];
   const same = (a: S, b: S): boolean =>
     schema && a.return && b.return ? returnsAgree(schema, fields, a.return, b.return) : a.digest === b.digest;

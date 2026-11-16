@@ -109,6 +109,20 @@ describe('the keys a reader leaves out', () => {
     expect(tally(SCHEMA, ['verdict'], all).answers).toHaveLength(2);
   });
 
+  it('tells the rest in the order they were received, in whatever order a listing handed them in', () => {
+    const a = said(1, 'anthropic', 'contradicts');
+    const b = said(2, 'openai', 'supports');
+    const c = said(3, 'google', 'contradicts');
+    // As a tracker lists them, by answer: the first answer's readings, then the second's.
+    const listed = tally(SCHEMA, ['verdict'], [a, b, c]).answers.flatMap((x) => x.readings);
+    expect(listed.map((r) => r.id)).toEqual([a.id, c.id, b.id]);
+    // Without the first reading, the answer received first of what remains leads.
+    const t = tally(SCHEMA, ['verdict'], listed, leftOut([a.root]));
+    expect(t.answers.map((x) => x.says)).toEqual([{ verdict: 'supports' }, { verdict: 'contradicts' }]);
+    // And a listing told again with nobody left out is the listing.
+    expect(tally(SCHEMA, ['verdict'], listed)).toEqual(tally(SCHEMA, ['verdict'], [a, b, c]));
+  });
+
   it('knows an address whatever capitals it is written in', () => {
     const a = said(0xab, 'anthropic', 'supports');
     expect(tally(SCHEMA, ['verdict'], [a], leftOut([a.root.toUpperCase().replace('0X', '0x')])).readings).toBe(0);
