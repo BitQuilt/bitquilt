@@ -147,7 +147,8 @@ function concrete(path: string): string[] {
       .replace('<token>', mine.token)
       .replace('<name>', 'quilt_me')
       .replace('<problem>', NO_SQUARE)
-      .replace('<piece>', NO_SQUARE),
+      .replace('<piece>', NO_SQUARE)
+      .replace('<ask>', '0'.repeat(32)),
   ];
 }
 

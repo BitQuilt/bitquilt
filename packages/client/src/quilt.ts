@@ -38,6 +38,7 @@ import { draftEnvelope, patternProblems, patternProblemsText } from './pattern.j
 import type { Door } from './door.js';
 import * as gold from './gold.js';
 import { type Link, makeLink, parseLink } from './link.js';
+import { ASKABLE, phrase, say } from './phrases.js';
 import { type RestAsked, type TraceOutcome, traceAfterReveal } from './trace.js';
 import {
   ACCEPTED_STATES,
@@ -145,6 +146,23 @@ export interface Published {
  * A publish that waits on a root held elsewhere (CORE.md section 4): the envelope without its `sig`, owned by the
  * root, with its blobs and the topics its announce will carry, and what of the pattern is left off.
  */
+/**
+ * An ask (APP.md, "What a person asks from their own app"): one of the phrases an ask may carry and, where the phrase
+ * takes a link, the problem's hash; when it was asked, and when a tool handed it to an AI.
+ */
+export interface Ask {
+  id: string;
+  phrase: string;
+  problem: Hash | null;
+  at: string;
+  handed: string | null;
+}
+
+/** How long an ask waits to be handed, how long a handed one is kept for the app to show, and how many may wait. */
+export const ASK_WAITS_HOURS = 48;
+export const ASK_SHOWN_HOURS = 24;
+export const ASKS_MAX = 8;
+
 export interface WaitingPublish {
   root: Address;
   unsigned: Omit<Envelope, 'sig'>;
@@ -527,6 +545,81 @@ export class Quilt {
     if (on) list[held ?? address] = { since: list[held ?? address]?.since ?? this.stamp(), why: why ?? null };
     else if (held) delete list[held];
     this.save();
+  }
+
+  // The asks (APP.md, "What a person asks from their own app"): what the person asked from their own app, kept in the
+  // home until their AI takes it. An ask is a phrase's name and a problem's hash, so the sentence an AI is handed is
+  // written here from the phrases and no words cross with an ask.
+
+  /**
+   * The asks this home holds, oldest first: those not handed to an AI within ASK_WAITS_HOURS of being asked and those
+   * handed more than ASK_SHOWN_HOURS ago are dropped as they are read.
+   */
+  asks(): Ask[] {
+    const held = this.library.asks ?? [];
+    const now = Date.parse(this.stamp());
+    const kept = held.filter((a) =>
+      a.handed === null
+        ? now - Date.parse(a.at) < ASK_WAITS_HOURS * 3600000
+        : now - Date.parse(a.handed) < ASK_SHOWN_HOURS * 3600000,
+    );
+    if (kept.length !== held.length) {
+      this.library.asks = kept;
+      this.save();
+    }
+    return kept.map((a) => ({ ...a, problem: a.problem as Hash | null }));
+  }
+
+  /** An ask as the sentence an AI is handed: its phrase said with the problem's link, made here from the hash. */
+  askSentence(a: { phrase: string; problem: Hash | null }): string {
+    return say(a.phrase, a.problem ? { link: makeLink(a.problem, this.config.trackers) } : {});
+  }
+
+  /**
+   * Keeps an ask: one of the phrases an ask may carry, with a problem's hash where the phrase takes a link and none
+   * where it takes nothing. The same ask made again while it waits is the one already kept. Refused, with the reason,
+   * where the phrase is not one an ask carries, the problem is not a hash, or ASKS_MAX already wait.
+   */
+  keepAsk(name: string, problem: string | null): Ask {
+    if (!ASKABLE.includes(name)) throw new Error(`an ask carries one of: ${ASKABLE.join(', ')}`);
+    const takes = phrase(name).args.includes('link');
+    if (takes && (problem === null || !isHash(problem)))
+      throw new Error(`${name} takes a problem: its hash, sha256 and sixty-four characters`);
+    if (!takes && problem !== null) throw new Error(`${name} takes no problem`);
+    const waiting = this.asks().filter((a) => a.handed === null);
+    const same = waiting.find((a) => a.phrase === name && a.problem === problem);
+    if (same) return same;
+    if (waiting.length >= ASKS_MAX) throw new Error(`${ASKS_MAX} asks wait here already`);
+    const made: Ask = {
+      id: globalThis.crypto.randomUUID().replaceAll('-', ''),
+      phrase: name,
+      problem: problem as Hash | null,
+      at: this.stamp(),
+      handed: null,
+    };
+    (this.library.asks ??= []).push(made);
+    this.save();
+    return made;
+  }
+
+  /** The asks that wait, each marked as handed to an AI now: what the tool that lists them answers with. */
+  handAsks(): Ask[] {
+    const waiting = this.asks().filter((a) => a.handed === null);
+    if (waiting.length === 0) return [];
+    const at = this.stamp();
+    for (const a of this.library.asks ?? []) if (a.handed === null) a.handed = at;
+    this.save();
+    return waiting.map((a) => ({ ...a, handed: at }));
+  }
+
+  /** An ask taken back by the person, by its id; false where the home holds none by it. */
+  dropAsk(id: string): boolean {
+    const held = this.library.asks ?? [];
+    const kept = held.filter((a) => a.id !== id);
+    if (kept.length === held.length) return false;
+    this.library.asks = kept;
+    this.save();
+    return true;
   }
 
   /**

@@ -611,5 +611,20 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     call('quilt_leave_out'),
   );
 
+  tool(
+    'quilt_asked',
+    {
+      title: 'What this person asked from their app',
+      description: [
+        "Lists what this person asked from their own Quilt app that no AI has been handed yet: each is one of the person's own phrases, the sentences the prompts are, with a problem's link filled in where the phrase takes one.",
+        "An ask is made by the holder of this address in their own app. It carries a phrase's name and a problem's hash and no other words, so the sentence is written here from the phrases, and it waits two days.",
+        "Listing the asks marks them as handed, and the person's app shows that their AI has them; nothing is signed or posted by the listing.",
+      ].join(' '),
+      inputSchema: {},
+      outputSchema: toolOutput,
+    },
+    call('quilt_asked'),
+  );
+
   return server;
 }

@@ -31,6 +31,7 @@ const DESCRIBED: Record<(typeof LISTED_TOOLS)[number], string> = {
   quilt_reveal_gold: 'sha256:d820a9fdc248a387b42fe6cbd19e6bc5dc01b7ec1f0c310d315dc453eecce2dd',
   quilt_name: 'sha256:1fcd0391a60ac450952a3795a603c502f7529b3f2f00515757adf268e3f31354',
   quilt_leave_out: 'sha256:ef644c376552df44840ebb935a9880b6b6b5e31105955fdbf9d089fd946551f5',
+  quilt_asked: 'sha256:3b0e81c90c9a8db06e6ca38411de406609c09d9231bafe72ffd7bd74f1cf2498',
 };
 
 describe('the tool descriptions', () => {
