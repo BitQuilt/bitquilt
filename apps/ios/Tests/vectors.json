@@ -1,0 +1,171 @@
+{
+  "keys": [
+    {
+      "secret": "0000000000000000000000000000000000000000000000000000000000000001",
+      "address": "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf"
+    },
+    {
+      "secret": "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318",
+      "address": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23"
+    },
+    {
+      "secret": "f8f8a2f43c8376ccb0871305060d7b27b0554d2cc72bccf41b2705608452f315",
+      "address": "0x001d3F1ef827552Ae1114027BD3ECF1f086bA0F9"
+    }
+  ],
+  "personal": [
+    {
+      "text": "",
+      "hash": "5f35dce98ba4fba25530a026ed80b2cecdaa31091ba4958b99b52ea1d068adad"
+    },
+    {
+      "text": "abc",
+      "hash": "e28f5ff58ff3f1b24d6ba6e3b3e95e49589e8dd59b91296e76189d6ad2857b22"
+    },
+    {
+      "text": "quilt:identity",
+      "hash": "ff51e1a7c8bd1191994ea1c1ab4b24a51a5cc4349640cfe4e1eeed6509580f11"
+    },
+    {
+      "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "hash": "3c4a1cd7fa5c0dc69ed808b4315262b120dd6cdc11469e11f6abbaffc9a975a2"
+    },
+    {
+      "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "hash": "345544bd4621c459551fb0bc9edca6e087a3211279c4472780561e3f65331e3c"
+    },
+    {
+      "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "hash": "86e9e7be87d3fd7a84561e6caf1a79db04e8fb4a0deb19bb3a1498587dbf9b24"
+    },
+    {
+      "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "hash": "1a04c338a378bbe76dd2d9734a3e1d6b25102993dabd499a06f0bb588c633519"
+    },
+    {
+      "text": "é and 縫 and 🧵",
+      "hash": "03a4a9cd1c66831f40e8bcee9aaaec6ff8510961cd8a4a573d6ce79481eb1437"
+    }
+  ],
+  "canonical": [
+    {
+      "value": {
+        "b": 1,
+        "a": [
+          true,
+          false,
+          null
+        ],
+        "": "empty key",
+        "A": "upper before lower"
+      },
+      "canonical": "{\"\":\"empty key\",\"A\":\"upper before lower\",\"a\":[true,false,null],\"b\":1}"
+    },
+    {
+      "value": {
+        "text": "a \"quote\", a \\ backslash, a tab\t, a line\n, a return\r, a bell\u0007, a form feed\f, a backspace\b"
+      },
+      "canonical": "{\"text\":\"a \\\"quote\\\", a \\\\ backslash, a tab\\t, a line\\n, a return\\r, a bell\\u0007, a form feed\\f, a backspace\\b\"}"
+    },
+    {
+      "value": {
+        "€": "euro",
+        "🧵": "thread sorts by its UTF-16 units",
+        "ﬁ": "ligature",
+        "z": "é 縫 🧵  "
+      },
+      "canonical": "{\"z\":\"é 縫 🧵  \",\"€\":\"euro\",\"🧵\":\"thread sorts by its UTF-16 units\",\"ﬁ\":\"ligature\"}"
+    },
+    {
+      "value": {
+        "nested": {
+          "z": {
+            "y": {
+              "x": [
+                1,
+                2,
+                {
+                  "w": 0
+                }
+              ]
+            }
+          }
+        },
+        "n": -12,
+        "big": 9007199254740991
+      },
+      "canonical": "{\"big\":9007199254740991,\"n\":-12,\"nested\":{\"z\":{\"y\":{\"x\":[1,2,{\"w\":0}]}}}}"
+    }
+  ],
+  "messages": [
+    {
+      "text": "",
+      "secret": "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318",
+      "sig": "0x8a68b4e66cd2b575338e16069d7b65f6f67c7ceae8945dccf8cb7bdb06278d933dd9c888f3444ca4698464079a067ad3cfffe96d493b8ecf56885169d0fdfe7d1b"
+    },
+    {
+      "text": "hello",
+      "secret": "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318",
+      "sig": "0xa5d58782075bdf09490159d634d1aae66a8f6777c7247d2f233e9511cfd7c64c34f288cdbcea5370e4863fdbe9f4d86654c2ba1d86589e9ebb64494c649008591b"
+    },
+    {
+      "text": "{\"quilt\":1}",
+      "secret": "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318",
+      "sig": "0x71687224204712524483ff9f740f34a73d41a0ddc5dcb43e35b2fc8e273033f738c1bbbe4514007439b5354ae8568329053a5055b22bc165e390b8385d32c7e11b"
+    }
+  ],
+  "events": [
+    {
+      "event": {
+        "quilt": 1,
+        "type": "delegate",
+        "key": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23",
+        "ts": "2026-11-15T20:38:35.828Z",
+        "body": {
+          "to": "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
+          "scope": [
+            "claim",
+            "commit",
+            "reveal"
+          ],
+          "expires": "2036-11-15T20:38:35.828Z"
+        },
+        "sig": "0xb59acea54a60a875afda1fba98eb73c5246f4ee53458a3bef4cf0821fff2f5097545f7f9c10c2133af6e8a4897a8b74a7ee989a7e5087d809dd34099ab0d35731c"
+      },
+      "id": "sha256:9cffb70bbfc1cda12e68b3b27a485a18d1646e85775c464f1a86595a33302b38",
+      "signer": "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318",
+      "second": null
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "revoke",
+        "key": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23",
+        "ts": "2026-11-16T08:00:00.000Z",
+        "body": {
+          "of": "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf"
+        },
+        "sig": "0x115b6bb57e043877ed30ea511e07135e60a6c3c00463dbdcf60ed3747b3da2ba67920f3fa02e300ac66337a7dc9bbd95345e62fc5d61ef7c1411e5ac8e4528e11b"
+      },
+      "id": "sha256:1733106463e9494eab0a918bacc36dfb60ef229007b488dcc80d7ea7803fab5e",
+      "signer": "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318",
+      "second": null
+    },
+    {
+      "event": {
+        "quilt": 1,
+        "type": "rotate",
+        "key": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23",
+        "ts": "2026-11-16T09:00:00.000Z",
+        "body": {
+          "to": "0x001d3F1ef827552Ae1114027BD3ECF1f086bA0F9"
+        },
+        "sig": "0x7650f24c6861396919b5787ad69f20cd29743db322dfd435b90c87b23a37460547375d0e14540afb40e994f1c864d903b233c6c799d24b4ec4b59b5a0dd78cbd1c",
+        "sig_to": "0xde38360bc30e6190522551c28b8217d2ff9d7f2defd30b20ec2f5e68f37b9b572e4878d53a212e78699622a7514404d1ae474cc1c65ff99d7c62a2849dfa57181b"
+      },
+      "id": "sha256:1aaa66371142f478061fc9050a1ccd60fc36445324300f90d1aafc3abd5078ad",
+      "signer": "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318",
+      "second": "f8f8a2f43c8376ccb0871305060d7b27b0554d2cc72bccf41b2705608452f315"
+    }
+  ]
+}

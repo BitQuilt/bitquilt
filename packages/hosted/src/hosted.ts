@@ -3,7 +3,9 @@
  * anything, a tracker makes a root key, holds it encrypted at rest, and mounts Quilt's connector at an address they
  * paste into their AI. Every receipt for its events says custody: hosted, so a reader can tell. The key is theirs:
  * they can fetch it with their address and move it into a Quilt of their own. An AI that holds no MCP client calls the
- * same tools at the address over plain HTTP, a POST a call, naming its model in each.
+ * same tools at the address over plain HTTP, a POST a call, naming its model in each. Where the person's own client
+ * holds a root, the address's key is that root's delegate: by the root's own `delegate`, which asks nothing of this
+ * file, or by a `rotate` the client wrote, which is signed here as the old root at `/mcp/<token>/rotate`.
  *
  * With a token key set, the on-ramp is also the authorization server for its addresses (QX-18, oauth.ts): a product
  * that connects at `/mcp` holds a token for an address its person presented, and the events posted through that
@@ -21,12 +23,18 @@ import { ErrorCode, isInitializeRequest } from '@modelcontextprotocol/sdk/types.
 import { appendFileSync } from 'node:fs';
 import {
   type Address,
+  type Event,
   type Hash,
+  type Unsigned,
   addressOf,
+  eventId,
+  eventProblems,
   isRecord,
   randomSecretKey,
+  rotateSecondSigner,
   secretFromHex,
   secretToHex,
+  signEvent,
   withSlash,
 } from '@bitquilt/core';
 import { PRIVATE_RANGES, type Store, clientAddress, custodyHeaders, json, rangesOf } from '@bitquilt/tracker';
@@ -299,7 +307,7 @@ export function createHosted(options: HostedOptions): Hosted {
   const joinPolicy = pagePolicy(joinHtml);
   /** The member a pasted address belongs to: the long address, or its last part. */
   const memberOf = (presented: string): string | null => {
-    const m = /(?:^|\/mcp\/)([0-9a-f]{64})(?:\/(?:key|sheet))?\/?$/.exec(presented.trim());
+    const m = /(?:^|\/mcp\/)([0-9a-f]{64})(?:\/(?:key|sheet|rotate))?\/?$/.exec(presented.trim());
     return m && store.getMember(tokenHash(m[1]!)) ? tokenHash(m[1]!) : null;
   };
   const trustedProxies = rangesOf(options.trustedProxies ?? PRIVATE_RANGES);
@@ -549,6 +557,41 @@ export function createHosted(options: HostedOptions): Hosted {
     return { ...made, url: `${trackerUrl()}mcp/${token}`, standing, coin };
   }
 
+  /**
+   * A member's root rotated to a key the person holds (PROTOCOL.md, Identity: roots and delegates: "A person who wants
+   * a wallet's key as root can `rotate` to it, and everything done so far becomes the new root's"). CORE.md section 4
+   * asks two signatures of a rotate: "Signed by the old root in `sig`; `sig_to` is the new root's signature over the
+   * event without `sig` and `sig_to`". The person's client writes the event and signs it as the new root, and the old
+   * root's key is held here, so this signs `sig` and posts the event to this tracker's identity log. The event is the
+   * caller's whole: its `key` is the member's address, its `ts` is within ten minutes of now, and its `sig_to` recovers
+   * to `body.to`. The same event sent again is answered as the first was, since the door holds it. Whether the
+   * rotation is kept is the fold's to say, which a key's standing answers with its root.
+   */
+  async function rotate(
+    hash: string,
+    member: { address: string; keyEnc: string },
+    body: unknown,
+  ): Promise<{ id: Hash; root: Address } | { status: number; error: string }> {
+    const asks = 'a rotate event without its sig: { quilt, type, key, ts, body: { to }, sig_to }';
+    if (!isRecord(body) || body.sig !== undefined) return { status: 400, error: asks };
+    if (body.type !== 'rotate') return { status: 400, error: asks };
+    if (body.key !== member.address) return { status: 400, error: "the rotate's key is this address's own" };
+    const event = signEvent(body as unknown as Unsigned, secretFromHex(decrypt(keySecret, member.keyEnc))) as Event;
+    const shape = eventProblems(event);
+    if (shape.length) return { status: 400, error: shape[0]! };
+    const to = (event.body as { to: Address }).to;
+    if (rotateSecondSigner(event) !== to)
+      return { status: 400, error: "sig_to is the new root's signature over the event without sig and sig_to" };
+    if (Math.abs(Date.parse(event.ts) - Date.parse(now())) > 10 * 60 * 1000)
+      return { status: 400, error: "the rotate's ts is within ten minutes of now" };
+    const q = quiltFor(hash, undefined);
+    if (!q) return { status: 404, error: 'no such address here' };
+    const posted = await q.resolver.post(event, null, [trackerUrl()]);
+    if (posted.queued) return { status: 503, error: 'the tracker did not answer, and the rotation waits in the queue' };
+    if (posted.error) return { status: 400, error: posted.error };
+    return { id: eventId(event), root: to };
+  }
+
   async function routes(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
     const path = url.pathname.replace(/\/+$/, '') || '/';
     const method = req.method ?? 'GET';
@@ -718,7 +761,7 @@ export function createHosted(options: HostedOptions): Hosted {
       json(res, 'error' in said ? 400 : 200, said);
       return true;
     }
-    if ((m = /^\/mcp\/([0-9a-f]{64})(?:\/(key|sheet))?$/.exec(path))) {
+    if ((m = /^\/mcp\/([0-9a-f]{64})(?:\/(key|sheet|rotate))?$/.exec(path))) {
       const token = m[1]!;
       if (m[2] === 'sheet') {
         if (method !== 'GET') {
@@ -761,6 +804,20 @@ export function createHosted(options: HostedOptions): Hosted {
           secret: decrypt(keySecret, member.keyEnc),
           note: 'This is the key itself. Import it into Quilt with quilt init --secret or --from, and treat this address as spent.',
         });
+        return true;
+      }
+      if (m[2] === 'rotate') {
+        if (method !== 'POST') {
+          json(res, 405, { error: 'POST' });
+          return true;
+        }
+        const member = store.getMember(tokenHash(token));
+        if (!member) {
+          json(res, 404, { error: 'no such address here' });
+          return true;
+        }
+        const said = await rotate(tokenHash(token), member, await readJson(req));
+        json(res, 'error' in said ? said.status : 200, 'error' in said ? { error: said.error } : said);
         return true;
       }
       // The bare address is its own credential, as it always was, so a header this server did not issue changes
