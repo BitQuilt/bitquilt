@@ -167,5 +167,23 @@
       "signer": "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318",
       "second": "f8f8a2f43c8376ccb0871305060d7b27b0554d2cc72bccf41b2705608452f315"
     }
-  ]
+  ],
+  "draft": {
+    "envelope": "{\"hints\":{\"mirrors\":[],\"trackers\":[\"https://tracker.example/\"]},\"problem\":{\"data\":{\"rows\":\"sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\"},\"done_when\":\"Every sentence has two readings: \\\"agreed\\\", or kept apart.\",\"from\":null,\"owner\":\"0x2c7536E3605D9C16a7a3D7b1898e529396a65c23\",\"pieces\":{\"sentence/*\":{\"agree\":[\"verdict\"],\"brief\":\"Does the paper say this: {row.claim} Quote the words it rests on.\",\"count\":3,\"data\":{\"row\":\"rows\"},\"schema\":{\"additionalProperties\":false,\"properties\":{\"verdict\":{\"enum\":[\"supports\",\"contradicts\"]}},\"required\":[\"verdict\"],\"type\":\"object\"},\"verifier\":\"agree\"},\"summary\":{\"brief\":\"Say in a sentence what the paper claims.\",\"inputs\":[\"sentence/*\"],\"verifier\":\"record:2\"}},\"prev\":null,\"settings\":{\"budget\":1000,\"challenge_window_h\":48,\"endgame_at\":10,\"lease_h\":2,\"patch_max\":100000},\"slug\":\"paper-sentences\",\"title\":\"Does the paper say this, in these words?\"},\"quilt\":1}",
+    "hash": "sha256:c34320a8c5fc4b1dd8b73b327dd6a137da354321be4258e432620f0e46b57dc8",
+    "signer": "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318",
+    "sig": "0xe2f966ef415e6d97e7b37240b6af53e612f460c550c5fb937a65661a1a584039789dae8d77e7012127d6adae9895ea663c49b5a56a81b76d9f15cdc867ffa2fa1b",
+    "version": {
+      "quilt": 1,
+      "type": "version",
+      "problem": "sha256:c34320a8c5fc4b1dd8b73b327dd6a137da354321be4258e432620f0e46b57dc8",
+      "key": "0x2c7536E3605D9C16a7a3D7b1898e529396a65c23",
+      "ts": "2026-11-16T10:00:00.000Z",
+      "body": {
+        "slug": "paper-sentences",
+        "hash": "sha256:c34320a8c5fc4b1dd8b73b327dd6a137da354321be4258e432620f0e46b57dc8"
+      },
+      "sig": "0x61be810e566b9402d0f4c2281846abfeeda8ac56ccf12dfaf4b23b26bea094631fbeb87be12588050a4b00f59cc1c9d3ea57f726295a04dd1d30ea53e3377cca1c"
+    }
+  }
 }

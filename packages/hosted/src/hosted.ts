@@ -5,14 +5,16 @@
  * they can fetch it with their address and move it into a Quilt of their own. An AI that holds no MCP client calls the
  * same tools at the address over plain HTTP, a POST a call, naming its model in each. Where the person's own client
  * holds a root, the address's key is that root's delegate: by the root's own `delegate`, which asks nothing of this
- * file, or by a `rotate` the client wrote, which is signed here as the old root at `/mcp/<token>/rotate`.
+ * file, or by a `rotate` the client wrote, which is signed here as the old root at `/mcp/<token>/rotate`. What only
+ * that root signs waits here for it: a publish the person's AI drafted is kept under the member's home, listed at
+ * `/mcp/<token>/waiting`, and published when the root's client sends its signatures.
  *
  * With a token key set, the on-ramp is also the authorization server for its addresses (QX-18, oauth.ts): a product
  * that connects at `/mcp` holds a token for an address its person presented, and the events posted through that
  * token say which product's callback the code was sent to, `via` beside custody, in the same wrapper.
  */
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -23,18 +25,24 @@ import { ErrorCode, isInitializeRequest } from '@modelcontextprotocol/sdk/types.
 import { appendFileSync } from 'node:fs';
 import {
   type Address,
+  type Envelope,
   type Event,
   type Hash,
   type Unsigned,
   addressOf,
+  canonical,
   eventId,
   eventProblems,
+  eventSigner,
   isRecord,
+  isSignature,
+  problemHash,
   randomSecretKey,
   rotateSecondSigner,
   secretFromHex,
   secretToHex,
   signEvent,
+  signedBy,
   withSlash,
 } from '@bitquilt/core';
 import { PRIVATE_RANGES, type Store, clientAddress, custodyHeaders, json, rangesOf } from '@bitquilt/tracker';
@@ -43,8 +51,10 @@ import {
   type Config,
   DEFAULT_CONFIG,
   type OwnerTurn,
+  type Published,
   Quilt,
   Resolver,
+  type WaitingPublish,
   WINDOW_HTML,
   WINDOW_OPS,
   WINDOW_READ_OPS,
@@ -53,6 +63,7 @@ import {
   createMcpServer,
   isToolName,
   localRunner,
+  makeLink,
   ownerTurn,
   publicFetch,
   sheetOf,
@@ -231,10 +242,56 @@ const CUSTODIAL_REDEEM =
  * on the ledger, and go through as Quilt's do.
  */
 class CustodialQuilt extends Quilt {
+  /** Where a publish that waits on the member's root is kept, which the on-ramp sets for a member's Quilt. */
+  keep: ((waiting: WaitingPublish, id: Hash) => void) | null = null;
+
   override redeem(): Promise<never> {
     return Promise.reject(new Error(CUSTODIAL_REDEEM));
   }
+
+  /**
+   * A publish from an address whose key signs for a root the person's own client holds
+   * (PROTOCOL.md, Identity: roots and delegates). CORE.md section 4 has the envelope and its `version` signed by the
+   * root, so the draft is kept under the member's home, named by the hash the problem will have, and nothing is
+   * posted. A draft the root has already signed is a problem this tracker holds, and is answered as published.
+   */
+  protected override async waitOnRoot(waiting: WaitingPublish): Promise<Published> {
+    if (!this.keep) return super.waitOnRoot(waiting);
+    const hash = problemHash(waiting.unsigned as Envelope);
+    const link = makeLink(hash, this.config.trackers, waiting.unsigned.problem.slug);
+    const out: Published = { hash, link, posted: [], refused: [], relays: [], gold: null };
+    for (const t of this.config.trackers) {
+      const held = await this.resolver
+        .fetchImpl(`${t}p/${hash}`, { signal: AbortSignal.timeout(8000) })
+        .catch(() => null);
+      if (held?.status === 200) out.posted.push(t);
+    }
+    if (out.posted.length) return out;
+    this.keep(waiting, hash);
+    return { ...out, waiting: { root: waiting.root, left: waiting.left } };
+  }
 }
+
+/**
+ * A publish kept for a root held elsewhere, as its file under the member's home holds it: the hash the problem will
+ * have, which names it, when it was kept, the root, the envelope without its `sig` as canonical JSON, which is the
+ * text the root signs, the blobs in base64, the topics its announce will carry, and what of the pattern was left off.
+ */
+interface Waiting {
+  id: Hash;
+  kind: 'publish';
+  at: string;
+  root: Address;
+  envelope: string;
+  blobs: Record<string, string>;
+  topics: string[];
+  left: string[];
+}
+
+/** How long a draft waits for its root, how many wait at one address, and how large one may be with its blobs. */
+const WAITING_DAYS = 7;
+const WAITING_MAX = 8;
+const WAITING_BYTES = 4 * 1024 * 1024;
 
 export function createHosted(options: HostedOptions): Hosted {
   const { store, keySecret, custodySecret } = options;
@@ -362,7 +419,110 @@ export function createHosted(options: HostedOptions): Hosted {
       to: trackerUrl(),
       headers: custodyHeaders(custodySecret, witness),
     });
-    return new CustodialQuilt(config, { secret, address: addressOf(secret) }, resolver, hostName, witness);
+    const q = new CustodialQuilt(config, { secret, address: addressOf(secret) }, resolver, hostName, witness);
+    q.keep = (waiting, id) => keepWaiting(hash, waiting, id);
+    return q;
+  }
+
+  // What waits on a member's root: one file a draft under the member's home, so a draft outlives a restart.
+  const waitingDir = (hash: string): string => join(options.home, hash, 'waiting');
+  const waitingFile = (hash: string, id: Hash): string => join(waitingDir(hash), `${id.slice('sha256:'.length)}.json`);
+
+  /** A member's drafts that still wait, the newest first. One kept longer than the days above is dropped here. */
+  function waitingOf(hash: string): Waiting[] {
+    let names: string[];
+    try {
+      names = readdirSync(waitingDir(hash));
+    } catch {
+      return [];
+    }
+    const cutoff = new Date(Date.parse(now()) - WAITING_DAYS * 86400000).toISOString();
+    const out: Waiting[] = [];
+    for (const name of names) {
+      const file = join(waitingDir(hash), name);
+      try {
+        const w = JSON.parse(readFileSync(file, 'utf8')) as Waiting;
+        if (w.at < cutoff) rmSync(file, { force: true });
+        else out.push(w);
+      } catch {
+        rmSync(file, { force: true });
+      }
+    }
+    return out.sort((a, b) => (a.at < b.at ? 1 : -1));
+  }
+
+  /** Keeps a draft for its root. The same draft kept again keeps its place; past the most, the oldest gives way. */
+  function keepWaiting(hash: string, waiting: WaitingPublish, id: Hash): void {
+    const blobs = Object.fromEntries([...waiting.blobs].map(([h, b]) => [h, Buffer.from(b).toString('base64')]));
+    const kept: Waiting = {
+      id,
+      kind: 'publish',
+      at: now(),
+      root: waiting.root,
+      envelope: canonical(waiting.unsigned),
+      blobs,
+      topics: waiting.topics,
+      left: waiting.left,
+    };
+    const text = JSON.stringify(kept);
+    if (text.length > WAITING_BYTES)
+      throw new Error(
+        `This key signs for the root ${waiting.root}, which is held elsewhere, and the draft with its data is ${text.length} bytes, over the ${WAITING_BYTES} kept here for a root to sign. Nothing was posted.`,
+      );
+    const before = waitingOf(hash).filter((w) => w.id !== id);
+    for (const old of before.slice(WAITING_MAX - 1)) rmSync(waitingFile(hash, old.id), { force: true });
+    mkdirSync(waitingDir(hash), { recursive: true });
+    writeFileSync(waitingFile(hash, id), text);
+  }
+
+  /**
+   * The root's answer to a draft that waits (PROTOCOL.md, Identity: roots and delegates). To publish, the root's
+   * client sends its signature over the envelope as kept and the `version` it signed: CORE.md section 4 has a version
+   * "Signed by a root", with the body `{ slug, hash }`. The envelope is posted with its blobs, then the announce
+   * under the address's key, which any key may sign (QX-13 section 3), and the root's version. A `decline` drops the
+   * draft and posts nothing. The draft is gone once it is published or declined.
+   */
+  async function answerWaiting(
+    hash: string,
+    id: Hash,
+    body: unknown,
+  ): Promise<{ hash: Hash; link: string; posted: string[] } | { declined: Hash } | { status: number; error: string }> {
+    const w = waitingOf(hash).find((x) => x.id === id);
+    if (!w) return { status: 404, error: 'nothing waits here under that hash' };
+    if (isRecord(body) && body.decline === true) {
+      rmSync(waitingFile(hash, id), { force: true });
+      return { declined: id };
+    }
+    const asks = "the root's answer: { sig, version }, or { decline: true }";
+    if (!isRecord(body) || !isSignature(body.sig) || !isRecord(body.version)) return { status: 400, error: asks };
+    const envelope = { ...(JSON.parse(w.envelope) as Omit<Envelope, 'sig'>), sig: body.sig } as Envelope;
+    if (!signedBy(envelope as unknown as Record<string, unknown>, w.root))
+      return { status: 400, error: "sig is the root's signature over the envelope as it waits" };
+    const version = body.version as unknown as Event;
+    const shape = eventProblems(version);
+    if (shape.length) return { status: 400, error: shape[0]! };
+    const vb = version.body as { slug?: unknown; hash?: unknown };
+    if (
+      version.type !== 'version' ||
+      version.key !== w.root ||
+      version.problem !== id ||
+      vb.hash !== id ||
+      vb.slug !== envelope.problem.slug
+    )
+      return { status: 400, error: "version is the root's version of this problem: its key, problem, slug and hash" };
+    if (eventSigner(version) !== w.root) return { status: 400, error: 'version is signed by the root' };
+    if (Math.abs(Date.parse(version.ts) - Date.parse(now())) > 10 * 60 * 1000)
+      return { status: 400, error: "the version's ts is within ten minutes of now" };
+    const q = quiltFor(hash, undefined);
+    if (!q) return { status: 404, error: 'no such address here' };
+    const blobs = new Map(
+      Object.entries(w.blobs).map(([h, b]) => [h as Hash, Uint8Array.from(Buffer.from(b, 'base64'))]),
+    );
+    const out = await q.postEnvelope(envelope, blobs, w.topics, version);
+    if (!out.posted.length)
+      return { status: 503, error: `no tracker took it: ${out.refused.join('; ') || 'none answered'}` };
+    rmSync(waitingFile(hash, id), { force: true });
+    return { hash: id, link: out.link, posted: out.posted };
   }
 
   // QX-19 section 4, QX-16, QX-22 section 4: the owners' turn. A person who runs nothing has no node to reveal their
@@ -759,6 +919,30 @@ export function createHosted(options: HostedOptions): Hosted {
       }
       const said = await plainCall(seat, body.model, name, body.input ?? {});
       json(res, 'error' in said ? 400 : 200, said);
+      return true;
+    }
+    // What waits on the root of an address whose key is a delegate: the drafts, and the root's answer to one.
+    if ((m = /^\/mcp\/([0-9a-f]{64})\/waiting(?:\/(sha256:[0-9a-f]{64}))?$/.exec(path))) {
+      const member = tokenHash(m[1]!);
+      const id = m[2] as Hash | undefined;
+      if (method !== (id ? 'POST' : 'GET')) {
+        json(res, 405, { error: id ? 'POST' : 'GET' });
+        return true;
+      }
+      if (!store.getMember(member)) {
+        json(res, 404, { error: 'no such address here' });
+        return true;
+      }
+      if (!id) {
+        const waiting = waitingOf(member).map(({ blobs: _blobs, ...w }) => ({
+          ...w,
+          expires: new Date(Date.parse(w.at) + WAITING_DAYS * 86400000).toISOString(),
+        }));
+        json(res, 200, { waiting });
+        return true;
+      }
+      const said = await answerWaiting(member, id, await readJson(req));
+      json(res, 'error' in said ? said.status : 200, 'error' in said ? { error: said.error } : said);
       return true;
     }
     if ((m = /^\/mcp\/([0-9a-f]{64})(?:\/(key|sheet|rotate))?$/.exec(path))) {

@@ -423,6 +423,16 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
     }
     case 'quilt_publish': {
       const r = await quilt.publish(input.pattern as Pattern);
+      // A key that signs for a root held elsewhere publishes nothing: the draft was kept for that root's signature.
+      if (r.waiting) {
+        const left = r.waiting.left.length
+          ? ` The pattern's ${r.waiting.left.join(' and ')} ${r.waiting.left.length === 1 ? 'is' : 'are'} not posted from a root's approval, and ${r.waiting.left.length === 1 ? 'was' : 'were'} left off the draft.`
+          : '';
+        return {
+          text: `Drafted ${r.hash}, and nothing is published yet. This key signs for the root ${r.waiting.root}, which the person holds on their own device, and a problem is published by a root (CORE.md section 4). The draft waits for that root's signature: it shows in the person's Quilt app under Activity, where they read it and publish it with their key, and it is kept for seven days.${left} Once the root signs, the problem is at ${r.link}`,
+          handles: { problem: r.hash, link: r.link, posted: [], gold: null, waiting: r.waiting.root },
+        };
+      }
       const text = [
         `Published ${r.hash}`,
         `Link: ${r.link}`,

@@ -3,7 +3,8 @@
  * CORE.md section 4): a `delegate` from the root, posted before the address's key has signed, makes that key the
  * root's delegate, and the sheet names the root; `/mcp/<token>/rotate` signs a rotation as the old root where the
  * caller signed it as the new, with each of its refusals, and what the address did is the new root's; a root's
- * `revoke` ends the key; and an address that signs for another root publishes nothing.
+ * `revoke` ends the key; and a Quilt of a person's own that signs for another root publishes nothing. What an address
+ * does with a publish that waits on its root is waiting.test.ts's.
  */
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -163,20 +164,23 @@ describe('a root the person holds, delegating to the address', () => {
     expect(await rootOf(made.address)).toBe(made.address);
   });
 
-  it('an address that signs for another root publishes nothing, and the refusal names the root', async () => {
+  it("a Quilt of a person's own that signs for another root publishes nothing, and the refusal names the root", async () => {
     const root = held(0x54);
-    const made = await join();
+    const own = quiltOver(base, 0x56);
     await post(
       `${base}k/events`,
       signEvent(
-        identity('delegate', root.address, { to: made.address, scope: ['claim'], expires: '2036-01-01T00:00:00.000Z' }),
+        identity('delegate', root.address, {
+          to: own.identity!.address,
+          scope: ['claim'],
+          expires: '2036-01-01T00:00:00.000Z',
+        }),
         root.secret,
       ),
     );
-    const said = await call(made.url, 'quilt_publish', { pattern: pattern('from-a-delegate') });
-    const text = JSON.stringify(await said.json());
-    expect(text).toContain(`signs for the root ${root.address}`);
-    expect(text).toContain('Nothing was posted');
+    await expect(own.publish(pattern('from-a-delegate'))).rejects.toThrow(
+      `This key signs for the root ${root.address}, which is held elsewhere, and a problem is published by a root (CORE.md section 4). Nothing was posted.`,
+    );
     const listed = (await (await fetch(`${base}search?q=`)).json()) as { problems: { title: string }[] };
     expect(listed.problems.map((p) => p.title)).toEqual(['A problem named held']);
   });

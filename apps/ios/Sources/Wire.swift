@@ -51,12 +51,30 @@ indirect enum JSON: Equatable {
         return out + "\""
     }
 
+    /// A value read from JSON text, or nothing where the text is not JSON or holds a number that is not whole.
+    init?(text: String) {
+        guard let any = try? JSONSerialization.jsonObject(with: Data(text.utf8), options: [.fragmentsAllowed]) else { return nil }
+        self.init(any)
+    }
+
+    subscript(_ name: String) -> JSON? {
+        if case .object(let fields) = self { return fields[name] }
+        return nil
+    }
+
+    var string: String? {
+        if case .string(let s) = self { return s }
+        return nil
+    }
+
     /// A value as Foundation's JSON reader gives one, for the vectors and for what a tracker answers.
     init?(_ any: Any) {
         switch any {
         case is NSNull: self = .null
         case let n as NSNumber:
-            if CFGetTypeID(n) == CFBooleanGetTypeID() { self = .bool(n.boolValue) } else { self = .int(n.intValue) }
+            if CFGetTypeID(n) == CFBooleanGetTypeID() { self = .bool(n.boolValue) }
+            // A number that is not whole is none this phone writes, so the value is refused and nothing is signed.
+            else if n.doubleValue == Double(n.intValue) { self = .int(n.intValue) } else { return nil }
         case let s as String: self = .string(s)
         case let a as [Any]:
             var items: [JSON] = []
@@ -219,15 +237,18 @@ enum Address {
     }
 }
 
-/// An event a phone signs: the line of CORE.md section 4, with no problem and no piece, since what a root signs here
-/// (`delegate`, `revoke` and a rotation's second signature) goes to the identity log.
+/// An event a phone signs: the line of CORE.md section 4. What a root signs here goes to the identity log and names
+/// no problem (`delegate`, `revoke` and a rotation's second signature), but for the `version` of a problem the root
+/// publishes, which names it. No event a phone signs names a piece.
 struct WireEvent {
     /// The event without `sig` and `sig_to`.
     let unsigned: [String: JSON]
     private(set) var signatures: [String: JSON] = [:]
 
-    init(type: String, key: String, at: Date = Date(), body: [String: JSON]) {
-        unsigned = ["quilt": .int(1), "type": .string(type), "key": .string(key), "ts": .string(WireEvent.time(at)), "body": .object(body)]
+    init(type: String, key: String, at: Date = Date(), problem: String? = nil, body: [String: JSON]) {
+        var fields: [String: JSON] = ["quilt": .int(1), "type": .string(type), "key": .string(key), "ts": .string(WireEvent.time(at)), "body": .object(body)]
+        if let problem { fields["problem"] = .string(problem) }
+        unsigned = fields
     }
 
     /// An event read back, as a tracker hands one to be signed a second time.
@@ -245,8 +266,11 @@ struct WireEvent {
         signatures[field] = .string(try key.sign(JSON.object(unsigned).canonicalBytes))
     }
 
+    /// The event with its signatures, as a value.
+    var signed: JSON { .object(unsigned.merging(signatures) { $1 }) }
+
     /// The event as it is posted.
-    var posted: Data { Data(JSON.object(unsigned.merging(signatures) { $1 }).canonicalBytes) }
+    var posted: Data { Data(signed.canonicalBytes) }
 
     /// A time as the reference stamps one: to the millisecond, in UTC, with Z.
     static func time(_ date: Date) -> String {

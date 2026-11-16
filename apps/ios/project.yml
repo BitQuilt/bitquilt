@@ -38,7 +38,7 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: Quilt
-        CFBundleShortVersionString: "0.2.0"
+        CFBundleShortVersionString: "0.3.0"
         CFBundleVersion: "1"
         UILaunchScreen: {}
         UIAppFonts:
@@ -50,6 +50,8 @@ targets:
         # The one scheme the app asks about: whether Claude's app is on this phone.
         LSApplicationQueriesSchemes:
           - claude
+        # The person is asked for before the phone's key signs a problem that goes out under their name.
+        NSFaceIDUsageDescription: Quilt asks for you before your key signs a problem that is published under your name.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         # The app speaks HTTPS to its tracker and uses no encryption of its own.

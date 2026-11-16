@@ -26,13 +26,19 @@ final class WorkTests: XCTestCase {
     func testAReadingIsReadWithItsReturnAndWhatItRestsOn() throws {
         let r = try work(readings: [reading("1", state: "needs_verify")]).readings[0]
         XCTAssertEqual(r.key, "sha256:r1")
-        // The shortest field that is words is the answer a row shows: the verdict, and not a number beside it.
-        XCTAssertEqual(r.answer, "supports")
+        // A return of more than three fields has no one answer, so a row says how many it answered.
+        XCTAssertEqual(r.said, "It answered 5 fields.")
         XCTAssertEqual(r.fields.map(\.name), ["pages", "sure", "verdict", "note", "quote"])
         XCTAssertEqual(r.fields.map(\.value), ["3", "yes", "supports", "left blank", "in so many words"])
         XCTAssertEqual(r.rests, [Work.Rest(field: "quote", url: "https://paper.example/one", passage: "in so many words")])
         XCTAssertEqual(r.standing, .waiting)
         XCTAssertEqual(r.story, "Waiting on a second AI from another company.")
+    }
+
+    func testAShortReturnSaysItsVerdictAndNotANumberBesideIt() throws {
+        let json = #"{"address":"0xA","root":"0xB","working":[],"readings":[{"problem":"sha256:p","title":"T","piece":"sha256:1","name":"claim/1","at":"2026-11-15T12:00:00.000Z","state":"needs_verify","id":"sha256:r","vendor":"anthropic","counts":"counted","why":null,"return":{"verdict":"supports","pages":3,"quote":"in so many words"},"rests":[],"beside":[]}]}"#
+        let r = try JSONDecoder().decode(Work.self, from: Data(json.utf8)).readings[0]
+        XCTAssertEqual(r.said, "It said: supports.")
     }
 
     func testEachStandingHasItsSentence() throws {
@@ -72,7 +78,7 @@ final class WorkTests: XCTestCase {
         let back = try work(readings: [reading("1", state: "needs_verify")])
         let first = back.news(since: [:], held: [])
         XCTAssertEqual(first.map(\.kind), [.returned])
-        XCTAssertEqual(first[0].body, "claim/1. It said: supports. Waiting on a second AI from another company.")
+        XCTAssertEqual(first[0].body, "claim/1. It answered 5 fields. Waiting on a second AI from another company.")
         // Nothing new at the next look.
         XCTAssertEqual(back.news(since: stand(back), held: []).map(\.kind), [])
         // A second AI agrees, and another piece is taken: the agreement leads.

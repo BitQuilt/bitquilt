@@ -132,6 +132,23 @@ export interface Published {
   refused: string[];
   relays: string[];
   gold: { pieces: number; stake: number } | null;
+  /**
+   * Where the key signs for a root held elsewhere and the draft was kept for that root's signature: the root, and
+   * what of the pattern a root's approval does not post. Nothing is published while this is set.
+   */
+  waiting?: { root: Address; left: string[] };
+}
+
+/**
+ * A publish that waits on a root held elsewhere (CORE.md section 4): the envelope without its `sig`, owned by the
+ * root, with its blobs and the topics its announce will carry, and what of the pattern is left off.
+ */
+export interface WaitingPublish {
+  root: Address;
+  unsigned: Omit<Envelope, 'sig'>;
+  blobs: Map<Hash, Uint8Array>;
+  topics: string[];
+  left: string[];
 }
 
 /**
@@ -238,6 +255,10 @@ export interface Handed {
 function isDeclineReason(s: string): s is DeclineReason {
   return (DECLINE_REASONS as readonly string[]).includes(s);
 }
+
+/** The refusal of an owner's act from a key that signs for a root it does not hold (CORE.md section 4). */
+const heldElsewhere = (root: Address): string =>
+  `This key signs for the root ${root}, which is held elsewhere, and a problem is published by a root (CORE.md section 4). Nothing was posted.`;
 
 /**
  * A Quilt holds the home's key, its config and a resolver, and keeps three things true. It signs with the home's one
@@ -1374,12 +1395,22 @@ export class Quilt {
    */
   async publish(pattern: Pattern): Promise<Published> {
     const id = this.needKey();
+    // CORE.md section 4: an owner's acts are its root's. Where this key signs for a root held elsewhere, the draft is
+    // the root's: it is checked whole under this key's signature, which stands in for the root's and is left off
+    // what is kept, and it waits for the root to sign (`waitOnRoot`).
+    const root = (await this.rootOf(id.address)) ?? id.address;
+    const hints = { trackers: this.config.trackers, mirrors: this.config.mirrors };
     // Every fault at once (pattern.ts), so an AI drafting the pattern from a conversation fixes them in one turn.
-    const drafted = draftEnvelope(pattern, id, { trackers: this.config.trackers, mirrors: this.config.mirrors });
+    const drafted = draftEnvelope(pattern, { secret: id.secret, address: root }, hints);
     const problems = patternProblems(pattern, drafted);
     if (problems.length) throw new Error(patternProblemsText(problems));
     const { envelope, blobs, problem } = drafted;
-    const out = await this.publishEnvelope(envelope, blobs, problem, pattern.topics ?? []);
+    if (root !== id.address) {
+      const { sig: _stand, ...unsigned } = envelope;
+      const left = [...(pattern.stake ? ['stake'] : []), ...(pattern.gold ? ['gold'] : [])];
+      return this.waitOnRoot({ root, unsigned, blobs, topics: pattern.topics ?? [], left });
+    }
+    const out = await this.postEnvelope(envelope, blobs, pattern.topics ?? []);
     if (out.posted.length) {
       if (pattern.stake) await staking.ruleAtPublish(this.door, out, pattern.stake);
       if (pattern.gold) {
@@ -1401,13 +1432,22 @@ export class Quilt {
   }
 
   /**
+   * A publish whose owner is a root this key signs for and does not hold. A Quilt of a person's own has nowhere to
+   * keep one, so nothing is posted and the refusal names the root; the hosted on-ramp keeps it for the root's
+   * client to sign (packages/hosted/src/hosted.ts).
+   */
+  protected waitOnRoot(waiting: WaitingPublish): Promise<Published> {
+    return Promise.reject(new Error(heldElsewhere(waiting.root)));
+  }
+
+  /**
    * A signed envelope posted to every tracker with its blobs; then, where it went, the announce with the topics, the
    * relays and the version event; the home's library notes the problem.
    */
   private async publishEnvelope(
     envelope: Envelope,
     blobs: Map<Hash, Uint8Array>,
-    problem: Problem,
+    _problem: Problem,
     topics: string[],
   ): Promise<Published> {
     const id = this.needKey();
@@ -1415,10 +1455,24 @@ export class Quilt {
     // another root, delegated by it or rotated to it, would publish a problem its own events could not keep, so
     // nothing is posted and the refusal names the root.
     const root = await this.rootOf(id.address);
-    if (root && root !== id.address)
-      throw new Error(
-        `This key signs for the root ${root}, which is held elsewhere, and a problem is published by a root (CORE.md section 4). Nothing was posted.`,
-      );
+    if (root && root !== id.address) throw new Error(heldElsewhere(root));
+    return this.postEnvelope(envelope, blobs, topics);
+  }
+
+  /**
+   * The posts of a publish, for an envelope its owner has signed: the envelope with its blobs to every tracker; then,
+   * where it went, the announce under this key, which states the envelope's owner, and the version. The version is
+   * this key's where it is the owner. Where the owner is a root held elsewhere, CORE.md section 4 asks the root's
+   * signature on it, "Signed by a root", so the root's own client signs one and it is handed in.
+   */
+  async postEnvelope(
+    envelope: Envelope,
+    blobs: Map<Hash, Uint8Array>,
+    topics: string[],
+    signedVersion: Event | null = null,
+  ): Promise<Published> {
+    const id = this.needKey();
+    const problem = envelope.problem;
     const hash = problemHash(envelope);
     const body = JSON.stringify({
       envelope,
@@ -1457,7 +1511,7 @@ export class Quilt {
           slug: problem.slug,
           done_when: problem.done_when,
           topics,
-          owner: id.address,
+          owner: problem.owner,
           from: problem.from ?? null,
           pieces,
           counts: { open: pieces },
@@ -1469,14 +1523,16 @@ export class Quilt {
       await this.resolver.post(announce, hash, posted);
       if (this.config.relays.length)
         relays = (await postToRelays(this.config.relays, announcementEvent(announce, id.secret))).posted;
-      const version = this.sign({
-        quilt: 1,
-        type: 'version',
-        problem: hash,
-        key: id.address,
-        ts: this.stamp(),
-        body: { slug: problem.slug, hash },
-      });
+      const version =
+        signedVersion ??
+        this.sign({
+          quilt: 1,
+          type: 'version',
+          problem: hash,
+          key: id.address,
+          ts: this.stamp(),
+          body: { slug: problem.slug, hash },
+        });
       await this.resolver.post(version, hash, posted);
     }
     const now = this.stamp();
