@@ -185,7 +185,7 @@ func moment(_ written: String) -> Date? {
 
 /// Something that happened since the phone last looked: what the banner says, and how it should feel.
 struct News: Identifiable, Equatable {
-    enum Kind { case took, returned, agreed, differs, other, asked, published }
+    enum Kind { case took, returned, agreed, differs, other, asked }
 
     let id = UUID()
     let kind: Kind

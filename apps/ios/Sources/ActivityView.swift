@@ -510,6 +510,8 @@ struct NewsBanner: View {
             HStack(alignment: .top, spacing: 12) {
                 if news.kind == .took {
                     Breathing(state: news.state).padding(.top, 2)
+                } else if news.kind == .asked {
+                    Image(systemName: "signature").foregroundStyle(Palette.act).frame(width: 22, height: 22).padding(.top, 2)
                 } else {
                     RoundedRectangle(cornerRadius: 5).fill(Palette.square(news.state))
                         .overlay(RoundedRectangle(cornerRadius: 5).stroke(Palette.rule))
