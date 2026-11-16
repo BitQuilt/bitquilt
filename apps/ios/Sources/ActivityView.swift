@@ -1,18 +1,28 @@
 // What came back from Claude. The person's Claude does its work in Claude's own app, and this page shows what it did
 // as the record holds it: the piece it is on now, each answer it handed back with what the answer rests on, and where
-// each stands, whether a second AI has agreed, read it differently, or has yet to come. The store asks the tracker
-// every few seconds while the app is in front, so the page moves by itself; a banner says what changed wherever the
-// person is in the app.
+// each stands, whether a second AI has agreed, read it differently, or has yet to come. Above them is what waits on
+// the person: a problem their Claude drafted, which is published once this phone's key signs it (Draft.swift). The
+// store asks the tracker every few seconds while the app is in front, so the page moves by itself; a banner says what
+// changed wherever the person is in the app.
 import SwiftUI
 
 struct ActivityView: View {
     @Environment(Store.self) private var store
     @State private var opened: Work.Reading?
+    @State private var reading: Waiting?
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
+                    if !store.waiting.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Waiting for you").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
+                            ForEach(store.waiting) { draft in
+                                Button { reading = draft } label: { WaitingRow(waiting: draft) }.buttonStyle(.plain)
+                            }
+                        }
+                    }
                     if store.address == nil {
                         Empty(title: "Nothing here yet",
                               about: "Your Claude does the work, and this page shows what it did as it happens: each answer, what it rests on, and whether a second AI agreed.",
@@ -23,7 +33,7 @@ struct ActivityView: View {
                               button: "See what is left") { store.tab = "you" }
                     } else if let work = store.work {
                         let held = work.working ?? []
-                        if held.isEmpty, work.readings.isEmpty {
+                        if held.isEmpty, work.readings.isEmpty, store.waiting.isEmpty {
                             Empty(title: "Your Claude has not taken a piece yet",
                                   about: "Pick a problem and send your Claude to it. When you come back, its answer is here, with what it rests on.",
                                   button: "Find a problem") { store.tab = "problems" }
@@ -54,16 +64,170 @@ struct ActivityView: View {
                 .padding(.bottom, 60)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .animation(.easeInOut(duration: 0.35), value: store.work)
+                .animation(.easeInOut(duration: 0.35), value: store.waiting)
             }
             .background(Palette.ground)
             .navigationTitle("Activity")
             .refreshable { await store.look() }
             .sheet(item: $opened) { ReadingSheet(reading: $0).environment(store) }
+            .sheet(item: $reading) { DraftSheet(waiting: $0).environment(store) }
             .onDisappear { store.sawActivity() }
-            // `-reading first` at launch opens the newest reading, for a run in the simulator, where nothing taps.
+            // `-reading first` at launch opens the newest reading and `-reading draft` the newest draft, for a run in
+            // the simulator, where nothing taps.
             .onChange(of: store.pulse) {
                 if UserDefaults.standard.string(forKey: "reading") == "first", opened == nil { opened = store.work?.readings.first }
+                if UserDefaults.standard.string(forKey: "reading") == "draft", reading == nil { reading = store.waiting.first }
             }
+        }
+    }
+}
+
+/// A problem the person's Claude drafted, which waits for this phone's key.
+private struct WaitingRow: View {
+    let waiting: Waiting
+    @Environment(Store.self) private var store
+
+    var body: some View {
+        let draft = store.root?.key.flatMap { try? Draft(waiting, root: $0.address) }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "signature").foregroundStyle(Palette.act)
+                Text("Your Claude drafted a problem").font(Typeface.text(16, bold: true)).foregroundStyle(Palette.ink)
+            }
+            if let draft {
+                Text(verbatim: draft.title).font(Typeface.display(20)).foregroundStyle(Palette.ink).multilineTextAlignment(.leading)
+                Text("\(draft.pieces) piece\(draft.pieces == 1 ? "" : "s"). It is published once your key signs it, and not before.")
+                    .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2).multilineTextAlignment(.leading)
+            } else {
+                Text("This phone cannot read it as a problem, and will not sign it.")
+                    .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.madder)
+            }
+            Text("Read it").font(Typeface.text(17, bold: true)).frame(maxWidth: .infinity).padding(.vertical, 12)
+                .background(Palette.act, in: RoundedRectangle(cornerRadius: 12)).foregroundStyle(Palette.actInk)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.act.opacity(0.5), lineWidth: 1.5))
+    }
+}
+
+/// A draft whole, read from the text the key signs: its title, when it is done, each kind of piece with its brief,
+/// and the two answers, to publish it with the phone's key or to drop it. Once published it says so, with the link.
+private struct DraftSheet: View {
+    let waiting: Waiting
+    @Environment(Store.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @State private var working = false
+    @State private var published = false
+    @State private var dropping = false
+
+    private var read: Result<Draft, Error> {
+        Result { try Draft(waiting, root: store.root?.key?.address ?? "") }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                switch read {
+                case .success(let draft):
+                    if published { done(draft) } else { whole(draft) }
+                case .failure(let why):
+                    Text("This phone will not sign this draft").font(Typeface.display(22)).foregroundStyle(Palette.ink)
+                    Text(why.localizedDescription).font(Typeface.text()).foregroundStyle(Palette.madder)
+                    Button("Drop the draft") { drop() }.buttonStyle(QuietButton())
+                }
+            }
+            .padding(20)
+        }
+        .background(Palette.ground)
+        .presentationDetents([.large])
+        .interactiveDismissDisabled(working)
+    }
+
+    @ViewBuilder private func whole(_ draft: Draft) -> some View {
+        Text(draft.replaces ? "Your Claude drafted the next version of a problem of yours" : "Your Claude drafted this problem")
+            .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+        Text(verbatim: draft.title).font(Typeface.display(26)).foregroundStyle(Palette.ink)
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Done when:").font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+            Text(verbatim: draft.doneWhen).font(Typeface.text()).foregroundStyle(Palette.ink)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 12))
+
+        Part(title: "\(draft.pieces) piece\(draft.pieces == 1 ? "" : "s")") {
+            ForEach(draft.families) { family in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(verbatim: family.count > 1 ? "\(family.plain), \(family.count) pieces" : family.plain)
+                        .font(Typeface.mono()).foregroundStyle(Palette.ink)
+                    Text(verbatim: family.brief).font(Typeface.text(16)).foregroundStyle(Palette.ink)
+                    Text(family.check + (family.brief.contains("{") ? " The words in braces are filled in for each piece from the draft's rows." : ""))
+                        .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 10))
+            }
+        }
+        if !waiting.topics.isEmpty {
+            Text(verbatim: "Listed under: " + waiting.topics.joined(separator: ", "))
+                .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+        }
+        if !waiting.left.isEmpty {
+            Text("The pattern's \(waiting.left.joined(separator: " and ")) cannot be posted from a phone yet, and \(waiting.left.count == 1 ? "was" : "were") left off.")
+                .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+        }
+        if let mine = store.root?.key?.address {
+            Text("Publishing signs this with your key, \(mine.prefix(8))…\(mine.suffix(6)). The problem is public, it names your key as its owner, and it stays on the record.")
+                .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+        }
+        if let trouble = store.problem {
+            Text(trouble).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.madder)
+        }
+        Button(working ? "Signing" : "Publish with my key") {
+            working = true
+            Task {
+                published = await store.publish(draft)
+                working = false
+            }
+        }
+        .buttonStyle(ActButton())
+        .disabled(working)
+        Button("Not this one", role: .destructive) { dropping = true }
+            .font(Typeface.text(15, relativeTo: .subheadline))
+            .frame(maxWidth: .infinity)
+            .disabled(working)
+            .confirmationDialog("Drop this draft?", isPresented: $dropping, titleVisibility: .visible) {
+                Button("Drop it", role: .destructive) { drop() }
+            } message: {
+                Text("Nothing is signed and nothing is published. Your Claude can draft it again.")
+            }
+    }
+
+    @ViewBuilder private func done(_ draft: Draft) -> some View {
+        let link = Tracker.link(to: draft.hash, slug: draft.slug)
+        VStack(alignment: .leading, spacing: 14) {
+            Image(systemName: "checkmark.seal.fill").font(.system(size: 54)).foregroundStyle(Palette.done)
+            Text("Published").font(Typeface.display(30)).foregroundStyle(Palette.ink)
+            Text(verbatim: draft.title).font(Typeface.text(19, bold: true)).foregroundStyle(Palette.ink)
+            Text("Your key signed it, and the tracker carries it now. Any AI can take its pieces, and every answer is kept beside the others under Problems.")
+                .font(Typeface.text()).foregroundStyle(Palette.ink2)
+            ShareLink(item: link) { Text("Share its link") }.buttonStyle(QuietButton())
+            Button("Done") {
+                dismiss()
+                store.tab = "problems"
+            }
+            .buttonStyle(ActButton())
+        }
+        .padding(.top, 30)
+    }
+
+    private func drop() {
+        Task {
+            await store.decline(waiting)
+            dismiss()
         }
     }
 }

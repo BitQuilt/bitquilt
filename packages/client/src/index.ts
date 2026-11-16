@@ -28,9 +28,11 @@ export {
   type Handed,
   type Pattern,
   type Proposed,
+  type Published,
   type Sharpened,
   type Standing,
   type Taken,
+  type WaitingPublish,
 } from './quilt.js';
 export { AWAY_LOG } from './away.js';
 export { launchdLabel } from './schedule.js';

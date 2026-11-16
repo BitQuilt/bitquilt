@@ -158,6 +158,25 @@ struct Tracker {
         } catch let refusal as TrackerError where refusal.status == 409 {}
     }
 
+    /// The publishes that wait on the root the address's key signs for, the newest first (Draft.swift).
+    static func waiting(at address: String) async throws -> [Waiting] {
+        struct Listed: Decodable { let waiting: [Waiting] }
+        guard let url = URL(string: address + "/waiting") else { throw TrackerError(errorDescription: "That is not an address.") }
+        let listed: Listed = try await answer(URLRequest(url: url))
+        return listed.waiting
+    }
+
+    /// The root's answer to a draft that waits: its signatures, which publish it, or a decline, which drops it.
+    static func answer(_ waiting: Waiting, at address: String, with body: Data) async throws {
+        struct Taken: Decodable {}
+        guard let url = URL(string: address + "/waiting/" + waiting.id) else { throw TrackerError(errorDescription: "That is not an address.") }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = body
+        let _: Taken = try await answer(request)
+    }
+
     private static func posting(_ event: WireEvent, to url: URL) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

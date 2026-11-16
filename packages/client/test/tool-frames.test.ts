@@ -8,7 +8,7 @@
  * and of each condition in traceText, which quilt_return's text ends with.
  */
 import { describe, expect, it } from 'vitest';
-import type { Hash } from '@bitquilt/core';
+import type { Address, Hash } from '@bitquilt/core';
 import { type Config, DEFAULT_CONFIG } from '../src/config.js';
 import type { Seam } from '../src/listings.js';
 import { type Handed, Quilt } from '../src/quilt.js';
@@ -301,6 +301,20 @@ describe('quilt_publish', () => {
     );
     expect(await text(published({}), 'quilt_publish', { pattern: {} })).toBe(
       [`Published ${A64}`, `Link: quilt:${A64}`, 'Carried by: https://t.example/'].join('\n'),
+    );
+  });
+
+  it('says of a draft that waits on a root held elsewhere that nothing is published, where it waits, and what was left off', async () => {
+    const ROOT = '0x00000000000000000000000000000000000000Aa' as Address;
+    const waits = (left: string[]) => published({ posted: [], waiting: { root: ROOT, left } });
+    const said = (left: string) =>
+      `Drafted ${A64}, and nothing is published yet. This key signs for the root ${ROOT}, which the person holds on their own device, and a problem is published by a root (CORE.md section 4). The draft waits for that root's signature: it shows in the person's Quilt app under Activity, where they read it and publish it with their key, and it is kept for seven days.${left} Once the root signs, the problem is at quilt:${A64}`;
+    expect(await text(waits([]), 'quilt_publish', { pattern: {} })).toBe(said(''));
+    expect(await text(waits(['stake']), 'quilt_publish', { pattern: {} })).toBe(
+      said(" The pattern's stake is not posted from a root's approval, and was left off the draft."),
+    );
+    expect(await text(waits(['stake', 'gold']), 'quilt_publish', { pattern: {} })).toBe(
+      said(" The pattern's stake and gold are not posted from a root's approval, and were left off the draft."),
     );
   });
 });

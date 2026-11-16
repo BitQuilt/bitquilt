@@ -29,6 +29,9 @@ final class Store {
     var news: News?
     /// The readings that changed since the Activity page was last looked at.
     private(set) var fresh = Set(UserDefaults.standard.stringArray(forKey: "fresh") ?? [])
+    /// What waits on this phone's root: the problems the person's Claude drafted, each published once the root signs
+    /// it (Draft.swift).
+    private(set) var waiting: [Waiting] = []
     /// Counts each change of the work, so a map on screen knows to read its problem again.
     private(set) var pulse = 0
     /// When a sentence last went to Claude: for a few minutes after, the tracker is asked more often.
@@ -38,8 +41,9 @@ final class Store {
     var mine: Set<String> { Set((work?.readings ?? []).map(\.piece) + (work?.working ?? []).map(\.piece)) }
     /// The pieces their Claude holds now.
     var holding: Set<String> { Set((work?.working ?? []).map(\.piece)) }
-    /// What the Activity tab's badge counts: nothing while the page is in front.
-    var unseen: Int { tab == "activity" ? 0 : fresh.count }
+    /// What the Activity tab's badge counts: what waits on the person, and, while the page is not in front, what
+    /// changed since it was.
+    var unseen: Int { waiting.count + (tab == "activity" ? 0 : fresh.count) }
 
     /// Whether an AI has connected at this address: the tracker records the first time one does, so the sheet says
     /// whether Quilt is in the person's Claude.
@@ -154,12 +158,14 @@ final class Store {
         }
     }
 
-    /// One look at the work. What changed since the last is said as news, the weightiest first, and marked fresh
-    /// until the Activity page is looked at. The first look on a phone marks everything seen and says nothing. A read
-    /// that fails is tried again at the next look and says nothing.
+    /// One look: what waits on this phone's root, then the work. What changed since the last look is said as news,
+    /// a draft that waits before anything else, and a reading that changed is marked fresh until the Activity page is
+    /// looked at. The first look on a phone marks everything seen and says nothing. A read that fails is tried again
+    /// at the next look and says nothing.
     func look() async {
         guard let address else { return }
         if sheet == nil, let read = try? await Tracker.sheet(at: address) { sheet = read }
+        let asked = await lookForDrafts(at: address)
         guard let key = sheet?.address, let now = try? await Tracker.work(of: key), now != work else { return }
         let defaults = UserDefaults.standard
         let seen = defaults.dictionary(forKey: "seen") as? [String: String]
@@ -172,11 +178,55 @@ final class Store {
         guard let seen else { return }
         fresh.formUnion(stands.filter { seen[$0.key] != $0.value }.keys)
         defaults.set(Array(fresh), forKey: "fresh")
-        guard let first = now.news(since: seen, held: held).first else { return }
-        news = first
-        UINotificationFeedbackGenerator().notificationOccurred(first.kind == .differs ? .warning : .success)
+        guard !asked, let first = now.news(since: seen, held: held).first else { return }
+        say(first)
         // An agreement moves the standing, which the sheet carries.
         if first.kind == .agreed, let read = try? await Tracker.sheet(at: address) { sheet = read }
+    }
+
+    /// Reads what waits on this phone's root, and says a draft it has not said before. Whether it said one.
+    private func lookForDrafts(at address: String) async -> Bool {
+        guard let mine = root?.key?.address, let listed = try? await Tracker.waiting(at: address) else { return false }
+        let now = listed.filter { $0.root == mine }
+        guard now != waiting else { return false }
+        waiting = now
+        let said = Set(UserDefaults.standard.stringArray(forKey: "asked") ?? [])
+        UserDefaults.standard.set(now.map(\.id), forKey: "asked")
+        guard let draft = now.first(where: { !said.contains($0.id) }) else { return false }
+        let title = (try? Draft(draft, root: mine))?.title
+        say(News(kind: .asked, title: "Your Claude drafted a problem",
+                 body: (title.map { "\($0). " } ?? "") + "It waits for your key. Read it, and publish it if it is right.", state: "open"))
+        return true
+    }
+
+    /// Publishes a draft: the person is asked for, the root signs the envelope and its version, and the address
+    /// posts them. Whether it was published.
+    func publish(_ draft: Draft) async -> Bool {
+        guard let address, await Presence.confirm("Publish \u{201C}\(draft.title)\u{201D} with your key.") else { return false }
+        var done = false
+        await attempt {
+            try await Tracker.answer(draft.waiting, at: address, with: draft.answer(signedBy: try self.signing()))
+            done = true
+        }
+        guard done else { return false }
+        waiting.removeAll { $0.id == draft.waiting.id }
+        pulse += 1
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        return true
+    }
+
+    /// Drops a draft: nothing is signed, and the address keeps it no longer.
+    func decline(_ draft: Waiting) async {
+        guard let address else { return }
+        await attempt {
+            try await Tracker.answer(draft, at: address, with: Data(#"{"decline":true}"#.utf8))
+            self.waiting.removeAll { $0.id == draft.id }
+        }
+    }
+
+    private func say(_ news: News) {
+        self.news = news
+        UINotificationFeedbackGenerator().notificationOccurred(news.kind == .differs ? .warning : .success)
     }
 
     /// The Activity page was looked at: nothing on it is fresh any more.
@@ -196,8 +246,9 @@ final class Store {
 
     private func unsee() {
         work = nil
+        waiting = []
         fresh = []
-        for name in ["seen", "held", "fresh"] { UserDefaults.standard.removeObject(forKey: name) }
+        for name in ["seen", "held", "fresh", "asked"] { UserDefaults.standard.removeObject(forKey: name) }
     }
 
     func clearProblem() { problem = nil }

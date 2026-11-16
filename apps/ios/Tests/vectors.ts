@@ -2,6 +2,7 @@
 //   node node_modules/tsx/dist/cli.mjs apps/ios/Tests/vectors.ts > apps/ios/Tests/vectors.json
 // Fixed secrets and fixed times, so the file is the same at every run.
 import { canonical } from '../../../packages/core/src/canonical.js';
+import { problemHash } from '../../../packages/core/src/envelope.js';
 import { eventId, signEvent } from '../../../packages/core/src/events.js';
 import { addressOf, personalHash, secretFromHex, signMessage, signObject } from '../../../packages/core/src/keys.js';
 
@@ -40,6 +41,40 @@ const revoke = signEvent(
 const unsignedRotate = { quilt: 1 as const, type: 'rotate', key: addressOf(root), ts: '2026-11-16T09:00:00.000Z', body: { to: addressOf(next) } };
 const rotate = { ...signEvent(unsignedRotate, root), sig_to: signObject(unsignedRotate, next) };
 
+// A publish that waits on the root: the envelope without its `sig`, as the on-ramp hands it to be signed, with the
+// hash the problem will have, the root's signature over it, and the `version` the root signs beside it.
+const draft = {
+  quilt: 1 as const,
+  problem: {
+    title: 'Does the paper say this, in these words?',
+    done_when: 'Every sentence has two readings: "agreed", or kept apart.',
+    owner: addressOf(root),
+    slug: 'paper-sentences',
+    prev: null,
+    from: null,
+    settings: { challenge_window_h: 48, lease_h: 2, endgame_at: 10, budget: 1000, patch_max: 100000 },
+    pieces: {
+      'sentence/*': {
+        verifier: 'agree',
+        count: 3,
+        data: { row: 'rows' },
+        brief: 'Does the paper say this: {row.claim} Quote the words it rests on.',
+        schema: { type: 'object', additionalProperties: false, required: ['verdict'], properties: { verdict: { enum: ['supports', 'contradicts'] } } },
+        agree: ['verdict'],
+      },
+      summary: { verifier: 'record:2', brief: 'Say in a sentence what the paper claims.', inputs: ['sentence/*'] },
+    },
+    data: { rows: 'sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945' },
+  },
+  hints: { trackers: ['https://tracker.example/'], mirrors: [] },
+};
+const drafted = { ...draft, sig: signObject(draft, root) };
+const hash = problemHash(drafted as never);
+const version = signEvent(
+  { quilt: 1, type: 'version', problem: hash, key: addressOf(root), ts: '2026-11-16T10:00:00.000Z', body: { slug: draft.problem.slug, hash } },
+  root,
+);
+
 console.log(
   JSON.stringify(
     {
@@ -48,6 +83,7 @@ console.log(
       canonical: values.map((value) => ({ value, canonical: canonical(value) })),
       messages: ['', 'hello', '{"quilt":1}'].map((text) => ({ text, secret: secrets[1], sig: signMessage(utf8(text), root) })),
       events: [delegate, revoke, rotate].map((e) => ({ event: e, id: eventId(e), signer: secrets[1], second: 'sig_to' in e ? secrets[2] : null })),
+      draft: { envelope: canonical(draft), hash, signer: secrets[1], sig: drafted.sig, version },
     },
     null,
     2,
