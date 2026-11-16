@@ -73,7 +73,8 @@ struct Wake: Equatable {
     }
 
     /// The fire, as Claude's documentation gives it. The body carries no text: what the task does is in its own
-    /// saved prompt and in the asks it reads through the connector.
+    /// saved prompt and in the asks it reads through the connector. Each fire starts a session of its own, with no
+    /// key that makes two the same, so the app fires once for a tap and never again by itself.
     var request: URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -104,7 +105,9 @@ struct Wake: Equatable {
         guard (200 ..< 300).contains(status) else {
             let why: String
             switch status {
-            case 401, 403: why = "Claude did not take the token. Make a new one for the task and paste it again."
+            case 400: why = "Claude did not start the task. It may be paused in Claude."
+            case 401: why = "Claude did not take the token. Make a new one for the task and paste it again."
+            case 403: why = "This Claude account cannot start tasks from outside. Scheduled tasks need a paid plan with Claude Code on the web."
             case 404: why = "Claude knows no task at that URL. Copy the task's Fire URL again."
             case 429: why = "Claude has started this task as often as it will for now. It will take another start within the hour."
             default: why = "Claude answered \(status) and did not start."
