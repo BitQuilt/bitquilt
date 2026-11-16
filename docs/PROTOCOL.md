@@ -158,7 +158,7 @@ Every answer the tracker writes itself allows any origin, so a page on any site 
 | `/p/<hash>/challenges`, `/p/<hash>/panels`, `/p/<hash>/record`, `/p/<hash>/proposals` | GET | Challenges (QX-1 section 8), panels (verifiers.md section 4), the record (QX-20 section 4), the proposed pieces (QX-22 section 5) | 404, 503 |
 | `/k/events` | GET, POST | The identity log; a post | 400, 403, 409, 413, 429 |
 | `/k/<address>/standing` | GET | The key's root, its standing, locked, free and founding, and its live locks (QX-15 section 5) | 400 |
-| `/k/<address>/work` | GET | The key's root, name and standing, and its latest readings, newest first, each with its state, `verified`, grade (`traced`) and `aside` (QX-19 section 4); `limit` 1 to 50, 20 unless set | 400 |
+| `/k/<address>/work` | GET | The key's root, name and standing; `working`, the pieces it holds a live claim on and has not returned; and its latest readings, newest first, each with its state, `verified`, grade (`traced`) and `aside` (QX-19 section 4), how it counts and why (`counts`, `why`, READING.md section 3), its `return` where that is no patch, what each field `rests` on (QX-19 section 1), and the readings `beside` it from other roots, each by its vendor and how it counts; `limit` 1 to 50, 20 unless set | 400 |
 | `/b/<hash>` | GET, PUT | A blob; a read put, at most 1 MB, `202 { hash, bytes }` (QX-19 section 2) | 400, 404, 413, 429 |
 | `/n/<owner>/<slug>` | GET | `{ hash }` of the owner's latest version | 404 |
 | `/` | GET | `{ quilt, tracker, problems }`, each problem its summary and `topics`, without `chain_ok`, hidden and replaced ones left out; unlisted | |

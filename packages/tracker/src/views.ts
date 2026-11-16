@@ -24,6 +24,7 @@ import {
   JUDGE_SEED,
   MAJORITY,
   PANEL,
+  PATCH_VERIFIERS,
   PROPOSE,
   PROPOSED_MAX,
   PROPOSE_WHY_MAX,
@@ -33,8 +34,10 @@ import {
   TRACE,
   countsAsAccepted,
   isAddress,
+  passageIn,
   proposalsIn,
   recordOutput,
+  restsOf,
   shortHead,
   verifyChain,
   windowOpen,
@@ -536,9 +539,15 @@ export function standingOf({ layer, founding }: Reads, address: string) {
 }
 
 /**
- * The directory's hot list (APP.md, "The window"): a key's latest readings, newest first, each with its state and
- * grade as this tracker holds them, and `aside` where the layer set this key's reading aside (QX-19 section 4).
- * Receipts are by key, so a delegate's readings sit under the delegate's address; the root is said beside it.
+ * A key's work as the record holds it, which the directory's hot list reads (APP.md, "The window") and a person's own
+ * client shows them of what their AI did: the root the key counts for, that root's name and standing, the pieces the
+ * key holds a live claim on and has not returned, and its latest readings, newest first. Each reading says the
+ * piece's state and grade as this tracker holds them, `aside` where the layer set this key's reading aside
+ * (QX-19 section 4), how the reading counts and why where it counts for nothing (READING.md section 3), the return
+ * itself where the piece's return is a document and not a patch, what each field rests on with the passage where the
+ * page's bytes are held here (QX-19 section 1), and the vendor of every reading beside it from another root with how
+ * that one counts. Receipts are by key, so a delegate's readings sit under the delegate's address; the root is said
+ * beside it. Every word of the answer is on a problem's log, read through the layer, and nothing is kept apart.
  */
 export function workBy({ store, layer, tracesOf }: Reads, address: string, query: URLSearchParams) {
   if (!isAddress(address)) throw new Refusal(400, 'an address with its checksum');
@@ -546,10 +555,14 @@ export function workBy({ store, layer, tracesOf }: Reads, address: string, query
   const limit = Math.min(50, Math.max(1, Number.isFinite(asked) ? Math.floor(asked) : 20));
   const layered = layer();
   const root = layered.rootOf(address);
+  const passage = (h: Hash, span: [number, number]): string | null => passageIn(store.getBlob(h), span);
   const readings = store.revealsBy(address, limit).flatMap((r) => {
     const pl = layered.problems.get(r.problem);
     const l = pl?.byHash.get(r.piece);
-    if (!pl || !l) return [];
+    const v = pl?.fold.byHash.get(r.piece);
+    if (!pl || !l || !v) return [];
+    const mine = l.readings.find((x) => x.key === address && x.at === r.at) ?? null;
+    const reveal = mine ? (v.reveals.find((x) => x.id === mine.id) ?? null) : null;
     return [
       {
         problem: r.problem,
@@ -561,6 +574,48 @@ export function workBy({ store, layer, tracesOf }: Reads, address: string, query
         aside: l.aside.includes(address),
         verified: l.verified,
         traced: tracesOf(pl).get(r.piece)?.traced ?? null,
+        id: mine?.id ?? null,
+        vendor: mine?.vendor ?? null,
+        counts: mine?.counts ?? null,
+        why: mine?.why ?? null,
+        // A check or score piece returns a patch, which is the square page's to show and not a line's.
+        return: reveal && !PATCH_VERIFIERS.includes(v.piece.verifier) ? reveal.return : null,
+        rests: reveal
+          ? restsOf(
+              v,
+              store.lines(r.problem),
+              passage,
+            )(reveal).map((x) => ({
+              field: x.field,
+              url: x.url,
+              passage: x.passage,
+            }))
+          : [],
+        beside: l.readings
+          .filter((x) => x.id !== mine?.id && x.root !== root)
+          .map((x) => ({ vendor: x.vendor, counts: x.counts, why: x.why })),
+      },
+    ];
+  });
+  // A piece is held where the key's claim is live, and the key has neither revealed on it since nor declined it.
+  const held = new Set<string>();
+  const working = store.claimsBy(address, limit).flatMap((c) => {
+    const pl = layered.problems.get(c.problem);
+    const l = pl?.byHash.get(c.piece);
+    const v = pl?.fold.byHash.get(c.piece);
+    if (!pl || !l || !v || held.has(c.piece)) return [];
+    const claim = v.claims.find((x) => x.key === address && x.at === c.at && x.until > layered.now);
+    if (!claim || v.declined.has(address as Address) || v.declined.has(root)) return [];
+    if (v.reveals.some((x) => x.key === address && x.at > c.at)) return [];
+    held.add(c.piece);
+    return [
+      {
+        problem: c.problem,
+        title: pl.fold.envelope.problem.title,
+        piece: c.piece,
+        name: l.name,
+        at: c.at,
+        until: claim.until,
       },
     ];
   });
@@ -570,6 +625,7 @@ export function workBy({ store, layer, tracesOf }: Reads, address: string, query
     root,
     name: first ? nameIn(first)(root) : null,
     standing: layered.standing(root),
+    working,
     readings,
     at: layered.now,
   };
