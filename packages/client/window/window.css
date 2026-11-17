@@ -47,9 +47,10 @@ dt { color: var(--muted); } dd { margin: 0; word-break: break-all; }
 .status { margin: 10px 0 0; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .err { color: #b4432c; margin: 0 0 10px; }
 .err:empty { display: none; }
-.told { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; }
-.told:empty { display: none; }
-.told .lead { font-weight: 600; }
+.told, .asked { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; }
+.told:empty, .asked:empty { display: none; }
+.told .lead, .asked .lead { font-weight: 600; }
+.asked .b { text-align: left; }
 .told .mono { user-select: all; word-break: break-all; }
 .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 /* A narrow frame, a phone or a site's column: the five columns read least fold away, and the title, who, the pieces,

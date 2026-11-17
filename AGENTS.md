@@ -118,9 +118,9 @@ Quilt. The package and the executable share the name. `quilt.ts` is the one thin
 | `src/tools.ts` | The tools' work, with no MCP and no HTTP in it: the text a model reads and the handles a card uses (`runTool`, `TOOL_NAMES`, `localRunner`) | |
 | `src/trace.ts` | The trace from the client's side: each page a return rests on fetched once, a site's check of the browser known and asked once more, the same document read at another address where one is known, the passage found, the read kept, and the trace posted after the reveal (`traceAfterReveal`, `sameElsewhere`) | QX-19 sections 1, 2 and 6 |
 | `src/window-answers.ts` | The JSON the card's reader answers, op by op, declared once for the server and the card (`WindowAnswer`, `Handle`) | APP.md, The window |
-| `src/window.ts` | The reader behind the card, and the card's address, which carries the hash of its text (`windowAnswer`, `WINDOW_URI_NOW`) | APP.md, The window |
+| `src/window.ts` | The reader behind the card, what the person asked from their own app that waits among what it answers, and the card's address, which carries the hash of its text (`windowAnswer`, `WINDOW_URI_NOW`) | APP.md, The window; APP.md, What a person asks from their own app |
 | `window/window.css` | The card's look: the page's colours, and the host's variables where it gives them | APP.md, The window |
-| `window/window.ts` | The card: five views drawn through its app-only tool; each button that acts in the person's name hands one of the person's own phrases, and following a key is the one thing it writes (`mapOf`, `follow`) | APP.md, The window; QX-23 section 5 |
+| `window/window.ts` | The card: five views drawn through its app-only tool, and above them what the person asked from their own app, a button for each; each button that acts in the person's name hands one of the person's own phrases, an ask's button its sentence, and the keys followed and the mark on an ask handed on are the two things it writes (`mapOf`, `follow`, `hand`) | APP.md, The window; APP.md, What a person asks from their own app; QX-23 section 5 |
 
 ### `packages/hosted` (`@bitquilt/hosted`)
 

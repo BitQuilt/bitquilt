@@ -7,8 +7,14 @@
  * it if it tried. A button that would do something in the person's name hands this chat one of the person's own
  * phrases with the problem's link filled in, so a piece is taken or a problem opened through quilt_next and
  * quilt_open as from any sentence of theirs, with the host asking first; nothing a stranger wrote goes into what the
- * person's AI is told. Following a key is the one thing the card writes, in this home's library alone. Text is set
- * with textContent, never as markup.
+ * person's AI is told. The card writes two things, both in this home's library alone: the keys followed, and the mark
+ * on an ask it handed. Text is set with textContent, never as markup.
+ *
+ * Above the tabs, in a chat, is what the person asked from their own Quilt app and no AI has been handed
+ * (APP.md, "What a person asks from their own app"): a button for each, which hands this chat the ask's sentence, one
+ * of the person's own phrases written at the home from the phrase's name and the problem's hash, and then marks the
+ * ask handed, so the person's app shows their AI has it and no other card offers it. An ask is left from another app
+ * while this chat stands, so the strip is read again when the card comes back into view and while it is on screen.
  *
  * Five views, as Napster had its tabs: Search, Problem (the map), Hot list (the keys followed), Library (what this
  * home keeps and serves), Me; and a status line with the swarm's totals, each problem counted once however many doors
@@ -33,6 +39,8 @@ import {
 // minifier picks its short names by how often each letter appears in this file's code, types included, so a type edit
 // here can still change the card's bytes and so its hashed address.
 import type {
+  Asked,
+  AskedRow,
   Handle,
   Hot,
   Lib,
@@ -76,6 +84,10 @@ const state = {
    */
   told: '',
   copied: false,
+  /** What the person asked from their own app that waits; null until read, and always on a site. */
+  asks: null as AskedRow[] | null,
+  /** An ask's button was pressed and its sentence is on its way to the chat. */
+  handing: false,
 };
 let app: App | null = null;
 /**
@@ -204,6 +216,34 @@ async function tell(text: string): Promise<void> {
 }
 
 /**
+ * One press on an ask's button: its sentence goes to this chat as the person's message, and once the chat has taken
+ * it the ask is marked handed. A chat that does not take the message leaves the ask waiting.
+ */
+async function hand(a: AskedRow): Promise<void> {
+  if (!app || state.handing) return;
+  state.handing = true;
+  state.error = '';
+  draw();
+  try {
+    const took = await app.sendMessage({ role: 'user', content: [{ type: 'text', text: a.sentence }] });
+    if (took.isError) throw new Error('This chat did not take the message, so what you asked still waits.');
+    // The chat has it: this card offers it no more, whether or not the home takes the mark at once.
+    sent.add(a.id);
+    state.told = a.sentence;
+    state.asks = (state.asks ?? []).filter((x) => !sent.has(x.id));
+    try {
+      state.asks = (await io<Asked>('handed', { id: a.id })).asks.filter((x) => !sent.has(x.id));
+    } catch {
+      /* the chat has the sentence; the mark is made at the next read */
+    }
+  } catch (e) {
+    state.error = (e as Error).message;
+  }
+  state.handing = false;
+  draw();
+}
+
+/**
  * The sentence onto the clipboard: the clipboard API where the frame is allowed it (a site grants it on the frame),
  * else the old copy command over the shown sentence, selected.
  */
@@ -275,6 +315,36 @@ const follow = (key: string, on: boolean, name: string | null = null) =>
   reading<Hot>('follow', { key, on, ...(name ? { name } : {}) }, (r) => {
     state.hot = r;
   });
+/** Whether the card is on screen, where the frame can tell; a card scrolled away up the chat reads nothing. */
+let onScreen = true;
+/**
+ * The asks this card has handed the chat. None is offered here again, and one the home did not mark, since the read
+ * that marks it failed, is marked at the next read.
+ */
+const sent = new Set<string>();
+/** When the asks were last read, in the clock's milliseconds. */
+let askedAt = 0;
+/**
+ * What the person asked from their own app, read again, quietly: no busy mark, and where the read fails the strip
+ * stays as it was. Only in a chat, where a button can hand the sentence on, and, after the first read, only while
+ * the card is shown.
+ */
+async function loadAsked(first = false): Promise<void> {
+  if (standalone || !app || state.handing) return;
+  // Coming back into view and taking the focus arrive together: one read serves both.
+  if (!first && (document.visibilityState !== 'visible' || Date.now() - askedAt < 2000)) return;
+  askedAt = Date.now();
+  try {
+    let asks = (await io<Asked>('asked')).asks;
+    // A button was pressed while this read was out: the press's own answer is the newer one.
+    if (state.handing) return;
+    for (const a of asks.filter((x) => sent.has(x.id))) asks = (await io<Asked>('handed', { id: a.id })).asks;
+    state.asks = asks.filter((x) => !sent.has(x.id));
+    drawAsked();
+  } catch {
+    /* the strip as it was */
+  }
+}
 
 // ---- drawing ------------------------------------------------------------------
 
@@ -306,6 +376,8 @@ const els = {
   err: h('p', { class: 'err' }),
   /** What the last button did, under the tabs: on a site the sentence to say, in a chat that the AI has it. */
   told: h('div', { class: 'told' }),
+  /** What the person asked from their own app that waits, above the tabs: a button for each. */
+  asked: h('div', { class: 'asked' }),
 };
 
 function shell(): void {
@@ -357,7 +429,7 @@ function shell(): void {
     ['me', h('section', { class: 'view' }, els.meView)],
   ];
   for (const [view, el] of sections) els.views.set(view, el);
-  root.replaceChildren(nav, els.err, els.told, ...sections.map(([, el]) => el), els.status);
+  root.replaceChildren(els.asked, nav, els.err, els.told, ...sections.map(([, el]) => el), els.status);
 }
 
 function show(view: View): void {
@@ -809,6 +881,25 @@ function draw(): void {
   drawStatus();
   els.err.textContent = state.error;
   drawTold();
+  drawAsked();
+}
+
+/**
+ * What the person asked from their own app that waits: a button for each, named by its phrase's title and, where the
+ * home could read one, the problem's title, which is shown here and is no part of what the button hands on.
+ */
+function drawAsked(): void {
+  const asks = standalone ? [] : (state.asks ?? []);
+  if (asks.length === 0) {
+    els.asked.replaceChildren();
+    return;
+  }
+  els.asked.replaceChildren(
+    h('span', { class: 'lead' }, 'Asked from your Quilt app:'),
+    ...asks.map((a) =>
+      btn(a.about ? `${a.title}: ${a.about}` : a.title, 'b primary', () => void hand(a), state.handing),
+    ),
+  );
 }
 
 /**
@@ -865,6 +956,8 @@ async function load(): Promise<void> {
       else await search();
       return;
     }
+    // What was asked from the person's app comes first, since its button is why the person is here; in a chat alone.
+    void loadAsked(true);
     const [me, totals, hot] = await Promise.all([io<Me>('me'), io<Totals>('totals'), io<Hot>('hot')]);
     state.me = me;
     state.phrases = me.phrases;
@@ -891,6 +984,7 @@ async function relaunch(): Promise<void> {
   state.phrases = null;
   state.told = '';
   state.error = '';
+  state.asks = null;
   if (!personal() && state.view !== 'search' && state.view !== 'problem') state.view = 'search';
   shell();
   draw();
@@ -950,6 +1044,17 @@ async function start(): Promise<void> {
   app.onteardown = async () => ({});
   await app.connect();
   applyHost(app.getHostContext());
+  // An ask is left from the person's own app while this chat stands: the strip is read again when the card comes
+  // back into view, as when the person returns to the chat from that app, and every twenty seconds while on screen.
+  document.addEventListener('visibilitychange', () => void loadAsked());
+  window.addEventListener('focus', () => void loadAsked());
+  if ('IntersectionObserver' in window)
+    new IntersectionObserver((seen) => {
+      onScreen = seen.some((s) => s.isIntersecting);
+    }).observe(root);
+  setInterval(() => {
+    if (onScreen) void loadAsked();
+  }, 20000);
 }
 
 start().catch((e: unknown) => {

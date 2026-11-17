@@ -6,20 +6,21 @@
  * served for results from before. The card draws everything from `windowAnswer`, reached through the app-only tool
  * `quilt_window_io` over the same session, so the server knows who asks and the card loads nothing from anywhere
  * else; what the card hands the person's AI is one of the person's own phrases (phrases.ts) with a link filled in,
- * never anyone else's words. The model-visible tools' structuredContent is unchanged: the owners' titles the reader
+ * never anyone else's words, and what the person asked from their own app is such a sentence too, written at the
+ * home. The model-visible tools' structuredContent is unchanged: the owners' titles the reader
  * returns are data for the card, as the page shows them, and the same words quilt_search and quilt_open quote. What
  * the reader answers is declared once, in window-answers.ts, which the card imports as types alone.
  */
 import { createHash } from 'node:crypto';
-import { type Address, type Hash, isAddress } from '@bitquilt/core';
-import { makeLink } from './link.js';
-import { say } from './phrases.js';
+import { type Address, type Hash, isAddress, problemHash } from '@bitquilt/core';
+import { makeLink, parseLink } from './link.js';
+import { phrase, say } from './phrases.js';
 import { inParallel } from './pool.js';
 import type { Quilt } from './quilt.js';
 import { inheritedOf, kindWords, layerByHash, nameOf } from './render.js';
 import { type Library, publicLibrary } from './library.js';
 import { askJson } from './resolver.js';
-import type { Hot, WindowAnswer } from './window-answers.js';
+import type { Asked, Hot, WindowAnswer } from './window-answers.js';
 import { WINDOW_HTML } from './window.generated.js';
 
 export const WINDOW_URI = 'ui://quilt/window.html';
@@ -27,7 +28,18 @@ export const WINDOW_URI = 'ui://quilt/window.html';
 export const WINDOW_HASH = createHash('sha256').update(WINDOW_HTML).digest('hex').slice(0, 10);
 export const WINDOW_URI_NOW = `ui://quilt/window.${WINDOW_HASH}.html`;
 /** What the card may ask the reader for. */
-export const WINDOW_OPS = ['search', 'open', 'library', 'hot', 'follow', 'me', 'totals', 'phrases'] as const;
+export const WINDOW_OPS = [
+  'search',
+  'open',
+  'library',
+  'hot',
+  'follow',
+  'me',
+  'totals',
+  'phrases',
+  'asked',
+  'handed',
+] as const;
 export type WindowOp = (typeof WINDOW_OPS)[number];
 /**
  * What a reader with no person behind it answers, the on-ramp's `/window/io` for a site: nothing of a home, and nothing
@@ -59,13 +71,51 @@ async function hot(quilt: Quilt, library: Library): Promise<Hot> {
 }
 
 /**
+ * A problem's title where this home can read it: from its library, from an envelope it keeps under that hash, or from
+ * the envelope fetched by the hash, which is kept, so it is fetched once. Null where no place answers.
+ */
+async function titleOf(quilt: Quilt, hash: Hash): Promise<string | null> {
+  const known = quilt.library.problems[hash]?.title;
+  if (known) return known;
+  const kept = quilt.resolver.cachedEnvelope(hash);
+  if (kept && problemHash(kept) === hash) return kept.problem.title;
+  const link = parseLink(makeLink(hash, quilt.config.trackers));
+  const got = await quilt.resolver.envelope(hash, link).catch(() => null);
+  return got?.envelope.problem.title ?? null;
+}
+
+/**
+ * What the person asked from their own app and no AI has been handed (APP.md, "What a person asks from their own app"),
+ * as the card lists it: each ask with its phrase's title, its problem's title where this home can read one, and the
+ * sentence a button hands the chat, which the home writes from the phrase and the hash as quilt_asked does.
+ */
+async function asked(quilt: Quilt): Promise<Asked> {
+  const waiting = quilt.asks().filter((a) => a.handed === null);
+  const titles = await inParallel(waiting, 4, (a) => (a.problem ? titleOf(quilt, a.problem) : Promise.resolve(null)));
+  return {
+    op: 'asked',
+    asks: waiting.map((a, i) => ({
+      id: a.id,
+      phrase: a.phrase,
+      title: phrase(a.phrase).title,
+      problem: a.problem,
+      about: titles[i] ?? null,
+      sentence: quilt.askSentence(a),
+      at: a.at,
+    })),
+  };
+}
+
+/**
  * The reader: one op, one JSON answer, small enough for a card (a result over about 150,000 characters never reaches
  * one). `search` is `Quilt.search` with a quilt: link on each row, so the card fills a phrase with it; `open` is a
  * problem's map as the tracker's layer holds it, with each piece's kind, grade and how many have read it, and no
  * briefs; `library` is what the home keeps and serves, names and counts, with no gold answer in it; `hot` is the keys
  * this person follows and `follow` adds or drops one; `me` is who this client is, with its standing and coin and the
  * phrase templates; `totals` is the swarm counted once per problem, by hash, over every tracker's index, with what each
- * tracker lists; `phrases` is the phrase templates alone, for the card on a site, where there is no person to be.
+ * tracker lists; `phrases` is the phrase templates alone, for the card on a site, where there is no person to be;
+ * `asked` is what the person asked from their own app that waits, and `handed` marks one of those as handed to an AI,
+ * by its id, once the card's button has handed the chat its sentence, and answers with what still waits.
  */
 const phrasesOf = (): Record<string, string> =>
   Object.fromEntries(WINDOW_PHRASES.map((name) => [name, say(name, { link: '{link}' })]));
@@ -176,6 +226,15 @@ export async function windowAnswer(quilt: Quilt, input: Record<string, unknown>)
     }
     case 'phrases':
       return { op, phrases: phrasesOf() };
+    case 'asked':
+      return asked(quilt);
+    case 'handed': {
+      const id = str('id');
+      if (!/^[0-9a-f]{32}$/.test(id)) throw new Error("id: an ask's id, thirty-two hex characters");
+      // One that another card or quilt_asked already handed is no fault: the answer is what waits now.
+      quilt.handAsk(id);
+      return asked(quilt);
+    }
     case 'totals': {
       // Doors that fold each other hold the same problems (QX-21), so the swarm is counted once per problem, by hash,
       // over every tracker's index; where two differ on one, the row further along its chain is read. Each tracker says
