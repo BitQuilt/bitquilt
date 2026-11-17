@@ -13,7 +13,7 @@ final class AsksTests: XCTestCase {
         let json = #"{"asks":[{"id":"00112233445566778899aabbccddeeff","phrase":"take_piece","problem":"\#(problem)","at":"2026-11-16T12:00:00.000Z","handed":null,"sentence":"Open quilt:\#(problem) on Quilt and take a piece.","expires":"2026-11-18T12:00:00.000Z"},{"id":"ffeeddccbbaa99887766554433221100","phrase":"find_something_to_do","problem":null,"at":"2026-11-16T12:01:00.000Z","handed":"2026-11-16T12:02:00.000Z","sentence":"Find me something to do on Quilt.","expires":"2026-11-17T12:02:00.000Z"}]}"#
         struct Listed: Decodable { let asks: [Ask] }
         let asks = try JSONDecoder().decode(Listed.self, from: Data(json.utf8)).asks
-        XCTAssertEqual(asks.map(\.title), ["Take a piece", "Something to do"])
+        XCTAssertEqual(asks.map(\.title), ["Take a piece", "Find me something to do"])
         XCTAssertEqual(asks.map(\.problem), [problem, nil])
         XCTAssertNil(asks[0].handed)
         XCTAssertNotNil(asks[1].handed)

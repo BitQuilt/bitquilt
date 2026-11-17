@@ -98,13 +98,13 @@ struct Work: Decodable, Equatable {
         var said: String? {
             let all = `return` ?? [:]
             guard !all.isEmpty else { return nil }
-            guard all.count <= 3 else { return "It answered \(all.count) fields." }
+            guard all.count <= 3 else { return "\(all.count) fields answered" }
             let worded = all.compactMap { field -> String? in
                 if case .text(let s) = field.value, !s.isEmpty { return s }
                 return nil
             }
             guard let answer = worded.min(by: { ($0.count, $0) < ($1.count, $1) }) ?? fields.first?.value else { return nil }
-            return "It said: \(answer)" + (answer.hasSuffix(".") ? "" : ".")
+            return Plain.value(answer)
         }
 
         /// The vendors of the readings beside this one that count with it.
@@ -126,33 +126,29 @@ struct Work: Decodable, Equatable {
             }
         }
 
-        /// Where the reading stands, in a sentence.
+        /// Where the answer stands, in a short sentence. An answer is whole once it is signed, so none of these says
+        /// that it waits: a match is said of the square, and an answer with none is recorded.
         var story: String {
+            let others = (beside ?? []).count
+            let more = "\(others) other answer\(others == 1 ? "" : "s")"
             switch standing {
-            case .struck: return "This reading was struck: \(why ?? "a decision went against its set")."
-            case .aside: return "Set aside: \(why ?? "it rests on nothing where another reading rests on the record"). It stays on the record."
-            case .kept: return "Kept on the record, and it counts for nothing on this piece: \(why ?? "the piece had its readings")."
+            case .struck: return "Struck, and not counted: \(Plain.reason(why))."
+            case .aside: return "Kept, and not counted: \(Plain.reason(why ?? "it rests on nothing where another reading rests on the record"))."
+            case .kept: return "Kept, and not counted here: \(Plain.reason(why ?? "the readings the piece asks for stood before it"))."
             case .agreed:
-                let who = agreeing.isEmpty ? "Another AI" : Vendor.list(agreeing)
-                return state == "accepted"
-                    ? "\(who) gave the same answer. The square is settled."
-                    : "\(who) gave the same answer. The square is green, and open to challenge for a while."
+                let who = Vendor.by(agreeing)
+                return state == "accepted" ? "Matched by \(who). Final." : "Matched by \(who)."
             case .recorded:
-                let n = (beside ?? []).count
-                return n == 0 ? "Recorded. Every reading is kept." : "Recorded beside \(n) other reading\(n == 1 ? "" : "s"). Every one is kept."
+                return others == 0 ? "Recorded." : "Recorded, with \(more)."
             case .differs:
                 return state == "challenged"
-                    ? "The square is challenged. A panel reads it again."
-                    : "Another AI read it differently. Both readings are kept, each under its own key, and the piece goes out for a third."
+                    ? "Challenged. A panel is looking again."
+                    : "Another AI disagreed. Both answers are kept."
             case .onRecord:
                 switch state {
-                case "recording": return "On the record under your key. The piece is taking more readings, and every one is kept."
-                case "judging": return "On the record under your key. A panel is ranking the candidates."
-                default:
-                    let n = (beside ?? []).count
-                    return n == 0
-                        ? "On the record under your key. It is the first reading of this piece."
-                        : "On the record under your key, beside \(n) other reading\(n == 1 ? "" : "s")."
+                case "recording": return "Recorded. The piece is collecting more answers."
+                case "judging": return "Recorded. A panel is ranking the answers."
+                default: return others == 0 ? "Recorded. First answer on this piece." : "Recorded, with \(more) on this piece."
                 }
             }
         }
@@ -184,6 +180,13 @@ enum Vendor {
         let unique = names.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
         guard unique.count > 1 else { return "An AI from \(unique.first ?? "another company")" }
         return "AIs from " + unique.dropLast().joined(separator: ", ") + " and " + unique.last!
+    }
+
+    /// The same inside a sentence: "an AI from OpenAI", "AIs from OpenAI and Google", or "another AI" for no name.
+    static func by(_ names: [String]) -> String {
+        guard !names.isEmpty else { return "another AI" }
+        let said = list(names)
+        return said.hasPrefix("An ") ? "an " + said.dropFirst(3) : said
     }
 }
 
@@ -218,24 +221,24 @@ extension Work {
             let fresh = seen[r.key] == nil
             switch r.standing {
             case .agreed:
-                out.append(News(kind: .agreed, title: fresh ? "Your Claude's answer was matched" : "Another AI read it the same",
-                                body: "\(r.name): \(r.story)", state: r.state))
+                out.append(News(kind: .agreed, title: fresh ? "Your Claude's answer was matched" : "Another AI matched your Claude",
+                                body: "\(Plain.piece(r.name)). \(r.story)", state: r.state))
             case .differs:
-                out.append(News(kind: .differs, title: "Another AI read it differently",
-                                body: "\(r.name): both readings are kept, each under its own key.", state: r.state))
+                out.append(News(kind: .differs, title: "Another AI disagreed",
+                                body: "\(Plain.piece(r.name)). Both answers are kept.", state: r.state))
             case .recorded:
-                out.append(News(kind: .other, title: "Recorded", body: "\(r.name): \(r.story)", state: r.state))
+                out.append(News(kind: .other, title: "Recorded", body: "\(Plain.piece(r.name)). \(r.story)", state: r.state))
             case .kept, .aside, .struck:
-                out.append(News(kind: .other, title: fresh ? "Your Claude handed back an answer" : "A reading changed",
-                                body: "\(r.name): \(r.story)", state: r.state))
+                out.append(News(kind: .other, title: fresh ? "Your Claude answered" : "An answer changed",
+                                body: "\(Plain.piece(r.name)). \(r.story)", state: r.state))
             case .onRecord:
                 guard fresh else { continue }
-                out.append(News(kind: .returned, title: "Your Claude handed back an answer",
-                                body: "\(r.name). \(r.said.map { $0 + " " } ?? "")\(r.story)", state: r.state))
+                out.append(News(kind: .returned, title: "Your Claude answered",
+                                body: "\(Plain.piece(r.name)): \(r.said.map { $0 + ". " } ?? "")\(r.story)", state: r.state))
             }
         }
         for w in working ?? [] where !held.contains(w.piece) {
-            out.append(News(kind: .took, title: "Your Claude took a piece", body: "\(w.name), in \(w.title). It is working on it now.", state: "in_flight"))
+            out.append(News(kind: .took, title: "Your Claude took a piece", body: "\(Plain.piece(w.name)), in \(w.title).", state: "in_flight"))
         }
         let weight: [News.Kind: Int] = [.agreed: 0, .differs: 1, .returned: 2, .other: 3, .took: 4]
         return out.sorted { (weight[$0.kind] ?? 9) < (weight[$1.kind] ?? 9) }

@@ -41,24 +41,36 @@ struct HandOff: Identifiable {
     var phrase: String?
     var problem: String?
 
+    /// The problem's title, where the page that made this knew it.
+    var named: String?
+
     var id: String { sentence }
 
     /// Whether the address keeps this as an ask: its phrase is one this app asks with.
     var asks: Bool { phrase.map { Ask.titles[$0] != nil } ?? false }
 
+    /// The sentence as a person reads it: the same words, with the problem's title where its link is. A link is a
+    /// hash and the places that hold it, which Claude needs and a person cannot read. The sentence that is sent is
+    /// `sentence`, link and all, and the sheet shows it whole where it is asked to.
+    var shown: String {
+        sentence.replacingOccurrences(of: #"quilt:\S+"#, with: named.map { "\u{201C}\($0)\u{201D}" } ?? "this problem",
+                                      options: .regularExpression)
+    }
+
     /// A sentence of the sheet's, with the problem read out of it where it names one.
     init(phrase: Phrase) {
-        title = phrase.title
+        title = Plain.ask(phrase).title
         sentence = phrase.say
         self.phrase = phrase.name
         problem = phrase.say.range(of: #"sha256:[0-9a-f]{64}"#, options: .regularExpression).map { String(phrase.say[$0]) }
     }
 
-    init(title: String, sentence: String, phrase: String? = nil, problem: String? = nil) {
+    init(title: String, sentence: String, phrase: String? = nil, problem: String? = nil, named: String? = nil) {
         self.title = title
         self.sentence = sentence
         self.phrase = phrase
         self.problem = problem
+        self.named = named
     }
 }
 
@@ -71,19 +83,16 @@ struct HandOffSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
     @State private var asking = false
+    @State private var whole = false
 
     /// Whether a tap here is enough: the person gave this app their task's trigger, and the sentence is one an ask
     /// carries.
     private var wakes: Bool { store.wake != nil && handOff.asks }
 
     private var about: String {
-        if wakes {
-            return "Quilt leaves this sentence at your address and starts your Claude, which reads it there and does it. Or leave it without starting anything: it shows as a button on Quilt's card in your Claude chat. What your Claude does shows up here, under Activity."
-        }
-        if handOff.asks {
-            return "Open Claude on a new chat with this sentence, or leave it at your address: it shows as a button on Quilt's card in the Claude chat you already have. What your Claude does shows up here, under Activity."
-        }
-        return "This is the sentence your Claude gets. It is copied too, so you can paste it if Claude opens without it. What your Claude does with it shows up here, under Activity."
+        if wakes { return "Your Claude does this in the background. Its answer shows up here." }
+        if handOff.asks { return "Open Claude on a new chat, or use the chat you already have: this shows there as a button on Quilt\u{2019}s card." }
+        return "Claude opens with this written for you to send."
     }
 
     var body: some View {
@@ -93,37 +102,49 @@ struct HandOffSheet: View {
             Text(about)
                 .font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink2)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(handOff.sentence)
-                .font(Typeface.text(17))
-                .foregroundStyle(Palette.ink)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.rule))
+            VStack(alignment: .leading, spacing: 10) {
+                Text(verbatim: handOff.shown)
+                    .font(Typeface.text(17))
+                    .foregroundStyle(Palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                if handOff.shown != handOff.sentence {
+                    if whole {
+                        Text(verbatim: handOff.sentence)
+                            .font(Typeface.mono(12)).foregroundStyle(Palette.ink2)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Button("Show exactly what is sent") { whole = true }
+                            .font(Typeface.text(14, relativeTo: .footnote))
+                    }
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.rule))
             if wakes {
-                Button(asking ? "Asking\u{2026}" : "Ask my Claude") { leave(waking: true) }
+                Button(asking ? "Starting\u{2026}" : "Run in the background") { leave(waking: true) }
                     .buttonStyle(ActButton())
                     .disabled(asking)
                 // Left and not started: the ask waits for the chat the person keeps, where Quilt's card shows it as a
                 // button, so a trigger kept on this phone does not take that way from them.
-                Button(asking ? "Leaving it\u{2026}" : "Leave it for my Claude") { leave(waking: false) }
+                Button(asking ? "Sending\u{2026}" : "Use my existing chat") { leave(waking: false) }
                     .buttonStyle(QuietButton())
                     .disabled(asking)
-                Button("Open Claude myself") { open() }
+                Button("Open Claude in a new chat") { open() }
                     .buttonStyle(QuietButton())
             } else {
                 Button(Claude.installed ? "Open Claude" : "Open Claude in Safari") { open() }
                     .buttonStyle(ActButton())
                 if handOff.asks {
-                    Button(asking ? "Leaving it\u{2026}" : "Leave it for my Claude") { leave(waking: false) }
+                    Button(asking ? "Sending\u{2026}" : "Use my existing chat") { leave(waking: false) }
                         .buttonStyle(QuietButton())
                         .disabled(asking)
                 }
             }
             if !Claude.installed {
-                Link("Claude's app is not on this phone. Get it from the App Store.", destination: Claude.appStore)
+                Link("Claude is not on this phone. Get it from the App Store.", destination: Claude.appStore)
                     .font(Typeface.text(14, relativeTo: .footnote))
                     .multilineTextAlignment(.leading)
             }

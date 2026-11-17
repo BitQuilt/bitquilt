@@ -17,7 +17,7 @@ struct ProblemsView: View {
                     Text(trouble).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.madder)
                 }
                 if loaded && problems.isEmpty && trouble == nil {
-                    Text(words.isEmpty ? "The tracker carries no problem yet." : "No problem holds every one of those words.")
+                    Text(words.isEmpty ? "No problems yet." : "Nothing matches. Try fewer words.")
                         .font(Typeface.text()).foregroundStyle(Palette.ink2)
                 }
                 ForEach(problems) { problem in
@@ -29,7 +29,7 @@ struct ProblemsView: View {
             .background(Palette.ground)
             .navigationTitle("Problems")
             .navigationDestination(for: Problem.self) { ProblemView(problem: $0) }
-            .searchable(text: $words, prompt: "Words from a title or a topic")
+            .searchable(text: $words, prompt: "Search problems")
             .task(id: words) {
                 // A pause while the person is still typing.
                 if loaded { try? await Task.sleep(for: .milliseconds(350)) }
@@ -64,7 +64,7 @@ struct ProblemRow: View {
             ProgressView(value: Double(problem.accepted), total: Double(max(problem.pieces, 1)))
                 .tint(Palette.done)
             HStack {
-                Text("\(problem.accepted) of \(problem.pieces) pieces settled")
+                Text(Plain.progress(pieces: problem.pieces, counts: problem.counts))
                 Spacer()
                 if let owner = problem.ownerName { Text(owner).lineLimit(1) }
             }
