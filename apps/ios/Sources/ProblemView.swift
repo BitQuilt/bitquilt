@@ -42,24 +42,19 @@ struct ProblemView: View {
                     if let trouble {
                         Text(trouble).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.madder)
                     }
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 26), spacing: 6)], spacing: 6) {
+                    if pieces.isEmpty, trouble == nil {
+                        Skeleton(count: min(max(problem.pieces, 1), 24))
+                    }
+                    // Squares big enough for a finger. A piece the person's Claude answered or holds carries a dot,
+                    // and breathes while it is held; a square swells when its state changes.
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 40), spacing: 7)], spacing: 7) {
                         ForEach(pieces) { piece in
-                            RoundedRectangle(cornerRadius: 5)
-                                .fill(Palette.square(piece.state))
-                                .overlay(RoundedRectangle(cornerRadius: 5).stroke(chosen == piece ? Palette.ink : Palette.rule, lineWidth: chosen == piece ? 2 : 1))
-                                // A piece the person's Claude read or holds carries a dot, and breathes while it is held.
-                                .overlay {
-                                    if store.mine.contains(piece.hash) {
-                                        Circle().fill(Palette.ink).frame(width: 6, height: 6)
-                                    }
-                                }
-                                .modifier(Held(held: store.holding.contains(piece.hash)))
-                                .aspectRatio(1, contentMode: .fit)
+                            Patch(state: piece.state, mine: store.mine.contains(piece.hash),
+                                  held: store.holding.contains(piece.hash), chosen: chosen == piece)
                                 .onTapGesture { chosen = chosen == piece ? nil : piece }
                                 .accessibilityLabel("\(Plain.piece(piece.name)), \(Plain.state(piece.state))\(store.mine.contains(piece.hash) ? ", your Claude's" : "")")
                         }
                     }
-                    .animation(.easeInOut(duration: 0.6), value: pieces)
                     Legend(mine: pieces.contains { store.mine.contains($0.hash) })
                     if let chosen { ChosenPiece(problem: problem, piece: chosen) }
                 }
@@ -106,20 +101,6 @@ struct ProblemView: View {
     }
 }
 
-/// A square the person's Claude holds now breathes.
-private struct Held: ViewModifier {
-    let held: Bool
-    @State private var dim = false
-
-    func body(content: Content) -> some View {
-        content
-            .opacity(held && dim ? 0.4 : 1)
-            .animation(held ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true) : .default, value: dim)
-            .onAppear { dim = held }
-            .onChange(of: held) { _, now in dim = now }
-    }
-}
-
 /// What the colours mean, every one the map can draw, and the dot where the map carries one.
 private struct Legend: View {
     let mine: Bool
@@ -130,9 +111,7 @@ private struct Legend: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10, alignment: .leading)], alignment: .leading, spacing: 6) {
                 ForEach(states, id: \.self) { state in
                     HStack(spacing: 5) {
-                        RoundedRectangle(cornerRadius: 3).fill(Palette.square(state))
-                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Palette.rule))
-                            .frame(width: 12, height: 12)
+                        Patch(state: state, size: 13)
                         Text(Plain.state(state))
                     }
                 }

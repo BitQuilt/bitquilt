@@ -81,6 +81,8 @@ final class Store {
     var mine: Set<String> { Set((work?.readings ?? []).map(\.piece) + (work?.working ?? []).map(\.piece)) }
     /// The pieces their Claude holds now.
     var holding: Set<String> { Set((work?.working ?? []).map(\.piece)) }
+    /// How many answers their Claude gave on each problem, by the problem's hash.
+    var answered: [String: Int] { Dictionary((work?.readings ?? []).map { ($0.problem, 1) }, uniquingKeysWith: +) }
     /// What the Home tab's badge counts: what waits on the person, and, while the page is not in front, what
     /// changed since it was.
     var unseen: Int { waiting.count + (tab == "home" ? 0 : fresh.count) }
