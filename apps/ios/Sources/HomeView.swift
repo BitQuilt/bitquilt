@@ -21,6 +21,19 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
+                    // A read that did not go through is said, so a phone with no network shows why the page is empty.
+                    if let trouble = store.problem {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(trouble).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.madderInk)
+                            Button("Try again") {
+                                Task {
+                                    await store.refresh()
+                                    await store.look()
+                                }
+                            }
+                            .buttonStyle(QuietButton())
+                        }
+                    }
                     if !store.connected, store.address == nil || store.sheet != nil {
                         Empty(title: "Connect Claude to start",
                               about: "Your Claude does the work. Once it is connected, each answer shows up here as it lands.",
