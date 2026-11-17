@@ -15,7 +15,7 @@ struct Ask: Decodable, Identifiable, Hashable {
     let phrase: String
     let problem: String?
     let at: String
-    /// When Claude's tool listed it, nil until it has.
+    /// When Claude's tool listed it, or the card's button in Claude's chat handed it on; nil until then.
     let handed: String?
     /// The sentence Claude is handed, written at the address from the phrase and the hash.
     let sentence: String

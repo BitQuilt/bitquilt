@@ -2,12 +2,15 @@
  * What a person asks from their own app, at a hosted address (docs/APP.md, "What a person asks from their own app";
  * PROTOCOL.md, The on-ramp's routes): an ask posted to `/mcp/<token>/asks` is a phrase's name and a problem's hash,
  * kept at the address and listed there with its sentence; the address's AI reads the asks with quilt_asked over the
- * same address, which marks them handed, and the list says so; an ask is taken back at `/mcp/<token>/asks/<ask>`;
- * and each of the routes' refusals: a phrase an ask does not carry, a problem that is not a hash, a body that is not
- * an ask, another method, and a token that names no address.
+ * same address, which marks them handed, and the list says so; the card in the AI's chat reads them through its own
+ * reader over the connector and marks the one whose button it pressed, and the list says that too; an ask is taken
+ * back at `/mcp/<token>/asks/<ask>`; and each of the routes' refusals: a phrase an ask does not carry, a problem that
+ * is not a hash, a body that is not an ask, another method, and a token that names no address.
  */
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { Address } from '@bitquilt/core';
 import { openDoor } from './helpers.js';
 
@@ -68,6 +71,58 @@ describe('/mcp/<token>/asks', () => {
     // A day to be shown as handed.
     expect(Date.parse(handed[0]!.expires) - Date.parse(handed[0]!.handed!)).toBe(24 * 3600000);
     expect((await tool(me.url, 'quilt_asked')).text).toContain('Nothing is asked.');
+  });
+
+  it('shows what waits to the card in the chat, and takes the mark of the one its button handed on', async () => {
+    const me = await join();
+    await send(`${me.url}/asks`, 'POST', { phrase: 'take_piece', problem: P });
+    await send(`${me.url}/asks`, 'POST', { phrase: 'find_something_to_do' });
+    const [take, find] = await asks(me.url);
+    // The card's reader is a tool of the connector the chat holds, and no tool over plain HTTP.
+    expect(
+      (await send(`${me.url}/tools/quilt_window_io`, 'POST', { model: 'a/b', input: { op: 'asked' } })).status,
+    ).toBe(404);
+    const client = new Client({ name: 'claude-ai', version: '1.0' });
+    await client.connect(new StreamableHTTPClientTransport(new URL(me.url)));
+    const io = async (op: string, more: Record<string, unknown> = {}) => {
+      const r = await client.callTool({ name: 'quilt_window_io', arguments: { op, ...more } });
+      expect(r.isError ?? false).toBe(false);
+      return JSON.parse((r.content as { text: string }[])[0]!.text) as {
+        asks: { id: string; title: string; about: string | null; sentence: string }[];
+      };
+    };
+    expect((await io('asked')).asks).toEqual([
+      {
+        id: take!.id,
+        phrase: 'take_piece',
+        title: 'Take a piece',
+        problem: P,
+        about: null,
+        sentence: take!.sentence,
+        at: take!.at,
+      },
+      {
+        id: find!.id,
+        phrase: 'find_something_to_do',
+        title: 'Something to do',
+        problem: null,
+        about: null,
+        sentence: find!.sentence,
+        at: find!.at,
+      },
+    ]);
+    // The button's press: the card hands the chat the sentence, then marks that one ask.
+    expect((await io('handed', { id: take!.id })).asks.map((a) => a.id)).toEqual([find!.id]);
+    await client.close();
+    // The person's app reads the same list: the one handed says when, and the other still waits.
+    expect((await asks(me.url)).map((a) => [a.phrase, a.handed !== null])).toEqual([
+      ['take_piece', true],
+      ['find_something_to_do', false],
+    ]);
+    // And the tool that lists the asks has the one the card did not hand on.
+    const said = await tool(me.url, 'quilt_asked');
+    expect(said.text).toContain('not yet done: 1 ask.');
+    expect(said.text).toContain('1. "Find me something to do on Quilt."');
   });
 
   it('is one address’s own: another address lists nothing of it', async () => {

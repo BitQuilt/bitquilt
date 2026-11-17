@@ -72,7 +72,7 @@ export interface Library {
   /**
    * The asks (APP.md, "What a person asks from their own app"): what the person asked from their own app and their AI
    * has not done yet, oldest first. Each carries a phrase's name and a problem's hash and no other words, when it was
-   * asked, and when a tool handed it to an AI, null until one has.
+   * asked, and when a tool or the card's button handed it to an AI, null until one has.
    */
   asks?: { id: string; phrase: string; problem: string | null; at: string; handed: string | null }[];
 }

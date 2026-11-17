@@ -612,6 +612,19 @@ export class Quilt {
     return waiting.map((a) => ({ ...a, handed: at }));
   }
 
+  /**
+   * One ask that waits, marked as handed to an AI now, by its id: what the card does once its button has handed the
+   * chat the ask's sentence. False where none by that id waits.
+   */
+  handAsk(id: string): boolean {
+    this.asks();
+    const waiting = (this.library.asks ?? []).find((a) => a.id === id && a.handed === null);
+    if (!waiting) return false;
+    waiting.handed = this.stamp();
+    this.save();
+    return true;
+  }
+
   /** An ask taken back by the person, by its id; false where the home holds none by it. */
   dropAsk(id: string): boolean {
     const held = this.library.asks ?? [];

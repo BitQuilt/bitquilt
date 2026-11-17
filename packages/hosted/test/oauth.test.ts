@@ -1230,6 +1230,11 @@ describe("the site's login", () => {
       ((await (await io(`op=follow&key=${owner}&on=false`, tokens.access_token)).json()) as { keys: unknown[] }).keys,
     ).toHaveLength(0);
     expect((await io('op=library', tokens.access_token)).status).toBe(200);
+    // What the member asked from their own app is theirs too: read with the token, and a personal op without it.
+    expect(await (await io('op=asked', tokens.access_token)).json()).toEqual({ op: 'asked', asks: [] });
+    expect((await io(`op=handed&id=${'0'.repeat(32)}`, tokens.access_token)).status).toBe(200);
+    expect((await io('op=handed&id=first', tokens.access_token)).status).toBe(400);
+    expect((await io('op=asked')).status).toBe(401);
     expect(
       ((await (await io('op=search&query=', tokens.access_token)).json()) as { rows: unknown[] }).rows.length,
     ).toBeGreaterThanOrEqual(1);

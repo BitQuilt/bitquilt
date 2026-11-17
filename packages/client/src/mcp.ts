@@ -215,8 +215,8 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
     {
       title: 'What the window reads',
       description: [
-        "The window's own reader, for the card and not for the model: a search over the trackers and relays, a problem's map and grades, this home's library and what its node serves, the keys this person follows, who this client is, the trackers' totals, and the phrase templates alone, each answered as JSON text for the window to draw.",
-        "Its one write is the list of followed keys in this home's library.",
+        "The window's own reader, for the card and not for the model: a search over the trackers and relays, a problem's map and grades, this home's library and what its node serves, the keys this person follows, who this client is, the trackers' totals, the phrase templates alone, and what this person asked from their own Quilt app that waits, each answered as JSON text for the window to draw.",
+        "Its writes are two, both in this home's library: the list of followed keys, and the mark on an ask once the window's button has handed the chat its sentence.",
         'Hidden from the model by its visibility.',
       ].join(' '),
       inputSchema: {
@@ -226,6 +226,7 @@ export function createMcpServer(run: ToolRunner, options: McpServerOptions = {})
         key: z.string().max(64).optional(),
         on: z.boolean().optional(),
         name: z.string().max(60).optional(),
+        id: z.string().max(32).optional(),
       },
       _meta: { ui: { resourceUri: WINDOW_URI_NOW, visibility: ['app'] } },
     },

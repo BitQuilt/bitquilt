@@ -852,6 +852,7 @@ export function createHosted(options: HostedOptions): Hosted {
               ...input,
               key: s('key', 64),
               name: s('name', 60),
+              id: s('id', 32),
               ...(url.searchParams.has('on') ? { on: url.searchParams.get('on') !== 'false' } : {}),
             }),
           );

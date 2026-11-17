@@ -30,8 +30,8 @@ import { instructs, mcpPair, quiltOver, startTracker, tempHome } from './helpers
  * app-only reader behind it is hidden from the model by its visibility and answers each op as JSON text with nothing in
  * structuredContent; the model-visible tools' text passes the words' rule; the document loads nothing from another
  * server and its sources set text with textContent; the generated file matches its sources; the card takes the reader's
- * answers as types alone, from the one file that declares them; and a run while away offers neither the window nor its
- * reader.
+ * answers as types alone, from the one file that declares them; a run while away offers neither the window nor its
+ * reader; and what the person asked from their own app goes from the card to the chat as its sentence alone.
  */
 let server: Server;
 let base: string;
@@ -323,9 +323,42 @@ describe('the directory window', () => {
       arguments: { op: 'follow', key: 'not-an-address', on: true },
     });
     expect(refused.isError).toBe(true);
-    expect(WINDOW_OPS).toEqual(['search', 'open', 'library', 'hot', 'follow', 'me', 'totals', 'phrases']);
+    expect(WINDOW_OPS).toEqual([
+      'search',
+      'open',
+      'library',
+      'hot',
+      'follow',
+      'me',
+      'totals',
+      'phrases',
+      'asked',
+      'handed',
+    ]);
     expect(WINDOW_READ_OPS).toEqual(['search', 'open', 'totals', 'phrases']);
     await close();
+  });
+
+  it('hands the chat an ask as its sentence alone, marks it handed after the chat took it, and offers it in a chat only', () => {
+    // APP.md, "What a person asks from their own app": the card's strip. Read from the card's source, since the card
+    // runs in a host's frame: two places hand the chat a message, a phrase's button and an ask's, and the ask's is
+    // the sentence the home wrote; the problem's title is in the button's name and in nothing handed on.
+    const source = readFileSync(join(root, 'packages', 'client', 'window', 'window.ts'), 'utf8');
+    const handed = source.split('\n').filter((line) => line.includes('app.sendMessage('));
+    expect(handed).toHaveLength(2);
+    expect(handed.filter((line) => line.includes("content: [{ type: 'text', text: a.sentence }]"))).toHaveLength(1);
+    expect(handed.filter((line) => line.includes("content: [{ type: 'text', text }]"))).toHaveLength(1);
+    expect(source.split('\n').filter((line) => line.includes('a.about'))).toEqual([
+      "      btn(a.about ? `${a.title}: ${a.about}` : a.title, 'b primary', () => void hand(a), state.handing),",
+    ]);
+    // The mark follows the message, so an ask the chat did not take still waits.
+    const hand = source.slice(source.indexOf('async function hand('), source.indexOf('async function copy('));
+    expect(hand.indexOf('app.sendMessage(')).toBeGreaterThan(0);
+    expect(hand.indexOf("io<Asked>('handed'")).toBeGreaterThan(hand.indexOf('app.sendMessage('));
+    expect(hand).toContain('if (took.isError) throw');
+    // On a site no AI is in the page, so nothing there could take the sentence and no ask is offered.
+    expect(source).toContain('const asks = standalone ? [] : (state.asks ?? []);');
+    expect(source).toContain('if (standalone || !app || state.handing) return;');
   });
 
   it("shows the library to the page as names and counts, with the gold's answers left in the home", () => {

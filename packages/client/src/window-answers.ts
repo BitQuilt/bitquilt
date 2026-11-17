@@ -152,6 +152,28 @@ export interface Phrases {
   phrases: Record<string, string>;
 }
 
+/**
+ * One thing the person asked from their own app that no AI has been handed
+ * (APP.md, "What a person asks from their own app"): the phrase by its name and its title, the problem by its hash
+ * and, where this home can read it, the title its owner gave it, which the card shows and never hands on, and the
+ * sentence the card's button hands the chat, written at the home from the phrase and the hash.
+ */
+export interface AskedRow {
+  id: string;
+  phrase: string;
+  title: string;
+  problem: string | null;
+  about: string | null;
+  sentence: string;
+  at: string;
+}
+
+/** The answer to `asked` and to `handed`: what the person asked from their own app that waits, oldest first. */
+export interface Asked {
+  op: 'asked';
+  asks: AskedRow[];
+}
+
 /** What the tool that showed this card handed it: who the client is and what to open on. No one's words. */
 export interface Handle {
   address?: string | null;
@@ -176,5 +198,5 @@ export interface PagePiece extends MapPiece {
   gold_due: boolean;
 }
 
-/** An answer of the reader, one per op; `follow` answers as `hot` does. */
-export type WindowAnswer = Searched | ProblemMap | Lib | Hot | Me | Totals | Phrases;
+/** An answer of the reader, one per op; `follow` answers as `hot` does, and `handed` as `asked` does. */
+export type WindowAnswer = Searched | ProblemMap | Lib | Hot | Me | Totals | Phrases | Asked;

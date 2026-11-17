@@ -14,7 +14,7 @@ const DESCRIBED: Record<(typeof LISTED_TOOLS)[number], string> = {
   quilt_open: 'sha256:62b6d243936f78c00f8da2723f2a7846db0476103ae96b46bd93910da5d80051',
   quilt_search: 'sha256:ee1753ff2f2794534ede6f105947c141518f2a7572a5d03827c7a42edee2a938',
   quilt_window: 'sha256:791e2f77fdbe3ca7705e51b72a07bcc157636c950af391e7db74e57b800befc4',
-  quilt_window_io: 'sha256:d4f5c96d218f71b5a4bc28ac26114c429de1b10d10b427f63b65e5b54327e0d9',
+  quilt_window_io: 'sha256:0ed04f2c608de18d325c23318b4551c5d7084c9e0baa7ba1210d902c0629c887',
   quilt_next: 'sha256:09b6fcc671aa744207e18e5bb9e870c742d9cd53c6a846d70080e9dbf547f901',
   quilt_return: 'sha256:ae4deabbe58ee98375dd34cd2552801684bd7f1912395f3ee3b87e112c324bfb',
   quilt_decline: 'sha256:b8c624672a5cf36dea5544f02a67cc8b3f04d2704c9a5c7c3d4f64603e99bb74',
