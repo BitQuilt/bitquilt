@@ -186,6 +186,16 @@ describe("the card's reader, for what was asked", () => {
       expect(a.sentence).not.toMatch(instructs);
     }
     expect(c.resolver.cachedEnvelope(problem)?.problem.title).toBe(pattern.title);
+    // The card reads this every twenty seconds while it is shown: the title found is kept and not fetched again, and
+    // the problem no place holds is not looked for again at the next read.
+    const asked: string[] = [];
+    const real = c.resolver.fetchImpl;
+    (c.resolver as { fetchImpl: typeof fetch }).fetchImpl = (input, init) => {
+      asked.push(String(input));
+      return real(input, init);
+    };
+    expect(await windowAnswer(c, { op: 'asked' })).toEqual(listed);
+    expect(asked.filter((url) => url.includes(problem) || url.includes(P))).toEqual([]);
   });
 
   it('marks one ask handed by its id, through the tool the card calls, and neither it nor quilt_asked lists it again', async () => {

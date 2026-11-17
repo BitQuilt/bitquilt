@@ -71,17 +71,36 @@ async function hot(quilt: Quilt, library: Library): Promise<Hot> {
 }
 
 /**
+ * The problems no place answered a title for, each by its hash with when it may be asked for again. The card reads
+ * the asks every twenty seconds while it is shown, and a problem nobody holds is not looked for at each read.
+ */
+const UNTITLED = new Map<string, number>();
+const UNTITLED_MS = 10 * 60000;
+
+/**
  * A problem's title where this home can read it: from its library, from an envelope it keeps under that hash, or from
- * the envelope fetched by the hash, which is kept, so it is fetched once. Null where no place answers.
+ * the envelope fetched by the hash, which is kept, so it is fetched once. Null where no place answers within four
+ * seconds, since the card's buttons do not wait on a title, and then for ten minutes without asking again.
  */
 async function titleOf(quilt: Quilt, hash: Hash): Promise<string | null> {
   const known = quilt.library.problems[hash]?.title;
   if (known) return known;
   const kept = quilt.resolver.cachedEnvelope(hash);
   if (kept && problemHash(kept) === hash) return kept.problem.title;
+  if ((UNTITLED.get(hash) ?? 0) > Date.now()) return null;
   const link = parseLink(makeLink(hash, quilt.config.trackers));
-  const got = await quilt.resolver.envelope(hash, link).catch(() => null);
-  return got?.envelope.problem.title ?? null;
+  let late: ReturnType<typeof setTimeout> | undefined;
+  const got = await Promise.race([
+    quilt.resolver.envelope(hash, link).catch(() => null),
+    new Promise<null>((answer) => {
+      late = setTimeout(() => answer(null), 4000);
+    }),
+  ]);
+  clearTimeout(late);
+  if (got) return got.envelope.problem.title;
+  if (UNTITLED.size > 1000) UNTITLED.clear();
+  UNTITLED.set(hash, Date.now() + UNTITLED_MS);
+  return null;
 }
 
 /**
