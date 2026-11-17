@@ -108,3 +108,25 @@ final class AsksTests: XCTestCase {
         XCTAssertEqual(fired.url, "https://claude.ai/code/session_01")
     }
 }
+
+/// The welcome (Sources/WelcomeView.swift) is in front until Claude is connected, and a person can look around first.
+final class WelcomeTests: XCTestCase {
+    @MainActor
+    func testTheWelcomeIsInFrontUntilThePersonLooksAroundOrClaudeConnects() {
+        let store = Store()
+        store.forget()
+        XCTAssertTrue(store.welcoming)
+        // Looking around puts the tabs in front, and a button that needs Claude brings the welcome back.
+        store.lookingAround = true
+        XCTAssertFalse(store.welcoming)
+        store.lookingAround = false
+        XCTAssertTrue(store.welcoming)
+        // The welcome stays for its last page once Claude has connected, and its button ends it on the page it names.
+        store.lookingAround = true
+        store.justConnected = true
+        XCTAssertTrue(store.welcoming)
+        store.finishWelcome(on: "problems")
+        XCTAssertFalse(store.welcoming)
+        XCTAssertEqual(store.tab, "problems")
+    }
+}
