@@ -11,13 +11,17 @@ struct ProblemView: View {
     @State private var trouble: String?
 
     private var link: String { Tracker.link(to: problem) }
+    /// How many pieces stand in each state: the map's own count once it is read, the list's until then.
+    private var counts: [String: Int] {
+        pieces.isEmpty ? problem.counts : Dictionary(grouping: pieces, by: \.state).mapValues(\.count)
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Text(problem.title).font(Typeface.display(26)).foregroundStyle(Palette.ink)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(problem.ownerName.map { "Done, in the words of \($0), when:" } ?? "Done, in its owner's words, when:")
+                    Text(problem.ownerName.map { "\($0)\u{2019}s goal" } ?? "The goal")
                         .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
                     Text(problem.doneWhen).font(Typeface.text()).foregroundStyle(Palette.ink)
                 }
@@ -26,7 +30,7 @@ struct ProblemView: View {
                 .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 12))
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("\(problem.accepted) of \(problem.pieces) pieces settled")
+                    Text(Plain.progress(pieces: problem.pieces, counts: counts))
                         .font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
                     if let trouble {
                         Text(trouble).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.madder)
@@ -45,7 +49,7 @@ struct ProblemView: View {
                                 .modifier(Held(held: store.holding.contains(piece.hash)))
                                 .aspectRatio(1, contentMode: .fit)
                                 .onTapGesture { chosen = chosen == piece ? nil : piece }
-                                .accessibilityLabel("\(piece.name), \(words(piece.state))\(store.mine.contains(piece.hash) ? ", your Claude's" : "")")
+                                .accessibilityLabel("\(Plain.piece(piece.name)), \(Plain.state(piece.state))\(store.mine.contains(piece.hash) ? ", your Claude's" : "")")
                         }
                     }
                     .animation(.easeInOut(duration: 0.6), value: pieces)
@@ -55,21 +59,21 @@ struct ProblemView: View {
 
                 VStack(spacing: 12) {
                     if store.connected {
-                        Button("Take a piece with Claude") {
-                            store.handOff = HandOff(title: "Take a piece", sentence: "Open \(link) on Quilt and take a piece.", phrase: "take_piece", problem: problem.problem)
+                        Button("Send my Claude") {
+                            store.handOff = HandOff(title: "Send my Claude", sentence: "Open \(link) on Quilt and take a piece.", phrase: "take_piece", problem: problem.problem, named: problem.title)
                         }
                         .buttonStyle(ActButton())
-                        Button("Ask Claude what it asks") {
-                            store.handOff = HandOff(title: "Open a problem", sentence: "Open \(link) on Quilt and tell me what it asks.", phrase: "open_problem", problem: problem.problem)
+                        Button("Ask Claude to explain this") {
+                            store.handOff = HandOff(title: "Ask Claude to explain this", sentence: "Open \(link) on Quilt and tell me what it asks.", phrase: "open_problem", problem: problem.problem, named: problem.title)
                         }
                         .buttonStyle(QuietButton())
                     } else {
                         // Quilt is not in the person's Claude yet, so a sentence would reach a Claude that cannot act on it.
-                        Button(store.address == nil ? "Set up Quilt to take a piece" : "Add Quilt to Claude to take a piece") {
+                        Button(store.address == nil ? "Set up Quilt to send your Claude" : "Connect Claude to send it") {
                             store.tab = "you"
                         }
                         .buttonStyle(ActButton())
-                        Text("Your Claude does the work, and it needs Quilt added first. The You tab shows what is left.")
+                        Text("Your Claude does the work. Connect it first, under You.")
                             .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
                     }
                 }
@@ -95,20 +99,6 @@ struct ProblemView: View {
     }
 }
 
-/// A state in plain words.
-func words(_ state: String) -> String {
-    switch state {
-    case "accepted": return "accepted"
-    case "accepted_provisional": return "accepted, and open to challenge"
-    case "open": return "open"
-    case "in_flight": return "being worked"
-    case "needs_verify": return "read and kept, with no square yet"
-    case "recording": return "taking readings"
-    case "recorded": return "recorded, every reading kept"
-    default: return state.replacingOccurrences(of: "_", with: " ")
-    }
-}
-
 /// A square the person's Claude holds now breathes.
 private struct Held: ViewModifier {
     let held: Bool
@@ -123,20 +113,20 @@ private struct Held: ViewModifier {
     }
 }
 
-/// What the colours mean, and the dot where the map carries one.
+/// What the colours mean, every one the map can draw, and the dot where the map carries one.
 private struct Legend: View {
     let mine: Bool
-    private let entries: [(String, String)] = [("open", "Open"), ("needs_verify", "Read"), ("accepted_provisional", "Agreed"), ("accepted", "Settled")]
+    private let states = ["open", "in_flight", "needs_verify", "accepted_provisional", "accepted", "disputed"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 14) {
-                ForEach(entries, id: \.0) { state, label in
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10, alignment: .leading)], alignment: .leading, spacing: 6) {
+                ForEach(states, id: \.self) { state in
                     HStack(spacing: 5) {
                         RoundedRectangle(cornerRadius: 3).fill(Palette.square(state))
                             .overlay(RoundedRectangle(cornerRadius: 3).stroke(Palette.rule))
                             .frame(width: 12, height: 12)
-                        Text(label)
+                        Text(Plain.state(state))
                     }
                 }
             }
@@ -152,17 +142,19 @@ private struct Legend: View {
     }
 }
 
-/// The square under the person's finger: its name, its state, and its page, where the evidence can be checked.
+/// The square under the person's finger: its name, what happened on it, and its page, where the evidence can be
+/// checked. What the tracker says of the piece's kind is the rule the piece is held to, not what happened on it, so
+/// it is not said here.
 private struct ChosenPiece: View {
     let problem: Problem
     let piece: Piece
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(piece.name).font(Typeface.mono()).foregroundStyle(Palette.ink)
-            Text(words(piece.state).prefix(1).uppercased() + words(piece.state).dropFirst() + (piece.says.map { ": \($0)." } ?? "."))
+            Text(Plain.piece(piece.name)).font(Typeface.text(16, bold: true)).foregroundStyle(Palette.ink)
+            Text(Plain.explain(piece.state))
                 .font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink2)
-            Link("Open this square's page", destination: Tracker.squarePage(problem: problem.problem, piece: piece.hash))
+            Link("See it on the web", destination: Tracker.squarePage(problem: problem.problem, piece: piece.hash))
                 .font(Typeface.text(15, relativeTo: .subheadline))
         }
         .padding(12)

@@ -19,6 +19,8 @@ enum Palette {
     static let read = pair(0xF3D9A4, 0x7A6430)
     static let open = pair(0xF6F2EA, 0x2A3147)
     static let madder = pair(0xB5603A, 0xB5603A)
+    /// The madder as text: darker on the light ground and lighter on the dark one, so a sentence in it can be read.
+    static let madderInk = pair(0xA4522F, 0xE39A77)
 
     private static func pair(_ light: UInt32, _ dark: UInt32) -> Color {
         Color(uiColor: UIColor { traits in rgb(traits.userInterfaceStyle == .dark ? dark : light) })

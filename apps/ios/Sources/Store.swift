@@ -122,7 +122,7 @@ final class Store {
     func use(_ pasted: String) async {
         let trimmed = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.range(of: #"^https?://\S+/mcp/[0-9a-f]{64}$"#, options: .regularExpression) != nil else {
-            problem = "An address ends in /mcp/ and sixty-four letters and digits."
+            problem = "A private link ends in /mcp/ and sixty-four letters and digits."
             return
         }
         await attempt {
@@ -204,7 +204,7 @@ final class Store {
         guard let draft = now.first(where: { !said.contains($0.id) }) else { return false }
         let title = (try? Draft(draft, root: mine))?.title
         say(News(kind: .asked, title: "Your Claude drafted a problem",
-                 body: (title.map { "\($0). " } ?? "") + "It waits for your key. Read it, and publish it if it is right.", state: "open"))
+                 body: (title.map { "\($0). " } ?? "") + "Read it, and publish it if it is right.", state: "open"))
         return true
     }
 
@@ -214,7 +214,7 @@ final class Store {
         let waited = Set(asks.filter { $0.handed == nil }.map(\.id))
         asks = listed
         guard let picked = listed.first(where: { $0.handed != nil && waited.contains($0.id) }) else { return }
-        say(News(kind: .sent, title: "Your Claude has what you asked", body: "\(picked.title). It is working from it now, and what it does shows up here.", state: "in_flight"))
+        say(News(kind: .sent, title: "Your Claude picked it up", body: "\(picked.title). Its answer will show up here.", state: "in_flight"))
     }
 
     /// Leaves a hand-off at the address as an ask, and where `waking` and a trigger is kept, starts the person's
@@ -231,16 +231,16 @@ final class Store {
         guard kept else { return false }
         expect()
         guard waking, let wake else {
-            say(News(kind: .sent, title: "Left for your Claude", body: "\(handOff.title). It waits at your address. In your Claude chat, press its button on Quilt\u{2019}s card, or say \u{201C}Do what I asked on Quilt\u{201D}.", state: "open"))
+            say(News(kind: .sent, title: "Ready in your Quilt chat", body: "\(handOff.title). Tap its button on Quilt\u{2019}s card there, or say \u{201C}Do what I asked on Quilt\u{201D}.", state: "open"))
             return true
         }
         do {
             let fired = try await wake.fire()
             woke = Date()
             run = fired.url.flatMap { URL(string: $0) }
-            say(News(kind: .sent, title: "Your Claude is starting", body: "\(handOff.title). It reads what you asked and does it, and its answer shows up here.", state: "in_flight"))
+            say(News(kind: .sent, title: "Your Claude is starting", body: "\(handOff.title). Its answer will show up here.", state: "in_flight"))
         } catch {
-            say(News(kind: .sent, title: "Asked, and Claude did not start", body: "\(error.localizedDescription) What you asked still waits at your address.", state: "disputed"))
+            say(News(kind: .sent, title: "Claude did not start", body: "\(error.localizedDescription) What you asked is saved for your Quilt chat.", state: "disputed"))
         }
         return true
     }
@@ -274,12 +274,12 @@ final class Store {
     /// Starts the person's task once with nothing asked, to see that Claude takes the trigger. What happened, in a
     /// sentence.
     func tryWake() async -> String {
-        guard let wake else { return "No trigger is kept on this phone." }
+        guard let wake else { return "Nothing is set up on this phone." }
         do {
             let fired = try await wake.fire()
             woke = Date()
             run = fired.url.flatMap { URL(string: $0) }
-            return "Claude took it and started the task. With nothing asked, the task reads that and stops."
+            return "It works. Claude started the task."
         } catch {
             return error.localizedDescription
         }
@@ -288,7 +288,7 @@ final class Store {
     /// Publishes a draft: the person is asked for, the root signs the envelope and its version, and the address
     /// posts them. Whether it was published.
     func publish(_ draft: Draft) async -> Bool {
-        guard let address, await Presence.confirm("Publish \u{201C}\(draft.title)\u{201D} with your key.") else { return false }
+        guard let address, await Presence.confirm("Publish \u{201C}\(draft.title)\u{201D}.") else { return false }
         var done = false
         await attempt {
             try await Tracker.answer(draft.waiting, at: address, with: draft.answer(signedBy: try self.signing()))

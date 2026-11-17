@@ -25,13 +25,13 @@ struct Ask: Decodable, Identifiable, Hashable {
     static let titles = [
         "take_piece": "Take a piece",
         "open_problem": "Open a problem",
-        "my_disputed_return": "My disputed return",
-        "find_something_to_do": "Something to do",
-        "who_am_i": "Who I am on Quilt",
+        "my_disputed_return": "See both answers",
+        "find_something_to_do": "Find me something to do",
+        "who_am_i": "Who am I on Quilt?",
         "keep_problem": "Keep a problem",
-        "give_verdict": "Give my verdict",
-        "rank_panel": "Rank a panel",
-        "reveal_my_gold": "Reveal my gold",
+        "give_verdict": "Give a verdict",
+        "rank_panel": "Rank the answers",
+        "reveal_my_gold": "Reveal my answer key",
         "propose_piece": "Propose a piece",
     ]
 

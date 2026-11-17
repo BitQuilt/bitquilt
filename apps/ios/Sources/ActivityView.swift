@@ -17,7 +17,7 @@ struct ActivityView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     if !store.waiting.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Waiting for you").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
+                            Text("Needs your OK").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
                             ForEach(store.waiting) { draft in
                                 Button { reading = draft } label: { WaitingRow(waiting: draft) }.buttonStyle(.plain)
                             }
@@ -25,41 +25,41 @@ struct ActivityView: View {
                     }
                     if !store.asks.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Asked of your Claude").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
+                            Text("Sent to Claude").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
                             ForEach(store.asks) { ask in
                                 AskRow(ask: ask, woke: store.woke) { Task { await store.takeBack(ask) } }
                             }
                             if let run = store.run, store.asks.contains(where: { $0.handed == nil }) {
-                                Link("Watch your Claude work, in Claude", destination: run)
+                                Link("Watch it work in Claude", destination: run)
                                     .font(Typeface.text(14, relativeTo: .footnote))
                             }
                         }
                     }
                     if store.address == nil {
                         Empty(title: "Nothing here yet",
-                              about: "Your Claude does the work, and this page shows what it did as it happens: each answer, what it rests on, and who else read the same piece.",
+                              about: "Your Claude does the work. This page shows each answer as it lands.",
                               button: "Set up Quilt") { store.tab = "you" }
                     } else if !store.connected, store.work?.readings.isEmpty ?? true {
-                        Empty(title: "Quilt is not in your Claude yet",
-                              about: "Once it is, everything your Claude does on Quilt shows up here as it happens.",
-                              button: "See what is left") { store.tab = "you" }
+                        Empty(title: "Connect Claude to start",
+                              about: "Once it is connected, everything your Claude does on Quilt shows up here.",
+                              button: "Connect Claude") { store.tab = "you" }
                     } else if let work = store.work {
                         let held = work.working ?? []
                         if held.isEmpty, work.readings.isEmpty, store.waiting.isEmpty {
-                            Empty(title: "Your Claude has not taken a piece yet",
-                                  about: "Pick a problem and send your Claude to it. When you come back, its answer is here, with what it rests on.",
+                            Empty(title: "No answers yet",
+                                  about: "Pick a problem and send your Claude. Its answer shows up here.",
                                   button: "Find a problem") { store.tab = "problems" }
                         }
                         if !held.isEmpty {
                             VStack(alignment: .leading, spacing: 10) {
-                                Text("Now").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
+                                Text("Working now").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
                                 ForEach(held) { HeldRow(held: $0) }
                             }
                         }
                         if !work.readings.isEmpty {
                             Squares(readings: work.readings) { opened = $0 }
                             VStack(alignment: .leading, spacing: 10) {
-                                Text("What your Claude handed back").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
+                                Text("Answers").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
                                 ForEach(work.readings) { reading in
                                     Button { opened = reading } label: {
                                         ReadingRow(reading: reading, fresh: store.fresh.contains(reading.key))
@@ -109,10 +109,10 @@ private struct WaitingRow: View {
             }
             if let draft {
                 Text(verbatim: draft.title).font(Typeface.display(20)).foregroundStyle(Palette.ink).multilineTextAlignment(.leading)
-                Text("\(draft.pieces) piece\(draft.pieces == 1 ? "" : "s"). It is published once your key signs it, and not before.")
+                Text("\(draft.pieces) piece\(draft.pieces == 1 ? "" : "s"). Nothing is published until you say so.")
                     .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2).multilineTextAlignment(.leading)
             } else {
-                Text("This phone cannot read it as a problem, and will not sign it.")
+                Text("This draft cannot be read as a problem, so it cannot be published.")
                     .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.madder)
             }
             Text("Read it").font(Typeface.text(17, bold: true)).frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -146,7 +146,7 @@ private struct DraftSheet: View {
                 case .success(let draft):
                     if published { done(draft) } else { whole(draft) }
                 case .failure(let why):
-                    Text("This phone will not sign this draft").font(Typeface.display(22)).foregroundStyle(Palette.ink)
+                    Text("This draft cannot be published").font(Typeface.display(22)).foregroundStyle(Palette.ink)
                     Text(why.localizedDescription).font(Typeface.text()).foregroundStyle(Palette.madder)
                     Button("Drop the draft") { drop() }.buttonStyle(QuietButton())
                 }
@@ -163,7 +163,7 @@ private struct DraftSheet: View {
             .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
         Text(verbatim: draft.title).font(Typeface.display(26)).foregroundStyle(Palette.ink)
         VStack(alignment: .leading, spacing: 6) {
-            Text("Done when:").font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+            Text("The goal").font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
             Text(verbatim: draft.doneWhen).font(Typeface.text()).foregroundStyle(Palette.ink)
         }
         .padding(14)
@@ -173,10 +173,10 @@ private struct DraftSheet: View {
         Part(title: "\(draft.pieces) piece\(draft.pieces == 1 ? "" : "s")") {
             ForEach(draft.families) { family in
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(verbatim: family.count > 1 ? "\(family.plain), \(family.count) pieces" : family.plain)
-                        .font(Typeface.mono()).foregroundStyle(Palette.ink)
+                    Text(verbatim: family.count > 1 ? "\(Plain.piece(family.plain)), \(family.count) pieces" : Plain.piece(family.plain))
+                        .font(Typeface.text(15, bold: true, relativeTo: .subheadline)).foregroundStyle(Palette.ink)
                     Text(verbatim: family.brief).font(Typeface.text(16)).foregroundStyle(Palette.ink)
-                    Text(family.check + (family.brief.contains("{") ? " The words in braces are filled in for each piece from the draft's rows." : ""))
+                    Text(family.check + (family.brief.contains("{") ? " The words in braces are filled in for each piece." : ""))
                         .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
                 }
                 .padding(12)
@@ -185,21 +185,21 @@ private struct DraftSheet: View {
             }
         }
         if !waiting.topics.isEmpty {
-            Text(verbatim: "Listed under: " + waiting.topics.joined(separator: ", "))
+            Text(verbatim: "Topics: " + waiting.topics.joined(separator: ", "))
                 .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
         }
         if !waiting.left.isEmpty {
-            Text("The pattern's \(waiting.left.joined(separator: " and ")) cannot be posted from a phone yet, and \(waiting.left.count == 1 ? "was" : "were") left off.")
+            Text("Its \(waiting.left.joined(separator: " and ")) cannot be posted from a phone yet, and \(waiting.left.count == 1 ? "was" : "were") left off.")
                 .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
         }
         if let mine = store.root?.key?.address {
-            Text("Publishing signs this with your key, \(mine.prefix(8))…\(mine.suffix(6)). The problem is public, it names your key as its owner, and it stays on the record.")
+            Text("Publishing makes this public under your identity, \(mine.prefix(8))…\(mine.suffix(6)), for good.")
                 .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
         }
         if let trouble = store.problem {
             Text(trouble).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.madder)
         }
-        Button(working ? "Signing" : "Publish with my key") {
+        Button(working ? "Publishing\u{2026}" : "Publish") {
             working = true
             Task {
                 published = await store.publish(draft)
@@ -215,7 +215,7 @@ private struct DraftSheet: View {
             .confirmationDialog("Drop this draft?", isPresented: $dropping, titleVisibility: .visible) {
                 Button("Drop it", role: .destructive) { drop() }
             } message: {
-                Text("Nothing is signed and nothing is published. Your Claude can draft it again.")
+                Text("Nothing is published. Your Claude can draft it again.")
             }
     }
 
@@ -225,7 +225,7 @@ private struct DraftSheet: View {
             Image(systemName: "checkmark.seal.fill").font(.system(size: 54)).foregroundStyle(Palette.done)
             Text("Published").font(Typeface.display(30)).foregroundStyle(Palette.ink)
             Text(verbatim: draft.title).font(Typeface.text(19, bold: true)).foregroundStyle(Palette.ink)
-            Text("Your key signed it, and the tracker carries it now. Any AI can take its pieces, and every answer is kept beside the others under Problems.")
+            Text("It is live under Problems. Any AI can take its pieces, and every answer is kept.")
                 .font(Typeface.text()).foregroundStyle(Palette.ink2)
             ShareLink(item: link) { Text("Share its link") }.buttonStyle(QuietButton())
             Button("Done") {
@@ -256,20 +256,20 @@ private struct Squares: View {
         let alone = readings.filter { $0.standing == .onRecord }.count
         let differ = readings.filter { $0.standing == .differs }.count
         var parts: [String] = []
-        if agreed > 0 { parts.append("\(agreed) agreed") }
-        if alone > 0 { parts.append("\(alone) on the record") }
-        if differ > 0 { parts.append("\(differ) read differently") }
+        if agreed > 0 { parts.append("\(agreed) matched") }
+        if alone > 0 { parts.append("\(alone) recorded") }
+        if differ > 0 { parts.append("\(differ) disagreed") }
         return parts.joined(separator: ", ")
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Your squares").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
+            Text("Your quilt").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 30), spacing: 6)], alignment: .leading, spacing: 6) {
                 ForEach(readings) { reading in
                     ReadingSquare(reading: reading, size: 30)
                         .onTapGesture { open(reading) }
-                        .accessibilityLabel("\(reading.name), \(words(reading.state))")
+                        .accessibilityLabel("\(Plain.piece(reading.name)), \(Plain.state(reading.state))")
                         .accessibilityAddTraits(.isButton)
                 }
             }
@@ -290,10 +290,10 @@ private struct AskRow: View {
 
     private var state: String {
         if let handed = ask.handed.flatMap(moment) {
-            return "Your Claude picked it up \(handed.formatted(.relative(presentation: .named)))."
+            return "Picked up \(handed.formatted(.relative(presentation: .named)))."
         }
-        if let woke, Date().timeIntervalSince(woke) < 600 { return "Your Claude was started, and has not read it yet." }
-        return "Waiting at your address for your Claude."
+        if let woke, Date().timeIntervalSince(woke) < 600 { return "Claude was started." }
+        return "Ready in your Quilt chat. Tap its button there."
     }
 
     var body: some View {
@@ -307,7 +307,7 @@ private struct AskRow: View {
             }
             Spacer(minLength: 8)
             if ask.handed == nil {
-                Button("Take back", action: takeBack)
+                Button("Cancel", action: takeBack)
                     .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.act)
             }
         }
@@ -359,13 +359,13 @@ private struct HeldRow: View {
         HStack(alignment: .top, spacing: 12) {
             Breathing(state: "in_flight").padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Your Claude is working on a piece").font(Typeface.text(16, bold: true)).foregroundStyle(Palette.ink)
-                Text(held.name).font(Typeface.mono()).foregroundStyle(Palette.ink)
-                Text(held.title).font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+                Text(held.title).font(Typeface.text(16, bold: true)).foregroundStyle(Palette.ink)
                 if let since = moment(held.at) {
                     // The time counts up by itself while the page is open.
-                    Text("Taken \(Text(since, style: .relative)) ago. Its answer shows up here when it is handed back.")
+                    Text("\(Plain.piece(held.name)) \u{00B7} started \(Text(since, style: .relative)) ago")
                         .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+                } else {
+                    Text(Plain.piece(held.name)).font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
                 }
             }
             Spacer(minLength: 0)
@@ -398,7 +398,7 @@ struct ReadingSquare: View {
 func tone(_ standing: Work.Standing) -> Color {
     switch standing {
     case .agreed, .recorded: return Palette.doneInk
-    case .differs, .struck: return Palette.madder
+    case .differs, .struck: return Palette.madderInk
     default: return Palette.ink2
     }
 }
@@ -413,7 +413,8 @@ private struct ReadingRow: View {
             ReadingSquare(reading: reading).padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(reading.name).font(Typeface.mono()).foregroundStyle(Palette.ink).lineLimit(1)
+                    Text(reading.title).font(Typeface.text(16, bold: true)).foregroundStyle(Palette.ink).lineLimit(2)
+                        .multilineTextAlignment(.leading)
                     Spacer(minLength: 8)
                     if fresh {
                         Circle().fill(Palette.act).frame(width: 8, height: 8).accessibilityLabel("New")
@@ -423,10 +424,9 @@ private struct ReadingRow: View {
                             .font(Typeface.text(13, relativeTo: .caption)).foregroundStyle(Palette.ink2)
                     }
                 }
-                Text(reading.title).font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2).lineLimit(1)
-                if let said = reading.said {
-                    Text(verbatim: said).font(Typeface.text(16)).foregroundStyle(Palette.ink).lineLimit(2)
-                }
+                Text(verbatim: Plain.piece(reading.name) + (reading.said.map { ": \($0)" } ?? ""))
+                    .font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink).lineLimit(2)
+                    .multilineTextAlignment(.leading)
                 Text(verbatim: reading.story).font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(tone(reading.standing))
                     .multilineTextAlignment(.leading)
             }
@@ -451,7 +451,7 @@ private struct ReadingSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(reading.name).font(Typeface.mono(16)).foregroundStyle(Palette.ink)
+                    Text(Plain.piece(reading.name)).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink2)
                     Text(reading.title).font(Typeface.display(22)).foregroundStyle(Palette.ink)
                 }
                 HStack(alignment: .top, spacing: 12) {
@@ -463,54 +463,54 @@ private struct ReadingSheet: View {
                 .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 12))
 
                 if !reading.fields.isEmpty {
-                    Part(title: "Your Claude answered") {
+                    Part(title: "Your Claude said") {
                         ForEach(reading.fields, id: \.name) { field in
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(field.name).font(Typeface.text(13, relativeTo: .caption)).foregroundStyle(Palette.ink2)
-                                Text(verbatim: field.value).font(Typeface.text()).foregroundStyle(Palette.ink).textSelection(.enabled)
+                                Text(Plain.field(field.name)).font(Typeface.text(13, relativeTo: .caption)).foregroundStyle(Palette.ink2)
+                                Text(verbatim: Plain.value(field.value)).font(Typeface.text()).foregroundStyle(Palette.ink).textSelection(.enabled)
                             }
                         }
                     }
                 }
                 if let rests = reading.rests, !rests.isEmpty {
-                    Part(title: "What it rests on") {
+                    Part(title: "Evidence") {
                         ForEach(rests, id: \.self) { rest in
                             VStack(alignment: .leading, spacing: 4) {
                                 if let passage = rest.passage, !passage.isEmpty {
                                     Text(verbatim: "\u{201C}\(passage.prefix(400))\u{201D}").font(Typeface.text(16)).foregroundStyle(Palette.ink)
                                 }
                                 if let url = URL(string: rest.url), let host = url.host() {
-                                    Link("\(rest.field), on \(host)", destination: url).font(Typeface.text(14, relativeTo: .footnote))
+                                    Link("\(Plain.field(rest.field)), on \(host)", destination: url).font(Typeface.text(14, relativeTo: .footnote))
                                 }
                             }
                         }
                     }
                 } else if reading.return != nil {
-                    Text("This answer names no page it rests on.")
+                    Text("No source given.")
                         .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
                 }
                 if let beside = reading.beside, !beside.isEmpty {
-                    Part(title: "Beside it") {
+                    Part(title: "Other answers") {
                         ForEach(Array(beside.enumerated()), id: \.offset) { _, other in
                             Text(verbatim: said(other)).font(Typeface.text(16)).foregroundStyle(Palette.ink)
                         }
                     }
                 }
                 Link(destination: Tracker.squarePage(problem: reading.problem, piece: reading.piece)) {
-                    Text("Open this square's page")
+                    Text("See it on the web")
                 }
                 .buttonStyle(QuietButton())
                 if store.connected {
                     if reading.standing == .differs {
-                        Button("Ask Claude to show me the readings") {
+                        Button("Ask Claude to show both answers") {
                             dismiss()
-                            store.handOff = HandOff(title: "My disputed return", sentence: "Open \(link) on Quilt and show me the return of mine that is disputed.", phrase: "my_disputed_return", problem: reading.problem)
+                            store.handOff = HandOff(title: "See both answers", sentence: "Open \(link) on Quilt and show me the return of mine that is disputed.", phrase: "my_disputed_return", problem: reading.problem, named: reading.title)
                         }
                         .buttonStyle(QuietButton())
                     }
-                    Button("Take another piece with Claude") {
+                    Button("Send my Claude to another piece") {
                         dismiss()
-                        store.handOff = HandOff(title: "Take a piece", sentence: "Open \(link) on Quilt and take a piece.", phrase: "take_piece", problem: reading.problem)
+                        store.handOff = HandOff(title: "Send my Claude", sentence: "Open \(link) on Quilt and take a piece.", phrase: "take_piece", problem: reading.problem, named: reading.title)
                     }
                     .buttonStyle(ActButton())
                 }
@@ -525,10 +525,10 @@ private struct ReadingSheet: View {
     private func said(_ other: Work.Beside) -> String {
         let who = other.vendor == "human" ? "A person" : "An AI from \(Vendor.name(other.vendor))"
         switch other.counts {
-        case "counted": return "\(who): its reading counts on this piece."
-        case "aside": return "\(who): set aside, since \(other.why ?? "it rests on nothing")."
-        case "struck": return "\(who): struck, since \(other.why ?? "a decision went against it")."
-        default: return "\(who): kept, and counts for nothing here, since \(other.why ?? "the piece had its readings")."
+        case "counted": return "\(who) answered this piece too."
+        case "aside": return "\(who): kept, and not counted, since \(Plain.reason(other.why ?? "it rests on nothing where another reading rests on the record"))."
+        case "struck": return "\(who): struck, since \(Plain.reason(other.why))."
+        default: return "\(who): kept, and not counted here, since \(Plain.reason(other.why ?? "the readings the piece asks for stood before it"))."
         }
     }
 }

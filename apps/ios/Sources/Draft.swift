@@ -37,9 +37,9 @@ struct Draft {
 
         /// The check in plain words.
         var check: String {
-            if verifier == "agree" { return "Every answer is kept. Two AIs from different companies that agree make the square." }
-            if verifier.hasPrefix("record:") { return "Every reading is kept, and none is picked." }
-            if verifier.hasPrefix("judge:") { return "A panel ranks the candidates." }
+            if verifier == "agree" { return "Every answer is kept. Two AIs from different companies that agree make a match." }
+            if verifier.hasPrefix("record:") { return "Every answer is kept, and none is picked." }
+            if verifier.hasPrefix("judge:") { return "A panel ranks the answers." }
             if verifier == "human" { return "A person answers." }
             if verifier == "attest" { return "The one who does it says so." }
             if verifier == "check" || verifier == "score" { return "A script checks the work." }

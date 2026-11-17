@@ -41,7 +41,7 @@ final class StoreTests: XCTestCase {
         XCTAssertTrue(kept)
         XCTAssertEqual(store.asks.map(\.phrase), ["take_piece"])
         XCTAssertNil(store.asks[0].handed)
-        XCTAssertEqual(store.news?.title, "Left for your Claude")
+        XCTAssertEqual(store.news?.title, "Ready in your Quilt chat")
         // A sentence with words of its own is refused at the address, and nothing is kept.
         let refused = await store.ask(HandOff(title: "Call me", sentence: "Call me Ada on Quilt.", phrase: "call_me"), waking: false)
         XCTAssertFalse(refused)
@@ -56,7 +56,7 @@ final class StoreTests: XCTestCase {
         XCTAssertTrue(String(decoding: said, as: UTF8.self).contains("and take a piece."))
         await store.look()
         XCTAssertNotNil(store.asks[0].handed)
-        XCTAssertEqual(store.news?.title, "Your Claude has what you asked")
+        XCTAssertEqual(store.news?.title, "Your Claude picked it up")
         // A second ask is taken back before Claude reads it.
         let found = await store.ask(HandOff(title: "Something to do", sentence: "Find me something to do on Quilt.", phrase: "find_something_to_do"), waking: false)
         XCTAssertTrue(found)

@@ -118,7 +118,7 @@ struct Tracker {
     }
 
     static func sheet(at address: String) async throws -> Sheet {
-        guard let url = URL(string: address + "/sheet") else { throw TrackerError(errorDescription: "That is not an address.") }
+        guard let url = URL(string: address + "/sheet") else { throw TrackerError(errorDescription: "That is not a private link.") }
         return try await answer(URLRequest(url: url))
     }
 
@@ -152,7 +152,7 @@ struct Tracker {
     /// A rotation the phone wrote and signed as the new root, for the on-ramp to sign as the old and post.
     static func rotate(at address: String, event: WireEvent) async throws {
         struct Rotated: Decodable { let id: String }
-        guard let url = URL(string: address + "/rotate") else { throw TrackerError(errorDescription: "That is not an address.") }
+        guard let url = URL(string: address + "/rotate") else { throw TrackerError(errorDescription: "That is not a private link.") }
         do {
             let _: Rotated = try await answer(posting(event, to: url))
         } catch let refusal as TrackerError where refusal.status == 409 {}
@@ -161,7 +161,7 @@ struct Tracker {
     /// The publishes that wait on the root the address's key signs for, the newest first (Draft.swift).
     static func waiting(at address: String) async throws -> [Waiting] {
         struct Listed: Decodable { let waiting: [Waiting] }
-        guard let url = URL(string: address + "/waiting") else { throw TrackerError(errorDescription: "That is not an address.") }
+        guard let url = URL(string: address + "/waiting") else { throw TrackerError(errorDescription: "That is not a private link.") }
         let listed: Listed = try await answer(URLRequest(url: url))
         return listed.waiting
     }
@@ -169,7 +169,7 @@ struct Tracker {
     /// The root's answer to a draft that waits: its signatures, which publish it, or a decline, which drops it.
     static func answer(_ waiting: Waiting, at address: String, with body: Data) async throws {
         struct Taken: Decodable {}
-        guard let url = URL(string: address + "/waiting/" + waiting.id) else { throw TrackerError(errorDescription: "That is not an address.") }
+        guard let url = URL(string: address + "/waiting/" + waiting.id) else { throw TrackerError(errorDescription: "That is not a private link.") }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "content-type")
@@ -180,7 +180,7 @@ struct Tracker {
     /// What the person asked from this app and the address still keeps, oldest first (Asks.swift).
     static func asks(at address: String) async throws -> [Ask] {
         struct Listed: Decodable { let asks: [Ask] }
-        guard let url = URL(string: address + "/asks") else { throw TrackerError(errorDescription: "That is not an address.") }
+        guard let url = URL(string: address + "/asks") else { throw TrackerError(errorDescription: "That is not a private link.") }
         let listed: Listed = try await answer(URLRequest(url: url))
         return listed.asks
     }
@@ -188,7 +188,7 @@ struct Tracker {
     /// Leaves an ask at the address: a phrase's name and, where the phrase takes one, a problem's hash.
     static func ask(_ phrase: String, problem: String?, at address: String) async throws -> Ask {
         struct Made: Decodable { let ask: Ask }
-        guard let url = URL(string: address + "/asks") else { throw TrackerError(errorDescription: "That is not an address.") }
+        guard let url = URL(string: address + "/asks") else { throw TrackerError(errorDescription: "That is not a private link.") }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "content-type")
@@ -202,7 +202,7 @@ struct Tracker {
     /// Takes an ask back: the address keeps it no longer.
     static func takeBack(_ ask: Ask, at address: String) async throws {
         struct Dropped: Decodable { let dropped: String }
-        guard let url = URL(string: address + "/asks/" + ask.id) else { throw TrackerError(errorDescription: "That is not an address.") }
+        guard let url = URL(string: address + "/asks/" + ask.id) else { throw TrackerError(errorDescription: "That is not a private link.") }
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         let _: Dropped = try await answer(request)
