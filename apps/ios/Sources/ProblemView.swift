@@ -11,6 +11,13 @@ struct ProblemView: View {
     @State private var trouble: String?
 
     private var link: String { Tracker.link(to: problem) }
+    /// The two sentences that send the person's Claude here: to take a piece, and to say what the problem asks.
+    private var take: HandOff {
+        HandOff(title: "Send my Claude", sentence: "Open \(link) on Quilt and take a piece.", phrase: "take_piece", problem: problem.problem, named: problem.title)
+    }
+    private var explain: HandOff {
+        HandOff(title: "Ask Claude to explain this", sentence: "Open \(link) on Quilt and tell me what it asks.", phrase: "open_problem", problem: problem.problem, named: problem.title)
+    }
     /// How many pieces stand in each state: the map's own count once it is read, the list's until then.
     private var counts: [String: Int] {
         pieces.isEmpty ? problem.counts : Dictionary(grouping: pieces, by: \.state).mapValues(\.count)
@@ -59,14 +66,16 @@ struct ProblemView: View {
 
                 VStack(spacing: 12) {
                     if store.connected {
-                        Button("Send my Claude") {
-                            store.handOff = HandOff(title: "Send my Claude", sentence: "Open \(link) on Quilt and take a piece.", phrase: "take_piece", problem: problem.problem, named: problem.title)
-                        }
-                        .buttonStyle(ActButton())
-                        Button("Ask Claude to explain this") {
-                            store.handOff = HandOff(title: "Ask Claude to explain this", sentence: "Open \(link) on Quilt and tell me what it asks.", phrase: "open_problem", problem: problem.problem, named: problem.title)
-                        }
-                        .buttonStyle(QuietButton())
+                        // One tap sends, by the way the person chose; the other ways are behind the link below.
+                        Button("Send my Claude") { store.send(take) }
+                            .buttonStyle(ActButton())
+                        Text(store.way(for: take).hint)
+                            .font(Typeface.text(13, relativeTo: .caption)).foregroundStyle(Palette.ink2)
+                        Button("Ask Claude to explain this") { store.send(explain) }
+                            .buttonStyle(QuietButton())
+                        Button("Other ways to send") { store.handOff = take }
+                            .font(Typeface.text(15, relativeTo: .subheadline))
+                            .padding(.top, 2)
                     } else {
                         // Quilt is not in the person's Claude yet, so a sentence would reach a Claude that cannot act on it.
                         Button(store.address == nil ? "Set up Quilt to send your Claude" : "Connect Claude to send it") {

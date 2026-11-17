@@ -27,7 +27,7 @@ struct ActivityView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Sent to Claude").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
                             ForEach(store.asks) { ask in
-                                AskRow(ask: ask, woke: store.woke) { Task { await store.takeBack(ask) } }
+                                AskRow(ask: ask, woke: store.woke, open: { store.openClaude() }) { Task { await store.takeBack(ask) } }
                             }
                             if let run = store.run, store.asks.contains(where: { $0.handed == nil }) {
                                 Link("Watch it work in Claude", destination: run)
@@ -286,6 +286,7 @@ private struct Squares: View {
 private struct AskRow: View {
     let ask: Ask
     let woke: Date?
+    let open: () -> Void
     let takeBack: () -> Void
 
     private var state: String {
@@ -304,12 +305,16 @@ private struct AskRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(ask.title).font(Typeface.text(16, bold: true)).foregroundStyle(Palette.ink)
                 Text(state).font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+                if ask.handed == nil {
+                    HStack(spacing: 18) {
+                        Button("Open Claude", action: open).font(Typeface.text(15, bold: true, relativeTo: .subheadline))
+                        Button("Cancel", action: takeBack).font(Typeface.text(15, relativeTo: .subheadline))
+                    }
+                    .foregroundStyle(Palette.act)
+                    .padding(.top, 4)
+                }
             }
-            Spacer(minLength: 8)
-            if ask.handed == nil {
-                Button("Cancel", action: takeBack)
-                    .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.act)
-            }
+            Spacer(minLength: 0)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -504,13 +509,13 @@ private struct ReadingSheet: View {
                     if reading.standing == .differs {
                         Button("Ask Claude to show both answers") {
                             dismiss()
-                            store.handOff = HandOff(title: "See both answers", sentence: "Open \(link) on Quilt and show me the return of mine that is disputed.", phrase: "my_disputed_return", problem: reading.problem, named: reading.title)
+                            store.send(HandOff(title: "See both answers", sentence: "Open \(link) on Quilt and show me the return of mine that is disputed.", phrase: "my_disputed_return", problem: reading.problem, named: reading.title))
                         }
                         .buttonStyle(QuietButton())
                     }
                     Button("Send my Claude to another piece") {
                         dismiss()
-                        store.handOff = HandOff(title: "Send my Claude", sentence: "Open \(link) on Quilt and take a piece.", phrase: "take_piece", problem: reading.problem, named: reading.title)
+                        store.send(HandOff(title: "Send my Claude", sentence: "Open \(link) on Quilt and take a piece.", phrase: "take_piece", problem: reading.problem, named: reading.title))
                     }
                     .buttonStyle(ActButton())
                 }
@@ -552,10 +557,7 @@ struct NewsBanner: View {
     @Environment(Store.self) private var store
 
     var body: some View {
-        Button {
-            store.news = nil
-            store.tab = "activity"
-        } label: {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
                 if news.kind == .took {
                     Breathing(state: news.state).padding(.top, 2)
@@ -573,19 +575,30 @@ struct NewsBanner: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.rule))
-            .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
+            if news.opensClaude {
+                Button("Open Claude") {
+                    store.news = nil
+                    store.openClaude()
+                }
+                .buttonStyle(ActButton())
+            }
         }
-        .buttonStyle(.plain)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.rule))
+        .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
+        .contentShape(RoundedRectangle(cornerRadius: 14))
+        .onTapGesture {
+            store.news = nil
+            store.tab = "activity"
+        }
         .padding(.horizontal, 12)
         .padding(.top, 4)
         .transition(.move(edge: .top).combined(with: .opacity))
-        // The banner leaves by itself; a newer one starts the wait again.
+        // The banner leaves by itself, later where it holds a button; a newer one starts the wait again.
         .task(id: news.id) {
-            try? await Task.sleep(for: .seconds(7))
+            try? await Task.sleep(for: .seconds(news.opensClaude ? 12 : 7))
             if !Task.isCancelled, store.news?.id == news.id { store.news = nil }
         }
     }

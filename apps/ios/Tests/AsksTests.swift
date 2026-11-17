@@ -1,6 +1,7 @@
 // The asks and the trigger (Sources/Asks.swift): an ask read as the address lists it, a hand-off that names its
 // phrase and its problem, the Fire URL and the token taken only as Claude gives them, so a token is sent to
-// Anthropic's API and nowhere else, and the fire written as Claude's documentation gives it, with no text in it.
+// Anthropic's API and nowhere else, the fire written as Claude's documentation gives it, with no text in it, and
+// the Send button's way.
 import XCTest
 @testable import Quilt
 
@@ -31,6 +32,47 @@ final class AsksTests: XCTestCase {
         // A sentence with words of its own is opened in Claude and not left as an ask.
         XCTAssertFalse(HandOff(title: "Call me", sentence: "Call me Ada on Quilt.", phrase: "call_me").asks)
         XCTAssertFalse(HandOff(title: "A sentence", sentence: "Anything.").asks)
+    }
+
+    /// The Send button goes in one tap, by the way the person chose: a new chat in Claude until they choose another,
+    /// the chat they have or the background for a sentence an ask carries, and a new chat always for any other
+    /// sentence. Giving the trigger makes the background the way, and taking it back returns to a new chat.
+    @MainActor
+    func testTheSendButtonGoesByTheWayThePersonChose() {
+        let store = Store()
+        defer {
+            store.forgetWake()
+            store.route = .new
+        }
+        var opened: [URL] = []
+        store.opener = { opened.append($0) }
+        store.forgetWake()
+        store.route = .new
+        let take = HandOff(title: "Send my Claude", sentence: "Open quilt:\(problem) on Quilt and take a piece.", phrase: "take_piece", problem: problem)
+        let words = HandOff(title: "Call me", sentence: "Call me Ada on Quilt.", phrase: "call_me")
+        XCTAssertEqual(store.way(for: take), .new)
+        store.send(take)
+        XCTAssertEqual(opened.count, 1)
+        XCTAssertTrue(opened[0].absoluteString.hasPrefix("https://claude.ai/new?q=Open%20quilt"))
+        // The chat the person has takes only what an ask carries.
+        store.route = .chat
+        XCTAssertEqual(store.way(for: take), .chat)
+        XCTAssertEqual(store.way(for: words), .new)
+        store.send(words)
+        XCTAssertEqual(opened.count, 2)
+        // The background needs the trigger.
+        store.route = .background
+        XCTAssertEqual(store.way(for: take), .new)
+        XCTAssertTrue(store.keepWake(url: fire, token: token))
+        XCTAssertEqual(store.route, .background)
+        XCTAssertEqual(store.way(for: take), .background)
+        XCTAssertEqual(store.way(for: words), .new)
+        store.forgetWake()
+        XCTAssertEqual(store.route, .new)
+        // Claude where the person left it opens no new chat.
+        store.openClaude()
+        XCTAssertFalse(opened[2].absoluteString.contains("new"))
+        XCTAssertEqual(Route.allCases.map(\.title), ["Open Claude in a new chat", "Use my existing chat", "Run in the background"])
     }
 
     func testTheFireURLAndTheTokenAreTakenOnlyAsClaudeGivesThem() {

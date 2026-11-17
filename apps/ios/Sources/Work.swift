@@ -208,6 +208,8 @@ struct News: Identifiable, Equatable {
     let body: String
     /// The state whose colour the banner's square takes.
     let state: String
+    /// Whether the banner offers to open Claude: what it says is ready in the person's chat there.
+    var opensClaude = false
 }
 
 extension Work {
