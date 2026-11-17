@@ -135,7 +135,7 @@ private struct Setup: View {
                         .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
                     if let first = store.sheet?.first {
                         Button("Ask Claude who I am") {
-                            store.handOff = HandOff(title: first.title, sentence: first.say)
+                            store.send(HandOff(title: first.title, sentence: first.say))
                         }
                         .buttonStyle(QuietButton())
                     }
@@ -284,7 +284,7 @@ private struct Connected: View {
                     Text(Plain.group(group.title)).font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
                     ForEach(group.phrases) { phrase in
                         Button {
-                            store.handOff = HandOff(phrase: phrase)
+                            store.send(HandOff(phrase: phrase))
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(Plain.ask(phrase).title).font(Typeface.text(16, bold: true)).foregroundStyle(Palette.ink)

@@ -41,6 +41,13 @@ final class Store {
     private(set) var run: URL?
     /// Counts each change of the work, so a map on screen knows to read its problem again.
     private(set) var pulse = 0
+    /// How the Send button reaches the person's Claude. A new chat until the person chooses another way, and the
+    /// background from when they give this app their task's trigger.
+    var route = Route(rawValue: UserDefaults.standard.string(forKey: "route") ?? "") ?? .new {
+        didSet { UserDefaults.standard.set(route.rawValue, forKey: "route") }
+    }
+    /// Opens a page in another app: Claude's. A test puts its own in to see what would open.
+    var opener: (URL) -> Void = { UIApplication.shared.open($0) }
     /// When a sentence last went to Claude: for a few minutes after, the tracker is asked more often.
     private var expecting: Date?
 
@@ -152,6 +159,37 @@ final class Store {
     /// A sentence is on its way to Claude, or the person is back, so the work is asked for every few seconds for a while.
     func expect() { expecting = Date() }
 
+    /// The way a sentence goes when the Send button is pressed: the person's chosen way where the sentence is one an
+    /// ask carries, and a new chat for any other sentence, since only an ask can be left at the address. The
+    /// background needs the trigger; without it the sentence goes to a new chat.
+    func way(for handOff: HandOff) -> Route {
+        guard handOff.asks else { return .new }
+        return route == .background && wake == nil ? .new : route
+    }
+
+    /// Sends a sentence to the person's Claude in one tap, by the way they chose.
+    func send(_ handOff: HandOff) {
+        switch way(for: handOff) {
+        case .new: open(handOff)
+        case .chat: Task { await ask(handOff, waking: false) }
+        case .background: Task { await ask(handOff, waking: true) }
+        }
+    }
+
+    /// Opens Claude on a new chat with the sentence written in, and copies the sentence in case Claude opens
+    /// without it.
+    func open(_ handOff: HandOff) {
+        UIPasteboard.general.string = handOff.sentence
+        expect()
+        opener(Claude.chat(saying: handOff.sentence))
+    }
+
+    /// Opens Claude where the person left it, for the chat they already have.
+    func openClaude() {
+        expect()
+        opener(Claude.app)
+    }
+
     /// Asks the tracker for the work while the app is in front: every three seconds for five minutes after the app
     /// came to the front or a sentence went to Claude, and while Claude holds a piece; every five while an answer
     /// is on the record with no square yet, since another reading may come; every twenty otherwise. The task that
@@ -228,17 +266,22 @@ final class Store {
             self.asks.append(made)
             kept = true
         }
-        guard kept else { return false }
+        // What was asked, as a banner names it: the ask's own title, with the problem's where the page knew it.
+        let label = (Ask.titles[phrase] ?? handOff.title) + (handOff.named.map { ": \($0)" } ?? "")
+        guard kept else {
+            say(News(kind: .sent, title: "That did not go through", body: problem ?? "Quilt could not be reached. Try again.", state: "disputed"))
+            return false
+        }
         expect()
         guard waking, let wake else {
-            say(News(kind: .sent, title: "Ready in your Quilt chat", body: "\(handOff.title). Tap its button on Quilt\u{2019}s card there, or say \u{201C}Do what I asked on Quilt\u{201D}.", state: "open"))
+            say(News(kind: .sent, title: "Ready in your Quilt chat", body: "\(label). Tap its button on Quilt\u{2019}s card there.", state: "open", opensClaude: true))
             return true
         }
         do {
             let fired = try await wake.fire()
             woke = Date()
             run = fired.url.flatMap { URL(string: $0) }
-            say(News(kind: .sent, title: "Your Claude is starting", body: "\(handOff.title). Its answer will show up here.", state: "in_flight"))
+            say(News(kind: .sent, title: "Your Claude is starting", body: "\(label). Its answer will show up here.", state: "in_flight"))
         } catch {
             say(News(kind: .sent, title: "Claude did not start", body: "\(error.localizedDescription) What you asked is saved for your Quilt chat.", state: "disputed"))
         }
@@ -260,6 +303,8 @@ final class Store {
         guard let made = Wake(url: url, token: token) else { return false }
         WakeStore.write(made)
         wake = made
+        // The trigger was given so that a tap is enough, so the Send button uses it from now.
+        route = .background
         return true
     }
 
@@ -269,6 +314,7 @@ final class Store {
         wake = nil
         woke = nil
         run = nil
+        if route == .background { route = .new }
     }
 
     /// Starts the person's task once with nothing asked, to see that Claude takes the trigger. What happened, in a
@@ -351,6 +397,41 @@ final class Store {
             problem = nil
         } catch {
             problem = error.localizedDescription
+        }
+    }
+}
+
+/// A way a sentence reaches the person's Claude: a new chat in Claude with the sentence written in, the chat they
+/// already have, where it shows as a button on Quilt's card, or their scheduled task, started in the background.
+enum Route: String, CaseIterable, Identifiable {
+    case new, chat, background
+
+    var id: String { rawValue }
+
+    /// The way as a button names it.
+    var title: String {
+        switch self {
+        case .new: return "Open Claude in a new chat"
+        case .chat: return "Use my existing chat"
+        case .background: return "Run in the background"
+        }
+    }
+
+    /// The way in a few words, for a list of choices.
+    var short: String {
+        switch self {
+        case .new: return "New chat"
+        case .chat: return "My chat"
+        case .background: return "Background"
+        }
+    }
+
+    /// What pressing Send does by this way, in a line under the button.
+    var hint: String {
+        switch self {
+        case .new: return "Opens Claude on a new chat."
+        case .chat: return "Shows as a button on Quilt\u{2019}s card in your chat."
+        case .background: return "Your Claude does it in the background."
         }
     }
 }

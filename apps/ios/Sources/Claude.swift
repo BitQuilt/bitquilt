@@ -25,6 +25,12 @@ enum Claude {
         URL(string: "https://claude.ai/new?q=" + component(sentence))!
     }
 
+    /// Claude where the person left it: its app by its own scheme, which opens no new chat, and its site where the
+    /// app is not on this phone.
+    @MainActor static var app: URL {
+        URL(string: installed ? "claude://" : "https://claude.ai/")!
+    }
+
     private static func component(_ s: String) -> String {
         var allowed = CharacterSet.alphanumerics
         allowed.insert(charactersIn: "-_.!~*'()")
@@ -74,34 +80,30 @@ struct HandOff: Identifiable {
     }
 }
 
-/// The sentence shown before it goes, with the ways to send it: Claude opened on it, a copy, or the share sheet.
-/// Where Claude's app is not on this phone the button says where the sentence opens, and the App Store is one tap away.
+/// The other ways to send a sentence, reached from the small link under a Send button. The Send button itself goes
+/// by one tap, the way the person chose; here every way is offered once, with the choice of which one the button
+/// uses, a copy and the share sheet. The sentence is shown with the problem's title where its link is, and whole
+/// where it is asked for.
 struct HandOffSheet: View {
     let handOff: HandOff
     @Environment(Store.self) private var store
-    @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
     @State private var asking = false
     @State private var whole = false
 
-    /// Whether a tap here is enough: the person gave this app their task's trigger, and the sentence is one an ask
-    /// carries.
-    private var wakes: Bool { store.wake != nil && handOff.asks }
-
-    private var about: String {
-        if wakes { return "Your Claude does this in the background. Its answer shows up here." }
-        if handOff.asks { return "Open Claude on a new chat, or use the chat you already have: this shows there as a button on Quilt\u{2019}s card." }
-        return "Claude opens with this written for you to send."
+    /// The ways this sentence can go: a new chat always; the chat the person has where the sentence is one an ask
+    /// carries; the background where they also gave this app their task's trigger.
+    private var ways: [Route] {
+        guard handOff.asks else { return [.new] }
+        return store.wake == nil ? [.new, .chat] : [.new, .chat, .background]
     }
 
     var body: some View {
+        @Bindable var store = store
         ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             Text(handOff.title).font(Typeface.display(24)).foregroundStyle(Palette.ink)
-            Text(about)
-                .font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink2)
-                .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 10) {
                 Text(verbatim: handOff.shown)
                     .font(Typeface.text(17))
@@ -123,30 +125,30 @@ struct HandOffSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Palette.ground2, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.rule))
-            if wakes {
-                Button(asking ? "Starting\u{2026}" : "Run in the background") { leave(waking: true) }
-                    .buttonStyle(ActButton())
-                    .disabled(asking)
-                // Left and not started: the ask waits for the chat the person keeps, where Quilt's card shows it as a
-                // button, so a trigger kept on this phone does not take that way from them.
-                Button(asking ? "Sending\u{2026}" : "Use my existing chat") { leave(waking: false) }
-                    .buttonStyle(QuietButton())
-                    .disabled(asking)
-                Button("Open Claude in a new chat") { open() }
-                    .buttonStyle(QuietButton())
-            } else {
-                Button(Claude.installed ? "Open Claude" : "Open Claude in Safari") { open() }
-                    .buttonStyle(ActButton())
-                if handOff.asks {
-                    Button(asking ? "Sending\u{2026}" : "Use my existing chat") { leave(waking: false) }
-                        .buttonStyle(QuietButton())
+
+            ForEach(ways) { way in
+                VStack(alignment: .leading, spacing: 4) {
+                    Button(asking && way != .new ? "Sending\u{2026}" : title(of: way)) { go(way) }
+                        .buttonStyle(Chosen(leads: way == store.way(for: handOff)))
                         .disabled(asking)
+                    if way != .new {
+                        Text(way.hint).font(Typeface.text(13, relativeTo: .caption)).foregroundStyle(Palette.ink2)
+                    }
                 }
             }
             if !Claude.installed {
                 Link("Claude is not on this phone. Get it from the App Store.", destination: Claude.appStore)
                     .font(Typeface.text(14, relativeTo: .footnote))
                     .multilineTextAlignment(.leading)
+            }
+            if ways.count > 1 {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("The Send button uses").font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+                    Picker("The Send button uses", selection: $store.route) {
+                        ForEach(ways) { Text($0.short).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                }
             }
             HStack(spacing: 12) {
                 Button(copied ? "Copied" : "Copy") {
@@ -164,20 +166,30 @@ struct HandOffSheet: View {
         .presentationDetents([.fraction(0.72), .large])
     }
 
-    /// Claude opened on the sentence, with the sentence copied in case Claude opens without it.
-    private func open() {
-        UIPasteboard.general.string = handOff.sentence
-        store.expect()
-        openURL(Claude.chat(saying: handOff.sentence))
-        dismiss()
+    private func title(of way: Route) -> String {
+        way == .new && !Claude.installed ? "Open Claude in Safari" : way.title
     }
 
-    /// The sentence left at the address as an ask, and the person's Claude started where that was asked for.
-    private func leave(waking: Bool) {
+    /// Sends the sentence by one way, this once: a new chat at once, the others once the address has kept the ask.
+    private func go(_ way: Route) {
+        guard way != .new else {
+            store.open(handOff)
+            dismiss()
+            return
+        }
         asking = true
         Task {
-            if await store.ask(handOff, waking: waking) { dismiss() }
+            if await store.ask(handOff, waking: way == .background) { dismiss() }
             asking = false
         }
+    }
+}
+
+/// A way's button: the one that acts where it is the way the Send button uses, a quiet one otherwise.
+private struct Chosen: ButtonStyle {
+    let leads: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        if leads { ActButton().makeBody(configuration: configuration) } else { QuietButton().makeBody(configuration: configuration) }
     }
 }
