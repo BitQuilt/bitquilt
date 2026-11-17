@@ -141,6 +141,34 @@ final class WordsTests: XCTestCase {
         XCTAssertEqual(Plain.group("Wanted from you"), "Needs a look")
     }
 
+    /// A problem's row draws every piece where the problem is small, and the same proportions where it is not, the
+    /// furthest along first; a state with any piece in it keeps a square.
+    func testAProblemsStripDrawsItsPiecesInProportion() {
+        let small = QuiltStrip(pieces: 6, counts: ["open": 4, "needs_verify": 1, "in_flight": 1]).patches
+        XCTAssertEqual(small, ["needs_verify", "in_flight", "open", "open", "open", "open"])
+        let all = QuiltStrip(pieces: 4, counts: ["accepted": 1, "accepted_provisional": 1, "disputed": 1, "needs_verify": 1]).patches
+        XCTAssertEqual(all, ["accepted", "accepted_provisional", "disputed", "needs_verify"])
+        // A large problem is drawn in thirty-six squares, and its one disagreement still has a square.
+        let large = QuiltStrip(pieces: 900, counts: ["open": 849, "accepted": 50, "disputed": 1]).patches
+        XCTAssertEqual(large.count, 36)
+        XCTAssertEqual(large.filter { $0 == "accepted" }.count, 2)
+        XCTAssertEqual(large.filter { $0 == "disputed" }.count, 1)
+        XCTAssertEqual(large.last, "open")
+        // A finished one is all final.
+        XCTAssertEqual(Set(QuiltStrip(pieces: 3, counts: ["accepted": 3]).patches), ["accepted"])
+    }
+
+    func testProblemsWithWorkUnderWayComeFirst() throws {
+        let problem = { (hash: String, counts: String, complete: Bool) in
+            try JSONDecoder().decode(Problem.self, from: Data(#"{"problem":"\#(hash)","title":"T","done_when":"D","pieces":2,"counts":\#(counts),"complete":\#(complete)}"#.utf8))
+        }
+        let listed = [
+            try problem("untouched", #"{"open":2}"#, false), try problem("done", #"{"accepted":2}"#, true),
+            try problem("busy", #"{"open":1,"needs_verify":1}"#, false), try problem("fresh", #"{"open":2}"#, false),
+        ]
+        XCTAssertEqual(ProblemsView.busyFirst(listed).map(\.problem), ["busy", "untouched", "fresh", "done"])
+    }
+
     func testASentenceIsShownWithTheProblemsTitleWhereItsLinkIs() {
         let link = "quilt:sha256:" + String(repeating: "a", count: 64) + "?dn=seeds&tr=http%3A%2F%2Ft.test%2F"
         let sent = HandOff(title: "Send my Claude", sentence: "Open \(link) on Quilt and take a piece.", phrase: "take_piece", named: "Which seeds wake?")

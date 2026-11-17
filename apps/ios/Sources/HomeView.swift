@@ -21,6 +21,19 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
+                    // A read that did not go through is said, so a phone with no network shows why the page is empty.
+                    if let trouble = store.problem {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(trouble).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.madderInk)
+                            Button("Try again") {
+                                Task {
+                                    await store.refresh()
+                                    await store.look()
+                                }
+                            }
+                            .buttonStyle(QuietButton())
+                        }
+                    }
                     if !store.connected, store.address == nil || store.sheet != nil {
                         Empty(title: "Connect Claude to start",
                               about: "Your Claude does the work. Once it is connected, each answer shows up here as it lands.",
@@ -74,7 +87,7 @@ struct HomeView: View {
                                 .font(Typeface.text()).foregroundStyle(Palette.ink2)
                         }
                     } else {
-                        ProgressView()
+                        Skeleton()
                     }
                 }
                 .padding(20)
@@ -270,14 +283,16 @@ struct Squares: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Your quilt").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 30), spacing: 6)], alignment: .leading, spacing: 6) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 7)], alignment: .leading, spacing: 7) {
                 ForEach(readings) { reading in
-                    ReadingSquare(reading: reading, size: 30)
+                    ReadingSquare(reading: reading, size: 44)
+                        .transition(.scale(scale: 0.4).combined(with: .opacity))
                         .onTapGesture { open(reading) }
                         .accessibilityLabel("\(Plain.piece(reading.name)), \(Plain.state(reading.state))")
                         .accessibilityAddTraits(.isButton)
                 }
             }
+            .animation(.spring(duration: 0.5, bounce: 0.35), value: readings.map(\.key))
             if !counted.isEmpty {
                 Text(counted.prefix(1).uppercased() + counted.dropFirst() + ".")
                     .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
@@ -342,6 +357,7 @@ struct Empty: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            QuiltMark(faint: true).padding(.bottom, 6)
             Text(title).font(Typeface.display(26)).foregroundStyle(Palette.ink)
             Text(about).font(Typeface.text()).foregroundStyle(Palette.ink2)
             Button(button, action: act).buttonStyle(ActButton())
@@ -352,18 +368,10 @@ struct Empty: View {
 /// A square that breathes: a piece being worked now.
 struct Breathing: View {
     let state: String
-    var size: CGFloat = 22
-    @State private var dim = false
+    var size: CGFloat = 26
 
     var body: some View {
-        RoundedRectangle(cornerRadius: size / 4.5)
-            .fill(Palette.square(state))
-            .overlay(RoundedRectangle(cornerRadius: size / 4.5).stroke(Palette.act, lineWidth: 1.5))
-            .frame(width: size, height: size)
-            .opacity(dim ? 0.35 : 1)
-            .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: dim)
-            .onAppear { dim = true }
-            .accessibilityHidden(true)
+        Patch(state: state, size: size, held: true).accessibilityHidden(true)
     }
 }
 
@@ -398,15 +406,7 @@ struct ReadingSquare: View {
     var size: CGFloat = 22
 
     var body: some View {
-        RoundedRectangle(cornerRadius: size / 4.5)
-            .fill(Palette.square(reading.state))
-            .overlay(RoundedRectangle(cornerRadius: size / 4.5).stroke(Palette.rule))
-            .overlay {
-                if reading.standing == .agreed {
-                    Image(systemName: "checkmark").font(.system(size: size * 0.5, weight: .bold)).foregroundStyle(.white)
-                }
-            }
-            .frame(width: size, height: size)
+        Patch(state: reading.state, size: size, matched: reading.standing == .agreed)
     }
 }
 
@@ -426,7 +426,7 @@ private struct ReadingRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            ReadingSquare(reading: reading).padding(.top, 2)
+            ReadingSquare(reading: reading, size: 28).padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(reading.title).font(Typeface.text(16, bold: true)).foregroundStyle(Palette.ink).lineLimit(2)

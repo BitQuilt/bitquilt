@@ -76,11 +76,15 @@ final class Store {
     var opener: (URL) -> Void = { UIApplication.shared.open($0) }
     /// When a sentence last went to Claude: for a few minutes after, the tracker is asked more often.
     private var expecting: Date?
+    /// When the list of problems was last read for the titles an ask needs.
+    private var learnedAt: Date?
 
     /// The pieces the person's Claude has read or holds, which a map marks as theirs.
     var mine: Set<String> { Set((work?.readings ?? []).map(\.piece) + (work?.working ?? []).map(\.piece)) }
     /// The pieces their Claude holds now.
     var holding: Set<String> { Set((work?.working ?? []).map(\.piece)) }
+    /// How many answers their Claude gave on each problem, by the problem's hash.
+    var answered: [String: Int] { Dictionary((work?.readings ?? []).map { ($0.problem, 1) }, uniquingKeysWith: +) }
     /// What the Home tab's badge counts: what waits on the person, and, while the page is not in front, what
     /// changed since it was.
     var unseen: Int { waiting.count + (tab == "home" ? 0 : fresh.count) }
@@ -280,11 +284,22 @@ final class Store {
 
     /// Reads the asks the address keeps, and says so when the person's Claude has picked one up since the last look.
     private func lookForAsks(at address: String) async {
-        guard let listed = try? await Tracker.asks(at: address), listed != asks else { return }
+        guard let listed = try? await Tracker.asks(at: address) else { return }
+        await learnTitles(for: listed)
+        guard listed != asks else { return }
         let waited = Set(asks.filter { $0.handed == nil }.map(\.id))
         asks = listed
         guard let picked = listed.first(where: { $0.handed != nil && waited.contains($0.id) }) else { return }
         say(News(kind: .sent, title: "Your Claude picked it up", body: "\(picked.title). Its answer will show up here.", state: "in_flight"))
+    }
+
+    /// Reads the list of problems once where an ask names a problem this phone has not seen, so the ask can say
+    /// which problem it is about. Asked at most once a minute.
+    private func learnTitles(for asks: [Ask]) async {
+        guard asks.contains(where: { $0.problem.map { titles[$0] == nil } ?? false }) else { return }
+        if let learnedAt, Date().timeIntervalSince(learnedAt) < 60 { return }
+        learnedAt = Date()
+        if let listed = try? await Tracker.problems(matching: "") { learn(listed) }
     }
 
     /// Leaves a hand-off at the address as an ask, and where `waking` and a trigger is kept, starts the person's

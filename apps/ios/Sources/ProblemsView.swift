@@ -20,8 +20,11 @@ struct ProblemsView: View {
                     Text(words.isEmpty ? "No problems yet." : "Nothing matches. Try fewer words.")
                         .font(Typeface.text()).foregroundStyle(Palette.ink2)
                 }
+                if !loaded, trouble == nil {
+                    Skeleton(count: 12, size: 13).listRowBackground(Palette.ground2)
+                }
                 ForEach(problems) { problem in
-                    NavigationLink(value: problem) { ProblemRow(problem: problem) }
+                    NavigationLink(value: problem) { ProblemRow(problem: problem, mine: store.answered[problem.problem] ?? 0) }
                         .listRowBackground(Palette.ground2)
                 }
             }
@@ -43,7 +46,7 @@ struct ProblemsView: View {
 
     private func load() async {
         do {
-            problems = try await Tracker.problems(matching: words)
+            problems = ProblemsView.busyFirst(try await Tracker.problems(matching: words))
             store.learn(problems)
             trouble = nil
         } catch is CancellationError {
@@ -55,15 +58,16 @@ struct ProblemsView: View {
     }
 }
 
-/// One problem: its title, who published it, and its squares so far against its pieces.
+/// One problem: its title, its own strip of squares, how far it has got in a line, who published it, its topics, and
+/// how many of its pieces the person's Claude has answered.
 struct ProblemRow: View {
     let problem: Problem
+    var mine = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 9) {
             Text(problem.title).font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
-            ProgressView(value: Double(problem.accepted), total: Double(max(problem.pieces, 1)))
-                .tint(Palette.done)
+            QuiltStrip(pieces: problem.pieces, counts: problem.counts)
             HStack {
                 Text(Plain.progress(pieces: problem.pieces, counts: problem.counts))
                 Spacer()
@@ -71,7 +75,36 @@ struct ProblemRow: View {
             }
             .font(Typeface.text(14, relativeTo: .footnote))
             .foregroundStyle(Palette.ink2)
+            if mine > 0 || !(problem.topics ?? []).isEmpty {
+                HStack(spacing: 6) {
+                    if mine > 0 {
+                        Text("Your Claude: \(mine)").font(Typeface.text(12, bold: true, relativeTo: .caption))
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(Palette.provisional.opacity(0.5), in: Capsule())
+                            .foregroundStyle(Palette.doneInk)
+                    }
+                    ForEach((problem.topics ?? []).prefix(3), id: \.self) { topic in
+                        Text(topic).font(Typeface.text(12, relativeTo: .caption))
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .overlay(Capsule().stroke(Palette.rule))
+                            .foregroundStyle(Palette.ink2)
+                    }
+                }
+            }
         }
         .padding(.vertical, 6)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+extension ProblemsView {
+    /// The problems with work under way first, then the untouched, then the finished, each group in the order the
+    /// tracker gave.
+    static func busyFirst(_ problems: [Problem]) -> [Problem] {
+        func rank(_ p: Problem) -> Int {
+            if p.complete { return 2 }
+            return (p.counts["open"] ?? 0) < p.pieces ? 0 : 1
+        }
+        return problems.enumerated().sorted { (rank($0.element), $0.offset) < (rank($1.element), $1.offset) }.map(\.element)
     }
 }

@@ -4,11 +4,24 @@
 // the sentence, and shows what came of it as the record holds it, asked for every few seconds while the app is in
 // front.
 import SwiftUI
+import UIKit
 
 @main
 struct QuiltApp: App {
     @State private var store = Store()
     @Environment(\.scenePhase) private var scenePhase
+
+    /// The page titles in the faces the pages are set in, so the app has one voice: the serif for a large title, the
+    /// text face for a small one.
+    init() {
+        let bar = UINavigationBar.appearance()
+        if let serif = UIFont(name: "YoungSerif-Regular", size: 34) {
+            bar.largeTitleTextAttributes = [.font: UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for: serif)]
+        }
+        if let bold = UIFont(name: "AtkinsonHyperlegible-Bold", size: 17) {
+            bar.titleTextAttributes = [.font: UIFontMetrics(forTextStyle: .headline).scaledFont(for: bold)]
+        }
+    }
 
     var body: some Scene {
         WindowGroup {

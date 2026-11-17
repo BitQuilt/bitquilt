@@ -21,7 +21,7 @@ struct YouView: View {
                         }
                         Asks(sheet: sheet)
                     } else if store.address != nil, store.sheet == nil, store.problem == nil {
-                        ProgressView()
+                        Skeleton()
                     } else {
                         Empty(title: "Connect Claude to start",
                               about: "Your score and your quilt show up here once your Claude has answered a piece.",

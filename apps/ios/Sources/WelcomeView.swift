@@ -135,7 +135,7 @@ private struct Connect: View {
             .buttonStyle(ActButton())
             if sent {
                 HStack(spacing: 10) {
-                    ProgressView()
+                    Patch(state: "in_flight", size: 22, held: true)
                     Text("Waiting for Claude to connect.")
                         .font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink2)
                 }
@@ -179,8 +179,12 @@ private struct Connected: View {
     }
 }
 
-/// A small quilt, as the welcome's picture: a few squares in the colours a map draws.
+/// A small quilt, as a picture: a few squares in the colours a map draws. On the welcome it is put together square by
+/// square, once; on an empty page it is faint, and says what will be there.
 struct QuiltMark: View {
+    var faint = false
+    @State private var sewn = false
+    @Environment(\.accessibilityReduceMotion) private var still
     private let states = [
         "accepted", "accepted_provisional", "needs_verify", "open", "in_flight",
         "accepted_provisional", "needs_verify", "open", "open", "accepted",
@@ -188,13 +192,17 @@ struct QuiltMark: View {
     ]
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.fixed(30), spacing: 6), count: 5), alignment: .leading, spacing: 6) {
-            ForEach(Array(states.enumerated()), id: \.offset) { _, state in
-                RoundedRectangle(cornerRadius: 7).fill(Palette.square(state))
-                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(Palette.rule))
-                    .frame(width: 30, height: 30)
+        let side: CGFloat = faint ? 26 : 34
+        LazyVGrid(columns: Array(repeating: GridItem(.fixed(side), spacing: 6), count: 5), alignment: .leading, spacing: 6) {
+            ForEach(Array(states.enumerated()), id: \.offset) { i, state in
+                Patch(state: faint ? "open" : state, size: side)
+                    .opacity(sewn || faint || still ? 1 : 0)
+                    .scaleEffect(sewn || faint || still ? 1 : 0.5)
+                    .animation(.spring(duration: 0.45, bounce: 0.3).delay(Double(i) * 0.05), value: sewn)
             }
         }
+        .opacity(faint ? 0.6 : 1)
+        .onAppear { sewn = true }
         .accessibilityHidden(true)
     }
 }

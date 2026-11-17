@@ -126,6 +126,14 @@ enum Plain {
         "take_piece": ("Take a piece", "Your Claude takes a piece and answers it."),
         "keep_problem": ("Keep a problem", "Your Claude keeps a copy of the problem."),
         "propose_piece": ("Propose a piece", "Your Claude suggests a piece the problem lacks."),
+        "search_quilt": ("Search for a problem", "Claude opens with the sentence. Add the words to search for."),
+        "piece_for_a_person": ("A piece wants a person", "Your Claude shows you a piece only a person can answer."),
+        "call_me": ("Choose my name", "Claude opens with the sentence. Add the name you want."),
+        "turn_into_problem": ("Turn this into a problem", "Your Claude drafts a problem from what you tell it."),
+        "publish_pattern": ("Publish a pattern", "Your Claude publishes a pattern file from your computer."),
+        "pay_workers": ("Pay for answers", "Your Claude sets coin aside for answers on a problem."),
+        "transfer_coin": ("Send coin", "Your Claude moves coin to another identity."),
+        "redeem_coin": ("Cash out coin", "Your Claude moves coin out to the chain."),
     ]
 
     /// A group of sentences on the sheet, by the title a page gives it.
@@ -133,6 +141,8 @@ enum Plain {
         switch title {
         case "Wanted from you": return "Needs a look"
         case "To start": return "Ask your Claude"
+        case "Keeping": return "Problems you keep"
+        case "Your gold": return "Your answer keys"
         default: return title
         }
     }
