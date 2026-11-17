@@ -231,7 +231,7 @@ final class Store {
         guard kept else { return false }
         expect()
         guard waking, let wake else {
-            say(News(kind: .sent, title: "Left for your Claude", body: "\(handOff.title). It waits at your address until your Claude looks: say \u{201C}Do what I asked on Quilt\u{201D} in Claude.", state: "open"))
+            say(News(kind: .sent, title: "Left for your Claude", body: "\(handOff.title). It waits at your address. In your Claude chat, press its button on Quilt\u{2019}s card, or say \u{201C}Do what I asked on Quilt\u{201D}.", state: "open"))
             return true
         }
         do {
