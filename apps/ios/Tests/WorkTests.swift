@@ -131,6 +131,16 @@ final class WordsTests: XCTestCase {
         XCTAssertEqual(Plain.progress(pieces: 1, counts: ["open": 1]), "1 piece")
     }
 
+    func testASentenceOfTheSheetsIsNamedAsAButtonAndAnUnknownOneAsTheSheetWroteIt() throws {
+        let phrase = { (name: String) in
+            try JSONDecoder().decode(Phrase.self, from: Data(#"{"name":"\#(name)","title":"The sheet's title","say":"Say it.","about":"The AI does it."}"#.utf8))
+        }
+        XCTAssertEqual(Plain.ask(try phrase("how_it_works")).title, "Explain Quilt to me")
+        XCTAssertEqual(Plain.ask(try phrase("find_something_to_do")).about, "Your Claude picks a piece that needs an answer.")
+        XCTAssertEqual(Plain.ask(try phrase("a_later_phrase")).title, "The sheet's title")
+        XCTAssertEqual(Plain.group("Wanted from you"), "Needs a look")
+    }
+
     func testASentenceIsShownWithTheProblemsTitleWhereItsLinkIs() {
         let link = "quilt:sha256:" + String(repeating: "a", count: 64) + "?dn=seeds&tr=http%3A%2F%2Ft.test%2F"
         let sent = HandOff(title: "Send my Claude", sentence: "Open \(link) on Quilt and take a piece.", phrase: "take_piece", named: "Which seeds wake?")

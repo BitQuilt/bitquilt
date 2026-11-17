@@ -1,54 +1,57 @@
-// What came back from Claude. The person's Claude does its work in Claude's own app, and this page shows what it did
-// as the record holds it: the piece it is on now, each answer it handed back with what the answer rests on, and where
-// each stands: on the record alone, read the same by another AI, or read differently with both kept. Above them is
-// what waits on the person: a problem their Claude drafted, which is published once this phone's key signs it
-// (Draft.swift). The store asks the tracker every few seconds while the app is in front, so the page moves by itself;
-// a banner says what changed wherever the person is in the app.
+// Home: what to do next, and what came back. At the top is the one button that sends the person's Claude to find
+// a piece, and under it whatever needs a look: a problem their Claude drafted, which is published once this phone
+// signs it (Draft.swift), and what the tracker says is wanted from them. Then what they sent to Claude and Claude
+// has not picked up, the piece Claude is on now, and each answer it gave with where it stands: recorded, matched by
+// another AI, or disagreed with, both kept. The person's Claude does its work in Claude's own app, and this page
+// shows it as the record holds it: the store asks the tracker every few seconds while the app is in front, so the
+// page moves by itself, and a banner says what changed wherever the person is in the app.
 import SwiftUI
 
-struct ActivityView: View {
+struct HomeView: View {
     @Environment(Store.self) private var store
     @State private var opened: Work.Reading?
     @State private var reading: Waiting?
 
+    /// The sentence that sends Claude to find a piece, as `phrases.ts` writes it.
+    private let find = HandOff(title: "Find me something to do", sentence: "Find me something to do on Quilt.", phrase: "find_something_to_do")
+    /// What the tracker says is wanted from the person: a disagreement to look at, a verdict, a panel.
+    private var wanted: [Phrase] { store.sheet?.groups.first { $0.title == "Wanted from you" }?.phrases ?? [] }
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    if !store.waiting.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Needs your OK").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
-                            ForEach(store.waiting) { draft in
-                                Button { reading = draft } label: { WaitingRow(waiting: draft) }.buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    if !store.asks.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Sent to Claude").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
-                            ForEach(store.asks) { ask in
-                                AskRow(ask: ask, woke: store.woke, open: { store.openClaude() }) { Task { await store.takeBack(ask) } }
-                            }
-                            if let run = store.run, store.asks.contains(where: { $0.handed == nil }) {
-                                Link("Watch it work in Claude", destination: run)
-                                    .font(Typeface.text(14, relativeTo: .footnote))
-                            }
-                        }
-                    }
-                    if store.address == nil {
-                        Empty(title: "Nothing here yet",
-                              about: "Your Claude does the work. This page shows each answer as it lands.",
-                              button: "Set up Quilt") { store.tab = "you" }
-                    } else if !store.connected, store.work?.readings.isEmpty ?? true {
+                VStack(alignment: .leading, spacing: 26) {
+                    if !store.connected, store.address == nil || store.sheet != nil {
                         Empty(title: "Connect Claude to start",
-                              about: "Once it is connected, everything your Claude does on Quilt shows up here.",
-                              button: "Connect Claude") { store.tab = "you" }
+                              about: "Your Claude does the work. Once it is connected, each answer shows up here as it lands.",
+                              button: "Connect Claude") { store.lookingAround = false }
                     } else if let work = store.work {
                         let held = work.working ?? []
-                        if held.isEmpty, work.readings.isEmpty, store.waiting.isEmpty {
-                            Empty(title: "No answers yet",
-                                  about: "Pick a problem and send your Claude. Its answer shows up here.",
-                                  button: "Find a problem") { store.tab = "problems" }
+                        VStack(alignment: .leading, spacing: 8) {
+                            Button(find.title) { store.send(find) }.buttonStyle(ActButton())
+                            Text("Your Claude picks a piece that needs an answer. " + store.way(for: find).hint)
+                                .font(Typeface.text(13, relativeTo: .caption)).foregroundStyle(Palette.ink2)
+                        }
+                        if !store.waiting.isEmpty || !wanted.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Needs a look").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
+                                ForEach(store.waiting) { draft in
+                                    Button { reading = draft } label: { WaitingRow(waiting: draft) }.buttonStyle(.plain)
+                                }
+                                ForEach(wanted) { AskButton(phrase: $0) }
+                            }
+                        }
+                        if !store.asks.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Sent to Claude").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
+                                ForEach(store.asks) { ask in
+                                    AskRow(ask: ask, about: ask.problem.flatMap { store.titles[$0] }, woke: store.woke, open: { store.openClaude() }) { Task { await store.takeBack(ask) } }
+                                }
+                                if let run = store.run, store.asks.contains(where: { $0.handed == nil }) {
+                                    Link("Watch it work in Claude", destination: run)
+                                        .font(Typeface.text(14, relativeTo: .footnote))
+                                }
+                            }
                         }
                         if !held.isEmpty {
                             VStack(alignment: .leading, spacing: 10) {
@@ -57,7 +60,6 @@ struct ActivityView: View {
                             }
                         }
                         if !work.readings.isEmpty {
-                            Squares(readings: work.readings) { opened = $0 }
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Answers").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
                                 ForEach(work.readings) { reading in
@@ -67,6 +69,9 @@ struct ActivityView: View {
                                     .buttonStyle(.plain)
                                 }
                             }
+                        } else if held.isEmpty {
+                            Text("No answers yet. Send your Claude, and its answer shows up here.")
+                                .font(Typeface.text()).foregroundStyle(Palette.ink2)
                         }
                     } else {
                         ProgressView()
@@ -80,12 +85,12 @@ struct ActivityView: View {
                 .animation(.easeInOut(duration: 0.35), value: store.asks)
             }
             .background(Palette.ground)
-            .navigationTitle("Activity")
+            .navigationTitle("Home")
             .refreshable { await store.look() }
             .sheet(item: $opened) { ReadingSheet(reading: $0).environment(store) }
             .sheet(item: $reading) { DraftSheet(waiting: $0).environment(store) }
             .onDisappear { store.sawActivity() }
-            // `-reading first` at launch opens the newest reading and `-reading draft` the newest draft, for a run in
+            // `-reading first` at launch opens the newest answer and `-reading draft` the newest draft, for a run in
             // the simulator, where nothing taps.
             .onChange(of: store.pulse) {
                 if UserDefaults.standard.string(forKey: "reading") == "first", opened == nil { opened = store.work?.readings.first }
@@ -245,9 +250,9 @@ private struct DraftSheet: View {
     }
 }
 
-/// The person's own quilt: a square for each answer their Claude handed back, the newest first, each in its piece's
-/// colour, with a count of how they stand. A tap opens the reading.
-private struct Squares: View {
+/// The person's own quilt, on their own page: a square for each answer their Claude gave, the newest first, each in
+/// its piece's colour, with a count of how they stand. A tap opens the answer.
+struct Squares: View {
     let readings: [Work.Reading]
     let open: (Work.Reading) -> Void
 
@@ -285,6 +290,8 @@ private struct Squares: View {
 /// back, or in Claude's hands.
 private struct AskRow: View {
     let ask: Ask
+    /// The title of the problem the ask names, where this phone has seen it.
+    let about: String?
     let woke: Date?
     let open: () -> Void
     let takeBack: () -> Void
@@ -304,6 +311,10 @@ private struct AskRow: View {
                 .frame(width: 22).padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
                 Text(ask.title).font(Typeface.text(16, bold: true)).foregroundStyle(Palette.ink)
+                if let about {
+                    Text(verbatim: about).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.ink)
+                        .multilineTextAlignment(.leading)
+                }
                 Text(state).font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
                 if ask.handed == nil {
                     HStack(spacing: 18) {
@@ -323,7 +334,7 @@ private struct AskRow: View {
 }
 
 /// The page with nothing on it yet: what will be here, and the one step toward it.
-private struct Empty: View {
+struct Empty: View {
     let title: String
     let about: String
     let button: String
@@ -445,7 +456,7 @@ private struct ReadingRow: View {
 
 /// One reading whole: where it stands, each field as Claude gave it, the passages it rests on, the readings beside
 /// it, the square's page, and the sentence that sends Claude back.
-private struct ReadingSheet: View {
+struct ReadingSheet: View {
     let reading: Work.Reading
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -591,7 +602,7 @@ struct NewsBanner: View {
         .contentShape(RoundedRectangle(cornerRadius: 14))
         .onTapGesture {
             store.news = nil
-            store.tab = "activity"
+            store.tab = "home"
         }
         .padding(.horizontal, 12)
         .padding(.top, 4)

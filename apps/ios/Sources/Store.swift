@@ -18,10 +18,28 @@ final class Store {
     private(set) var root: Root? = RootStore.read()
     /// Whether Claude's app is on this phone, asked again each time the app comes to the front.
     private(set) var claudeInstalled = Claude.installed
-    /// The person's own page first while they hold no address here, since it is where one is made; after that, what
-    /// their Claude did. `-tab you` at launch names the tab for a run in the simulator.
-    var tab = UserDefaults.standard.string(forKey: "tab") ?? (Keychain.read() == nil ? "you" : "activity")
+    /// The tab in front: home, problems or you. `-tab you` at launch names one for a run in the simulator.
+    var tab = UserDefaults.standard.string(forKey: "tab") ?? "home"
     var handOff: HandOff?
+    /// The person chose to look around before setting up, so the welcome stays out of the way until they ask for it.
+    var lookingAround = false
+    /// Claude connected while the welcome was in front, so the welcome stays for its last page.
+    var justConnected = false
+
+    /// Whether the welcome is in front and not the three tabs: no private link is on this phone, or one is and no
+    /// AI has connected at it yet, or one just did. While the sheet has not been read, a phone with a link shows
+    /// its tabs, so a person who is set up never sees the welcome flash by.
+    var welcoming: Bool {
+        if justConnected { return true }
+        if lookingAround { return false }
+        return address == nil || (sheet.map { !$0.connected } ?? false)
+    }
+
+    /// The welcome's last button: the tabs come to the front, on the page it names.
+    func finishWelcome(on tab: String) {
+        justConnected = false
+        self.tab = tab
+    }
 
     /// The work of the key the person's Claude signs with, as the tracker last answered it (Work.swift).
     private(set) var work: Work?
@@ -41,6 +59,14 @@ final class Store {
     private(set) var run: URL?
     /// Counts each change of the work, so a map on screen knows to read its problem again.
     private(set) var pulse = 0
+    /// The titles of the problems this phone has seen, by hash, so a thing sent to Claude can name its problem: an
+    /// ask carries a problem's hash and no words.
+    private(set) var titles: [String: String] = [:]
+
+    /// Remembers the titles of problems a page has read.
+    func learn(_ problems: [Problem]) {
+        for p in problems { titles[p.problem] = p.title }
+    }
     /// How the Send button reaches the person's Claude. A new chat until the person chooses another way, and the
     /// background from when they give this app their task's trigger.
     var route = Route(rawValue: UserDefaults.standard.string(forKey: "route") ?? "") ?? .new {
@@ -55,9 +81,9 @@ final class Store {
     var mine: Set<String> { Set((work?.readings ?? []).map(\.piece) + (work?.working ?? []).map(\.piece)) }
     /// The pieces their Claude holds now.
     var holding: Set<String> { Set((work?.working ?? []).map(\.piece)) }
-    /// What the Activity tab's badge counts: what waits on the person, and, while the page is not in front, what
+    /// What the Home tab's badge counts: what waits on the person, and, while the page is not in front, what
     /// changed since it was.
-    var unseen: Int { waiting.count + (tab == "activity" ? 0 : fresh.count) }
+    var unseen: Int { waiting.count + (tab == "home" ? 0 : fresh.count) }
 
     /// Whether an AI has connected at this address: the tracker records the first time one does, so the sheet says
     /// whether Quilt is in the person's Claude.
@@ -150,7 +176,11 @@ final class Store {
     /// Claude. A read that fails is tried again and says nothing.
     func awaitConnection() async {
         while let address, !connected, !Task.isCancelled {
-            if let sheet = try? await Tracker.sheet(at: address) { self.sheet = sheet }
+            if let sheet = try? await Tracker.sheet(at: address) {
+                // The welcome sees the connection happen, and stays for its last page.
+                if sheet.connected, welcoming { justConnected = true }
+                self.sheet = sheet
+            }
             if connected { break }
             try? await Task.sleep(for: .seconds(3))
         }
@@ -221,6 +251,8 @@ final class Store {
         defaults.set(stands, forKey: "seen")
         defaults.set((now.working ?? []).map(\.piece), forKey: "held")
         work = now
+        for r in now.readings { titles[r.problem] = r.title }
+        for w in now.working ?? [] { titles[w.problem] = w.title }
         pulse += 1
         guard let seen else { return }
         fresh.formUnion(stands.filter { seen[$0.key] != $0.value }.keys)
@@ -373,6 +405,7 @@ final class Store {
         Keychain.delete()
         address = nil
         sheet = nil
+        lookingAround = false
         unsee()
     }
 

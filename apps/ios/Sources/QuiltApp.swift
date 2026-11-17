@@ -1,7 +1,8 @@
-// Quilt on an iPhone: the problems a tracker carries, each with its map, what the person's Claude did, and the
-// person's own page, where their address goes into Claude and the sentences to say wait. The work is done by the
-// person's Claude through the connector at their address; this app hands Claude the sentence, and shows what came of
-// it as the record holds it, asked for every few seconds while the app is in front.
+// Quilt on an iPhone, in three places: Home, with what to do next and what the person's Claude did; Problems, each
+// with its map; and You, with the person's score and quilt. Until Claude is connected the welcome is in front of
+// them. The work is done by the person's Claude through the connector at their private link; this app hands Claude
+// the sentence, and shows what came of it as the record holds it, asked for every few seconds while the app is in
+// front.
 import SwiftUI
 
 @main
@@ -11,18 +12,26 @@ struct QuiltApp: App {
 
     var body: some Scene {
         WindowGroup {
-            TabView(selection: $store.tab) {
-                ProblemsView()
-                    .tabItem { Label("Problems", systemImage: "square.grid.3x3.fill") }
-                    .tag("problems")
-                ActivityView()
-                    .tabItem { Label("Activity", systemImage: "sparkles") }
-                    .badge(store.unseen)
-                    .tag("activity")
-                YouView()
-                    .tabItem { Label("You", systemImage: "person.crop.circle") }
-                    .tag("you")
+            Group {
+                if store.welcoming {
+                    WelcomeView().transition(.opacity)
+                } else {
+                    TabView(selection: $store.tab) {
+                        HomeView()
+                            .tabItem { Label("Home", systemImage: "house.fill") }
+                            .badge(store.unseen)
+                            .tag("home")
+                        ProblemsView()
+                            .tabItem { Label("Problems", systemImage: "square.grid.3x3.fill") }
+                            .tag("problems")
+                        YouView()
+                            .tabItem { Label("You", systemImage: "person.crop.circle") }
+                            .tag("you")
+                    }
+                    .transition(.opacity)
+                }
             }
+            .animation(.easeInOut(duration: 0.3), value: store.welcoming)
             .sheet(item: $store.handOff) { HandOffSheet(handOff: $0).environment(store) }
             // What changed since the phone last looked, over whatever page is in front.
             .overlay(alignment: .top) {

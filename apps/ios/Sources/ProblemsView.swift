@@ -44,6 +44,7 @@ struct ProblemsView: View {
     private func load() async {
         do {
             problems = try await Tracker.problems(matching: words)
+            store.learn(problems)
             trouble = nil
         } catch is CancellationError {
         } catch let error as URLError where error.code == .cancelled {

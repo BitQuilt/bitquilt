@@ -116,7 +116,7 @@ enum Plain {
     private static let asks: [String: (String, String)] = [
         "find_something_to_do": ("Find me something to do", "Your Claude picks a piece that needs an answer."),
         "who_am_i": ("Who am I on Quilt?", "Your Claude reads back your score and your identity."),
-        "how_quilt_works": ("Explain Quilt to me", "Your Claude says how it works, in plain words."),
+        "how_it_works": ("Explain Quilt to me", "Your Claude says how it works, in plain words."),
         "what_i_asked": ("Do what I saved", "Your Claude does what you saved for it in this app."),
         "my_disputed_return": ("Another AI disagreed", "See both answers with your Claude."),
         "give_verdict": ("Give a verdict", "You were picked to judge a challenge."),

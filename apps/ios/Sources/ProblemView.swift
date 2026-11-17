@@ -1,6 +1,6 @@
 // One problem: the owner's statement of when it is done, quoted as theirs, the map of its pieces, with the ones the
 // person's Claude read or holds marked and the map read again as their Claude's work changes, and the two sentences
-// that send the person's Claude to it, or, until Quilt is in their Claude, the way to the steps left.
+// that send the person's Claude to it, or, until their Claude is connected, the way back to the welcome.
 import SwiftUI
 
 struct ProblemView: View {
@@ -78,11 +78,9 @@ struct ProblemView: View {
                             .padding(.top, 2)
                     } else {
                         // Quilt is not in the person's Claude yet, so a sentence would reach a Claude that cannot act on it.
-                        Button(store.address == nil ? "Set up Quilt to send your Claude" : "Connect Claude to send it") {
-                            store.tab = "you"
-                        }
-                        .buttonStyle(ActButton())
-                        Text("Your Claude does the work. Connect it first, under You.")
+                        Button("Connect Claude to send it") { store.lookingAround = false }
+                            .buttonStyle(ActButton())
+                        Text("Your Claude does the work. Connect it first.")
                             .font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
                     }
                 }
