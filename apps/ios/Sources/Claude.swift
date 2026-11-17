@@ -78,10 +78,10 @@ struct HandOffSheet: View {
 
     private var about: String {
         if wakes {
-            return "Quilt leaves this sentence at your address and starts your Claude, which reads it there and does it. What it does shows up here, under Activity."
+            return "Quilt leaves this sentence at your address and starts your Claude, which reads it there and does it. Or leave it without starting anything: it shows as a button on Quilt's card in your Claude chat. What your Claude does shows up here, under Activity."
         }
         if handOff.asks {
-            return "Open Claude to send this sentence yourself, or leave it at your address for your Claude to pick up. What it does shows up here, under Activity."
+            return "Open Claude on a new chat with this sentence, or leave it at your address: it shows as a button on Quilt's card in the Claude chat you already have. What your Claude does shows up here, under Activity."
         }
         return "This is the sentence your Claude gets. It is copied too, so you can paste it if Claude opens without it. What your Claude does with it shows up here, under Activity."
     }
@@ -105,6 +105,11 @@ struct HandOffSheet: View {
             if wakes {
                 Button(asking ? "Asking\u{2026}" : "Ask my Claude") { leave(waking: true) }
                     .buttonStyle(ActButton())
+                    .disabled(asking)
+                // Left and not started: the ask waits for the chat the person keeps, where Quilt's card shows it as a
+                // button, so a trigger kept on this phone does not take that way from them.
+                Button(asking ? "Leaving it\u{2026}" : "Leave it for my Claude") { leave(waking: false) }
+                    .buttonStyle(QuietButton())
                     .disabled(asking)
                 Button("Open Claude myself") { open() }
                     .buttonStyle(QuietButton())
