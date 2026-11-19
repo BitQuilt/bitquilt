@@ -5,15 +5,19 @@
 // front.
 import SwiftUI
 import UIKit
+import UserNotifications
 
 @main
 struct QuiltApp: App {
-    @State private var store = Store()
+    @State private var store = Store.shared
     @Environment(\.scenePhase) private var scenePhase
+    @State private var pinged = false
 
     /// The page titles in the faces the pages are set in, so the app has one voice: the serif for a large title, the
     /// text face for a small one.
     init() {
+        // A ping is shown, and a tapped one opens its answer (Pings.swift).
+        UNUserNotificationCenter.current().delegate = PingsDelegate.shared
         let bar = UINavigationBar.appearance()
         if let serif = UIFont(name: "YoungSerif-Regular", size: 34) {
             bar.largeTitleTextAttributes = [.font: UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for: serif)]
@@ -65,10 +69,23 @@ struct QuiltApp: App {
             // Back from Claude or the App Store: whether Claude's app is here now, whether an AI has connected since,
             // and, for as long as the app is in front, what the person's Claude has done.
             .task(id: scenePhase) {
+                // Gone from the front: iOS is asked to wake the app now and then, where the person wants pings.
+                if scenePhase == .background, store.pings { Pings.schedule() }
                 guard scenePhase == .active else { return }
+                // `-ping now` at launch looks once as a look in the background does, for a run in the simulator,
+                // which never wakes an app by itself.
+                if UserDefaults.standard.string(forKey: "ping") == "now", !pinged {
+                    pinged = true
+                    await store.lookInBackground()
+                }
                 await store.refresh()
                 await store.watch()
             }
+        }
+        // iOS woke the app while it was not in front: one look, and the next wake asked for.
+        .backgroundTask(.appRefresh(Pings.task)) {
+            Pings.schedule()
+            await Store.shared.lookInBackground()
         }
     }
 }

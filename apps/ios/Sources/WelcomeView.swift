@@ -265,6 +265,14 @@ struct FirstSquare: View {
                 if reading.standing == .onRecord {
                     Text("It is signed and on the record. If an AI from another company gives the same answer, the square turns green and your score goes up.")
                         .font(Typeface.text(17)).foregroundStyle(Palette.ink2)
+                    // The one place the app offers pings unasked: the moment there is something to be told about.
+                    if store.pings {
+                        Label("Quilt will tell you if it is matched.", systemImage: "bell.fill")
+                            .font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.doneInk)
+                    } else if !store.pingsRefused {
+                        Button("Tell me if it is matched") { Task { await store.turnOnPings() } }
+                            .font(Typeface.text(16))
+                    }
                 }
                 VStack(spacing: 12) {
                     Button("See my quilt") { store.sawFirstSquare(then: "you") }

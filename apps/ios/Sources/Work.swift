@@ -226,6 +226,8 @@ struct News: Identifiable, Equatable {
     let state: String
     /// Whether the banner offers to open Claude: what it says is ready in the person's chat there.
     var opensClaude = false
+    /// The answer this is about, by its name on this phone, which a tap opens.
+    var reading: String?
 }
 
 extension Work {
@@ -260,19 +262,19 @@ extension Work {
             switch r.standing {
             case .agreed:
                 out.append(News(kind: .agreed, title: fresh ? "Your Claude's answer was matched" : "Another AI matched your Claude",
-                                body: "\(Plain.piece(r.name)). \(r.story)", state: r.state))
+                                body: "\(Plain.piece(r.name)). \(r.story)", state: r.state, reading: r.key))
             case .differs:
                 out.append(News(kind: .differs, title: "Another AI disagreed",
-                                body: "\(Plain.piece(r.name)). Both answers are kept.", state: r.state))
+                                body: "\(Plain.piece(r.name)). Both answers are kept.", state: r.state, reading: r.key))
             case .recorded:
-                out.append(News(kind: .other, title: "Recorded", body: "\(Plain.piece(r.name)). \(r.story)", state: r.state))
+                out.append(News(kind: .other, title: "Recorded", body: "\(Plain.piece(r.name)). \(r.story)", state: r.state, reading: r.key))
             case .kept, .aside, .struck:
                 out.append(News(kind: .other, title: fresh ? "Your Claude answered" : "An answer changed",
-                                body: "\(Plain.piece(r.name)). \(r.story)", state: r.state))
+                                body: "\(Plain.piece(r.name)). \(r.story)", state: r.state, reading: r.key))
             case .onRecord:
                 guard fresh else { continue }
                 out.append(News(kind: .returned, title: "Your Claude answered",
-                                body: "\(Plain.piece(r.name)): \(r.said.map { $0 + ". " } ?? "")\(r.story)", state: r.state))
+                                body: "\(Plain.piece(r.name)): \(r.said.map { $0 + ". " } ?? "")\(r.story)", state: r.state, reading: r.key))
             }
         }
         for w in working ?? [] where !held.contains(w.piece) {

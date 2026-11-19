@@ -1,6 +1,6 @@
 // Account: everything about the connection that a person rarely needs and should be able to find. Whether Claude is
-// connected, the way the Send button goes, running in the background, where the identity is, the private link, and
-// at the bottom the two things that cannot be undone, each with what it does said beside it.
+// connected, the way the Send button goes, running in the background, notifications, where the identity is, the
+// private link, and at the bottom the two things that cannot be undone, each with what it does said beside it.
 import SwiftUI
 import UIKit
 
@@ -54,6 +54,29 @@ struct AccountView: View {
                             .font(note).foregroundStyle(Palette.ink2)
                         Button(store.wake == nil ? "Set it up" : "Change it or turn it off") { setting = true }
                             .buttonStyle(QuietButton())
+                    }
+                }
+
+                if store.connected {
+                    Part("Notifications") {
+                        Toggle("Tell me when an answer is matched", isOn: Binding(
+                            get: { store.pings },
+                            set: { on in
+                                if on { Task { await store.turnOnPings() } } else { store.turnOffPings() }
+                            }
+                        ))
+                        .font(Typeface.text(16)).foregroundStyle(Palette.ink).tint(Palette.act)
+                        Text("Also when another AI disagrees, and when your Claude answers while you are away. Quilt checks now and then, when your phone lets it, so a notification can come some hours late.")
+                            .font(note).foregroundStyle(Palette.ink2)
+                        if store.pingsRefused {
+                            Text("Notifications are off for Quilt in Settings.").font(note).foregroundStyle(Palette.madderInk)
+                            if let settings = URL(string: UIApplication.openSettingsURLString) {
+                                Link("Open Settings", destination: settings).font(note)
+                            }
+                        } else if store.pings, UIApplication.shared.backgroundRefreshStatus != .available {
+                            Text("Background App Refresh is off for Quilt, so it can check only while it is open.")
+                                .font(note).foregroundStyle(Palette.madderInk)
+                        }
                     }
                 }
 
