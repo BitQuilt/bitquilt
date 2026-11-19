@@ -45,7 +45,7 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: Quilt
-        CFBundleShortVersionString: "0.13.0"
+        CFBundleShortVersionString: "0.13.1"
         CFBundleVersion: "1"
         UILaunchScreen: {}
         UIAppFonts:

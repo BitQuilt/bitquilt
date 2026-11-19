@@ -269,9 +269,25 @@ final class Store {
     /// standing and the sentences.
     func refresh() async {
         claudeInstalled = Claude.installed
+        reread()
         if pings { pingsRefused = await Pings.refused() }
         guard let address else { return }
         await attempt { self.sheet = try await Tracker.sheet(at: address) }
+    }
+
+    /// Reads again what a locked phone would not give. iOS can start the app in the background before the phone
+    /// has been unlocked since it was restarted, and until then the keychain and the app's settings read as empty;
+    /// the same process may later come to the front. So each time the app does, a link, an identity or a choice of
+    /// pings that read as absent is read once more, and a person who is set up is not shown the welcome.
+    private func reread() {
+        if address == nil, let kept = UserDefaults.standard.string(forKey: "address") ?? Keychain.read() {
+            address = kept
+            sheet = Kept.read("sheet", for: kept)
+            work = Kept.read("work", for: kept)
+            asks = Kept.read("asks", for: kept) ?? []
+        }
+        if root == nil { root = RootStore.read() }
+        if !pings { pings = UserDefaults.standard.bool(forKey: "pings") }
     }
 
     /// Asks the tracker every few seconds until an AI has connected, so the page moves on by itself once Quilt is in

@@ -130,6 +130,33 @@ final class WelcomeTests: XCTestCase {
         XCTAssertEqual(store.tab, "problems")
     }
 
+    /// A link the keychain holds is found again when the app comes to the front, where the store was made at a moment
+    /// the keychain could not be read, as in a start while the phone was still locked since its restart. A phone
+    /// that was signed out stays signed out.
+    @MainActor
+    func testALinkAPhoneCouldNotReadAtTheStartIsReadWhenTheAppComesToTheFront() async {
+        #if targetEnvironment(simulator)
+            guard UserDefaults.standard.string(forKey: "address") == nil else { return }
+            let before = Keychain.read()
+            defer { if let before { Keychain.write(before) } else { Keychain.delete() } }
+            Keychain.delete()
+            let store = Store()
+            XCTAssertNil(store.address)
+            XCTAssertTrue(store.welcoming)
+            // Nothing in the keychain: a refresh finds nothing, and the phone stays signed out.
+            await store.refresh()
+            XCTAssertNil(store.address)
+            // The keychain can be read now.
+            Keychain.write("http://localhost:1/mcp/" + String(repeating: "c", count: 64))
+            await store.refresh()
+            XCTAssertEqual(store.address, "http://localhost:1/mcp/" + String(repeating: "c", count: 64))
+            store.forget()
+            XCTAssertNil(store.address)
+            await store.refresh()
+            XCTAssertNil(store.address)
+        #endif
+    }
+
     /// The welcome ends on a first piece: its button opens Claude on a new chat with the sentence that finds one,
     /// whatever way the Send button goes by, and the page then waits. The first answer is the newest reading where
     /// the phone had looked before and seen none, and looking at it ends the welcome on the page named.

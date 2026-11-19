@@ -57,14 +57,26 @@ private struct Record: View {
     let score: Double
     let work: Work?
     @State private var explaining = false
+    @Environment(\.dynamicTypeSize) private var size
 
     var body: some View {
         let tally = work?.tally
+        let answers = tally.map { "\($0.answers)\($0.more ? "+" : "")" } ?? "\u{2013}"
+        let matched = tally.map { String($0.matched) } ?? "\u{2013}"
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 8) {
-                Figure(number: tally.map { "\($0.answers)\($0.more ? "+" : "")" } ?? "\u{2013}", label: "Answers")
-                Figure(number: tally.map { String($0.matched) } ?? "\u{2013}", label: "Matched")
-                Figure(number: Record.number(score), label: "Score", tint: Palette.doneInk)
+            // Beside each other, and under each other where the person's text is too large for three in a row.
+            if size.isAccessibilitySize {
+                VStack(spacing: 8) {
+                    Figure(number: answers, label: "Answers", wide: true)
+                    Figure(number: matched, label: "Matched", wide: true)
+                    Figure(number: Record.number(score), label: "Score", tint: Palette.doneInk, wide: true)
+                }
+            } else {
+                HStack(alignment: .top, spacing: 8) {
+                    Figure(number: answers, label: "Answers")
+                    Figure(number: matched, label: "Matched")
+                    Figure(number: Record.number(score), label: "Score", tint: Palette.doneInk)
+                }
             }
             Button(explaining ? "Hide" : "What is the score for?") {
                 withAnimation(.easeInOut(duration: 0.2)) { explaining.toggle() }
@@ -88,18 +100,32 @@ private struct Record: View {
     }
 }
 
-/// One count of the record, with its name under it.
+/// One count of the record, with its name under it, or beside it where the count has a row to itself. A name is
+/// never broken across lines.
 private struct Figure: View {
     let number: String
     let label: String
     var tint = Palette.ink
+    var wide = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(number).font(Typeface.display(38, relativeTo: .largeTitle)).foregroundStyle(tint)
-                .contentTransition(.numericText())
-                .lineLimit(1).minimumScaleFactor(0.6)
-            Text(label).font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+        let count = Text(number).font(Typeface.display(38, relativeTo: .largeTitle)).foregroundStyle(tint)
+            .contentTransition(.numericText())
+            .lineLimit(1).minimumScaleFactor(0.6)
+        let name = Text(label).font(Typeface.text(14, relativeTo: .footnote)).foregroundStyle(Palette.ink2)
+            .lineLimit(1).minimumScaleFactor(0.7)
+        Group {
+            if wide {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    count
+                    name
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    count
+                    name
+                }
+            }
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
