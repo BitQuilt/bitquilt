@@ -129,4 +129,38 @@ final class WelcomeTests: XCTestCase {
         XCTAssertFalse(store.welcoming)
         XCTAssertEqual(store.tab, "problems")
     }
+
+    /// The welcome ends on a first piece: its button opens Claude on a new chat with the sentence that finds one,
+    /// whatever way the Send button goes by, and the page then waits. The first answer is the newest reading where
+    /// the phone had looked before and seen none, and looking at it ends the welcome on the page named.
+    @MainActor
+    func testTheWelcomeSendsClaudeToAFirstPieceAndTheFirstAnswerIsSaidOnce() throws {
+        let store = Store()
+        defer { store.route = .new }
+        var opened: [URL] = []
+        store.opener = { opened.append($0) }
+        store.route = .chat
+        store.justConnected = true
+        XCTAssertFalse(store.sentFirst)
+        store.sendFirst()
+        XCTAssertTrue(store.sentFirst)
+        XCTAssertEqual(opened.map(\.absoluteString), ["https://claude.ai/new?q=Find%20me%20something%20to%20do%20on%20Quilt."])
+        XCTAssertTrue(store.welcoming)
+
+        let json = #"{"address":"0x1","root":"0x2","working":[],"readings":[{"problem":"sha256:p","title":"A problem","piece":"sha256:b","name":"claim/2","at":"2026-11-18T12:01:00.000Z","state":"needs_verify","id":"sha256:e2","vendor":"anthropic","counts":"counted","why":null,"return":{"verdict":"supports"},"rests":[],"beside":[]},{"problem":"sha256:p","title":"A problem","piece":"sha256:a","name":"claim/1","at":"2026-11-18T12:00:00.000Z","state":"needs_verify","id":"sha256:e1","vendor":"anthropic","counts":"counted","why":null,"return":{"verdict":"supports"},"rests":[],"beside":[]}]}"#
+        let work = try JSONDecoder().decode(Work.self, from: Data(json.utf8))
+        // A phone that had looked and seen nothing: the newest answer is the first square.
+        XCTAssertEqual(work.first(since: [:])?.name, "claim/2")
+        // A phone that had seen an answer has had its first square.
+        XCTAssertNil(work.first(since: ["sha256:e1": "onRecord"]))
+        let none = try JSONDecoder().decode(Work.self, from: Data(#"{"address":"0x1","root":"0x2","working":[],"readings":[]}"#.utf8))
+        XCTAssertNil(none.first(since: [:]))
+
+        store.firstSquare = work.readings.first
+        store.sawFirstSquare(then: "you")
+        XCTAssertNil(store.firstSquare)
+        XCTAssertFalse(store.sentFirst)
+        XCTAssertFalse(store.justConnected)
+        XCTAssertEqual(store.tab, "you")
+    }
 }

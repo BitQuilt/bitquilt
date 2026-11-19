@@ -11,8 +11,8 @@ struct HomeView: View {
     @Environment(Store.self) private var store
     @State private var reading: Waiting?
 
-    /// The sentence that sends Claude to find a piece, as `phrases.ts` writes it.
-    private let find = HandOff(title: "Find me something to do", sentence: "Find me something to do on Quilt.", phrase: "find_something_to_do")
+    /// The sentence that sends Claude to find a piece.
+    private let find = Store.find
     /// What the tracker says is wanted from the person: a disagreement to look at, a verdict, a panel.
     private var wanted: [Phrase] { store.sheet?.groups.first { $0.title == "Wanted from you" }?.phrases ?? [] }
 
