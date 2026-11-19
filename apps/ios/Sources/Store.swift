@@ -38,7 +38,28 @@ final class Store {
     /// The welcome's last button: the tabs come to the front, on the page it names.
     func finishWelcome(on tab: String) {
         justConnected = false
+        sentFirst = false
         self.tab = tab
+    }
+
+    /// The welcome sent the person's Claude to its first piece, so its last page waits for the answer.
+    private(set) var sentFirst = false
+    /// The first answer of the person's Claude this phone has seen, said over the whole screen, once.
+    var firstSquare: Work.Reading?
+    /// The sentence that sends Claude to find a piece, as `phrases.ts` writes it.
+    static let find = HandOff(title: "Find me something to do", sentence: "Find me something to do on Quilt.", phrase: "find_something_to_do")
+
+    /// The welcome's own send: Claude opens on a new chat with the sentence that finds a piece, whatever way the
+    /// Send button goes by, since the welcome says what the person will see there.
+    func sendFirst() {
+        sentFirst = true
+        open(Store.find)
+    }
+
+    /// The first square was looked at: the tabs come to the front, on the page named.
+    func sawFirstSquare(then tab: String) {
+        firstSquare = nil
+        finishWelcome(on: tab)
     }
 
     /// The work of the key the person's Claude signs with, as the tracker last answered it (Work.swift).
@@ -214,7 +235,8 @@ final class Store {
             await look()
             if let mine = work?.readings.first(where: { $0.problem == problem && $0.piece == piece }) {
                 tab = "home"
-                reading = mine
+                // The first square is already said over the whole screen, and is this answer.
+                if firstSquare == nil { reading = mine }
             } else {
                 visit = Visit(problem: problem, piece: piece)
                 tab = "problems"
@@ -291,7 +313,17 @@ final class Store {
         guard let seen else { return }
         fresh.formUnion(stands.filter { seen[$0.key] != $0.value }.keys)
         defaults.set(Array(fresh), forKey: "fresh")
+        // The first answer is said over the whole screen and not as a banner. A match moves the score, which the
+        // sheet carries.
+        if let first = now.first(since: seen) {
+            firstSquare = first
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            if let read = try? await Tracker.sheet(at: address) { sheet = read }
+            return
+        }
         guard !asked, let first = now.news(since: seen, held: held).first else { return }
+        // The welcome's last page says itself that Claude took its first piece.
+        if sentFirst, first.kind == .took { return }
         say(first)
         // An agreement moves the standing, which the sheet carries.
         if first.kind == .agreed, let read = try? await Tracker.sheet(at: address) { sheet = read }

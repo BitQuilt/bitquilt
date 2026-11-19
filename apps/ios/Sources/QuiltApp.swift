@@ -47,6 +47,7 @@ struct QuiltApp: App {
             .animation(.easeInOut(duration: 0.3), value: store.welcoming)
             .sheet(item: $store.handOff) { HandOffSheet(handOff: $0).environment(store) }
             .sheet(item: $store.reading) { ReadingSheet(reading: $0).environment(store) }
+            .fullScreenCover(item: $store.firstSquare) { FirstSquare(reading: $0).environment(store) }
             // A square's page or a problem's link, tapped in Claude or anywhere else on the phone (Links.swift).
             .onOpenURL { url in Task { await store.follow(url) } }
             // `-open <link>` at launch follows a link, for a run in the simulator, where a square's page on a tracker

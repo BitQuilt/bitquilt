@@ -213,6 +213,13 @@ struct News: Identifiable, Equatable {
 }
 
 extension Work {
+    /// The first answer of the person's Claude: the newest reading, where the phone had looked before and seen
+    /// none. A phone that has not looked yet marks what is there as seen and says nothing, so an address with
+    /// work behind it has no first square.
+    func first(since seen: [String: String]) -> Reading? {
+        seen.isEmpty ? readings.first : nil
+    }
+
     /// What changed between the work as last seen and the work now, the weightiest first. `seen` maps a reading to
     /// the standing it was last seen in, and `held` is the pieces last seen in Claude's hands.
     func news(since seen: [String: String], held: Set<String>) -> [News] {
@@ -240,7 +247,8 @@ extension Work {
             }
         }
         for w in working ?? [] where !held.contains(w.piece) {
-            out.append(News(kind: .took, title: "Your Claude took a piece", body: "\(Plain.piece(w.name)), in \(w.title).", state: "in_flight"))
+            // The title is quoted and ends the line, since a title may end in a mark of its own.
+            out.append(News(kind: .took, title: "Your Claude took a piece", body: "\(Plain.piece(w.name)), in \u{201C}\(w.title)\u{201D}", state: "in_flight"))
         }
         let weight: [News.Kind: Int] = [.agreed: 0, .differs: 1, .returned: 2, .other: 3, .took: 4]
         return out.sorted { (weight[$0.kind] ?? 9) < (weight[$1.kind] ?? 9) }
