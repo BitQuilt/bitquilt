@@ -229,6 +229,19 @@ struct News: Identifiable, Equatable {
 }
 
 extension Work {
+    /// The most readings the tracker gives of a key's work, and so the most this app asks for.
+    static let most = 50
+
+    /// The record in three counts: the answers the tracker gave of this key, how many another AI matched, and how
+    /// many another AI disagreed with. The tracker gives a key's latest readings and no more, so where it gave as
+    /// many as it gives, `more` says the counts are of the latest and there may be earlier ones.
+    var tally: (answers: Int, matched: Int, disagreed: Int, more: Bool) {
+        (readings.count,
+         readings.filter { $0.standing == .agreed }.count,
+         readings.filter { $0.standing == .differs }.count,
+         readings.count >= Work.most)
+    }
+
     /// The first answer of the person's Claude: the newest reading, where the phone had looked before and seen
     /// none. A phone that has not looked yet marks what is there as seen and says nothing, so an address with
     /// work behind it has no first square.

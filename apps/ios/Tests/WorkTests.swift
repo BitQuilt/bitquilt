@@ -23,6 +23,30 @@ final class WorkTests: XCTestCase {
     private let openai = #"[{"vendor":"openai","counts":"counted","why":null}]"#
     private let held = #"[{"problem":"sha256:p","title":"Statements","piece":"sha256:9","name":"claim/9","at":"2026-11-15T12:00:00.000Z","until":"2026-11-15T14:00:00.000Z"}]"#
 
+    /// The record counts the answers, the ones another AI matched and the ones another AI disagreed with, and says
+    /// so where the tracker gave as many readings as it gives. The picture a person shares says the same in a line,
+    /// and is drawn at one size.
+    @MainActor
+    func testTheRecordCountsAnswersAndMatchesAndThePictureSaysThem() throws {
+        let some = try work(readings: [
+            reading("1", state: "accepted", beside: openai), reading("2", state: "accepted_provisional", beside: openai),
+            reading("3", state: "disputed", beside: openai), reading("4", state: "needs_verify"), reading("5", state: "recorded"),
+        ])
+        XCTAssertEqual(some.tally.answers, 5)
+        XCTAssertEqual(some.tally.matched, 2)
+        XCTAssertEqual(some.tally.disagreed, 1)
+        XCTAssertFalse(some.tally.more)
+        XCTAssertEqual(QuiltPicture(work: some, score: "3").line, "5 answers \u{00B7} 2 matched by another AI")
+        let one = try work(readings: [reading("1", state: "needs_verify")])
+        XCTAssertEqual(QuiltPicture(work: one, score: "1").line, "1 answer")
+        let many = try work(readings: (0 ..< Work.most).map { reading(String($0 % 10), state: "needs_verify") })
+        XCTAssertTrue(many.tally.more)
+        XCTAssertEqual(QuiltPicture(work: many, score: "1").line, "\(Work.most)+ answers")
+        let picture = try XCTUnwrap(QuiltPicture(work: some, score: "3").image())
+        XCTAssertEqual(picture.size, CGSize(width: 360, height: 450))
+        XCTAssertEqual(picture.scale, 3)
+    }
+
     func testAReadingIsReadWithItsReturnAndWhatItRestsOn() throws {
         let r = try work(readings: [reading("1", state: "needs_verify")]).readings[0]
         XCTAssertEqual(r.key, "sha256:r1")
