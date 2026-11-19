@@ -51,6 +51,21 @@ enum Pings {
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
 
+    /// Tells iOS what to run when it wakes the app: one look, with the next wake asked for first. iOS takes a
+    /// task's handler only until the app has finished launching and stops the app where one comes later, so this is
+    /// called from the app's delegate as it launches (`Launch`), and never from a page.
+    static func register() {
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: task, using: nil) { woken in
+            schedule()
+            let look = Task { @MainActor in
+                await Store.shared.lookInBackground()
+                woken.setTaskCompleted(success: !Task.isCancelled)
+            }
+            // iOS gives a look about half a minute. Out of time, the look is stopped and says so itself.
+            woken.expirationHandler = { look.cancel() }
+        }
+    }
+
     /// Asks iOS to wake the app again, no sooner than a quarter of an hour from now. iOS takes the request as a
     /// wish, and a simulator does not take it at all.
     static func schedule() {
@@ -62,6 +77,18 @@ enum Pings {
     /// Takes the wish back: the person turned pings off.
     static func unschedule() {
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: task)
+    }
+}
+
+/// What has to be in place before the app has finished launching: the background task's handler, which iOS takes
+/// only until then, and the delegate that shows a ping and opens a tapped one. SwiftUI's own modifier for a
+/// background task registers its handler a moment after the app starts, and where that moment came after the launch
+/// had finished, iOS stopped the app as it opened; so the handler is registered here.
+final class Launch: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = PingsDelegate.shared
+        Pings.register()
+        return true
     }
 }
 
