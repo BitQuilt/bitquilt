@@ -9,9 +9,11 @@ struct ProblemsView: View {
     @State private var words = ""
     @State private var trouble: String?
     @State private var loaded = false
+    /// The problem's page in front, which a tap pushes and a link puts there (Links.swift).
+    @State private var path: [Problem] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 if let trouble {
                     Text(trouble).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.madder)
@@ -41,6 +43,21 @@ struct ProblemsView: View {
             }
             .refreshable { await load() }
             .onChange(of: store.pulse) { Task { await load() } }
+            // A link named a problem: its page comes to the front, read by its hash where the list does not hold it.
+            .task(id: store.visit) { await visit() }
+        }
+    }
+
+    private func visit() async {
+        guard let visit = store.visit, path.first?.problem != visit.problem else { return }
+        if let known = problems.first(where: { $0.problem == visit.problem }) {
+            path = [known]
+        } else if let found = try? await Tracker.problem(visit.problem) {
+            store.learn([found])
+            path = [found]
+        } else {
+            trouble = "Quilt does not hold the problem that link names."
+            store.visit = nil
         }
     }
 

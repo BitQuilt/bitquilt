@@ -5,7 +5,6 @@ import SwiftUI
 
 struct YouView: View {
     @Environment(Store.self) private var store
-    @State private var opened: Work.Reading?
 
     var body: some View {
         NavigationStack {
@@ -17,7 +16,7 @@ struct YouView: View {
                     if let sheet = store.sheet, sheet.connected {
                         Score(sheet: sheet)
                         if let readings = store.work?.readings, !readings.isEmpty {
-                            Squares(readings: readings) { opened = $0 }
+                            Squares(readings: readings) { store.reading = $0 }
                         }
                         Asks(sheet: sheet)
                     } else if store.address != nil, store.sheet == nil, store.problem == nil {
@@ -42,7 +41,6 @@ struct YouView: View {
                 }
             }
             .refreshable { await store.refresh() }
-            .sheet(item: $opened) { ReadingSheet(reading: $0).environment(store) }
         }
     }
 }

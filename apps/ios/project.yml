@@ -34,11 +34,18 @@ targets:
       # The three faces the Mac app and the site use, each with its licence beside it.
       - path: ../mac/Resources/Fonts
         buildPhase: resources
+    # A square's page on the tracker opens here: the tracker's name is associated with the app, and the host answers
+    # the file Apple reads for it (deploy/Caddyfile). XcodeGen writes the entitlements file, which is not committed.
+    entitlements:
+      path: Quilt.entitlements
+      properties:
+        com.apple.developer.associated-domains:
+          - applinks:tracker.bitquilt.org
     info:
       path: Info.plist
       properties:
         CFBundleDisplayName: Quilt
-        CFBundleShortVersionString: "0.8.0"
+        CFBundleShortVersionString: "0.9.0"
         CFBundleVersion: "1"
         UILaunchScreen: {}
         UIAppFonts:
@@ -50,6 +57,11 @@ targets:
         # The one scheme the app asks about: whether Claude's app is on this phone.
         LSApplicationQueriesSchemes:
           - claude
+        # A problem's link, quilt:<hash>, opens its page here (Sources/Links.swift).
+        CFBundleURLTypes:
+          - CFBundleURLName: org.bitquilt.quilt
+            CFBundleURLSchemes:
+              - quilt
         # The person is asked for before the phone's key signs a problem that goes out under their name.
         NSFaceIDUsageDescription: Quilt asks for you before your key signs a problem that is published under your name.
         UISupportedInterfaceOrientations:

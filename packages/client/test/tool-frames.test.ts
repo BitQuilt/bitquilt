@@ -35,6 +35,7 @@ type Answers = Partial<
     | 'redeem'
     | 'revealGold'
     | 'setName'
+    | 'wellKnown'
   >
 >;
 
@@ -153,8 +154,12 @@ describe('quilt_next', () => {
 describe('quilt_return', () => {
   type Returned = Awaited<ReturnType<Quilt['return']>>;
   const waits = 'The piece waits for a second return from another vendor.';
-  const returned = (over: Partial<Returned>) =>
-    answering({ return: async () => ({ commit: posted, reveal: posted, waits, trace: null, ...over }) });
+  /** A tracker's well-known document: one with no on-ramp beside it unless a case says otherwise. */
+  const returned = (over: Partial<Returned>, wellKnown: Record<string, unknown> | null = { quilt: 1, hosted: false }) =>
+    answering({
+      return: async () => ({ commit: posted, reveal: posted, waits, trace: null, ...over }),
+      wellKnown: async () => wellKnown,
+    });
   const input = { problem: A64, piece: B64, return: { verdict: 'supports' } };
   const missing = [{ field: 'date', url: 'https://b.example/', why: 'the passage is not on the page' }];
 
@@ -165,6 +170,32 @@ describe('quilt_return', () => {
     expect(await text(returned({ commit: queued, reveal: queued }), 'quilt_return', input)).toBe(
       `Commit queued; reveal queued. ${waits}`,
     );
+  });
+
+  it("names the square's page on a line of its own where the tracker that took the reveal has the on-ramp", async () => {
+    const head = `Commit posted to https://t.example/; reveal posted to https://t.example/. ${waits}`;
+    const page = `https://t.example/r/${A64}/${B64}`;
+    const hosted = { quilt: 1, hosted: true };
+    expect(await text(returned({}, hosted), 'quilt_return', input)).toBe(
+      `${head}\nThe square has a page anyone can open: ${page}`,
+    );
+    expect((await runTool(returned({}, hosted), 'quilt_return', input)).handles.page).toBe(page);
+    // After the trace, where there is one.
+    expect(
+      await text(
+        returned({ trace: { posted, reads: 1, rested: ['verdict'], missing: [] } }, hosted),
+        'quilt_return',
+        input,
+      ),
+    ).toBe(
+      `${head} Trace posted to https://t.example/: verdict rests on 1 kept read (QX-19).\nThe square has a page anyone can open: ${page}`,
+    );
+    // No page where the reveal waits in the queue, the tracker did not answer, or it has no on-ramp.
+    expect(await text(returned({ reveal: queued }, hosted), 'quilt_return', input)).toBe(
+      `Commit posted to https://t.example/; reveal queued. ${waits}`,
+    );
+    expect(await text(returned({}, null), 'quilt_return', input)).toBe(head);
+    expect((await runTool(returned({}), 'quilt_return', input)).handles.page).toBeNull();
   });
 
   it('ends with the trace: posted or queued, one read or many, refused, or not posted, and what was left out', async () => {

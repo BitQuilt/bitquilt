@@ -130,6 +130,11 @@ struct Tracker {
         return found.problems
     }
 
+    /// One problem by its hash, as the list has it: what a link names (Links.swift).
+    static func problem(_ hash: String) async throws -> Problem {
+        try await answer(URLRequest(url: base.appending(path: "p/\(hash)/scrape")))
+    }
+
     /// The root a key counts for, and its standing.
     static func standing(of address: String) async throws -> KeyStanding {
         try await answer(URLRequest(url: base.appending(path: "k/\(address)/standing")))
