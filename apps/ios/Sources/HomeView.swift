@@ -601,6 +601,8 @@ struct NewsBanner: View {
         .onTapGesture {
             store.news = nil
             store.tab = "home"
+            // A banner about an answer opens the answer.
+            if let key = news.reading, let mine = store.work?.readings.first(where: { $0.key == key }) { store.reading = mine }
         }
         .padding(.horizontal, 12)
         .padding(.top, 4)

@@ -47,6 +47,26 @@ final class WorkTests: XCTestCase {
         XCTAssertEqual(picture.scale, 3)
     }
 
+    /// A ping is said for an answer, a match, a disagreement and a draft that waits, in the banner's own words, with
+    /// how many more things changed; a piece taken and an ask picked up are not worth one. News of an answer names
+    /// the answer, so a tap opens it.
+    func testAPingSaysWhatTheBannerWouldAndOnlyForWhatIsWorthOne() throws {
+        let before = try work(readings: [reading("1", state: "needs_verify")])
+        let after = try work(readings: [reading("1", state: "accepted_provisional", beside: openai), reading("2", state: "needs_verify")], working: held)
+        let seen = Dictionary(uniqueKeysWithValues: before.readings.map { ($0.key, String(describing: $0.standing)) })
+        let news = after.news(since: seen, held: [])
+        XCTAssertEqual(news.map(\.kind), [.agreed, .returned, .took])
+        XCTAssertEqual(news.map(\.reading), ["sha256:r1", "sha256:r2", nil])
+        let matched = try XCTUnwrap(Pings.words(for: news[0], more: 1))
+        XCTAssertEqual(matched.title, "Another AI matched your Claude")
+        XCTAssertEqual(matched.body, "Claim 1. Matched by an AI from OpenAI. And 1 more.")
+        XCTAssertEqual(Pings.words(for: news[1])?.title, "Your Claude answered")
+        XCTAssertNil(Pings.words(for: news[2]))
+        XCTAssertNil(Pings.words(for: News(kind: .sent, title: "Your Claude picked it up", body: "", state: "in_flight")))
+        XCTAssertNotNil(Pings.words(for: News(kind: .asked, title: "Your Claude drafted a problem", body: "", state: "open")))
+        XCTAssertNotNil(Pings.words(for: News(kind: .differs, title: "Another AI disagreed", body: "", state: "disputed")))
+    }
+
     func testAReadingIsReadWithItsReturnAndWhatItRestsOn() throws {
         let r = try work(readings: [reading("1", state: "needs_verify")]).readings[0]
         XCTAssertEqual(r.key, "sha256:r1")

@@ -45,7 +45,7 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: Quilt
-        CFBundleShortVersionString: "0.12.0"
+        CFBundleShortVersionString: "0.13.0"
         CFBundleVersion: "1"
         UILaunchScreen: {}
         UIAppFonts:
@@ -62,6 +62,11 @@ targets:
           - CFBundleURLName: org.bitquilt.quilt
             CFBundleURLSchemes:
               - quilt
+        # iOS wakes the app now and then to look at the record and say what changed (Sources/Pings.swift).
+        UIBackgroundModes:
+          - fetch
+        BGTaskSchedulerPermittedIdentifiers:
+          - org.bitquilt.quilt.refresh
         # The person is asked for before the phone's key signs a problem that goes out under their name.
         NSFaceIDUsageDescription: Quilt asks for you before your key signs a problem that is published under your name.
         UISupportedInterfaceOrientations:

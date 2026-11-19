@@ -10,6 +10,10 @@ import UIKit
 @MainActor
 @Observable
 final class Store {
+    /// The one store the app runs on. The pages read it, and a look in the background and a tapped ping reach it
+    /// by this name, since neither has a page to be handed it by (Pings.swift).
+    static let shared = Store()
+
     /// `-address <address>` at launch names one for a run in the simulator, as `-tracker` names a tracker.
     private(set) var address: String? = UserDefaults.standard.string(forKey: "address") ?? Keychain.read()
     /// The sheet, the work and the asks are kept on the phone as they change (Kept.swift), under the person's link,
@@ -40,6 +44,9 @@ final class Store {
         asks = Kept.read("asks", for: address) ?? []
         for r in work?.readings ?? [] { titles[r.problem] = r.title }
         for w in work?.working ?? [] { titles[w.problem] = w.title }
+        if let first = UserDefaults.standard.string(forKey: "first") {
+            firstSquare = work?.readings.first { $0.key == first }
+        }
     }
 
     /// Whether the welcome is in front and not the three tabs: no private link is on this phone, or one is and no
@@ -60,8 +67,53 @@ final class Store {
 
     /// The welcome sent the person's Claude to its first piece, so its last page waits for the answer.
     private(set) var sentFirst = false
-    /// The first answer of the person's Claude this phone has seen, said over the whole screen, once.
-    var firstSquare: Work.Reading?
+    /// The first answer of the person's Claude this phone has seen, said over the whole screen, once. Its name is
+    /// kept until the person has looked at it, so a first answer found while the app was not in front is still
+    /// said when it next is.
+    var firstSquare: Work.Reading? {
+        didSet { UserDefaults.standard.set(firstSquare?.key, forKey: "first") }
+    }
+    /// Whether the person asked to be told what changed while the app was not in front (Pings.swift).
+    private(set) var pings = UserDefaults.standard.bool(forKey: "pings")
+    /// Notifications are off for this app in Settings, where only the person can turn them on.
+    private(set) var pingsRefused = false
+    /// A look is running while the app is not in front, so what changed is said as a ping and not as a banner.
+    private var quiet = false
+
+    /// Turns pings on: iOS asks the person, once, and the app asks to be woken now and then. Where they said no
+    /// before, only Settings can change it, and the page says so.
+    func turnOnPings() async {
+        let granted = await Pings.ask()
+        pings = granted
+        pingsRefused = !granted
+        UserDefaults.standard.set(granted, forKey: "pings")
+        if granted { Pings.schedule() }
+    }
+
+    func turnOffPings() {
+        pings = false
+        UserDefaults.standard.set(false, forKey: "pings")
+        Pings.unschedule()
+    }
+
+    /// One look while the app is not in front, as iOS allows one: what changed since the phone last looked is
+    /// said as a ping. Nothing is read where the person has not asked for pings or iOS would not show one, so a
+    /// change is never taken as seen without being said.
+    func lookInBackground() async {
+        guard pings, address != nil, await Pings.allowed() else { return }
+        quiet = true
+        await look()
+        quiet = false
+    }
+
+    /// A ping was tapped: Home comes to the front, and the answer the ping names opens, read again first. The
+    /// first square is said by its own page.
+    func opened(ping reading: String?) async {
+        tab = "home"
+        await look()
+        guard firstSquare == nil, let reading, let mine = work?.readings.first(where: { $0.key == reading }) else { return }
+        self.reading = mine
+    }
     /// The sentence that sends Claude to find a piece, as `phrases.ts` writes it.
     static let find = HandOff(title: "Find me something to do", sentence: "Find me something to do on Quilt.", phrase: "find_something_to_do")
 
@@ -217,6 +269,7 @@ final class Store {
     /// standing and the sentences.
     func refresh() async {
         claudeInstalled = Claude.installed
+        if pings { pingsRefused = await Pings.refused() }
         guard let address else { return }
         await attempt { self.sheet = try await Tracker.sheet(at: address) }
     }
@@ -337,14 +390,20 @@ final class Store {
         // sheet carries.
         if let first = now.first(since: seen) {
             firstSquare = first
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            if quiet {
+                let said = first.said.map { ": \($0)" } ?? ""
+                Pings.post(News(kind: .returned, title: "Your Claude\u{2019}s first answer is in", body: "\(Plain.piece(first.name))\(said). \(first.story)", state: first.state), reading: first.key)
+            } else {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
             if let read = try? await Tracker.sheet(at: address) { sheet = read }
             return
         }
-        guard !asked, let first = now.news(since: seen, held: held).first else { return }
+        let all = now.news(since: seen, held: held)
+        guard !asked, let first = all.first else { return }
         // The welcome's last page says itself that Claude took its first piece.
         if sentFirst, first.kind == .took { return }
-        say(first)
+        say(first, more: all.dropFirst().filter { Pings.words(for: $0) != nil }.count)
         // An agreement moves the standing, which the sheet carries.
         if first.kind == .agreed, let read = try? await Tracker.sheet(at: address) { sheet = read }
     }
@@ -485,7 +544,13 @@ final class Store {
         }
     }
 
-    private func say(_ news: News) {
+    /// Says what changed: as a banner over whatever page is in front, or, in a look while the app is not in front,
+    /// as a ping, with how many more things changed that are worth one.
+    private func say(_ news: News, more: Int = 0) {
+        if quiet {
+            Pings.post(news, more: more, reading: news.reading)
+            return
+        }
         self.news = news
         UINotificationFeedbackGenerator().notificationOccurred(news.kind == .differs ? .warning : .success)
     }
@@ -512,6 +577,7 @@ final class Store {
         waiting = []
         fresh = []
         Kept.clear()
+        firstSquare = nil
         for name in ["seen", "held", "fresh", "asked"] { UserDefaults.standard.removeObject(forKey: name) }
     }
 
