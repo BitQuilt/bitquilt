@@ -9,7 +9,6 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(Store.self) private var store
-    @State private var opened: Work.Reading?
     @State private var reading: Waiting?
 
     /// The sentence that sends Claude to find a piece, as `phrases.ts` writes it.
@@ -76,7 +75,7 @@ struct HomeView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Answers").font(Typeface.text(17, bold: true)).foregroundStyle(Palette.ink)
                                 ForEach(work.readings) { reading in
-                                    Button { opened = reading } label: {
+                                    Button { store.reading = reading } label: {
                                         ReadingRow(reading: reading, fresh: store.fresh.contains(reading.key))
                                     }
                                     .buttonStyle(.plain)
@@ -100,13 +99,12 @@ struct HomeView: View {
             .background(Palette.ground)
             .navigationTitle("Home")
             .refreshable { await store.look() }
-            .sheet(item: $opened) { ReadingSheet(reading: $0).environment(store) }
             .sheet(item: $reading) { DraftSheet(waiting: $0).environment(store) }
             .onDisappear { store.sawActivity() }
             // `-reading first` at launch opens the newest answer and `-reading draft` the newest draft, for a run in
             // the simulator, where nothing taps.
             .onChange(of: store.pulse) {
-                if UserDefaults.standard.string(forKey: "reading") == "first", opened == nil { opened = store.work?.readings.first }
+                if UserDefaults.standard.string(forKey: "reading") == "first", store.reading == nil { store.reading = store.work?.readings.first }
                 if UserDefaults.standard.string(forKey: "reading") == "draft", reading == nil { reading = store.waiting.first }
             }
         }

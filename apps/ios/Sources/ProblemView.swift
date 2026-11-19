@@ -89,6 +89,7 @@ struct ProblemView: View {
         // their Claude took or returned changes colour while they look.
         .task(id: store.pulse) { await load() }
         .refreshable { await load() }
+        .onChange(of: store.visit) { choose() }
     }
 
     private func load() async {
@@ -98,6 +99,14 @@ struct ProblemView: View {
         } catch {
             trouble = error.localizedDescription
         }
+        choose()
+    }
+
+    /// A link named a square of this problem: it is the one chosen, once the map is read (Links.swift).
+    private func choose() {
+        guard let visit = store.visit, visit.problem == problem.problem, !pieces.isEmpty || trouble != nil else { return }
+        if let named = pieces.first(where: { $0.hash == visit.piece }) { chosen = named }
+        store.visit = nil
     }
 }
 

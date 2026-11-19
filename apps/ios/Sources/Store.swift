@@ -67,6 +67,10 @@ final class Store {
     func learn(_ problems: [Problem]) {
         for p in problems { titles[p.problem] = p.title }
     }
+    /// The answer in front, over whatever page is: opened from its row, its square or a link.
+    var reading: Work.Reading?
+    /// A problem a link named, which the Problems page opens, with the square to show on it (Links.swift).
+    var visit: Visit?
     /// How the Send button reaches the person's Claude. A new chat until the person chooses another way, and the
     /// background from when they give this app their task's trigger.
     var route = Route(rawValue: UserDefaults.standard.string(forKey: "route") ?? "") ?? .new {
@@ -192,6 +196,32 @@ final class Store {
 
     /// A sentence is on its way to Claude, or the person is back, so the work is asked for every few seconds for a while.
     func expect() { expecting = Date() }
+
+    /// Follows a link that opened the app (Links.swift). A square of the person's own Claude's opens on its answer,
+    /// read again first, since the link may be seconds older than the answer; any other square opens on its
+    /// problem's map with that square chosen, and a problem's link on its page. A person who has not set up sees
+    /// what the link names and not the welcome. Whether the link was one this app follows.
+    @discardableResult
+    func follow(_ url: URL) async -> Bool {
+        guard let opened = Opened(url) else { return false }
+        if welcoming { lookingAround = true }
+        justConnected = false
+        switch opened {
+        case .problem(let hash):
+            visit = Visit(problem: hash, piece: nil)
+            tab = "problems"
+        case .square(let problem, let piece):
+            await look()
+            if let mine = work?.readings.first(where: { $0.problem == problem && $0.piece == piece }) {
+                tab = "home"
+                reading = mine
+            } else {
+                visit = Visit(problem: problem, piece: piece)
+                tab = "problems"
+            }
+        }
+        return true
+    }
 
     /// The way a sentence goes when the Send button is pressed: the person's chosen way where the sentence is one an
     /// ask carries, and a new chat for any other sentence, since only an ask can be left at the address. The

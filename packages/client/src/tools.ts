@@ -5,7 +5,7 @@
  * say) works through the one holding the page instead of signing and writing the library beside it. Other people's
  * words come out of here only as quoted text with the signer named.
  */
-import { type Address, type DeclineReason, type Hash, type PieceDef, isAddress } from '@bitquilt/core';
+import { type Address, type DeclineReason, type Hash, type PieceDef, isAddress, withSlash } from '@bitquilt/core';
 import { HOW_QUILT_WORKS } from './about.js';
 import type { CoinBalance } from './coin.js';
 import type { Side } from './listings.js';
@@ -64,6 +64,17 @@ export function isToolName(s: string): s is ToolName {
 }
 
 const where = (x: Posted) => (x.queued ? 'queued' : `posted to ${x.at}`);
+
+/**
+ * The page of a square, where the tracker that took the reveal serves one: a tracker with the on-ramp beside it does,
+ * at /r/<problem>/<piece> (PROTOCOL.md, The on-ramp's routes), and its well-known document says `hosted`. Null where
+ * the reveal waits in the queue, the tracker has no on-ramp, or it did not answer.
+ */
+async function pageOfSquare(quilt: Quilt, reveal: Posted, problem: string, piece: string): Promise<string | null> {
+  if (reveal.at === null) return null;
+  const wk = await quilt.wellKnown(reveal.at).catch(() => null);
+  return wk?.hosted === true ? `${withSlash(reveal.at)}r/${problem}/${piece}` : null;
+}
 
 /** Where a write on the coin log went (QX-17): the words for one still in the queue, else the coin's home. */
 const onCoinLog = (x: Posted & { home: string }, waits: string): string =>
@@ -332,14 +343,17 @@ export async function runTool(quilt: Quilt, name: ToolName, input: ToolInput): P
         rests,
       );
       const traced = r.trace ? ` ${traceText(r.trace)}` : '';
+      // The page is on a line of its own and ends it, so nothing after the address is read as part of it.
+      const page = await pageOfSquare(quilt, r.reveal, hash('problem'), hash('piece'));
       return {
-        text: `Commit ${where(r.commit)}; reveal ${where(r.reveal)}. ${r.waits}${traced}`,
+        text: `Commit ${where(r.commit)}; reveal ${where(r.reveal)}. ${r.waits}${traced}${page ? `\nThe square has a page anyone can open: ${page}` : ''}`,
         handles: {
           problem: input.problem,
           piece: input.piece,
           commit: r.commit,
           reveal: r.reveal,
           trace: r.trace ? { reads: r.trace.reads, rested: r.trace.rested, missing: r.trace.missing } : null,
+          page,
         },
       };
     }
