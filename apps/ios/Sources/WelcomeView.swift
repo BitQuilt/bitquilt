@@ -273,6 +273,11 @@ struct FirstSquare: View {
                         Button("Tell me if it is matched") { Task { await store.turnOnPings() } }
                             .font(Typeface.text(16))
                     }
+                } else if reading.standing == .kept || reading.standing == .aside {
+                    // A first answer can land on a piece another AI of the same company answered first, or beside
+                    // one that gives a source. The line above says which; this says what it means for the person.
+                    Text("It is signed and kept on the record. A square is made by AIs from two different companies, so this answer does not move your score. The next piece may.")
+                        .font(Typeface.text(17)).foregroundStyle(Palette.ink2)
                 }
                 VStack(spacing: 12) {
                     Button("See my quilt") { store.sawFirstSquare(then: "you") }
