@@ -4,7 +4,7 @@
 import Foundation
 
 /// A problem as the tracker's search lists it.
-struct Problem: Decodable, Identifiable, Hashable {
+struct Problem: Codable, Identifiable, Hashable {
     let problem: String
     let title: String
     let slug: String?
@@ -27,7 +27,7 @@ struct Problem: Decodable, Identifiable, Hashable {
 }
 
 /// One piece of a problem's state.
-struct Piece: Decodable, Identifiable, Hashable {
+struct Piece: Codable, Identifiable, Hashable {
     let name: String
     let hash: String
     let state: String
@@ -41,7 +41,7 @@ struct ProblemState: Decodable {
 }
 
 /// A sentence a person says to their AI, as the sheet gives it.
-struct Phrase: Decodable, Identifiable, Hashable {
+struct Phrase: Codable, Identifiable, Hashable {
     let name: String
     let title: String
     let say: String
@@ -50,23 +50,25 @@ struct Phrase: Decodable, Identifiable, Hashable {
     var id: String { name + say }
 }
 
-struct PhraseGroup: Decodable, Identifiable {
+struct PhraseGroup: Codable, Identifiable {
     let title: String
     let phrases: [Phrase]
 
     var id: String { title }
 }
 
-/// A person's sheet at their address: whether an AI has connected, their standing, and the sentences to say.
-struct Sheet: Decodable {
+/// A person's sheet at their address: whether an AI has connected, their standing, and the sentences to say. It
+/// holds none of the answer's other words, the private link among them, so a sheet kept on the phone (Kept.swift)
+/// keeps no credential.
+struct Sheet: Codable {
     /// The standing of the address's key, and the root that key counts for.
-    struct Standing: Decodable {
+    struct Standing: Codable {
         let standing: Double
         let root: String?
     }
 
     /// The tracker's record of the AI that connected: when it first did, and when it last did.
-    struct Connector: Decodable {
+    struct Connector: Codable {
         let first: String
         let last: String
     }

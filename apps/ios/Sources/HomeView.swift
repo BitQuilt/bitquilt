@@ -103,7 +103,7 @@ struct HomeView: View {
             .onDisappear { store.sawActivity() }
             // `-reading first` at launch opens the newest answer and `-reading draft` the newest draft, for a run in
             // the simulator, where nothing taps.
-            .onChange(of: store.pulse) {
+            .onChange(of: store.pulse, initial: true) {
                 if UserDefaults.standard.string(forKey: "reading") == "first", store.reading == nil { store.reading = store.work?.readings.first }
                 if UserDefaults.standard.string(forKey: "reading") == "draft", reading == nil { reading = store.waiting.first }
             }

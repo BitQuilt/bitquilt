@@ -12,7 +12,11 @@ import UIKit
 final class Store {
     /// `-address <address>` at launch names one for a run in the simulator, as `-tracker` names a tracker.
     private(set) var address: String? = UserDefaults.standard.string(forKey: "address") ?? Keychain.read()
-    private(set) var sheet: Sheet?
+    /// The sheet, the work and the asks are kept on the phone as they change (Kept.swift), under the person's link,
+    /// and read back when the app starts, so its pages open on what they last showed.
+    private(set) var sheet: Sheet? {
+        didSet { if let address { Kept.write("sheet", sheet, for: address) } }
+    }
     private(set) var problem: String?
     /// The person's root key, made on this phone and kept in its keychain (Root.swift).
     private(set) var root: Root? = RootStore.read()
@@ -25,6 +29,18 @@ final class Store {
     var lookingAround = false
     /// Claude connected while the welcome was in front, so the welcome stays for its last page.
     var justConnected = false
+
+    /// Starts on what the phone last read: the person's sheet, their Claude's work and what they sent to Claude,
+    /// with the titles of the problems those name. Each is read again as soon as the app is in front.
+    init() {
+        if let listed: [Problem] = Kept.read("problems") { learn(listed) }
+        guard let address else { return }
+        sheet = Kept.read("sheet", for: address)
+        work = Kept.read("work", for: address)
+        asks = Kept.read("asks", for: address) ?? []
+        for r in work?.readings ?? [] { titles[r.problem] = r.title }
+        for w in work?.working ?? [] { titles[w.problem] = w.title }
+    }
 
     /// Whether the welcome is in front and not the three tabs: no private link is on this phone, or one is and no
     /// AI has connected at it yet, or one just did. While the sheet has not been read, a phone with a link shows
@@ -63,7 +79,9 @@ final class Store {
     }
 
     /// The work of the key the person's Claude signs with, as the tracker last answered it (Work.swift).
-    private(set) var work: Work?
+    private(set) var work: Work? {
+        didSet { if let address { Kept.write("work", work, for: address) } }
+    }
     /// What changed last, shown as a banner until it is tapped or a few seconds pass.
     var news: News?
     /// The readings that changed since the Activity page was last looked at.
@@ -72,7 +90,9 @@ final class Store {
     /// it (Draft.swift).
     private(set) var waiting: [Waiting] = []
     /// What the person asked of their Claude from this app and the address still keeps (Asks.swift).
-    private(set) var asks: [Ask] = []
+    private(set) var asks: [Ask] = [] {
+        didSet { if let address { Kept.write("asks", asks, for: address) } }
+    }
     /// The trigger of the person's own scheduled task in Claude, where they gave this app one (Asks.swift).
     private(set) var wake: Wake? = WakeStore.read()
     /// When this app last started the person's Claude, and the session Claude said it started.
@@ -488,8 +508,10 @@ final class Store {
 
     private func unsee() {
         work = nil
+        asks = []
         waiting = []
         fresh = []
+        Kept.clear()
         for name in ["seen", "held", "fresh", "asked"] { UserDefaults.standard.removeObject(forKey: name) }
     }
 
