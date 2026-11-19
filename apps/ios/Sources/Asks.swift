@@ -10,7 +10,7 @@ import Foundation
 import Security
 
 /// An ask as the address lists it at /mcp/<token>/asks.
-struct Ask: Decodable, Identifiable, Hashable {
+struct Ask: Codable, Identifiable, Hashable {
     let id: String
     let phrase: String
     let problem: String?

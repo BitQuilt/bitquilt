@@ -16,7 +16,8 @@ struct ProblemsView: View {
         NavigationStack(path: $path) {
             List {
                 if let trouble {
-                    Text(trouble).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.madder)
+                    Text(trouble).font(Typeface.text(15, relativeTo: .subheadline)).foregroundStyle(Palette.madderInk)
+                        .listRowBackground(Palette.ground2)
                 }
                 if loaded && problems.isEmpty && trouble == nil {
                     Text(words.isEmpty ? "No problems yet." : "Nothing matches. Try fewer words.")
@@ -36,8 +37,15 @@ struct ProblemsView: View {
             .navigationDestination(for: Problem.self) { ProblemView(problem: $0) }
             .searchable(text: $words, prompt: "Search problems")
             .task(id: words) {
-                // A pause while the person is still typing.
-                if loaded { try? await Task.sleep(for: .milliseconds(350)) }
+                // The list as the phone last read it, until it is read again (Kept.swift).
+                if !loaded, words.isEmpty, let kept: [Problem] = Kept.read("problems"), !kept.isEmpty {
+                    problems = kept
+                    store.learn(kept)
+                    loaded = true
+                } else if loaded {
+                    // A pause while the person is still typing.
+                    try? await Task.sleep(for: .milliseconds(350))
+                }
                 guard !Task.isCancelled else { return }
                 await load()
             }
@@ -65,6 +73,7 @@ struct ProblemsView: View {
         do {
             problems = ProblemsView.busyFirst(try await Tracker.problems(matching: words))
             store.learn(problems)
+            if words.isEmpty { Kept.write("problems", problems) }
             trouble = nil
         } catch is CancellationError {
         } catch let error as URLError where error.code == .cancelled {

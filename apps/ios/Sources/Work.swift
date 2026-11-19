@@ -39,10 +39,26 @@ enum Loose: Decodable, Hashable {
     }
 }
 
+/// A value written as it was read, so work kept on the phone (Kept.swift) reads back the same.
+extension Loose: Encodable {
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        switch self {
+        case .text(let s): try c.encode(s)
+        case .whole(let n): try c.encode(n)
+        case .number(let n): try c.encode(n)
+        case .flag(let b): try c.encode(b)
+        case .list(let items): try c.encode(items)
+        case .fields(let f): try c.encode(f)
+        case .blank: try c.encodeNil()
+        }
+    }
+}
+
 /// A key's work: the pieces it holds now, and its latest readings.
-struct Work: Decodable, Equatable {
+struct Work: Codable, Equatable {
     /// A piece the key has claimed and not handed back: the person's Claude is on it.
-    struct Held: Decodable, Identifiable, Hashable {
+    struct Held: Codable, Identifiable, Hashable {
         let problem: String
         let title: String
         let piece: String
@@ -54,21 +70,21 @@ struct Work: Decodable, Equatable {
     }
 
     /// What one field of a reading rests on: the page, and the passage where the tracker keeps the page's bytes.
-    struct Rest: Decodable, Hashable {
+    struct Rest: Codable, Hashable {
         let field: String
         let url: String
         let passage: String?
     }
 
     /// A reading beside this one, from another root: its vendor, and how it counts.
-    struct Beside: Decodable, Hashable {
+    struct Beside: Codable, Hashable {
         let vendor: String
         let counts: String
         let why: String?
     }
 
     /// One reading the key signed, with where its piece stands now.
-    struct Reading: Decodable, Identifiable, Hashable {
+    struct Reading: Codable, Identifiable, Hashable {
         let problem: String
         let title: String
         let piece: String

@@ -93,8 +93,11 @@ struct ProblemView: View {
     }
 
     private func load() async {
+        // The map as the phone last read it, until it is read again (Kept.swift).
+        if pieces.isEmpty, let kept: [Piece] = Kept.read("state-\(problem.problem)") { pieces = kept }
         do {
             pieces = try await Tracker.state(of: problem.problem).pieces
+            Kept.write("state-\(problem.problem)", pieces)
             trouble = nil
         } catch {
             trouble = error.localizedDescription
