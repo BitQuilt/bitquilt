@@ -31,6 +31,12 @@ enum Palette {
                 blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
     }
 
+    /// A colour as the light appearance has it, whatever the phone's is: a picture that leaves the phone is drawn one
+    /// way (Sources/Picture.swift).
+    static func light(_ color: Color) -> Color {
+        Color(uiColor: UIColor(color).resolvedColor(with: UITraitCollection(userInterfaceStyle: .light)))
+    }
+
     /// A square's colour by its piece's state, as the card's map draws it.
     static func square(_ state: String) -> Color {
         switch state {

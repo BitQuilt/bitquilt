@@ -144,7 +144,7 @@ struct Tracker {
 
     /// The key's work as the record holds it: the pieces it holds, and its latest readings (Work.swift).
     static func work(of address: String) async throws -> Work {
-        let url = base.appending(path: "k/\(address)/work").appending(queryItems: [URLQueryItem(name: "limit", value: "30")])
+        let url = base.appending(path: "k/\(address)/work").appending(queryItems: [URLQueryItem(name: "limit", value: String(Work.most))])
         return try await answer(URLRequest(url: url))
     }
 
